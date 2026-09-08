@@ -1,0 +1,16 @@
+{
+  "comment": "The ONLY relations client code may address. Shared by scripts/lint_from_allowlist.sh and tests/db/config_drift.test.ts. It also holds `exposedSchemas`, the PostgREST-exposed schema list, read by tests/db/rls_anon_column_containment.test.ts and asserted against supabase/config.toml by tests/db/config_drift.test.ts. Both READ THIS FILE -- config_drift imports it and asserts `mirrors` equals the supabase_realtime publication membership -- so the lint's allowlist and the database's published surface cannot drift apart.",
+  "exposedSchemas": [
+    "public",
+    "graphql_public"
+  ],
+  "mirrors": [
+    "facility_public",
+    "ward_public",
+    "lga_rollup"
+  ],
+  "rpcs": [
+    "my_facility_wards",
+    "ward_status_history"
+  ]
+}

@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.next/
+coverage/
+*.tsbuildinfo
+
+# Vitest / CI artefacts
+junit.xml
+attestation.json
+
+# Supabase CLI local state
+supabase/.branches/
+supabase/.temp/
+
+# Local env. NOTHING in this repo may require a production credential to run.
+.env
+.env.*
+!.env.example
+
+.DS_Store

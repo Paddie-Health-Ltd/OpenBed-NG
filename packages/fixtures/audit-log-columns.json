@@ -1,0 +1,41 @@
+{
+  "comment": "The EXACT column list of app.audit_log, per the ward-level identity decision (2026-09-08), CTO condition 1. Two guards read THIS FILE and nothing else: scripts/lint_audit_log_columns.sh (static, over database/migrations/) and tests/db/audit_log_column_list.test.ts (live, over information_schema). Both import it rather than restating it, so drift requires editing this file, which reddens both.",
+  "columns": [
+    "id",
+    "facility_id",
+    "ward_category",
+    "action",
+    "old_value",
+    "new_value",
+    "version",
+    "occurred_at",
+    "session_id"
+  ],
+  "why_id_is_here": "`id` is a bigint identity counter, not a column about anyone. The decision enumerates eight columns and says 'nothing else'; that governs identity-bearing and content columns, not structural ones. An append-only log with no addressable row cannot be cited in a discrepancy report, which is what the log is for. It is enumerated HERE so that disagreeing with that reading is a one-line diff and a red test, not a silent choice. It must never reach the public snapshot: a sequential id leaks total write volume across every facility.",
+  "forbidden": [
+    "actor_id",
+    "user_id",
+    "app_user_id",
+    "ward_account_id",
+    "person_id",
+    "staff_id",
+    "created_by",
+    "updated_by",
+    "ip_address",
+    "ip",
+    "user_agent",
+    "ua",
+    "email",
+    "role_address",
+    "mobile_e164",
+    "display_name",
+    "full_name",
+    "device_id",
+    "fingerprint",
+    "token_hash",
+    "session_token",
+    "subject_id",
+    "subject_type",
+    "detail"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "@openbed/fixtures",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared test fixtures. truth-table.json is the single source for the 48-row gate contract.",
+  "exports": {
+    "./truth-table.json": "./truth-table.json"
+  }
+}

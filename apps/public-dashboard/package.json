@@ -1,0 +1,15 @@
+{
+  "name": "@openbed/public-dashboard",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The public bed-availability dashboard. Deploys to Cloudflare Pages as a static site.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@openbed/gate": "*"
+  }
+}

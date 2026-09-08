@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- No indexing. The kickoff forbids a public API, a sitemap, and any bulk
+         export: named wards' duty numbers are an obvious prank-call and
+         harassment vector. -->
+    <meta name="robots" content="noindex, nofollow" />
+    <title>BedSpace</title>
+  </head>
+  <body>
+    <!-- PERMANENT EMERGENCY STRIP. On every page, always. In an emergency nobody
+         reads, so the app must always carry a safe fallback path. -->
+    <div id="emergency-strip">
+      Emergency: <a href="tel:112">112</a> / <a href="tel:767">767</a> — LASAMBUS
+    </div>
+
+    <!-- PERSISTENT, NON-DISMISSIBLE. Not a footer. -->
+    <div id="indicative-banner">
+      Indicative only — call the facility before you travel.
+    </div>
+
+    <main id="app"></main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

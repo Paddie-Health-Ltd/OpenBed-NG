@@ -1,0 +1,202 @@
+# ============================================================
+# .github/workflows/ci.yml
+# ============================================================
+# Sprint 1, Bundle 7. Every job here is merge-blocking from commit one, because
+# the kickoff is explicit that "the negative tests are worthless if they are not
+# blocking merges by the time B2 lands".
+#
+# NO JOB IS PATHS-FILTERED, AND THAT IS A DELIBERATE DEPARTURE FROM THE SIBLING
+# PROJECT'S CONVENTION.
+#
+#   GitHub counts a SKIPPED required check as PASSING. So a required check gated
+#   on a paths filter is not a gate on the pull requests it skips -- it reports
+#   success on exactly the changes it did not examine. The sibling repository
+#   accepts that trade because its suite takes ~45 minutes and the saving is
+#   real. Here the entire suite is a few seconds plus one `supabase start`, so
+#   the saving is negligible and the hazard is not.
+#
+#   tests/compliance/ci_required_checks_not_paths_filtered.test.ts enforces this
+#   mechanically, because it is the easiest property in the repository to
+#   regress and the hardest to notice when it has been.
+#
+# PROVENANCE OF THE TIMEOUTS. There is no cold-run measurement yet -- this
+# workflow has never run. Every `timeout-minutes` below is a PROVISIONAL ceiling
+# and is labelled as such. Writing an invented "observed max" would be exactly
+# the false-fact defect Clause 5 of .claude/rules/code-pipeline.md exists to
+# prevent. Re-measure and replace these after the first green run on main.
+# ============================================================
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # The recovery lever. A required check that cannot be re-run by hand turns a
+  # transient infrastructure failure into a blocked branch.
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Runs on main must never be cancellable: a cancelled run leaves main in an
+  # UNKNOWN state, and "unknown" is indistinguishable from "green" to everyone
+  # who merges next.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  repo-lint:
+    name: repo-lint
+    runs-on: ubuntu-latest
+    # PROVISIONAL: no cold-run data yet. Re-measure after the first green main run.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Type-check
+        run: npm run typecheck
+      - name: ESLint (includes the F2 duty-flag rule)
+        run: npx eslint .
+
+  migration-lint:
+    name: migration-lint
+    runs-on: ubuntu-latest
+    # PROVISIONAL: no cold-run data yet.
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Migration lints
+        run: bash scripts/lint_migrations_all.sh
+
+  compliance-tests:
+    name: compliance-tests
+    runs-on: ubuntu-latest
+    # PROVISIONAL: no cold-run data yet.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Compliance guards (plant-then-assert)
+        run: npx vitest run --project compliance --reporter=junit --outputFile=junit-compliance.xml
+      - name: Red-disposition counts (Standard O)
+        if: always()
+        run: node scripts/attest_counts.mjs junit-compliance.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: junit-compliance
+          path: junit-compliance.xml
+
+  db-tests:
+    name: db-tests
+    runs-on: ubuntu-latest
+    # PROVISIONAL, and the widest ceiling here: `supabase start` pulls container
+    # images on a cold cache and dominates this job's wall clock.
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+
+      - name: Ensure psql is available
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+          psql --version
+
+      # The Supabase CLI is a devDependency, so the version is pinned by
+      # package-lock.json rather than by a marketplace action's tag. One fewer
+      # thing that can change under the build without a commit.
+      - name: Start Supabase (Postgres + PostgREST + GoTrue + Realtime)
+        run: npx supabase start
+
+      # NOT `supabase db reset` -- the CLI's migration runner is disabled in
+      # supabase/config.toml, so a reset would leave an empty schema. The house
+      # runner owns database/migrations/ and app.schema_migrations.
+      - name: Apply migrations
+        run: bash scripts/run_migrations.sh
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+      - name: Load synthetic seed
+        run: bash scripts/seed.sh
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+      - name: RLS negative suite and database tests
+        run: npx vitest run --project db --reporter=junit --outputFile=junit-db.xml
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+      - name: Red-disposition counts (Standard O)
+        if: always()
+        run: node scripts/attest_counts.mjs junit-db.xml
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: junit-db
+          path: junit-db.xml
+
+      - name: Supabase logs on failure
+        if: failure()
+        run: npx supabase status || true
+
+  bundle-guards:
+    name: bundle-guards
+    runs-on: ubuntu-latest
+    # PROVISIONAL: no cold-run data yet.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+
+      # The build is a PRECONDITION of the guards, not a separate concern: the
+      # dist greps below refuse to run over an empty corpus (exit 2), so a
+      # skipped build fails the job rather than passing it vacuously.
+      - name: Build all apps
+        run: npm run build
+
+      - name: No service-role credential in any client bundle
+        run: bash scripts/lint_no_service_role_in_bundle.sh
+
+      - name: No updated_at filter on the public search path
+        run: bash scripts/lint_no_updated_at_filter.sh
+
+      - name: Client queries stay within the public allowlist
+        run: bash scripts/lint_from_allowlist.sh
+
+  secret-scan:
+    name: secret-scan
+    runs-on: ubuntu-latest
+    # PROVISIONAL: no cold-run data yet.
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      # DETECTION, not prevention. GitHub secret scanning with push protection is
+      # the prevention control and is a repository setting; a CI job runs after
+      # the push has already been accepted. See SECURITY.md.
+      - name: Secret scan
+        run: bash scripts/lint_no_secrets.sh

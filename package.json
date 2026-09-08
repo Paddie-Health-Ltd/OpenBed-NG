@@ -1,0 +1,41 @@
+{
+  "name": "openbed-ng",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "BedSpace \u2014 real-time hospital bed visibility for Nigeria. Public read path, ward write path, and the security boundary between them.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:migrate": "bash scripts/run_migrations.sh",
+    "db:seed": "bash scripts/seed.sh",
+    "db:reset": "supabase db reset && bash scripts/run_migrations.sh && bash scripts/seed.sh",
+    "lint": "eslint .",
+    "lint:migrations": "bash scripts/lint_migrations_all.sh",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p apps/public-dashboard/tsconfig.json",
+    "build": "npm run build --workspaces --if-present",
+    "test": "vitest run",
+    "test:db": "vitest run --project db",
+    "test:compliance": "vitest run --project compliance",
+    "attest": "node scripts/attest_counts.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "26.5.0",
+    "eslint": "10.10.0",
+    "js-yaml": "5.4.1",
+    "postgres": "3.4.9",
+    "supabase": "2.117.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.0",
+    "vite": "8.2.2",
+    "vitest": "5.0.0"
+  }
+}

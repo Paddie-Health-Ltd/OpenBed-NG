@@ -1,0 +1,28 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": [
+      "node"
+    ],
+    "paths": {
+      "@openbed/gate": [
+        "./packages/gate/src/index.ts"
+      ],
+      "@openbed/fixtures/*": [
+        "./packages/fixtures/*"
+      ]
+    }
+  },
+  "include": [
+    "packages/**/*.ts",
+    "tests/**/*.ts",
+    "*.ts",
+    "*.mjs"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/dist",
+    "**/.next",
+    "apps"
+  ]
+}
