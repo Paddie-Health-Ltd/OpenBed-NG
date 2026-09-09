@@ -88,13 +88,33 @@ into a runbook is a symptom fix, because the next person types the subcommand.
 After rotating or disabling a key, **assert the old one is dead**:
 
 ```bash
-# Should FAIL. A 200 here means the rotation did not take.
-curl -s -o /dev/null -w '%{http_code}\n' \
+# KEEP THE BODY. `-o /dev/null` is what makes this probe lie -- see below.
+curl -s -w '\nHTTP %{http_code}\n' \
   "https://<ref>.supabase.co/rest/v1/ward_public?select=facility_id&limit=1" \
   -H "apikey: <THE OLD KEY>" -H "Authorization: Bearer <THE OLD KEY>"
 ```
 
-- [ ] Old key returns 401 (or 4xx), not 200
+**ASSERT 401 SPECIFICALLY, NEVER "not 200".** There are three readings and only
+one of them is a pass:
+
+| Reading | Means |
+|---|---|
+| **401** | The key is dead. **This is the only pass.** |
+| **404** with `PGRST205` in the body | The key is *live* and authenticated fine; the table just does not exist yet. **The rotation is unproven and you have tested nothing.** |
+| **200** | The rotation did not take. |
+
+This is not hypothetical. `public.ward_public` does not exist on the hosted
+project until migrations 001-013 are applied, so before the apply this endpoint
+returns a non-200 **whether the old key is dead or alive** — and `-o /dev/null`
+discards the one thing that tells them apart. A "not 200" checkbox passes on the
+404 and records a rotation that was never demonstrated.
+
+The general form of the defect: **a probe whose pass condition is satisfied by
+its own precondition being absent.** Same shape as an anti-vacuity failure, and
+the same fix — name the expected signal exactly, and read the body that carries
+it.
+
+- [ ] Old key returns **401** — not merely non-200, and not 404
 - [ ] New key works for whatever legitimately needs it
 - [ ] All exposure surfaces re-grepped **after** the rotation, to catch anything
       written during the interval

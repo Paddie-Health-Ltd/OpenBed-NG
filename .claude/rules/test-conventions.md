@@ -269,6 +269,37 @@ in a guard written an hour earlier. Re-planted correctly, it was caught twice
 over. The cost of the wrong conclusion is an afternoon spent hardening something
 that was already correct.
 
+### Invented here: the ACCEPT leg carries the guard's output too (2026-09-09)
+
+**Every leg of a plant-then-assert trio attaches the guard's stdout to its
+assertion — including the legs that assert ACCEPTANCE.** The PLANT legs had it;
+the ACCEPT and ANTI-VACUITY legs did not, because a bare `expect(status).toBe(0)`
+reads as self-evident.
+
+It is not. A leg asserting REJECTION that fails tells you one thing: the guard
+did nothing. A leg asserting ACCEPTANCE that fails tells you the guard did
+something, and **only its output says what** — which file, which check. Without
+it the report is `expected 1 to be +0`, which is compatible with every hypothesis
+and rules out none.
+
+Observed 2026-09-09 on `tests/compliance/lint_migration_header.test.ts`. The
+ACCEPT leg went red on GitHub Actions while passing on macOS, in a Debian
+container single-file, and in that same container running the full ten-file
+project. Excluding BSD-vs-GNU `awk`, bash 3.2 vs 5.2, a divergent corpus, and a
+concurrent writer into the real migrations directory took several rounds and one
+full CI cycle. The lint had printed the answer — a `FAIL:` line naming the file
+and the check — and the test threw it away.
+
+**Where the inputs are constructed rather than fixed, print the inputs too.** A
+failure message that lists the scratch directory and the bytes actually written
+separates "the plant did not land" from "the guard is wrong", which is the same
+distinction §8's plant rule above is about, one layer out.
+
+**And a rule about what this is not.** The instrumentation is not a fix, and a
+green re-run of an unchanged commit is not a diagnosis. Both were recorded here
+as an OPEN, UNDIAGNOSED intermittent — see `docs/handoff-2026-09-09.md` — because
+a flake written down as "flaky" is a symptom accepted as a cause.
+
 Conventions deliberately **not** ported, so nobody re-derives them by accident:
 
 - The `requires_real_db` fixture gating: here, a `db` test that cannot reach the
