@@ -65,6 +65,47 @@ hygiene, not remediation.
 
 ---
 
+## Never run `supabase projects api-keys` bare
+
+It does **not** fetch the anon key. It dumps **every** key the project has,
+including the full legacy `service_role` JWT.
+
+That happened on 2026-09-09: the bare subcommand was run to obtain an anon key
+for a boundary probe, and the `service_role` JWT landed in a session transcript.
+The key was rotated. Blast radius was measured rather than assumed — repository,
+scratchpad, `~/.supabase` and `.env` files were all grepped and all clean, so the
+transcript was the only exposure surface, and nothing was deployed with it.
+
+**Use [`scripts/get_publishable_key.sh`](../scripts/get_publishable_key.sh)**,
+which prints exactly one key and never a secret. The bare subcommand appears
+nowhere in this repository's documentation, deliberately — a `jq` filter written
+into a runbook is a symptom fix, because the next person types the subcommand.
+
+## Verifying a rotation — a rotation you have not probed is a claim
+
+`docs/` documents the procedure. This is the proof.
+
+After rotating or disabling a key, **assert the old one is dead**:
+
+```bash
+# Should FAIL. A 200 here means the rotation did not take.
+curl -s -o /dev/null -w '%{http_code}\n' \
+  "https://<ref>.supabase.co/rest/v1/ward_public?select=facility_id&limit=1" \
+  -H "apikey: <THE OLD KEY>" -H "Authorization: Bearer <THE OLD KEY>"
+```
+
+- [ ] Old key returns 401 (or 4xx), not 200
+- [ ] New key works for whatever legitimately needs it
+- [ ] All exposure surfaces re-grepped **after** the rotation, to catch anything
+      written during the interval
+
+**On the 2026-09-09 event specifically:** the remediation chosen was to **disable
+legacy API keys** rather than rotate the JWT secret. Legacy `anon` and
+`service_role` are signed by the same secret, so rotating it would have taken the
+anon key as collateral; the project already had `sb_publishable_` and
+`sb_secret_` provisioned, nothing referenced the hosted keys, and no server-side
+store existed to update. The exposed legacy JWT becomes inert.
+
 ## Prevention, and the honest division of labour
 
 - **GitHub secret scanning with push protection** — the prevention control. It is

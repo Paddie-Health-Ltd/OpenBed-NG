@@ -173,9 +173,45 @@ curl -s -X POST "$SUPABASE_URL/rest/v1/ward_public" \
   -H "apikey: $ANON_KEY" -d '{}' -o /dev/null -w '%{http_code}\n'   # expect 4xx
 ```
 
-- [ ] `app` schema unreachable with the anon key
+- [ ] `app` schema unreachable with the publishable key
 - [ ] The three mirrors readable
 - [ ] Anon write refused
+
+### Check (a), HTTP half — run immediately after the apply
+
+```bash
+KEY="$(bash scripts/get_publishable_key.sh)"
+REF=klrlpxysjsjpdkeqdhvl
+
+# 1. Asking for the `app` schema must be refused with PGRST106, BEFORE any
+#    policy is consulted. This is the boundary; RLS is the second line.
+curl -s "https://$REF.supabase.co/rest/v1/facility?select=*" \
+  -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Accept-Profile: app"
+
+# 2. And by bare name, in case `app` ever reaches extra_search_path.
+for t in facility ward_status audit_log facility_contact schema_migrations; do
+  printf '%s -> ' "$t"
+  curl -s -o /dev/null -w '%{http_code}\n' "https://$REF.supabase.co/rest/v1/$t?select=*" \
+    -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+done
+```
+
+- [ ] (1) returns `PGRST106` / HTTP 406
+- [ ] (2) returns no 200 for any name
+- [ ] Result recorded with a date
+
+**WHY THIS IS A CURL STEP AND NOT A VITEST TEST.**
+`tests/setup/global-setup.ts` gates the entire `db` project on a live
+`DATABASE_URL` and on `app.schema_migrations` existing, so a hosted-only probe
+cannot run there — and two of the four assertions in
+`tests/db/rls_anon_reachability.test.ts` query the catalogue directly rather than
+over HTTP. That is a design constraint, not a defect: hand checks belong in this
+runbook. **Do not "fix" it by pointing the test suite at hosted.**
+
+The catalogue half of check (a) — that `anon` holds no `USAGE` on `app`, and the
+per-table enumeration — rides along with step 5 below, in the shell that already
+holds `DATABASE_URL`. Splitting it that way costs no extra round trip and keeps
+this half free of any credential.
 
 ---
 
@@ -227,10 +263,12 @@ is nothing to restore. It stops being moot the moment that apply succeeds.
 
 | Where | Version | Source |
 |---|---|---|
-| Hosted | 17.6.1 | Management API, 2026-09-09 |
-| Local (`supabase start`) | 17.6.1 | image `public.ecr.aws/supabase/postgres:17.6.1.167` |
+| Hosted | 17.6.1.**166** | Management API, 2026-09-09 |
+| Local (`supabase start`) | 17.6.1.**167** | image `public.ecr.aws/supabase/postgres:17.6.1.167` |
 
-**They match**, so there is no major-version divergence to reason about.
+**Same major and minor; the patch differs by one (166 vs 167).** No major-version
+divergence to reason about, and the earlier record of "17.6.1 both" was true at
+that precision but not at patch level.
 
 **Do not read that as making step 5 less necessary.** The hosted append-only hand
 check exists because of the **role graph** — Supabase's `postgres` role is a
