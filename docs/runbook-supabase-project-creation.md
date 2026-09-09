@@ -111,9 +111,43 @@ only two are automatable:
 ## 3. Apply migrations
 
 ```bash
-export DATABASE_URL='<the hosted connection string>'
+read -rs DATABASE_URL && export DATABASE_URL   # prompts; keeps the password out of ~/.zsh_history
+bash scripts/run_migrations.sh --dry-run       # see exactly what would run
 bash scripts/run_migrations.sh
 ```
+
+Use `read -rs`, not an inline `export DATABASE_URL='...'` -- the connection
+string carries the hosted database password and an inline export writes it into
+your shell history.
+
+### What happens if it dies partway -- documented, not discovered
+
+Each migration is applied with **both** `--single-transaction` and
+`ON_ERROR_STOP=1`. The two are only safe together:
+
+| Missing flag | Failure |
+|---|---|
+| no `--single-transaction` | psql autocommits per statement, so a file failing at statement 7 of 12 leaves 1-6 **committed** and unledgered |
+| no `ON_ERROR_STOP` | the transaction rolls back, every later statement fails, the closing COMMIT becomes a ROLLBACK -- **and psql exits 0**. The runner reports success over a database that received nothing |
+
+Measured on this stack, not assumed: `--single-transaction` alone exits **0** on
+a mid-file error; with `ON_ERROR_STOP` it exits **3**. Both roll back.
+
+So a migration either applies completely or not at all, and because every
+migration ends by inserting its own filename into `app.schema_migrations`, the
+DDL and its ledger row commit together -- the schema and the ledger cannot
+disagree about a file.
+
+**Residual window:** the belt-and-braces `INSERT ... ON CONFLICT DO NOTHING` the
+script runs *after* the file is a separate statement. If the connection drops in
+between, the file is applied and already self-ledgered, so that insert was
+redundant. **Recovery in every case is: run it again.** The runner skips ledgered
+files and re-applies the rest, and
+`tests/db/migration_idempotency.test.ts` is what makes re-application safe to
+rely on.
+
+Proven by `tests/db/migration_runner_atomicity.test.ts`, which plants a
+mid-migration failure and asserts nothing applied and nothing ledgered.
 
 Do **not** run `scripts/seed.sh`. It refuses any non-local database by design —
 the seed inserts synthetic facilities that would be indistinguishable from real
@@ -139,9 +173,45 @@ curl -s -X POST "$SUPABASE_URL/rest/v1/ward_public" \
   -H "apikey: $ANON_KEY" -d '{}' -o /dev/null -w '%{http_code}\n'   # expect 4xx
 ```
 
-- [ ] `app` schema unreachable with the anon key
+- [ ] `app` schema unreachable with the publishable key
 - [ ] The three mirrors readable
 - [ ] Anon write refused
+
+### Check (a), HTTP half — run immediately after the apply
+
+```bash
+KEY="$(bash scripts/get_publishable_key.sh)"
+REF=klrlpxysjsjpdkeqdhvl
+
+# 1. Asking for the `app` schema must be refused with PGRST106, BEFORE any
+#    policy is consulted. This is the boundary; RLS is the second line.
+curl -s "https://$REF.supabase.co/rest/v1/facility?select=*" \
+  -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Accept-Profile: app"
+
+# 2. And by bare name, in case `app` ever reaches extra_search_path.
+for t in facility ward_status audit_log facility_contact schema_migrations; do
+  printf '%s -> ' "$t"
+  curl -s -o /dev/null -w '%{http_code}\n' "https://$REF.supabase.co/rest/v1/$t?select=*" \
+    -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+done
+```
+
+- [ ] (1) returns `PGRST106` / HTTP 406
+- [ ] (2) returns no 200 for any name
+- [ ] Result recorded with a date
+
+**WHY THIS IS A CURL STEP AND NOT A VITEST TEST.**
+`tests/setup/global-setup.ts` gates the entire `db` project on a live
+`DATABASE_URL` and on `app.schema_migrations` existing, so a hosted-only probe
+cannot run there — and two of the four assertions in
+`tests/db/rls_anon_reachability.test.ts` query the catalogue directly rather than
+over HTTP. That is a design constraint, not a defect: hand checks belong in this
+runbook. **Do not "fix" it by pointing the test suite at hosted.**
+
+The catalogue half of check (a) — that `anon` holds no `USAGE` on `app`, and the
+per-table enumeration — rides along with step 5 below, in the shell that already
+holds `DATABASE_URL`. Splitting it that way costs no extra round trip and keeps
+this half free of any credential.
 
 ---
 
@@ -167,14 +237,38 @@ delete from app.ward_status_event where id = (select min(id) from app.ward_statu
 
 ---
 
+## 3b. Backups and PITR — confirm BEFORE any real data exists
+
+Supabase Pro was chosen partly for backups. Verify the setting rather than the
+plan: the first apply that *needs* a restore point is the first apply where
+switching it on afterwards is too late.
+
+```bash
+curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+  https://api.supabase.com/v1/projects/klrlpxysjsjpdkeqdhvl/database/backups | jq .
+```
+
+- [ ] Daily backups enabled, and a backup listed
+- [ ] PITR status recorded (Pro add-on; note whether it is on, rather than assuming)
+
+**Covered by tests: nothing** — same class as the region pin. Assertable via the
+Management API, declined on credential-surface grounds, verified here instead.
+
+A snapshot is moot for the FIRST apply, because the database is empty and there
+is nothing to restore. It stops being moot the moment that apply succeeds.
+
+---
+
 ## 4b. Postgres version — local and hosted, recorded
 
 | Where | Version | Source |
 |---|---|---|
-| Hosted | 17.6.1 | Management API, 2026-09-09 |
-| Local (`supabase start`) | 17.6.1 | image `public.ecr.aws/supabase/postgres:17.6.1.167` |
+| Hosted | 17.6.1.**166** | Management API, 2026-09-09 |
+| Local (`supabase start`) | 17.6.1.**167** | image `public.ecr.aws/supabase/postgres:17.6.1.167` |
 
-**They match**, so there is no major-version divergence to reason about.
+**Same major and minor; the patch differs by one (166 vs 167).** No major-version
+divergence to reason about, and the earlier record of "17.6.1 both" was true at
+that precision but not at patch level.
 
 **Do not read that as making step 5 less necessary.** The hosted append-only hand
 check exists because of the **role graph** — Supabase's `postgres` role is a

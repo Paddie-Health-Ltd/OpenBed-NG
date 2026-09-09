@@ -1,4 +1,5 @@
 import postgres from 'postgres';
+import { execFileSync } from 'node:child_process';
 import { dbUrl, apiUrl, anonKey } from './local-keys.js';
 
 /**
@@ -142,4 +143,40 @@ export function restErrorCode(body: unknown): string | null {
     return typeof code === 'string' ? code : null;
   }
   return null;
+}
+
+/**
+ * The psql invocation to apply a SQL FILE, resolved the same way
+ * `scripts/run_migrations.sh` resolves it.
+ *
+ * Three ways, in precedence order, and the third is why this helper exists: a
+ * developer machine may have Docker and no local psql, and the Supabase
+ * container carries one. Without the fallback these tests pass in CI (where the
+ * workflow installs postgresql-client) and fail on the machine of anyone who
+ * followed the README, which is the wrong way round for a guard.
+ *
+ * Files are fed on STDIN rather than via -f so the containerised form works --
+ * the container cannot see a path on the host filesystem.
+ */
+export function psqlCommand(): string {
+  const injected = process.env['OPENBED_PSQL'];
+  if (injected) return injected;
+
+  try {
+    execFileSync('bash', ['-c', 'command -v psql'], { stdio: 'ignore' });
+    return `psql ${JSON.stringify(dbUrl())}`;
+  } catch {
+    // No local psql. Find the Supabase database container by name rather than
+    // hardcoding a project slug.
+    const name = execFileSync('bash', ['-c',
+      "docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -1"],
+      { encoding: 'utf8' }).trim();
+    if (!name) {
+      throw new Error(
+        'No psql on PATH, no OPENBED_PSQL set, and no running supabase_db_* container.\n' +
+        '  Start the database with `npm run db:start`, or install postgresql-client.',
+      );
+    }
+    return `docker exec -i ${name} psql -U postgres -d postgres`;
+  }
 }

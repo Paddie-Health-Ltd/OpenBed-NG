@@ -16,6 +16,21 @@
 # mistake, which is a migration created by copying its predecessor. A wrong
 # filename in the ledger INSERT means the runner re-applies the file forever.
 #
+# CHECK 3 ASSERTS THE PRESENCE OF A DECLARATION, NOT IDEMPOTENCY. It greps the
+# banner for the string "Idempotency:" -- which is an author's CLAIM about the
+# migration, not a property of it. A migration can carry a perfect note and be
+# wildly non-idempotent, and this script would pass it.
+#
+# The PROPERTY is asserted by tests/db/migration_idempotency.test.ts, which
+# applies every forward migration a second time and asserts both that it raises
+# no error AND that it changes nothing -- structure and row counts. That
+# distinction matters because "no error" is the presence axis: a migration can
+# re-run cleanly while still mutating, and the silent case is the one that hurts.
+#
+# Keep the two straight. This lint catches a missing note in review; that test
+# catches a migration that would corrupt a re-run after a partial failure, which
+# is the recovery path scripts/run_migrations.sh depends on.
+#
 # Usage: bash scripts/lint_migration_header.sh [ROOT]
 # Exit: 0 clean, 1 violation, 2 usage or empty corpus.
 # ============================================================

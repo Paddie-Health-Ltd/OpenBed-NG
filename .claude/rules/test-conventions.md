@@ -247,6 +247,28 @@ for, on its first encounter with a real environment. Where a guard's corpus is
 generated, the anti-vacuity leg is not a formality -- it is the only thing
 standing between a green check and a check that examined nothing.
 
+### Invented here: confirm the plant actually planted (2026-09-09)
+
+**Confirm the plant actually mutated the artefact before concluding the guard
+missed it.** A plant applied by `sed` or a regex against source can silently
+no-op — the pattern misses, the file is unchanged, and the guard correctly
+reports nothing wrong. **That is indistinguishable from a guard with a hole**,
+and it points the investigation at the guard rather than at the plant.
+
+Diff the planted file, or assert the mutation, as a **precondition of the PLANT
+leg** rather than an afterthought.
+
+§2's three legs do not cover this, and the gap is structural: **PLANT assumes the
+plant took effect.** All three legs can report exactly what they should while the
+thing under test was never touched.
+
+Observed 2026-09-09 removing `ON_ERROR_STOP` from `scripts/run_migrations.sh`.
+The pattern required a leading space and so missed `PSQL+=(-v ON_ERROR_STOP=1)`
+— the branch actually in use locally. The suite passed, which looked like a hole
+in a guard written an hour earlier. Re-planted correctly, it was caught twice
+over. The cost of the wrong conclusion is an afternoon spent hardening something
+that was already correct.
+
 Conventions deliberately **not** ported, so nobody re-derives them by accident:
 
 - The `requires_real_db` fixture gating: here, a `db` test that cannot reach the
