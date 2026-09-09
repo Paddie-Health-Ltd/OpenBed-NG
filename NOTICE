@@ -1,0 +1,53 @@
+OpenBed-NG / BedSpace
+Copyright 2026 the OpenBed-NG contributors
+
+This product includes software developed for the OpenBed-NG project.
+Licensed under the Apache License, Version 2.0 (the "License"); see LICENSE.
+
+--------------------------------------------------------------------------
+IF YOU SELF-HOST THIS SOFTWARE, READ THIS.
+--------------------------------------------------------------------------
+
+1. YOU BECOME AN INDEPENDENT DATA CONTROLLER.
+
+   Running your own deployment of this software makes you — not the
+   OpenBed-NG project, not its contributors, and not any entity operating an
+   instance of it — the data controller for every piece of personal data your
+   deployment collects, stores or transmits. That includes staff names, staff
+   contact details, device bindings and audit records.
+
+   You are solely responsible for your own compliance with the Nigeria Data
+   Protection Act and with any other law that applies to you, including
+   registration, lawful basis, notices, retention, erasure and breach
+   reporting. No part of this repository constitutes legal advice and no
+   configuration of it makes you compliant by default.
+
+2. YOU ARE SOLELY RESPONSIBLE FOR THE ACCURACY OF ANYTHING YOU PUBLISH.
+
+   This software displays claims made by third parties about hospital bed
+   availability. It does not verify them. A deployment of this software can
+   show a bed that does not exist, or fail to show one that does.
+
+   Anything your deployment publishes is your publication, not ours. The
+   Apache License disclaims all warranties and all liability (sections 7 and
+   8), and that disclaimer is load-bearing here rather than boilerplate:
+   people may make care decisions on what a deployment of this software shows
+   them.
+
+3. YOU MAY NOT USE THE PROJECT'S NAMES OR IMPLY ASSOCIATION.
+
+   Apache License section 6 grants no trademark rights. You may not use
+   "BedSpace", "Toni", "toni.health", "OpenBed-NG", or any confusingly similar
+   name or mark, and you may not present your deployment in a way that implies
+   it is operated, endorsed, reviewed or supported by this project or by any
+   entity behind it. Name your deployment something else.
+
+--------------------------------------------------------------------------
+ON THE NON-COMMERCIAL COVENANT
+--------------------------------------------------------------------------
+
+The Apache License, Version 2.0 permits commercial use by anyone, including
+you. Any commitment that this software is not monetised is a contractual
+commitment made by a specific operator about a specific deployment. It is not
+a term of this licence and it does not bind you, or anyone else who takes this
+code. Do not represent the licence as containing such a commitment.

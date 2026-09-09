@@ -1,0 +1,29 @@
+# ============================================================
+# .ci/ci-gate-exceptions.yml
+# ============================================================
+# Allowlist of CI jobs exempted from the no-merge-into-red gate.
+#
+# IT IS EMPTY, AND KEEPING IT EMPTY IS THE POINT. The file exists so that adding
+# an exception is a visible, reviewable act with a named owner and a re-assessment
+# SHA attached -- rather than a `continue-on-error: true` quietly appearing in a
+# workflow, which is how a merge-blocking gate stops blocking without anyone
+# deciding that it should.
+#
+# Schema, ported from PH-Doc-Assistant-v1/.ci/ci-gate-exceptions.yml:
+#   workflow          -- the workflow file's `name:`
+#   job               -- the job key in that workflow
+#   posture           -- advisory | ticketed-defer
+#   mechanism         -- how the exemption is realised (continue-on-error, etc.)
+#   rationale         -- why, in a sentence someone else can evaluate
+#   ticket            -- tracking reference, or null
+#   introduced_by     -- commit SHA or sprint that added it
+#   last_assessed_sha -- the SHA at which it was last confirmed still necessary
+#
+# NO JOB IN ci.yml MAY EVER BE ALLOWLISTED. Every one of them guards either the
+# security boundary or finding F1/F2/F3, and an advisory security gate is not a
+# gate. If a job here becomes flaky, fix the flake or delete the job -- do not
+# demote it.
+#
+# tests/compliance/ci_gate_exceptions.test.ts asserts this list is empty and that
+# no job in ci.yml carries continue-on-error.
+exceptions: []

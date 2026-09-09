@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // DOM lives HERE and not in the root config, deliberately.
+    //
+    // If the root config carried DOM, every package would silently gain
+    // `document`, `window` and `localStorage` -- including the snapshot generator
+    // and the notification dispatcher, which run server-side. Code that compiles
+    // against a global it will not have at runtime is a crash that type-checking
+    // was supposed to prevent.
+    //
+    // Vite's build does NOT type-check (esbuild strips types), so `npm run
+    // typecheck` running this project is the only thing standing between a
+    // browser-API mistake and production.
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": []
+  },
+  "include": ["src/**/*.ts", "vite.config.ts"]
+}
