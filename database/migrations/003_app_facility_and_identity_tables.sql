@@ -442,7 +442,7 @@ COMMENT ON TABLE app.device IS
 -- someone else's without a probe is the Clause 5 shape -- a mechanism believed
 -- present that nothing here establishes. Magic-link single-use is therefore a
 -- HAND CHECK in docs/runbook-supabase-project-creation.md, alongside the
--- af-south-1 region pin and the hosted exposed-schemas list. Verify it once,
+-- eu-west-1 region pin and the hosted exposed-schemas list. Verify it once,
 -- empirically, against the version Supabase actually runs.
 CREATE TABLE IF NOT EXISTS app.invite (
     id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),

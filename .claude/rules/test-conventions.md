@@ -94,8 +94,21 @@ of `.claude/rules/code-pipeline.md` exists to prevent.
 Three live examples in this repository, all of which must stay named rather than
 faked:
 
-- The Supabase project's **region pin** (`af-south-1`) cannot be asserted from
-  inside the repository at all.
+- The Supabase project's **region pin** (`eu-west-1`) is **assertable and
+  deliberately not asserted** — note the difference, because it is the whole
+  point of this section. A test *could* call the Supabase Management API. It does
+  not, because that needs a management token in CI, in a public repository, for a
+  class of credential the SOP says cannot be rotated quietly. So: *assertable
+  only via the Management API; declined on credential-surface grounds; verified
+  as a runbook step instead.*
+
+  This entry previously read "cannot be asserted from inside the repository at
+  all." That was the wrong reason, and a wrong reason is a false fact even when
+  the conclusion happens to hold. **"Impossible" and "possible but declined for a
+  named reason" are different claims**, and only the second is true here. When
+  you write a NOT-ASSERTED entry, the reason carries as much weight as the
+  verdict — someone will later decide whether to build the control, and they will
+  decide from the reason.
 - The **hosted** exposed-schemas list is a dashboard setting. The local
   `supabase/config.toml` is asserted; the hosted one is a runbook step.
 - **Append-only enforcement behaves differently hosted than locally**, because

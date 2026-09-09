@@ -126,7 +126,10 @@ Migrations 001–011, before first hosted push:
 
 ## Next 48 hours
 
-1. Create the hosted Supabase project to pin `af-south-1`. Do not push.
+1. Create the hosted Supabase project to pin the region. Do not push.
+   **[CORRECTED 2026-09-09]** The region is `eu-west-1`, not `af-south-1` —
+   Supabase has no African region. Done: ref `klrlpxysjsjpdkeqdhvl`, verified via
+   the Management API on 2026-09-09.
 2. Claude Code executes the window list above.
 3. Add the two facility-agreement lines: role addresses only, facility rotates on leaver.
 4. Amend the kickoff doc so the referral loop is ward-scoped.

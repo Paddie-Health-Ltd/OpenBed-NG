@@ -14,11 +14,21 @@ import PUBLIC_RELATIONS from '../../packages/fixtures/public-relations.json';
  * broadcasting and nothing errors. `app` appearing in the exposed-schemas list
  * opens the whole private schema and nothing errors -- until someone looks.
  *
- * NOT ASSERTED HERE, deliberately: the HOSTED project's exposed-schemas list and
- * the HOSTED project's region (af-south-1). Neither is reachable from inside this
- * repository. They are checklist steps in
- * docs/runbook-supabase-project-creation.md, and a test claiming to verify either
- * would be phantom enforcement.
+ * NOT ASSERTED HERE, deliberately -- and the two cases have DIFFERENT reasons,
+ * which matters because a reader decides from the reason whether to build the
+ * control later:
+ *
+ *   - The HOSTED exposed-schemas list is a dashboard setting with no
+ *     in-database representation. Genuinely unreachable from here.
+ *   - The HOSTED region (eu-west-1) IS reachable -- the Supabase Management API
+ *     returns it. It is not asserted because that would put a management token
+ *     in CI, in a public repository, for a class of credential the SOP says
+ *     cannot be rotated quietly. Assertable; declined on credential-surface
+ *     grounds.
+ *
+ * Both are checklist steps in docs/runbook-supabase-project-creation.md, the
+ * region one carrying the API call and its recorded result. A test claiming to
+ * verify either from here would be phantom enforcement.
  */
 
 const REPO_ROOT = join(import.meta.dirname, '..', '..');

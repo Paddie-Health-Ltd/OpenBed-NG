@@ -12,23 +12,63 @@ Work through this in order. Steps 1 and 2 cannot be undone later.
 
 ---
 
-## 1. Region — `af-south-1` (Cape Town). **LAUNCH BLOCKER.**
+## 1. Region — `eu-west-1`. **DISCHARGED 2026-09-09.**
 
-Select `af-south-1` at project creation.
+**Corrected 2026-09-09. This runbook previously said `af-south-1` (Cape Town),
+and that value was never achievable: Supabase has no African region.** Its list is
+Asia Pacific, North America, Europe and South America. `af-south-1` is an AWS
+region name that Supabase does not offer, so the original pin was a spec citing
+something that does not exist. Recorded here so nobody re-derives it.
 
-**The region is fixed at creation and cannot be changed.** Moving later means
-creating a new project and migrating data, which for this system means a
-migration of health-facility operational data with an outage in the middle.
+**The region is fixed at creation and cannot be changed.** Moving means a new
+project and a data migration with an outage in the middle — so the pin still
+matters, it simply had to be a region that exists.
 
-Why it matters beyond latency: it keeps the data on the continent, which is
-materially easier to defend under NDPA s.41 transfer rules, and it is the better
-answer to a facility that asks where their numbers are stored.
+### Verification — a probe, not a dashboard glance
 
-- [ ] Project created in `af-south-1`
-- [ ] Verified in Dashboard → Settings → General → Region
+Re-derivable by anyone with a management token. Do not read this off the
+dashboard; read it from the API, so the answer is evidence rather than a memory.
 
-**Covered by tests: nothing.** No query can report a project's region to the
-suite. This checkbox is the only control.
+```bash
+curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+  https://api.supabase.com/v1/projects \
+  | jq -r '.[] | select(.id=="klrlpxysjsjpdkeqdhvl") | "\(.name) \(.region) \(.status) pg\(.database.version)"'
+```
+
+**Result on file:**
+
+```
+project : OpenBed NG
+ref     : klrlpxysjsjpdkeqdhvl
+region  : eu-west-1
+status  : ACTIVE_HEALTHY
+postgres: 17.6.1
+verified: 2026-09-09, Supabase Management API
+```
+
+- [x] Project exists in `eu-west-1`, verified via the Management API on 2026-09-09
+
+**Covered by tests: nothing, and the reason has changed.** It is *not* that the
+region is unreachable from the repository — a test could call the Management API
+above. It is that doing so needs a management token in CI, in a public
+repository, for a class of credential the SOP says cannot be rotated quietly.
+**Assertable, declined on credential-surface grounds, verified here instead.**
+
+### What did NOT survive the correction, and one thing that never held
+
+The original entry justified the pin as *"keeps the data on the continent, which
+is materially easier to defend under NDPA s.41 transfer rules."*
+
+- **"On the continent"** is now false, and was unachievable for any Supabase region.
+- **The s.41 leg never followed from the geographic claim in the first place.**
+  NDPA s.41 turns on Nigeria versus not-Nigeria, not Africa versus not-Africa —
+  **Cape Town was as much a cross-border transfer as Dublin.** That sentence was
+  doing rhetorical work rather than legal work when it was written. Do not read
+  the correction as losing a protection: there was none to lose.
+- **Whether `eu-west-1` is defensible under s.41 is a CLCO question and is
+  deliberately not answered here.** It attaches only to the residue — role
+  addresses in `auth.users` and one facility contact — which is the *same* single
+  open CLCO item already on file, not a new thread.
 
 ---
 
@@ -113,6 +153,30 @@ delete from app.ward_status_event where id = (select min(id) from app.ward_statu
 
 ---
 
+## 4b. Postgres version — local and hosted, recorded
+
+| Where | Version | Source |
+|---|---|---|
+| Hosted | 17.6.1 | Management API, 2026-09-09 |
+| Local (`supabase start`) | 17.6.1 | image `public.ecr.aws/supabase/postgres:17.6.1.167` |
+
+**They match**, so there is no major-version divergence to reason about.
+
+**Do not read that as making step 5 less necessary.** The hosted append-only hand
+check exists because of the **role graph** — Supabase's `postgres` role is a
+superuser locally and is not hosted — and that asymmetry is independent of the
+Postgres version. Matching versions remove one confound; they remove none of the
+reason for the check.
+
+Re-derive with:
+
+```bash
+docker ps --format '{{.Image}}' | grep supabase/postgres   # local
+# hosted: the same Management API call as step 1
+```
+
+---
+
 ## 5b. Magic-link single-use — an INHERITED assumption, so probe it
 
 `app.invite` used to carry `token_hash UNIQUE`, and that constraint was doing
@@ -164,12 +228,58 @@ the only control.
 
 ## 8. Repository settings (GitHub, not Supabase)
 
-- [ ] Branch protection on `main` requires all six checks: `repo-lint`,
-      `migration-lint`, `compliance-tests`, `db-tests`, `bundle-guards`,
-      `secret-scan`
-- [ ] Secret scanning **with push protection** enabled — this is the prevention
-      control; the `secret-scan` CI job is only detection
+### Do these BEFORE the first push
+
+- [ ] **Secret scanning with push protection ON.** This is the *prevention*
+      control, enforced server-side by GitHub at push time; the `secret-scan` CI
+      job is only *detection*, and runs after a push has already been accepted.
+      Enable it **before** the first push, not after — this repository is already
+      public, and switched on afterwards the largest push in the project's
+      history is the one it never saw.
+
+- [ ] **Branch protection on `main`, requiring exactly these SIX checks:**
+      `repo-lint`, `migration-lint`, `compliance-tests`, `db-tests`,
+      `bundle-guards`, `secret-scan`.
+
+      **The required-check names must equal `ci.yml`'s job names AS A SET, and
+      this is the item most likely to be wrong.** GitHub matches required checks
+      by NAME STRING. A job that exists, runs, goes red and is simply not on the
+      required list is a **vacuous gate — the merge proceeds**. This is the same
+      `set(parsed) === set(table)` discipline the test suite applies to column
+      lists, applied to a GitHub setting that no test can reach.
+
+      Derive both sides and compare, rather than trusting either:
+
+      ```bash
+      # what CI actually defines
+      node -e "const y=require('js-yaml');const f=require('fs');\
+      console.log(Object.keys(y.load(f.readFileSync('.github/workflows/ci.yml','utf8')).jobs).sort().join('\n'))"
+
+      # what main actually requires
+      gh api repos/Paddie-Health-Ltd/OpenBed-NG/branches/main/protection \
+        --jq '.required_status_checks.contexts | sort | .[]'
+      ```
+
+      *(Six is the count of CI JOBS. Seven is the count of security GATES
+      demonstrated red on demand — they live across these six jobs. Do not
+      require a seventh check name; there is no seventh job.)*
+
+- [ ] **"Do not allow bypassing the above settings" ON.** Easy to miss on a solo
+      repository and the one that matters most there: a single implementer who is
+      also repository admin makes every gate advisory for the only person who will
+      ever hit one.
+
+      ```bash
+      gh api repos/Paddie-Health-Ltd/OpenBed-NG/branches/main/protection \
+        --jq '{enforce_admins:.enforce_admins.enabled}'
+      ```
+
 - [ ] Private vulnerability reporting enabled (referenced by `SECURITY.md`)
+
+**Covered by tests: nothing, and for the same reason as the region (step 1).**
+Reading branch protection needs a token in CI, in a public repository. Assertable,
+declined on credential-surface grounds, verified here with the commands above so
+it is re-derivable rather than trusted.
 
 ---
 
@@ -177,10 +287,11 @@ the only control.
 
 | Property | Why no test can cover it |
 |---|---|
-| Region pin | Not exposed to any query the suite can run |
+| Region pin | Assertable via the Management API, declined on credential-surface grounds |
 | Hosted exposed-schemas list | A dashboard setting with no in-database representation |
 | Hosted superuser semantics | The local role graph differs from the hosted one |
 | Magic-link single-use and expiry | Enforced by Supabase auth, not by this schema, since `app.invite` no longer holds a token |
+| Branch protection and its required-check set | A GitHub setting; reading it in CI needs a token this public repository should not carry |
 | Push protection | A GitHub repository setting; CI runs after the push |
 
 Adding a test that appeared to cover any of these would be worse than the gap,

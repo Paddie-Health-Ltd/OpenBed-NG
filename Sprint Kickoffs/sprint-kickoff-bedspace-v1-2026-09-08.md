@@ -100,9 +100,19 @@ Three specifics that are easy to miss and each individually fatal:
 - Every definer function needs `SET search_path = ''` with fully-qualified names, or a caller-controlled search_path is privilege escalation.
 - Realtime `DELETE` events are **not** RLS-filtered, and `REPLICA IDENTITY FULL` ships the whole old row in the payload. Never delete from a published table (tombstone instead), and never set `REPLICA IDENTITY FULL` on anything in `app`.
 
-### A4. Supabase region pinned to `af-south-1` (Cape Town) before any data exists
+### A4. Supabase region pinned before any data exists — `eu-west-1`
 
-Keeps data on the continent, materially easier to defend under NDPA s.41 transfer rules, better Lagos latency. Region is fixed at project creation and painful to move. Treat as a launch blocker.
+**[CORRECTED 2026-09-09]** The original value was `af-south-1` (Cape Town). **It was never achievable: Supabase has no African region** — the list is Asia Pacific, North America, Europe and South America. `af-south-1` is an AWS region name that Supabase does not offer, so this is a correction to a spec that cited something which does not exist, not a change of mind. Discharged: ref `klrlpxysjsjpdkeqdhvl`, verified via the Supabase Management API on 2026-09-09.
+
+The requirement is unchanged and was met: **residency pinned in a defensible jurisdiction, before any data exists.** Region is fixed at project creation and painful to move — moving means a new project and a data migration with an outage in the middle — so the pin still matters; it simply had to name a region that exists.
+
+**What the original rationale claimed, and what survives.**
+
+- *"Keeps data on the continent"* — **struck. False, and unachievable for any Supabase region.**
+- *"Materially easier to defend under NDPA s.41 transfer rules"* — **struck, and this is the part worth reading carefully: the legal leg never followed from the geographic claim.** NDPA s.41 turns on Nigeria versus not-Nigeria, not Africa versus not-Africa. **Cape Town was as much a cross-border transfer as Dublin.** That sentence was doing rhetorical work rather than legal work when it was written. Do not read the correction as losing a protection — there was none to lose.
+- *"Better Lagos latency"* — **unmeasured, and not claimed either way.** There is a reasonable prior (West African submarine cables land in Europe, and intra-African routing often trombones through Europe regardless), but a prior is not a measurement of this path. It would be measured once the project serves traffic: p50/p95 from Lagos clients to the API origin, over a week, against the CDN-cached snapshot path that most reads actually take.
+
+**What is deliberately NOT decided here.** Whether `eu-west-1` is defensible under s.41 is a CLCO question and no legal conclusion is written into this document. It attaches only to the residue — role addresses in Supabase `auth.users`, and one facility contact — which is the **same single open CLCO item already on file**, not a new thread.
 
 ### A5. Attribution decays; the safety record does not
 
@@ -122,7 +132,7 @@ This is net removal, and it removes the exposure rather than managing it. Storag
 
 **Tasks:**
 
-- [ ] Create Supabase project in `af-south-1`. Confirm exposed schemas = `public` (+ `graphql_public`) and **not** `app`.
+- [ ] Create Supabase project in `eu-west-1` **[CORRECTED 2026-09-09]** (was `af-south-1`; Supabase has no African region — see A4). Confirm exposed schemas = `public` (+ `graphql_public`) and **not** `app`.
 - [ ] `app` schema with base tables: `facility`, `facility_ops`, `ward_status`, `ward_status_event`, `audit_log`, `ward_account`, `facility_contact`, `device`, `invite`, `challenge`, `referral`, `alert`, `notification_outbox`, `ward_alert_state`, `system_heartbeat`. `revoke all on schema app from anon, authenticated` plus default privileges revoked.
 - [ ] Enums: `ward_category`, `tri_state` (`UNKNOWN`/`YES`/`NO`), `ward_offering`, `zero_reason`, `status_state`, `status_source`, `app_role`, `referral_state`, `refusal_reason`, `monitoring_state`.
 - [ ] All duty flags `tri_state NOT NULL DEFAULT 'UNKNOWN'` (**F2**). All timestamps `timestamptz`, DB TZ UTC — a single `timestamp without time zone` in this schema is a defect.
@@ -144,7 +154,7 @@ This is net removal, and it removes the exposure rather than managing it. Storag
 - [ ] Truth-table test: 3 flag states × 8 categories × 2 claim values = 48 asserted rows, run against the SQL derivation **and** any client mirror of the rule, identical expected output.
 - [ ] Gate semantics: `anaesthetist='NO'` closes Theatre and Surgical while `ward_status.accepting` remains true; flipping to `UNKNOWN` restores it with no write to `ward_status`; `anaesthetist='YES'` never promotes a ward that said no.
 
-**Specialist input incorporated:** CTO supplied the two-schema separation, the gate function, the projection-table design and the negative-test list. CLCO required the `af-south-1` pin, the decaying-attribution split, the k-floor as a number, and the removal of `refusal_note` free text. Staff-engineer supplied the tri-state truth table, the version column, and the three-distinct-states requirement.
+**Specialist input incorporated:** CTO supplied the two-schema separation, the gate function, the projection-table design and the negative-test list. CLCO required **the region pin itself** — residency fixed in a defensible jurisdiction before any data exists — plus the decaying-attribution split, the k-floor as a number, and the removal of `refusal_note` free text. **[CORRECTED 2026-09-09]** The pin was originally recorded as `af-south-1`; that value was unachievable and is now `eu-west-1`. **The requirement is CLCO's and stands; the value is not, and never was, a value CLCO saw** — restating this line as "CLCO required `eu-west-1`" would attribute a specialist finding to a region that specialist was never shown. Staff-engineer supplied the tri-state truth table, the version column, and the three-distinct-states requirement.
 
 **Safety/quality notes:** the `refusal_note` free-text field from the first schema draft is **removed** — enums only. Free text is where "the 24yo primip from Ikorodu we called about at 3am" ends up, which breaks the no-patient-data invariant that is this project's single most valuable compliance asset. `ward_reply` is **kept** (capped, private, never public) because the CLCO review requires a right of reply as the qualified-privilege defence on discrepancy reports; it carries an explicit no-patient-information validation and the same retention as attributed log entries.
 
