@@ -84,26 +84,75 @@ END $$;
 
 
 -- ============================================================
--- 2. ward_category -- the eight published categories.
+-- 2. ward_category -- the ten published categories.
 -- ============================================================
--- Five are gated by a duty flag, three are not:
---   THEATRE, SURGICAL   <- anaesthetist
---   NICU, SCBU          <- paediatrician
---   MATERNITY           <- obstetrician
---   A_AND_E, ICU, GENERAL_MEDICAL -- ungated
+-- Six are gated by a duty flag, four are not:
+--   THEATRE, SURGICAL                                <- anaesthetist
+--   NICU, SCBU, PAEDIATRIC, ICU_PAEDIATRIC           <- paediatrician
+--   MATERNITY                                        <- obstetrician
+--   A_AND_E, ICU_ADULT, MEDICAL_ADULT                -- ungated
 -- app.gate() in 006 is the single site where that mapping exists.
+--
+-- ============================================================
+-- HOW THIS SET WAS ARRIVED AT, AND WHAT IS DELIBERATELY NOT SPLIT.
+-- ============================================================
+-- THE KICKOFF NEVER ENUMERATED THESE. It states "all eight categories" as a
+-- contract (Gate 3) and names `paediatrician closes NICU/SCBU` as a duty-flag
+-- rule, but it lists no category values anywhere. The set was therefore chosen
+-- at implementation time, 2026-09-08. On 2026-09-09 an audit of every enum --
+-- asking not "are the values right" but "is any value one we would later want to
+-- SPLIT or DROP", because adding is cheap and removing is not -- found two
+-- defects in that choice. Both are corrected here, in the window, before the
+-- first hosted push makes them permanent.
+--
+--   ICU -> ICU_ADULT + ICU_PAEDIATRIC. Ventilator circuits, tube sizes, drug
+--     dosing and nursing competency all differ between adult and paediatric
+--     intensive care. A dispatcher routing a child to a facility showing free
+--     "ICU" beds that are adult beds has been handed a false positive by the
+--     tile. Note `ICU` is not kept to mean adult: a label that answers a
+--     narrower question than the reader asked is the defect being removed.
+--
+--   GENERAL_MEDICAL -> MEDICAL_ADULT, and PAEDIATRIC added. There was no tile
+--     at all for a general paediatric admission, which is commoner than a
+--     paediatric ICU one. This was an omission in the set proposed at
+--     implementation time, not a value that was lost from a specification --
+--     the specification never had one.
+--
+--   Why PAEDIATRIC and not MEDICAL_PAEDIATRIC: most children's wards take
+--     medical AND post-surgical children in one unit, so the narrower name
+--     would be the same defect in the other direction. The resulting asymmetry
+--     with MEDICAL_ADULT is correct, because the underlying reality is
+--     asymmetric: adult wards divide medical from surgical, children's wards
+--     usually do not. Accuracy beats symmetry in a label that is permanent.
+--
+-- NOT SPLIT, DELIBERATELY -- recorded so an absent split reads as a decision
+-- someone can challenge rather than an oversight nobody noticed:
+--   THEATRE, A_AND_E, SURGICAL, MATERNITY are usually one unit taking both
+--   adults and children.
+--
+--   THE RESIDUAL, recorded rather than solved: if PAEDIATRIC absorbs
+--   post-operative children then SURGICAL is now DE FACTO ADULT -- the same
+--   implicit narrowing, one value further out. This cannot be chased to
+--   completion by naming, because where wards divide by age varies by facility
+--   and by ward type. It is a clinical-structure question and is open with the
+--   clinician.
+--
+--   The male/female medical split stays closed. It was decided on a DIFFERENT
+--   AXIS -- sex, not age -- so splitting on age does not reopen it.
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
                    WHERE t.typname = 'ward_category' AND n.nspname = 'app') THEN
         CREATE TYPE app.ward_category AS ENUM (
             'A_AND_E',
-            'ICU',
+            'ICU_ADULT',
+            'ICU_PAEDIATRIC',
+            'MEDICAL_ADULT',
+            'PAEDIATRIC',
             'THEATRE',
             'SURGICAL',
             'MATERNITY',
             'NICU',
-            'SCBU',
-            'GENERAL_MEDICAL'
+            'SCBU'
         );
     END IF;
 END $$;

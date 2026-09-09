@@ -228,6 +228,25 @@ drift. All three are now real imports.
 If you add a fixture-backed guard, grep for the assertion you are about to claim
 before you claim it.
 
+### Invented here: a generated corpus must be generated in the same job (2026-09-09)
+
+**A guard whose corpus is generated rather than checked in must generate it
+inside the same CI job.** GitHub jobs do not share a workspace. An ACCEPT leg
+over a build artefact the job does not produce is **vacuous in CI even when it
+passes locally**, because a local working tree carries artefacts from previous
+runs.
+
+Observed on the first real CI run, not predicted. `compliance-tests` asserted
+that the real built bundle is accepted -- the ACCEPT leg of §2's contract -- but
+only `bundle-guards` ran `npm run build`. It had passed locally for weeks purely
+because a developer had already built.
+
+**The anti-vacuity leg is what caught it**, and it failed loudly with a message
+that named the fix. That is §2's third leg doing exactly the job it was written
+for, on its first encounter with a real environment. Where a guard's corpus is
+generated, the anti-vacuity leg is not a formality -- it is the only thing
+standing between a green check and a check that examined nothing.
+
 Conventions deliberately **not** ported, so nobody re-derives them by accident:
 
 - The `requires_real_db` fixture gating: here, a `db` test that cannot reach the

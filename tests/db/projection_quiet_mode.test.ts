@@ -23,7 +23,7 @@ async function seed(tx: TransactionSql): Promise<void> {
   await tx.unsafe(`insert into app.facility_ops (facility_id) values ('${FAC}')`);
   await tx.unsafe(`
     insert into app.ward_status (facility_id, category, offering, bed_count, accepting, monitoring_state)
-    values ('${FAC}','ICU','OFFERED',5,true,'ACTIVE'),
+    values ('${FAC}','ICU_ADULT','OFFERED',5,true,'ACTIVE'),
            ('${FAC}','A_AND_E','OFFERED',2,true,'ACTIVE')
   `);
 }

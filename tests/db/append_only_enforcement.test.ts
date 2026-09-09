@@ -39,13 +39,13 @@ describe('append-only enforcement', () => {
         `);
         await tx.unsafe(`
           insert into app.ward_status (id, facility_id, category, offering, bed_count, accepting)
-          values ('cccccccc-0000-4000-8000-000000000002','cccccccc-0000-4000-8000-000000000001','ICU','OFFERED',1,true)
+          values ('cccccccc-0000-4000-8000-000000000002','cccccccc-0000-4000-8000-000000000001','ICU_ADULT','OFFERED',1,true)
         `);
         await tx.unsafe(`
           insert into app.ward_status_event
             (ward_status_id, facility_id, category, offering, bed_count, accepting, state, source, version)
           values ('cccccccc-0000-4000-8000-000000000002','cccccccc-0000-4000-8000-000000000001',
-                  'ICU','OFFERED',1,true,'OK','WARD',1)
+                  'ICU_ADULT','OFFERED',1,true,'OK','WARD',1)
         `);
         // The act under test.
         await tx.unsafe(`update app.ward_status_event set bed_count = 99`);

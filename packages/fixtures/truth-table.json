@@ -54,7 +54,7 @@
     "expected_accepting_effective": false
   },
   {
-    "category": "ICU",
+    "category": "ICU_ADULT",
     "anaesthetist": "UNKNOWN",
     "obstetrician": "UNKNOWN",
     "paediatrician": "UNKNOWN",
@@ -63,7 +63,7 @@
     "expected_accepting_effective": true
   },
   {
-    "category": "ICU",
+    "category": "ICU_ADULT",
     "anaesthetist": "UNKNOWN",
     "obstetrician": "UNKNOWN",
     "paediatrician": "UNKNOWN",
@@ -72,7 +72,7 @@
     "expected_accepting_effective": false
   },
   {
-    "category": "ICU",
+    "category": "ICU_ADULT",
     "anaesthetist": "YES",
     "obstetrician": "UNKNOWN",
     "paediatrician": "UNKNOWN",
@@ -81,7 +81,7 @@
     "expected_accepting_effective": true
   },
   {
-    "category": "ICU",
+    "category": "ICU_ADULT",
     "anaesthetist": "YES",
     "obstetrician": "UNKNOWN",
     "paediatrician": "UNKNOWN",
@@ -90,7 +90,7 @@
     "expected_accepting_effective": false
   },
   {
-    "category": "ICU",
+    "category": "ICU_ADULT",
     "anaesthetist": "NO",
     "obstetrician": "UNKNOWN",
     "paediatrician": "UNKNOWN",
@@ -99,12 +99,174 @@
     "expected_accepting_effective": true
   },
   {
-    "category": "ICU",
+    "category": "ICU_ADULT",
     "anaesthetist": "NO",
     "obstetrician": "UNKNOWN",
     "paediatrician": "UNKNOWN",
     "accepting": false,
     "expected_gated_by": null,
+    "expected_accepting_effective": false
+  },
+  {
+    "category": "ICU_PAEDIATRIC",
+    "anaesthetist": "UNKNOWN",
+    "obstetrician": "UNKNOWN",
+    "paediatrician": "UNKNOWN",
+    "accepting": true,
+    "expected_gated_by": null,
+    "expected_accepting_effective": true
+  },
+  {
+    "category": "ICU_PAEDIATRIC",
+    "anaesthetist": "UNKNOWN",
+    "obstetrician": "UNKNOWN",
+    "paediatrician": "UNKNOWN",
+    "accepting": false,
+    "expected_gated_by": null,
+    "expected_accepting_effective": false
+  },
+  {
+    "category": "ICU_PAEDIATRIC",
+    "anaesthetist": "UNKNOWN",
+    "obstetrician": "UNKNOWN",
+    "paediatrician": "YES",
+    "accepting": true,
+    "expected_gated_by": null,
+    "expected_accepting_effective": true
+  },
+  {
+    "category": "ICU_PAEDIATRIC",
+    "anaesthetist": "UNKNOWN",
+    "obstetrician": "UNKNOWN",
+    "paediatrician": "YES",
+    "accepting": false,
+    "expected_gated_by": null,
+    "expected_accepting_effective": false
+  },
+  {
+    "category": "ICU_PAEDIATRIC",
+    "anaesthetist": "UNKNOWN",
+    "obstetrician": "UNKNOWN",
+    "paediatrician": "NO",
+    "accepting": true,
+    "expected_gated_by": "NO_PAEDIATRICIAN_ON_DUTY",
+    "expected_accepting_effective": false
+  },
+  {
+    "category": "ICU_PAEDIATRIC",
+    "anaesthetist": "UNKNOWN",
+    "obstetrician": "UNKNOWN",
+    "paediatrician": "NO",
+    "accepting": false,
+    "expected_gated_by": "NO_PAEDIATRICIAN_ON_DUTY",
+    "expected_accepting_effective": false
+  },
+  {
+    "category": "MEDICAL_ADULT",
+    "anaesthetist": "UNKNOWN",
+    "obstetrician": "UNKNOWN",
+    "paediatrician": "UNKNOWN",
+    "accepting": true,
+    "expected_gated_by": null,
+    "expected_accepting_effective": true
+  },
+  {
+    "category": "MEDICAL_ADULT",
+    "anaesthetist": "UNKNOWN",
+    "obstetrician": "UNKNOWN",
+    "paediatrician": "UNKNOWN",
+    "accepting": false,
+    "expected_gated_by": null,
+    "expected_accepting_effective": false
+  },
+  {
+    "category": "MEDICAL_ADULT",
+    "anaesthetist": "YES",
+    "obstetrician": "UNKNOWN",
+    "paediatrician": "UNKNOWN",
+    "accepting": true,
+    "expected_gated_by": null,
+    "expected_accepting_effective": true
+  },
+  {
+    "category": "MEDICAL_ADULT",
+    "anaesthetist": "YES",
+    "obstetrician": "UNKNOWN",
+    "paediatrician": "UNKNOWN",
+    "accepting": false,
+    "expected_gated_by": null,
+    "expected_accepting_effective": false
+  },
+  {
+    "category": "MEDICAL_ADULT",
+    "anaesthetist": "NO",
+    "obstetrician": "UNKNOWN",
+    "paediatrician": "UNKNOWN",
+    "accepting": true,
+    "expected_gated_by": null,
+    "expected_accepting_effective": true
+  },
+  {
+    "category": "MEDICAL_ADULT",
+    "anaesthetist": "NO",
+    "obstetrician": "UNKNOWN",
+    "paediatrician": "UNKNOWN",
+    "accepting": false,
+    "expected_gated_by": null,
+    "expected_accepting_effective": false
+  },
+  {
+    "category": "PAEDIATRIC",
+    "anaesthetist": "UNKNOWN",
+    "obstetrician": "UNKNOWN",
+    "paediatrician": "UNKNOWN",
+    "accepting": true,
+    "expected_gated_by": null,
+    "expected_accepting_effective": true
+  },
+  {
+    "category": "PAEDIATRIC",
+    "anaesthetist": "UNKNOWN",
+    "obstetrician": "UNKNOWN",
+    "paediatrician": "UNKNOWN",
+    "accepting": false,
+    "expected_gated_by": null,
+    "expected_accepting_effective": false
+  },
+  {
+    "category": "PAEDIATRIC",
+    "anaesthetist": "UNKNOWN",
+    "obstetrician": "UNKNOWN",
+    "paediatrician": "YES",
+    "accepting": true,
+    "expected_gated_by": null,
+    "expected_accepting_effective": true
+  },
+  {
+    "category": "PAEDIATRIC",
+    "anaesthetist": "UNKNOWN",
+    "obstetrician": "UNKNOWN",
+    "paediatrician": "YES",
+    "accepting": false,
+    "expected_gated_by": null,
+    "expected_accepting_effective": false
+  },
+  {
+    "category": "PAEDIATRIC",
+    "anaesthetist": "UNKNOWN",
+    "obstetrician": "UNKNOWN",
+    "paediatrician": "NO",
+    "accepting": true,
+    "expected_gated_by": "NO_PAEDIATRICIAN_ON_DUTY",
+    "expected_accepting_effective": false
+  },
+  {
+    "category": "PAEDIATRIC",
+    "anaesthetist": "UNKNOWN",
+    "obstetrician": "UNKNOWN",
+    "paediatrician": "NO",
+    "accepting": false,
+    "expected_gated_by": "NO_PAEDIATRICIAN_ON_DUTY",
     "expected_accepting_effective": false
   },
   {
@@ -375,60 +537,6 @@
     "paediatrician": "NO",
     "accepting": false,
     "expected_gated_by": "NO_PAEDIATRICIAN_ON_DUTY",
-    "expected_accepting_effective": false
-  },
-  {
-    "category": "GENERAL_MEDICAL",
-    "anaesthetist": "UNKNOWN",
-    "obstetrician": "UNKNOWN",
-    "paediatrician": "UNKNOWN",
-    "accepting": true,
-    "expected_gated_by": null,
-    "expected_accepting_effective": true
-  },
-  {
-    "category": "GENERAL_MEDICAL",
-    "anaesthetist": "UNKNOWN",
-    "obstetrician": "UNKNOWN",
-    "paediatrician": "UNKNOWN",
-    "accepting": false,
-    "expected_gated_by": null,
-    "expected_accepting_effective": false
-  },
-  {
-    "category": "GENERAL_MEDICAL",
-    "anaesthetist": "YES",
-    "obstetrician": "UNKNOWN",
-    "paediatrician": "UNKNOWN",
-    "accepting": true,
-    "expected_gated_by": null,
-    "expected_accepting_effective": true
-  },
-  {
-    "category": "GENERAL_MEDICAL",
-    "anaesthetist": "YES",
-    "obstetrician": "UNKNOWN",
-    "paediatrician": "UNKNOWN",
-    "accepting": false,
-    "expected_gated_by": null,
-    "expected_accepting_effective": false
-  },
-  {
-    "category": "GENERAL_MEDICAL",
-    "anaesthetist": "NO",
-    "obstetrician": "UNKNOWN",
-    "paediatrician": "UNKNOWN",
-    "accepting": true,
-    "expected_gated_by": null,
-    "expected_accepting_effective": true
-  },
-  {
-    "category": "GENERAL_MEDICAL",
-    "anaesthetist": "NO",
-    "obstetrician": "UNKNOWN",
-    "paediatrician": "UNKNOWN",
-    "accepting": false,
-    "expected_gated_by": null,
     "expected_accepting_effective": false
   }
 ]

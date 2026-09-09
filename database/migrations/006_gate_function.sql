@@ -90,7 +90,14 @@ AS $FN$
              AND p_anaesthetist IS NOT DISTINCT FROM 'NO'::app.tri_state
             THEN 'NO_ANAESTHETIST_ON_DUTY'::app.gate_reason
 
-        WHEN p_category IN ('NICU', 'SCBU')
+        -- All four paediatric-facing categories. DEFAULT PENDING CLINICIAN
+        -- CONFIRMATION: transcription of the existing rule to the categories
+        -- added 2026-09-09, not a new rule. A paediatric ICU with no
+        -- paediatrician on duty is not paediatric capacity, by the argument that
+        -- gates Theatre on the anaesthetist. Whether one flag is the right
+        -- granularity across neonatal and paediatric intensive care is open;
+        -- one flag is the conservative reading and preserves current behaviour.
+        WHEN p_category IN ('NICU', 'SCBU', 'PAEDIATRIC', 'ICU_PAEDIATRIC')
              AND p_paediatrician IS NOT DISTINCT FROM 'NO'::app.tri_state
             THEN 'NO_PAEDIATRICIAN_ON_DUTY'::app.gate_reason
 
@@ -98,7 +105,8 @@ AS $FN$
              AND p_obstetrician IS NOT DISTINCT FROM 'NO'::app.tri_state
             THEN 'NO_OBSTETRICIAN_ON_DUTY'::app.gate_reason
 
-        -- A_AND_E, ICU and GENERAL_MEDICAL are ungated: no duty flag closes them.
+        -- A_AND_E, ICU_ADULT and MEDICAL_ADULT are ungated: no duty flag closes
+        -- them.
         -- 'UNKNOWN' and 'YES' both fall through to NULL for every category --
         -- that is the whole of finding F2. On day one every flag in the system is
         -- 'UNKNOWN', and this arm is what keeps every hospital in Lagos open.

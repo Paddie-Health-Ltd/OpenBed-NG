@@ -27,8 +27,8 @@ import TRUTH_TABLE from '../../packages/fixtures/truth-table.json';
 const TEST_FILE = join(REPO_ROOT, 'tests', 'db', 'gate_truth_table.test.ts');
 
 describe('truth table single source', () => {
-  test('the fixture holds exactly the specified 48 rows', () => {
-    expect(TRUTH_TABLE).toHaveLength(48);
+  test('the fixture holds exactly the specified 60 rows', () => {
+    expect(TRUTH_TABLE).toHaveLength(60);
   });
 
   test('every fixture row is distinct', () => {
@@ -37,7 +37,7 @@ describe('truth table single source', () => {
         [r['category'], r['anaesthetist'], r['obstetrician'], r['paediatrician'], r['accepting']].join('|'),
       ),
     );
-    expect(keys.size).toBe(48);
+    expect(keys.size).toBe(60);
   });
 
   test('both derivation sites are called inside ONE test.each block', () => {

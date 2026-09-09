@@ -10,7 +10,7 @@ import {
 import TRUTH_TABLE from '../../packages/fixtures/truth-table.json';
 
 /**
- * THE 48-ROW TRUTH TABLE -- finding F2's contract.
+ * THE 60-ROW TRUTH TABLE -- finding F2's contract.
  *
  * The duty-cover gate is implemented TWICE: once in SQL (app.gate(), migration
  * 006) and once in TypeScript (packages/gate/src/gate.ts). That is a deliberate
@@ -50,7 +50,8 @@ interface TruthRow {
 const ROWS = TRUTH_TABLE as TruthRow[];
 
 const CATEGORIES: WardCategory[] = [
-  'A_AND_E', 'ICU', 'THEATRE', 'SURGICAL', 'MATERNITY', 'NICU', 'SCBU', 'GENERAL_MEDICAL',
+  'A_AND_E', 'ICU_ADULT', 'ICU_PAEDIATRIC', 'MEDICAL_ADULT', 'PAEDIATRIC',
+  'THEATRE', 'SURGICAL', 'MATERNITY', 'NICU', 'SCBU',
 ];
 const STATES: TriState[] = ['UNKNOWN', 'YES', 'NO'];
 
@@ -100,7 +101,7 @@ describe('gate truth table', () => {
   });
 
   /**
-   * THE 48 ROWS. One block; both derivation sites; identical expected output.
+   * THE 60 ROWS. One block; both derivation sites; identical expected output.
    *
    * Every assertion below names which SIDE disagreed, because "the gate is
    * wrong" and "the gate is wrong on one side only" are different defects and
@@ -126,30 +127,30 @@ describe('gate truth table', () => {
     },
   );
 
-  test('the fixture is exactly the specified 3 x 8 x 2 = 48 rows', () => {
-    expect(ROWS).toHaveLength(48);
+  test('the fixture is exactly 3 x 10 x 2 = 60 rows', () => {
+    expect(ROWS).toHaveLength(60);
     const keys = new Set(
       ROWS.map((r) => `${r.category}|${r.anaesthetist}|${r.obstetrician}|${r.paediatrician}|${r.accepting}`),
     );
-    expect(keys.size, 'the fixture contains duplicate rows').toBe(48);
+    expect(keys.size, 'the fixture contains duplicate rows').toBe(60);
   });
 
   /**
-   * THE EXHAUSTIVE SWEEP -- 3^3 x 8 x 2 = 432 cases.
+   * THE EXHAUSTIVE SWEEP -- 3^3 x 10 x 2 = 540 cases.
    *
-   * WHY THIS EXISTS ON TOP OF THE 48. The kickoff specifies "3 flag states x 8
-   * categories x 2 claim values = 48", and that arithmetic only closes if two of
-   * the three flags are held constant -- which the kickoff does not say. Held at
-   * UNKNOWN, as the fixture does, the CROSS-GATE cases are never exercised: the
-   * 48 rows never once ask whether paediatrician='NO' wrongly closes Theatre.
+   * WHY THIS EXISTS ON TOP OF THE 60. The contract arithmetic -- 3 flag states x
+   * categories x 2 claim values -- only closes if two of the three flags are held
+   * constant, which the kickoff does not say. Held at UNKNOWN, as the fixture
+   * does, the CROSS-GATE cases are never exercised: the contract rows never once
+   * ask whether paediatrician='NO' wrongly closes Theatre.
    * That is a plausible bug (one mistyped branch in a CASE) and the contract
    * cannot see it.
    *
-   * So the 48 ship exactly as specified, because they are the contract and the
+   * So the 60 ship as the contract, because they are the contract and the
    * definition of done cites them literally, and this covers the hole they
    * cannot. It costs one loop.
    */
-  test('exhaustive sweep — 432 combinations agree across both derivation sites', async () => {
+  test('exhaustive sweep — 540 combinations agree across both derivation sites', async () => {
     const disagreements: string[] = [];
 
     for (const category of CATEGORIES) {

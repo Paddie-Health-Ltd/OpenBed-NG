@@ -88,7 +88,7 @@ async function seedCell(tx: TransactionSql, lga: string, beds: number[]): Promis
     `);
     await tx.unsafe(`
       insert into app.ward_status (facility_id, category, offering, bed_count, accepting, monitoring_state)
-      values ('${rows[0]?.id}', 'ICU', 'OFFERED', ${count}, true, 'ACTIVE')
+      values ('${rows[0]?.id}', 'ICU_ADULT', 'OFFERED', ${count}, true, 'ACTIVE')
     `);
   }
 }
@@ -151,7 +151,7 @@ describe('lga_rollup k-floor', () => {
       `);
       await tx.unsafe(`
         insert into app.ward_status (facility_id, category, offering, bed_count, accepting, monitoring_state)
-        values ('${vis[0]?.id}', 'ICU', 'OFFERED', 400, true, 'ACTIVE')
+        values ('${vis[0]?.id}', 'ICU_ADULT', 'OFFERED', 400, true, 'ACTIVE')
       `);
     });
   });

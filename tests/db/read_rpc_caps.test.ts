@@ -37,16 +37,16 @@ async function seedFixture(tx: TransactionSql, events: number): Promise<void> {
   `);
   await tx.unsafe(`
     insert into app.ward_account (id, facility_id, ward_category, role)
-    values ('${USER}','${FACILITY}','ICU','WARD_STAFF')
+    values ('${USER}','${FACILITY}','ICU_ADULT','WARD_STAFF')
   `);
   await tx.unsafe(`
     insert into app.ward_status (id, facility_id, category, offering, bed_count, accepting)
-    values ('dddddddd-0000-4000-8000-0000000000bb','${FACILITY}','ICU','OFFERED',1,true)
+    values ('dddddddd-0000-4000-8000-0000000000bb','${FACILITY}','ICU_ADULT','OFFERED',1,true)
   `);
   await tx.unsafe(`
     insert into app.ward_status_event
       (ward_status_id, facility_id, category, offering, bed_count, accepting, state, source, version, created_at)
-    select 'dddddddd-0000-4000-8000-0000000000bb','${FACILITY}','ICU','OFFERED', g, true, 'OK','WARD', g,
+    select 'dddddddd-0000-4000-8000-0000000000bb','${FACILITY}','ICU_ADULT','OFFERED', g, true, 'OK','WARD', g,
            now() - (g || ' minutes')::interval
       from generate_series(1, ${events}) g
   `);
@@ -61,7 +61,7 @@ describe('read RPC caps', () => {
       CLAIMS,
       async (tx) => {
         const rows = await tx.unsafe<{ n: number }[]>(
-          `select count(*)::int as n from public.ward_status_history('ICU', null, 100000)`,
+          `select count(*)::int as n from public.ward_status_history('ICU_ADULT', null, 100000)`,
         );
         return rows[0]?.n ?? -1;
       },
@@ -76,7 +76,7 @@ describe('read RPC caps', () => {
       CLAIMS,
       async (tx) => {
         const rows = await tx.unsafe<{ n: number }[]>(
-          `select count(*)::int as n from public.ward_status_history('ICU', null, null)`,
+          `select count(*)::int as n from public.ward_status_history('ICU_ADULT', null, null)`,
         );
         return rows[0]?.n ?? -1;
       },
@@ -95,7 +95,7 @@ describe('read RPC caps', () => {
       async (tx) => {
         const rows = await tx.unsafe<{ n: number }[]>(
           `select count(*)::int as n
-             from public.ward_status_history('ICU', now() - interval '365 days', 200)`,
+             from public.ward_status_history('ICU_ADULT', now() - interval '365 days', 200)`,
         );
         return rows[0]?.n ?? -1;
       },
@@ -105,7 +105,7 @@ describe('read RPC caps', () => {
         await tx.unsafe(`
           insert into app.ward_status_event
             (ward_status_id, facility_id, category, offering, bed_count, accepting, state, source, version, created_at)
-          values ('dddddddd-0000-4000-8000-0000000000bb','${FACILITY}','ICU','OFFERED',42,true,'OK','WARD',99,
+          values ('dddddddd-0000-4000-8000-0000000000bb','${FACILITY}','ICU_ADULT','OFFERED',42,true,'OK','WARD',99,
                   now() - interval '200 days')
         `);
       },

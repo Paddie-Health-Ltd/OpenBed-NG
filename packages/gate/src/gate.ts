@@ -32,13 +32,15 @@ export type TriState = 'UNKNOWN' | 'YES' | 'NO';
 /** The eight published ward categories. Mirrors `app.ward_category`. */
 export type WardCategory =
   | 'A_AND_E'
-  | 'ICU'
+  | 'ICU_ADULT'
+  | 'ICU_PAEDIATRIC'
+  | 'MEDICAL_ADULT'
+  | 'PAEDIATRIC'
   | 'THEATRE'
   | 'SURGICAL'
   | 'MATERNITY'
   | 'NICU'
-  | 'SCBU'
-  | 'GENERAL_MEDICAL';
+  | 'SCBU';
 
 /**
  * PUBLIC reason a category is gated. Mirrors `app.gate_reason`.
@@ -85,8 +87,19 @@ export function gate(
     case 'SURGICAL':
       return anaesthetist === 'NO' ? 'NO_ANAESTHETIST_ON_DUTY' : null;
 
+    // All four paediatric-facing categories, not just the neonatal two.
+    //
+    // DEFAULT PENDING CLINICIAN CONFIRMATION, and stated rather than left to be
+    // derived. This is TRANSCRIPTION of the existing rule to the categories added
+    // on 2026-09-09, not a new rule: a paediatric ICU with no paediatrician on
+    // duty is not paediatric capacity, by the same argument that gates Theatre on
+    // the anaesthetist. Whether ONE flag is the right granularity across neonatal
+    // and paediatric intensive care is open -- but a single flag is the
+    // conservative reading and it preserves current behaviour.
     case 'NICU':
     case 'SCBU':
+    case 'PAEDIATRIC':
+    case 'ICU_PAEDIATRIC':
       return paediatrician === 'NO' ? 'NO_PAEDIATRICIAN_ON_DUTY' : null;
 
     case 'MATERNITY':
@@ -94,8 +107,8 @@ export function gate(
 
     // Ungated. No duty flag closes these.
     case 'A_AND_E':
-    case 'ICU':
-    case 'GENERAL_MEDICAL':
+    case 'ICU_ADULT':
+    case 'MEDICAL_ADULT':
       return null;
 
     default: {

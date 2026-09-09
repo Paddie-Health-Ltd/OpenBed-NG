@@ -288,6 +288,19 @@ the only control.
         --jq '{enforce_admins:.enforce_admins.enabled}'
       ```
 
+- [x] **Verified 2026-09-09 that a red required check produces `BLOCKED`.**
+      A/B/A on PR #1 with settings held constant: six green -> `CLEAN`; two red ->
+      `BLOCKED`; six green -> `CLEAN`. All six checks had REPORTED in every state,
+      so this is not the checks-pending case.
+
+      **Keep this claim at the strength of the evidence.** What was observed is
+      GitHub's *computed* `mergeStateStatus`, together with `enforce_admins: true`
+      verified independently above. It is **not** a merge attempt that was
+      refused. Do not close that gap by attempting a merge while red: the only way
+      to observe an actual refusal is to try the thing whose failure mode is
+      landing a known-bad commit on `main`. Computed status plus verified
+      `enforce_admins` is the correct stopping point.
+
 - [ ] Private vulnerability reporting enabled (referenced by `SECURITY.md`)
 
 **Covered by tests: nothing, and for the same reason as the region (step 1).**

@@ -55,7 +55,7 @@ INSERT INTO app.ward_status
 VALUES
     -- Ordinary reporting wards.
     ('b0000000-0000-4000-8000-000000000001','a0000000-0000-4000-8000-000000000001','A_AND_E','OFFERED',4,true,'ACTIVE','WARD'),
-    ('b0000000-0000-4000-8000-000000000002','a0000000-0000-4000-8000-000000000001','ICU','OFFERED',1,true,'ACTIVE','WARD'),
+    ('b0000000-0000-4000-8000-000000000002','a0000000-0000-4000-8000-000000000001','ICU_ADULT','OFFERED',1,true,'ACTIVE','WARD'),
     ('b0000000-0000-4000-8000-000000000003','a0000000-0000-4000-8000-000000000001','THEATRE','OFFERED',2,true,'ACTIVE','WARD'),
 
     -- SHAPE 4: at zero, WITH a reason. The reason itself lives on the event row
@@ -156,7 +156,7 @@ BEGIN
 
         INSERT INTO app.ward_status
             (facility_id, category, offering, bed_count, accepting, monitoring_state, source)
-        VALUES (v_id, 'ICU', 'OFFERED', v_beds, true, 'ACTIVE', 'WARD')
+        VALUES (v_id, 'ICU_ADULT', 'OFFERED', v_beds, true, 'ACTIVE', 'WARD')
         ON CONFLICT (facility_id, category) DO NOTHING;
     END LOOP;
 END $$;

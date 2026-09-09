@@ -39,12 +39,12 @@ async function seedTwoFacilities(tx: TransactionSql): Promise<void> {
     `);
     await tx.unsafe(`
       insert into app.ward_status (facility_id, category, offering, bed_count, accepting, monitoring_state)
-      values ('${id}','ICU','OFFERED',3,true,'ACTIVE')
+      values ('${id}','ICU_ADULT','OFFERED',3,true,'ACTIVE')
     `);
   }
   await tx.unsafe(`
     insert into app.ward_account (id, facility_id, ward_category, role)
-    values ('${USER_A}','${FAC_A}','ICU','WARD_STAFF')
+    values ('${USER_A}','${FAC_A}','ICU_ADULT','WARD_STAFF')
   `);
 }
 
@@ -76,7 +76,7 @@ describe('cross-tenant isolation', () => {
       async (tx) => tx.unsafe<{ category: string }[]>(`select category::text as category from public.my_facility_wards()`),
       seedTwoFacilities,
     );
-    expect(rows.map((r) => r.category)).toEqual(['ICU']);
+    expect(rows.map((r) => r.category)).toEqual(['ICU_ADULT']);
   });
 
   test('cross-facility assert_member is rejected with CROSS_FACILITY_DENIED', async () => {

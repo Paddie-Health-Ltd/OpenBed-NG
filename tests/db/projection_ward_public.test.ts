@@ -22,7 +22,7 @@ async function seed(tx: TransactionSql): Promise<void> {
   await tx.unsafe(`insert into app.facility_ops (facility_id) values ('${FAC}')`);
   await tx.unsafe(`
     insert into app.ward_status (facility_id, category, offering, bed_count, accepting, monitoring_state)
-    values ('${FAC}','ICU','OFFERED',5,true,'ACTIVE')
+    values ('${FAC}','ICU_ADULT','OFFERED',5,true,'ACTIVE')
   `);
 }
 
@@ -30,7 +30,7 @@ describe('projection into ward_public', () => {
   test('a ward_status INSERT reaches the mirror in the same transaction', async () => {
     await withRole('postgres', null, async (tx) => {
       const rows = await tx.unsafe<{ bed_count: number }[]>(
-        `select bed_count from public.ward_public where facility_id='${FAC}' and category='ICU'`,
+        `select bed_count from public.ward_public where facility_id='${FAC}' and category='ICU_ADULT'`,
       );
       expect(rows[0]?.bed_count).toBe(5);
     }, seed);
