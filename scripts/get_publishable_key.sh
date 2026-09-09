@@ -50,17 +50,28 @@ raw="$(npx --yes supabase projects api-keys --project-ref "$PROJECT_REF" 2>/dev/
     exit 2
 }
 
-# Prefer the new-style publishable key. Fall back to the legacy `anon` JWT only
-# if the project still has legacy keys enabled -- which, after the 2026-09-09
-# rotation, it should not.
+# THE PUBLISHABLE KEY ONLY. There is deliberately no fallback to the legacy
+# `anon` JWT.
+#
+# The fallback existed until 2026-09-09 and was removed the same day legacy keys
+# were disabled, because from that moment it could only ever return a DEAD key --
+# silently, on stdout, indistinguishable from a good one. Every probe that took
+# its key from here would then fail at authentication with 401, before PostgREST
+# consulted a schema, and the operator would read that 401 as the security
+# boundary holding. It is the same false-negative shape as a "not 200" rotation
+# check: the assertion passes for a reason unrelated to what it guards.
+#
+# A missing key is a stop condition, not a thing to work around.
 key="$(printf '%s' "$raw" | jq -r '
-    ( [.keys[]? | select(.type == "publishable") | .api_key] | first )
-    // ( [.keys[]? | select(.name == "anon")     | .api_key] | first )
-    // empty
+    [.keys[]? | select(.type == "publishable") | .api_key] | first // empty
 ')"
 
 if [ -z "$key" ]; then
-    echo "ERROR: no publishable or anon key found for project $PROJECT_REF." >&2
+    echo "ERROR: no publishable (sb_publishable_) key for project $PROJECT_REF." >&2
+    echo "  This script does NOT fall back to the legacy anon JWT: legacy keys" >&2
+    echo "  were disabled on 2026-09-09, so that fallback could only ever hand" >&2
+    echo "  you a dead key and turn a 401 into a false 'boundary held'." >&2
+    echo "  Create a publishable key in the dashboard (API Keys) and re-run." >&2
     exit 1
 fi
 

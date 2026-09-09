@@ -159,18 +159,33 @@ ones.
 
 ## 4. Verify the boundary by hand, against the hosted project
 
-Run these against the hosted project with the **anon** key. Every one must fail.
+Run these against the hosted project with the **publishable** key. Every one
+must fail.
+
+**THE KEY MUST BE THE `sb_publishable_` ONE, NOT THE LEGACY `anon` JWT.**
+Disabling legacy API keys on 2026-09-09 killed the legacy `anon` key as well as
+the exposed `service_role` one — they are signed by the same secret. A probe
+still written against the old format now fails at *authentication*, before
+PostgREST ever consults a schema, and records a boundary that was never
+exercised. That is a false negative of exactly the same shape as the "not 200"
+rotation probe in `runbook-key-rotation.md`: the check passes for a reason
+unrelated to what it guards. Take the key from the script, never from a
+remembered value.
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' \
+KEY="$(bash scripts/get_publishable_key.sh)"
+SUPABASE_URL="https://klrlpxysjsjpdkeqdhvl.supabase.co"
+
+# A 401 on ANY of these means the key is wrong, not that the boundary held.
+curl -s -w '\nHTTP %{http_code}\n' \
   "$SUPABASE_URL/rest/v1/facility?select=*" \
-  -H "apikey: $ANON_KEY" -H "Accept-Profile: app"          # expect 406 PGRST106
+  -H "apikey: $KEY" -H "Accept-Profile: app"       # expect 406, body names PGRST106
 
 curl -s "$SUPABASE_URL/rest/v1/ward_public?select=*" \
-  -H "apikey: $ANON_KEY" | head -c 200                      # expect rows, SELECT only
+  -H "apikey: $KEY" | head -c 200                  # expect rows, SELECT only
 
 curl -s -X POST "$SUPABASE_URL/rest/v1/ward_public" \
-  -H "apikey: $ANON_KEY" -d '{}' -o /dev/null -w '%{http_code}\n'   # expect 4xx
+  -H "apikey: $KEY" -d '{}' -w '\nHTTP %{http_code}\n'   # expect 4xx, body says why
 ```
 
 - [ ] `app` schema unreachable with the publishable key
