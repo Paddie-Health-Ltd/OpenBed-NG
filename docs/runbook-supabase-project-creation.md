@@ -20,6 +20,12 @@ Asia Pacific, North America, Europe and South America. `af-south-1` is an AWS
 region name that Supabase does not offer, so the original pin was a spec citing
 something that does not exist. Recorded here so nobody re-derives it.
 
+**Verified, not assumed** (2026-09-09, <https://supabase.com/docs/guides/platform/regions>):
+Supabase offers 17 regions — `us-west-1/2`, `us-east-1/2`, `ca-central-1`,
+`eu-west-1/2/3`, `eu-central-1/2`, `eu-north-1`, `ap-south-1`,
+`ap-southeast-1/2`, `ap-northeast-1/2`, `sa-east-1`. **None is in Africa.**
+`eu-west-1` is West EU (Ireland).
+
 **The region is fixed at creation and cannot be changed.** Moving means a new
 project and a data migration with an outage in the middle — so the pin still
 matters, it simply had to be a region that exists.
@@ -30,10 +36,18 @@ Re-derivable by anyone with a management token. Do not read this off the
 dashboard; read it from the API, so the answer is evidence rather than a memory.
 
 ```bash
+# Prints the full project objects. Read region / status / Postgres version off
+# the output rather than through a field path this runbook guessed at.
 curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
-  https://api.supabase.com/v1/projects \
-  | jq -r '.[] | select(.id=="klrlpxysjsjpdkeqdhvl") | "\(.name) \(.region) \(.status) pg\(.database.version)"'
+  https://api.supabase.com/v1/projects | jq .
 ```
+
+*The endpoint returns `V1ProjectWithDatabaseResponse`, so `region` and `status`
+are top level and the Postgres version sits inside a nested database object. The
+exact key was **not** verified when this was written, which is why the command
+above prints everything instead of asserting a path. If you pin a `jq` filter
+later, confirm the field names against the response first — a runbook step that
+fails on a wrong path is a step people stop running.*
 
 **Result on file:**
 
