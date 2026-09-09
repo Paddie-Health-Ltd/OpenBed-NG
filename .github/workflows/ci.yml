@@ -89,8 +89,25 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
+
+      # THE BUILD IS A PRECONDITION, and omitting it is what reddened this job on
+      # the first PR run. tests/compliance/bundle_guards.test.ts asserts the REAL
+      # built bundle is accepted -- that is the ACCEPT leg of the plant-then-assert
+      # contract -- and GitHub jobs do not share a workspace, so `bundle-guards`
+      # building is no help here. It passed locally only because a developer had
+      # already built.
+      #
+      # Note what did NOT happen: the guard did not silently pass over an empty
+      # dist. Its anti-vacuity leg failed loudly and its message named the fix.
+      - name: Build apps (corpus for the bundle-guard ACCEPT leg)
+        run: npm run build
+
       - name: Compliance guards (plant-then-assert)
-        run: npx vitest run --project compliance --reporter=junit --outputFile=junit-compliance.xml
+        # Two reporters, deliberately. With `--reporter=junit` alone vitest writes
+        # the XML and prints nothing, so a failing job's log showed only the six
+        # counts and the failure detail had to be downloaded as an artifact. The
+        # default reporter puts the assertion in the log where it is read.
+        run: npx vitest run --project compliance --reporter=default --reporter=junit --outputFile=junit-compliance.xml
       - name: Red-disposition counts (Standard O)
         if: always()
         run: node scripts/attest_counts.mjs junit-compliance.xml
@@ -142,7 +159,8 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
 
       - name: RLS negative suite and database tests
-        run: npx vitest run --project db --reporter=junit --outputFile=junit-db.xml
+        # See the compliance job: junit alone prints nothing to the log.
+        run: npx vitest run --project db --reporter=default --reporter=junit --outputFile=junit-db.xml
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
 
