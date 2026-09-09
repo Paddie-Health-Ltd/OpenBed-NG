@@ -78,12 +78,3 @@ function render(): void {
 }
 
 render();
-
-// ---------------------------------------------------------------------------
-// DELIBERATE PROBE — REVERTED IN THE NEXT COMMIT.
-// A finding F2 violation: `!` on a duty flag. The ESLint no-restricted-syntax
-// rule must reject this, reddening `repo-lint`, so that we can observe whether a
-// red REQUIRED check actually blocks a merge. Until now that property has only
-// been demonstrated locally; Clause 5 says a machinery claim carries its probe.
-// ---------------------------------------------------------------------------
-export const probeClosed = !stubFlags.anaesthetist;
