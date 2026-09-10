@@ -81,6 +81,21 @@ done
 
 VIOLATIONS=0
 
+# EXACT-LINE MEMBERSHIP, IN PURE BASH. Replaces `printf '%s\n' "$list" | grep -qx`.
+#
+# grep exits 0 for match, 1 for no match and 2 for COULD NOT RUN. Both call sites
+# below branch on truthiness alone, so an exit 2 was silently reinterpreted -- and
+# in one direction that meant a guard failing OPEN. No fork, no pipe, no third
+# exit code. bash 3.2 compatible.
+list_has_line() {
+    local list=$'\n'"$1"$'\n'
+    local needle=$'\n'"$2"$'\n'
+    case "$list" in
+        *"$needle"*) return 0 ;;
+    esac
+    return 1
+}
+
 # --- Leg 1: SET EQUALITY (the strong leg) ---
 missing=$(comm -23 <(printf '%s\n' "$EXPECTED" | sort) <(printf '%s\n' "$ACTUAL" | sort))
 extra=$(comm -13 <(printf '%s\n' "$EXPECTED" | sort) <(printf '%s\n' "$ACTUAL" | sort))
@@ -97,7 +112,12 @@ fi
 
 # --- Leg 2: forbidden names (the loud leg) ---
 for name in $FORBIDDEN; do
-    if printf '%s\n' "$ACTUAL" | grep -qx "$name"; then
+    # WAS FAILING OPEN. As `printf | grep -qx`, a grep exit of 2 -- the check
+    # could not run -- took the `else` branch and reported no forbidden column.
+    # This is the guard for CTO condition (1): no identity-bearing column on the
+    # audit log. A guard that reports "clean" when it did not execute is the
+    # defect that guard exists to prevent.
+    if list_has_line "$ACTUAL" "$name"; then
         echo "FAIL: forbidden identity-bearing column '$name' on app.audit_log"
         VIOLATIONS=$((VIOLATIONS+1))
     fi

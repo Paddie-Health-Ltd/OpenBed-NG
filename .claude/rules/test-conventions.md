@@ -300,8 +300,14 @@ green re-run of an unchanged commit is not a diagnosis. Both were recorded as an
 OPEN, UNDIAGNOSED intermittent — see `docs/handoff-2026-09-09.md` §8 — because a
 flake written down as "flaky" is a symptom accepted as a cause.
 
-**If you are reading this because an ACCEPT leg just went red in CI, that is the
-open item, and it has a stop rule.** Two things about it belong here rather than
+**The intermittent that produced this rule is now closed** — see
+`docs/handoff-2026-09-09.md` §8. The instrumentation named the cause on its very
+first outing, which is the entire argument for this rule: one CI failure with the
+guard's output attached ended an investigation that seven excluded hypotheses had
+not. **What it found is the next entry below.**
+
+**If you are reading this because an ACCEPT leg just went red in CI, the stop
+rule below still applies — it is scoped to the shape, not to the closed item.** Two things about it belong here rather than
 only in the handoff, because this is the file you are in:
 
 - **The signature is a shape, not a file.** *A compliance guard leg asserting
@@ -360,6 +366,56 @@ correct on the day it is written.
 Practical form, when you write a probe: **name the exact signal that means pass,
 never a negation.** "Not 200" and "4xx" are satisfied by the probe's own
 precondition being absent. "401" is not.
+
+### Invented here: a check that could not run must never report a verdict (2026-09-10)
+
+**`grep` has three exit codes. Branching on two of them is a defect, not a
+shortcut.**
+
+| Exit | Means |
+|---|---|
+| 0 | match |
+| 1 | no match |
+| **2** | **could not run** — unreadable input, a resource failure, a fork that did not happen |
+
+Whichever branch exit 2 lands on is what it silently becomes:
+
+```bash
+check || fail "..."      # exit 2 -> a violation that does not exist
+if check; then ... fi    # exit 2 -> "clean". THE GUARD FAILS OPEN.
+```
+
+Both forms were live here on 2026-09-10. The first made
+`lint_migration_header.sh` report `006_gate_function.sql: no '-- ===' banner
+block` in CI — for a file beginning with the byte `-` and carrying a 58-line
+banner. The second was in `lint_audit_log_columns.sh`, the guard for *no
+identity-bearing column on `app.audit_log`*: a grep that failed to run would have
+reported no forbidden column found.
+
+**The rule.** In a shell guard, prefer a form with no third outcome at all —
+bash `case` matching forks nothing, pipes nothing, and cannot fail to run. Where
+a check must genuinely read a file, separate the codes by hand and make anything
+other than 0 or 1 **fatal and loud**:
+
+```bash
+st=0; grep -qF "$needle" "$f" || st=$?
+case "$st" in
+    0) ;;
+    1) fail "..." ;;
+    *) echo "ERROR: grep exited $st on $f -- the check did not run" >&2; exit 2 ;;
+esac
+```
+
+Banned mechanically by `scripts/lint_no_piped_grep_q.sh`, so the shape cannot
+return quietly.
+
+**Why this is the same finding as the four before it.** *A check reporting
+success, or failure, for a reason unrelated to what it guards.* The phantom
+links, the `-o /dev/null` rotation probe, the `$ANON_KEY` curls, the dead-key
+fallback — and now a guard whose verdict did not come from an executed check.
+**Fifth instance. It is a category, not a run of bad luck**, and the practical
+defence is always the same: name the exact condition that means pass, and make
+every other outcome loud.
 
 Conventions deliberately **not** ported, so nobody re-derives them by accident:
 
