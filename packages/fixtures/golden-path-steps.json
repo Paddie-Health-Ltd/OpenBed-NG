@@ -1,0 +1,156 @@
+{
+  "comment": "The ordered decomposition of RELEASE GATE 2 into one step per id. Single derivation site: tests/e2e/golden-path.test.ts declares one test per entry and tests/e2e/ratchet.test.ts asserts the step-id set in that file equals this one exactly, so nobody moves the frontier by deleting a step. Both IMPORT this file; neither restates it. Gate 2's source text is the release-gates section of the v1 sprint kickoff, as restated on 2026-09-10 -- see gate2_restatement below. Paths in this file are deliberately unbackticked: several name artefacts that arrive in a later stage, and tests/compliance/no_phantom_paths.test.ts reads a backticked repo-relative path as a claim that it exists today.",
+
+  "gate2_restatement": "Gate 2 required 'the tile reflects it within 60 seconds with no page refresh'. That was written against the Realtime design that A1 reversed. Public reads now come from a static snapshot at s-maxage=30, stale-while-revalidate=300, which may legitimately serve a five-minute-old payload, so the original clause encodes a requirement the chosen architecture cannot meet -- and the natural fix when it reds at 3am is to add Realtime back, which is the decision that was reversed for measured reasons. Restated 2026-09-10, founder's call: 'a client poll at the snapshot's own cadence reflects the new count', where the cadence is pollCadenceSeconds in the snapshot shape fixture and the assertion is written against that constant rather than a wall-clock number in prose. Everything else in Gate 2 stands.",
+
+  "ordering_rule": "Ordered by DEPENDENCY AND STAGE, not by Gate 2's narrative. A ratchet has ONE frontier position, so owning_stage must be monotonically non-decreasing down this list: if step N is owned by a later stage than step N+1, no single passing_through value can ever describe the truth and the ratchet becomes unsatisfiable rather than red. Gate 2's prose violates that -- it interleaves browser-rendered public steps with server-side ward steps. Each entry therefore carries gate2_clause, naming the clause it discharges, so the mapping back to the gate that was signed off stays explicit and auditable instead of being lost in the reordering.",
+
+  "owning_stage_is_the_stage_that_makes_the_step_PASS": "Not the stage whose bundle the feature belongs to on paper. A step owned by a later stage than the one that actually makes it pass reds the ratchet DURING THE WRONG STAGE, someone moves the frontier to silence it, and the gate becomes the thing it was built to replace.",
+
+  "stage_coverage": "Stages 2 AND 4 own zero steps, deliberately and for DIFFERENT reasons, both of which must survive contact with the standing rule that nothing merges unless it is reachable from the golden path. Stage 2 is user-facing and fully reachable -- the counter, the zero-reason chips, admin challenge, optimistic UI -- but it WIDENS steps that already pass rather than extending the path, so it moves the frontier by nothing. Stage 4 is a control loop: escalation and notification observe the golden path rather than sitting on it. This fixture is a frontier sensor, not a progress meter for every stage. Neither exemption is a gap, and the reachability rule is restated in the v2 sprint kickoff to say so once rather than have it re-argued.",
+
+  "needs_browser": "True on exactly two entries, contiguous, both owned by the stage that brings Playwright. They need not be the LAST entries and are not: Gate 2 ends with two browserless outcome steps. Everything before them is HTTP and SQL, which is why Playwright arrives late rather than at the start. NOT ASSERTED HERE, deliberately, by the browserless twins of those two: real browser paint. jsdom with fake timers proves the poll fires, not that a phone renders it.",
+
+  "steps": [
+    {
+      "id": "magic-link-minted",
+      "description": "admin/generate_link mints a magic link for the E2E ward role address. The response field names are printed verbatim and the assertion is written against what this GoTrue returned, not against what the documentation says.",
+      "gate2_clause": "Ward staff opens a single-use magic link",
+      "owning_stage": 0,
+      "needs_browser": false
+    },
+    {
+      "id": "magic-link-verified-issues-session",
+      "description": "POST /auth/v1/verify, over HTTP with the anon key, exchanges that token hash for an access token, and the token authenticates a PostgREST request. Only the TRANSPORT is bypassed: single use lives entirely in this consumption leg and this leg runs for real against real GoTrue. Minting a session with admin/createUser, or hand-signing a JWT, would bypass /verify itself and is banned by name in the tests/e2e header.",
+      "gate2_clause": "Ward staff opens a single-use magic link",
+      "owning_stage": 0,
+      "needs_browser": false
+    },
+    {
+      "id": "magic-link-replay-refused",
+      "description": "The same token_hash verified a second time is refused. Name the exact refusal, never a negation: a probe satisfied by 'not 200' is satisfied by its own precondition being absent.",
+      "gate2_clause": "Ward staff opens a single-use magic link",
+      "owning_stage": 0,
+      "needs_browser": false
+    },
+    {
+      "id": "magic-link-expired-refused",
+      "description": "A link whose expiry has been forced is refused. HOW expiry was forced is recorded in this description when the step lands, because it changes what was proved. The chosen mechanism is to age the token's issued-at timestamp inside GoTrue's own schema, NOT to lower otp_expiry in supabase/config.toml -- that setting is global to the stack every other step runs against, and a step that alters shared auth configuration to make itself pass has changed the thing it was measuring.",
+      "gate2_clause": "Ward staff opens a single-use magic link",
+      "owning_stage": 0,
+      "needs_browser": false
+    },
+    {
+      "id": "session-resolves-to-ward-account",
+      "description": "The GoTrue token's sub resolves to an app.ward_account row and app.assert_member accepts the session. This is the seam a hand-forged claims blob structurally cannot test -- SET LOCAL request.jwt.claims contains whatever you put in it, so asserting against it asserts your own fixture back at you. Fails with NOT_A_MEMBER until a ward account is provisioned, because nothing in this repository writes that row: the only two writers today are db-test fixtures and the seed writes none.",
+      "gate2_clause": "identifies at handover",
+      "owning_stage": 1,
+      "needs_browser": false
+    },
+    {
+      "id": "handover-lists-facility-wards",
+      "description": "public.my_facility_wards() returns the session's own facility's categories. It takes no arguments, so it cannot be pointed at another facility -- the absence is the control.",
+      "gate2_clause": "identifies at handover",
+      "owning_stage": 1,
+      "needs_browser": false
+    },
+    {
+      "id": "publish-count",
+      "description": "One category's bed_count and accepting are published in a single transaction, returning version, updated_at, bed_count, accepting_effective and gated_by. The facility is resolved from auth.uid(), never from a caller-supplied argument. FIRST of two publishes on this path -- ward-republishes follows immediately, and it is the SECOND value that reaches the projection.",
+      "gate2_clause": "sets count and accepting per category -> publishes",
+      "owning_stage": 1,
+      "needs_browser": false
+    },
+    {
+      "id": "ward-republishes",
+      "description": "A second publish from the same ward session succeeds and increments version. Placed here rather than beside the update-request steps because a second call to the publish RPC passes the moment Stage 1 lands, and owning_stage names the stage that makes a step pass. Its gate2_clause is unchanged, so the mapping back to Gate 2's arc survives the move. THIS is the value the projection and the tile assert against below -- exercising a version increment before the projection is read, deliberately and not by accident.",
+      "gate2_clause": "the ward updates",
+      "owning_stage": 1,
+      "needs_browser": false
+    },
+    {
+      "id": "snapshot-regenerates",
+      "description": "snapshot_current gains a row whose v has incremented and which carries the REPUBLISHED count, and the snapshot heartbeat moved in the SAME transaction, so a regeneration can never be claimed that did not commit. v is a monotonic run counter or a content hash and never a timestamp aggregate: a duty-flag flip changes the derived gate without changing ward_public.updated_at, so a version derived from max(updated_at) would fail to regenerate exactly when the gate closed a theatre.",
+      "gate2_clause": "the public snapshot regenerates",
+      "owning_stage": 1,
+      "needs_browser": false
+    },
+    {
+      "id": "tile-shows-count",
+      "description": "The snapshot, decoded through the shared codec, carries the republished count for that ward -- the value from ward-republishes, not from publish-count. Browserless: the assertion is on the decoded payload, not on paint.",
+      "gate2_clause": "the tile shows fresh",
+      "owning_stage": 1,
+      "needs_browser": false
+    },
+    {
+      "id": "tile-shows-absolute-timestamp",
+      "description": "The tile carries an absolute timestamp with an explicit Africa/Lagos offset, never a relative age. A relative age is a wall-clock subtraction and a handset three hours fast renders it confidently wrong.",
+      "gate2_clause": "with the absolute timestamp",
+      "owning_stage": 1,
+      "needs_browser": false
+    },
+    {
+      "id": "stale-ward-payload-carries-duty-phone",
+      "description": "An aged E2E ward's payload carries a non-null E.164 duty number, so a referrer who reaches a stale ward has something to call. This is the data property; the tap that reaches it is a render step at the tail.",
+      "gate2_clause": "a referrer taps a stale ward -> sees the duty phone number",
+      "owning_stage": 1,
+      "needs_browser": false
+    },
+    {
+      "id": "update-request-fired",
+      "description": "A public update request is recorded against a named ward. No IP address is persisted: the public rate limit is enforced at the edge, and if a server-side counter ever proves necessary it holds a truncated per-day-salted hash with a hard 24-hour TTL and no foreign key -- a count, not an identifier. THAT DECISION DOES NOT TRAVEL WITH THIS STEP'S STAGE. The fixture-driven exact-column-list guard on app.update_request lands in the commit that CREATES the table, whenever that is, because the shape decision has to be made before the table exists and not after.",
+      "gate2_clause": "fires an update request",
+      "owning_stage": 3,
+      "needs_browser": false
+    },
+    {
+      "id": "ward-sees-pending-request",
+      "description": "The ward session sees that request as pending.",
+      "gate2_clause": "the ward device shows the pending request",
+      "owning_stage": 3,
+      "needs_browser": false
+    },
+    {
+      "id": "snapshot-sorted-freshness-then-distance",
+      "description": "The payload orders by (freshness_bucket asc, distance asc, facility_id asc). Requires two E2E facilities at known coordinates: with one facility there is no sort, and this step cannot be made to pass honestly before the second arrives. Freshness may reorder results and may never filter them.",
+      "gate2_clause": "distance-sorted",
+      "owning_stage": 3,
+      "needs_browser": false
+    },
+    {
+      "id": "poll-at-cadence-reflects-update",
+      "description": "A client poll at pollCadenceSeconds -- the named constant in the snapshot shape fixture, not a wall-clock number in prose -- reflects the new count. jsdom with fake timers. This is the restated Gate 2 latency clause, and it is assertable only because that constant lands in Stage 0 with the snapshot shape.",
+      "gate2_clause": "a client poll at the snapshot's own cadence reflects the new count [RESTATED 2026-09-10, was: within 60 seconds]",
+      "owning_stage": 3,
+      "needs_browser": false
+    },
+    {
+      "id": "tile-render-distance-sorted",
+      "description": "Real browser paint: the tiles appear in the sorted order on a rendered page. The browserless twin above proves the ordering; this proves a phone shows it.",
+      "gate2_clause": "distance-sorted",
+      "owning_stage": 3,
+      "needs_browser": true
+    },
+    {
+      "id": "tile-poll-reflects-without-refresh",
+      "description": "Real browser paint: the rendered count changes with no navigation and no reload. The browserless twin proves the poll fires; this proves the page repaints.",
+      "gate2_clause": "with no page refresh",
+      "owning_stage": 3,
+      "needs_browser": true
+    },
+    {
+      "id": "outcome-accepted-logged",
+      "description": "The referrer logs an ACCEPTED outcome against the referral, in structured fields only.",
+      "gate2_clause": "the referrer logs ACCEPTED",
+      "owning_stage": 5,
+      "needs_browser": false
+    },
+    {
+      "id": "outcome-in-audit-log",
+      "description": "That outcome appears in app.audit_log, closing the loop Gate 2 opens. Last step in the fixture.",
+      "gate2_clause": "the outcome appears in the audit log",
+      "owning_stage": 5,
+      "needs_browser": false
+    }
+  ]
+}
