@@ -409,16 +409,58 @@ hosted.** Record the hosted auth version here when you run these by hand.
 
 ### Do these BEFORE the first push
 
-- [ ] **Secret scanning with push protection ON.** This is the *prevention*
+- [x] **Secret scanning with push protection ON.** This is the *prevention*
       control, enforced server-side by GitHub at push time; the `secret-scan` CI
       job is only *detection*, and runs after a push has already been accepted.
       Enable it **before** the first push, not after — this repository is already
       public, and switched on afterwards the largest push in the project's
       history is the one it never saw.
 
-- [ ] **Branch protection on `main`, requiring exactly these SIX checks:**
+      Verified enabled 2026-09-10 via the repository API: `secret_scanning`,
+      `secret_scanning_push_protection`, `secret_scanning_ai_detection` and
+      `secret_scanning_non_provider_patterns` all `enabled`.
+
+      **NOT ASSERTED ANYWHERE, and this class has NO VERIFIED CONTROL.** Being
+      enabled is a configuration fact, not evidence that it blocks anything.
+      `non_provider_patterns` — the path a Postgres connection string falls
+      under — is heuristic, and its behaviour on any particular string is not
+      predictable from the setting being on. So what stands between a
+      credential-bearing commit and this public repository is two UNVERIFIED
+      layers: push protection, never observed blocking anything, and a detection
+      job that runs after the push was already accepted.
+
+      On 2026-09-10 a password-bearing Postgres URL in a new test file was
+      caught by `scripts/lint_no_secrets.sh` — whose verdict the commit sequence
+      then stepped over, because it chained `git commit` after a `grep` of the
+      output. **What actually caught it was a person reading.**
+      `scripts/gate.sh` now makes a local verdict binding, and its own header
+      says it is not a control either.
+
+      Two read-only probes were considered and neither closes this:
+      the secret-scanning alert history is empty, which is equally consistent
+      with *nothing was ever committed* and with *scanning is not reaching*; and
+      a known-revoked provider-format token would establish only that provider
+      patterns are blocked — already implied by the setting — while saying
+      nothing about the heuristic path, and would put a deliberate
+      secret-shaped string into a public repository's alert history to answer a
+      question nobody asked.
+
+      **Closes only on evidence of an actual block**, which cannot be
+      manufactured without pushing a real secret to a public repository. That is
+      the same rule this project applies to the merge-blocking probe: you do not
+      establish a control by attempting the harm it prevents.
+
+- [ ] **Branch protection on `main`, requiring exactly these SEVEN checks:**
       `repo-lint`, `migration-lint`, `compliance-tests`, `db-tests`,
-      `bundle-guards`, `secret-scan`.
+      `bundle-guards`, `secret-scan`, `golden-path`.
+
+      **CORRECTED 2026-09-10 — it said SIX and listed six.** `golden-path` was
+      added when the frontier ratchet landed, and a runbook that names the
+      required set WRONGLY is worse than one that says "see the settings",
+      because this list is what gets used to restore protection after an
+      incident. `golden-path` runs the Gate 2 decomposition against a real stack
+      and gates on the ratchet; without it in this list, a restore would quietly
+      drop the only check that proves the golden path still runs.
 
       **The required-check names must equal `ci.yml`'s job names AS A SET, and
       this is the item most likely to be wrong.** GitHub matches required checks
