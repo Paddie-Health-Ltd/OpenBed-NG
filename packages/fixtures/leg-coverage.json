@@ -9,8 +9,8 @@
   },
   "current": {
     "legs_total": 84,
-    "reached": 19,
-    "registered": 65,
+    "reached": 20,
+    "registered": 64,
     "note": "MEASURED, and updated whenever legs are added or closed. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started."
   },
   "guards": {
@@ -251,10 +251,7 @@
     },
     "lint_migrations_all.sh": {
       "lint_migrations_all.sh: FAILED — one or more migration lints reported a violation": {
-        "state": "registered",
-        "reason": "no-seam",
-        "why": "No guard-over-a-guard test file exists for this script yet.",
-        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+        "state": "reached"
       }
     },
     "lint_no_drop_cascade.sh": {

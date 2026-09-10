@@ -223,7 +223,12 @@ export function assertedByScript(testsDir: string): Map<string, string[]> {
     const src = readFileSync(join(testsDir, name), 'utf8');
 
     const scripts = new Set<string>();
-    for (const m of src.matchAll(/\bLINT\s*=\s*['"]([\w.]+\.sh)['"]/g)) scripts.add(m[1] as string);
+    // ANY const holding a script name, not just one privileged identifier. It
+    // was `\bLINT\s*=`, so a test that named its constant AGG mapped to no guard
+    // at all and its real, message-asserting assertions counted for nothing --
+    // the instrument reporting a leg unreached because of how a variable was
+    // spelled.
+    for (const m of src.matchAll(/\b[A-Z][A-Z0-9_]*\s*=\s*['"]([\w.]+\.sh)['"]/g)) scripts.add(m[1] as string);
     for (const m of src.matchAll(/runLint\(\s*['"]([\w.]+\.sh)['"]/g)) scripts.add(m[1] as string);
     // A guard driven directly rather than through runLint -- seed.sh takes no
     // ROOT argument, so its test invokes it by path. Without this the register
