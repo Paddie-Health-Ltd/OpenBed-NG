@@ -225,6 +225,10 @@ export function assertedByScript(testsDir: string): Map<string, string[]> {
     const scripts = new Set<string>();
     for (const m of src.matchAll(/\bLINT\s*=\s*['"]([\w.]+\.sh)['"]/g)) scripts.add(m[1] as string);
     for (const m of src.matchAll(/runLint\(\s*['"]([\w.]+\.sh)['"]/g)) scripts.add(m[1] as string);
+    // A guard driven directly rather than through runLint -- seed.sh takes no
+    // ROOT argument, so its test invokes it by path. Without this the register
+    // cannot see a real, message-asserting test and reports the leg unreached.
+    for (const m of src.matchAll(/['"`]scripts\/([\w.]+\.sh)['"`]/g)) scripts.add(m[1] as string);
     if (scripts.size === 0) continue;
 
     // File-local `const X = '...'` declarations, so `toContain(RULE)` counts.

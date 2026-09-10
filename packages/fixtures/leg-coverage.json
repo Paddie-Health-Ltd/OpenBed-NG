@@ -440,10 +440,7 @@
     },
     "seed.sh": {
       "seed data is synthetic and must never reach a non-local database.": {
-        "state": "registered",
-        "reason": "no-seam",
-        "why": "No guard-over-a-guard test file exists for this script yet.",
-        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+        "state": "reached"
       },
       "seed directory not found at": {
         "state": "registered",

@@ -24,8 +24,19 @@ URL="${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}"
 
 # Guard: local only. `--i-know-what-i-am-doing` is deliberately absent; there is
 # no legitimate reason to seed synthetic facilities into a remote database.
-case "$URL" in
-    *127.0.0.1*|*localhost*|*@db:*) ;;
+# ANCHORED ON THE HOST, NOT ON A SUBSTRING OF THE WHOLE URL.
+#
+# This was `*127.0.0.1*|*localhost*|*@db:*`, matched against the entire URL, so
+# `postgresql://u:p@localhost.attacker.example.com/app` READ AS LOCAL -- the
+# substring is there, in a domain that is not. Same for a host such as
+# `my127.0.0.1.example.net`, or either string appearing in the password or the
+# database name. The host is extracted first and matched whole.
+HOSTPORT="${URL#*@}"          # strip scheme and credentials
+HOST="${HOSTPORT%%/*}"        # strip path
+HOST="${HOST%%\?*}"           # strip query
+HOST="${HOST%%:*}"            # strip port
+case "$HOST" in
+    127.0.0.1|localhost|db|0.0.0.0|'[::1]'|::1) ;;
     *)
         echo "REFUSING: seed data is synthetic and must never reach a non-local database." >&2
         echo "  DATABASE_URL points at: ${URL%%\?*}" >&2
