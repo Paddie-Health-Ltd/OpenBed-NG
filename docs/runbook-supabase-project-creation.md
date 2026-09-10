@@ -358,9 +358,32 @@ Verify once, empirically, on the hosted project:
 - [ ] An expired magic link is refused
 - [ ] Recorded: the Supabase auth version these were observed against
 
-**Covered by tests: nothing.** No test in this repository can reach hosted auth,
-and the local stack's GoTrue may not match the hosted version. This checkbox is
-the only control.
+**Covered by tests: the local-integration leg only, against GoTrue v2.196.0**
+(the build shipped by Supabase CLI 2.117.0, printed by the `golden-path` job on
+every run from `/auth/v1/health`). `tests/e2e/golden-path.test.ts` mints a link
+through the admin API, consumes it at the public `POST /auth/v1/verify`, and
+asserts that a second use and an expired link are both refused with HTTP 403
+`otp_expired`.
+
+**The hosted vendor property remains uncovered, and this checkbox is still the
+only control over it.** Supabase upgrades hosted auth out-of-band, so the hosted
+GoTrue is not the version above and no test in this repository can reach it.
+
+Two details that change what the local leg proves, recorded because a reader
+deciding whether this checkbox is still needed will decide from them:
+
+- Expiry is FORCED, by ageing `auth.users.confirmation_sent_at` past
+  `otp_expiry`. Established by controlled probe with a positive control -- ageing
+  `auth.one_time_tokens.created_at` instead has no effect at all. So what is
+  proved is that GoTrue refuses a token whose sent-at is outside the window, not
+  that it expires one on its own after an hour of real time.
+- Only the email TRANSPORT is bypassed. `[local_smtp]` is disabled, so the link
+  is minted through the admin API; the consumption leg runs for real over HTTP
+  with the anon key. Nothing in the suite mints a session without consuming a
+  link.
+
+**Item 3 of the checklist above is therefore discharged for local and open for
+hosted.** Record the hosted auth version here when you run these by hand.
 
 ---
 
