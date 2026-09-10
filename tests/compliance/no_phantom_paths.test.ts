@@ -63,9 +63,6 @@ const DELIBERATE_ABSENCES: Record<string, string> = {
  * executable artefacts, and a reader of one has no reason to expect a plan.
  */
 const PLANNED_ARTEFACTS: Record<string, { stage: number }> = {
-  'tests/e2e/golden-path.test.ts': { stage: 0 },
-  'tests/e2e/ratchet.test.ts': { stage: 0 },
-  'tests/setup/auth.ts': { stage: 0 },
   'apps/ward-console': { stage: 1 },
   'scripts/provision_ward_account.mjs': { stage: 1 },
   'packages/snapshot/src/freshness.ts': { stage: 1 },

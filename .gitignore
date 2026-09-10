@@ -4,8 +4,10 @@ dist/
 coverage/
 *.tsbuildinfo
 
-# Vitest / CI artefacts
-junit.xml
+# Vitest / CI artefacts. The glob matters: the workflow writes junit-db.xml,
+# junit-compliance.xml, junit-e2e.xml and junit-ratchet.xml, none of which the
+# bare `junit.xml` pattern matched.
+junit*.xml
 attestation.json
 
 # Supabase CLI local state

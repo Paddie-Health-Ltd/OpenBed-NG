@@ -178,6 +178,87 @@ jobs:
         if: failure()
         run: npx supabase status || true
 
+  golden-path:
+    name: golden-path
+    runs-on: ubuntu-latest
+    # PROVISIONAL: no cold-run data yet. Same shape as db-tests -- `supabase start`
+    # dominates -- plus a second phase, so the ceiling is a little wider.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+
+      - name: Ensure psql is available
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+          psql --version
+
+      # ITS OWN RUNNER AND ITS OWN DATABASE, NOT SHARED WITH db-tests. The
+      # decisive reason: db-tests is a rollback-only suite over a pristine corpus
+      # -- withRole() throws a sentinel to force rollback precisely so a probe
+      # never mutates what later assertions run against. The golden path must
+      # COMMIT, because a published count has to fire the 008 triggers and reach
+      # the mirrors. Committing into that database would make seed_shapes and
+      # gate 3's exact-cardinality assertion order-dependent, which is the class
+      # of nondeterminism a previous session spent a day diagnosing. A second
+      # database on the same Postgres does not work either: PostgREST and GoTrue
+      # are bound to one. And a ratchet break reddening a check named `db-tests`
+      # is a misleading sensor.
+      - name: Start Supabase (Postgres + PostgREST + GoTrue + Realtime)
+        run: npx supabase start
+
+      - name: Apply migrations
+        run: bash scripts/run_migrations.sh
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+      - name: Load synthetic seed
+        run: bash scripts/seed.sh
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+      # CLASSIFICATION (Clause 5): GUARD-AHEAD-OF-SUBJECT, and the claim stated
+      # exactly. This job executes the full gate 2 decomposition against a real
+      # stack and is non-vacuous; steps beyond the frontier fail because the code
+      # they target arrives in a named later stage. Each fixture entry's
+      # owning_stage is its own reclassification receipt, and moving the frontier
+      # is mechanically the only way to green the ratchet.
+      #
+      # Two phases in ONE job, deliberately: the ratchet's corpus is GENERATED,
+      # and a guard whose corpus is generated must generate it in the same job or
+      # its accept leg is vacuous in CI while passing locally off a stale
+      # artefact. Phase 1 is allowed to be red; phase 2 gates. There is no
+      # `continue-on-error` here or anywhere in this workflow -- see
+      # `scripts/run_e2e.sh` for why that is not a distinction without a
+      # difference.
+      - name: Golden path, then ratchet
+        run: bash scripts/run_e2e.sh
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+      - name: Red-disposition counts for the ratchet (Standard O)
+        if: always()
+        run: node scripts/attest_counts.mjs junit-ratchet.xml
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: junit-golden-path
+          path: |
+            junit-e2e.xml
+            junit-ratchet.xml
+
+      - name: Supabase logs on failure
+        if: failure()
+        run: npx supabase status || true
+
   bundle-guards:
     name: bundle-guards
     runs-on: ubuntu-latest

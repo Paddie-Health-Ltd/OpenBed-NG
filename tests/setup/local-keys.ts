@@ -27,3 +27,18 @@ export const LOCAL_SERVICE_ROLE_KEY =
 export const dbUrl = (): string => process.env['DATABASE_URL'] ?? LOCAL_DB_URL;
 export const apiUrl = (): string => process.env['SUPABASE_API_URL'] ?? LOCAL_API_URL;
 export const anonKey = (): string => process.env['SUPABASE_ANON_KEY'] ?? LOCAL_ANON_KEY;
+
+/**
+ * The service-role key, for the ONE thing that needs it: minting a magic link
+ * through the GoTrue admin API in tests/setup/auth.ts.
+ *
+ * The constant above it has been exported since this file was written and had no
+ * accessor, so it was the only credential here with no env override -- meaning a
+ * CI run pointed at a different stack would have silently used the local one.
+ *
+ * This is test-harness code and is never bundled. scripts/lint_no_service_role_in_bundle.sh
+ * scans the built output under apps -- dist and .next -- only, which is the corpus
+ * that matters: the key must never reach a browser. Nothing under tests/ ships.
+ */
+export const serviceRoleKey = (): string =>
+  process.env['SUPABASE_SERVICE_ROLE_KEY'] ?? LOCAL_SERVICE_ROLE_KEY;
