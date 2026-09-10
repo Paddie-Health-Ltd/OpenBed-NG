@@ -63,7 +63,6 @@ const DELIBERATE_ABSENCES: Record<string, string> = {
  * executable artefacts, and a reader of one has no reason to expect a plan.
  */
 const PLANNED_ARTEFACTS: Record<string, { stage: number }> = {
-  'apps/ward-console': { stage: 1 },
   'docs/runbook-snapshot-stopped.md': { stage: 1 },
   'packages/fixtures/referral-columns.json': { stage: 5 },
   'scripts/lint_referral_ward_to_ward.sh': { stage: 5 },
