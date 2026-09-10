@@ -74,8 +74,25 @@ const PLANNED_ARTEFACTS: Record<string, { stage: number }> = {
   'tests/db/referral_column_list.test.ts': { stage: 5 },
 };
 
-/** A planning document may cite what it plans. Nothing else may. */
-const PLANNING_DOC = /^Sprint Kickoffs\//;
+/**
+ * A planning document may cite what it plans. Nothing else may.
+ *
+ * WIDENED 2026-09-10 to include handoffs. A handoff is BY DEFINITION the document
+ * that names what has not been built -- the residue, the next bundle, the guard
+ * someone still has to write -- so the next one written would have redded this
+ * guard on its first commit. The alternative, committing to unbackticked paths in
+ * handoffs, makes the most-read document type harder to read and relies on the
+ * memory of whoever writes it, which is the thing the register exists to replace.
+ *
+ * THE PREFIX IS docs/handoff- (unbackticked here on purpose: it is a prefix, not
+ * a file, and this guard would rightly read a backticked one as a claim that it
+ * exists), NOT docs/ as a whole. Runbooks, decision memos and the
+ * facility agreement stay fully covered: those are operational documents and a
+ * reader of one has no reason to expect a plan. A plant below proves a phantom in
+ * a non-handoff docs file still reds, so this widening cannot quietly become an
+ * exemption for the whole directory.
+ */
+const PLANNING_DOC = /^(Sprint Kickoffs\/|docs\/handoff-)/;
 
 const SOURCE_EXT = /\.(md|ts|tsx|sh|sql|yml|yaml|mjs|json|toml)$/;
 const TOP_LEVEL = /^(apps|packages|scripts|tests|database|docs|supabase|\.github|\.ci|\.claude)\//;
@@ -262,6 +279,27 @@ describe('Clause 4 — no phantom enforcement', () => {
   test('plant — a registered path nobody cites is rejected by the anti-rot leg', () => {
     const out = staleRegisterEntries({ [ABSENT]: { stage: 1 } }, never, new Set());
     expect(out.length, `an uncited exemption survived. Output: ${JSON.stringify(out)}`).toBe(1);
+  });
+
+  test('plant — a phantom in a NON-handoff docs file is rejected even when registered', () => {
+    // The widening to docs/handoff- must not become an exemption for docs/ as a
+    // whole. A runbook is an operational document: a reader following one has no
+    // reason to expect that a path in it describes something unbuilt.
+    const out = phantomViolations(
+      [{ path: ABSENT, citedIn: 'docs/runbook-supabase-project-creation.md' }],
+      { [ABSENT]: { stage: 1 } },
+      never,
+    );
+    expect(out.length, `a runbook got the planning exemption. Output: ${JSON.stringify(out)}`).toBe(1);
+  });
+
+  test('positive control — a phantom cited only in a handoff is accepted', () => {
+    const out = phantomViolations(
+      [{ path: ABSENT, citedIn: 'docs/handoff-2026-09-10.md' }],
+      { [ABSENT]: { stage: 1 } },
+      never,
+    );
+    expect(out, 'a handoff could not cite the artefact it exists to name').toEqual([]);
   });
 
   test('positive control — a registered phantom cited only in a planning document is accepted', () => {

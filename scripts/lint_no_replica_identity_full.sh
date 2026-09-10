@@ -37,8 +37,16 @@ for f in "${FILES[@]}"; do
     # Strip string literals and comments first, so the prohibition can be
     # DESCRIBED in a banner or a COMMENT ON without tripping the lint that
     # enforces it. Line numbers survive because nothing is deleted, only blanked.
+    # `|| true` collapsed grep's exit 2 (could not run) into its 1 (no match),
+    # so a file this could not read reported clean. pipefail makes $st the first
+    # failure in the pipeline; only 0 and 1 are verdicts.
+    st=0
     out=$(sed -e "s/'[^']*'//g" -e 's/--.*//' "$f" \
-          | grep -nEi 'REPLICA[[:space:]]+IDENTITY[[:space:]]+FULL' || true)
+          | grep -nEi 'REPLICA[[:space:]]+IDENTITY[[:space:]]+FULL') || st=$?
+    case "$st" in
+        0|1) ;;
+        *) echo "ERROR: the REPLICA IDENTITY scan exited $st on $f -- it did not run" >&2; exit 2 ;;
+    esac
     [ -n "$out" ] && { echo "FAIL: $(basename "$f"): $out"; VIOLATIONS=$((VIOLATIONS+1)); }
 done
 

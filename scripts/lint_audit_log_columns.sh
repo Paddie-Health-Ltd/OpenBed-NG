@@ -125,8 +125,16 @@ done
 
 # --- Leg 3: no later migration may ALTER a column in ---
 for f in "${FILES[@]}"; do
+    # `|| true` collapsed grep's exit 2 (could not run) into its 1 (no match),
+    # so a file this could not read reported clean. pipefail makes $st the first
+    # failure in the pipeline; only 0 and 1 are verdicts.
+    st=0
     out=$(sed -e "s/'[^']*'//g" -e 's/--.*//' "$f" \
-          | grep -nEi 'ALTER TABLE[[:space:]]+(IF EXISTS[[:space:]]+)?app\.audit_log.*ADD[[:space:]]+COLUMN' || true)
+          | grep -nEi 'ALTER TABLE[[:space:]]+(IF EXISTS[[:space:]]+)?app\.audit_log.*ADD[[:space:]]+COLUMN') || st=$?
+    case "$st" in
+        0|1) ;;
+        *) echo "ERROR: the ALTER-TABLE scan exited $st on $f -- it did not run" >&2; exit 2 ;;
+    esac
     if [ -n "$out" ]; then
         echo "FAIL: $(basename "$f"): ALTER TABLE app.audit_log ADD COLUMN"
         printf '%s\n' "$out" | sed 's/^/  /'
