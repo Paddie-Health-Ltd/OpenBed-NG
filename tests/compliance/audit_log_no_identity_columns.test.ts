@@ -215,6 +215,20 @@ describe('audit log has no identity-bearing column', () => {
     });
   });
 
+  test('plant — a fixture that is not valid JSON stops the run rather than parsing to nothing', () => {
+    // The node parse's own failure path. Distinct from a MISSING fixture and from
+    // one that parses to an empty list: this one exists and cannot be read, and
+    // a guard that treated that as "no columns" would exit 2 with the wrong
+    // reason -- which is a verdict it did not derive.
+    withScratch((root) => {
+      copyMigrations(root);
+      place(root, 'packages/fixtures/audit-log-columns.json', '{ "columns": [ oops');
+      const res = runLint(LINT, root);
+      expect(res.status, `an unreadable fixture produced a verdict:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the unreadable-fixture refusal did not name itself').toContain('could not read');
+    });
+  });
+
   test('anti-vacuity — an empty migration corpus fails, and names itself', () => {
     withScratch((root) => {
       place(root, 'database/migrations/.keep', '');

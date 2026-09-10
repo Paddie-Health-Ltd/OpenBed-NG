@@ -9,8 +9,8 @@
   },
   "current": {
     "legs_total": 86,
-    "reached": 64,
-    "registered": 22,
+    "reached": 65,
+    "registered": 21,
     "note": "MEASURED, and updated whenever legs are added or closed. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started."
   },
   "guards": {
@@ -78,10 +78,7 @@
         "state": "reached"
       },
       "could not read": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "No plant asserts this branch yet.",
-        "closes_with": "A plant that reaches this branch and asserts its message."
+        "state": "reached"
       }
     },
     "lint_from_allowlist.sh": {
