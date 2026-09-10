@@ -55,22 +55,32 @@ describe('lint_grep_exit_codes', () => {
     expect(res.stdout).toContain('PASS');
   });
 
+  /**
+   * EACH ROW NAMES THE MESSAGE ITS FORM SHOULD PRODUCE.
+   *
+   * All four detection arms funnel through one `echo`, with the identity carried
+   * in `$why`. Asserting the exit status alone proves a violation was found and
+   * says nothing about WHICH arm found it -- so swapping the `&&` arm's message
+   * with the `|| true` arm's, or collapsing two arms into one, left every test in
+   * this file green. The messages are the only thing that distinguishes them, and
+   * they are the whole diagnostic value of the guard.
+   */
   test.each([
-    ['piped, || fail — a false violation', `printf '%s\\n' "$x" | grep -q 'y' || fail "nope"`],
-    ['piped, if — fails OPEN', `if printf '%s\\n' "$x" | grep -qx "$n"; then echo hi; fi`],
-    ['echo as the writer', `echo "$x" | grep -q 'y' || fail "nope"`],
-    // The forms that escaped until 2026-09-10. None is quiet.
-    ['UNPIPED if out=$(grep ...) — fails OPEN', `if out=$(grep -nE "$P" "$f"); then echo hit; fi`],
-    ['UNPIPED || true — fails OPEN', `out=$(sed "s/x//" "$f" | grep -nEi "y" || true)`],
-    ['UNPIPED && — fails OPEN', `grep -nE "n" "$f" && echo found`],
-    ['while — fails OPEN', `while grep -nE "x" "$f"; do echo l; done`],
-    ['unpiped if grep -q', `if grep -q "n" "$f"; then echo found; fi`],
-  ])('plant — %s is rejected', (_name, snippet) => {
+    ['piped, || fail — a false violation', `printf '%s\\n' "$x" | grep -q 'y' || fail "nope"`, 'branches on a grep with ||'],
+    ['piped, if — fails OPEN', `if printf '%s\\n' "$x" | grep -qx "$n"; then echo hi; fi`, 'branches directly on a grep'],
+    ['echo as the writer', `echo "$x" | grep -q 'y' || fail "nope"`, 'branches on a grep with ||'],
+    ['UNPIPED if out=$(grep ...) — fails OPEN', `if out=$(grep -nE "$P" "$f"); then echo hit; fi`, 'branches directly on a grep'],
+    ['UNPIPED || true — fails OPEN', `out=$(sed "s/x//" "$f" | grep -nEi "y" || true)`, "swallows a grep's status with || true"],
+    ['UNPIPED && — fails OPEN', `grep -nE "n" "$f" && echo found`, 'chains a grep with &&'],
+    ['while — fails OPEN', `while grep -nE "x" "$f"; do echo l; done`, 'branches directly on a grep'],
+    ['unpiped if grep -q', `if grep -q "n" "$f"; then echo found; fi`, 'branches directly on a grep'],
+  ])('plant — %s is rejected, naming that form', (_name, snippet, message) => {
     withScratch((root) => {
       copyScripts(root);
       place(root, 'scripts/lint_planted.sh', `#!/usr/bin/env bash\nset -euo pipefail\n${snippet}\n`);
       const res = runLint(LINT, root);
       expect(res.status, `plant was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, `a DIFFERENT arm fired than the one this form should trip:\n${res.stdout}`).toContain(message);
     });
   });
 
@@ -128,6 +138,7 @@ describe('lint_grep_exit_codes', () => {
       mkdirSync(join(root, 'scripts'), { recursive: true });
       const res = runLint(LINT, root);
       expect(res.status, `an empty corpus did not fail loudly:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the empty-corpus refusal did not name itself').toContain('no shell scripts found in');
     });
   });
 });
