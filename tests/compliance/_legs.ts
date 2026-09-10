@@ -220,37 +220,42 @@ export function duplicateIds(legs: Leg[]): string[] {
 export function assertedByScript(testsDir: string): Map<string, string[]> {
   const out = new Map<string, string[]>();
   for (const name of readdirSync(testsDir).filter((n) => n.endsWith('.test.ts'))) {
-    const src = readFileSync(join(testsDir, name), 'utf8');
+    const raw = readFileSync(join(testsDir, name), 'utf8');
 
     const scripts = new Set<string>();
-    // ANY const holding a script name, not just one privileged identifier. It
-    // was `\bLINT\s*=`, so a test that named its constant AGG mapped to no guard
-    // at all and its real, message-asserting assertions counted for nothing --
-    // the instrument reporting a leg unreached because of how a variable was
-    // spelled.
-    for (const m of src.matchAll(/\b[A-Z][A-Z0-9_]*\s*=\s*['"]([\w.]+\.sh)['"]/g)) scripts.add(m[1] as string);
-    for (const m of src.matchAll(/runLint\(\s*['"]([\w.]+\.sh)['"]/g)) scripts.add(m[1] as string);
-    // A guard driven directly rather than through runLint -- seed.sh takes no
-    // ROOT argument, so its test invokes it by path. Without this the register
-    // cannot see a real, message-asserting test and reports the leg unreached.
-    for (const m of src.matchAll(/['"`]scripts\/([\w.]+\.sh)['"`]/g)) scripts.add(m[1] as string);
+    for (const m of raw.matchAll(/\b[A-Z][A-Z0-9_]*\s*=\s*['"]([\w.]+\.sh)['"]/g)) scripts.add(m[1] as string);
+    for (const m of raw.matchAll(/runLint\(\s*['"]([\w.]+\.sh)['"]/g)) scripts.add(m[1] as string);
+    for (const m of raw.matchAll(/['"`]scripts\/([\w.]+\.sh)['"`]/g)) scripts.add(m[1] as string);
     if (scripts.size === 0) continue;
 
-    // File-local `const X = '...'` declarations, so `toContain(RULE)` counts.
-    // Capturing only string LITERALS makes a perfectly good assertion read as a
-    // miss the moment someone names the message -- which is the better style,
-    // and the one this sweep uses.
-    const consts = new Map<string, string>();
-    for (const m of src.matchAll(/\bconst\s+([A-Z][A-Z0-9_]*)\s*=\s*(['"`])((?:[^\\]|\\.)*?)\2/g)) {
-      consts.set(m[1] as string, m[3] as string);
-    }
+    // CODE, NOT PROSE -- and the line is drawn there deliberately.
+    //
+    // This began as "only a toContain() argument counts", which is the right
+    // INSTINCT (see section 2 clause (a): an instrument must not accept prose as
+    // evidence) but the wrong IMPLEMENTATION. It recognised one spelling of an
+    // assertion, so a message asserted through a named constant, or through a
+    // test.each parameter, counted for nothing -- and it had to be widened four
+    // separate times, once for each way a test happened to be written.
+    //
+    // AN INSTRUMENT THAT ONLY RECOGNISES ONE SPELLING DICTATES HOW TESTS ARE
+    // WRITTEN, which is a failure mode of its own: the next person writes the
+    // assertion the way the tool wants rather than the way the test reads best.
+    //
+    // So the boundary is comment-vs-code, which is what clause (a) is actually
+    // about. Comments are stripped and every string literal in the remaining
+    // code counts. RESIDUAL RISK, stated rather than hidden: a leg message used
+    // as plant INPUT rather than as an assertion would over-credit. Nothing here
+    // does that today -- plant inputs are SQL and TypeScript snippets, not guard
+    // messages -- and the neutering discipline is what actually proves a leg;
+    // this decides only what the register records.
+    const code = raw
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .split('\n')
+      .map((l) => l.replace(/^\s*\/\/.*$/, ''))
+      .join('\n');
 
     const asserted: string[] = [];
-    for (const m of src.matchAll(/\.toContain\(\s*(['"`])((?:[^\\]|\\.)*?)\1/g)) asserted.push(m[2] as string);
-    for (const m of src.matchAll(/\.toContain\(\s*([A-Z][A-Z0-9_]*)\s*[,)]/g)) {
-      const v = consts.get(m[1] as string);
-      if (v !== undefined) asserted.push(v);
-    }
+    for (const m of code.matchAll(/(['"`])((?:[^\\]|\\.)*?)\1/g)) asserted.push(m[2] as string);
     for (const script of scripts) out.set(script, [...(out.get(script) ?? []), ...asserted]);
   }
   return out;

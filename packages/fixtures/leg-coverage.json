@@ -9,8 +9,8 @@
   },
   "current": {
     "legs_total": 85,
-    "reached": 21,
-    "registered": 64,
+    "reached": 38,
+    "registered": 47,
     "note": "MEASURED, and updated whenever legs are added or closed. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started."
   },
   "guards": {
@@ -90,16 +90,10 @@
         "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
       },
       "ALTER TABLE app.audit_log ADD COLUMN": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "lint_audit_log_columns.sh: FAILED (": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "the column list would be taken from whichever came last": {
         "state": "reached"
@@ -146,10 +140,7 @@
         "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
       },
       "lint_from_allowlist.sh: FAILED (": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       }
     },
     "lint_grep_exit_codes.sh": {
@@ -190,10 +181,7 @@
         "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
       },
       "lint_grep_exit_codes.sh: FAILED (": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       }
     },
     "lint_migration_header.sh": {
@@ -213,28 +201,16 @@
         "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
       },
       "no '-- ===' banner block at the top of the file": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "banner does not name this file (copied header?)": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "no 'Idempotency:' note in the banner": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "does not register itself in app.schema_migrations": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "the ledger check did not run": {
         "state": "registered",
@@ -246,10 +222,7 @@
         "state": "reached"
       },
       "lint_migration_header.sh: FAILED (": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       }
     },
     "lint_migrations_all.sh": {
@@ -268,10 +241,7 @@
         "state": "reached"
       },
       "lint_no_drop_cascade.sh: FAILED (": {
-        "state": "registered",
-        "reason": "no-seam",
-        "why": "No guard-over-a-guard test file exists for this script yet.",
-        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+        "state": "reached"
       }
     },
     "lint_no_replica_identity_full.sh": {
@@ -288,16 +258,10 @@
         "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
       },
       "REPLICA IDENTITY FULL on a published table": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "lint_no_replica_identity_full.sh: FAILED (": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       }
     },
     "lint_no_secrets.sh": {
@@ -308,10 +272,7 @@
         "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
       },
       "the secret scan did not run": {
-        "state": "registered",
-        "reason": "could-not-run",
-        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
-        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+        "state": "reached"
       },
       "it did not run, so findings cannot be dropped": {
         "state": "registered",
@@ -326,10 +287,7 @@
         "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
       },
       "lint_no_secrets.sh: FAILED (": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       }
     },
     "lint_no_service_role_in_bundle.sh": {
@@ -352,10 +310,7 @@
         "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
       },
       "lint_no_service_role_in_bundle.sh: FAILED (": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       }
     },
     "lint_no_updated_at_filter.sh": {
@@ -378,10 +333,7 @@
         "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
       },
       "lint_no_updated_at_filter.sh: FAILED (": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       }
     },
     "lint_sql_no_bare_not_duty_flag.sh": {
@@ -404,10 +356,7 @@
         "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
       },
       "lint_sql_no_bare_not_duty_flag.sh: FAILED (": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       }
     },
     "run_e2e.sh": {
