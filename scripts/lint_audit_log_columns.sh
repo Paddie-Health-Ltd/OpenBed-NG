@@ -79,6 +79,14 @@ done
 # nothing, which must never report clean.
 [ "$BLOCKS" -gt 0 ] || { echo "ERROR: no 'CREATE TABLE app.audit_log' found in $MIG_DIR -- nothing to check" >&2; exit 2; }
 
+# EXACTLY ONE, and this is not pedantry. `ACTUAL` is ASSIGNED in the loop above,
+# not appended, so with two blocks the LAST one silently wins and the first is
+# never checked -- a forbidden column in the earlier definition would pass. The
+# fix is not to append: a corpus containing two `CREATE TABLE app.audit_log`
+# statements is already broken, since the second cannot apply. So more than one
+# is a loud error rather than something to merge.
+[ "$BLOCKS" -eq 1 ] || { echo "ERROR: found $BLOCKS 'CREATE TABLE app.audit_log' blocks in $MIG_DIR -- the column list would be taken from whichever came last" >&2; exit 2; }
+
 VIOLATIONS=0
 
 # EXACT-LINE MEMBERSHIP, IN PURE BASH. Replaces `printf '%s\n' "$list" | grep -qx`.

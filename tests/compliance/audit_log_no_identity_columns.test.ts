@@ -75,6 +75,29 @@ describe('audit log has no identity-bearing column', () => {
     });
   });
 
+  test('plant — a SECOND CREATE TABLE app.audit_log block is refused, not silently merged', () => {
+    // ACTUAL is assigned in the extraction loop rather than appended, so with two
+    // blocks the last one silently wins and a forbidden column in the FIRST would
+    // pass unexamined. Appending would be the wrong fix -- a corpus with two
+    // `CREATE TABLE app.audit_log` statements is already broken, because the
+    // second cannot apply. So it is a loud error.
+    //
+    // The planted second block is DELIBERATELY CLEAN, matching the fixture
+    // exactly. If the guard merged the two it would find no column discrepancy
+    // and report success; only the block count can catch this.
+    withScratch((root) => {
+      copyMigrations(root);
+      place(root, 'packages/fixtures/audit-log-columns.json', readFileSync(join(REPO_ROOT, 'packages/fixtures/audit-log-columns.json'), 'utf8'));
+      place(root, 'database/migrations/014_plant.sql',
+        `-- ===\n-- 014_plant.sql\n-- Idempotency: n/a\n-- ===\nCREATE TABLE IF NOT EXISTS app.audit_log (\n` +
+        FIXTURE.columns.map((c) => `    ${c} text`).join(',\n') +
+        `\n);\nVALUES ('014_plant.sql')\n`);
+      const res = runLint(LINT, root);
+      expect(res.status, `a second audit_log definition was accepted:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the guard did not name the duplicate-block problem').toContain('the column list would be taken from whichever came last');
+    });
+  });
+
   test('anti-vacuity — a missing migration directory FAILS, and names itself', () => {
     // This guard had no plant for its `[ -d "$MIG_DIR" ]` leg at all. Deleting
     // that leg leaves the fixture check exiting 2 for a different reason, so the

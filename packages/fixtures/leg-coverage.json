@@ -8,8 +8,8 @@
     "immutable": "THIS IS A HISTORICAL RECORD AND DOES NOT MOVE. The ratchet asserts the CURRENT reached count is >= this figure, so progress is free and regression is not. Restating it would destroy the only number that says where this started."
   },
   "current": {
-    "legs_total": 84,
-    "reached": 20,
+    "legs_total": 85,
+    "reached": 21,
     "registered": 64,
     "note": "MEASURED, and updated whenever legs are added or closed. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started."
   },
@@ -100,6 +100,9 @@
         "reason": "status-only",
         "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
         "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "the column list would be taken from whichever came last": {
+        "state": "reached"
       }
     },
     "lint_from_allowlist.sh": {
