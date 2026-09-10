@@ -9,8 +9,8 @@
   },
   "current": {
     "legs_total": 85,
-    "reached": 43,
-    "registered": 42,
+    "reached": 49,
+    "registered": 36,
     "note": "MEASURED, and updated whenever legs are added or closed. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started."
   },
   "guards": {
@@ -128,16 +128,10 @@
         "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
       },
       ".select('*') is banned — name the columns": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       ") is not on the public allowlist": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "lint_from_allowlist.sh: FAILED (": {
         "state": "reached"
@@ -277,16 +271,10 @@
     },
     "lint_no_service_role_in_bundle.sh": {
       "no built client bundles found under": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "service-role credential reachable from a built client bundle": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "the bundle scan did not run": {
         "state": "registered",
@@ -312,10 +300,7 @@
         "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
       },
       "updated_at used as a FILTER on the public search path": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "lint_no_updated_at_filter.sh: FAILED (": {
         "state": "reached"
@@ -335,10 +320,7 @@
         "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
       },
       "bare NOT on a tri-state duty flag": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "lint_sql_no_bare_not_duty_flag.sh: FAILED (": {
         "state": "reached"
