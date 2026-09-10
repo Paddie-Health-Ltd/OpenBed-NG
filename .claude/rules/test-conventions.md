@@ -296,9 +296,70 @@ separates "the plant did not land" from "the guard is wrong", which is the same
 distinction §8's plant rule above is about, one layer out.
 
 **And a rule about what this is not.** The instrumentation is not a fix, and a
-green re-run of an unchanged commit is not a diagnosis. Both were recorded here
-as an OPEN, UNDIAGNOSED intermittent — see `docs/handoff-2026-09-09.md` — because
-a flake written down as "flaky" is a symptom accepted as a cause.
+green re-run of an unchanged commit is not a diagnosis. Both were recorded as an
+OPEN, UNDIAGNOSED intermittent — see `docs/handoff-2026-09-09.md` §8 — because a
+flake written down as "flaky" is a symptom accepted as a cause.
+
+**If you are reading this because an ACCEPT leg just went red in CI, that is the
+open item, and it has a stop rule.** Two things about it belong here rather than
+only in the handoff, because this is the file you are in:
+
+- **The signature is a shape, not a file.** *A compliance guard leg asserting
+  acceptance goes red in CI and green locally on the same commit.* It is not
+  scoped to `lint_migration_header.test.ts`; scoping it by filename would assume
+  the cause is file-specific, which is exactly what is unknown.
+- **Demonstrate the local green on the identical commit before attributing a red
+  to it.** Presuming it is what turns one tracked item into a bucket for every
+  red anyone would rather not look at — the growing-quarantine failure mode
+  Standard O names. Check out the failing SHA, run the suite, show it green.
+
+On a genuine recurrence the choice is a Standard O flaky carve-out with the full
+three-run evidence, or making the job deterministic. There is no third option and
+no "watch it for a while".
+
+### Invented here: a fallback is a mechanism that can stop reaching (2026-09-09)
+
+**A fallback path is correct on the day it is written and becomes a lie the day
+the thing it falls back to dies — silently, because a fallback's whole purpose is
+not to complain.** When you retire a mechanism, grep for what falls back to it.
+
+`scripts/get_publishable_key.sh` preferred the new `sb_publishable_` key and fell
+back to the legacy `anon` JWT. Reasonable when written. Legacy API keys were then
+disabled — a one-line dashboard action — and from that moment the fallback could
+only ever return a **dead key**, printed to stdout, indistinguishable from a good
+one. Every probe drawing its key from there would have failed at *authentication*
+with 401, before PostgREST consulted a schema, and an operator reading a runbook
+that says "expect the request to be refused" would have ticked the box. **A dead
+credential turns a boundary probe into a rubber stamp**, and it fails in the safe
+looking direction, which is why nothing would have caught it.
+
+The fix is the one this repository keeps arriving at: a missing publishable key
+is now a **stop condition** with a message naming the cause, not a value to work
+around.
+
+**Count it, because the count is the finding.** This is the fourth instance in
+one week of Clause 5's failure mode — a mechanism *present, and not reaching* —
+as distinct from Clause 4's, which is a mechanism *absent*:
+
+1. Three phantom cross-file links, all claiming a sync assertion that no file
+   made (one finding, three call sites — see the shared-fixture entry above).
+2. A rotation proof-of-death probe using `-o /dev/null` with a "401 **or 4xx**"
+   checkbox, against a table that does not exist yet — so it passed on the 404
+   that means *the key is alive and you tested nothing*.
+3. Boundary curls written against `$ANON_KEY` after the legacy anon key was
+   killed as collateral — failing at authentication and reading as the boundary
+   holding.
+4. This fallback.
+
+Three of the four were found in a single sitting, on artefacts written days
+earlier by someone who believed each one worked. **They share one shape: the
+check reports success for a reason unrelated to what it guards.** That is worth
+more attention than any individual fix, because the next one will also look
+correct on the day it is written.
+
+Practical form, when you write a probe: **name the exact signal that means pass,
+never a negation.** "Not 200" and "4xx" are satisfied by the probe's own
+precondition being absent. "401" is not.
 
 Conventions deliberately **not** ported, so nobody re-derives them by accident:
 

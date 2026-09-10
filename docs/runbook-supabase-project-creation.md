@@ -112,13 +112,46 @@ only two are automatable:
 
 ```bash
 read -rs DATABASE_URL && export DATABASE_URL   # prompts; keeps the password out of ~/.zsh_history
-bash scripts/run_migrations.sh --dry-run       # see exactly what would run
+bash scripts/run_migrations.sh --dry-run       # STOP CONDITION: exactly 13 pending
 bash scripts/run_migrations.sh
 ```
 
 Use `read -rs`, not an inline `export DATABASE_URL='...'` -- the connection
 string carries the hosted database password and an inline export writes it into
 your shell history.
+
+**The dry run is a stop condition, not a look.** Anything other than
+`13 migration(s) pending.` -- stop and report. A dry run without a stated
+expectation is just output.
+
+### Expected output, including the one line that looks like a failure and is not
+
+On a virgin database the two commands report **different numbers**, and the
+second is lower:
+
+```
+13 migration(s) pending.          <- dry run
+Migrations complete (12 applied this run).   <- apply
+```
+
+**Twelve is correct. Nothing was skipped.** Migration 001 creates the `app`
+schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
+recorded by a ledger that does not exist yet. The runner applies and ledgers it
+in a separate **bootstrap** step, and the apply loop then counts only what it
+applied itself -- 002 through 013, which is twelve. The dry run has no bootstrap
+branch: `is_applied` returns 0 while the ledger is absent, so it counts all
+thirteen as pending. The two numbers are measuring different things.
+
+**Confirm it by the ledger, which is the artefact that matters, not by the
+count:**
+
+```bash
+psql "$DATABASE_URL" -Atc "select count(*) from app.schema_migrations"   # expect 13
+bash scripts/run_migrations.sh --dry-run                                 # expect 0 pending
+```
+
+Verified against a virgin local database on 2026-09-10: dry run 13 pending,
+apply `12 applied this run`, ledger 13 rows, second dry run 0 pending.
 
 ### What happens if it dies partway -- documented, not discovered
 
