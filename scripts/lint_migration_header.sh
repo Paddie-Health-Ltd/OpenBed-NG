@@ -61,13 +61,59 @@ for f in "${FILES[@]}"; do
     # a short migration the ledger INSERT falls inside the first 40 lines and
     # satisfies the filename check ALL BY ITSELF, so a file with no banner at all
     # passed. The check was measuring the wrong region of the file.
-    banner=$(awk '/^[[:space:]]*(--|$)/ { print; next } { exit }' "$f")
+    banner=$(awk '/^[[:space:]]*(--|$)/ { print; next } { exit }' "$f") || {
+        echo "ERROR: awk could not read $f -- the banner check did not run" >&2
+        exit 2
+    }
 
-    printf '%s\n' "$banner" | grep -q -- '-- ===' || fail "$base: no '-- ===' banner block at the top of the file"
-    printf '%s\n' "$banner" | grep -qF "$base"    || fail "$base: banner does not name this file (copied header?)"
-    printf '%s\n' "$banner" | grep -q 'Idempotency:' || fail "$base: no 'Idempotency:' note in the banner"
-    grep -qF "VALUES ('$base'" "$f"                || fail "$base: does not register itself in app.schema_migrations"
-    [ -f "${f%.sql}.down.sql" ]                    || fail "$base: no paired .down.sql"
+    # SUBSTRING MATCHING IN BASH, NOT `printf | grep -q`. READ THIS BEFORE
+    # "SIMPLIFYING" IT BACK.
+    #
+    # These three checks were `printf '%s\n' "$banner" | grep -q ... || fail`.
+    # That shape has two independent defects and the second is the one that bit:
+    #
+    #   1. `|| fail` treats EVERY non-zero as a violation. grep exits 1 for "no
+    #      match" and 2 for "could not run" -- a resource failure, an unreadable
+    #      input, a fork that did not happen. The lint reported the second as the
+    #      first, so a check that never executed was indistinguishable from a
+    #      check that found a real problem.
+    #   2. Each one forked a subshell and a grep. At ~9 forks per migration and
+    #      14 migrations, one invocation forked ~126 processes, and the compliance
+    #      suite invokes the lints across ten concurrent vitest workers.
+    #
+    # On 2026-09-10 this reported `006_gate_function.sql: no '-- ===' banner
+    # block` in CI -- for a file whose first byte is `-` and whose banner is 58
+    # lines long. The banner was fine; a check failed to run and said "violation".
+    #
+    # `case` is pure bash: no fork, no pipe, no exit-code ambiguity, and bash 3.2
+    # compatible. There is no failure mode left to distinguish, which is why the
+    # error branch below exists only for the one check that still reads a file.
+    case "$banner" in
+        *'-- ==='*) ;;
+        *) fail "$base: no '-- ===' banner block at the top of the file" ;;
+    esac
+    case "$banner" in
+        *"$base"*) ;;
+        *) fail "$base: banner does not name this file (copied header?)" ;;
+    esac
+    case "$banner" in
+        *'Idempotency:'*) ;;
+        *) fail "$base: no 'Idempotency:' note in the banner" ;;
+    esac
+
+    # This one must read the file, so grep stays -- but its exit codes are now
+    # separated. 1 is a finding; anything else is the check failing to run, and
+    # that is loud and fatal rather than a silent false violation.
+    st=0
+    grep -qF "VALUES ('$base'" "$f" || st=$?
+    case "$st" in
+        0) ;;
+        1) fail "$base: does not register itself in app.schema_migrations" ;;
+        *) echo "ERROR: grep exited $st on $f -- the ledger check did not run" >&2
+           exit 2 ;;
+    esac
+
+    [ -f "${f%.sql}.down.sql" ] || fail "$base: no paired .down.sql"
 done
 
 [ "$VIOLATIONS" -eq 0 ] || { echo "lint_migration_header.sh: FAILED ($VIOLATIONS)"; exit 1; }

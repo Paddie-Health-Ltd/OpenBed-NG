@@ -39,6 +39,21 @@ while IFS= read -r _line; do FILES+=("$_line"); done < <(
 [ "${#FILES[@]}" -gt 0 ] || { echo "ERROR: no app source found under $ROOT/apps" >&2; exit 2; }
 
 VIOLATIONS=0
+
+# EXACT-LINE MEMBERSHIP, IN PURE BASH. Replaces `printf '%s\n' "$list" | grep -qx`.
+#
+# grep exits 0 for match, 1 for no match and 2 for COULD NOT RUN. Both call sites
+# below branch on truthiness alone, so an exit 2 was silently reinterpreted -- and
+# in one direction that meant a guard failing OPEN. No fork, no pipe, no third
+# exit code. bash 3.2 compatible.
+list_has_line() {
+    local list=$'\n'"$1"$'\n'
+    local needle=$'\n'"$2"$'\n'
+    case "$list" in
+        *"$needle"*) return 0 ;;
+    esac
+    return 1
+}
 for f in "${FILES[@]}"; do
     if out=$(grep -nE "\.select\((['\"])\*\1\)" "$f"); then
         echo "FAIL: ${f#"$ROOT"/}: .select('*') is banned — name the columns"
@@ -48,7 +63,7 @@ for f in "${FILES[@]}"; do
     while IFS= read -r hit; do
         [ -z "$hit" ] && continue
         name=$(printf '%s' "$hit" | sed -E "s/.*\.from\(['\"]([^'\"]+)['\"]\).*/\1/")
-        if ! printf '%s\n' "$ALLOWED" | grep -qx "$name"; then
+        if ! list_has_line "$ALLOWED" "$name"; then
             echo "FAIL: ${f#"$ROOT"/}: .from('$name') is not on the public allowlist"
             echo "  $hit"
             VIOLATIONS=$((VIOLATIONS+1))
