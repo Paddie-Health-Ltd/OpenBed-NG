@@ -22,9 +22,10 @@
     "lint:migrations": "bash scripts/lint_migrations_all.sh",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p apps/public-dashboard/tsconfig.json",
     "build": "npm run build --workspaces --if-present",
-    "test": "vitest run",
+    "test": "vitest run --project db --project compliance",
     "test:db": "vitest run --project db",
     "test:compliance": "vitest run --project compliance",
+    "test:e2e": "bash scripts/run_e2e.sh",
     "attest": "node scripts/attest_counts.mjs"
   },
   "devDependencies": {

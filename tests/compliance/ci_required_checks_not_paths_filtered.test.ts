@@ -52,6 +52,7 @@ const EXPECTED_JOBS = [
   'bundle-guards',
   'compliance-tests',
   'db-tests',
+  'golden-path',
   'migration-lint',
   'repo-lint',
   'secret-scan',
@@ -100,14 +101,50 @@ describe('ci.yml invariants', () => {
     }
   });
 
-  test('timeouts are labelled PROVISIONAL until a cold run has been measured', () => {
+  test('EVERY job labels its timeout PROVISIONAL or MEASURED, and MEASURED cites the observation', () => {
     // Clause 5: a present-tense claim carries its probe. This workflow has never
     // run, so no timeout here is an observed maximum. Writing one would be a
     // false fact; labelling them is the honest form.
-    const provisional = (raw.match(/PROVISIONAL/g) ?? []).length;
-    expect(provisional, 'timeouts claim measurements that do not exist yet').toBeGreaterThanOrEqual(
-      Object.keys(ci.jobs).length,
-    );
+    //
+    // TIGHTENED 2026-09-10. This was `raw.match(/PROVISIONAL/g).length >= jobCount`
+    // -- a whole-file substring count, which is complete on the PRESENCE axis and
+    // blind on IDENTITY, the same defect this file's own header calls out about
+    // `grep -c 'timeout-minutes'`. The header's own occurrence of the word sat
+    // inside the count, so one job could drop its label entirely and the
+    // assertion still passed with a spare. Now located per job block.
+    const lines = raw.split('\n');
+    const starts = new Map<string, number>();
+    for (const name of Object.keys(ci.jobs)) {
+      const at = lines.findIndex((l) => l === `  ${name}:`);
+      expect(at, `could not locate job ${name} in the raw workflow text`).toBeGreaterThan(-1);
+      starts.set(name, at);
+    }
+
+    const unlabelled: string[] = [];
+    for (const [name, start] of starts) {
+      // A job block runs to the next line indented by exactly two spaces.
+      let end = lines.length;
+      for (let i = start + 1; i < lines.length; i += 1) {
+        const line = lines[i] ?? '';
+        if (/^ {2}\S/.test(line)) {
+          end = i;
+          break;
+        }
+      }
+      const block = lines.slice(start, end).join('\n');
+      // Two honest states, and the label must say which. PROVISIONAL = no run has
+      // happened. MEASURED = one has, and the comment must CARRY the observation:
+      // a date and an observed duration. `MEASURED` on its own would be the same
+      // unbacked present-tense claim the label exists to prevent -- Clause 5, and
+      // "a date is not a probe" cuts both ways, so the duration is required too.
+      const provisional = block.includes('PROVISIONAL');
+      const measured = /MEASURED \d{4}-\d{2}-\d{2}:[^\n]*\b\d+(m\d+)?s\b[^\n]*observed/.test(block);
+      if (!provisional && !measured) unlabelled.push(name);
+    }
+    expect(
+      unlabelled,
+      'these jobs assert a timeout ceiling with neither a PROVISIONAL caveat nor a cited observation',
+    ).toEqual([]);
   });
 
   test('main runs are not cancellable', () => {

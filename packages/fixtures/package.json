@@ -3,8 +3,5 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Shared test fixtures. truth-table.json is the single source for the 48-row gate contract.",
-  "exports": {
-    "./truth-table.json": "./truth-table.json"
-  }
+  "description": "Shared test fixtures. truth-table.json is the single source for the 48-row gate contract. CONSUMERS IMPORT THESE FILES BY RELATIVE PATH, deliberately -- there is no exports map and no tsconfig path alias. An earlier version carried an exports map listing only ./truth-table.json while every consumer, including tests/compliance/truth_table_single_source.test.ts which ASSERTS the relative import string, went around it. A map nothing resolves through is a mechanism present and not reaching, and making it real would have meant changing that guard's assertion for no gain."
 }

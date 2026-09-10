@@ -407,8 +407,28 @@ case "$st" in
 esac
 ```
 
-Banned mechanically by `scripts/lint_no_piped_grep_q.sh`, so the shape cannot
-return quietly.
+Banned mechanically by `scripts/lint_grep_exit_codes.sh` — **but read what that
+covered before you rely on it.** Until 2026-09-10 that guard matched
+`<writer> | grep -q` only: PIPED, and QUIET. The example directly above is
+neither, so this sentence claimed coverage of the exact form it sits underneath.
+
+`-q` was never the point — it suppresses output, while the three exit codes are
+grep's regardless. `if out=$(grep -nE ... "$f"); then` fails open exactly as
+`if grep -q ...; then` does, and it is the form these scripts actually used.
+**Seven live instances were found on 2026-09-10, none of them quiet**, including
+`scripts/lint_no_service_role_in_bundle.sh` (the guard against a service-role key
+reaching a browser bundle) and `scripts/lint_no_secrets.sh` (the secret scan).
+Both failed OPEN. `|| true` is the same defect wearing a different face: it
+swallows exit 2 along with exit 1.
+
+The guard now bans any grep in a branch position — `if`/`elif`/`while`/`until`,
+`&&`, and `||` to anything but a status capture — over every shell script in
+`scripts/`, not only the lints. **Six of the seven were found by inspection; the
+seventh was found by the extended guard**, on a line the hand sweep's own regex
+was too narrow to see.
+
+The lesson is not about bash: a sweep whose completeness is never checked is a
+mechanism present and not reaching, one level up from what it sweeps for.
 
 **Why this is the same finding as the four before it.** *A check reporting
 success, or failure, for a reason unrelated to what it guards.* The phantom

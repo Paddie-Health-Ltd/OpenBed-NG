@@ -7,9 +7,6 @@
     "paths": {
       "@openbed/gate": [
         "./packages/gate/src/index.ts"
-      ],
-      "@openbed/fixtures/*": [
-        "./packages/fixtures/*"
       ]
     }
   },

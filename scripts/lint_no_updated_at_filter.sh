@@ -40,9 +40,16 @@ while IFS= read -r _line; do FILES+=("$_line"); done < <(
 
 VIOLATIONS=0
 for f in "${FILES[@]}"; do
+    # `|| true` on a three-stage pipeline hid grep's exit 2 at every stage, so an
+    # unreadable source file reported no 4am freshness filter.
+    st=0
     out=$(grep -nE "updated_at|updatedAt" "$f" \
           | grep -Ei '\.(filter|lt|gt|gte|lte|neq|eq)\(|where|WHERE' \
-          | grep -v 'OPENBED-FRESHNESS-ORDER-ONLY' || true)
+          | grep -v 'OPENBED-FRESHNESS-ORDER-ONLY') || st=$?
+    case "$st" in
+        0|1) ;;
+        *) echo "ERROR: the freshness-filter scan exited $st on $f -- it did not run" >&2; exit 2 ;;
+    esac
     if [ -n "$out" ]; then
         echo "FAIL: ${f#"$ROOT"/}"
         echo "$out" | sed 's/^/  /'

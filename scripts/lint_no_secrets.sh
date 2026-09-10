@@ -66,7 +66,15 @@ for f in "${FILES[@]}"; do
         # guard shipped with that bug and a plant in
         # tests/compliance/no_secrets.test.ts is what surfaced it: every PEM
         # private key would have passed the scan.
-        out=$(grep -nE -e "$regex" "$f" 2>/dev/null || true)
+        # `|| true` here swallowed grep's exit 2 as well as its 1, so a file the
+        # scanner could not read reported CLEAN. On the secret scan, that is the
+        # worst possible direction to fail in.
+        st=0
+        out=$(grep -nE -e "$regex" "$f" 2>/dev/null) || st=$?
+        case "$st" in
+            0|1) ;;
+            *) echo "ERROR: grep exited $st scanning $f -- the secret scan did not run" >&2; exit 2 ;;
+        esac
 
         # A credential pointing at the local stack is not a secret. Every
         # developer's `supabase start` uses postgres:postgres@127.0.0.1:54322, it
@@ -80,7 +88,15 @@ for f in "${FILES[@]}"; do
         # is exactly the dangerous case: a password in a connection string
         # pointing at a host that is not this machine.
         if [ "$name" = 'Postgres URL with password' ]; then
-            out=$(printf '%s\n' "$out" | grep -vE '127\.0\.0\.1|localhost|@db:|0\.0\.0\.0' || true)
+            # `|| true` here was the worst of the set and the hand sweep missed it:
+            # grep's exit 2 would empty $out, which reads as NO FINDINGS. A resource
+            # failure at this line silently drops every secret already matched.
+            fst=0
+            filtered=$(printf '%s\n' "$out" | grep -vE '127\.0\.0\.1|localhost|@db:|0\.0\.0\.0') || fst=$?
+            case "$fst" in
+                0|1) out="$filtered" ;;
+                *) echo "ERROR: the local-host narrowing filter exited $fst -- it did not run, so findings cannot be dropped" >&2; exit 2 ;;
+            esac
         fi
 
         [ -z "$out" ] && continue

@@ -75,6 +75,37 @@ describe('audit log has no identity-bearing column', () => {
     });
   });
 
+  test('plant — Leg 2 in ISOLATION: a forbidden name that set-equality ACCEPTS', () => {
+    // THE LEG THAT WAS MISSING, and the reason matters more than the leg.
+    //
+    // The four plants above all assert `toBe(1)` only, and each adds a column
+    // that is ALSO absent from the fixture -- so Leg 1 (set equality) raises
+    // first and the exit status is 1 whether or not Leg 2 works at all. Stub
+    // `list_has_line` to `return 1` and every one of them stays green. The
+    // forbidden-name check was therefore untested in the direction it exists for.
+    //
+    // Here the forbidden name is added to BOTH the migration and the fixture, so
+    // equality PASSES and only Leg 2 can produce the failure. Asserted on the
+    // message, not merely on the status, because the status alone cannot say
+    // which leg fired.
+    withScratch((root) => {
+      copyMigrations(root);
+      const widened = {
+        ...FIXTURE,
+        columns: [...FIXTURE.columns, 'ip_address'],
+      };
+      place(root, 'packages/fixtures/audit-log-columns.json', JSON.stringify(widened, null, 2));
+      const target = join(root, MIGRATION);
+      const src = readFileSync(target, 'utf8');
+      writeFileSync(target, src.replace('    session_id    uuid,', '    session_id    uuid,\n    ip_address    text,'), 'utf8');
+
+      const res = runLint(LINT, root);
+      expect(res.status, `a forbidden column survived once equality was satisfied:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, `Leg 2 did not fire -- the failure came from somewhere else:\n${res.stdout}`)
+        .toContain("forbidden identity-bearing column 'ip_address'");
+    });
+  });
+
   test('plant — a column nobody forbade is rejected', () => {
     // THE PLANT THAT PROVES SET EQUALITY IS DOING THE WORK. `updated_by_email` is
     // on no forbidden list; only equality catches it. Without this leg the guard

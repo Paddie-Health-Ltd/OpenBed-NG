@@ -48,11 +48,18 @@ fi
 PATTERN='service_role|SUPABASE_SERVICE|SERVICE_ROLE_KEY|sb_secret_'
 VIOLATIONS=0
 for f in "${FILES[@]}"; do
-    if out=$(grep -nE "$PATTERN" "$f"); then
-        echo "FAIL: ${f#"$ROOT"/}"
-        echo "$out" | cut -c1-160 | sed 's/^/  /'
-        VIOLATIONS=$((VIOLATIONS+1))
-    fi
+    # grep exits 2 when it COULD NOT RUN. `if out=$(grep ...)` puts that on the
+    # clean branch, so an unreadable bundle would have reported NO service-role
+    # credential. Separated by hand; anything but 0 or 1 is fatal and loud.
+    st=0
+    out=$(grep -nE "$PATTERN" "$f") || st=$?
+    case "$st" in
+        0)  echo "FAIL: ${f#"$ROOT"/}"
+            printf '%s\n' "$out" | cut -c1-160 | sed 's/^/  /'
+            VIOLATIONS=$((VIOLATIONS+1)) ;;
+        1)  ;;
+        *)  echo "ERROR: grep exited $st on $f -- the bundle scan did not run" >&2; exit 2 ;;
+    esac
 done
 
 [ "$VIOLATIONS" -eq 0 ] || {

@@ -48,8 +48,16 @@ while IFS= read -r _line; do FILES+=("$_line"); done < <(find "$MIG_DIR" -maxdep
 DUTY='(anaesthetist|obstetrician|paediatrician)'
 VIOLATIONS=0
 for f in "${FILES[@]}"; do
+    # `|| true` collapsed grep's exit 2 (could not run) into its 1 (no match),
+    # so a file this could not read reported clean. pipefail makes $st the first
+    # failure in the pipeline; only 0 and 1 are verdicts.
+    st=0
     out=$(sed -e "s/'[^']*'//g" -e 's/--.*//' "$f" \
-          | grep -nEi "\bNOT[[:space:]]+([a-z_]+\.)?${DUTY}\b" || true)
+          | grep -nEi "\bNOT[[:space:]]+([a-z_]+\.)?${DUTY}\b") || st=$?
+    case "$st" in
+        0|1) ;;
+        *) echo "ERROR: the duty-flag scan exited $st on $f -- it did not run" >&2; exit 2 ;;
+    esac
     if [ -n "$out" ]; then
         echo "FAIL: $(basename "$f"):"
         echo "$out" | sed 's/^/  /'
