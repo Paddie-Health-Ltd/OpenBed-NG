@@ -126,7 +126,9 @@ describe('updated_at filter guard', () => {
   test('anti-vacuity — an empty source tree FAILS', () => {
     withScratch((root) => {
       place(root, 'README.md', 'x');
-      expect(runLint(LINT, root).status).toBe(2);
+      const res = runLint(LINT, root);
+      expect(res.status, `an empty corpus did not fail loudly:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the empty-corpus refusal did not name itself').toContain('no client source found under');
     });
   });
 });
@@ -228,12 +230,38 @@ describe('from() allowlist guard', () => {
     });
   });
 
+  test('anti-vacuity — an allowlist that parses cleanly to NOTHING refuses to pass', () => {
+    // Distinct from missing and from malformed: this fixture is valid JSON with
+    // both keys present and both empty. A guard reading an empty allowlist would
+    // reject every query -- failing closed, but for a reason unrelated to what it
+    // guards, which is not a verdict.
+    withScratch((root) => {
+      place(root, 'packages/fixtures/public-relations.json', JSON.stringify({ mirrors: [], rpcs: [] }, null, 2));
+      place(root, 'apps/x/src/query.ts', "const q = db.from('ward_public').select('id');");
+      const res = runLint(LINT, root);
+      expect(res.status, `an empty allowlist produced a verdict:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the vacuous-allowlist refusal did not name itself').toContain('allowlist parsed to nothing');
+    });
+  });
+
+  test('anti-vacuity — no app source at all refuses to pass', () => {
+    withScratch((root) => {
+      place(root, 'packages/fixtures/public-relations.json',
+        JSON.stringify({ mirrors: ['ward_public'], rpcs: ['my_facility_wards'] }, null, 2));
+      place(root, 'README.md', 'x');
+      const res = runLint(LINT, root);
+      expect(res.status, `an empty source corpus reported clean:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the empty-corpus refusal did not name itself').toContain('no app source found under');
+    });
+  });
+
   test('plant — a malformed allowlist STOPS the run rather than parsing to nothing', () => {
     withScratch((root) => {
       place(root, 'packages/fixtures/public-relations.json', JSON.stringify({ mirrors: ['ward_public'] }));
       place(root, 'apps/x/src/query.ts', "const q = db.from('ward_public').select('x');");
       const res = runLint(LINT, root);
       expect(res.status, `a fixture missing its rpcs array still produced a verdict:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the malformed-fixture refusal did not name itself').toContain('could not read');
     });
   });
 });

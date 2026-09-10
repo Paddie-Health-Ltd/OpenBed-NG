@@ -9,8 +9,8 @@
   },
   "current": {
     "legs_total": 86,
-    "reached": 56,
-    "registered": 30,
+    "reached": 64,
+    "registered": 22,
     "note": "MEASURED, and updated whenever legs are added or closed. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started."
   },
   "guards": {
@@ -89,22 +89,13 @@
         "state": "reached"
       },
       "could not read": {
-        "state": "registered",
-        "reason": "could-not-run",
-        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
-        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+        "state": "reached"
       },
       "allowlist parsed to nothing — refusing to pass vacuously": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "no app source found under": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "on $2 — the check did not run": {
         "state": "registered",
@@ -124,10 +115,7 @@
     },
     "lint_grep_exit_codes.sh": {
       "no scripts directory at": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "no shell scripts found in": {
         "state": "reached"
@@ -150,10 +138,7 @@
     },
     "lint_migration_header.sh": {
       "no migration directory at": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "no forward migrations found in": {
         "state": "reached"
@@ -230,10 +215,7 @@
     },
     "lint_no_secrets.sh": {
       "no files to scan under": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "the secret scan did not run": {
         "state": "reached"
@@ -245,10 +227,7 @@
         "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
       },
       "committed secret matched in": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "lint_no_secrets.sh: FAILED (": {
         "state": "reached"
@@ -273,10 +252,7 @@
     },
     "lint_no_updated_at_filter.sh": {
       "no client source found under": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "the freshness-filter scan exited": {
         "state": "registered",

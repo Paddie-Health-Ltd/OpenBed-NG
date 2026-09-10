@@ -141,4 +141,16 @@ describe('lint_grep_exit_codes', () => {
       expect(res.stdout, 'the empty-corpus refusal did not name itself').toContain('no shell scripts found in');
     });
   });
+
+  test('anti-vacuity — a missing scripts directory FAILS, and names itself', () => {
+    // Distinct from the empty-corpus leg above and identical in status: delete
+    // the `[ -d "$DIR" ]` check and find yields nothing, so the next leg exits 2
+    // for a different reason. Only the message separates them.
+    withScratch((root) => {
+      place(root, 'unrelated.txt', 'x');
+      const res = runLint(LINT, root);
+      expect(res.status, `a missing scripts directory did not fail loudly:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the missing-directory refusal did not name itself').toContain('no scripts directory at');
+    });
+  });
 });

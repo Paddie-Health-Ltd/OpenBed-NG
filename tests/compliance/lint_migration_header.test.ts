@@ -199,4 +199,13 @@ describe('lint_migration_header', () => {
       expect(res.stdout, 'the empty-corpus refusal did not name itself').toContain('no forward migrations found in');
     });
   });
+
+  test('anti-vacuity — a missing migration directory FAILS, and names itself', () => {
+    withScratch((root) => {
+      place(root, 'unrelated.txt', 'x');
+      const res = runLint(LINT, root);
+      expect(res.status, `a missing corpus did not fail loudly:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the missing-directory refusal did not name itself').toContain('no migration directory at');
+    });
+  });
 });
