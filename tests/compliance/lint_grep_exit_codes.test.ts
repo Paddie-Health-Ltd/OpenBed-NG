@@ -4,7 +4,7 @@ import { copyFileSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * GUARD OVER A GUARD -- scripts/lint_no_piped_grep_q.sh.
+ * GUARD OVER A GUARD -- scripts/lint_grep_exit_codes.sh.
  *
  * WHAT IS BANNED, AND WHY IT IS NOT STYLE. grep exits 0 for match, 1 for no
  * match, and 2 for COULD NOT RUN. Branching on truthiness collapses the third
@@ -32,7 +32,7 @@ import { join } from 'node:path';
  * textually identical to the right answer and semantically wrong, and a lint
  * claiming to check it would be theatre (Clause 4).
  */
-const LINT = 'lint_no_piped_grep_q.sh';
+const LINT = 'lint_grep_exit_codes.sh';
 
 /** Copies the real corpus so plants sit among genuine scripts. */
 function copyScripts(root: string): void {
@@ -44,7 +44,7 @@ function copyScripts(root: string): void {
   }
 }
 
-describe('lint_no_piped_grep_q', () => {
+describe('lint_grep_exit_codes', () => {
   test('real corpus is accepted', () => {
     // NON-TRIVIAL, and this is the leg that pins the exemption: the real corpus
     // contains the PRESCRIBED idiom at scripts/lint_migration_header.sh -- a

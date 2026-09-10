@@ -46,6 +46,18 @@ describe('service-role bundle guard', () => {
     });
   });
 
+  test('plant — a credential in .next/static is rejected, not only in dist', () => {
+    // The guard's find predicate declares TWO paths: */dist/* and */.next/static/*.
+    // Only the first was ever planted, so the second half of the scope was a
+    // coverage claim with nothing behind it -- a `-path` that stopped matching
+    // after a framework change would have gone unnoticed.
+    withScratch((root) => {
+      place(root, 'apps/x/.next/static/chunks/main.js', `const k = "${PLANT_SB_SECRET}";`);
+      const res = runLint(LINT, root);
+      expect(res.status, `a credential in .next/static was accepted:\n${res.stdout}`).toBe(1);
+    });
+  });
+
   test('positive control — an ordinary bundle is accepted', () => {
     withScratch((root) => {
       place(root, 'apps/x/dist/assets/index.js', 'export const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;');
@@ -77,6 +89,10 @@ describe('updated_at filter guard', () => {
     ['.gt() on updated_at', "const q = db.from('ward_public').gt('updated_at', cutoff);"],
     ['.filter() on updated_at', "const q = db.from('ward_public').filter('updated_at', 'gte', cutoff);"],
     ['a WHERE clause on updated_at', "const sql = `select * from ward_public where updated_at > now() - interval '2 hours'`;"],
+    // The guard matches `updated_at|updatedAt`. The camelCase half was unplanted,
+    // and camelCase is the form a TypeScript client actually writes after a codec
+    // maps the row -- so it is the likelier carrier of the 4am bug, not the rarer.
+    ['.lt() on the camelCase updatedAt', "const q = db.from('ward_public').lt('updatedAt', cutoff);"],
   ])('plant — %s is rejected', (_name, code) => {
     withScratch((root) => {
       place(root, 'apps/x/src/query.ts', code);

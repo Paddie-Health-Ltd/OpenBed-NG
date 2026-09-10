@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 # ============================================================
-# scripts/lint_no_piped_grep_q.sh
+# scripts/lint_grep_exit_codes.sh
 # ============================================================
 # No script in scripts/ may BRANCH on a grep.
+#
+# RENAMED 2026-09-10 from lint_no_piped_grep_q.sh. That name described a strictly
+# narrower and different class than this now guards -- neither `piped` nor `-q` is
+# part of the defect, and the instance that escaped had neither. A guard whose
+# name is narrower than its behaviour is how the next person concludes it does not
+# cover their case and writes the exemption instead of the fix.
 #
 # WHY THIS IS A GUARD AND NOT A STYLE PREFERENCE. grep has THREE exit codes:
 # 0 match, 1 no match, and 2 COULD NOT RUN -- an unreadable input, a resource
@@ -68,7 +74,7 @@
 #
 # HOW THIS IS ENFORCED IN CI, stated exactly. There is no separate CI step for
 # it. It runs in the `compliance-tests` job through the ACCEPT leg of
-# `tests/compliance/lint_no_piped_grep_q.test.ts`, which invokes this script
+# `tests/compliance/lint_grep_exit_codes.test.ts`, which invokes this script
 # against the real repository root and requires exit 0. That is real enforcement,
 # but it is worth saying, because a reader scanning `.github/workflows/ci.yml`
 # for this filename will not find it.
@@ -89,7 +95,7 @@
 #      this script invokes no grep at all -- it is pure bash `case` matching, no
 #      fork, no pipe, and so no third exit code to misread.
 #
-# Usage: bash scripts/lint_no_piped_grep_q.sh [ROOT]
+# Usage: bash scripts/lint_grep_exit_codes.sh [ROOT]
 # Exit: 0 clean, 1 violation, 2 usage or empty corpus.
 # ============================================================
 set -euo pipefail
@@ -108,7 +114,7 @@ while IFS= read -r _line; do FILES+=("$_line"); done < <(find "$DIR" -maxdepth 1
 VIOLATIONS=0
 for f in "${FILES[@]}"; do
     base="$(basename "$f")"
-    [ "$base" = "lint_no_piped_grep_q.sh" ] && continue
+    [ "$base" = "lint_grep_exit_codes.sh" ] && continue
 
     n=0
     while IFS= read -r line; do
@@ -172,5 +178,5 @@ for f in "${FILES[@]}"; do
     done < "$f"
 done
 
-[ "$VIOLATIONS" -eq 0 ] || { echo "lint_no_piped_grep_q.sh: FAILED ($VIOLATIONS)"; exit 1; }
-echo "lint_no_piped_grep_q.sh: PASS (${#FILES[@]} shell scripts scanned)"
+[ "$VIOLATIONS" -eq 0 ] || { echo "lint_grep_exit_codes.sh: FAILED ($VIOLATIONS)"; exit 1; }
+echo "lint_grep_exit_codes.sh: PASS (${#FILES[@]} shell scripts scanned)"

@@ -407,7 +407,7 @@ case "$st" in
 esac
 ```
 
-Banned mechanically by `scripts/lint_no_piped_grep_q.sh` — **but read what that
+Banned mechanically by `scripts/lint_grep_exit_codes.sh` — **but read what that
 covered before you rely on it.** Until 2026-09-10 that guard matched
 `<writer> | grep -q` only: PIPED, and QUIET. The example directly above is
 neither, so this sentence claimed coverage of the exact form it sits underneath.
