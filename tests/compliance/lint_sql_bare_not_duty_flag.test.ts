@@ -32,6 +32,7 @@ describe('lint_sql_no_bare_not_duty_flag', () => {
       place(root, 'database/migrations/900_plant.sql', `-- ===\n-- 900_plant.sql\n-- Idempotency: n/a\n-- ===\n${snippet}\nVALUES ('900_plant.sql')\n`);
       const res = runLint(LINT, root);
       expect(res.status, `plant was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the guard rejected but did not name the rule').toContain('bare NOT on a tri-state duty flag');
     });
   });
 
