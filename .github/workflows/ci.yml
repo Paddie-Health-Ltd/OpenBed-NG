@@ -19,11 +19,20 @@
 #   mechanically, because it is the easiest property in the repository to
 #   regress and the hardest to notice when it has been.
 #
-# PROVENANCE OF THE TIMEOUTS. There is no cold-run measurement yet -- this
-# workflow has never run. Every `timeout-minutes` below is a PROVISIONAL ceiling
-# and is labelled as such. Writing an invented "observed max" would be exactly
-# the false-fact defect Clause 5 of .claude/rules/code-pipeline.md exists to
-# prevent. Re-measure and replace these after the first green run on main.
+# PROVENANCE OF THE TIMEOUTS. This workflow has now run, so every
+# `timeout-minutes` below is MEASURED rather than guessed, and each carries the
+# run id and the duration it was measured from. Writing an invented "observed
+# max" would be exactly the false-fact defect Clause 5 of
+# .claude/rules/code-pipeline.md exists to prevent -- which is why
+# `tests/compliance/ci_required_checks_not_paths_filtered.test.ts` requires each
+# job to be labelled either PROVISIONAL (no run yet) or MEASURED WITH A CITED
+# DURATION. The word alone would be the same unbacked claim.
+#
+# ONE OBSERVATION IS NOT A DISTRIBUTION. The headroom in each ceiling is for a
+# cold image cache and GitHub-side variance, not a claim about the spread. The
+# variable part is the `supabase start` image pull: Docker Hub returned
+# `toomanyrequests` and retried on the measuring run, and that path is what
+# would move these numbers.
 # ============================================================
 
 name: CI
@@ -53,7 +62,9 @@ jobs:
   repo-lint:
     name: repo-lint
     runs-on: ubuntu-latest
-    # PROVISIONAL: no cold-run data yet. Re-measure after the first green main run.
+    # MEASURED 2026-09-10: 15s observed on ubuntu-latest, run 34500404427.
+    # Ceiling 10m. ONE observation is not a distribution -- the headroom is for a
+    # cold image cache and for GitHub-side variance, not a claim about the spread.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -70,7 +81,9 @@ jobs:
   migration-lint:
     name: migration-lint
     runs-on: ubuntu-latest
-    # PROVISIONAL: no cold-run data yet.
+    # MEASURED 2026-09-10: 5s observed on ubuntu-latest, run 34500404427.
+    # Ceiling 5m. ONE observation is not a distribution -- the headroom is for a
+    # cold image cache and for GitHub-side variance, not a claim about the spread.
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
@@ -80,7 +93,9 @@ jobs:
   compliance-tests:
     name: compliance-tests
     runs-on: ubuntu-latest
-    # PROVISIONAL: no cold-run data yet.
+    # MEASURED 2026-09-10: 15s observed on ubuntu-latest, run 34500404427.
+    # Ceiling 10m. ONE observation is not a distribution -- the headroom is for a
+    # cold image cache and for GitHub-side variance, not a claim about the spread.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -120,9 +135,12 @@ jobs:
   db-tests:
     name: db-tests
     runs-on: ubuntu-latest
-    # PROVISIONAL, and the widest ceiling here: `supabase start` pulls container
-    # images on a cold cache and dominates this job's wall clock.
-    timeout-minutes: 25
+    # MEASURED 2026-09-10: 1m13s observed on ubuntu-latest, run 34500404427.
+    # Ceiling 15m. ONE observation is not a distribution -- the headroom is for a
+    # cold image cache and for GitHub-side variance, not a claim about the spread.
+    # `supabase start` dominates: image pull, with Docker Hub rate-limit retries
+    # observed on the measuring run. That retry path is the variable part.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -181,9 +199,11 @@ jobs:
   golden-path:
     name: golden-path
     runs-on: ubuntu-latest
-    # PROVISIONAL: no cold-run data yet. Same shape as db-tests -- `supabase start`
-    # dominates -- plus a second phase, so the ceiling is a little wider.
-    timeout-minutes: 30
+    # MEASURED 2026-09-10: 1m09s observed on ubuntu-latest, run 34500404427.
+    # Ceiling 15m. ONE observation is not a distribution -- the headroom is for a
+    # cold image cache and for GitHub-side variance, not a claim about the spread.
+    # Same shape as db-tests plus the ratchet phase, which cost 1s of the 69.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -262,7 +282,9 @@ jobs:
   bundle-guards:
     name: bundle-guards
     runs-on: ubuntu-latest
-    # PROVISIONAL: no cold-run data yet.
+    # MEASURED 2026-09-10: 14s observed on ubuntu-latest, run 34500404427.
+    # Ceiling 10m. ONE observation is not a distribution -- the headroom is for a
+    # cold image cache and for GitHub-side variance, not a claim about the spread.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -290,7 +312,9 @@ jobs:
   secret-scan:
     name: secret-scan
     runs-on: ubuntu-latest
-    # PROVISIONAL: no cold-run data yet.
+    # MEASURED 2026-09-10: 8s observed on ubuntu-latest, run 34500404427.
+    # Ceiling 5m. ONE observation is not a distribution -- the headroom is for a
+    # cold image cache and for GitHub-side variance, not a claim about the spread.
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4

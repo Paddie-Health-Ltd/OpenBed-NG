@@ -101,7 +101,7 @@ describe('ci.yml invariants', () => {
     }
   });
 
-  test('EVERY job carries its own PROVISIONAL label, not a repo-wide count of them', () => {
+  test('EVERY job labels its timeout PROVISIONAL or MEASURED, and MEASURED cites the observation', () => {
     // Clause 5: a present-tense claim carries its probe. This workflow has never
     // run, so no timeout here is an observed maximum. Writing one would be a
     // false fact; labelling them is the honest form.
@@ -132,9 +132,19 @@ describe('ci.yml invariants', () => {
         }
       }
       const block = lines.slice(start, end).join('\n');
-      if (!block.includes('PROVISIONAL')) unlabelled.push(name);
+      // Two honest states, and the label must say which. PROVISIONAL = no run has
+      // happened. MEASURED = one has, and the comment must CARRY the observation:
+      // a date and an observed duration. `MEASURED` on its own would be the same
+      // unbacked present-tense claim the label exists to prevent -- Clause 5, and
+      // "a date is not a probe" cuts both ways, so the duration is required too.
+      const provisional = block.includes('PROVISIONAL');
+      const measured = /MEASURED \d{4}-\d{2}-\d{2}:[^\n]*\b\d+(m\d+)?s\b[^\n]*observed/.test(block);
+      if (!provisional && !measured) unlabelled.push(name);
     }
-    expect(unlabelled, 'these jobs claim a measured timeout ceiling that does not exist yet').toEqual([]);
+    expect(
+      unlabelled,
+      'these jobs assert a timeout ceiling with neither a PROVISIONAL caveat nor a cited observation',
+    ).toEqual([]);
   });
 
   test('main runs are not cancellable', () => {
