@@ -7,6 +7,12 @@
     "note": "A separate hand audit counted 79 legs and 5 reached, using a looser rule: per-pattern granularity for data-driven loops, and crediting a plant that asserts its own planted DATA (a filename, a planted column name) rather than the leg message. Both numbers are real. This register enforces the strict rule, which is why its starting figure is lower.",
     "immutable": "THIS IS A HISTORICAL RECORD AND DOES NOT MOVE. The ratchet asserts the CURRENT reached count is >= this figure, so progress is free and regression is not. Restating it would destroy the only number that says where this started."
   },
+  "current": {
+    "legs_total": 84,
+    "reached": 19,
+    "registered": 65,
+    "note": "MEASURED, and updated whenever legs are added or closed. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started."
+  },
   "guards": {
     "get_publishable_key.sh": {
       "jq is required (brew install jq).": {
@@ -459,6 +465,34 @@
         "reason": "no-seam",
         "why": "No guard-over-a-guard test file exists for this script yet.",
         "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      }
+    },
+    "gate.sh": {
+      "check(s) did not pass": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "gate.sh runs the real check suite, so exercising this leg means failing one of them for real -- there is no injected check list to make one fail cheaply. Demonstrated by hand on 2026-09-10: it exited 1 and named the failing check.",
+        "closes_with": "An injectable check list, so a test can hand it one command that fails and assert the exit status and the message."
+      }
+    },
+    "tests/compliance/leg_coverage.test.ts": {
+      "is not in the register — add it as reached or registered": {
+        "state": "reached"
+      },
+      "is marked reached but no test asserts its message": {
+        "state": "reached"
+      },
+      "IS now reached — delete its register entry": {
+        "state": "reached"
+      },
+      ", which is not one of the allowed reasons": {
+        "state": "reached"
+      },
+      "is registered with no reason given": {
+        "state": "reached"
+      },
+      ", which no longer exists in the script": {
+        "state": "reached"
       }
     }
   }

@@ -258,3 +258,29 @@ export function isReached(leg: Leg, byScript: Map<string, string[]>): boolean {
     (a) => a.includes(leg.id) || (leg.id.includes(a.trim()) && a.trim().length >= MIN_ID),
   );
 }
+
+/**
+ * THE INSTRUMENT'S OWN LEGS.
+ *
+ * The reachedness computation had three defects in one sitting, every one found
+ * by this repository's guards rather than by me. So the figure it reports is only
+ * as proved as ITS legs are -- and when this was written it had six, of which
+ * four had a plant. "13 of 78 proved" was itself a 4-of-6 claim: the parser
+ * defect, applied to the parser's own tests.
+ *
+ * An instrument exempt from its own standard is the thing this whole register
+ * exists to stop, so its violation branches are enumerated the same way a shell
+ * guard's are -- from source -- and held to the same reaching-plant rule.
+ */
+export function parseInstrumentLegs(file: string, label: string): Leg[] {
+  const legs: Leg[] = [];
+  readFileSync(file, 'utf8').split('\n').forEach((raw, i) => {
+    const line = raw.trim();
+    if (line.startsWith('//') || line.startsWith('*')) return;
+    for (const m of line.matchAll(/out\.push\(\s*`([^`]+)`/g)) {
+      const id = longestStatic((m[1] as string).replace(/\$\{[^}]*\}/g, '$X'));
+      if (id !== null) legs.push({ script: label, line: i + 1, id });
+    }
+  });
+  return legs;
+}

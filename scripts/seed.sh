@@ -24,6 +24,14 @@ URL="${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}"
 
 # Guard: local only. `--i-know-what-i-am-doing` is deliberately absent; there is
 # no legitimate reason to seed synthetic facilities into a remote database.
+#
+# THE ASYMMETRY WITH run_migrations.sh IS DELIBERATE, AND EASY TO GET BACKWARDS.
+# That script takes the SAME DATABASE_URL, writes DDL rather than rows, and has
+# NO host check -- correctly, because applying migrations to the hosted project
+# is exactly what it is for. This one refuses anything but a local host, because
+# what it writes is INVENTED HOSPITALS. Copying the check into the migration
+# runner breaks the hosted apply; removing it from here puts synthetic facilities
+# in a real database. Neither is a tidy-up.
 # ANCHORED ON THE HOST, NOT ON A SUBSTRING OF THE WHOLE URL.
 #
 # This was `*127.0.0.1*|*localhost*|*@db:*`, matched against the entire URL, so
@@ -31,8 +39,15 @@ URL="${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}"
 # substring is there, in a domain that is not. Same for a host such as
 # `my127.0.0.1.example.net`, or either string appearing in the password or the
 # database name. The host is extracted first and matched whole.
-HOSTPORT="${URL#*@}"          # strip scheme and credentials
-HOST="${HOSTPORT%%/*}"        # strip path
+# SCHEME FIRST, THEN CREDENTIALS. Order matters and the other way round is a
+# bug I shipped and caught one turn later: `${URL#*@}` on a URL with NO
+# credentials leaves the string untouched, so `postgresql://localhost:5432/db`
+# -- an entirely ordinary form -- parsed its host as `postgresql` and was
+# REFUSED. It failed closed, so nothing unsafe passed, but a legitimate local
+# URL stopped working.
+REST="${URL#*://}"            # strip scheme
+REST="${REST#*@}"             # strip credentials IF PRESENT (no-op without an @)
+HOST="${REST%%/*}"            # strip path
 HOST="${HOST%%\?*}"           # strip query
 HOST="${HOST%%:*}"            # strip port
 case "$HOST" in

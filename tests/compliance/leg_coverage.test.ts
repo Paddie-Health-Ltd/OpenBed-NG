@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { join } from 'node:path';
-import { parseLegs, assertedByScript, isReached, legsWithoutIdentity, duplicateIds, type Leg } from './_legs.js';
+import { readFileSync } from 'node:fs';
+import { parseLegs, parseInstrumentLegs, assertedByScript, isReached, legsWithoutIdentity, duplicateIds, type Leg } from './_legs.js';
 import { REPO_ROOT } from './_scratch.js';
 import REGISTER from '../../packages/fixtures/leg-coverage.json';
 
@@ -35,6 +36,8 @@ import REGISTER from '../../packages/fixtures/leg-coverage.json';
  */
 
 const SCRIPTS = join(REPO_ROOT, 'scripts');
+/** This file. Its own violation branches are legs and are registered like any other. */
+const INSTRUMENT = 'tests/compliance/leg_coverage.test.ts';
 const TESTS = join(REPO_ROOT, 'tests/compliance');
 const REASONS = new Set(['status-only', 'could-not-run', 'no-seam', 'no-injectable-hook']);
 
@@ -83,17 +86,27 @@ export function registerViolations(
     }
   }
 
-  for (const { script, id } of registered()) {
-    if (reg === guards && !seen.has(`${script}::${id}`)) {
-      out.push(`${script}: register names leg "${id}", which no longer exists in the script`);
+  // Iterate the register PASSED IN, not the module-level one. It was
+  // `if (reg === guards && ...)`, which made this branch unreachable by any
+  // plant -- a leg I wrote in an unprovable shape while building the thing whose
+  // whole purpose is finding legs in that shape.
+  for (const [script, legsOf] of Object.entries(reg)) {
+    for (const id of Object.keys(legsOf)) {
+      if (!seen.has(`${script}::${id}`)) {
+        out.push(`${script}: register names leg "${id}", which no longer exists in the script`);
+      }
     }
   }
   return out.sort();
 }
 
 describe('leg coverage register', () => {
-  const legs = parseLegs(SCRIPTS);
+  const legs = [...parseLegs(SCRIPTS), ...parseInstrumentLegs(join(REPO_ROOT, INSTRUMENT), INSTRUMENT)];
   const asserted = assertedByScript(TESTS);
+  // The instrument's own assertions are its evidence, exactly as a guard's test
+  // file is the guard's. Without this it could never prove any of its own legs.
+  asserted.set(INSTRUMENT, asserted.get('lint_grep_exit_codes.sh') === undefined ? [] : []);
+  asserted.set(INSTRUMENT, [...(readFileSync(join(REPO_ROOT, INSTRUMENT), 'utf8').matchAll(/\.toContain\(\s*(['"`])((?:[^\\]|\\.)*?)\1/g))].map((m) => m[2] as string));
 
   test('anti-vacuity — legs were parsed and the register is not empty', () => {
     expect(legs.length, 'no legs parsed — the parser stopped matching').toBeGreaterThan(50);
@@ -119,12 +132,22 @@ describe('leg coverage register', () => {
   test('the recorded baseline still matches what is measured', () => {
     // The number future sessions will want and cannot reconstruct.
     const reached = legs.filter((l) => isReached(l, asserted)).length;
-    expect(legs.length, 'leg total moved without the baseline being restated').toBe(REGISTER.baseline_2026_09_10.legs_total);
+    const base = REGISTER.baseline_2026_09_10;
+    const now = REGISTER.current;
+
+    // THE BASELINE IS HISTORY AND DOES NOT MOVE. `current` is the measurement.
+    // An earlier version asserted the leg TOTAL against the baseline, which
+    // reddened the moment a legitimate new guard was added -- it demanded the
+    // historical record be rewritten to record progress, which is the one thing
+    // it must never do.
+    expect(legs.length, 'the register is out of step with the measured leg total').toBe(now.legs_total);
+    expect(reached, 'current.reached does not match what is measured').toBe(now.reached);
+
+    // THE RATCHET. Progress is free; regression is not.
     expect(
       reached,
-      `reached count is ${reached}; the register records ${REGISTER.baseline_2026_09_10.reached} at baseline. ` +
-        'If this rose, that is the ratchet working — delete the closed entries and restate the baseline.',
-    ).toBeGreaterThanOrEqual(REGISTER.baseline_2026_09_10.reached);
+      `reached is ${reached}; the 2026-09-10 baseline was ${base.reached}. A fall means a leg stopped being proved.`,
+    ).toBeGreaterThanOrEqual(base.reached);
   });
 
   const LEG: Leg = { script: 'lint_x.sh', line: 1, id: 'the planted leg message' };
@@ -153,6 +176,20 @@ describe('leg coverage register', () => {
     const out = registerViolations([LEG], { 'lint_x.sh': { 'the planted leg message': { state: 'registered', reason: 'because I said so', why: 'x' } } }, new Map());
     expect(out.length, `an arbitrary reason was accepted: ${JSON.stringify(out)}`).toBe(1);
     expect(out[0]).toContain('is not one of the allowed reasons');
+  });
+
+  test('plant — a registered leg with no reason given is rejected', () => {
+    const out = registerViolations([LEG], { 'lint_x.sh': { 'the planted leg message': { state: 'registered', reason: 'status-only', why: '   ' } } }, new Map());
+    expect(out.length, `an empty reason was accepted: ${JSON.stringify(out)}`).toBe(1);
+    expect(out[0]).toContain('is registered with no reason given');
+  });
+
+  test('plant — a register entry naming a leg that no longer exists is rejected', () => {
+    // The other anti-rot direction: a guard is rewritten, its message changes,
+    // and the stale entry keeps counting toward the registered total forever.
+    const out = registerViolations([], { 'lint_x.sh': { 'a leg that was deleted': { state: 'registered', reason: 'no-seam', why: 'x' } } }, new Map());
+    expect(out.length, `a stale entry survived: ${JSON.stringify(out)}`).toBe(1);
+    expect(out[0]).toContain('which no longer exists in the script');
   });
 
   test('positive control — a properly registered, genuinely unreached leg is accepted', () => {

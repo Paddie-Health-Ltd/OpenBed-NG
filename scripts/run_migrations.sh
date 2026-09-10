@@ -48,6 +48,15 @@
 # that insert, the file is applied and already self-ledgered, so the insert was
 # redundant anyway. Recovery in every case is: run it again.
 #
+# NO HOST CHECK, DELIBERATELY -- and see scripts/seed.sh for the other half.
+# This script applies DDL to whatever DATABASE_URL names, INCLUDING THE HOSTED
+# PROJECT: that is how migrations 001-013 reach production, so a local-only guard
+# here would break the one workflow it exists to serve. seed.sh takes the same
+# variable and refuses any non-local host, because what IT writes is synthetic
+# facilities. The difference is about WHAT IS BEING WRITTEN, not about how much
+# the two scripts are trusted, and a reader who reverses it will either break the
+# hosted apply or seed invented hospitals into a real database.
+#
 # Usage:
 #   bash scripts/run_migrations.sh [--dry-run] [ROOT]
 #

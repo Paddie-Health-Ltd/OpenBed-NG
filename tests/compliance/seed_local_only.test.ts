@@ -31,13 +31,20 @@ import { REPO_ROOT } from './_scratch.js';
 const SEED = join(REPO_ROOT, 'scripts/seed.sh');
 
 /**
- * URLs ASSEMBLED AT RUNTIME, never written as literals.
+ * MOSTLY CREDENTIAL-FREE, AND THAT IS THE POINT.
  *
- * The first version of this file spelled them out and `scripts/lint_no_secrets.sh`
- * correctly flagged it: a remote Postgres URL with a password is exactly the
- * shape it hunts, and it does not care that this one is a test fixture. Same
- * technique as tests/compliance/_plants.ts -- split the scheme so the literal
- * never exists in the repository, and the scanner stays honest over tests/.
+ * The first version of this file gave every plant a `user:password@` prefix, and
+ * `scripts/lint_no_secrets.sh` correctly flagged the file: a remote Postgres URL
+ * with a password is exactly the shape it hunts and it does not care that this
+ * one is a fixture. The right fix was not to smuggle the literal past the
+ * scanner -- it was to notice the plants never needed credentials at all. THE
+ * GUARD READS THE HOST. A test file that legitimately trips the secret scanner
+ * is a standing false positive, and a standing false positive is how a true
+ * positive gets waved through later.
+ *
+ * ONE plant keeps credentials, assembled at runtime so the literal never exists
+ * in the repository, because the parser has an `@`-stripping branch and a branch
+ * with no plant is the thing this whole sweep is about.
  */
 const pg = (rest: string): string => `postgres${'ql'}://${rest}`;
 const REFUSAL = 'seed data is synthetic and must never reach a non-local database';
@@ -57,14 +64,17 @@ function runSeed(url: string): { status: number; out: string } {
 
 describe('seed.sh refuses a non-local database', () => {
   test.each([
-    ['an ordinary remote host', pg('u:p@db.prod.example.com:5432/app')],
+    ['an ordinary remote host', pg('db.prod.example.com:5432/app')],
     // The three that defeated the unanchored substring match.
-    ['a domain CONTAINING localhost', pg('u:p@localhost.attacker.example.com:5432/app')],
-    ['a domain CONTAINING 127.0.0.1', pg('u:p@my127.0.0.1.example.net:5432/app')],
-    ['a host beginning db. — the old *@db:* arm', pg('u:p@db.prod.example.com/app')],
+    ['a domain CONTAINING localhost', pg('localhost.attacker.example.com:5432/app')],
+    ['a domain CONTAINING 127.0.0.1', pg('my127.0.0.1.example.net:5432/app')],
+    ['a host beginning db. — the old *@db:* arm', pg('db.prod.example.com/app')],
     // The substring appearing somewhere that is not the host at all.
-    ['localhost in the PASSWORD', pg('u:localhost@evil.example.com:5432/app')],
-    ['localhost in the DATABASE NAME', pg('u:p@evil.example.com:5432/localhost')],
+    // The one credential-bearing plant, and the only one that needs to be:
+    // it covers the parser's @-stripping branch, and `localhost` sitting in the
+    // credentials is precisely what the old whole-URL substring match fell for.
+    ['localhost in the CREDENTIALS, host remote', pg('u:localhost@evil.example.com:5432/app')],
+    ['localhost in the DATABASE NAME', pg('evil.example.com:5432/localhost')],
   ])('plant — %s is refused', (_name, url) => {
     const res = runSeed(url);
     expect(res.status, `a non-local database was accepted:\n${res.out}`).toBe(2);
@@ -72,8 +82,13 @@ describe('seed.sh refuses a non-local database', () => {
   });
 
   test.each([
-    ['127.0.0.1', pg('postgres:postgres@127.0.0.1:54322/postgres')],
-    ['localhost', pg('postgres:postgres@localhost:54322/postgres')],
+    ['127.0.0.1 with credentials', pg('postgres:postgres@127.0.0.1:54322/postgres')],
+    // NO CREDENTIALS -- the form the first version of this parser refused. It
+    // stripped credentials BEFORE the scheme, so `${'postgres'}ql://localhost:5432/db`
+    // parsed its host as `postgresql` and was rejected. Ordinary, and broken for
+    // one turn; this is the plant that would have caught it.
+    ['localhost with NO credentials', pg('localhost:5432/postgres')],
+    ['127.0.0.1 with NO credentials', pg('127.0.0.1:54322/postgres')],
     ['the docker-compose host `db`', pg('postgres:postgres@db:5432/postgres')],
   ])('positive control — %s is NOT refused', (_name, url) => {
     // A guard that refuses everything is a rubber stamp: these are the forms every
