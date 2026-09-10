@@ -1,0 +1,227 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+/**
+ * LEG ENUMERATION, PARSED FROM SOURCE.
+ *
+ * A LEG is one site in a guard script that can drive a non-zero exit and says so
+ * with its own message. Its IDENTITY is the longest STATIC run in that message --
+ * the substring a test can assert with `toContain`.
+ *
+ * WHY PARSED AND NOT DECLARED. The obvious alternative is a hand-maintained
+ * `LEG LEDGER` comment in each script's header. That ledger would drift from the
+ * code it describes, which is the exact defect the register exists to prevent,
+ * one level in. Parsing is test-conventions section 3 applied to the guards
+ * themselves: parse the artefact, assert against named things.
+ *
+ * A COROLLARY THAT IS A REQUIREMENT, NOT A LIMITATION. A leg whose message is
+ * entirely interpolated -- `echo "FAIL: $(basename "$f"): $out"` -- has NO
+ * assertable identity, and a reader at 2am gets a filename and a grep dump with
+ * no statement of which rule fired. Four legs were in that state on 2026-09-10.
+ * They were given static text as part of the sweep. `legsWithoutIdentity()`
+ * below is what keeps them that way.
+ */
+
+export interface Leg {
+  script: string;
+  line: number;
+  id: string;
+}
+
+/**
+ * Static runs of a double-quoted shell string, skipping BALANCED `${...}` and
+ * `$(...)`. A regex split cannot do this: `${f#"$ROOT"/}` and `$(basename "$f")`
+ * both nest a quote inside the expansion, and a naive splitter ends the string
+ * early and silently truncates the leg's identity.
+ */
+export function staticRuns(s: string): string[] {
+  const out: string[] = [];
+  let cur = '';
+  for (let i = 0; i < s.length; i += 1) {
+    if (s[i] === '$' && (s[i + 1] === '{' || s[i + 1] === '(')) {
+      const open = s[i + 1] as string;
+      const close = open === '{' ? '}' : ')';
+      let depth = 0;
+      let j = i + 1;
+      for (; j < s.length; j += 1) {
+        if (s[j] === open) depth += 1;
+        else if (s[j] === close) {
+          depth -= 1;
+          if (depth === 0) break;
+        }
+      }
+      out.push(cur);
+      cur = '';
+      i = j;
+      continue;
+    }
+    if (s[i] === '$' && /[A-Za-z_?#]/.test(s[i + 1] ?? '')) {
+      let j = i + 1;
+      while (j < s.length && /[A-Za-z0-9_]/.test(s[j] ?? '')) j += 1;
+      out.push(cur);
+      cur = '';
+      i = j - 1;
+      continue;
+    }
+    cur += s[i];
+  }
+  out.push(cur);
+  return out.map((r) => r.replace(/^[\s:\-—'"]+|[\s:\-—'"]+$/g, '')).filter(Boolean);
+}
+
+const MIN_ID = 10;
+
+export function longestStatic(message: string): string | null {
+  const runs = staticRuns(message)
+    // Strip the output marker. A test asserts the DESCRIPTIVE part -- nobody
+    // writes `toContain('FAIL: ...')` -- so leaving the marker in the identity
+    // would make every real assertion look like a miss.
+    .map((r) => r.replace(/^(FAIL|ERROR|REFUSING):\s*/, '').trim())
+    .filter((r) => r.length >= MIN_ID);
+  return runs.sort((a, b) => b.length - a.length)[0] ?? null;
+}
+
+/**
+ * Double-quoted strings on a line, scanned rather than regexed.
+ *
+ * A regex cannot do this: `$(basename "$f")` and `${f#"$ROOT"/}` nest a quote
+ * INSIDE the expansion, so a regex terminates the string early and silently
+ * truncates the leg's identity to `FAIL: $(basename "`. That truncation is what
+ * made four real legs look identity-less on the first pass.
+ */
+function quotedStrings(line: string): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < line.length; i += 1) {
+    if (line[i] !== '"') continue;
+    let depth = 0;
+    let j = i + 1;
+    let buf = '';
+    for (; j < line.length; j += 1) {
+      const c = line[j] as string;
+      if (c === '\\') {
+        buf += c + (line[j + 1] ?? '');
+        j += 1;
+        continue;
+      }
+      if (c === '$' && (line[j + 1] === '(' || line[j + 1] === '{')) depth += 1;
+      else if ((c === ')' || c === '}') && depth > 0) depth -= 1;
+      else if (c === '"' && depth === 0) break;
+      buf += c;
+    }
+    out.push(buf);
+    i = j;
+  }
+  return out;
+}
+
+/**
+ * EMITTERS ARE NOT LEGS. Some scripts funnel several legs through one `echo`,
+ * with the identity carried in a variable set at the real site -- `$why` in
+ * lint_grep_exit_codes.sh, `fail "$1"` in lint_migration_header.sh. The identity
+ * sites are captured separately (the `why="..."` assignments, the `fail "..."`
+ * call sites), so counting the funnel too would both double-count and report a
+ * spurious identity-less leg.
+ */
+function isEmitter(line: string): boolean {
+  return /\$why\b/.test(line) || /^fail\s*\(\)/.test(line) || /"FAIL: \$1"/.test(line);
+}
+
+/** Every string literal on a line that announces a failure. */
+function failureMessages(line: string): string[] {
+  if (isEmitter(line)) {
+    // Still capture the identity-bearing assignments if they share the line.
+    return [...line.matchAll(/\bwhy="([^"]+)"/g)].map((m) => m[1] as string);
+  }
+  const out: string[] = [];
+  for (const m of line.matchAll(/\bwhy="([^"]+)"/g)) out.push(m[1] as string);
+  for (const q of quotedStrings(line)) {
+    // The OUTPUT forms only. A bare `FAILED` also matches the `FAILED[@]` array
+    // name in lint_migrations_all.sh's `if` CONDITION, which is not a message.
+    if (/FAIL:|ERROR:|REFUSING:|: FAILED/.test(q)) out.push(q);
+  }
+  for (const m of line.matchAll(/\bfail\s+"([^"]+)"/g)) out.push(m[1] as string);
+  return out;
+}
+
+export function parseLegs(scriptsDir: string): Leg[] {
+  const legs: Leg[] = [];
+  for (const script of readdirSync(scriptsDir).filter((n) => n.endsWith('.sh')).sort()) {
+    readFileSync(join(scriptsDir, script), 'utf8').split('\n').forEach((raw, i) => {
+      const line = raw.trim();
+      if (line.startsWith('#')) return;
+      // A PASS line is not a leg. It announces success and cannot drive a failure.
+      if (/:\s*PASS\b/.test(line)) return;
+      for (const msg of failureMessages(line)) {
+        const id = longestStatic(msg);
+        if (id !== null) legs.push({ script, line: i + 1, id });
+      }
+    });
+  }
+  return dedupe(legs);
+}
+
+/** One leg per (script, id): a message repeated across arms is still one leg. */
+function dedupe(legs: Leg[]): Leg[] {
+  const seen = new Set<string>();
+  return legs.filter((l) => {
+    const k = `${l.script}::${l.id}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+/**
+ * Failure sites whose message carries NO static run long enough to assert on.
+ * Must be empty: a leg that cannot be named cannot be proved, and cannot be
+ * read at 2am either.
+ */
+export function legsWithoutIdentity(scriptsDir: string): { script: string; line: number; message: string }[] {
+  const out: { script: string; line: number; message: string }[] = [];
+  for (const script of readdirSync(scriptsDir).filter((n) => n.endsWith('.sh')).sort()) {
+    readFileSync(join(scriptsDir, script), 'utf8').split('\n').forEach((raw, i) => {
+      const line = raw.trim();
+      if (line.startsWith('#')) return;
+      if (/:\s*PASS\b/.test(line)) return;
+      for (const msg of failureMessages(line)) {
+        if (longestStatic(msg) === null) out.push({ script, line: i + 1, message: msg });
+      }
+    });
+  }
+  return out;
+}
+
+/** Legs sharing an id within one script — an ambiguous identity is not an identity. */
+export function duplicateIds(legs: Leg[]): string[] {
+  const counts = new Map<string, number>();
+  for (const l of legs) {
+    const k = `${l.script}::${l.id}`;
+    counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  return [...counts.entries()].filter(([, n]) => n > 1).map(([k]) => k);
+}
+
+/**
+ * The substrings that compliance tests actually ASSERT, via `toContain(...)`.
+ *
+ * NOT the raw file text. Every one of these guards documents its own failure
+ * messages in its test's header comment, so a plain substring search over the
+ * file reports a leg as proved because someone described it in prose. That is
+ * the same defect as a comment claiming a link, and it inflated this measurement
+ * on the first run.
+ */
+export function assertedSubstrings(testsDir: string): string[] {
+  const out: string[] = [];
+  for (const name of readdirSync(testsDir).filter((n) => n.endsWith('.test.ts'))) {
+    const src = readFileSync(join(testsDir, name), 'utf8');
+    for (const m of src.matchAll(/\.toContain\(\s*(['"`])((?:[^\\]|\\.)*?)\1/g)) {
+      out.push(m[2] as string);
+    }
+  }
+  return out;
+}
+
+/** A leg is REACHED when some test asserts a substring of its own message. */
+export function isReached(leg: Leg, asserted: string[]): boolean {
+  return asserted.some((a) => a.includes(leg.id) || leg.id.includes(a.trim()) && a.trim().length >= MIN_ID);
+}

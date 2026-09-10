@@ -51,7 +51,7 @@ for f in "${FILES[@]}"; do
         *) echo "ERROR: the freshness-filter scan exited $st on $f -- it did not run" >&2; exit 2 ;;
     esac
     if [ -n "$out" ]; then
-        echo "FAIL: ${f#"$ROOT"/}"
+        echo "FAIL: updated_at used as a FILTER on the public search path: ${f#"$ROOT"/}"
         echo "$out" | sed 's/^/  /'
         VIOLATIONS=$((VIOLATIONS+1))
     fi

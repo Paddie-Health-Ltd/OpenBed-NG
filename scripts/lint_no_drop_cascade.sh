@@ -41,7 +41,10 @@ for f in "${FILES[@]}"; do
         }
         { prev = $0 }
     ' "$f")
-    [ -n "$out" ] && { echo "FAIL: $out"; VIOLATIONS=$((VIOLATIONS+1)); }
+    # The message names the RULE, not just the hit. A guard that prints a file
+    # and a grep dump tells a reader at 2am nothing about which rule fired, and
+    # it gives a test nothing to assert on but a filename.
+    [ -n "$out" ] && { echo "FAIL: DROP TABLE ... CASCADE without an OPENBED-CASCADE-OVERRIDE: $out"; VIOLATIONS=$((VIOLATIONS+1)); }
 done
 
 [ "$VIOLATIONS" -eq 0 ] || { echo "lint_no_drop_cascade.sh: FAILED ($VIOLATIONS file(s))"; exit 1; }

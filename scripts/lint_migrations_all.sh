@@ -29,7 +29,7 @@ done
 
 if [ "${#FAILED[@]}" -gt 0 ]; then
     echo
-    echo "lint_migrations_all.sh: FAILED — ${FAILED[*]}"
+    echo "lint_migrations_all.sh: FAILED — one or more migration lints reported a violation: ${FAILED[*]}"
     exit 1
 fi
 echo

@@ -106,7 +106,7 @@ for f in "${FILES[@]}"; do
             continue
         fi
 
-        echo "FAIL: $rel — $name"
+        echo "FAIL: committed secret matched in $rel — pattern: $name"
         echo "$out" | cut -c1-120 | sed 's/^/  /'
         VIOLATIONS=$((VIOLATIONS+1))
     done

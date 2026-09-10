@@ -1,0 +1,500 @@
+{
+  "comment": "THE UNREACHED-LEG REGISTER. A leg is one site in a guard script that can drive a non-zero exit and says so with its own message; its identity is the longest static run in that message -- the substring a test can assert. Legs are PARSED FROM SOURCE by tests/compliance/_legs.ts, never declared, because a hand-maintained ledger drifts from the code it describes and that is the defect this register exists to prevent, one level in. A leg is REACHED only when some compliance test asserts a substring of its own message via toContain -- not when it merely makes the guard exit non-zero, and not when the message appears in a test header comment. tests/compliance/leg_coverage.test.ts holds the ratchet: a new leg with no entry reds, an entry for a leg that no longer exists reds, and a registered leg that HAS become reached reds so the entry is forced out.",
+  "baseline_2026_09_10": {
+    "legs_total": 77,
+    "reached": 1,
+    "registered": 76,
+    "note": "A separate hand audit counted 79 legs and 5 reached, using a looser rule: per-pattern granularity for data-driven loops, and crediting a plant that asserts its own planted DATA (a filename, a planted column name) rather than the leg message. Both numbers are real. This register enforces the strict rule, which is why its starting figure is lower."
+  },
+  "guards": {
+    "get_publishable_key.sh": {
+      "jq is required (brew install jq).": {
+        "state": "registered",
+        "reason": "no-injectable-hook",
+        "why": "The script shells out to `npx supabase` and `jq` with no injectable command hook and no ROOT argument, so no test can feed it a canned payload. This is a design smell, not a testing gap.",
+        "closes_with": "Restructure the script to accept an injected fetch/command when it is next touched for its own sake."
+      },
+      "could not reach the Supabase Management API.": {
+        "state": "registered",
+        "reason": "no-injectable-hook",
+        "why": "The script shells out to `npx supabase` and `jq` with no injectable command hook and no ROOT argument, so no test can feed it a canned payload. This is a design smell, not a testing gap.",
+        "closes_with": "Restructure the script to accept an injected fetch/command when it is next touched for its own sake."
+      },
+      "no publishable (sb_publishable_) key for project": {
+        "state": "registered",
+        "reason": "no-injectable-hook",
+        "why": "The script shells out to `npx supabase` and `jq` with no injectable command hook and no ROOT argument, so no test can feed it a canned payload. This is a design smell, not a testing gap.",
+        "closes_with": "Restructure the script to accept an injected fetch/command when it is next touched for its own sake."
+      }
+    },
+    "lint_audit_log_columns.sh": {
+      "no migration directory at": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "column fixture not found at": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "fixture parsed to zero expected columns -- refusing to pass vacuously": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "fixture parsed to zero forbidden names -- refusing to pass vacuously": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "no forward migrations found in": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "no 'CREATE TABLE app.audit_log' found in": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "app.audit_log has columns not in the fixture": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "the fixture names columns app.audit_log does not have": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "forbidden identity-bearing column": {
+        "state": "reached"
+      },
+      "the ALTER-TABLE scan exited": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      "ALTER TABLE app.audit_log ADD COLUMN": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "lint_audit_log_columns.sh: FAILED (": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      }
+    },
+    "lint_from_allowlist.sh": {
+      "allowlist not found at": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "could not read": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      "allowlist parsed to nothing — refusing to pass vacuously": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "no app source found under": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "on $2 — the check did not run": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      ".select('*') is banned — name the columns": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      ") is not on the public allowlist": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "lint_from_allowlist.sh: FAILED (": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      }
+    },
+    "lint_grep_exit_codes.sh": {
+      "no scripts directory at": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "no shell scripts found in": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "branches directly on a grep — FAILS OPEN: exit 2 (could not run) lands on the clean branch": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "chains a grep with && — FAILS OPEN: exit 2 silently skips the action": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "swallows a grep's status with || true — FAILS OPEN: exit 2 becomes an empty result set, which reads as no findings": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "branches on a grep with || — exit 2 is decided by whichever side it lands on, and neither is a verdict": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "lint_grep_exit_codes.sh: FAILED (": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      }
+    },
+    "lint_migration_header.sh": {
+      "no migration directory at": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "no forward migrations found in": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "the banner check did not run": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      "no '-- ===' banner block at the top of the file": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "banner does not name this file (copied header?)": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "no 'Idempotency:' note in the banner": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "does not register itself in app.schema_migrations": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "the ledger check did not run": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      "no paired .down.sql": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "lint_migration_header.sh: FAILED (": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      }
+    },
+    "lint_migrations_all.sh": {
+      "lint_migrations_all.sh: FAILED — one or more migration lints reported a violation": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      }
+    },
+    "lint_no_drop_cascade.sh": {
+      "no migration directory at": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      },
+      "no forward migrations found in": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      },
+      "DROP TABLE ... CASCADE without an OPENBED-CASCADE-OVERRIDE": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      },
+      "lint_no_drop_cascade.sh: FAILED (": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      }
+    },
+    "lint_no_replica_identity_full.sh": {
+      "no migration directory at": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "no migrations found in": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "the REPLICA IDENTITY scan exited": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      "REPLICA IDENTITY FULL on a published table": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "lint_no_replica_identity_full.sh: FAILED (": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      }
+    },
+    "lint_no_secrets.sh": {
+      "no files to scan under": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "the secret scan did not run": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      "it did not run, so findings cannot be dropped": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      "committed secret matched in": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "lint_no_secrets.sh: FAILED (": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      }
+    },
+    "lint_no_service_role_in_bundle.sh": {
+      "no built client bundles found under": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "service-role credential reachable from a built client bundle": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "the bundle scan did not run": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      "lint_no_service_role_in_bundle.sh: FAILED (": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      }
+    },
+    "lint_no_updated_at_filter.sh": {
+      "no client source found under": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "the freshness-filter scan exited": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      "updated_at used as a FILTER on the public search path": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "lint_no_updated_at_filter.sh: FAILED (": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      }
+    },
+    "lint_sql_no_bare_not_duty_flag.sh": {
+      "no migration directory at": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "no migrations found in": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "the duty-flag scan exited": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      "bare NOT on a tri-state duty flag": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      },
+      "lint_sql_no_bare_not_duty_flag.sh: FAILED (": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
+        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+      }
+    },
+    "run_e2e.sh": {
+      "phase 1 produced no junit-e2e.xml — the golden path did not run at all.": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      }
+    },
+    "run_migrations.sh": {
+      "unknown option $1": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      },
+      "migration directory not found at": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      },
+      "psql not on PATH. Install postgresql-client, or set OPENBED_PSQL.": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      },
+      "no forward migrations found in": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      }
+    },
+    "seed.sh": {
+      "seed data is synthetic and must never reach a non-local database.": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      },
+      "seed directory not found at": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      },
+      "no seed files found in": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      },
+      "psql not on PATH. Install postgresql-client, or set OPENBED_PSQL.": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      }
+    }
+  }
+}
