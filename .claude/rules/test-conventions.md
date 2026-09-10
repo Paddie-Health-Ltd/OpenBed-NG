@@ -297,11 +297,12 @@ distinction §8's plant rule above is about, one layer out.
 
 **And a rule about what this is not.** The instrumentation is not a fix, and a
 green re-run of an unchanged commit is not a diagnosis. Both were recorded as an
-OPEN, UNDIAGNOSED intermittent — see `docs/handoff-2026-09-09.md` §8 — because a
+OPEN, UNDIAGNOSED intermittent — see `docs/handoff-2026-09-10.md` Appendix A1 —
+because a
 flake written down as "flaky" is a symptom accepted as a cause.
 
 **The intermittent that produced this rule is now closed** — see
-`docs/handoff-2026-09-09.md` §8. The instrumentation named the cause on its very
+`docs/handoff-2026-09-10.md` Appendix A1. The instrumentation named the cause on
 first outing, which is the entire argument for this rule: one CI failure with the
 guard's output attached ended an investigation that seven excluded hypotheses had
 not. **What it found is the next entry below.**
