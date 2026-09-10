@@ -68,7 +68,8 @@ describe('updated_at filter guard', () => {
   const LINT = 'lint_no_updated_at_filter.sh';
 
   test('the real source tree is accepted', () => {
-    expect(runLint(LINT, REPO_ROOT).status).toBe(0);
+    const res = runLint(LINT, REPO_ROOT);
+    expect(res.status, `the real tree was rejected:\n${res.stdout}`).toBe(0);
   });
 
   test.each([
@@ -119,7 +120,8 @@ describe('from() allowlist guard', () => {
   }
 
   test('the real source tree is accepted', () => {
-    expect(runLint(LINT, REPO_ROOT).status).toBe(0);
+    const res = runLint(LINT, REPO_ROOT);
+    expect(res.status, `the real tree was rejected:\n${res.stdout}`).toBe(0);
   });
 
   test.each([
@@ -139,14 +141,70 @@ describe('from() allowlist guard', () => {
     withScratch((root) => {
       scaffold(root);
       place(root, 'apps/x/src/query.ts', "const q = db.from('ward_public').select('facility_id,category,bed_count');");
-      expect(runLint(LINT, root).status).toBe(0);
+      const res = runLint(LINT, root);
+      expect(res.status, `a correct query was rejected:\n${res.stdout}`).toBe(0);
     });
   });
 
   test('anti-vacuity — a missing allowlist FAILS rather than allowing everything', () => {
     withScratch((root) => {
       place(root, 'apps/x/src/query.ts', "const q = db.from('anything').select('x');");
-      expect(runLint(LINT, root).status).toBe(2);
+      const res = runLint(LINT, root);
+      expect(res.status, `a missing allowlist did not stop the run:\n${res.stdout}`).toBe(2);
+    });
+  });
+
+  // FINDING 6's PROBE. The header claims the allowlist is READ FROM the fixture
+  // rather than hardcoded. Before 2026-09-10 that claim was false -- the parser
+  // was a fixed five-name alternation, so the fixture was a filter over names the
+  // script already knew. These two legs are the claim's probe, and they only mean
+  // something as a PAIR: the first alone could pass because the name was
+  // hardcoded, the second alone could pass because the parser returned nothing.
+  const SIXTH = "const q = db.from('bed_ledger_public').select('facility_id');";
+
+  test('the fixture is the SOURCE of names — a sixth relation in the fixture is accepted', () => {
+    withScratch((root) => {
+      place(root, 'packages/fixtures/public-relations.json', JSON.stringify({
+        mirrors: ['facility_public', 'ward_public', 'lga_rollup', 'bed_ledger_public'],
+        rpcs: ['my_facility_wards', 'ward_status_history'],
+      }));
+      place(root, 'apps/x/src/query.ts', SIXTH);
+      const res = runLint(LINT, root);
+      expect(res.status, `a relation named in the fixture was rejected — the parser is not reading it:\n${res.stdout}`).toBe(0);
+    });
+  });
+
+  test('control for the leg above — the same query is rejected when the fixture omits it', () => {
+    withScratch((root) => {
+      scaffold(root);
+      place(root, 'apps/x/src/query.ts', SIXTH);
+      const res = runLint(LINT, root);
+      expect(res.status, `a relation absent from the fixture was accepted:\n${res.stdout}`).toBe(1);
+    });
+  });
+
+  test('plant — a relation named only in the fixture COMMENT does not become allowlisted', () => {
+    // The by-key parse, asserted. An all-strings extraction over this fixture
+    // would pull the base table out of the prose and silently allow it.
+    withScratch((root) => {
+      place(root, 'packages/fixtures/public-relations.json', JSON.stringify({
+        comment: 'These mirror app.ward_status and must never expose it directly.',
+        exposedSchemas: ['public', 'graphql_public'],
+        mirrors: ['facility_public', 'ward_public', 'lga_rollup'],
+        rpcs: ['my_facility_wards', 'ward_status_history'],
+      }));
+      place(root, 'apps/x/src/query.ts', "const q = db.from('ward_status').select('bed_count');");
+      const res = runLint(LINT, root);
+      expect(res.status, `a name from the fixture's prose was treated as allowlisted:\n${res.stdout}`).toBe(1);
+    });
+  });
+
+  test('plant — a malformed allowlist STOPS the run rather than parsing to nothing', () => {
+    withScratch((root) => {
+      place(root, 'packages/fixtures/public-relations.json', JSON.stringify({ mirrors: ['ward_public'] }));
+      place(root, 'apps/x/src/query.ts', "const q = db.from('ward_public').select('x');");
+      const res = runLint(LINT, root);
+      expect(res.status, `a fixture missing its rpcs array still produced a verdict:\n${res.stdout}`).toBe(2);
     });
   });
 });

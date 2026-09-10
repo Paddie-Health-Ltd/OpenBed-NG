@@ -66,8 +66,6 @@ const PLANNED_ARTEFACTS: Record<string, { stage: number }> = {
   'tests/e2e/golden-path.test.ts': { stage: 0 },
   'tests/e2e/ratchet.test.ts': { stage: 0 },
   'tests/setup/auth.ts': { stage: 0 },
-  'packages/fixtures/snapshot-shape.json': { stage: 0 },
-  'packages/snapshot/src/codec.ts': { stage: 0 },
   'apps/ward-console': { stage: 1 },
   'scripts/provision_ward_account.mjs': { stage: 1 },
   'packages/snapshot/src/freshness.ts': { stage: 1 },

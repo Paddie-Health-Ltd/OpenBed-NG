@@ -24,6 +24,13 @@
 # gate. If a job here becomes flaky, fix the flake or delete the job -- do not
 # demote it.
 #
-# tests/compliance/ci_gate_exceptions.test.ts asserts this list is empty and that
-# no job in ci.yml carries continue-on-error.
+# `tests/compliance/ci_required_checks_not_paths_filtered.test.ts` asserts this
+# list is empty and that no job in ci.yml carries continue-on-error.
+#
+# FINDING 5, fixed 2026-09-10. This line previously named
+# tests/compliance/ci_gate_exceptions.test.ts, which does not exist and never
+# did -- a live Clause 4 phantom in the one file whose purpose is to make CI
+# exemptions visible. It escaped `tests/compliance/no_phantom_paths.test.ts`
+# only because the citation was not in backticks. It is in backticks now, so
+# the guard covers it from here.
 exceptions: []

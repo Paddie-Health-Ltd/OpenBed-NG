@@ -1,0 +1,95 @@
+{
+  "comment": "THE SNAPSHOT CONTRACT -- one derivation site for the payload the generator writes and the dashboard reads. packages/snapshot/src/codec.ts builds its encoder and decoder from wardColumns and facilityColumns AT MODULE LOAD, so neither the generator nor the dashboard contains a column list of its own. Landed in Stage 0 rather than Stage 1 because it depends on nothing in Stage 1 and it is the artefact whose late decision forces rework on both sides at once. Paths here are unbackticked where they name something a later stage builds.",
+
+  "pollCadenceSeconds": 30,
+
+  "why_pollCadenceSeconds_is_here": "RELEASE GATE 2's latency clause, restated 2026-09-10, asserts that 'a client poll at the snapshot's own cadence reflects the new count'. The assertion is written against THIS CONSTANT, never against a wall-clock number in prose. 30 matches the CDN's s-maxage=30: polling faster asks the edge for a document it is contractually allowed to keep serving, so it buys nothing and costs requests. stale-while-revalidate=300 means a poll may still legitimately receive a payload up to five minutes old, which is why the original 'within 60 seconds' clause could not be met by this architecture and was restated rather than kept. ONE SOURCE: the constant is not also carried in the envelope, because a client that could disagree with the fixture is a second derivation site.",
+
+  "envelope": [
+    "v",
+    "generated_at",
+    "server_now",
+    "facilities",
+    "wards"
+  ],
+
+  "facilityColumns": [
+    "facility_id",
+    "name",
+    "lga",
+    "state",
+    "lat",
+    "lng",
+    "public_phone_e164",
+    "updated_at"
+  ],
+
+  "wardColumns": [
+    "facility_id",
+    "category",
+    "offering",
+    "bed_count",
+    "accepting_effective",
+    "gated_by",
+    "state",
+    "source",
+    "monitoring_state",
+    "updated_at"
+  ],
+
+  "decisions": {
+    "v_is_never_a_timestamp_aggregate": "v is a monotonic run counter or a content hash. NEVER max(updated_at) or any aggregate over it. Migration 008 writes public.ward_public.updated_at = ws.updated_at, which is correct -- a duty-flag flip changes the DERIVED gate without changing the ward's own claim -- but it means a version derived from a timestamp aggregate WOULD NOT MOVE when an anaesthetist goes off duty. The snapshot would then keep publishing a theatre as open at exactly the moment the gate closed it. Recorded here as well as in the function because this is the file both sides read.",
+
+    "server_now_is_the_only_freshness_anchor": "The server stamps updated_at and emits server_now. The client computes age from those two plus monotonic elapsed time since fetch. It NEVER reads a wall clock -- finding F3. A handset three hours fast is the case: it renders a fresh ward as a day old, or a day-old ward as fresh, with total confidence and no error anywhere.",
+
+    "the_snapshot_never_carries_duty_flags": "Not anaesthetist, not obstetrician, not paediatrician, in any form. gated_by is the public reason and it is all the public gets. TWO REASONS, and the second is the one that will bite. First, a duty flag is a fact about a named individual's shift and the public has no business with it. Second, the F2 ESLint rule matches on IDENTIFIER NAMES -- /anaesthetist|obstetrician|paediatrician/i -- and this payload is arrays-of-arrays, which destroys names. `!f[3]` is invisible to that rule. Exposure is zero today because the payload carries only gated_by; the natural widening, 'show WHY it is closed in a tooltip', is exactly what reintroduces it, past a guard that can no longer see it. Written down because it is currently a property nobody had stated.",
+
+    "freshness_does_not_live_in_the_gate_package": "packages/gate has a specific identity: rules implemented TWICE, in SQL and TypeScript, pinned by a shared fixture in one test.each block. Freshness has exactly one derivation site by design -- the server never computes an age. Putting it in packages/gate invites the next contributor to write the SQL twin for symmetry, and the SQL twin of a freshness rule is `where updated_at > now() - interval '2 hours'`, which is the precise collapse scripts/lint_no_updated_at_filter.sh exists to ban."
+  },
+
+  "golden": {
+    "v": 41,
+    "generated_at": "2026-09-10T03:12:07.000Z",
+    "server_now": "2026-09-10T03:12:07.000Z",
+    "facilities": [
+      [
+        "e2e00000-0000-4000-8000-000000000001",
+        "E2E General Hospital",
+        "E2E_LGA_ALPHA",
+        "Lagos",
+        6.5244,
+        3.3792,
+        "+2348000000001",
+        "2026-09-10T03:10:00.000Z"
+      ]
+    ],
+    "wards": [
+      [
+        "e2e00000-0000-4000-8000-000000000001",
+        "MATERNITY",
+        "OFFERED",
+        4,
+        true,
+        null,
+        "OK",
+        "WARD",
+        "ACTIVE",
+        "2026-09-10T03:10:00.000Z"
+      ],
+      [
+        "e2e00000-0000-4000-8000-000000000001",
+        "THEATRE",
+        "OFFERED",
+        2,
+        false,
+        "NO_ANAESTHETIST_ON_DUTY",
+        "OK",
+        "WARD",
+        "ACTIVE",
+        "2026-09-10T01:05:00.000Z"
+      ]
+    ]
+  },
+
+  "why_the_golden_payload_has_a_gated_ward": "The THEATRE row is accepting_effective=false with gated_by set and bed_count=2 -- beds exist and the gate closed the ward anyway. That is the shape a decoder gets wrong by rendering bed_count and ignoring the gate, and a golden payload of only happy rows would never catch it. Its updated_at is also two hours older than the facility's, so the freshness band under test is not always the fresh one."
+}

@@ -34,10 +34,55 @@ export function sql(): ReturnType<typeof postgres> {
   return pool;
 }
 
+/**
+ * A SECOND, INDEPENDENT CONNECTION -- for interleaving only.
+ *
+ * WHY IT HAS TO EXIST. `sql()` is pinned at `max: 1` (hazard 1 above), which is
+ * the right call and is load-bearing for every RLS probe in this suite. It also
+ * makes TWO CONCURRENT TRANSACTIONS IMPOSSIBLE, and that quietly made Bundle 3's
+ * stated definition of done unwritable: "both connections read version = 1, both
+ * write, exactly one succeeds and the other sees a conflict carrying the winner's
+ * value" cannot be expressed on a pool of one. The optimistic-locking test that
+ * matters most is the one the harness structurally prevented.
+ *
+ * NEVER USE THIS FOR A ROLE-SWITCHING TEST. Not "prefer not to" -- never.
+ * `max: 1` plus withRole()'s `SET LOCAL` is what makes a role reset at commit
+ * STRUCTURALLY rather than by convention: with one connection there is no other
+ * connection for a role to leak onto. A second pool reintroduces exactly the
+ * hazard the first one closes, and it reintroduces it in the silent direction --
+ * a test picking up a connection still sitting in `anon` does not error, it
+ * PASSES an assertion that was meant to run as someone else.
+ *
+ * So this connection is for one thing: holding a second transaction open while
+ * the first one is also open, as the same role, to observe an interleaving.
+ * If you are reaching for it to switch roles, the test you are writing belongs
+ * on withRole() and the thing you actually need is a different assertion.
+ */
+let poolSecond: ReturnType<typeof postgres> | null = null;
+
+export function sqlSecond(): ReturnType<typeof postgres> {
+  poolSecond ??= postgres(dbUrl(), {
+    // Also 1, and for the same reason -- this is a SECOND single connection, not
+    // a pool. Two is the number the concurrency tests need; more would put the
+    // role-leak hazard back without buying an assertion anyone has asked for.
+    max: 1,
+    onnotice: () => {},
+    connect_timeout: 10,
+  });
+  return poolSecond;
+}
+
 export async function endPool(): Promise<void> {
+  // Both, always. An un-ended pool keeps the event loop alive and vitest never
+  // exits -- hazard 2 -- and a teardown that ends one of two is the same defect
+  // wearing a fix.
   if (pool) {
     await pool.end({ timeout: 5 });
     pool = null;
+  }
+  if (poolSecond) {
+    await poolSecond.end({ timeout: 5 });
+    poolSecond = null;
   }
 }
 
