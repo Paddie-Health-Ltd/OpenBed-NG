@@ -8,9 +8,9 @@
     "immutable": "THIS IS A HISTORICAL RECORD AND DOES NOT MOVE. The ratchet asserts the CURRENT reached count is >= this figure, so progress is free and regression is not. Restating it would destroy the only number that says where this started."
   },
   "current": {
-    "legs_total": 91,
-    "reached": 70,
-    "registered": 21,
+    "legs_total": 97,
+    "reached": 73,
+    "registered": 24,
     "note": "MEASURED, and updated whenever legs are added or closed. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started."
   },
   "guards": {
@@ -383,6 +383,35 @@
         "state": "reached"
       },
       "A suite that collected zero tests is not green — it is silent.": {
+        "state": "reached"
+      }
+    },
+    "provision_ward_account.mjs": {
+      "usage: node scripts/provision_ward_account.mjs --email <addr> --facility <uuid> --category <ward_category> [--role WARD_STAFF]": {
+        "state": "reached"
+      },
+      "SUPABASE_SERVICE_ROLE_KEY is not set — refusing to guess a credential": {
+        "state": "reached"
+      },
+      "GoTrue returned a non-JSON body (HTTP": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "Fires only on a GoTrue response of a specific shape -- a non-200 from admin/generate_link, a 200 with no user id, or a non-JSON body. Reaching it needs a stub GoTrue that returns a crafted response, and no such seam exists: the script takes SUPABASE_API_URL but nothing in the repo serves a scripted reply on it. The unreachable-host leg IS planted, so the transport failure path is covered; these three are the shapes a REACHABLE but misbehaving GoTrue would produce.",
+        "closes_with": "A tiny scripted HTTP responder bound to a scratch port, pointed at via SUPABASE_API_URL, returning one canned body per plant."
+      },
+      "admin/generate_link refused the invite (HTTP": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "Fires only on a GoTrue response of a specific shape -- a non-200 from admin/generate_link, a 200 with no user id, or a non-JSON body. Reaching it needs a stub GoTrue that returns a crafted response, and no such seam exists: the script takes SUPABASE_API_URL but nothing in the repo serves a scripted reply on it. The unreachable-host leg IS planted, so the transport failure path is covered; these three are the shapes a REACHABLE but misbehaving GoTrue would produce.",
+        "closes_with": "A tiny scripted HTTP responder bound to a scratch port, pointed at via SUPABASE_API_URL, returning one canned body per plant."
+      },
+      "admin/generate_link returned no auth user id. Keys": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "Fires only on a GoTrue response of a specific shape -- a non-200 from admin/generate_link, a 200 with no user id, or a non-JSON body. Reaching it needs a stub GoTrue that returns a crafted response, and no such seam exists: the script takes SUPABASE_API_URL but nothing in the repo serves a scripted reply on it. The unreachable-host leg IS planted, so the transport failure path is covered; these three are the shapes a REACHABLE but misbehaving GoTrue would produce.",
+        "closes_with": "A tiny scripted HTTP responder bound to a scratch port, pointed at via SUPABASE_API_URL, returning one canned body per plant."
+      },
+      "provisioning failed for": {
         "state": "reached"
       }
     }

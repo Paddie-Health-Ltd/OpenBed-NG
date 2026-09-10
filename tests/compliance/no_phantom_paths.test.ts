@@ -64,7 +64,6 @@ const DELIBERATE_ABSENCES: Record<string, string> = {
  */
 const PLANNED_ARTEFACTS: Record<string, { stage: number }> = {
   'apps/ward-console': { stage: 1 },
-  'scripts/provision_ward_account.mjs': { stage: 1 },
   'packages/snapshot/src/freshness.ts': { stage: 1 },
   'docs/runbook-snapshot-stopped.md': { stage: 1 },
   'packages/snapshot/src/anchor.ts': { stage: 3 },

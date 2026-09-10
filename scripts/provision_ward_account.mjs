@@ -79,14 +79,16 @@ if (!serviceKey) {
   process.exit(2);
 }
 
-// The ward-scope CHECK in 003 has deliberately NO ARM permitting a facility-less
-// account below PLATFORM_ADMIN, so a WARD_STAFF row without a category would be
-// rejected by the database. Refusing here means a clear message instead of a
-// constraint-violation stack trace.
-if (role === 'WARD_STAFF' && !args.category) {
-  console.error('ERROR: a WARD_STAFF account must name a ward category — the scope CHECK in 003 has no facility-less arm');
-  process.exit(1);
-}
+// NOTE, and this is a leg that was DELETED rather than left in.
+//
+// There was a check here refusing a WARD_STAFF account with no ward category,
+// citing the scope CHECK in migration 003. It could never fire: the usage check
+// above already exits when --category is absent, so the condition was
+// unreachable by construction. An unreachable leg is worse than an absent one
+// because it READS AS COVERAGE -- someone auditing this script would count a
+// scope guard that cannot run. The real enforcement is the
+// ward_account_scope_matches_role CHECK in the database, which has deliberately
+// no arm permitting a facility-less account below PLATFORM_ADMIN.
 
 async function json(res) {
   const text = await res.text();
