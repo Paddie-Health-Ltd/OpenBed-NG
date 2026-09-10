@@ -75,6 +75,18 @@ describe('audit log has no identity-bearing column', () => {
     });
   });
 
+  test('anti-vacuity — a missing migration directory FAILS, and names itself', () => {
+    // This guard had no plant for its `[ -d "$MIG_DIR" ]` leg at all. Deleting
+    // that leg leaves the fixture check exiting 2 for a different reason, so the
+    // status cannot tell them apart; only the message can.
+    withScratch((root) => {
+      place(root, 'unrelated.txt', 'x');
+      const res = runLint(LINT, root);
+      expect(res.status, `a missing corpus did not fail loudly:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the missing-directory refusal did not name itself').toContain('no migration directory at');
+    });
+  });
+
   test('plant — Leg 2 in ISOLATION: a forbidden name that set-equality ACCEPTS', () => {
     // THE LEG THAT WAS MISSING, and the reason matters more than the leg.
     //

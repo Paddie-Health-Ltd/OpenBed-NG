@@ -88,6 +88,7 @@ describe('lint_no_replica_identity_full', () => {
       place(root, 'database/migrations/.keep', '');
       const res = runLint(LINT, root);
       expect(res.status, `a lint that scanned nothing reported success:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the empty-corpus refusal did not name itself').toContain('no migrations found in');
     });
   });
 
@@ -96,6 +97,10 @@ describe('lint_no_replica_identity_full', () => {
       place(root, 'unrelated.txt', 'x');
       const res = runLint(LINT, root);
       expect(res.status, `a missing corpus did not fail loudly:\n${res.stdout}`).toBe(2);
+      // The message is the ONLY thing that distinguishes this leg. Delete the
+      // `[ -d ]` check and `find` on a missing directory yields zero files, so
+      // the empty-corpus leg exits 2 as well and the status is identical.
+      expect(res.stdout, 'the missing-directory refusal did not name itself').toContain('no migration directory at');
     });
   });
 });

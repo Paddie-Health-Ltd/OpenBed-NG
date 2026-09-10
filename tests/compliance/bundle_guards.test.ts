@@ -167,6 +167,9 @@ describe('from() allowlist guard', () => {
       place(root, 'apps/x/src/query.ts', "const q = db.from('anything').select('x');");
       const res = runLint(LINT, root);
       expect(res.status, `a missing allowlist did not stop the run:\n${res.stdout}`).toBe(2);
+      // Delete the `[ -f "$ALLOWLIST_JSON" ]` check and node's own catch exits 3,
+      // so the next leg exits 2 anyway. The message is the whole distinction.
+      expect(res.stdout, 'the missing-allowlist refusal did not name itself').toContain('allowlist not found at');
     });
   });
 

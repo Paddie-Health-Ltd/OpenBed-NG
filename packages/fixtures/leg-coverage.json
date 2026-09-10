@@ -30,10 +30,7 @@
     },
     "lint_audit_log_columns.sh": {
       "no migration directory at": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "column fixture not found at": {
         "state": "registered",
@@ -101,10 +98,7 @@
     },
     "lint_from_allowlist.sh": {
       "allowlist not found at": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "could not read": {
         "state": "registered",
@@ -201,10 +195,7 @@
         "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
       },
       "no forward migrations found in": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "the banner check did not run": {
         "state": "registered",
@@ -243,10 +234,7 @@
         "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
       },
       "no paired .down.sql": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "lint_migration_header.sh: FAILED (": {
         "state": "registered",
@@ -282,16 +270,10 @@
     },
     "lint_no_replica_identity_full.sh": {
       "no migration directory at": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "no migrations found in": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "the REPLICA IDENTITY scan exited": {
         "state": "registered",
@@ -398,16 +380,10 @@
     },
     "lint_sql_no_bare_not_duty_flag.sh": {
       "no migration directory at": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "no migrations found in": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "the duty-flag scan exited": {
         "state": "registered",
