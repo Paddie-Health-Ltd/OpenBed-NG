@@ -143,8 +143,35 @@ function failureMessages(line: string): string[] {
   return out;
 }
 
+/**
+ * NODE FAILURE SITES. A .mjs script announces failure with `console.error` and
+ * `throw new Error`, not `echo "FAIL:"`, so the shell matcher sees nothing in
+ * one and reports it as having no legs at all.
+ *
+ * Extended 2026-09-10, BEFORE writing scripts/provision_ward_account.mjs rather
+ * than after. The corpus was `scripts/*.sh`, so a new script would have shipped
+ * with unenumerated legs -- the exact gap this register exists to close,
+ * arriving through a file extension. scripts/attest_counts.mjs comes in with it.
+ */
+function nodeFailureMessages(line: string): string[] {
+  const out: string[] = [];
+  for (const m of line.matchAll(/console\.error\(\s*(['"`])((?:[^\\]|\\.)*?)\1/g)) out.push(m[2] as string);
+  for (const m of line.matchAll(/throw new Error\(\s*(['"`])((?:[^\\]|\\.)*?)\1/g)) out.push(m[2] as string);
+  return out;
+}
+
 export function parseLegs(scriptsDir: string): Leg[] {
   const legs: Leg[] = [];
+  for (const script of readdirSync(scriptsDir).filter((n) => n.endsWith('.mjs')).sort()) {
+    readFileSync(join(scriptsDir, script), 'utf8').split('\n').forEach((raw, i) => {
+      const line = raw.trim();
+      if (line.startsWith('//') || line.startsWith('*')) return;
+      for (const msg of nodeFailureMessages(line)) {
+        const id = longestStatic(msg.replace(/\$\{[^}]*\}/g, '$X'));
+        if (id !== null) legs.push({ script, line: i + 1, id });
+      }
+    });
+  }
   for (const script of readdirSync(scriptsDir).filter((n) => n.endsWith('.sh')).sort()) {
     readFileSync(join(scriptsDir, script), 'utf8').split('\n').forEach((raw, i) => {
       const line = raw.trim();
@@ -223,9 +250,11 @@ export function assertedByScript(testsDir: string): Map<string, string[]> {
     const raw = readFileSync(join(testsDir, name), 'utf8');
 
     const scripts = new Set<string>();
-    for (const m of raw.matchAll(/\b[A-Z][A-Z0-9_]*\s*=\s*['"]([\w.]+\.sh)['"]/g)) scripts.add(m[1] as string);
+    for (const m of raw.matchAll(/\b[A-Z][A-Z0-9_]*\s*=\s*['"]([\w.]+\.(?:sh|mjs))['"]/g)) scripts.add(m[1] as string);
     for (const m of raw.matchAll(/runLint\(\s*['"]([\w.]+\.sh)['"]/g)) scripts.add(m[1] as string);
-    for (const m of raw.matchAll(/['"`]scripts\/([\w.]+\.sh)['"`]/g)) scripts.add(m[1] as string);
+    // .mjs as well as .sh -- the guards are not all shell any more, and a mapper
+    // that only knows one extension reports a real test as covering nothing.
+    for (const m of raw.matchAll(/['"`]scripts\/([\w.]+\.(?:sh|mjs))['"`]/g)) scripts.add(m[1] as string);
     if (scripts.size === 0) continue;
 
     // CODE, NOT PROSE -- and the line is drawn there deliberately.

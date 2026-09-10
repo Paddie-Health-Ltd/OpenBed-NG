@@ -8,8 +8,8 @@
     "immutable": "THIS IS A HISTORICAL RECORD AND DOES NOT MOVE. The ratchet asserts the CURRENT reached count is >= this figure, so progress is free and regression is not. Restating it would destroy the only number that says where this started."
   },
   "current": {
-    "legs_total": 86,
-    "reached": 65,
+    "legs_total": 91,
+    "reached": 70,
     "registered": 21,
     "note": "MEASURED, and updated whenever legs are added or closed. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started."
   },
@@ -366,6 +366,23 @@
         "state": "reached"
       },
       ", which no longer exists in the script": {
+        "state": "reached"
+      }
+    },
+    "attest_counts.mjs": {
+      "usage: node scripts/attest_counts.mjs <junit.xml>": {
+        "state": "reached"
+      },
+      "cannot read": {
+        "state": "reached"
+      },
+      "A missing JUnit file is NOT a pass. The suite did not report.": {
+        "state": "reached"
+      },
+      "no <testcase> elements found.": {
+        "state": "reached"
+      },
+      "A suite that collected zero tests is not green — it is silent.": {
         "state": "reached"
       }
     }
