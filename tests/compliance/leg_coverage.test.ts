@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { join } from 'node:path';
-import { parseLegs, assertedSubstrings, isReached, legsWithoutIdentity, duplicateIds, type Leg } from './_legs.js';
+import { parseLegs, assertedByScript, isReached, legsWithoutIdentity, duplicateIds, type Leg } from './_legs.js';
 import { REPO_ROOT } from './_scratch.js';
 import REGISTER from '../../packages/fixtures/leg-coverage.json';
 
@@ -56,7 +56,7 @@ function registered(): { script: string; id: string; entry: Entry }[] {
 export function registerViolations(
   legs: Leg[],
   reg: Record<string, Record<string, Entry>>,
-  asserted: string[],
+  asserted: Map<string, string[]>,
 ): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -93,12 +93,12 @@ export function registerViolations(
 
 describe('leg coverage register', () => {
   const legs = parseLegs(SCRIPTS);
-  const asserted = assertedSubstrings(TESTS);
+  const asserted = assertedByScript(TESTS);
 
   test('anti-vacuity — legs were parsed and the register is not empty', () => {
     expect(legs.length, 'no legs parsed — the parser stopped matching').toBeGreaterThan(50);
     expect(registered().length, 'the register parsed to nothing').toBeGreaterThan(50);
-    expect(asserted.length, 'no toContain assertions found anywhere').toBeGreaterThan(5);
+    expect(asserted.size, 'no test file was mapped to any guard').toBeGreaterThan(5);
   });
 
   test('every leg has an assertable identity', () => {
@@ -131,31 +131,31 @@ describe('leg coverage register', () => {
   const REG_OK = { 'lint_x.sh': { 'the planted leg message': { state: 'registered', reason: 'status-only', why: 'because' } } };
 
   test('plant — a leg absent from the register is rejected', () => {
-    const out = registerViolations([LEG], {}, []);
+    const out = registerViolations([LEG], {}, new Map());
     expect(out.length, `an unregistered leg was accepted: ${JSON.stringify(out)}`).toBe(1);
     expect(out[0]).toContain('is not in the register');
   });
 
   test('plant — a registered leg that IS now reached is rejected', () => {
     // The anti-rot direction that stops the register outliving the gap.
-    const out = registerViolations([LEG], REG_OK, ['the planted leg message']);
+    const out = registerViolations([LEG], REG_OK, new Map([['lint_x.sh', ['the planted leg message']]]));
     expect(out.length, `a closed gap kept its exemption: ${JSON.stringify(out)}`).toBe(1);
     expect(out[0]).toContain('IS now reached');
   });
 
   test('plant — a leg marked reached that nothing asserts is rejected', () => {
-    const out = registerViolations([LEG], { 'lint_x.sh': { 'the planted leg message': { state: 'reached' } } }, []);
+    const out = registerViolations([LEG], { 'lint_x.sh': { 'the planted leg message': { state: 'reached' } } }, new Map());
     expect(out.length, `a false reached claim was accepted: ${JSON.stringify(out)}`).toBe(1);
     expect(out[0]).toContain('marked reached but no test asserts');
   });
 
   test('plant — a register entry with an unrecognised reason is rejected', () => {
-    const out = registerViolations([LEG], { 'lint_x.sh': { 'the planted leg message': { state: 'registered', reason: 'because I said so', why: 'x' } } }, []);
+    const out = registerViolations([LEG], { 'lint_x.sh': { 'the planted leg message': { state: 'registered', reason: 'because I said so', why: 'x' } } }, new Map());
     expect(out.length, `an arbitrary reason was accepted: ${JSON.stringify(out)}`).toBe(1);
     expect(out[0]).toContain('is not one of the allowed reasons');
   });
 
   test('positive control — a properly registered, genuinely unreached leg is accepted', () => {
-    expect(registerViolations([LEG], REG_OK, ['something unrelated']), 'the register rejected the case it exists for').toEqual([]);
+    expect(registerViolations([LEG], REG_OK, new Map([['lint_x.sh', ['something unrelated']]])), 'the register rejected the case it exists for').toEqual([]);
   });
 });

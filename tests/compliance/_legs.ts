@@ -202,26 +202,55 @@ export function duplicateIds(legs: Leg[]): string[] {
 }
 
 /**
- * The substrings that compliance tests actually ASSERT, via `toContain(...)`.
+ * The substrings compliance tests ASSERT, **grouped by the guard they exercise**.
  *
  * NOT the raw file text. Every one of these guards documents its own failure
- * messages in its test's header comment, so a plain substring search over the
- * file reports a leg as proved because someone described it in prose. That is
- * the same defect as a comment claiming a link, and it inflated this measurement
- * on the first run.
+ * messages in its test's header comment, so a plain substring search reports a
+ * leg as proved because someone described it in prose. That is a comment
+ * claiming a link, inside the instrument built to measure exactly that -- and it
+ * alone moved the first reported figure from 3 to 1.
+ *
+ * AND NOT GLOBALLY EITHER. Five scripts share the message
+ * `no migration directory at` verbatim. Crediting an assertion to every script
+ * with the same wording means one test proves a leg in four guards it never
+ * ran -- which is the leg-masking defect in a new costume. An assertion counts
+ * only toward the guard whose script the test actually invokes, taken from the
+ * file's `LINT` constant or its `runLint('<script>' ...)` call sites.
  */
-export function assertedSubstrings(testsDir: string): string[] {
-  const out: string[] = [];
+export function assertedByScript(testsDir: string): Map<string, string[]> {
+  const out = new Map<string, string[]>();
   for (const name of readdirSync(testsDir).filter((n) => n.endsWith('.test.ts'))) {
     const src = readFileSync(join(testsDir, name), 'utf8');
-    for (const m of src.matchAll(/\.toContain\(\s*(['"`])((?:[^\\]|\\.)*?)\1/g)) {
-      out.push(m[2] as string);
+
+    const scripts = new Set<string>();
+    for (const m of src.matchAll(/\bLINT\s*=\s*['"]([\w.]+\.sh)['"]/g)) scripts.add(m[1] as string);
+    for (const m of src.matchAll(/runLint\(\s*['"]([\w.]+\.sh)['"]/g)) scripts.add(m[1] as string);
+    if (scripts.size === 0) continue;
+
+    // File-local `const X = '...'` declarations, so `toContain(RULE)` counts.
+    // Capturing only string LITERALS makes a perfectly good assertion read as a
+    // miss the moment someone names the message -- which is the better style,
+    // and the one this sweep uses.
+    const consts = new Map<string, string>();
+    for (const m of src.matchAll(/\bconst\s+([A-Z][A-Z0-9_]*)\s*=\s*(['"`])((?:[^\\]|\\.)*?)\2/g)) {
+      consts.set(m[1] as string, m[3] as string);
     }
+
+    const asserted: string[] = [];
+    for (const m of src.matchAll(/\.toContain\(\s*(['"`])((?:[^\\]|\\.)*?)\1/g)) asserted.push(m[2] as string);
+    for (const m of src.matchAll(/\.toContain\(\s*([A-Z][A-Z0-9_]*)\s*[,)]/g)) {
+      const v = consts.get(m[1] as string);
+      if (v !== undefined) asserted.push(v);
+    }
+    for (const script of scripts) out.set(script, [...(out.get(script) ?? []), ...asserted]);
   }
   return out;
 }
 
-/** A leg is REACHED when some test asserts a substring of its own message. */
-export function isReached(leg: Leg, asserted: string[]): boolean {
-  return asserted.some((a) => a.includes(leg.id) || leg.id.includes(a.trim()) && a.trim().length >= MIN_ID);
+/** A leg is REACHED when a test THAT RUNS ITS GUARD asserts a substring of its own message. */
+export function isReached(leg: Leg, byScript: Map<string, string[]>): boolean {
+  const asserted = byScript.get(leg.script) ?? [];
+  return asserted.some(
+    (a) => a.includes(leg.id) || (leg.id.includes(a.trim()) && a.trim().length >= MIN_ID),
+  );
 }
