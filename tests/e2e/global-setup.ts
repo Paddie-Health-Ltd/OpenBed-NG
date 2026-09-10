@@ -1,7 +1,7 @@
 import { endPool, sql } from '../setup/db.js';
 import { gotrueVersion } from '../setup/auth.js';
 import { apiUrl } from '../setup/local-keys.js';
-import { resetE2eCorpus, seedE2eCorpus, assertE2eCorpus } from './_harness.js';
+import { resetE2eCorpus, seedE2eCorpus, assertE2eCorpus, provisionE2eWardAccounts } from './_harness.js';
 
 /**
  * Verifies the whole stack is reachable AND migrated, then builds the E2E corpus.
@@ -50,6 +50,7 @@ export async function setup(): Promise<void> {
   await resetE2eCorpus();
   await seedE2eCorpus();
   await assertE2eCorpus();
+  provisionE2eWardAccounts();
 }
 
 export async function teardown(): Promise<void> {
