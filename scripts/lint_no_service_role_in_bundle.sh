@@ -54,7 +54,7 @@ for f in "${FILES[@]}"; do
     st=0
     out=$(grep -nE "$PATTERN" "$f") || st=$?
     case "$st" in
-        0)  echo "FAIL: ${f#"$ROOT"/}"
+        0)  echo "FAIL: service-role credential reachable from a built client bundle: ${f#"$ROOT"/}"
             printf '%s\n' "$out" | cut -c1-160 | sed 's/^/  /'
             VIOLATIONS=$((VIOLATIONS+1)) ;;
         1)  ;;

@@ -105,18 +105,64 @@ describe('lint_migration_header', () => {
     });
   });
 
+  /**
+   * ONE PLANT PER CHECK, EACH ISOLATING ITS OWN.
+   *
+   * WHY THIS SHAPE AND NOT THE OBVIOUS ONE. All five checks ACCUMULATE through
+   * `fail()`; nothing short-circuits. So a plant that trips several of them
+   * still exits 1, and an assertion on the exit status alone proves nothing
+   * about any individual check. Measured 2026-09-10: the `no banner` plant trips
+   * checks 1, 2 AND 3 together, and the old copied-header plant tripped 2 and 4,
+   * because it rewrote the ledger line as well as the banner. DELETE CHECK 1's
+   * `case` ARM ENTIRELY AND EVERY TEST IN THIS FILE STAYED GREEN -- and check 2,
+   * the copied-header detector this script's own header calls load-bearing, was
+   * in the same state.
+   *
+   * Each row below satisfies every other check so exactly one can fire, and
+   * asserts THAT CHECK'S OWN MESSAGE rather than the exit status.
+   */
   test.each([
-    // No leading comment block at all. The earlier form of this plant left a
-    // stray `-- ===` rule behind and was ACCEPTED, which is what exposed the
-    // head -40 weakness in the lint. Kept in this stronger form.
-    ['no banner', 'SELECT 1;\nINSERT INTO app.schema_migrations (filename, applied_at)\nVALUES (\'900_valid.sql\', now())\nON CONFLICT (filename) DO NOTHING;\n'],
-    ['banner names another file (copied header)', VALID.replace('-- 900_valid.sql', '-- 899_other.sql').replace("VALUES ('900_valid.sql'", "VALUES ('899_other.sql'")],
-    ['no idempotency note', VALID.replace('-- Idempotency: re-apply is a no-op.\n', '')],
-    ['ledger INSERT names the wrong file', VALID.replace("VALUES ('900_valid.sql'", "VALUES ('899_other.sql'")],
-  ])('plant — %s is rejected', (_name, content) => {
+    [
+      'check 1 — no \'-- ===\' fence, banner otherwise complete',
+      VALID.replace(/-- =+/g, '-- ------------'),
+      "no '-- ===' banner block at the top of the file",
+    ],
+    [
+      'check 2 — banner names another file, ledger still correct',
+      VALID.replace('-- 900_valid.sql', '-- 899_other.sql'),
+      'banner does not name this file (copied header?)',
+    ],
+    [
+      'check 3 — no Idempotency note',
+      VALID.replace('-- Idempotency: re-apply is a no-op.\n', ''),
+      "no 'Idempotency:' note in the banner",
+    ],
+    [
+      'check 4 — ledger INSERT names the wrong file, banner correct',
+      VALID.replace("VALUES ('900_valid.sql'", "VALUES ('899_other.sql'"),
+      'does not register itself in app.schema_migrations',
+    ],
+  ])('plant — %s is rejected, and names that check', (_name, content, message) => {
     withScratch((root) => {
       copyMigrations(root);
       place(root, 'database/migrations/900_valid.sql', content);
+      place(root, 'database/migrations/900_valid.down.sql', 'SELECT 1;');
+      const res = runLint(LINT, root);
+      expect(res.status, `plant was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, `a DIFFERENT check fired than the one this plant isolates:\n${res.stdout}`).toContain(message);
+    });
+  });
+
+  test('plant — a file with no leading comment block at all is rejected', () => {
+    // Deliberately NOT isolating: it trips checks 1, 2 and 3 together. Kept
+    // because it is the plant that exposed the lint's old `head -40` banner
+    // extraction -- on a short migration the ledger INSERT fell inside the first
+    // 40 lines and satisfied the filename check by itself, so a file with no
+    // banner passed. The check was measuring the wrong region of the file.
+    withScratch((root) => {
+      copyMigrations(root);
+      place(root, 'database/migrations/900_valid.sql',
+        "SELECT 1;\nINSERT INTO app.schema_migrations (filename, applied_at)\nVALUES ('900_valid.sql', now())\nON CONFLICT (filename) DO NOTHING;\n");
       place(root, 'database/migrations/900_valid.down.sql', 'SELECT 1;');
       const res = runLint(LINT, root);
       expect(res.status, `plant was accepted:\n${res.stdout}`).toBe(1);
@@ -129,6 +175,7 @@ describe('lint_migration_header', () => {
       place(root, 'database/migrations/900_valid.sql', VALID);
       const res = runLint(LINT, root);
       expect(res.status, `a migration with no reversal was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the pairing check did not name itself').toContain('no paired .down.sql');
     });
   });
 
@@ -140,6 +187,7 @@ describe('lint_migration_header', () => {
       rmSync(join(root, 'database/migrations/006_gate_function.down.sql'));
       const res = runLint(LINT, root);
       expect(res.status, `a missing real reversal was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the pairing check did not name itself').toContain('no paired .down.sql');
     });
   });
 
@@ -148,6 +196,16 @@ describe('lint_migration_header', () => {
       place(root, 'database/migrations/.keep', '');
       const res = runLint(LINT, root);
       expect(res.status, `an empty corpus did not fail loudly:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the empty-corpus refusal did not name itself').toContain('no forward migrations found in');
+    });
+  });
+
+  test('anti-vacuity — a missing migration directory FAILS, and names itself', () => {
+    withScratch((root) => {
+      place(root, 'unrelated.txt', 'x');
+      const res = runLint(LINT, root);
+      expect(res.status, `a missing corpus did not fail loudly:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the missing-directory refusal did not name itself').toContain('no migration directory at');
     });
   });
 });

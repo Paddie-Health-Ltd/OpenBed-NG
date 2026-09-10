@@ -59,7 +59,7 @@ for f in "${FILES[@]}"; do
         *) echo "ERROR: the duty-flag scan exited $st on $f -- it did not run" >&2; exit 2 ;;
     esac
     if [ -n "$out" ]; then
-        echo "FAIL: $(basename "$f"):"
+        echo "FAIL: bare NOT on a tri-state duty flag: $(basename "$f"):"
         echo "$out" | sed 's/^/  /'
         VIOLATIONS=$((VIOLATIONS+1))
     fi

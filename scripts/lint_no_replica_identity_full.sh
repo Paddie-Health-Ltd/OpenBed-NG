@@ -47,7 +47,7 @@ for f in "${FILES[@]}"; do
         0|1) ;;
         *) echo "ERROR: the REPLICA IDENTITY scan exited $st on $f -- it did not run" >&2; exit 2 ;;
     esac
-    [ -n "$out" ] && { echo "FAIL: $(basename "$f"): $out"; VIOLATIONS=$((VIOLATIONS+1)); }
+    [ -n "$out" ] && { echo "FAIL: REPLICA IDENTITY FULL on a published table: $(basename "$f"): $out"; VIOLATIONS=$((VIOLATIONS+1)); }
 done
 
 [ "$VIOLATIONS" -eq 0 ] || { echo "lint_no_replica_identity_full.sh: FAILED ($VIOLATIONS)"; exit 1; }

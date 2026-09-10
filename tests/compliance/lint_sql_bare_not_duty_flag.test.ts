@@ -32,6 +32,7 @@ describe('lint_sql_no_bare_not_duty_flag', () => {
       place(root, 'database/migrations/900_plant.sql', `-- ===\n-- 900_plant.sql\n-- Idempotency: n/a\n-- ===\n${snippet}\nVALUES ('900_plant.sql')\n`);
       const res = runLint(LINT, root);
       expect(res.status, `plant was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the guard rejected but did not name the rule').toContain('bare NOT on a tri-state duty flag');
     });
   });
 
@@ -56,13 +57,17 @@ describe('lint_sql_no_bare_not_duty_flag', () => {
       place(root, 'database/migrations/.keep', '');
       const res = runLint(LINT, root);
       expect(res.status, 'a lint that scanned nothing reported success').toBe(2);
+      expect(res.stdout, 'the empty-corpus refusal did not name itself').toContain('no migrations found in');
     });
   });
 
   test('anti-vacuity — a missing migration directory FAILS', () => {
     withScratch((root) => {
       place(root, 'unrelated.txt', 'x');
-      expect(runLint(LINT, root).status).toBe(2);
+      const res = runLint(LINT, root);
+      expect(res.status, `a missing corpus did not fail loudly:\n${res.stdout}`).toBe(2);
+      // Only the message separates this leg from the empty-corpus leg below it.
+      expect(res.stdout, 'the missing-directory refusal did not name itself').toContain('no migration directory at');
     });
   });
 });

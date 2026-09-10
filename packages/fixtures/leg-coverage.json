@@ -1,0 +1,373 @@
+{
+  "comment": "THE UNREACHED-LEG REGISTER. A leg is one site in a guard script that can drive a non-zero exit and says so with its own message; its identity is the longest static run in that message -- the substring a test can assert. Legs are PARSED FROM SOURCE by tests/compliance/_legs.ts, never declared, because a hand-maintained ledger drifts from the code it describes and that is the defect this register exists to prevent, one level in. A leg is REACHED only when some compliance test asserts a substring of its own message via toContain -- not when it merely makes the guard exit non-zero, and not when the message appears in a test header comment. tests/compliance/leg_coverage.test.ts holds the ratchet: a new leg with no entry reds, an entry for a leg that no longer exists reds, and a registered leg that HAS become reached reds so the entry is forced out.",
+  "baseline_2026_09_10": {
+    "legs_total": 77,
+    "reached": 1,
+    "registered": 76,
+    "note": "A separate hand audit counted 79 legs and 5 reached, using a looser rule: per-pattern granularity for data-driven loops, and crediting a plant that asserts its own planted DATA (a filename, a planted column name) rather than the leg message. Both numbers are real. This register enforces the strict rule, which is why its starting figure is lower.",
+    "immutable": "THIS IS A HISTORICAL RECORD AND DOES NOT MOVE. The ratchet asserts the CURRENT reached count is >= this figure, so progress is free and regression is not. Restating it would destroy the only number that says where this started."
+  },
+  "current": {
+    "legs_total": 86,
+    "reached": 65,
+    "registered": 21,
+    "note": "MEASURED, and updated whenever legs are added or closed. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started."
+  },
+  "guards": {
+    "get_publishable_key.sh": {
+      "jq is required (brew install jq).": {
+        "state": "registered",
+        "reason": "no-injectable-hook",
+        "why": "The script shells out to `npx supabase` and `jq` with no injectable command hook and no ROOT argument, so no test can feed it a canned payload. This is a design smell, not a testing gap.",
+        "closes_with": "Restructure the script to accept an injected fetch/command when it is next touched for its own sake."
+      },
+      "could not reach the Supabase Management API.": {
+        "state": "registered",
+        "reason": "no-injectable-hook",
+        "why": "The script shells out to `npx supabase` and `jq` with no injectable command hook and no ROOT argument, so no test can feed it a canned payload. This is a design smell, not a testing gap.",
+        "closes_with": "Restructure the script to accept an injected fetch/command when it is next touched for its own sake."
+      },
+      "no publishable (sb_publishable_) key for project": {
+        "state": "registered",
+        "reason": "no-injectable-hook",
+        "why": "The script shells out to `npx supabase` and `jq` with no injectable command hook and no ROOT argument, so no test can feed it a canned payload. This is a design smell, not a testing gap.",
+        "closes_with": "Restructure the script to accept an injected fetch/command when it is next touched for its own sake."
+      }
+    },
+    "lint_audit_log_columns.sh": {
+      "no migration directory at": {
+        "state": "reached"
+      },
+      "column fixture not found at": {
+        "state": "reached"
+      },
+      "fixture parsed to zero expected columns -- refusing to pass vacuously": {
+        "state": "reached"
+      },
+      "fixture parsed to zero forbidden names -- refusing to pass vacuously": {
+        "state": "reached"
+      },
+      "no forward migrations found in": {
+        "state": "reached"
+      },
+      "no 'CREATE TABLE app.audit_log' found in": {
+        "state": "reached"
+      },
+      "app.audit_log has columns not in the fixture": {
+        "state": "reached"
+      },
+      "the fixture names columns app.audit_log does not have": {
+        "state": "reached"
+      },
+      "forbidden identity-bearing column": {
+        "state": "reached"
+      },
+      "the ALTER-TABLE scan exited": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      "ALTER TABLE app.audit_log ADD COLUMN": {
+        "state": "reached"
+      },
+      "lint_audit_log_columns.sh: FAILED (": {
+        "state": "reached"
+      },
+      "the column list would be taken from whichever came last": {
+        "state": "reached"
+      },
+      "could not read": {
+        "state": "reached"
+      }
+    },
+    "lint_from_allowlist.sh": {
+      "allowlist not found at": {
+        "state": "reached"
+      },
+      "could not read": {
+        "state": "reached"
+      },
+      "allowlist parsed to nothing — refusing to pass vacuously": {
+        "state": "reached"
+      },
+      "no app source found under": {
+        "state": "reached"
+      },
+      "on $2 — the check did not run": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      ".select('*') is banned — name the columns": {
+        "state": "reached"
+      },
+      ") is not on the public allowlist": {
+        "state": "reached"
+      },
+      "lint_from_allowlist.sh: FAILED (": {
+        "state": "reached"
+      }
+    },
+    "lint_grep_exit_codes.sh": {
+      "no scripts directory at": {
+        "state": "reached"
+      },
+      "no shell scripts found in": {
+        "state": "reached"
+      },
+      "branches directly on a grep — FAILS OPEN: exit 2 (could not run) lands on the clean branch": {
+        "state": "reached"
+      },
+      "chains a grep with && — FAILS OPEN: exit 2 silently skips the action": {
+        "state": "reached"
+      },
+      "swallows a grep's status with || true — FAILS OPEN: exit 2 becomes an empty result set, which reads as no findings": {
+        "state": "reached"
+      },
+      "branches on a grep with || — exit 2 is decided by whichever side it lands on, and neither is a verdict": {
+        "state": "reached"
+      },
+      "lint_grep_exit_codes.sh: FAILED (": {
+        "state": "reached"
+      }
+    },
+    "lint_migration_header.sh": {
+      "no migration directory at": {
+        "state": "reached"
+      },
+      "no forward migrations found in": {
+        "state": "reached"
+      },
+      "the banner check did not run": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      "no '-- ===' banner block at the top of the file": {
+        "state": "reached"
+      },
+      "banner does not name this file (copied header?)": {
+        "state": "reached"
+      },
+      "no 'Idempotency:' note in the banner": {
+        "state": "reached"
+      },
+      "does not register itself in app.schema_migrations": {
+        "state": "reached"
+      },
+      "the ledger check did not run": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      "no paired .down.sql": {
+        "state": "reached"
+      },
+      "lint_migration_header.sh: FAILED (": {
+        "state": "reached"
+      }
+    },
+    "lint_migrations_all.sh": {
+      "lint_migrations_all.sh: FAILED — one or more migration lints reported a violation": {
+        "state": "reached"
+      }
+    },
+    "lint_no_drop_cascade.sh": {
+      "no migration directory at": {
+        "state": "reached"
+      },
+      "no forward migrations found in": {
+        "state": "reached"
+      },
+      "DROP TABLE ... CASCADE without an OPENBED-CASCADE-OVERRIDE": {
+        "state": "reached"
+      },
+      "lint_no_drop_cascade.sh: FAILED (": {
+        "state": "reached"
+      }
+    },
+    "lint_no_replica_identity_full.sh": {
+      "no migration directory at": {
+        "state": "reached"
+      },
+      "no migrations found in": {
+        "state": "reached"
+      },
+      "the REPLICA IDENTITY scan exited": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      "REPLICA IDENTITY FULL on a published table": {
+        "state": "reached"
+      },
+      "lint_no_replica_identity_full.sh: FAILED (": {
+        "state": "reached"
+      }
+    },
+    "lint_no_secrets.sh": {
+      "no files to scan under": {
+        "state": "reached"
+      },
+      "the secret scan did not run": {
+        "state": "reached"
+      },
+      "it did not run, so findings cannot be dropped": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      "committed secret matched in": {
+        "state": "reached"
+      },
+      "lint_no_secrets.sh: FAILED (": {
+        "state": "reached"
+      }
+    },
+    "lint_no_service_role_in_bundle.sh": {
+      "no built client bundles found under": {
+        "state": "reached"
+      },
+      "service-role credential reachable from a built client bundle": {
+        "state": "reached"
+      },
+      "the bundle scan did not run": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      "lint_no_service_role_in_bundle.sh: FAILED (": {
+        "state": "reached"
+      }
+    },
+    "lint_no_updated_at_filter.sh": {
+      "no client source found under": {
+        "state": "reached"
+      },
+      "the freshness-filter scan exited": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      "updated_at used as a FILTER on the public search path": {
+        "state": "reached"
+      },
+      "lint_no_updated_at_filter.sh: FAILED (": {
+        "state": "reached"
+      }
+    },
+    "lint_sql_no_bare_not_duty_flag.sh": {
+      "no migration directory at": {
+        "state": "reached"
+      },
+      "no migrations found in": {
+        "state": "reached"
+      },
+      "the duty-flag scan exited": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      },
+      "bare NOT on a tri-state duty flag": {
+        "state": "reached"
+      },
+      "lint_sql_no_bare_not_duty_flag.sh: FAILED (": {
+        "state": "reached"
+      }
+    },
+    "run_e2e.sh": {
+      "phase 1 produced no junit-e2e.xml — the golden path did not run at all.": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      }
+    },
+    "run_migrations.sh": {
+      "unknown option $1": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      },
+      "migration directory not found at": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      },
+      "psql not on PATH. Install postgresql-client, or set OPENBED_PSQL.": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      },
+      "no forward migrations found in": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      }
+    },
+    "seed.sh": {
+      "seed data is synthetic and must never reach a non-local database.": {
+        "state": "reached"
+      },
+      "seed directory not found at": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      },
+      "no seed files found in": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      },
+      "psql not on PATH. Install postgresql-client, or set OPENBED_PSQL.": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      }
+    },
+    "gate.sh": {
+      "check(s) did not pass": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "gate.sh runs the real check suite, so exercising this leg means failing one of them for real -- there is no injected check list to make one fail cheaply. Demonstrated by hand on 2026-09-10: it exited 1 and named the failing check.",
+        "closes_with": "An injectable check list, so a test can hand it one command that fails and assert the exit status and the message."
+      }
+    },
+    "tests/compliance/leg_coverage.test.ts": {
+      "is not in the register — add it as reached or registered": {
+        "state": "reached"
+      },
+      "is marked reached but no test asserts its message": {
+        "state": "reached"
+      },
+      "IS now reached — delete its register entry": {
+        "state": "reached"
+      },
+      ", which is not one of the allowed reasons": {
+        "state": "reached"
+      },
+      "is registered with no reason given": {
+        "state": "reached"
+      },
+      ", which no longer exists in the script": {
+        "state": "reached"
+      }
+    }
+  }
+}

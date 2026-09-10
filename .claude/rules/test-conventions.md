@@ -52,6 +52,52 @@ The reason all three are required:
 The third leg is the one people leave out, and it is the one that catches a
 `find` whose path stopped resolving after a directory rename.
 
+### Three ways a leg becomes unprovable (2026-09-10)
+
+A plant proves the leg that fires FIRST. Everything after it is unverified and
+looks identical to a working leg: green. That is the general defect; these are
+the three specific shapes this repository produced in a single branch, each
+named with the instance that produced it so a reader can see the rule came from
+a defect rather than from taste.
+
+**(a) An instrument must not accept prose as evidence, including its own header
+comments.** A check that searches a file for a string will find that string in
+the comment explaining the check. Every guard here documents its own failure
+messages in its test's header, so a measurement that greps FILES rather than
+ASSERTIONS counts documentation as proof. Evidence is an executed assertion —
+a `toContain(...)` argument — never a line of source that happens to contain the
+words. *Instance: the leg-coverage measurement reported three legs proved where
+one was, inside the instrument built to measure exactly this shape.*
+
+**(b) A leg guarded by an identity check against the production object can never
+be reached by a plant**, because a plant is by construction not the production
+object. Any condition of that form makes the branch below it unprovable, and it
+reads as ordinary defensive coding. *Instance: `if (reg === guards && ...)` in
+the leg register's own violation function, which meant the stale-entry branch
+ran only for the real register — written while building the thing whose whole
+purpose is finding legs in unprovable shapes.*
+
+**(c) A baseline is a historical fact and must never be a live assertion
+target.** Asserting a current total against the baseline demands the record be
+rewritten in order to record progress, which is the one thing a baseline must
+never do. Measure against the register; keep the baseline immutable and assert
+`current >= baseline` so progress is free and regression is not. *Instance:
+`expect(legs.length).toBe(baseline.legs_total)` reddened the moment a legitimate
+new guard was added.*
+
+**And the fourth, which is about the other direction.** A guard that REFUSES
+LEGITIMATE INPUT is disabled by the next person who hits it: they run the tool,
+it rejects something ordinary, and the fix that presents itself at 2am is to
+loosen or bypass the check — at which point the guard is gone and whatever it
+closed is open again. **Every guard that parses user-supplied input carries at
+least one positive control that is the MOST ORDINARY VALID INPUT**, not an edge
+case. For a file-scanning lint that is its real-corpus ACCEPT leg, which most
+already have; for anything parsing a URL, a path or an argument it must be
+written deliberately. *Instance: an anchored host check in `scripts/seed.sh`
+stripped credentials before the scheme, so an ordinary credential-free local URL
+parsed its host as `postgresql` and was refused. It failed closed, which is the
+safe direction and is not the end of the story.*
+
 **Plants must be constructed, never committed.** Write the planted artefact into
 a temporary directory and point the checker at it. This is why every lint script
 in `scripts/` takes an optional root directory as `$1` — that argument exists so

@@ -37,6 +37,7 @@ describe('secret scan', () => {
       place(root, 'src/leak.ts', code);
       const res = runLint(LINT, root);
       expect(res.status, `plant was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the scanner did not name the rule it enforces').toContain('committed secret matched in');
     });
   });
 
@@ -70,7 +71,9 @@ describe('secret scan', () => {
 
   test('anti-vacuity — an empty tree FAILS rather than reporting clean', () => {
     withScratch((root) => {
-      expect(runLint(LINT, root).status).toBe(2);
+      const res = runLint(LINT, root);
+      expect(res.status, `an empty corpus did not fail loudly:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the empty-corpus refusal did not name itself').toContain('no files to scan under');
     });
   });
 });

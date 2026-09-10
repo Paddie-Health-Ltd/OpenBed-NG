@@ -43,6 +43,7 @@ describe('service-role bundle guard', () => {
       place(root, 'apps/x/dist/assets/index.js', code);
       const res = runLint(LINT, root);
       expect(res.status, `plant was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the guard did not name the rule it enforces').toContain('service-role credential reachable from a built client bundle');
     });
   });
 
@@ -55,6 +56,7 @@ describe('service-role bundle guard', () => {
       place(root, 'apps/x/.next/static/chunks/main.js', `const k = "${PLANT_SB_SECRET}";`);
       const res = runLint(LINT, root);
       expect(res.status, `a credential in .next/static was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the guard did not name the rule it enforces').toContain('service-role credential reachable from a built client bundle');
     });
   });
 
@@ -72,6 +74,7 @@ describe('service-role bundle guard', () => {
       place(root, 'apps/x/src/main.ts', 'export const x = 1;');
       const res = runLint(LINT, root);
       expect(res.status, 'grepping zero built files reported success').toBe(2);
+      expect(res.stdout, 'the empty-corpus refusal did not name itself').toContain('no built client bundles found under');
     });
   });
 });
@@ -98,6 +101,7 @@ describe('updated_at filter guard', () => {
       place(root, 'apps/x/src/query.ts', code);
       const res = runLint(LINT, root);
       expect(res.status, `THE 4AM BUG WAS ACCEPTED:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the guard did not name the rule it enforces').toContain('updated_at used as a FILTER on the public search path');
     });
   });
 
@@ -122,7 +126,9 @@ describe('updated_at filter guard', () => {
   test('anti-vacuity — an empty source tree FAILS', () => {
     withScratch((root) => {
       place(root, 'README.md', 'x');
-      expect(runLint(LINT, root).status).toBe(2);
+      const res = runLint(LINT, root);
+      expect(res.status, `an empty corpus did not fail loudly:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the empty-corpus refusal did not name itself').toContain('no client source found under');
     });
   });
 });
@@ -140,16 +146,20 @@ describe('from() allowlist guard', () => {
     expect(res.status, `the real tree was rejected:\n${res.stdout}`).toBe(0);
   });
 
+  // TWO DIFFERENT RULES share this table -- the allowlist check and the
+  // select('*') ban -- and they exit identically. Each row names which one it
+  // should trip, so a plant that reds through the wrong rule is visible.
   test.each([
-    ['a base table in app', "const q = db.from('ward_status').select('bed_count');"],
-    ['the audit log', "const q = db.from('audit_log').select('action');"],
-    ['select(*)', "const q = db.from('ward_public').select('*');"],
-  ])('plant — %s is rejected', (_name, code) => {
+    ['a base table in app', "const q = db.from('ward_status').select('bed_count');", 'is not on the public allowlist'],
+    ['the audit log', "const q = db.from('audit_log').select('action');", 'is not on the public allowlist'],
+    ['select(*)', "const q = db.from('ward_public').select('*');", ".select('*') is banned — name the columns"],
+  ])('plant — %s is rejected, naming that rule', (_name, code, message) => {
     withScratch((root) => {
       scaffold(root);
       place(root, 'apps/x/src/query.ts', code);
       const res = runLint(LINT, root);
       expect(res.status, `plant was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, `a DIFFERENT rule fired than the one this plant targets:\n${res.stdout}`).toContain(message);
     });
   });
 
@@ -167,6 +177,9 @@ describe('from() allowlist guard', () => {
       place(root, 'apps/x/src/query.ts', "const q = db.from('anything').select('x');");
       const res = runLint(LINT, root);
       expect(res.status, `a missing allowlist did not stop the run:\n${res.stdout}`).toBe(2);
+      // Delete the `[ -f "$ALLOWLIST_JSON" ]` check and node's own catch exits 3,
+      // so the next leg exits 2 anyway. The message is the whole distinction.
+      expect(res.stdout, 'the missing-allowlist refusal did not name itself').toContain('allowlist not found at');
     });
   });
 
@@ -196,6 +209,7 @@ describe('from() allowlist guard', () => {
       place(root, 'apps/x/src/query.ts', SIXTH);
       const res = runLint(LINT, root);
       expect(res.status, `a relation absent from the fixture was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the allowlist rule did not name itself').toContain('is not on the public allowlist');
     });
   });
 
@@ -212,6 +226,32 @@ describe('from() allowlist guard', () => {
       place(root, 'apps/x/src/query.ts', "const q = db.from('ward_status').select('bed_count');");
       const res = runLint(LINT, root);
       expect(res.status, `a name from the fixture's prose was treated as allowlisted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the allowlist rule did not name itself').toContain('is not on the public allowlist');
+    });
+  });
+
+  test('anti-vacuity — an allowlist that parses cleanly to NOTHING refuses to pass', () => {
+    // Distinct from missing and from malformed: this fixture is valid JSON with
+    // both keys present and both empty. A guard reading an empty allowlist would
+    // reject every query -- failing closed, but for a reason unrelated to what it
+    // guards, which is not a verdict.
+    withScratch((root) => {
+      place(root, 'packages/fixtures/public-relations.json', JSON.stringify({ mirrors: [], rpcs: [] }, null, 2));
+      place(root, 'apps/x/src/query.ts', "const q = db.from('ward_public').select('id');");
+      const res = runLint(LINT, root);
+      expect(res.status, `an empty allowlist produced a verdict:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the vacuous-allowlist refusal did not name itself').toContain('allowlist parsed to nothing');
+    });
+  });
+
+  test('anti-vacuity — no app source at all refuses to pass', () => {
+    withScratch((root) => {
+      place(root, 'packages/fixtures/public-relations.json',
+        JSON.stringify({ mirrors: ['ward_public'], rpcs: ['my_facility_wards'] }, null, 2));
+      place(root, 'README.md', 'x');
+      const res = runLint(LINT, root);
+      expect(res.status, `an empty source corpus reported clean:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the empty-corpus refusal did not name itself').toContain('no app source found under');
     });
   });
 
@@ -221,6 +261,7 @@ describe('from() allowlist guard', () => {
       place(root, 'apps/x/src/query.ts', "const q = db.from('ward_public').select('x');");
       const res = runLint(LINT, root);
       expect(res.status, `a fixture missing its rpcs array still produced a verdict:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the malformed-fixture refusal did not name itself').toContain('could not read');
     });
   });
 });

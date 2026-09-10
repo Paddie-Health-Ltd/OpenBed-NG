@@ -43,9 +43,16 @@ fi
 
 echo
 echo "=== phase 2/2: ratchet (the gate) ==="
+# CAPTURE, DO NOT LET `set -e` ABORT. This was `<vitest>` on one line and
+# `RATCHET_ST=$?` on the next -- and under `set -e` that assignment is
+# UNREACHABLE whenever vitest fails, so RATCHET_ST was always 0 and the Standard
+# O attestation below was skipped on exactly the runs that needed it. The gate
+# still held, but only by `set -e` propagation: one `|| true` on the vitest line
+# would have turned it green with nothing to show. Same idiom as the grep fix --
+# capture the status, then act on it.
+RATCHET_ST=0
 npx vitest run --project e2e tests/e2e/ratchet.test.ts \
-    --reporter=default --reporter=junit --outputFile=junit-ratchet.xml
-RATCHET_ST=$?
+    --reporter=default --reporter=junit --outputFile=junit-ratchet.xml || RATCHET_ST=$?
 
 echo
 echo "=== Standard O attestation for the RATCHET (never for phase 1) ==="

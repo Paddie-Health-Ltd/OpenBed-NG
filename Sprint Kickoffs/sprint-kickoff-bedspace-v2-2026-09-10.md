@@ -358,7 +358,30 @@ Five legs:
 4. **No later `ALTER TABLE app.referral ADD COLUMN`** in any forward migration. Straight lift from the audit-log guard, same explicit exit-code separation — 1 is a finding, anything else is fatal and loud, per the `scripts/lint_grep_exit_codes.sh` ban.
 5. **The referrer is never a parameter.** No function signature in `database/migrations/` may declare a parameter whose name contains `referrer_facility_id` or `referrer_category`. **This is the leg that catches the trap the handoff names.** The undo will not arrive as a schema change; it will arrive as `log_referral_outcome(p_referrer_facility_id uuid, p_referrer_category app.ward_category, …)`, written by someone who needed the referring ward and had it to hand — the natural thing to do at the time, exactly as predicted. Leg 5 makes it a red test in the same commit rather than a review catch.
 
-Plants, each into a scratch tree via `copyMigrations` + `place`, with the fixture copied in beside them: `referring_clinician_id uuid` (leg 2, referrer family) · `patient_age integer` (leg 2, patient family) · `filed_by_name text` (**leg 1** — on no forbidden list, catchable only by equality; without this plant the guard is a named-list check wearing an equality label) · `refusal_note text` uncapped (leg 3) · the cap raised from 240 to 1000 (leg 3's cap arm — this is how it got to 1000 in the first place) · removing `referrer_category` (leg 1's shrink arm) · a `014_plant.sql` with `ALTER TABLE app.referral ADD COLUMN clinician_email text` (leg 4) · a `CREATE FUNCTION` block declaring `p_referrer_facility_id` (**leg 5**). Positive control: reordering `portal_viewed_at` and `arrived_at` must exit 0, or people learn to disable the guard rather than read it. Three anti-vacuity legs, all exiting 2: no `CREATE TABLE app.referral` in the corpus; fixture absent; fixture present but parsing to zero columns.
+**PLANTS MUST ISOLATE THE LEG THEY TARGET — added 2026-09-10, and this is the difference between a five-leg guard and a one-leg guard wearing a five-leg label.**
+
+All five legs accumulate; none short-circuits. So a plant that trips several still exits non-zero, and an assertion on the exit status proves only that *something* fired. **Leg 1 is set equality, which fires on almost any column change — so as originally specified it MASKED legs 2 and 3 completely.** Walking the original plant list:
+
+| plant | targets | actually fires | isolated? |
+|---|---|---|---|
+| `referring_clinician_id uuid` | leg 2 | legs 1 **and** 2 | **no** |
+| `patient_age integer` | leg 2 | legs 1 **and** 2 | **no** |
+| `filed_by_name text` | leg 1 | legs 1 **and** 3 (a second `text` column) | **no** |
+| `refusal_note text` uncapped | leg 3 | legs 1 **and** 3 | **no** |
+| cap raised 240 → 1000 | leg 3 | leg 3 only | yes |
+| removing `referrer_category` | leg 1 shrink | leg 1 only | yes |
+| `014_plant.sql` with an `ALTER` | leg 4 | leg 4 only | yes |
+| `CREATE FUNCTION` with `p_referrer_facility_id` | leg 5 | leg 5 only | yes |
+
+**Delete leg 2's implementation entirely and every plant above still reds.** Same for leg 3's forbidden-second-`text` arm. The guard would look correct and would prove one leg.
+
+**The rule, and it is the same fix the audit-log guard needed on 2026-09-10:** every plant satisfies all earlier legs so exactly one can fire, and asserts **that leg's own message** rather than the exit status. Concretely, a leg-2 plant adds the forbidden name to **both** the migration and the fixture's column list, so set equality passes and only the forbidden-name check can produce the failure; a leg-3 plant does the same for its second `text` column. Each assertion is `expect(res.stdout, …).toContain('<that leg's message>')`, which means **every leg needs a distinct static message** — a guard printing only a filename and a diff gives a test nothing to assert and a reader at 2am nothing to act on.
+
+**Leg 5 is last and therefore the most masked**, and it is the one that catches the trap the handoff names. Its plant is already isolated by construction — a `CREATE FUNCTION` in a file with no `CREATE TABLE` cannot trip legs 1 through 4 — but it must still assert leg 5's message, or a future refactor that folds leg 5's condition into leg 4's would be invisible.
+
+**Verify each plant by NEUTERING the leg it targets: only that plant may red.** A plant not verified that way is an assumption, not evidence. See `.claude/rules/test-conventions.md` §2 for the general form and the three shapes that make a leg unprovable.
+
+Positive control: reordering `portal_viewed_at` and `arrived_at` must exit 0, or people learn to disable the guard rather than read it. Three anti-vacuity legs, all exiting 2 and all asserting their own message, since their statuses are identical: no `CREATE TABLE app.referral` in the corpus; fixture absent; fixture present but parsing to zero columns.
 
 **Clause 5 classification: GUARD-AHEAD-OF-SUBJECT.** Legs 1–4 execute non-vacuously over the real migrations today. Leg 5 is non-vacuous only in the negative sense — the function it forbids does not exist yet, which is the point of writing it before Bundle 6 rather than after. Reclassify to LIVE as part of this stage, in the script header, in the same idiom as `lint_audit_log_columns.sh`.
 
