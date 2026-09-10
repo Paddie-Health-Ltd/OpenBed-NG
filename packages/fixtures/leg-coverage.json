@@ -8,9 +8,9 @@
     "immutable": "THIS IS A HISTORICAL RECORD AND DOES NOT MOVE. The ratchet asserts the CURRENT reached count is >= this figure, so progress is free and regression is not. Restating it would destroy the only number that says where this started."
   },
   "current": {
-    "legs_total": 85,
-    "reached": 49,
-    "registered": 36,
+    "legs_total": 86,
+    "reached": 56,
+    "registered": 30,
     "note": "MEASURED, and updated whenever legs are added or closed. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started."
   },
   "guards": {
@@ -39,46 +39,25 @@
         "state": "reached"
       },
       "column fixture not found at": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "fixture parsed to zero expected columns -- refusing to pass vacuously": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "fixture parsed to zero forbidden names -- refusing to pass vacuously": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "no forward migrations found in": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "no 'CREATE TABLE app.audit_log' found in": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "app.audit_log has columns not in the fixture": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "the fixture names columns app.audit_log does not have": {
-        "state": "registered",
-        "reason": "status-only",
-        "why": "A plant reaches this leg, but the assertion checks the exit status only, so it cannot say which leg fired.",
-        "closes_with": "Add expect(res.stdout, ...).toContain('<this message>') to the existing plant."
+        "state": "reached"
       },
       "forbidden identity-bearing column": {
         "state": "reached"
@@ -97,6 +76,12 @@
       },
       "the column list would be taken from whichever came last": {
         "state": "reached"
+      },
+      "could not read": {
+        "state": "registered",
+        "reason": "status-only",
+        "why": "No plant asserts this branch yet.",
+        "closes_with": "A plant that reaches this branch and asserts its message."
       }
     },
     "lint_from_allowlist.sh": {

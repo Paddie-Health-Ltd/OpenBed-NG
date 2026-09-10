@@ -43,11 +43,45 @@ FIXTURE="$ROOT/packages/fixtures/audit-log-columns.json"
 [ -d "$MIG_DIR" ] || { echo "ERROR: no migration directory at $MIG_DIR" >&2; exit 2; }
 [ -f "$FIXTURE" ]  || { echo "ERROR: column fixture not found at $FIXTURE" >&2; exit 2; }
 
-# Expected columns, in order, from the fixture's "columns" array only.
-EXPECTED=$(awk '/"columns"[[:space:]]*:/{f=1;next} f&&/\]/{exit} f{gsub(/[",]/,"");gsub(/^[[:space:]]+|[[:space:]]+$/,"");if($0!="")print}' "$FIXTURE")
+# PARSED BY KEY WITH node, NOT BY LINE-ORIENTED awk.
+#
+# The awk form was layout-sensitive in a way that DEFEATED ITS OWN VACUITY
+# CHECK. It set a flag on the `"columns":` line and `next`ed past it, so when the
+# array was written on ONE line -- `"columns": []`, or any minified fixture --
+# the closing bracket was never seen and it kept reading into the NEXT array,
+# returning `forbidden`'s contents as the column list. Non-empty, so the
+# refuse-to-pass-vacuously check below was bypassed by the very input it exists
+# to catch. Found 2026-09-10 by the plant written for that check.
+#
+# node is present wherever this runs: its guard-over-a-guard runs under vitest,
+# and scripts/gate.sh runs under a shell that has it. Same choice, for the same
+# reason, as scripts/lint_from_allowlist.sh.
+read_array() {  # $1 key
+    node -e '
+      const fs = require("fs");
+      let j;
+      try { j = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); }
+      catch (e) { process.stderr.write("not valid JSON: " + e.message); process.exit(3); }
+      const a = j[process.argv[2]];
+      if (!Array.isArray(a)) { process.stderr.write("key is not an array: " + process.argv[2]); process.exit(4); }
+      process.stdout.write(a.filter((x) => typeof x === "string" && x.length > 0).join("\n"));
+    ' "$FIXTURE" "$1"
+}
+
+PARSE_ST=0
+EXPECTED=$(read_array columns 2>&1) || PARSE_ST=$?
+case "$PARSE_ST" in
+    0) ;;
+    *) echo "ERROR: could not read $FIXTURE (node exited $PARSE_ST): $EXPECTED" >&2; exit 2 ;;
+esac
 [ -n "$EXPECTED" ] || { echo "ERROR: fixture parsed to zero expected columns -- refusing to pass vacuously" >&2; exit 2; }
 
-FORBIDDEN=$(awk '/"forbidden"[[:space:]]*:/{f=1;next} f&&/\]/{exit} f{gsub(/[",]/,"");gsub(/^[[:space:]]+|[[:space:]]+$/,"");if($0!="")print}' "$FIXTURE")
+PARSE_ST=0
+FORBIDDEN=$(read_array forbidden 2>&1) || PARSE_ST=$?
+case "$PARSE_ST" in
+    0) ;;
+    *) echo "ERROR: could not read $FIXTURE (node exited $PARSE_ST): $FORBIDDEN" >&2; exit 2 ;;
+esac
 [ -n "$FORBIDDEN" ] || { echo "ERROR: fixture parsed to zero forbidden names -- refusing to pass vacuously" >&2; exit 2; }
 
 # PORTABILITY: `mapfile` is bash 4+, and macOS ships bash 3.2.
