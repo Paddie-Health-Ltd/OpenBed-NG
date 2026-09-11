@@ -1,3 +1,4 @@
+import { sessionFromTokens, type Session } from '@openbed/auth';
 import { apiUrl, anonKey, serviceRoleKey } from './local-keys.js';
 import { sql } from './db.js';
 
@@ -70,13 +71,26 @@ export interface VerifyOutcome {
   body: Record<string, unknown>;
 }
 
-export interface WardSession {
-  accessToken: string;
-  refreshToken: string;
-  userId: string;
+/**
+ * A signed-in ward, in the SHARED session shape plus the two conveniences this
+ * suite reads constantly.
+ *
+ * IT EXTENDS `Session` FROM @openbed/auth RATHER THAN RESTATING IT. This
+ * harness proved the magic-link route before any app existed, and for a while
+ * it was the only place that knew how to read a GoTrue token response -- so
+ * when the ward console needed the same knowledge, the choice was one
+ * derivation site or two. Two would have meant the harness proving one path
+ * while the app shipped another, at the auth seam, which is the drift §7 of
+ * .claude/rules/test-conventions.md closes everywhere else.
+ *
+ * What stays HERE is minting: `generate_link` is service-role and must never be
+ * reachable from a browser bundle. See packages/auth/src/session.ts.
+ */
+export interface WardSession extends Session {
+  readonly userId: string;
   /** From the JWT. Per-session and NOT equal to userId -- CTO condition 2. */
-  sessionId: string;
-  email: string;
+  readonly sessionId: string;
+  readonly email: string;
 }
 
 function authHeaders(key: string): Record<string, string> {
@@ -203,35 +217,24 @@ export async function forceLinkExpiry(email: string, olderThan = '2 hours'): Pro
   }
 }
 
-/** Claims as GoTrue minted them. No verification -- these are read, not trusted. */
-export function decodeJwtClaims(accessToken: string): Record<string, unknown> {
-  const payload = accessToken.split('.')[1];
-  if (payload === undefined) throw new Error('access token is not a JWT');
-  return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, unknown>;
-}
-
-/** Mint and consume in one go, returning a usable session. Throws on any refusal. */
+/**
+ * Mint and consume in one go, returning a usable session. Throws on any refusal.
+ *
+ * THE PARSE IS `sessionFromTokens`, THE SAME ONE THE CONSOLE USES. It already
+ * refuses a response with no session, names the keys that were present when it
+ * does, and requires `sub` and `session_id` -- so the hand-rolled versions of
+ * all three that used to live here are gone rather than duplicated. If GoTrue's
+ * response shape changes, both sides red together; that is the whole point of
+ * there being one of them.
+ */
 export async function signInWard(email: string): Promise<WardSession> {
   const link = await mintMagicLink(email);
   const outcome = await verifyToken(link);
   if (outcome.status !== 200) {
     throw new Error(`/auth/v1/verify refused a fresh link (HTTP ${outcome.status}): ${JSON.stringify(outcome.body)}`);
   }
-
-  const accessToken = outcome.body['access_token'];
-  const refreshToken = outcome.body['refresh_token'];
-  if (typeof accessToken !== 'string' || typeof refreshToken !== 'string') {
-    throw new Error(`/verify returned no session. Keys: ${Object.keys(outcome.body).sort().join(', ')}`);
-  }
-
-  const claims = decodeJwtClaims(accessToken);
-  const sub = claims['sub'];
-  const sessionId = claims['session_id'];
-  if (typeof sub !== 'string' || typeof sessionId !== 'string') {
-    throw new Error(`minted token is missing sub or session_id. Claims: ${Object.keys(claims).sort().join(', ')}`);
-  }
-
-  return { accessToken, refreshToken, userId: sub, sessionId, email };
+  const session = sessionFromTokens(outcome.body);
+  return { ...session, userId: session.claims.sub, sessionId: session.claims.sessionId, email };
 }
 
 /**

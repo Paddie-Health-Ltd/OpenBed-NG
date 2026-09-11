@@ -1,8 +1,16 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    // DOM here and not in the root config, for the reason spelled out in
+    // apps/public-dashboard/tsconfig.json: server-side packages must not
+    // silently gain `document` and `window`.
     "lib": ["ES2023", "DOM"],
-    "types": []
+    // `vite/client` and NOTHING ELSE. It is the build tool's own typing for
+    // `import.meta.env`, not an ambient runtime: adding @types/node here to
+    // make a Buffer call type-check is how Buffer ends up in a browser bundle.
+    // packages/auth reaches both runtimes through `globalThis` for exactly that
+    // reason.
+    "types": ["vite/client"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "vite.config.ts"]
 }

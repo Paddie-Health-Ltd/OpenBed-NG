@@ -20,7 +20,7 @@
     "db:reset": "supabase db reset && bash scripts/run_migrations.sh && bash scripts/seed.sh",
     "lint": "eslint .",
     "lint:migrations": "bash scripts/lint_migrations_all.sh",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p apps/public-dashboard/tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p apps/public-dashboard/tsconfig.json && tsc --noEmit -p apps/ward-console/tsconfig.json",
     "build": "npm run build --workspaces --if-present",
     "test": "vitest run --project db --project compliance",
     "test:db": "vitest run --project db",
