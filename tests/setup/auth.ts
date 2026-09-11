@@ -49,8 +49,9 @@ import { sql } from './db.js';
  *
  * NOT ASSERTED HERE, deliberately: hosted magic-link single-use. Local GoTrue is
  * pinned by the Supabase CLI; hosted auth is upgraded by Supabase out-of-band and
- * is not that version. docs/runbook-supabase-project-creation.md section 5b is
- * the only control over the hosted property and stays open.
+ * is not that version. docs/runbook-supabase-project-creation.md step 9 (headed
+ * "was §5b", because that runbook was renumbered into execution order on
+ * 2026-09-11) is the only control over the hosted property and stays open.
  */
 
 export interface MintedLink {
