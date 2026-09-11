@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
-  "description": "BedSpace \u2014 real-time hospital bed visibility for Nigeria. Public read path, ward write path, and the security boundary between them.",
+  "description": "BedSpace — real-time hospital bed visibility for Nigeria. Public read path, ward write path, and the security boundary between them.",
   "workspaces": [
     "packages/*",
     "apps/*"
@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@types/node": "26.5.0",
+    "acorn": "8.18.0",
     "eslint": "10.10.0",
     "js-yaml": "5.4.1",
     "postgres": "3.4.9",

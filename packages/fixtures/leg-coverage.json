@@ -8,8 +8,8 @@
     "immutable": "THIS IS A HISTORICAL RECORD AND DOES NOT MOVE. The ratchet asserts the CURRENT reached count is >= this figure, so progress is free and regression is not. Restating it would destroy the only number that says where this started."
   },
   "current": {
-    "legs_total": 101,
-    "reached": 76,
+    "legs_total": 107,
+    "reached": 82,
     "registered": 25,
     "note": "MEASURED, and updated whenever legs are added or closed. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started."
   },
@@ -276,16 +276,10 @@
       "no built client bundles found under": {
         "state": "reached"
       },
-      "service-role credential reachable from a built client bundle": {
+      "lint_no_service_role_in_bundle.sh: FAILED — a credential is reachable from a built client bundle": {
         "state": "reached"
       },
-      "the bundle scan did not run": {
-        "state": "registered",
-        "reason": "could-not-run",
-        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
-        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
-      },
-      "lint_no_service_role_in_bundle.sh: FAILED (": {
+      "the bundle scan did not run (scanner exited": {
         "state": "reached"
       }
     },
@@ -389,6 +383,29 @@
         "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
       }
     },
+    "scan_bundle_credentials.mjs": {
+      "service-role credential reachable from a built client bundle": {
+        "state": "reached"
+      },
+      "more in this file": {
+        "state": "reached"
+      },
+      "no files given to scan -- the bundle scan did not run": {
+        "state": "reached"
+      },
+      "Usage: node scripts/scan_bundle_credentials.mjs <file> [<file>...]": {
+        "state": "reached"
+      },
+      "as JavaScript -- comment stripping needs a real parse, so the bundle scan did not run.": {
+        "state": "reached"
+      },
+      "the bundle file is unreadable, so nothing was scanned": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when a built bundle exists and cannot be read. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested -- a root user reads a 000 file and the plant would silently prove nothing.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner. Shared with every other could-not-run leg here."
+      }
+    },
     "seed.sh": {
       "seed data is synthetic and must never reach a non-local database.": {
         "state": "reached"
@@ -410,6 +427,11 @@
         "reason": "no-seam",
         "why": "No guard-over-a-guard test file exists for this script yet.",
         "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      }
+    },
+    "tests/compliance/_legs.ts": {
+      "leg parser could not parse this script, so its legs were never enumerated": {
+        "state": "reached"
       }
     },
     "tests/compliance/leg_coverage.test.ts": {

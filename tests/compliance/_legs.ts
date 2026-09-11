@@ -1,3 +1,4 @@
+import * as acorn from 'acorn';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -153,24 +154,60 @@ function failureMessages(line: string): string[] {
  * with unenumerated legs -- the exact gap this register exists to close,
  * arriving through a file extension. scripts/attest_counts.mjs comes in with it.
  */
-function nodeFailureMessages(line: string): string[] {
-  const out: string[] = [];
-  for (const m of line.matchAll(/console\.error\(\s*(['"`])((?:[^\\]|\\.)*?)\1/g)) out.push(m[2] as string);
-  for (const m of line.matchAll(/throw new Error\(\s*(['"`])((?:[^\\]|\\.)*?)\1/g)) out.push(m[2] as string);
+function nodeFailureMessages(text: string): { msg: string; index: number }[] {
+  const out: { msg: string; index: number }[] = [];
+  for (const m of text.matchAll(/console\.error\(\s*(['"`])((?:[^\\]|\\.)*?)\1/g)) out.push({ msg: m[2] as string, index: m.index });
+  for (const m of text.matchAll(/throw new Error\(\s*(['"`])((?:[^\\]|\\.)*?)\1/g)) out.push({ msg: m[2] as string, index: m.index });
   return out;
+}
+
+/**
+ * Blanks every comment to spaces, preserving offsets so line numbers survive.
+ *
+ * WHY A REAL PARSE AND NOT A REGEX. Our own scripts contain `http://127.0.0.1`
+ * inside string literals, and a regex that strips `//` to end of line would
+ * delete the rest of those lines -- including any failure message on them. A
+ * guard that stops seeing what it guards is the failure mode this whole
+ * register exists to surface.
+ *
+ * A FILE THAT WILL NOT PARSE IS FATAL. Falling back to the raw text would mean
+ * counting documentation as a leg; skipping the file would mean a script with
+ * legs reporting none. Both are verdicts from a measurement that did not run.
+ */
+function blankComments(src: string, file: string): string {
+  const comments: acorn.Comment[] = [];
+  try {
+    acorn.parse(src, { ecmaVersion: 'latest', sourceType: 'module', allowHashBang: true, onComment: comments });
+  } catch (e) {
+    throw new Error(`leg parser could not parse this script, so its legs were never enumerated: ${file}: ${String((e as Error).message)}`);
+  }
+  const out = src.split('');
+  for (const c of comments) for (let i = c.start; i < c.end; i += 1) if (out[i] !== '\n') out[i] = ' ';
+  return out.join('');
+}
+
+function lineAt(src: string, index: number): number {
+  let n = 1;
+  for (let i = 0; i < index; i += 1) if (src[i] === '\n') n += 1;
+  return n;
 }
 
 export function parseLegs(scriptsDir: string): Leg[] {
   const legs: Leg[] = [];
   for (const script of readdirSync(scriptsDir).filter((n) => n.endsWith('.mjs')).sort()) {
-    readFileSync(join(scriptsDir, script), 'utf8').split('\n').forEach((raw, i) => {
-      const line = raw.trim();
-      if (line.startsWith('//') || line.startsWith('*')) return;
-      for (const msg of nodeFailureMessages(line)) {
-        const id = longestStatic(msg.replace(/\$\{[^}]*\}/g, '$X'));
-        if (id !== null) legs.push({ script, line: i + 1, id });
-      }
-    });
+    // WHOLE FILE, NOT LINE BY LINE. The line-scoped version could not see a
+    // failure site whose call and whose message sat on different lines, which
+    // is how any `throw new Error(` with a long message is actually written.
+    // scripts/scan_bundle_credentials.mjs shipped exactly one such leg and the
+    // register reported the script as having none -- an instrument silently
+    // not covering a shape it claims to cover, which is section 2(d) of
+    // .claude/rules/test-conventions.md happening inside the instrument.
+    const src = readFileSync(join(scriptsDir, script), 'utf8');
+    const code = blankComments(src, script);
+    for (const { msg, index } of nodeFailureMessages(code)) {
+      const id = longestStatic(msg.replace(/\$\{[^}]*\}/g, '$X'));
+      if (id !== null) legs.push({ script, line: lineAt(src, index), id });
+    }
   }
   for (const script of readdirSync(scriptsDir).filter((n) => n.endsWith('.sh')).sort()) {
     readFileSync(join(scriptsDir, script), 'utf8').split('\n').forEach((raw, i) => {
@@ -318,6 +355,21 @@ export function parseInstrumentLegs(file: string, label: string): Leg[] {
     if (line.startsWith('//') || line.startsWith('*')) return;
     for (const m of line.matchAll(/out\.push\(\s*`([^`]+)`/g)) {
       const id = longestStatic((m[1] as string).replace(/\$\{[^}]*\}/g, '$X'));
+      if (id !== null) legs.push({ script: label, line: i + 1, id });
+    }
+    // A `throw` is a leg too, and THIS FILE now has one. The instrument corpus
+    // was one file and one shape -- `out.push(...)` in the register test -- so a
+    // refusal raised anywhere else in the instrument was invisible to the
+    // register that enforces registration. An instrument exempt from its own
+    // standard is what this whole register exists to stop.
+    //
+    // NOTE THE RESIDUAL SCOPE, rather than leaving it to be discovered: this
+    // half is LINE-SCOPED, because acorn parses JavaScript and these instrument
+    // files are TypeScript. A `throw new Error(` whose message sits on the next
+    // line is still invisible here. Keep instrument throws on one line until
+    // there is a TypeScript parse to hang this on.
+    for (const m of line.matchAll(/throw new Error\(\s*(['"`])((?:[^\\]|\\.)*?)\1/g)) {
+      const id = longestStatic((m[2] as string).replace(/\$\{[^}]*\}/g, '$X'));
       if (id !== null) legs.push({ script: label, line: i + 1, id });
     }
   });

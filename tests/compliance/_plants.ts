@@ -24,8 +24,36 @@ export const PLANT_JWT = [
   'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
 ].join('.');
 
+/**
+ * A JWT whose payload CLAIMS THE SERVICE ROLE.
+ *
+ * The distinction this plant exists to prove is not JWT-vs-not-JWT. The
+ * publishable/anon key is also a JWT and is published in the browser bundle BY
+ * DESIGN, so a guard firing on JWT shape alone would red on the one credential
+ * that belongs there. `PLANT_JWT` above carries `"role":"anon"` and is the
+ * matching positive control.
+ *
+ * Note the literal string `service_role` does NOT appear here -- it is inside
+ * the base64url payload. That is deliberate: it isolates the payload-decoding
+ * leg from the word-matching leg, which would otherwise fire first and prove
+ * the wrong thing.
+ */
+export const PLANT_SERVICE_ROLE_JWT = [
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+  'eyJpc3MiOiJwbGFudCIsInJvbGUiOiJzZXJ2aWNlX3JvbGUifQ',
+  'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+].join('.');
+
 /** A Supabase secret-key shape. */
 export const PLANT_SB_SECRET = `sb_${'secret'}_${'A'.repeat(24)}`;
+
+/**
+ * The BARE prefix, with no key material after it -- what @supabase/supabase-js
+ * actually ships: `key.startsWith("sb_secret_")`. It is not a credential, and
+ * treating it as one is what made 24 non-credentials red the bundle guard on
+ * 2026-09-10. Used as a positive control, never as a plant.
+ */
+export const NOT_A_CREDENTIAL_PREFIX = `sb_${'secret'}_`;
 
 /** A PEM private-key header. */
 export const PLANT_PRIVATE_KEY = `-----${'BEGIN'} RSA PRIVATE KEY-----`;

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { join } from 'node:path';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { parseLegs, parseInstrumentLegs, assertedByScript, isReached, legsWithoutIdentity, duplicateIds, type Leg } from './_legs.js';
 import { REPO_ROOT } from './_scratch.js';
 import REGISTER from '../../packages/fixtures/leg-coverage.json';
@@ -38,6 +39,13 @@ import REGISTER from '../../packages/fixtures/leg-coverage.json';
 const SCRIPTS = join(REPO_ROOT, 'scripts');
 /** This file. Its own violation branches are legs and are registered like any other. */
 const INSTRUMENT = 'tests/compliance/leg_coverage.test.ts';
+/**
+ * AND THE PARSER BEHIND IT. The instrument corpus was this file alone, so a
+ * refusal raised in the leg parser itself -- the code that decides what a leg
+ * IS -- was outside the register that enforces registration. Added when
+ * `_legs.ts` gained a real failure branch of its own, rather than after.
+ */
+const PARSER = 'tests/compliance/_legs.ts';
 const TESTS = join(REPO_ROOT, 'tests/compliance');
 const REASONS = new Set(['status-only', 'could-not-run', 'no-seam', 'no-injectable-hook']);
 
@@ -101,12 +109,26 @@ export function registerViolations(
 }
 
 describe('leg coverage register', () => {
-  const legs = [...parseLegs(SCRIPTS), ...parseInstrumentLegs(join(REPO_ROOT, INSTRUMENT), INSTRUMENT)];
+  const legs = [
+    ...parseLegs(SCRIPTS),
+    ...parseInstrumentLegs(join(REPO_ROOT, INSTRUMENT), INSTRUMENT),
+    ...parseInstrumentLegs(join(REPO_ROOT, PARSER), PARSER),
+  ];
   const asserted = assertedByScript(TESTS);
   // The instrument's own assertions are its evidence, exactly as a guard's test
   // file is the guard's. Without this it could never prove any of its own legs.
-  asserted.set(INSTRUMENT, asserted.get('lint_grep_exit_codes.sh') === undefined ? [] : []);
-  asserted.set(INSTRUMENT, [...(readFileSync(join(REPO_ROOT, INSTRUMENT), 'utf8').matchAll(/\.toContain\(\s*(['"`])((?:[^\\]|\\.)*?)\1/g))].map((m) => m[2] as string));
+  // Both instrument files are asserted from THIS file, which is the only test
+  // that exercises either.
+  // `.toThrow(<message>)` counts alongside `.toContain(<message>)`. Both are
+  // executed assertions on a failure message; recognising only one spelling is
+  // the defect this parser already had to fix four times over, and it would
+  // have reported the parser's own refusal as unproved while a plant proved it.
+  const ownSource = readFileSync(join(REPO_ROOT, INSTRUMENT), 'utf8');
+  const ownAssertions = [
+    ...ownSource.matchAll(/\.(?:toContain|toThrow)\(\s*(['"`])((?:[^\\]|\\.)*?)\1/g),
+  ].map((m) => m[2] as string);
+  asserted.set(INSTRUMENT, ownAssertions);
+  asserted.set(PARSER, ownAssertions);
 
   test('anti-vacuity — legs were parsed and the register is not empty', () => {
     expect(legs.length, 'no legs parsed — the parser stopped matching').toBeGreaterThan(50);
@@ -119,6 +141,46 @@ describe('leg coverage register', () => {
     // read at 2am either: the operator gets a filename and a grep dump with no
     // statement of which rule fired. Seven legs were in that state on 2026-09-10.
     expect(legsWithoutIdentity(SCRIPTS), 'these failure sites carry no static message').toEqual([]);
+  });
+
+  test('plant — a script the parser cannot read FAILS rather than reporting no legs', () => {
+    // The parser's own refusal. A .mjs that will not parse has, as far as a
+    // silent parser is concerned, zero legs -- and zero legs is exactly what a
+    // fully-registered script looks like. So the register would have reported
+    // complete coverage of a file it never read, which is this repository's
+    // recurring shape: a check reporting success for a reason unrelated to what
+    // it measures.
+    //
+    // The seam is parseLegs' own directory argument. No repository file is
+    // touched.
+    const dir = mkdtempSync(join(tmpdir(), 'openbed-legs-'));
+    try {
+      writeFileSync(join(dir, 'broken.mjs'), 'const x = ((((;\n', 'utf8');
+      expect(() => parseLegs(dir)).toThrow('leg parser could not parse this script, so its legs were never enumerated');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('positive control — the parser reads an ordinary .mjs and finds its legs', () => {
+    // test-conventions.md section 2, the fourth way a leg goes wrong. A parser
+    // that threw on anything unusual would be switched off, and the plant above
+    // proves nothing about ordinary input.
+    const dir = mkdtempSync(join(tmpdir(), 'openbed-legs-'));
+    try {
+      writeFileSync(
+        join(dir, 'ordinary.mjs'),
+        '// a comment mentioning http://127.0.0.1 which a regex stripper would eat\n' +
+          'console.error(`ERROR: the ordinary failure message for a plant`);\n',
+        'utf8',
+      );
+      const found = parseLegs(dir);
+      expect(found.map((l) => l.id), 'the parser read an ordinary script and found nothing').toContain(
+        'the ordinary failure message for a plant',
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test('no two legs in one script share an identity', () => {
