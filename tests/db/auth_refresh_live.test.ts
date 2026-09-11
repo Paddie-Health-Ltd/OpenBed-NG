@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from 'vitest';
 import { SessionHolder, SessionExpiredError, claimsOf, type Session } from '@openbed/auth';
-import { signInWard } from '../setup/auth.js';
+import { forceSessionAge, signInWard } from '../setup/auth.js';
 import { apiUrl, anonKey } from '../setup/local-keys.js';
 import { sql } from '../setup/db.js';
 
@@ -37,6 +37,10 @@ import { sql } from '../setup/db.js';
  *     the suite. It is a VENDOR property rather than this module's behaviour,
  *     and the module's own response to a refusal is planted in the compliance
  *     file.
+ *   - That GoTrue expires a session ON ITS OWN after 24 hours of real time.
+ *     What the bound tests below prove is that it refuses to RENEW a session
+ *     whose recorded age exceeds `timebox` / `inactivity_timeout`. Waiting a
+ *     day in CI is not a trade anyone should take.
  *   - That the hosted GoTrue behaves as the local one does. Local GoTrue is
  *     pinned by the Supabase CLI; hosted auth is upgraded by Supabase
  *     out-of-band and is not that version. That asymmetry is a runbook step.
@@ -75,6 +79,17 @@ function staleCopy(session: Session): Session {
 function realHolder(session: Session): SessionHolder {
   // NO `refresh` OVERRIDE. The whole point of this file is the real transport.
   return new SessionHolder({ apiUrl: apiUrl(), anonKey: anonKey(), session });
+}
+
+
+/** GoTrue's raw answer to a refresh. Used where the exact signal IS the assertion. */
+async function rawRefresh(refreshToken: string): Promise<{ status: number; body: string }> {
+  const res = await fetch(`${apiUrl()}/auth/v1/token?grant_type=refresh_token`, {
+    method: 'POST',
+    headers: { apikey: anonKey(), Authorization: `Bearer ${anonKey()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+  return { status: res.status, body: await res.text() };
 }
 
 describe('refresh against live GoTrue', () => {
@@ -146,5 +161,86 @@ describe('refresh against live GoTrue', () => {
       'the server refused the session with 401',
     );
     expect(holder.signedOut, 'a 401 left the session in place').toBe(true);
+  });
+});
+
+/**
+ * THE SHORT-SESSION GUARANTEE, WHICH IS THE WARD-IDENTITY DECISION'S LOAD-BEARING
+ * CLAIM AND HAD ZERO COVERAGE UNTIL NOW.
+ *
+ * That memo resolved revocation in the CTO's favour on the grounds that short
+ * sessions make an offboarding SOP unnecessary: access follows PHYSICAL CONTROL
+ * OF THE WARD HANDSET, so a nurse who no longer holds it loses access by
+ * default. Until 2026-09-11 `[auth.sessions]` was commented out in
+ * supabase/config.toml, so there was no bound at all -- only `jwt_expiry = 3600`
+ * and a refresh token that would renew forever. The guarantee something else was
+ * cancelled in favour of was not in force, and nothing would have said so.
+ *
+ * These are the tests that would have said so.
+ */
+describe('session bounds — access follows physical control of the handset', () => {
+  test('a session past the 24h TIMEBOX cannot be renewed', async () => {
+    const session = await signInWard(`timebox-${Date.now()}@ward.invalid`);
+    await forceSessionAge(session.sessionId, { createdAgo: '30 hours' });
+
+    const holder = realHolder(staleCopy(session));
+    await expect(holder.accessToken()).rejects.toThrow(SessionExpiredError);
+    expect(holder.signedOut, 'a session past its timebox was kept alive').toBe(true);
+  });
+
+  test('a session idle past the 8h INACTIVITY TIMEOUT cannot be renewed', async () => {
+    const session = await signInWard(`inactive-${Date.now()}@ward.invalid`);
+    await forceSessionAge(session.sessionId, { refreshedAgo: '9 hours' });
+
+    const holder = realHolder(staleCopy(session));
+    await expect(holder.accessToken()).rejects.toThrow(SessionExpiredError);
+    expect(holder.signedOut, 'an idle session was kept alive').toBe(true);
+  });
+
+  test('the two bounds are DISTINGUISHABLE, not merely "some refusal"', async () => {
+    // Naming the exact signal, never a negation. Asserted straight against
+    // GoTrue because these strings are the FACT the bound rests on: if Supabase
+    // merges the two messages, this reddens with the new answer in it rather
+    // than a test quietly accepting either refusal as proof of both bounds.
+    const timeboxed = await signInWard(`tb-signal-${Date.now()}@ward.invalid`);
+    await forceSessionAge(timeboxed.sessionId, { createdAgo: '30 hours', refreshedAgo: '0 seconds' });
+    const a = await rawRefresh(timeboxed.refreshToken);
+    expect(a.status, `timebox refusal: ${a.body}`).toBe(400);
+    expect(a.body, `the timebox refusal message changed: ${a.body}`).toContain('Session Expired');
+    expect(a.body, 'the timebox refusal was reported as inactivity').not.toContain('(Inactivity)');
+
+    const idle = await signInWard(`in-signal-${Date.now()}@ward.invalid`);
+    await forceSessionAge(idle.sessionId, { refreshedAgo: '9 hours' });
+    const b = await rawRefresh(idle.refreshToken);
+    expect(b.status, `inactivity refusal: ${b.body}`).toBe(400);
+    expect(b.body, `the inactivity refusal message changed: ${b.body}`).toContain('Session Expired (Inactivity)');
+  });
+
+  test('positive control — an hour-old session renews perfectly well', async () => {
+    // test-conventions section 2, the fourth way a leg goes wrong. A bound that
+    // refused an ordinary mid-shift session would be switched off within a day,
+    // and the plants above would still pass while it was.
+    const session = await signInWard(`young-${Date.now()}@ward.invalid`);
+    await forceSessionAge(session.sessionId, { createdAgo: '1 hour' });
+
+    const holder = realHolder(staleCopy(session));
+    await expect(holder.accessToken()).resolves.toBeTypeOf('string');
+    expect(holder.signedOut, 'an ordinary mid-shift session was ended').toBe(false);
+  });
+
+  test('the bound governs RENEWAL — an issued access token outlives it', async () => {
+    // The nuance the memo needs and does not state: `timebox = 24h` does not
+    // revoke a token already in a handset's memory. The real worst case is
+    // timebox PLUS jwt_expiry, 25 hours rather than 24. Measured, not reasoned.
+    const session = await signInWard(`outlives-${Date.now()}@ward.invalid`);
+    await forceSessionAge(session.sessionId, { createdAgo: '30 hours' });
+
+    const res = await fetch(`${apiUrl()}/rest/v1/ward_public?select=facility_id&limit=1`, {
+      headers: { apikey: anonKey(), Authorization: `Bearer ${session.accessToken}` },
+    });
+    expect(
+      res.status,
+      'an already-issued token stopped working at the session bound — the 25-hour note in the runbook is now wrong and must be corrected',
+    ).toBe(200);
   });
 });

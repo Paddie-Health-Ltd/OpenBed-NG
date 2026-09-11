@@ -525,6 +525,46 @@ it is re-derivable rather than trusted.
 
 ---
 
+## 9. Auth session bounds — the ward-identity guarantee
+
+Dashboard -> Authentication -> Sessions.
+
+- [ ] **Time-box user sessions** enabled, set to **24 hours**
+- [ ] **Inactivity timeout** enabled, set to **8 hours**
+
+**This is not hardening, it is a load-bearing product decision.** The
+ward-identity memo resolved revocation in the CTO's favour *because* short
+sessions make an offboarding SOP unnecessary: access follows **physical control
+of the ward handset**, and a nurse who no longer holds it loses access by
+default with no revocation step anyone has to remember. The COO's alternative --
+an SOP a Nigerian clinic files a leaver notification under -- was rejected as one
+that would not run. **If these bounds are not set, the thing that was dropped in
+their favour is not in force, and nothing in the product would say so.**
+
+Until 2026-09-11 the local `[auth.sessions]` block was commented out and neither
+bound was set. It is now set in `supabase/config.toml`, and
+`tests/db/auth_refresh_live.test.ts` proves BOTH bounds against the running
+stack -- a session aged past `timebox` and one aged past `inactivity_timeout`
+are each refused renewal, with distinct messages, and an hour-old session still
+renews. **That covers the local stack only. This checkbox is the hosted half and
+there is no test that can reach it.**
+
+### The 25-hour nuance, because the memo does not state it
+
+**The bound governs RENEWAL, not the token already in the handset.** An access
+token minted before the session hit its time-box stays valid until its own
+`exp`. Measured on 2026-09-11: PostgREST answered **200** to a token from a
+session 30 hours old. So the real worst case is `timebox` **plus** `jwt_expiry`
+-- **25 hours**, not 24. Shortening `jwt_expiry` shortens that tail and costs a
+refresh round trip per hour of use; it has not been done, and the number is
+written here so the decision is made with it rather than around it.
+
+**Covered by tests: the local-integration leg only, against GoTrue v2.196.0.**
+The hosted setting is a dashboard value with no in-database representation, and
+hosted auth is upgraded by Supabase out-of-band and is not that version.
+
+---
+
 ## What remains un-automatable, and stays that way
 
 | Property | Why no test can cover it |
@@ -532,6 +572,7 @@ it is re-derivable rather than trusted.
 | Region pin | Assertable via the Management API, declined on credential-surface grounds |
 | Hosted exposed-schemas list | A dashboard setting with no in-database representation |
 | Hosted superuser semantics | The local role graph differs from the hosted one |
+| Hosted auth session bounds (`timebox`, `inactivity_timeout`) | A dashboard setting with no in-database representation. Both bounds ARE proved locally in `tests/db/auth_refresh_live.test.ts`; the hosted values are step 9 |
 | Magic-link single-use and expiry | Enforced by Supabase auth, not by this schema, since `app.invite` no longer holds a token |
 | Branch protection and its required-check set | A GitHub setting; reading it in CI needs a token this public repository should not carry |
 | Push protection | A GitHub repository setting; CI runs after the push |

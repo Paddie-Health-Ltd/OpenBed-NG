@@ -218,6 +218,73 @@ export async function forceLinkExpiry(email: string, olderThan = '2 hours'): Pro
 }
 
 /**
+ * Age a live auth session, so `[auth.sessions]`'s bounds can be PROVED rather
+ * than assumed.
+ *
+ * WHY THIS EXISTS AT ALL. The ward-identity decision of 2026-09-08 replaced an
+ * offboarding SOP with short sessions -- access follows physical control of the
+ * ward handset. Until 2026-09-11 `[auth.sessions]` was commented out entirely,
+ * so the guarantee something else was cancelled in favour of was not in force;
+ * and setting the bound makes expiry POSSIBLE, not PROVED. This is the seam
+ * that proves it.
+ *
+ * HOW, established by controlled probe on 2026-09-11 against GoTrue v2.196.0,
+ * with a positive control that returned 200:
+ *
+ *   auth.sessions.created_at   aged 30h  -> refresh 400 "Session Expired"
+ *   auth.sessions.refreshed_at aged  9h  -> refresh 400 "Session Expired (Inactivity)"
+ *   auth.sessions.created_at   aged  1h  -> refresh 200  (control)
+ *
+ * The two bounds have DISTINCT messages, so a test can tell which one fired
+ * instead of accepting any refusal -- naming the exact signal rather than a
+ * negation.
+ *
+ * The same trade as forceLinkExpiry, for the same reason: lowering `timebox` in
+ * supabase/config.toml would alter configuration every other test runs against,
+ * and a test that changes shared state to make itself pass has changed what it
+ * was measuring.
+ *
+ * NOT ASSERTED HERE, deliberately: that GoTrue expires a session ON ITS OWN
+ * after 24 hours of real time. What is proved is that it refuses to renew a
+ * session whose age exceeds the bound. Waiting a day in CI is not a trade
+ * anyone should take.
+ *
+ * AND A NUANCE THAT MATTERS TO THE MEMO. The bound governs RENEWAL. An
+ * access token already issued stays valid until its own `exp` -- measured:
+ * PostgREST still answered 200 with a token from a session past its timebox. So
+ * the real worst case is `timebox` PLUS `jwt_expiry`, 25 hours rather than 24.
+ */
+export async function forceSessionAge(
+  sessionId: string,
+  ages: { createdAgo?: string; refreshedAgo?: string },
+): Promise<void> {
+  const db = sql();
+  const created = ages.createdAgo ?? null;
+  const refreshed = ages.refreshedAgo ?? null;
+  if (created === null && refreshed === null) {
+    throw new Error('forceSessionAge was asked to age nothing, so the session bound would be asserting nothing');
+  }
+  const rows = await db<{ id: string }[]>`
+    update auth.sessions
+       set created_at   = case when ${created}::text   is null then created_at
+                               else now() - ${created ?? '0 seconds'}::interval end,
+           refreshed_at = case when ${refreshed}::text is null then refreshed_at
+                               else now() - ${refreshed ?? '0 seconds'}::interval end
+     where id = ${sessionId}::uuid
+    returning id
+  `;
+  if (rows.length !== 1) {
+    // Confirm the plant actually planted. A silent no-op is indistinguishable
+    // from GoTrue failing to enforce the bound, and points the investigation at
+    // the wrong component entirely.
+    throw new Error(
+      `forceSessionAge did not update exactly one auth.sessions row for ${sessionId} (updated ${rows.length}). ` +
+        'The session-bound test would then be asserting nothing.',
+    );
+  }
+}
+
+/**
  * Mint and consume in one go, returning a usable session. Throws on any refusal.
  *
  * THE PARSE IS `sessionFromTokens`, THE SAME ONE THE CONSOLE USES. It already
