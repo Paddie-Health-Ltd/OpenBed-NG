@@ -315,11 +315,29 @@ max_frequency = "5s"
 # 4152127777 = "123456"
 
 # Configure logged in session timeouts.
-# [auth.sessions]
+#
+# SET, NOT LEFT AS THE SUPABASE DEFAULT, and this is the ward-identity
+# decision's central guarantee rather than a hardening preference. That memo
+# (Sprint Kickoffs/decision-2026-09-08-ward-level-identity.md) resolved the
+# revocation question in the CTO's favour precisely because SHORT SESSIONS make
+# an offboarding SOP unnecessary: access follows PHYSICAL CONTROL OF THE WARD
+# HANDSET, and a nurse who no longer holds it loses access by default with no
+# revocation step anyone has to remember. With this block commented out there
+# was no bound at all -- only jwt_expiry = 3600 and a refresh token that would
+# renew forever -- so the thing the SOP was cancelled in favour of was not in
+# force. An unenforced guarantee that something else was dropped for is worse
+# than no guarantee.
+#
+# THE HOSTED HALF IS A DASHBOARD SETTING AND IS NOT ASSERTABLE FROM THIS
+# REPOSITORY. It is a checklist step in docs/runbook-supabase-project-creation.md,
+# beside the region pin and the exposed-schemas list. This file governs the
+# local stack only, and a test claiming otherwise would be the phantom
+# enforcement Clause 4 exists to prevent.
+[auth.sessions]
 # Force log out after the specified duration.
-# timebox = "24h"
+timebox = "24h"
 # Force log out if the user has been inactive longer than the specified duration.
-# inactivity_timeout = "8h"
+inactivity_timeout = "8h"
 
 # This hook runs before a new user is created and allows developers to reject the request based on the incoming user object.
 # [auth.hook.before_user_created]

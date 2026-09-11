@@ -1,6 +1,8 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { sql } from '../setup/db.js';
+import { serviceRoleKey } from '../setup/local-keys.js';
 
 /**
  * THE E2E CORPUS. Two E2E_-prefixed facilities, seeded by this file and COMMITTED.
@@ -65,6 +67,14 @@ export const STALE_CATEGORY = 'ICU_ADULT';
  */
 export async function resetE2eCorpus(): Promise<void> {
   const db = sql();
+  // ORDER MATTERS, and the constraint that forces it is deliberate.
+  // app.ward_account.facility_id is REFERENCES app.facility(id) ON DELETE
+  // RESTRICT -- a facility cannot be deleted out from under an account, so an
+  // account can never be orphaned into a facility-less state that the
+  // ward_account_scope_matches_role CHECK exists to make unrepresentable.
+  // The teardown respects it rather than working around it with CASCADE.
+  await db`delete from app.ward_account where facility_id in (${ALPHA.id}::uuid, ${BETA.id}::uuid)`;
+  await db`delete from app.invite where facility_id in (${ALPHA.id}::uuid, ${BETA.id}::uuid)`;
   await db`delete from app.facility where id in (${ALPHA.id}::uuid, ${BETA.id}::uuid)`;
   await db`delete from auth.users where email like ${`%@e2e.invalid`}`;
 }
@@ -158,4 +168,40 @@ export async function loadFuture<T>(relativeToE2eDir: string, owningStage: numbe
     );
   }
   return (await import(abs)) as T;
+}
+
+/**
+ * Provision the golden path's ward accounts THROUGH THE PRODUCTION SCRIPT.
+ *
+ * NOT a direct insert into app.ward_account. An E2E that seeds its own account
+ * row proves a fixture: it would pass whether or not scripts/provision_ward_account.mjs
+ * works, and the seam the golden path exists to demonstrate -- a GoTrue-issued
+ * token whose `sub` resolves to a ward account -- would be asserted against rows
+ * the test wrote itself. The script is the only sanctioned way to create one, so
+ * it is the way the E2E creates one.
+ *
+ * TWO ACCOUNTS AT ONE FACILITY, ON DIFFERENT CATEGORIES. The second exists
+ * solely to make ward-scope enforcement observable: with one account, an RPC
+ * that checks facility membership but never checks p_category behaves
+ * identically to one that does. ITS PURPOSE CANNOT BE EXERCISED YET -- that
+ * check lives in publish_ward_status, which needs migration 014, which is
+ * blocked on the hosted apply. It lands mute, deliberately, and this comment is
+ * here so that reads as a decision rather than an oversight.
+ */
+export function provisionE2eWardAccounts(): void {
+  for (const [email, category] of [
+    [WARD_EMAIL, PUBLISH_CATEGORY],
+    [WARD_EMAIL_SECOND, SECOND_CATEGORY],
+  ] as const) {
+    execFileSync(
+      'node',
+      [
+        join(import.meta.dirname, '..', '..', 'scripts', 'provision_ward_account.mjs'),
+        '--email', email,
+        '--facility', ALPHA.id,
+        '--category', category,
+      ],
+      { encoding: 'utf8', env: { ...process.env, SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey() } },
+    );
+  }
 }

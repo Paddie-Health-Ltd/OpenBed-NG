@@ -7,6 +7,9 @@
     "paths": {
       "@openbed/gate": [
         "./packages/gate/src/index.ts"
+      ],
+      "@openbed/auth": [
+        "./packages/auth/src/index.ts"
       ]
     }
   },

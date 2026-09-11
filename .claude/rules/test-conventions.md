@@ -52,7 +52,7 @@ The reason all three are required:
 The third leg is the one people leave out, and it is the one that catches a
 `find` whose path stopped resolving after a directory rename.
 
-### Three ways a leg becomes unprovable (2026-09-10)
+### Four ways a leg becomes unprovable (2026-09-10, extended 2026-09-11)
 
 A plant proves the leg that fires FIRST. Everything after it is unverified and
 looks identical to a working leg: green. That is the general defect; these are
@@ -85,7 +85,33 @@ never do. Measure against the register; keep the baseline immutable and assert
 `expect(legs.length).toBe(baseline.legs_total)` reddened the moment a legitimate
 new guard was added.*
 
-**And the fourth, which is about the other direction.** A guard that REFUSES
+**(d) An instrument's corpus must cover every file type and location its
+description claims.** A guard scoped to `*.sh` that calls itself a check over
+"scripts" is making a claim its corpus does not support, and **the gap is
+invisible from the green**: the uncovered region produces no failures because
+nothing ever looked at it. Non-empty is not enough, and §3 applies here too —
+**declare the scope, then assert the discovered corpus against the declared
+matrix by identity.** One plant per declared extension × declared location, each
+of which must be rejected. *Instances, five in three days, which is what makes
+this a category rather than an oversight: the leg matcher recognising one
+spelling of an assertion and having to be widened four separate times;
+`PLANNING_DOC`'s directory scope in `tests/compliance/no_phantom_paths.test.ts`;
+`scripts/attest_counts.mjs` carrying five untested legs because the leg parser's
+corpus was `scripts/*.sh` — extending it to `.mjs` before writing a `.mjs`
+script is the only reason `scripts/provision_ward_account.mjs` did not ship the
+same way; the same parser matching `.mjs` failure sites LINE BY LINE, so a
+`throw new Error(` whose message sat on the next line was invisible and
+`scripts/scan_bundle_credentials.mjs` was reported as having no legs at all; and
+the instrument register's corpus being one file and one shape, so a refusal
+raised in `tests/compliance/_legs.ts` — the code that decides what a leg IS —
+sat outside the register that enforces registration.*
+
+> **The tell is a description broader than a filter.** "Scripts" and `*.sh`.
+> "Failure sites" and one line. "The instrument" and one file. Wherever a header
+> names a class and the code names a subset, the difference is uncovered and
+> silent. Write the filter next to the claim and make a test read both.
+
+**And the fifth, which is about the other direction.** A guard that REFUSES
 LEGITIMATE INPUT is disabled by the next person who hits it: they run the tool,
 it rejects something ordinary, and the fix that presents itself at 2am is to
 loosen or bypass the check — at which point the guard is gone and whatever it

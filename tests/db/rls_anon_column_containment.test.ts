@@ -73,24 +73,26 @@ const FORBIDDEN_COLUMNS_THAT_MUST_EXIST = [
 ] as const;
 
 /**
- * THE FROZEN COLUMN LIST for public.ward_public. Ten columns, in ordinal order.
+ * THE FROZEN COLUMN LIST for public.ward_public — IMPORTED, NOT RESTATED.
  *
- * Changing this list widens the anonymous read surface of the entire system.
- * That is allowed, but it must be a deliberate act: change the migration, change
- * this list, and say why in the pull request.
+ * It was a literal here. That made THREE statements of the same list: migration
+ * 007's CREATE TABLE, this test, and packages/fixtures/snapshot-shape.json's
+ * `wardColumns`, which the snapshot codec builds its encoder and decoder from.
+ * Three statements of one fact drift, and the drift is silent in the direction
+ * that matters: the snapshot would carry a column this test never checked was
+ * safe to publish anonymously.
+ *
+ * Now one source. `tests/compliance/snapshot_shape_matches_migration.test.ts`
+ * ties the fixture to 007 statically, and this ties it to the LIVE catalogue --
+ * so the migration, the anonymous read surface and the wire format are pinned
+ * together, and changing any one of them reddens.
+ *
+ * THE LIVE CHECK IS THE POINT. Asserting the fixture against itself would be
+ * self-consistent and prove nothing; what is asserted below is
+ * information_schema, which is what anon actually reads.
  */
-const WARD_PUBLIC_FROZEN_COLUMNS = [
-  'facility_id',
-  'category',
-  'offering',
-  'bed_count',
-  'accepting_effective',
-  'gated_by',
-  'state',
-  'source',
-  'monitoring_state',
-  'updated_at',
-];
+import WARD_PUBLIC_FROZEN_COLUMNS_SOURCE from '../../packages/fixtures/snapshot-shape.json';
+const WARD_PUBLIC_FROZEN_COLUMNS = WARD_PUBLIC_FROZEN_COLUMNS_SOURCE.wardColumns;
 
 /**
  * THE FROZEN COLUMN LIST for public.facility_public. Eight columns, in ordinal

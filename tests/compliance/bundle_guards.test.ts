@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { runLint, withScratch, place, REPO_ROOT } from './_scratch.js';
-import { PLANT_SB_SECRET } from './_plants.js';
+import { PLANT_SB_SECRET, PLANT_SERVICE_ROLE_JWT, PLANT_JWT, NOT_A_CREDENTIAL_PREFIX } from './_plants.js';
+import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -24,8 +25,23 @@ import { join } from 'node:path';
  * and the natural wrong answer is to report clean over an empty directory.
  */
 
+/** Runs scripts/scan_bundle_credentials.mjs directly, capturing status rather than throwing. */
+function runScanner(args: string[]): { status: number; stdout: string } {
+  try {
+    const stdout = execFileSync('node', [join(REPO_ROOT, 'scripts/scan_bundle_credentials.mjs'), ...args], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return { status: 0, stdout };
+  } catch (e) {
+    const err = e as { status?: number; stdout?: string; stderr?: string };
+    return { status: err.status ?? -1, stdout: `${err.stdout ?? ''}${err.stderr ?? ''}` };
+  }
+}
+
 describe('service-role bundle guard', () => {
   const LINT = 'lint_no_service_role_in_bundle.sh';
+  const RULE = 'service-role credential reachable from a built client bundle';
 
   test('the real built bundle is accepted', () => {
     const dist = join(REPO_ROOT, 'apps', 'public-dashboard', 'dist');
@@ -37,13 +53,82 @@ describe('service-role bundle guard', () => {
   test.each([
     ['service_role literal', 'const k = "service_role";'],
     ['SUPABASE_SERVICE env name', 'const k = process.env.SUPABASE_SERVICE_KEY;'],
-    ['sb_secret_ prefix', `const k = "${PLANT_SB_SECRET}";`],
+    ['sb_secret_ key with material', `const k = "${PLANT_SB_SECRET}";`],
+    ['a JWT whose payload claims role=service_role', `const k = "${PLANT_SERVICE_ROLE_JWT}";`],
+    ['a key ASSEMBLED from the prefix', `const k = "${NOT_A_CREDENTIAL_PREFIX}" + material;`],
+    ['the same assembly by template', `const k = \`${NOT_A_CREDENTIAL_PREFIX}\${material}\`;`],
+    ['a literal key INSIDE A COMMENT', `// leftover: ${PLANT_SB_SECRET}\nexport const x = 1;`],
+    ['a literal key in a BLOCK comment', `/* ${PLANT_SB_SECRET} */\nexport const x = 1;`],
   ])('plant — %s in a built bundle is rejected', (_name, code) => {
     withScratch((root) => {
       place(root, 'apps/x/dist/assets/index.js', code);
       const res = runLint(LINT, root);
       expect(res.status, `plant was accepted:\n${res.stdout}`).toBe(1);
-      expect(res.stdout, 'the guard did not name the rule it enforces').toContain('service-role credential reachable from a built client bundle');
+      expect(res.stdout, 'the guard did not name the rule it enforces').toContain(RULE);
+      // The shell half's own verdict, asserted separately from the scanner's
+      // finding. They are two scripts and two legs; one assertion crediting
+      // both is the over-crediting this repository's leg register exists to
+      // make visible.
+      expect(res.stdout, 'the shell half printed no verdict of its own').toContain(
+        'lint_no_service_role_in_bundle.sh: FAILED — a credential is reachable from a built client bundle',
+      );
+    });
+  });
+
+  /**
+   * THE CORPUS-SCOPE MATRIX -- test-conventions.md section 2(d).
+   *
+   * The guard's header declares five extensions and two locations. That is a
+   * CLAIM ABOUT COVERAGE, and a claim its corpus does not support is invisible
+   * from the green: the uncovered corner produces no failures because nothing
+   * looked. Before this existed, only `dist/**` + `.js` was ever planted, so
+   * eight of the ten declared cells were a description rather than a control.
+   *
+   * A credential is planted in EVERY declared cell and every one must be
+   * rejected. Parsed identity over the declared matrix, not a count of files
+   * the `find` happened to return.
+   */
+  const DECLARED_LOCATIONS = ['dist/assets', '.next/static/chunks'];
+  const DECLARED_EXTENSIONS = ['js', 'mjs', 'cjs', 'html', 'json'];
+  const MATRIX = DECLARED_LOCATIONS.flatMap((loc) => DECLARED_EXTENSIONS.map((ext) => [loc, ext] as const));
+
+  test.each(MATRIX)('corpus scope — a credential in apps/x/%s/f.%s is rejected', (loc, ext) => {
+    withScratch((root) => {
+      // Each body is VALID for its own file type. A .json file holding
+      // JavaScript would be rejected for the wrong reason, and a plant that
+      // lands for the wrong reason proves nothing about the cell it claims.
+      const bodies: Record<string, string> = {
+        js: `const k = "${PLANT_SB_SECRET}";`,
+        mjs: `export const k = "${PLANT_SB_SECRET}";`,
+        cjs: `module.exports = { k: "${PLANT_SB_SECRET}" };`,
+        html: `<!doctype html><script>const k = "${PLANT_SB_SECRET}";</script>`,
+        json: JSON.stringify({ k: PLANT_SB_SECRET }),
+      };
+      place(root, `apps/x/${loc}/f.${ext}`, bodies[ext] as string);
+      const res = runLint(LINT, root);
+      expect(res.status, `a declared cell of the corpus does not actually scan:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the guard did not name the rule it enforces').toContain(RULE);
+    });
+  });
+
+  test.each([
+    ['an ordinary VITE_ env read', 'export const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;'],
+    [
+      'the JSDoc warning AGAINST the thing this guards',
+      '/**\n * This function should only be called on a server.\n * Never expose your `service_role` key in the browser.\n */\nexport const f = () => 1;',
+    ],
+    ['a bare prefix predicate, no key material', `const isNew = (k) => k.startsWith("${NOT_A_CREDENTIAL_PREFIX}");`],
+    ['the anon JWT, which ships in the bundle BY DESIGN', `const k = "${PLANT_JWT}";`],
+  ])('positive control — %s is accepted', (_name, code) => {
+    // test-conventions.md section 2, the fourth way a leg goes wrong: a guard
+    // that refuses legitimate input is disabled by the next person who hits it.
+    // Every one of these four reddened this guard before 2026-09-10, and the
+    // second is the exact 23-of-24 case: the guard firing on the warning
+    // against the thing it guards.
+    withScratch((root) => {
+      place(root, 'apps/x/dist/assets/index.js', code);
+      const res = runLint(LINT, root);
+      expect(res.status, `legitimate bundle content was refused:\n${res.stdout}`).toBe(0);
     });
   });
 
@@ -56,25 +141,68 @@ describe('service-role bundle guard', () => {
       place(root, 'apps/x/.next/static/chunks/main.js', `const k = "${PLANT_SB_SECRET}";`);
       const res = runLint(LINT, root);
       expect(res.status, `a credential in .next/static was accepted:\n${res.stdout}`).toBe(1);
-      expect(res.stdout, 'the guard did not name the rule it enforces').toContain('service-role credential reachable from a built client bundle');
+      expect(res.stdout, 'the guard did not name the rule it enforces').toContain(RULE);
     });
   });
 
-  test('positive control — an ordinary bundle is accepted', () => {
+  test('a bundle that will not parse FAILS LOUDLY rather than being skipped', () => {
+    // Comment stripping needs a real parse, and a parse can fail. Whichever
+    // branch that lands on is what it silently becomes: re-scanning raw is
+    // noisy-but-safe, skipping is FAIL-OPEN, and both are verdicts from a check
+    // that did not run. So it is exit 2, distinct from both clean and dirty.
     withScratch((root) => {
-      place(root, 'apps/x/dist/assets/index.js', 'export const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;');
-      expect(runLint(LINT, root).status).toBe(0);
+      place(root, 'apps/x/dist/assets/index.js', 'const k = ((((;');
+      const res = runLint(LINT, root);
+      expect(res.status, `an unparseable bundle did not stop the scan:\n${res.stdout}`).toBe(2);
+      // The scanner's own refusal...
+      expect(res.stdout, 'the refusal did not name its cause').toContain(
+        'as JavaScript -- comment stripping needs a real parse, so the bundle scan did not run',
+      );
+      // ...and, separately, the shell half relaying an exit status it does not
+      // recognise. Whichever branch "could not run" lands on is what it
+      // silently becomes, so the relay is asserted rather than assumed.
+      expect(res.stdout, 'the shell half did not report the scanner’s refusal').toContain(
+        'the bundle scan did not run (scanner exited 2)',
+      );
     });
   });
 
   test('anti-vacuity — no built output FAILS rather than passing', () => {
     // The failure this guard is most likely to have in practice: the build step
-    // was skipped and the grep scanned an empty directory.
+    // was skipped and the scan ran over an empty directory.
     withScratch((root) => {
       place(root, 'apps/x/src/main.ts', 'export const x = 1;');
       const res = runLint(LINT, root);
-      expect(res.status, 'grepping zero built files reported success').toBe(2);
+      expect(res.status, 'scanning zero built files reported success').toBe(2);
       expect(res.stdout, 'the empty-corpus refusal did not name itself').toContain('no built client bundles found under');
+    });
+  });
+
+  test('anti-vacuity — the scanner invoked with no files refuses', () => {
+    // The shell half guarantees at least one file, so this leg is unreachable
+    // THROUGH it. It is reachable by calling the scanner directly, which is what
+    // happens here: a scanner that reported clean over an empty argv would make
+    // the whole guard vacuous the moment the shell half's `find` stopped
+    // resolving.
+    const res = runScanner([]);
+    expect(res.status, `the scanner accepted an empty corpus:\n${res.stdout}`).toBe(2);
+    expect(res.stdout).toContain('no files given to scan');
+    expect(res.stdout, 'the refusal did not say how to invoke it').toContain(
+      'Usage: node scripts/scan_bundle_credentials.mjs',
+    );
+  });
+
+  test('a file with more hits than it prints says how many it withheld', () => {
+    // The finding list is truncated at 12 so one catastrophic file cannot bury
+    // the other files' findings. A truncation that does not say it truncated
+    // reads as a complete report, and the reader stops at twelve believing
+    // that is all there is.
+    withScratch((root) => {
+      const many = Array.from({ length: 15 }, (_, i) => `const k${i} = "${PLANT_SB_SECRET}";`).join('\n');
+      place(root, 'apps/x/dist/assets/index.js', many);
+      const res = runLint(LINT, root);
+      expect(res.status, `15 credentials were accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the truncated report did not say it was truncated').toContain('more in this file');
     });
   });
 });

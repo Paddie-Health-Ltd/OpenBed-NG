@@ -9,7 +9,6 @@ import {
   forceLinkExpiry,
   wardSession,
   authedRest,
-  decodeJwtClaims,
   type MintedLink,
 } from '../setup/auth.js';
 import { ALPHA, BETA, WARD_EMAIL, PUBLISH_CATEGORY, STALE_CATEGORY, loadFuture } from './_harness.js';
@@ -120,8 +119,7 @@ describe('golden path — release gate 2', () => {
   // ---------------------------------------------------------------- stage 1
   test(name('session-resolves-to-ward-account'), async () => {
     const session = await wardSession(WARD_EMAIL);
-    const claims = decodeJwtClaims(session.accessToken);
-    expect(claims['sub'], 'the token carries no sub').toBe(session.userId);
+    expect(session.claims.sub, 'the token carries no sub').toBe(session.userId);
 
     // my_facility_wards() resolves the facility from auth.uid() and calls
     // app.assert_member, which raises NOT_A_MEMBER when no ward_account row

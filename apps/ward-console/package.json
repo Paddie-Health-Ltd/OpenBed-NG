@@ -1,0 +1,15 @@
+{
+  "name": "@openbed/ward-console",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The ward console. One screen: sign in with a magic link sent to a ward ROLE address, and see the wards this account may report for.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@openbed/auth": "*"
+  }
+}

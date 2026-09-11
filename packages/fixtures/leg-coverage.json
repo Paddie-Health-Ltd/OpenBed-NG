@@ -1,5 +1,5 @@
 {
-  "comment": "THE UNREACHED-LEG REGISTER. A leg is one site in a guard script that can drive a non-zero exit and says so with its own message; its identity is the longest static run in that message -- the substring a test can assert. Legs are PARSED FROM SOURCE by tests/compliance/_legs.ts, never declared, because a hand-maintained ledger drifts from the code it describes and that is the defect this register exists to prevent, one level in. A leg is REACHED only when some compliance test asserts a substring of its own message via toContain -- not when it merely makes the guard exit non-zero, and not when the message appears in a test header comment. tests/compliance/leg_coverage.test.ts holds the ratchet: a new leg with no entry reds, an entry for a leg that no longer exists reds, and a registered leg that HAS become reached reds so the entry is forced out.",
+  "comment": "THE UNREACHED-LEG REGISTER. A leg is one site in a guard script that can drive a non-zero exit and says so with its own message; its identity is the longest static run in that message -- the substring a test can assert. Legs are PARSED FROM SOURCE by tests/compliance/_legs.ts -- which is itself in this register, because an instrument exempt from its own standard is what the register exists to stop -- never declared, because a hand-maintained ledger drifts from the code it describes and that is the defect this register exists to prevent, one level in. A leg is REACHED only when some compliance test asserts a substring of its own message through an EXECUTED assertion -- toContain, or toThrow where the failure is raised rather than printed -- not when it merely makes the guard exit non-zero, and not when the message appears in a test header comment. Recognising only one spelling of an assertion is a defect this parser has already had to fix four times, so the set is widened when a legitimate assertion is written a new way, never narrowed to force a style. tests/compliance/leg_coverage.test.ts holds the ratchet: a new leg with no entry reds, an entry for a leg that no longer exists reds, and a registered leg that HAS become reached reds so the entry is forced out. SCOPE, stated because a description broader than its filter is section 2(d) of .claude/rules/test-conventions.md: this covers GUARD SCRIPTS in scripts/ (.sh and .mjs) plus the two instrument files named in tests/compliance/leg_coverage.test.ts. Application code -- packages/auth, packages/gate, packages/snapshot -- is NOT in this corpus and is not claimed to be; it is covered by its own tests, not by a leg ratchet.",
   "baseline_2026_09_10": {
     "legs_total": 77,
     "reached": 1,
@@ -8,12 +8,54 @@
     "immutable": "THIS IS A HISTORICAL RECORD AND DOES NOT MOVE. The ratchet asserts the CURRENT reached count is >= this figure, so progress is free and regression is not. Restating it would destroy the only number that says where this started."
   },
   "current": {
-    "legs_total": 86,
-    "reached": 65,
-    "registered": 21,
+    "legs_total": 107,
+    "reached": 82,
+    "registered": 25,
     "note": "MEASURED, and updated whenever legs are added or closed. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started."
   },
   "guards": {
+    "attest_counts.mjs": {
+      "usage: node scripts/attest_counts.mjs <junit.xml>": {
+        "state": "reached"
+      },
+      "cannot read": {
+        "state": "reached"
+      },
+      "A missing JUnit file is NOT a pass. The suite did not report.": {
+        "state": "reached"
+      },
+      "no <testcase> elements found.": {
+        "state": "reached"
+      },
+      "A suite that collected zero tests is not green — it is silent.": {
+        "state": "reached"
+      }
+    },
+    "commit.sh": {
+      "no git commit arguments given -- nothing to commit": {
+        "state": "reached"
+      },
+      "nothing is staged -- the gate was not run and nothing was committed": {
+        "state": "reached"
+      },
+      "the gate did not pass -- NOTHING WAS COMMITTED.": {
+        "state": "reached"
+      },
+      "the staged-change check did not run": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when `git diff --cached --quiet` exits above 1 -- a corrupt index or a resource failure. Planting it needs a repository whose index git cannot read, and a deliberately corrupted index is not a portable construction.",
+        "closes_with": "A portable way to make git fail to read an index, verified on both macOS and the CI runner. Shares its seam with every other could-not-run leg in this register."
+      }
+    },
+    "gate.sh": {
+      "check(s) did not pass": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "gate.sh runs the real check suite, so exercising this leg means failing one of them for real -- there is no injected check list to make one fail cheaply. Demonstrated by hand on 2026-09-10: it exited 1 and named the failing check.",
+        "closes_with": "An injectable check list, so a test can hand it one command that fails and assert the exit status and the message."
+      }
+    },
     "get_publishable_key.sh": {
       "jq is required (brew install jq).": {
         "state": "registered",
@@ -234,16 +276,10 @@
       "no built client bundles found under": {
         "state": "reached"
       },
-      "service-role credential reachable from a built client bundle": {
+      "lint_no_service_role_in_bundle.sh: FAILED — a credential is reachable from a built client bundle": {
         "state": "reached"
       },
-      "the bundle scan did not run": {
-        "state": "registered",
-        "reason": "could-not-run",
-        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
-        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
-      },
-      "lint_no_service_role_in_bundle.sh: FAILED (": {
+      "the bundle scan did not run (scanner exited": {
         "state": "reached"
       }
     },
@@ -284,6 +320,35 @@
         "state": "reached"
       }
     },
+    "provision_ward_account.mjs": {
+      "usage: node scripts/provision_ward_account.mjs --email <addr> --facility <uuid> --category <ward_category> [--role WARD_STAFF]": {
+        "state": "reached"
+      },
+      "SUPABASE_SERVICE_ROLE_KEY is not set — refusing to guess a credential": {
+        "state": "reached"
+      },
+      "GoTrue returned a non-JSON body (HTTP": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "Fires only on a GoTrue response of a specific shape -- a non-200 from admin/generate_link, a 200 with no user id, or a non-JSON body. Reaching it needs a stub GoTrue that returns a crafted response, and no such seam exists: the script takes SUPABASE_API_URL but nothing in the repo serves a scripted reply on it. The unreachable-host leg IS planted, so the transport failure path is covered; these three are the shapes a REACHABLE but misbehaving GoTrue would produce.",
+        "closes_with": "A tiny scripted HTTP responder bound to a scratch port, pointed at via SUPABASE_API_URL, returning one canned body per plant."
+      },
+      "admin/generate_link refused the invite (HTTP": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "Fires only on a GoTrue response of a specific shape -- a non-200 from admin/generate_link, a 200 with no user id, or a non-JSON body. Reaching it needs a stub GoTrue that returns a crafted response, and no such seam exists: the script takes SUPABASE_API_URL but nothing in the repo serves a scripted reply on it. The unreachable-host leg IS planted, so the transport failure path is covered; these three are the shapes a REACHABLE but misbehaving GoTrue would produce.",
+        "closes_with": "A tiny scripted HTTP responder bound to a scratch port, pointed at via SUPABASE_API_URL, returning one canned body per plant."
+      },
+      "admin/generate_link returned no auth user id. Keys": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "Fires only on a GoTrue response of a specific shape -- a non-200 from admin/generate_link, a 200 with no user id, or a non-JSON body. Reaching it needs a stub GoTrue that returns a crafted response, and no such seam exists: the script takes SUPABASE_API_URL but nothing in the repo serves a scripted reply on it. The unreachable-host leg IS planted, so the transport failure path is covered; these three are the shapes a REACHABLE but misbehaving GoTrue would produce.",
+        "closes_with": "A tiny scripted HTTP responder bound to a scratch port, pointed at via SUPABASE_API_URL, returning one canned body per plant."
+      },
+      "provisioning failed for": {
+        "state": "reached"
+      }
+    },
     "run_e2e.sh": {
       "phase 1 produced no junit-e2e.xml — the golden path did not run at all.": {
         "state": "registered",
@@ -318,6 +383,29 @@
         "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
       }
     },
+    "scan_bundle_credentials.mjs": {
+      "service-role credential reachable from a built client bundle": {
+        "state": "reached"
+      },
+      "more in this file": {
+        "state": "reached"
+      },
+      "no files given to scan -- the bundle scan did not run": {
+        "state": "reached"
+      },
+      "Usage: node scripts/scan_bundle_credentials.mjs <file> [<file>...]": {
+        "state": "reached"
+      },
+      "as JavaScript -- comment stripping needs a real parse, so the bundle scan did not run.": {
+        "state": "reached"
+      },
+      "the bundle file is unreadable, so nothing was scanned": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when a built bundle exists and cannot be read. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested -- a root user reads a 000 file and the plant would silently prove nothing.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner. Shared with every other could-not-run leg here."
+      }
+    },
     "seed.sh": {
       "seed data is synthetic and must never reach a non-local database.": {
         "state": "reached"
@@ -341,12 +429,9 @@
         "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
       }
     },
-    "gate.sh": {
-      "check(s) did not pass": {
-        "state": "registered",
-        "reason": "no-seam",
-        "why": "gate.sh runs the real check suite, so exercising this leg means failing one of them for real -- there is no injected check list to make one fail cheaply. Demonstrated by hand on 2026-09-10: it exited 1 and named the failing check.",
-        "closes_with": "An injectable check list, so a test can hand it one command that fails and assert the exit status and the message."
+    "tests/compliance/_legs.ts": {
+      "leg parser could not parse this script, so its legs were never enumerated": {
+        "state": "reached"
       }
     },
     "tests/compliance/leg_coverage.test.ts": {
