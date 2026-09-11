@@ -20,8 +20,17 @@
 # ACT ON IT. That is the same shape as every defect this sweep is closing, one
 # layer up in the process rather than in the code.
 #
-# So: one command, one exit status, nothing to misread. `bash scripts/gate.sh &&
-# git commit ...` cannot proceed past a red check the way a piped grep can.
+# So: one command, one exit status, nothing to misread.
+#
+# DO NOT INVOKE THIS DIRECTLY IN ORDER TO COMMIT. Use `bash scripts/commit.sh`,
+# which runs this and commits only on exit 0. Chaining `gate.sh && git commit`
+# by hand is the two-step sequence that produced the defect above, and it
+# produced it a SECOND time on 2026-09-10 after this file already existed --
+# the gate ran, printed FAILED, and `git commit` sat on the next line rather
+# than after `&&`. A verdict something else must remember to consume is not a
+# control. That is the category test-conventions.md section 8 counts to five
+# instances inside this repository's own guards -- and this file plus the
+# 2026-09-10 repeat are the same category one layer up, in the process.
 #
 # Usage: bash scripts/gate.sh [--fast]
 #   --fast   Skip the e2e phase, which needs a running Supabase stack.

@@ -433,8 +433,16 @@ hosted.** Record the hosted auth version here when you run these by hand.
       caught by `scripts/lint_no_secrets.sh` — whose verdict the commit sequence
       then stepped over, because it chained `git commit` after a `grep` of the
       output. **What actually caught it was a person reading.**
-      `scripts/gate.sh` now makes a local verdict binding, and its own header
-      says it is not a control either.
+
+      **That sentence previously read "`scripts/gate.sh` now makes a local
+      verdict binding", and it was false.** It happened AGAIN the same day,
+      after `gate.sh` existed: the gate ran, printed `FAILED`, and `git commit`
+      sat on the next line rather than after `&&`. A verdict something else must
+      remember to consume is not binding, which is the finding this repository
+      keeps making about its own guards. `scripts/commit.sh` now runs the gate
+      and commits only on exit 0, so there is no second step to order — and its
+      header, like `gate.sh`'s, says it is not a control: a bare `git commit`
+      bypasses it completely.
 
       Two read-only probes were considered and neither closes this:
       the secret-scanning alert history is empty, which is equally consistent
