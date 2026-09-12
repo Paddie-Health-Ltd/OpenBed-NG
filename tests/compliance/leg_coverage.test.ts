@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { join } from 'node:path';
-import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { parseLegs, parseInstrumentLegs, assertedByScript, isReached, legsWithoutIdentity, duplicateIds, type Leg } from './_legs.js';
+import { parseLegs, parseInstrumentLegs, assertedByScript, evidenceDirs, isReached, legsWithoutIdentity, duplicateIds, type Leg } from './_legs.js';
 import { REPO_ROOT } from './_scratch.js';
 import REGISTER from '../../packages/fixtures/leg-coverage.json';
 
@@ -46,7 +46,17 @@ const INSTRUMENT = 'tests/compliance/leg_coverage.test.ts';
  * `_legs.ts` gained a real failure branch of its own, rather than after.
  */
 const PARSER = 'tests/compliance/_legs.ts';
-const TESTS = join(REPO_ROOT, 'tests/compliance');
+/**
+ * EVERY directory under tests/ that holds a test, discovered rather than listed.
+ *
+ * This was `tests/compliance` alone, which meant a leg proved by a plant in
+ * `tests/db` was recorded as UNPROVED -- and a guard exercisable only against a
+ * live database could never be recorded as proved at all, however thoroughly it
+ * was planted. tests/e2e's negative controls were outside the measurement too.
+ * See evidenceDirs() in _legs.ts for why this is a measurement and not
+ * `compliance + db`.
+ */
+const TESTS_ROOT = join(REPO_ROOT, 'tests');
 const REASONS = new Set(['status-only', 'could-not-run', 'no-seam', 'no-injectable-hook']);
 
 interface Entry {
@@ -114,7 +124,14 @@ describe('leg coverage register', () => {
     ...parseInstrumentLegs(join(REPO_ROOT, INSTRUMENT), INSTRUMENT),
     ...parseInstrumentLegs(join(REPO_ROOT, PARSER), PARSER),
   ];
-  const asserted = assertedByScript(TESTS);
+  // Merged across every discovered evidence directory. A guard asserted from
+  // two places keeps both sets of assertions rather than the last one read.
+  const asserted = new Map<string, string[]>();
+  for (const dir of evidenceDirs(TESTS_ROOT)) {
+    for (const [script, claims] of assertedByScript(dir)) {
+      asserted.set(script, [...(asserted.get(script) ?? []), ...claims]);
+    }
+  }
   // The instrument's own assertions are its evidence, exactly as a guard's test
   // file is the guard's. Without this it could never prove any of its own legs.
   // Both instrument files are asserted from THIS file, which is the only test
@@ -181,6 +198,42 @@ describe('leg coverage register', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  test('the evidence corpus is DISCOVERED — a new test directory is covered without being listed', () => {
+    // THE CLASS, NOT THE INSTANCE. Widening a hardcoded list from
+    // `tests/compliance` to `compliance + db` would be the same defect one
+    // directory wider, waiting for the next directory to be added. This plant
+    // is what makes the discovery real: a hardcoded list returns nothing for a
+    // constructed tree, so it reds here.
+    const root = mkdtempSync(join(tmpdir(), 'openbed-evidence-'));
+    try {
+      mkdirSync(join(root, 'alpha'), { recursive: true });
+      mkdirSync(join(root, 'beta'), { recursive: true });
+      mkdirSync(join(root, 'helpers'), { recursive: true });
+      writeFileSync(join(root, 'alpha', 'a.test.ts'), 'export const a = 1;\n', 'utf8');
+      writeFileSync(join(root, 'beta', 'b.test.ts'), 'export const b = 1;\n', 'utf8');
+      // Holds helpers and no tests -- excluded BY THE RULE rather than by name,
+      // which is how tests/setup stays out without anyone remembering it.
+      writeFileSync(join(root, 'helpers', 'shared.ts'), 'export const h = 1;\n', 'utf8');
+
+      const found = evidenceDirs(root).map((d) => d.slice(root.length + 1));
+      expect(found, 'a directory holding plants was not discovered as evidence').toEqual(['alpha', 'beta']);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('anti-vacuity — the discovered corpus is not empty and names the directories that exist', () => {
+    // Parsed identity, not a count (section 3). The same number of directories
+    // with one renamed would satisfy a count, and the renamed one would be
+    // silently unscanned.
+    const found = evidenceDirs(TESTS_ROOT).map((d) => d.slice(TESTS_ROOT.length + 1));
+    expect(found, 'the evidence corpus stopped covering a directory that holds plants').toEqual([
+      'compliance',
+      'db',
+      'e2e',
+    ]);
   });
 
   test('no two legs in one script share an identity', () => {

@@ -69,7 +69,13 @@
 #               looks unused: tests/db/migration_runner_atomicity.test.ts is what
 #               proves the rollback above actually happens.
 #
-# Exit 0 on success; non-zero on any failure.
+# Exit codes -- and 3 is distinct from 2 on purpose:
+#   0  success
+#   2  bad usage, or the repository/migrations could not be read
+#   3  THE DATABASE COULD NOT BE QUERIED. Nothing was applied and no migration
+#      count is reported. "you typed the wrong flag" must not share a code with
+#      "the database is unreachable", because only one of those may ever be
+#      retried by pressing on.
 # ============================================================
 
 set -euo pipefail
@@ -133,23 +139,154 @@ FILES=()
 while IFS= read -r _line; do FILES+=("$_line"); done < <(find "$MIG_DIR" -maxdepth 1 -type f -name "*.sql" -not -name "*.down.sql" 2>/dev/null | sort)
 [ "${#FILES[@]}" -gt 0 ] || { echo "ERROR: no forward migrations found in $MIG_DIR" >&2; exit 2; }
 
-ledger_exists() {
-    "${PSQL[@]}" -tAc "SELECT to_regclass('app.schema_migrations')" 2>/dev/null | tr -d '[:space:]'
+# ============================================================
+# THREE STATES, AND ONLY ONE OF THEM MAY BE EMPTY.
+# ============================================================
+# On 2026-09-12 this script printed `13 migration(s) pending.` and exited 0
+# against a host that does not resolve. That string is the DOCUMENTED STOP
+# CONDITION for the hosted apply, so a total connection failure produced the
+# exact signal that says "go ahead". Two sites did it, and they failed in
+# OPPOSITE directions:
+#
+#   ledger_exists()   2>/dev/null discarded psql's error, empty stdout read as
+#                     "the ledger does not exist yet"          -> 13 pending
+#   is_applied()      empty stdout, and `[ "" != "0" ]` is TRUE, so every file
+#                     read as "already applied"                ->  0 pending
+#
+# The second was never hit and is the worse of the two: it says the apply is
+# already done. Both were command substitutions whose value was consumed by a
+# `[ ... ]` test, which throws the exit status away -- so `set -e` never saw
+# either one.
+#
+# The states are now separated by hand:
+#
+#   connected, value present -> DB_SCALAR holds it
+#   connected, value absent  -> DB_SCALAR is empty. THE ONLY LEGITIMATE EMPTY.
+#   could not run            -> ERROR, exit 3, no count reported at all
+#
+DB_SCALAR=""
+
+psql_scalar() {
+    local sql="$1" st=0 out
+
+    # `local out` IS DECLARED SEPARATELY FROM THE ASSIGNMENT, deliberately.
+    # `local out=$(cmd)` makes the exit status that of `local`, which always
+    # succeeds -- the status of the command inside is lost, which is a smaller
+    # version of the very defect this function exists to close.
+    #
+    # AND THERE IS NO 2>/dev/null. psql's own error is the single most useful
+    # thing on the screen when the connection is the problem, and discarding it
+    # is what turned a DNS failure into a migration count. It was never needed
+    # on the normal path either: on a virgin database `to_regclass` returns NULL
+    # and writes nothing to stderr.
+    out=$("${PSQL[@]}" -tAc "$sql") || st=$?
+
+    if [ "$st" -ne 0 ]; then
+        echo "ERROR: psql exited $st -- the database was not queried." >&2
+        echo "  psql's own error, if it printed one, is immediately above this message." >&2
+        echo "  query: $sql" >&2
+        echo "" >&2
+        echo "  NO MIGRATION COUNT IS REPORTED, and nothing was applied. A count taken" >&2
+        echo "  over a failed connection is indistinguishable from one taken against a" >&2
+        echo "  virgin database, and that count is the stop condition for the hosted" >&2
+        echo "  apply. Fix the connection and run this again." >&2
+        # THIS MESSAGE DELIBERATELY DOES NOT QUOTE THE PENDING LINE VERBATIM.
+        # The first draft explained itself by writing out the exact string the
+        # dry run prints when the apply may proceed -- so a failure report
+        # contained, in full, the sentence that means "go". An operator scanning
+        # the log, or grepping it, would have found it there. An error message
+        # must not be mistakable for the signal it is reporting the absence of.
+        exit 3
+    fi
+
+    DB_SCALAR="$(printf '%s' "$out" | tr -d '[:space:]')"
 }
 
-is_applied() {
-    local base="$1"
-    [ -z "$(ledger_exists)" ] && { echo 0; return; }
-    "${PSQL[@]}" -tAc "SELECT COUNT(*) FROM app.schema_migrations WHERE filename = '$base'" | tr -d '[:space:]'
+# WHY THE RESULT COMES BACK IN A GLOBAL AND NOT THROUGH $( ).
+#
+# `exit` inside a command substitution terminates the SUBSHELL, not the script.
+# Had psql_scalar been called as `x=$(psql_scalar ...)`, its exit 3 would have
+# killed the subshell and the caller would have carried on with whatever was on
+# stdout -- rebuilding the exact defect inside its own repair. A global has no
+# status for a call site to forget to check, because there is no call site
+# status at all.
+
+assert_connected() {
+    # PROVE THE CHANNEL BEFORE TRUSTING AN EMPTY ANSWER.
+    #
+    # psql_scalar distinguishes "could not run" from "ran and returned nothing"
+    # by EXIT STATUS -- which is right for a connection that fails, because psql
+    # exits non-zero. It is not enough on its own: anything that exits 0 and
+    # prints nothing looks exactly like a successful query against a virgin
+    # database. `OPENBED_PSQL` is a documented escape hatch a developer sets by
+    # hand, and set to a command that ignores its arguments it would produce a
+    # full pending count from a database that was never contacted -- the same
+    # defect one level down from the one being fixed.
+    #
+    # SELECT 1 has exactly one correct answer and no legitimate empty result, so
+    # an empty answer to it means the other end is not a database. After this
+    # passes, an empty `to_regclass` can be believed.
+    psql_scalar "SELECT 1"
+    if [ "$DB_SCALAR" != "1" ]; then
+        echo "ERROR: the configured psql exited 0 but did not answer SELECT 1." >&2
+        echo "  It returned: '$DB_SCALAR'" >&2
+        echo "  Whatever is on the other end is not a working database connection, so an" >&2
+        echo "  empty ledger lookup cannot be read as a database with no ledger. Check" >&2
+        echo "  OPENBED_PSQL / DATABASE_URL. Nothing was applied." >&2
+        exit 3
+    fi
 }
+
+ledger_present() {
+    psql_scalar "SELECT to_regclass('app.schema_migrations')"
+    # to_regclass returns NULL for a relation that does not exist and psql -tA
+    # prints NULL as nothing at all. That is the one meaning empty may carry
+    # here; every other route to it -- DNS, auth, a dropped socket, a killed
+    # container -- exited above.
+    [ -n "$DB_SCALAR" ]
+}
+
+applied_count() {
+    psql_scalar "SELECT COUNT(*) FROM app.schema_migrations WHERE filename = '$1'"
+    # COUNT(*) ALWAYS returns exactly one row. Empty cannot mean "no rows"; it
+    # means the query did not really run. The old code read that as "already
+    # applied" and would have reported 0 pending over a database it never
+    # reached.
+    if [ -z "$DB_SCALAR" ]; then
+        echo "ERROR: COUNT(*) returned no value for $1 -- the ledger query did not run." >&2
+        echo "  A count query that returns nothing has not counted anything. No migration" >&2
+        echo "  state is reported." >&2
+        exit 3
+    fi
+}
+
+# Before either path reads anything from the database, establish that there IS a
+# database. One round trip, and it is what makes every empty answer below mean
+# what it says.
+assert_connected
 
 # ---------------- dry run ----------------
 if [ "$DRY_RUN" -eq 1 ]; then
     pending=0
     echo "DRY RUN -- nothing will be applied."
+
+    # HOISTED OUT OF THE LOOP. This was one round trip per migration file --
+    # thirteen queries where one answers the question, and thirteen separate
+    # windows in which a connection could drop and be misread.
+    if ledger_present; then HAVE_LEDGER=1; else HAVE_LEDGER=0; fi
+
     for f in "${FILES[@]}"; do
         base="$(basename "$f")"
-        if [ "$(is_applied "$base")" != "0" ]; then
+        if [ "$HAVE_LEDGER" -eq 1 ]; then
+            applied_count "$base"
+        else
+            # No ledger means nothing can have been applied. This is the only
+            # place a count is assumed rather than read, and it is sound because
+            # ledger_present has already proved the database ANSWERED.
+            DB_SCALAR=0
+        fi
+
+        if [ "$DB_SCALAR" != "0" ]; then
             echo "  already applied : $base"
         else
             echo "  WOULD APPLY     : $base"
@@ -164,7 +301,7 @@ fi
 # 001 creates the `app` schema, the revoke wall and the ledger itself, so it
 # cannot be recorded by a ledger that does not exist yet. Apply it by hand on a
 # virgin database, then record it.
-if [ -z "$(ledger_exists)" ]; then
+if ! ledger_present; then
     echo "Bootstrapping app.schema_migrations..."
     "${PSQL_TX[@]}" < "$MIG_DIR/$BOOTSTRAP"
     "${PSQL[@]}" -c "INSERT INTO app.schema_migrations (filename) VALUES ('$BOOTSTRAP') ON CONFLICT DO NOTHING;"
@@ -174,7 +311,10 @@ fi
 applied=0
 for f in "${FILES[@]}"; do
     base="$(basename "$f")"
-    if [ "$(is_applied "$base")" != "0" ]; then
+    # The ledger is guaranteed to exist by here: either it already did, or the
+    # bootstrap above created it under `set -e`.
+    applied_count "$base"
+    if [ "$DB_SCALAR" != "0" ]; then
         echo "Skipping (already applied): $base"
         continue
     fi

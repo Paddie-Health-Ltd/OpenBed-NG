@@ -336,6 +336,48 @@ export function isReached(leg: Leg, byScript: Map<string, string[]>): boolean {
 }
 
 /**
+ * EVERY DIRECTORY A PLANT COULD LIVE IN, DISCOVERED RATHER THAN LISTED.
+ *
+ * The evidence side of this register read `tests/compliance` and nothing else,
+ * so a leg proved by a plant in `tests/db` counted as unproved -- and a guard
+ * that can only be exercised against a live database could therefore NEVER be
+ * recorded as proved, however thoroughly it was planted. `tests/e2e` was in the
+ * same position, with the ratchet's negative controls sitting outside the
+ * measurement entirely.
+ *
+ * THE FIX IS NOT `compliance + db`. That is the same defect one directory
+ * wider, waiting for the next test directory to be added. Section 2(d) of
+ * .claude/rules/test-conventions.md says an instrument must assert its corpus
+ * covers every location it CLAIMS to cover, and the honest way to satisfy that
+ * is to stop claiming a list and start measuring one: any directory under
+ * `tests/` holding at least one `*.test.ts` is a place a plant can live, so it
+ * is evidence.
+ *
+ * `tests/setup` is excluded by that rule rather than by name -- it holds
+ * harnesses and no test files, so it contributes no assertions and never
+ * appears here. Nothing has to remember to exclude it.
+ *
+ * TAKES A ROOT so a plant can point it at a scratch tree, which is what keeps
+ * the discovery non-vacuous: a hardcoded list would return nothing for a
+ * constructed directory and the plant reds. Same seam every lint in scripts/
+ * carries as `$1`.
+ */
+export function evidenceDirs(testsRoot: string): string[] {
+  const out: string[] = [];
+  for (const name of readdirSync(testsRoot)) {
+    const dir = join(testsRoot, name);
+    let entries: string[];
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      continue; // not a directory
+    }
+    if (entries.some((f) => f.endsWith('.test.ts'))) out.push(dir);
+  }
+  return out.sort();
+}
+
+/**
  * THE INSTRUMENT'S OWN LEGS.
  *
  * The reachedness computation had three defects in one sitting, every one found
