@@ -163,11 +163,40 @@ function runRunner(env: NodeJS.ProcessEnv, ...args: string[]): { status: number;
   }
 }
 
-/** CREATE DATABASE cannot run inside a transaction, so it goes through psql rather than the pool. */
-function psqlAdmin(statement: string): void {
+/**
+ * CREATE DATABASE cannot run inside a transaction, so it goes through psql
+ * rather than the pool.
+ *
+ * ARGV IS BUILT, NOT SPLIT OUT OF A SHELL STRING, and that distinction is the
+ * difference between this passing everywhere and passing only here. The native
+ * form of `psqlCommand()` is `psql "postgresql://..."` -- shell-quoted, because
+ * it is meant to be handed to a shell. Splitting it on whitespace yields a token
+ * that still carries its double quotes, and `execFileSync` passes argv straight
+ * through with no shell to strip them, so psql receives a connection string
+ * containing literal `"` characters and cannot connect.
+ *
+ * This machine has no psql on PATH and takes the docker branch, where the
+ * command has no quoting, so the bug was invisible locally. CI installs
+ * postgresql-client and takes the other branch. That is the signature
+ * test-conventions section 8 records verbatim: green locally, red in CI, on the
+ * same commit -- found here by reading .github/workflows/ci.yml rather than by
+ * waiting for the red.
+ */
+function psqlArgv(dbName?: string): string[] {
   const cmd = psqlCommand();
-  const parts = cmd.split(/\s+/);
-  execFileSync(parts[0] as string, [...parts.slice(1), '-v', 'ON_ERROR_STOP=1', '-c', statement], {
+  if (cmd.startsWith('docker')) {
+    const words = cmd.split(/\s+/);
+    const psqlAt = words.indexOf('psql');
+    return dbName === undefined ? words : [...words.slice(0, psqlAt + 1), '-U', 'postgres', '-d', dbName];
+  }
+  // Unquoted: execFileSync needs the value, not a shell-escaped rendering of it.
+  const url = dbName === undefined ? dbUrl() : dbUrl().replace(/\/[^/]*$/, `/${dbName}`);
+  return ['psql', url];
+}
+
+function psqlAdmin(statement: string): void {
+  const argv = psqlArgv();
+  execFileSync(argv[0] as string, [...argv.slice(1), '-v', 'ON_ERROR_STOP=1', '-c', statement], {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 }
