@@ -1,5 +1,5 @@
 {
-  "comment": "THE UNREACHED-LEG REGISTER. A leg is one site in a guard script that can drive a non-zero exit and says so with its own message; its identity is the longest static run in that message -- the substring a test can assert. Legs are PARSED FROM SOURCE by tests/compliance/_legs.ts -- which is itself in this register, because an instrument exempt from its own standard is what the register exists to stop -- never declared, because a hand-maintained ledger drifts from the code it describes and that is the defect this register exists to prevent, one level in. A leg is REACHED only when some compliance test asserts a substring of its own message through an EXECUTED assertion -- toContain, or toThrow where the failure is raised rather than printed -- not when it merely makes the guard exit non-zero, and not when the message appears in a test header comment. Recognising only one spelling of an assertion is a defect this parser has already had to fix four times, so the set is widened when a legitimate assertion is written a new way, never narrowed to force a style. tests/compliance/leg_coverage.test.ts holds the ratchet: a new leg with no entry reds, an entry for a leg that no longer exists reds, and a registered leg that HAS become reached reds so the entry is forced out. SCOPE, stated because a description broader than its filter is section 2(d) of .claude/rules/test-conventions.md: this covers GUARD SCRIPTS in scripts/ (.sh and .mjs) plus the two instrument files named in tests/compliance/leg_coverage.test.ts. Application code -- packages/auth, packages/gate, packages/snapshot -- is NOT in this corpus and is not claimed to be; it is covered by its own tests, not by a leg ratchet.",
+  "comment": "THE UNREACHED-LEG REGISTER. A leg is one site in a guard script that can drive a non-zero exit and says so with its own message; its identity is the longest static run in that message -- the substring a test can assert. Legs are PARSED FROM SOURCE by tests/compliance/_legs.ts -- which is itself in this register, because an instrument exempt from its own standard is what the register exists to stop -- never declared, because a hand-maintained ledger drifts from the code it describes and that is the defect this register exists to prevent, one level in. A leg is REACHED only when some test, in ANY directory under tests/ that holds test files, asserts a substring of its own message through an EXECUTED assertion -- toContain, or toThrow where the failure is raised rather than printed -- not when it merely makes the guard exit non-zero, and not when the message appears in a test header comment. Recognising only one spelling of an assertion is a defect this parser has already had to fix four times, so the set is widened when a legitimate assertion is written a new way, never narrowed to force a style. tests/compliance/leg_coverage.test.ts holds the ratchet: a new leg with no entry reds, an entry for a leg that no longer exists reds, and a registered leg that HAS become reached reds so the entry is forced out. EVIDENCE SCOPE IS DISCOVERED, NOT LISTED: evidenceDirs() in tests/compliance/_legs.ts returns every directory under tests/ holding at least one *.test.ts, so a plant in tests/db or tests/e2e counts and a directory added tomorrow counts without anyone updating a list. It read tests/compliance ALONE until 2026-09-12, which meant a guard exercisable only against a live database could never be recorded as proved however thoroughly it was planted. SCRIPT SCOPE, stated because a description broader than its filter is section 2(d) of .claude/rules/test-conventions.md: this covers GUARD SCRIPTS in scripts/ (.sh and .mjs) plus the two instrument files named in tests/compliance/leg_coverage.test.ts. Application code -- packages/auth, packages/gate, packages/snapshot -- is NOT in this corpus and is not claimed to be; it is covered by its own tests, not by a leg ratchet.",
   "baseline_2026_09_10": {
     "legs_total": 77,
     "reached": 1,
@@ -8,10 +8,10 @@
     "immutable": "THIS IS A HISTORICAL RECORD AND DOES NOT MOVE. The ratchet asserts the CURRENT reached count is >= this figure, so progress is free and regression is not. Restating it would destroy the only number that says where this started."
   },
   "current": {
-    "legs_total": 107,
-    "reached": 82,
-    "registered": 25,
-    "note": "MEASURED, and updated whenever legs are added or closed. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started."
+    "legs_total": 110,
+    "reached": 86,
+    "registered": 24,
+    "note": "MEASURED, and updated whenever legs are added or closed. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started. THE 2026-09-12 MOVE 82 -> 86 IS TWO DIFFERENT THINGS AND MUST NOT BE READ AS ONE: three legs on run_migrations.sh were newly PROVED by plants written in that change, and one -- \"no forward migrations found in\" -- flipped SOLELY because the evidence corpus widened to reach tests/db. That fourth leg had been proved by tests/db/migration_runner_atomicity.test.ts since 2026-09-09 and recorded as unproved for three days. A figure that moves because the ruler changed is not progress, and the two are separated here so nobody later reads four where the work was three."
   },
   "guards": {
     "attest_counts.mjs": {
@@ -358,11 +358,8 @@
       }
     },
     "run_migrations.sh": {
-      "unknown option $1": {
-        "state": "registered",
-        "reason": "no-seam",
-        "why": "No guard-over-a-guard test file exists for this script yet.",
-        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      "COUNT(*) returned no value for $1 -- the ledger query did not run.": {
+        "state": "reached"
       },
       "migration directory not found at": {
         "state": "registered",
@@ -370,13 +367,22 @@
         "why": "No guard-over-a-guard test file exists for this script yet.",
         "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
       },
+      "no forward migrations found in": {
+        "state": "reached"
+      },
       "psql not on PATH. Install postgresql-client, or set OPENBED_PSQL.": {
         "state": "registered",
         "reason": "no-seam",
         "why": "No guard-over-a-guard test file exists for this script yet.",
         "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
       },
-      "no forward migrations found in": {
+      "the configured psql exited 0 but did not answer SELECT 1.": {
+        "state": "reached"
+      },
+      "the database was not queried.": {
+        "state": "reached"
+      },
+      "unknown option $1": {
         "state": "registered",
         "reason": "no-seam",
         "why": "No guard-over-a-guard test file exists for this script yet.",
