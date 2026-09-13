@@ -8,7 +8,7 @@ expected. This document says where to send them and what happens next.
 
 **Do not open a public issue.** A public issue is a disclosure.
 
-Report privately to **security@toni.health**, or through GitHub's private
+Report privately to **security@openbed.ng**, or through GitHub's private
 vulnerability reporting on this repository (Security → Report a vulnerability).
 
 Include what you did, what you observed, and — if it is safe to do so — the
