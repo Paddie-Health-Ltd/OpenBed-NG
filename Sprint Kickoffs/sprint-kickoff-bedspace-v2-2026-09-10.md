@@ -444,6 +444,20 @@ Four. None blocks the start of Stage 0.
 
 **4. A public privacy notice does not exist.** Bundle 4's first-run interstitial is a **terms** acceptance and is well designed as one; it is not a privacy notice and does not attempt to be. NDPA s.34 requires information at the point of collection, and the dashboard does process — an IP at the edge on every request, geolocation permission state, update-request events, the 24-month display-state log. The strongest facts here are all in your favour and none of them is stated anywhere a person can see: coordinates never leave the device, there is no account, no tracking pixel, no analytics. Half a day of writing. It is the first artefact a hospital's legal officer or an NDPC officer asks for, and its absence is the cheapest bad look in the product. **Whether it ships with Stage 3 or before the first facility goes live is your call**; that it must exist is not.
 
+### Resolved since v1 — recorded 2026-09-13
+
+**v1 open decision 3 (product name and trademark) — RESOLVED.** *This is not item 3 above, which is NDPC registration and is still open.* The product is **OpenBed**, at **`openbed.ng`**. Neither branch of the original fork — "Toni", or "BedSpace at a toni.health address" — was taken. The v1 kickoff is left exactly as it was: it said `toni.health` on 2026-09-08, and that was true on 2026-09-08.
+
+**What survives of v1's A2b: the separation argument, intact.** A visually and technically separate domain still makes the non-commercial covenant structural rather than contractual, and still satisfies Bundle 2's requirement that the notification store share no infrastructure with any Paddie Health marketing system. `openbed.ng` delivers that exactly as `toni.health` would have.
+
+**What inverts: the trademark argument.** A2b also reasoned that "BedSpace" is arguably descriptive and therefore hard to register, that "Toni" is not, and that if the product name followed the domain the trademark problem would largely dissolve. **"OpenBed" is descriptive in exactly the way "BedSpace" is.** So the registrability problem does not dissolve — it returns. The registrability opinion v1 recommended is *more* worth getting now, not less, and it is still outstanding. Carrying A2b's conclusion forward after its premise changed would be a false fact.
+
+**Downstream, not yet built, so nothing to change beyond this record:** Bundle 5's SPF/DKIM/DMARC setup, the `mail.` sending subdomain and the `app.` subdomain are all named against `toni.health` in the v1 kickoff, and must be built against `openbed.ng` when that work lands.
+
+**The private disclosure address.** `security@openbed.ng` has been created. DNS was verified on 2026-09-13 through two independent DNS-over-HTTPS resolvers, with `toni.health` as a passing control: `openbed.ng` answers with Proton Mail MX (`mail.protonmail.ch`, `mailsec.protonmail.ch`), nameservers at WhoGoHost, SOA serial `2026091310`. Earlier that same day it was a lame delegation refusing every query, and no mail to it could have been delivered. **MX shows where mail is routed, not that it is received.** `SECURITY.md` therefore still names `security@toni.health`, and moves only once the founder confirms that a test message sent from an external address was **received**. Until then, **`toni.health` must not be allowed to lapse**: it carries the address a researcher uses to report a vulnerability in this public repository.
+
+**Still a founder call, not an engineering one:** whether "BedSpace" stays among the protected names in `NOTICE` — "OpenBed" and `openbed.ng` have been added and `toni.health` kept — and the name still showing as "BedSpace" in the public dashboard's page title, `README.md`, `package.json`'s description and the first line of `NOTICE`. No rename was requested, so none was made.
+
 ---
 
 ## Supporting docs
