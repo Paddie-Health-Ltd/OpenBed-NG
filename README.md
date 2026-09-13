@@ -2,7 +2,7 @@
 
 A Centralised National Portal with a lightweight update model is vital for Nigeria. The "No Bed Conundrum" causes avoidable emergency deaths daily, as ambulances navigate blindly between tertiary centers like LUTH, LASUTH, or regional General Hospitals without real-time status. Real-time visibility across wards saves lives nationwide.
 
-This repository holds **BedSpace v1**: the visibility layer. Facilities publish
+This repository holds **OpenBed v1**: the visibility layer. Facilities publish
 per-category bed capacity; a referring clinician finds it, calls, and records
 what happened.
 
@@ -34,7 +34,7 @@ privately — see [SECURITY.md](SECURITY.md).
 
 Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
-**Apache 2.0 permits commercial use by anyone.** Any commitment that BedSpace is
+**Apache 2.0 permits commercial use by anyone.** Any commitment that OpenBed is
 not monetised, is not a lead-generation channel, and shares no infrastructure
 with any commercial health product is a *contractual* commitment by the operator
 of a specific deployment. It is not a term of this licence, it does not bind you
