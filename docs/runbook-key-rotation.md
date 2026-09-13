@@ -16,7 +16,7 @@ scraper's index within minutes. Rotate first, clean up second.
 | `service_role` | **Total.** Bypasses every RLS policy by design. Read and write on every table, including the audit log. | Immediate |
 | `anon` | Low. It is *published in the browser bundle by design*; the security model assumes an attacker has it. | Not an incident on its own |
 | Database password | Total, if the database is network-reachable | Immediate |
-| Transactional email API key | Can send mail as `toni.health` — a phishing vector against facility administrators | Immediate |
+| Transactional email API key | Can send mail as `openbed.ng` — a phishing vector against facility administrators | Immediate |
 
 **If you are unsure, treat it as `service_role`.**
 
