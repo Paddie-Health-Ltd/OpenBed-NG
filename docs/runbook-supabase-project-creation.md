@@ -334,10 +334,42 @@ policy is even consulted. Decision A3: RLS is the second line, not the only one.
       >   nothing else.** The filter lives inside a script, so the bare call is
       >   written nowhere in this repository's documentation — the same structural
       >   move as the publishable-key script in step 6, for the same reason.
-      > - **A script is required before this probe is run. It does not exist yet;
-      >   it is the next change after this one.** Until it exists, **this checkbox
-      >   stays unticked**. Do not improvise the call by hand in the meantime, and
-      >   do not add the bare call to this document to "unblock" it.
+      > - **Use `scripts/get_extra_search_path.sh`, and nothing else.** It
+      >   selects the one field by name from a checked JSON object, prints that
+      >   value or nothing, and reports every failure in its own words with a
+      >   non-zero exit. The token goes to curl on stdin, never in argv.
+      >   `tests/compliance/get_extra_search_path.test.ts` plants a canary in
+      >   every other documented field — `jwt_secret` included — and asserts none
+      >   reaches stdout or stderr. **Do not improvise the call by hand, and do not
+      >   add the bare call to this document.**
+
+      **The caller refuses an empty value before judging anything**, for the same
+      reason step 6 refuses an empty key: a script that fails inside `$( )` leaves
+      the variable empty and the shell carries on. The pass signal is named, never
+      a negation.
+
+      ```bash
+      read -rs SUPABASE_ACCESS_TOKEN && export SUPABASE_ACCESS_TOKEN   # prompts; never inline
+      ESP="$(bash scripts/get_extra_search_path.sh)" || ESP=
+      case "$ESP" in
+        "") echo "STOP: no db_extra_search_path value. Read the script's own message above. Do not tick." ;;
+        *)  norm=",${ESP:?no value -- refusing to judge},"
+            norm="${norm//[[:space:]]/}"; norm="${norm//\"/}"
+            echo "db_extra_search_path = $ESP"
+            case "$norm" in
+              *,app,*) echo "FAIL: app present in db_extra_search_path" ;;
+              *)       echo "PASS: app absent from db_extra_search_path" ;;
+            esac ;;
+      esac
+      ```
+
+      Tick this box only on the line `PASS: app absent from db_extra_search_path`,
+      and record it with the printed value and the date. **If the script refuses
+      with `db_extra_search_path is present and EMPTY`**, an empty list cannot
+      contain `app` — but it is refused because empty output is also what a broken
+      filter produces, so record that message itself as the result rather than a
+      PASS line. **Any other STOP: do not tick.** Not yet run on the hosted
+      project; this checkbox is open until the founder runs it.
 
 **Covered by tests: partially, and only locally.** The control is three parts and
 only two are automatable:
