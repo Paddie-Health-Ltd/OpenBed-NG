@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { REPO_ROOT, withScratch } from './_scratch.js';
 import { PLANT_SB_SECRET, PLANT_SERVICE_ROLE_JWT } from './_plants.js';
+import CAPTURE from '../../packages/fixtures/supabase-api-keys-response.redacted.json';
 
 /**
  * GUARD OVER THE ONLY SANCTIONED WAY TO OBTAIN THE PUBLISHABLE KEY.
@@ -23,24 +24,51 @@ import { PLANT_SB_SECRET, PLANT_SERVICE_ROLE_JWT } from './_plants.js';
  * string, or a secret key would each be handed to curl as though it were the
  * publishable key -- and a secret key there is the 2026-09-09 incident again.
  *
- * THE STUB IS CONSTRUCTED, NEVER COMMITTED, and it ignores its arguments. It
- * stands in for the CLI's behaviour, not its argument parsing, which is the
- * CLI's business and is exercised only by a real call.
+ * THE STUB IS CONSTRUCTED, NEVER COMMITTED. It stands in for the CLI's
+ * behaviour, and it RECORDS the arguments it was called with, so the call the
+ * script makes is asserted rather than assumed.
+ *
+ * `-o json` IS TWO DIFFERENT CLAIMS, and they are stated separately.
+ *   - Its PRESENCE is asserted here: the stub records argv, and a test requires
+ *     `-o` followed by `json`. Until 2026-09-13 the stub ignored its arguments,
+ *     so a refactor that removed or renamed the flag reddened nothing at all.
+ *   - Its EFFECT -- that CLI 2.117.0 emits JSON when given it -- rests on ONE
+ *     live observation, the founder's call on 2026-09-13, and on nothing in this
+ *     repository. If a future CLI stops honouring it, the output reverts to a
+ *     table, and the first plant below catches that in this script's own words.
+ *
+ * THE REAL SHAPE, from the founder's redacted capture of 2026-09-13, is
+ * packages/fixtures/supabase-api-keys-response.redacted.json: a top-level array
+ * of four entries -- legacy anon, legacy service_role, a publishable key and a
+ * secret key -- carrying id, name, description, type, prefix, api_key and hash.
+ * Three facts in it shape the tests:
+ *   - type == "publishable" is CONFIRMED. The script still selects by the key's
+ *     own prefix, which cannot return a secret by construction.
+ *   - `name` is NOT a discriminator: two entries are named "default".
+ *   - `description` is null on both non-legacy entries.
+ *
+ * WHY THE KEY VALUES ARE SYNTHESISED AT TEST TIME, NOT STORED IN THE FIXTURE.
+ * The capture's own redaction replaced every api_key with a literal token, which
+ * destroyed the shape the prefix selector reads. And a shape-preserving value
+ * cannot be committed: a publishable value long enough to pass the script's
+ * shape check trips scripts/lint_no_secrets.sh's generic-secret pattern once it
+ * sits beside an api_key field, and a realistic sb_secret_ or JWT trips that
+ * scanner's dedicated patterns. So the fixture carries the real shape with
+ * placeholder tokens, and the tests assemble unmistakably fake values from
+ * fragments, as tests/compliance/_plants.ts does. The scanner's one-file
+ * allowlist is not widened for this.
+ *
+ * THE DECOYS ARE THE POINT. A fixture holding only the publishable entry has
+ * nothing wrong to select, so a broken filter passes it. The legacy service_role
+ * entry and the type "secret" entry are what prove the selector rejects the very
+ * things it must never return -- and the fixture's own shape is asserted below,
+ * so trimming them reds instead of quietly weakening every test built on it.
  *
  * NOT ASSERTED HERE, deliberately:
- *   - A POSITIVE CONTROL. test-conventions section 2 requires one, and it is
- *     withheld from this commit on purpose: the most ordinary valid input IS
- *     the real Management API response, and a hand-written one would be built
- *     from the filter and prove the filter against itself. It lands with the
- *     founder's redacted capture of a live response.
- *   - The value of the response's `type` field. It has never been observed;
- *     selection is by the key's own prefix for exactly that reason.
- *   - That `-o json` is the flag a future CLI accepts. Observed on CLI 2.117.0.
- *     A CLI that changes it produces table text again, which the first plant
- *     below catches -- loudly, in this script's own words.
- *
- * FIELD NAMES USED HERE are only `api_key`, which was captured from the live
- * response. No other field is assumed.
+ *   - The fixture's id, prefix and hash VALUES. They were redacted and not
+ *     provided -- including whether they are null on the legacy entries -- and
+ *     the script reads none of them.
+ *   - That `-o json` keeps its effect on a future CLI. See above.
  */
 
 const SCRIPT_NAME = 'get_publishable_key.sh';
@@ -56,21 +84,41 @@ interface Run {
   status: number;
   stdout: string;
   stderr: string;
+  /** What the stub CLI was called with, one entry per argument. Empty where the stub was never reached. */
+  argv: string[];
 }
 
 /**
  * Runs the real script against a stub CLI that prints `body` and exits `code`.
- * `path` overrides PATH, for the one plant that needs jq to be absent.
+ * `path` overrides PATH, for the plants that need jq absent or replaced.
+ *
+ * The stub RECORDS its argv, one argument per line, so the call the script makes
+ * is asserted rather than assumed. `printf` is a bash builtin, so the recording
+ * needs nothing from PATH.
  */
 function withStub(body: string, code: number, fn: (run: () => Run) => void, opts: { path?: string } = {}): void {
   withScratch((root) => {
     const bodyFile = join(root, 'body.txt');
+    const argvFile = join(root, 'argv.txt');
     writeFileSync(bodyFile, body, 'utf8');
     const stub = join(root, 'supabase-stub');
     // cat, not echo: the body must reach stdout byte for byte, including the
     // case where it is empty and has no trailing newline.
-    writeFileSync(stub, `#!/bin/bash\ncat ${JSON.stringify(bodyFile)}\nexit ${code}\n`, 'utf8');
+    writeFileSync(
+      stub,
+      `#!/bin/bash\nprintf '%s\\n' "$@" > ${JSON.stringify(argvFile)}\ncat ${JSON.stringify(bodyFile)}\nexit ${code}\n`,
+      'utf8',
+    );
     chmodSync(stub, 0o755);
+
+    const readArgv = (): string[] => {
+      if (!existsSync(argvFile)) return [];
+      const text = readFileSync(argvFile, 'utf8');
+      // Only the final newline is dropped. Filtering out every empty line would
+      // hide an empty-string argument, which is exactly the kind of thing this
+      // recording exists to reveal.
+      return text === '' ? [] : text.replace(/\n$/, '').split('\n');
+    };
 
     fn(() => {
       try {
@@ -79,10 +127,10 @@ function withStub(body: string, code: number, fn: (run: () => Run) => void, opts
           stdio: ['ignore', 'pipe', 'pipe'],
           env: { ...process.env, OPENBED_SUPABASE_CLI: stub, ...(opts.path === undefined ? {} : { PATH: opts.path }) },
         });
-        return { status: 0, stdout, stderr: '' };
+        return { status: 0, stdout, stderr: '', argv: readArgv() };
       } catch (e) {
         const err = e as { status?: number; stdout?: string; stderr?: string };
-        return { status: err.status ?? -1, stdout: err.stdout ?? '', stderr: err.stderr ?? '' };
+        return { status: err.status ?? -1, stdout: err.stdout ?? '', stderr: err.stderr ?? '', argv: readArgv() };
       }
     });
   });
@@ -254,6 +302,152 @@ describe('get_publishable_key.sh — refuses everything that is not a usable key
           'no publishable (sb_publishable_) key',
         );
       }, { path });
+    });
+  });
+});
+
+/**
+ * THE REAL RESPONSE SHAPE, with unmistakably fake key values synthesised per
+ * entry. See the header for why the values are not stored in the fixture.
+ */
+type CapturedEntry = (typeof CAPTURE)[number];
+
+/** Assembled from fragments, so no key-shaped literal exists in the repository. */
+const FAKE = {
+  legacyAnon: ['eyJ', 'FAKE'.repeat(4), '.', 'eyJ', 'ANON', 'FAKE'.repeat(3), '.', 'FAKE'.repeat(4)].join(''),
+  legacyServiceRole: ['eyJ', 'FAKE'.repeat(4), '.', 'eyJ', 'SERVICEROLE', 'FAKE'.repeat(3), '.', 'FAKE'.repeat(4)].join(''),
+  publishable: `sb_${'publishable'}_${'FAKE'.repeat(8)}`,
+  secret: `sb_${'secret'}_${'FAKE'.repeat(8)}`,
+};
+
+/** One fixture entry with its api_key replaced by the fake value for its kind. Loud on an unknown kind. */
+function synthesise(entry: CapturedEntry): Record<string, unknown> {
+  let apiKey: string;
+  if (entry.type === 'publishable') {
+    apiKey = FAKE.publishable;
+  } else if (entry.type === 'secret') {
+    apiKey = FAKE.secret;
+  } else if (entry.type === 'legacy' && entry.name === 'service_role') {
+    apiKey = FAKE.legacyServiceRole;
+  } else if (entry.type === 'legacy' && entry.name === 'anon') {
+    apiKey = FAKE.legacyAnon;
+  } else {
+    throw new Error(`the fixture holds an entry this test cannot synthesise: ${entry.name}/${entry.type}`);
+  }
+  return { ...entry, api_key: apiKey };
+}
+
+const realShape = (): Record<string, unknown>[] => CAPTURE.map(synthesise);
+
+describe('get_publishable_key.sh — against the real Management API response shape', () => {
+  test('anti-vacuity — the fixture keeps all four captured entries, decoys included', () => {
+    // A fixture trimmed to the publishable entry would pass a broken filter, and
+    // every test below would then prove nothing. So the capture's shape is itself
+    // an assertion.
+    expect(CAPTURE.length, 'the fixture is no longer the four-entry capture').toBe(4);
+    expect(
+      CAPTURE.map((e) => e.type).sort(),
+      'the decoys were removed -- nothing wrong is left for the selector to reject',
+    ).toEqual(['legacy', 'legacy', 'publishable', 'secret']);
+    for (const e of CAPTURE) {
+      expect(Object.keys(e), `${e.name}/${e.type} does not carry the captured fields, in the captured order`).toEqual([
+        'id',
+        'name',
+        'description',
+        'type',
+        'prefix',
+        'api_key',
+        'hash',
+      ]);
+      expect(
+        e.api_key.startsWith('sb_') || e.api_key.startsWith('eyJ'),
+        `${e.name}/${e.type} commits a key-shaped value; the fixture must hold placeholders only`,
+      ).toBe(false);
+    }
+    expect(CAPTURE.filter((e) => e.name === 'default').length, 'name must stay ambiguous, as captured').toBe(2);
+    expect(
+      CAPTURE.filter((e) => e.description === null).map((e) => e.type).sort(),
+      'the null descriptions must stay on the non-legacy entries, as captured',
+    ).toEqual(['publishable', 'secret']);
+  });
+
+  test('real Management API response shape is accepted — prints exactly the publishable key', () => {
+    // THE POSITIVE CONTROL test-conventions section 2 requires, built on the
+    // captured shape rather than on one written from the filter.
+    withStub(JSON.stringify(realShape()), 0, (run) => {
+      const r = run();
+      expect(r.status, `the real response shape was refused:\n${r.stderr}`).toBe(0);
+      expect(r.stdout, 'stdout is not exactly the publishable key and a newline').toBe(`${FAKE.publishable}\n`);
+    });
+  });
+
+  test('plant — a sb_secret_ key sitting beside the publishable key is never returned', () => {
+    // THE ASSERTION THIS SCRIPT EXISTS FOR. Before trusting the result, confirm
+    // the plant planted: both dangerous decoys are genuinely in the stub's input.
+    const body = JSON.stringify(realShape());
+    expect(body, 'the secret decoy is not in the input -- this test would prove nothing').toContain(FAKE.secret);
+    expect(body, 'the legacy service_role decoy is not in the input').toContain(FAKE.legacyServiceRole);
+
+    withStub(body, 0, (run) => {
+      const r = run();
+      expect(r.status, r.stderr).toBe(0);
+      expect(r.stdout.trim(), 'the publishable key was not the one returned').toBe(FAKE.publishable);
+      expect(r.stdout, 'a SECRET key reached stdout').not.toContain(FAKE.secret);
+      expect(r.stdout, 'the legacy service_role key reached stdout').not.toContain(FAKE.legacyServiceRole);
+      expect(r.stderr, 'a SECRET key reached the error output').not.toContain(FAKE.secret);
+    });
+  });
+
+  test('plant — the secret entry placed first does not displace the publishable key', () => {
+    // The capture happens to list the publishable entry before the secret one.
+    // A selector loosened to "the first sb_ key" would pass on that order and
+    // fail on this one, so the order is made hostile on purpose.
+    const shape = realShape();
+    const secret = shape.find((e) => e['type'] === 'secret');
+    expect(secret, 'the synthesised shape has no secret entry').toBeDefined();
+    const hostile = [secret, ...shape.filter((e) => e['type'] !== 'secret')];
+    expect(hostile[0]?.['type'], 'the secret entry is not first').toBe('secret');
+
+    withStub(JSON.stringify(hostile), 0, (run) => {
+      const r = run();
+      expect(r.status, r.stderr).toBe(0);
+      expect(r.stdout, 'reordering the array changed which key was returned').toBe(`${FAKE.publishable}\n`);
+    });
+  });
+
+  test('plant — the real shape without a publishable entry is refused, printing no decoy', () => {
+    const noPublishable = realShape().filter((e) => e['type'] !== 'publishable');
+    withStub(JSON.stringify(noPublishable), 0, (run) => {
+      const r = run();
+      expectRefusedWithNothingPrinted(r, 'the real shape without a publishable key');
+      expect(r.status).toBe(1);
+      expect(r.stderr).toContain('no publishable (sb_publishable_) key for project');
+      for (const decoy of [FAKE.secret, FAKE.legacyServiceRole, FAKE.legacyAnon]) {
+        expect(r.stderr, 'a decoy key reached the error output').not.toContain(decoy);
+      }
+    });
+  });
+
+  test('the CLI is called for api-keys with -o json and the project ref, and never with --reveal', () => {
+    // PRESENCE, not effect -- see the header. What this catches is the likeliest
+    // regression by a wide margin: the flag removed or renamed in a refactor,
+    // which until this test reddened nothing at all.
+    withStub(JSON.stringify(realShape()), 0, (run) => {
+      const r = run();
+      expect(r.status, r.stderr).toBe(0);
+      expect(r.argv.slice(0, 2), `not the api-keys subcommand: ${JSON.stringify(r.argv)}`).toEqual(['projects', 'api-keys']);
+
+      const o = r.argv.indexOf('-o');
+      expect(o, `the CLI was not given -o: ${JSON.stringify(r.argv)}`).toBeGreaterThanOrEqual(0);
+      expect(r.argv[o + 1], `-o is not followed by json: ${JSON.stringify(r.argv)}`).toBe('json');
+
+      const p = r.argv.indexOf('--project-ref');
+      expect(p, `the CLI was not given --project-ref: ${JSON.stringify(r.argv)}`).toBeGreaterThanOrEqual(0);
+      expect(r.argv[p + 1], 'the default project ref was not passed').toBe('klrlpxysjsjpdkeqdhvl');
+
+      // The script's header says NEVER --reveal: it prints secret keys in full.
+      // A present-tense claim like that carries its probe.
+      expect(r.argv, 'the CLI was asked to --reveal secret keys').not.toContain('--reveal');
     });
   });
 });

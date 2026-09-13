@@ -54,12 +54,19 @@
 # from inside a command substitution. Every failure below is now reported here,
 # and stdout carries the key or nothing.
 #
-# SELECTION IS BY PREFIX, NOT BY FIELD VALUE. The captured field names are
-# api_key, description, hash, id, name, prefix and type, but the VALUE of `type`
-# has never been observed. `sb_publishable_` is the key's own prefix: it
+# SELECTION IS BY PREFIX, NOT BY FIELD VALUE. The founder's redacted capture of
+# 2026-09-13 is a top-level array whose entries carry id, name, description,
+# type, prefix, api_key and hash, and it CONFIRMS type == "publishable" on the
+# publishable entry. The original filter's inner selector was right; only the
+# `keys` wrapper and the missing output flag were wrong. (This header previously
+# said the value of `type` had never been observed. The capture contradicts it.)
+#
+# Selection stays on `sb_publishable_`, the key's own prefix, regardless: it
 # survives a response-shape change, and it CANNOT RETURN A SECRET KEY OR A
 # LEGACY service_role JWT BY CONSTRUCTION. Given this script's incident history,
-# that is the property that matters most.
+# that is the property that matters most. `name` is no discriminator at all --
+# the capture holds two entries named "default" -- and `description` is null on
+# both of them, so nothing here reads either field.
 #
 # THE CALLER IS WHERE AN EMPTY KEY IS STOPPED. This script exits non-zero and
 # prints nothing on failure, but a caller's `KEY="$(...)"` swallows the status

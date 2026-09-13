@@ -1,0 +1,38 @@
+[
+  {
+    "id": "<redacted id>",
+    "name": "anon",
+    "description": "Legacy anon API key",
+    "type": "legacy",
+    "prefix": "<redacted prefix>",
+    "api_key": "<synthesised at test time>",
+    "hash": "<redacted hash>"
+  },
+  {
+    "id": "<redacted id>",
+    "name": "service_role",
+    "description": "Legacy service_role API key",
+    "type": "legacy",
+    "prefix": "<redacted prefix>",
+    "api_key": "<synthesised at test time>",
+    "hash": "<redacted hash>"
+  },
+  {
+    "id": "<redacted id>",
+    "name": "default",
+    "description": null,
+    "type": "publishable",
+    "prefix": "<redacted prefix>",
+    "api_key": "<synthesised at test time>",
+    "hash": "<redacted hash>"
+  },
+  {
+    "id": "<redacted id>",
+    "name": "default",
+    "description": null,
+    "type": "secret",
+    "prefix": "<redacted prefix>",
+    "api_key": "<synthesised at test time>",
+    "hash": "<redacted hash>"
+  }
+]
