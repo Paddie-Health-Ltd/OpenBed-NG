@@ -315,14 +315,29 @@ policy is even consulted. Decision A3: RLS is the second line, not the only one.
       The session `search_path` observed for `postgres` that day was
       `"$user", public, extensions`; that is a **different setting** and is
       recorded as context only, never as this checkbox's evidence.
-      **The probe that does discriminate** reads the setting directly, with the
-      same management token as step 1:
+      **The probe that does discriminate reads the setting itself, and the
+      obvious way to run it is dangerous.** The setting is served by the
+      Management API endpoint `GET /v1/projects/<ref>/postgrest`, which returns
+      the **whole** PostgREST configuration. Per Supabase's own OpenAPI schema
+      (`PostgrestConfigWithJWTSecretResponse`, read 2026-09-13) that response
+      includes **`jwt_secret`**.
 
-      ```bash
-      curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
-        https://api.supabase.com/v1/projects/klrlpxysjsjpdkeqdhvl/postgrest | jq .
-      # read db_extra_search_path off the output; pass = `app` absent from it
-      ```
+      > **⚠ NEVER RUN A BARE CURL AGAINST THAT ENDPOINT, AND NEVER PASTE ITS RAW
+      > RESPONSE ANYWHERE** — not into a chat, a transcript, an issue, a PR, or a
+      > terminal you will copy from. A JWT secret is a signing credential: treat
+      > it exactly as the `service_role` key, because holding it can allow minting
+      > tokens the project accepts. This is the 2026-09-09 incident — a bare
+      > `api-keys` call dumped the `service_role` key into a session transcript
+      > and forced a rotation — replayed at a different endpoint.
+      >
+      > - **The probe reads exactly ONE field, `db_extra_search_path`, and prints
+      >   nothing else.** The filter lives inside a script, so the bare call is
+      >   written nowhere in this repository's documentation — the same structural
+      >   move as the publishable-key script in step 6, for the same reason.
+      > - **A script is required before this probe is run. It does not exist yet;
+      >   it is the next change after this one.** Until it exists, **this checkbox
+      >   stays unticked**. Do not improvise the call by hand in the meantime, and
+      >   do not add the bare call to this document to "unblock" it.
 
 **Covered by tests: partially, and only locally.** The control is three parts and
 only two are automatable:
@@ -575,8 +590,11 @@ curl -s "https://$REF.supabase.co/rest/v1/facility?select=*" \
   -H "apikey: ${KEY:?no key -- refusing to probe}" -H "Authorization: Bearer ${KEY:?no key -- refusing to probe}" -H "Accept-Profile: app"
 
 # 2. And by bare name: no `app` table may answer under the default profile.
-#    This does NOT test extra_search_path -- objects in that list get no
-#    endpoints at all, so a bare name 404s either way (see step 2).
+#    A 404 HERE CAN NEVER DETECT `app` IN extra_search_path, in either state.
+#    That setting only affects name, function and type resolution INSIDE the
+#    database; it never creates an endpoint, so a bare name 404s whether `app`
+#    is in it or not. The only evidence for that checkbox is step 2's
+#    single-field probe -- never this loop.
 #    "No 200 for any name" only means something if check 1 above returned
 #    exactly 406 / PGRST106 in THIS shell. A dead key produces "no 200" too.
 for t in facility ward_status audit_log facility_contact schema_migrations; do
@@ -938,7 +956,7 @@ header. These checkboxes are the hosted half.
 | Region pin | Assertable via the Management API, declined on credential-surface grounds |
 | Hosted exposed-schemas list | A dashboard setting with no in-database representation — **but not unobservable.** Discharged by hand probe on 2026-09-13: the live project's `PGRST106` body carries `hint: "Only the following schemas are exposed: public, graphql_public"` (step 2). No test carries it, because the suite never targets hosted (step 6). `extra_search_path` is a separate setting and stays open (step 2) |
 | Hosted superuser semantics | The local role graph differs from the hosted one |
-| Hosted auth session bounds (`timebox`, `inactivity_timeout`) | A dashboard setting with no in-database representation. Both bounds ARE proved locally in `tests/db/auth_refresh_live.test.ts`; the hosted values are step 9 |
+| Hosted auth session bounds (`timebox`, `inactivity_timeout`) | A dashboard setting with no in-database representation. Both bounds ARE proved locally in `tests/db/auth_refresh_live.test.ts`; the hosted values are step 3 |
 | Magic-link single-use and expiry | Enforced by Supabase auth, not by this schema, since `app.invite` no longer holds a token |
 | Branch protection and its required-check set | A GitHub setting; reading it in CI needs a token this public repository should not carry |
 | Push protection | A GitHub repository setting; CI runs after the push |
