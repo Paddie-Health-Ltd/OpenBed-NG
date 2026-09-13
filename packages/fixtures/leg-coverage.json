@@ -8,10 +8,10 @@
     "immutable": "THIS IS A HISTORICAL RECORD AND DOES NOT MOVE. The ratchet asserts the CURRENT reached count is >= this figure, so progress is free and regression is not. Restating it would destroy the only number that says where this started."
   },
   "current": {
-    "legs_total": 115,
-    "reached": 94,
+    "legs_total": 126,
+    "reached": 105,
     "registered": 21,
-    "note": "MEASURED, and updated whenever legs are added or closed. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started. THE 2026-09-12 MOVE 82 -> 86 IS TWO DIFFERENT THINGS AND MUST NOT BE READ AS ONE: three legs on run_migrations.sh were newly PROVED by plants written in that change, and one -- \"no forward migrations found in\" -- flipped SOLELY because the evidence corpus widened to reach tests/db. That fourth leg had been proved by tests/db/migration_runner_atomicity.test.ts since 2026-09-09 and recorded as unproved for three days. A figure that moves because the ruler changed is not progress, and the two are separated here so nobody later reads four where the work was three."
+    "note": "MEASURED, and updated whenever legs are added or closed. THE 2026-09-13 MOVE 115 -> 126 / 94 -> 105 IS ELEVEN NEW LEGS, ALL PROVED IN THE SAME CHANGE: scripts/get_extra_search_path.sh arrived with a plant asserting every one of its failure messages, so the registered count does not move. No leg elsewhere changed state and the ruler did not change. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started. THE 2026-09-12 MOVE 82 -> 86 IS TWO DIFFERENT THINGS AND MUST NOT BE READ AS ONE: three legs on run_migrations.sh were newly PROVED by plants written in that change, and one -- \"no forward migrations found in\" -- flipped SOLELY because the evidence corpus widened to reach tests/db. That fourth leg had been proved by tests/db/migration_runner_atomicity.test.ts since 2026-09-09 and recorded as unproved for three days. A figure that moves because the ruler changed is not progress, and the two are separated here so nobody later reads four where the work was three."
   },
   "guards": {
     "attest_counts.mjs": {
@@ -54,6 +54,41 @@
         "reason": "no-seam",
         "why": "gate.sh runs the real check suite, so exercising this leg means failing one of them for real -- there is no injected check list to make one fail cheaply. Demonstrated by hand on 2026-09-10: it exited 1 and named the failing check.",
         "closes_with": "An injectable check list, so a test can hand it one command that fails and assert the exit status and the message."
+      }
+    },
+    "get_extra_search_path.sh": {
+      "SUPABASE_ACCESS_TOKEN is not set, so the Management API was not called.": {
+        "state": "reached"
+      },
+      "checking the field type -- the check did not run.": {
+        "state": "reached"
+      },
+      "checking the response shape -- the check did not run.": {
+        "state": "reached"
+      },
+      "could not read the PostgREST config from the Supabase Management API.": {
+        "state": "reached"
+      },
+      "db_extra_search_path has an unexpected shape, so it was not printed.": {
+        "state": "reached"
+      },
+      "db_extra_search_path is present and EMPTY, so nothing was printed.": {
+        "state": "reached"
+      },
+      "jq is required (brew install jq).": {
+        "state": "reached"
+      },
+      "selecting db_extra_search_path -- the selection did not run.": {
+        "state": "reached"
+      },
+      "the response has no string db_extra_search_path, so nothing was read from it.": {
+        "state": "reached"
+      },
+      "the response is not JSON, so nothing was read from it.": {
+        "state": "reached"
+      },
+      "the response is not a single top-level JSON object, so nothing was read from it.": {
+        "state": "reached"
       }
     },
     "get_publishable_key.sh": {

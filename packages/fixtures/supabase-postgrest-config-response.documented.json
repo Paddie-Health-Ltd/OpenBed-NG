@@ -1,0 +1,8 @@
+{
+  "db_schema": "<documented string>",
+  "max_rows": 0,
+  "db_extra_search_path": "<documented string>",
+  "db_pool": 0,
+  "db_pool_acquisition_timeout": 0,
+  "jwt_secret": "<synthesised at test time>"
+}
