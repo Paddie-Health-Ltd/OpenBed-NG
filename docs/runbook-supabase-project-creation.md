@@ -29,6 +29,7 @@ kickoff is a historical record that does not get rewritten.
 
 | # | Step | Why here |
 |---|---|---|
+| P | Prerequisites — `psql` on PATH | Steps 5, 6, 8 and 10 need it, and it is never on PATH by default. |
 | 0 | Repository settings (GitHub) *(was §8)* | Its own text: "Do these BEFORE the first push." |
 | 1 | Region *(was §1)* | Fixed at creation and cannot be changed. |
 | 2 | Exposed schemas *(was §2)* | The security boundary, and irreversible in practice once clients exist. |
@@ -67,6 +68,24 @@ already says exactly that and already forbids it. **A wrong reason is a false
 fact even where the conclusion holds**, which is the point §4 of
 `.claude/rules/test-conventions.md` makes about the region pin, so the corrected
 version is recorded here rather than the ordering claim.
+
+---
+
+## P. Prerequisites — do this in every new shell
+
+**`psql` is not on PATH, and that has now cost two sessions.** On the machine
+these steps are run from, it is Homebrew's **keg-only** `libpq`, which Homebrew
+deliberately does not link onto PATH. A bare `psql` exits 127 (command not
+found), and a step that chains on it proves nothing.
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+psql --version    # STOP CONDITION: must print a version. Recorded 2026-09-13: psql (PostgreSQL) 18.6
+```
+
+Anything other than a version line — stop. Do not run step 5, 6, 8 or 10 until
+it prints one. The client version this project was applied through is recorded
+in step 7.
 
 ---
 
@@ -274,8 +293,51 @@ This is *the* security boundary. Every base table lives in `app`, and its absenc
 from this list is what makes PostgREST refuse with `PGRST106` before any RLS
 policy is even consulted. Decision A3: RLS is the second line, not the only one.
 
-- [ ] Exposed schemas is exactly `public, graphql_public`
-- [ ] `extra_search_path` does not include `app`
+- [x] Exposed schemas is exactly `public, graphql_public` — **discharged by probe,
+      2026-09-13, project `klrlpxysjsjpdkeqdhvl`.** Not read off the dashboard:
+      the live project states the list itself. Step 6 check (a) 1, under the
+      publishable key, returned HTTP 406 with a `PGRST106` body carrying
+
+      ```
+      hint: "Only the following schemas are exposed: public, graphql_public"
+      ```
+
+      That hint is PostgREST reporting its own `db-schemas`, so it is the hosted
+      setting, observed. Re-derive it by re-running step 6 check (a) 1 and
+      reading the `hint` field.
+- [ ] `extra_search_path` does not include `app` — **OPEN, and the step 6 404s do
+      not close it.** PostgREST's configuration reference says of
+      `db-extra-search-path`: *"These schemas tables, views and functions don't
+      get API endpoints, they can only be referred from the database objects
+      inside your db-schemas."* So a bare-name request (step 6 check (a) 2)
+      returns 404 **whether or not** `app` is in that list — the five 404s on
+      2026-09-13 look identical in both states and cannot discharge this box.
+      The session `search_path` observed for `postgres` that day was
+      `"$user", public, extensions`; that is a **different setting** and is
+      recorded as context only, never as this checkbox's evidence.
+      **The probe that does discriminate reads the setting itself, and the
+      obvious way to run it is dangerous.** The setting is served by the
+      Management API endpoint `GET /v1/projects/<ref>/postgrest`, which returns
+      the **whole** PostgREST configuration. Per Supabase's own OpenAPI schema
+      (`PostgrestConfigWithJWTSecretResponse`, read 2026-09-13) that response
+      includes **`jwt_secret`**.
+
+      > **⚠ NEVER RUN A BARE CURL AGAINST THAT ENDPOINT, AND NEVER PASTE ITS RAW
+      > RESPONSE ANYWHERE** — not into a chat, a transcript, an issue, a PR, or a
+      > terminal you will copy from. A JWT secret is a signing credential: treat
+      > it exactly as the `service_role` key, because holding it can allow minting
+      > tokens the project accepts. This is the 2026-09-09 incident — a bare
+      > `api-keys` call dumped the `service_role` key into a session transcript
+      > and forced a rotation — replayed at a different endpoint.
+      >
+      > - **The probe reads exactly ONE field, `db_extra_search_path`, and prints
+      >   nothing else.** The filter lives inside a script, so the bare call is
+      >   written nowhere in this repository's documentation — the same structural
+      >   move as the publishable-key script in step 6, for the same reason.
+      > - **A script is required before this probe is run. It does not exist yet;
+      >   it is the next change after this one.** Until it exists, **this checkbox
+      >   stays unticked**. Do not improvise the call by hand in the meantime, and
+      >   do not add the bare call to this document to "unblock" it.
 
 **Covered by tests: partially, and only locally.** The control is three parts and
 only two are automatable:
@@ -284,7 +346,7 @@ only two are automatable:
 |---|---|
 | A live anon request for `app` is refused with `PGRST106` | `tests/db/rls_anon_reachability.test.ts` — **local PostgREST only** |
 | `supabase/config.toml` `[api] schemas` excludes `app` | `tests/db/config_drift.test.ts` — static |
-| The **hosted** setting excludes `app` | **this checkbox** |
+| The **hosted** setting excludes `app` | **Recorded probe result, 2026-09-13:** the live `PGRST106` hint, `Only the following schemas are exposed: public, graphql_public` (above). A hand probe, not a test |
 
 ---
 
@@ -438,8 +500,10 @@ ones.
 
 ## 6. Verify the boundary by hand, against the hosted project  *(was §4)*
 
-Run these against the hosted project with the **publishable** key. Every one
-must fail.
+Run these against the hosted project with the **publishable** key. The schema
+probe and every write must be **refused**; the three mirror reads must
+**succeed**. *(This line previously said "Every one must fail", which was false
+for the reads.)*
 
 **THE KEY MUST BE THE `sb_publishable_` ONE, NOT THE LEGACY `anon` JWT.**
 Disabling legacy API keys on 2026-09-09 killed the legacy `anon` key as well as
@@ -475,16 +539,40 @@ curl -s -w '\nHTTP %{http_code}\n' \
   "$SUPABASE_URL/rest/v1/facility?select=*" \
   -H "apikey: ${KEY:?no key -- refusing to probe}" -H "Accept-Profile: app"       # expect 406, body names PGRST106
 
-curl -s "$SUPABASE_URL/rest/v1/ward_public?select=*" \
-  -H "apikey: ${KEY:?no key -- refusing to probe}" | head -c 200                  # expect rows, SELECT only
-
-curl -s -X POST "$SUPABASE_URL/rest/v1/ward_public" \
-  -H "apikey: ${KEY:?no key -- refusing to probe}" -d '{}' -w '\nHTTP %{http_code}\n'   # expect 4xx, body says why
+# ALL THREE mirrors, read and write. The checkboxes below claim all three, so the
+# probe covers all three -- ward_public alone did not reach what they claim.
+for t in facility_public ward_public lga_rollup; do
+  printf '== %s READ  ' "$t"
+  curl -s -w '\nHTTP %{http_code}\n' "$SUPABASE_URL/rest/v1/$t?select=*" \
+    -H "apikey: ${KEY:?no key -- refusing to probe}" | head -c 300               # expect HTTP 200
+  printf '\n== %s WRITE ' "$t"
+  curl -s -X POST "$SUPABASE_URL/rest/v1/$t" \
+    -H "apikey: ${KEY:?no key -- refusing to probe}" -H "Content-Type: application/json" \
+    -d '{}' -w '\nHTTP %{http_code}\n'                                           # PASS = BODY code 42501. Read the body.
+done
 ```
 
-- [ ] `app` schema unreachable with the publishable key
-- [ ] The three mirrors readable
-- [ ] Anon write refused
+**"ANON WRITE REFUSED" IS READ OFF THE BODY, NEVER THE STATUS.** PostgREST maps a
+Postgres privilege failure (SQLSTATE `42501`) on an anonymous request to **HTTP
+401** — the same status a dead or wrong key produces. So a 401 here is compatible
+with *the grant refused the write* and with *the key was never accepted*, and only
+the body separates them. **The pass condition is `"code":"42501"` in the body.**
+This is the same false-negative family this step already warns about for the
+legacy key, one layer lower. *Recorded as a correction:* the stated read of this
+check on 2026-09-13 was "not 401", which is wrong — 401 is exactly what the
+passing result looks like.
+
+**Results, 2026-09-13, project `klrlpxysjsjpdkeqdhvl`** (founder's run):
+
+| Mirror | Read | Write |
+|---|---|---|
+| `facility_public` | HTTP 200 | HTTP 401, body code `42501` |
+| `ward_public` | HTTP 200 | HTTP 401, body `{"code":"42501", … "permission denied for table ward_public"}` |
+| `lga_rollup` | HTTP 200 | HTTP 401, body code `42501` |
+
+- [x] `app` schema unreachable with the publishable key — check (a) 1 below, 406 / `PGRST106`
+- [x] The three mirrors readable — 200 on all three, 2026-09-13
+- [x] Anon write refused — body code `42501` on all three, 2026-09-13
 
 ### Check (a), HTTP half — run immediately after the apply
 
@@ -501,7 +589,12 @@ REF=klrlpxysjsjpdkeqdhvl
 curl -s "https://$REF.supabase.co/rest/v1/facility?select=*" \
   -H "apikey: ${KEY:?no key -- refusing to probe}" -H "Authorization: Bearer ${KEY:?no key -- refusing to probe}" -H "Accept-Profile: app"
 
-# 2. And by bare name, in case `app` ever reaches extra_search_path.
+# 2. And by bare name: no `app` table may answer under the default profile.
+#    A 404 HERE CAN NEVER DETECT `app` IN extra_search_path, in either state.
+#    That setting only affects name, function and type resolution INSIDE the
+#    database; it never creates an endpoint, so a bare name 404s whether `app`
+#    is in it or not. The only evidence for that checkbox is step 2's
+#    single-field probe -- never this loop.
 #    "No 200 for any name" only means something if check 1 above returned
 #    exactly 406 / PGRST106 in THIS shell. A dead key produces "no 200" too.
 for t in facility ward_status audit_log facility_contact schema_migrations; do
@@ -511,9 +604,13 @@ for t in facility ward_status audit_log facility_contact schema_migrations; do
 done
 ```
 
-- [ ] (1) returns `PGRST106` / HTTP 406
-- [ ] (2) returns no 200 for any name
-- [ ] Result recorded with a date
+- [x] (1) returns `PGRST106` / HTTP 406 — 2026-09-13: HTTP 406, body
+      `{"code":"PGRST106", … "message":"Invalid schema: app"}`, with the exposed-schemas
+      hint recorded in step 2
+- [x] (2) returns no 200 for any name — 2026-09-13: `facility` 404, `ward_status` 404,
+      `audit_log` 404, `facility_contact` 404, `schema_migrations` 404. Meaningful
+      because (1) returned 406 under the same key in the same shell
+- [x] Result recorded with a date — 2026-09-13, project `klrlpxysjsjpdkeqdhvl`
 
 **WHY THIS IS A CURL STEP AND NOT A VITEST TEST.**
 `tests/setup/global-setup.ts` gates the entire `db` project on a live
@@ -528,6 +625,18 @@ per-table enumeration — rides along with step 8 below, in the shell that alrea
 holds `DATABASE_URL`. Splitting it that way costs no extra round trip and keeps
 this half free of any credential.
 
+**Catalogue half, result 2026-09-13, project `klrlpxysjsjpdkeqdhvl`.** It was
+skipped when step 8 first ran and was run afterwards, so it is recorded here
+rather than implied by step 8:
+
+- `has_schema_privilege(<role>, 'app', 'USAGE')`: `anon` **f**, `authenticated`
+  **f**, `service_role` **f**.
+- `has_table_privilege('anon', <table>, 'SELECT')` across **all 16** tables in
+  `app`: **f on every one** — `alert`, `audit_log`, `challenge`, `device`,
+  `facility`, `facility_contact`, `facility_ops`, `invite`,
+  `notification_outbox`, `referral`, `schema_migrations`, `system_heartbeat`,
+  `ward_account`, `ward_alert_state`, `ward_status`, `ward_status_event`. 16 rows.
+
 ---
 
 
@@ -537,6 +646,13 @@ this half free of any credential.
 |---|---|---|
 | Hosted | 17.6.1.**166** | Management API, 2026-09-09 |
 | Local (`supabase start`) | 17.6.1.**167** | image `public.ecr.aws/supabase/postgres:17.6.1.167` |
+| **Client** used for the hosted apply | `psql` **18.6** (Homebrew keg-only `libpq`, see step P) | `psql --version`, 2026-09-13 |
+
+**The client is newer than the server: psql 18.6 against server 17.6.1.166.**
+All thirteen migrations were applied to project `klrlpxysjsjpdkeqdhvl` through
+that client, and steps 6, 8 and 10 were run through it on 2026-09-13. This table
+previously recorded server versions only, which left the one tool every SQL
+result above passed through unrecorded.
 
 **Same major and minor; the patch differs by one (166 vs 167).** No major-version
 divergence to reason about, and the earlier record of "17.6.1 both" was true at
@@ -568,15 +684,144 @@ hosted project**. `tests/db/append_only_enforcement.test.ts` proves the trigger
 fires for a local superuser, which is strong evidence — but the *grant* half of
 that test describes the local role graph, and the hosted one differs.
 
-Connect to the hosted project as the service role and confirm both raise:
+### The SQL this step used to carry was a no-op, and that is observed
+
+It read:
 
 ```sql
 update app.audit_log set action = 'tampered' where id = (select min(id) from app.audit_log);
 delete from app.ward_status_event where id = (select min(id) from app.ward_status_event);
 ```
 
-- [ ] Both raise `APPEND_ONLY_VIOLATION`
-- [ ] `select tgenabled from pg_trigger where tgname like '%append_only%'` returns `A` for both
+**Against empty tables that matches zero rows, and the triggers are
+`FOR EACH ROW`: zero rows is zero firings, no exception, and a checkbox ticked
+on nothing.** Not argued — observed: the probe below planted into both tables and
+got back `audit_log id 1, event id 1`, so both were empty at the moment the old
+statements would have run. It is replaced by a plant-then-assert block.
+
+### The probe — run verbatim, connected with `DATABASE_URL` (step P first)
+
+```bash
+psql "$DATABASE_URL" <<'SQL'
+begin;
+do $probe$
+declare
+  fid uuid; wid uuid; eid bigint; aid bigint; n integer; msg text;
+  ok_u boolean := false; ok_d boolean := false;
+begin
+  insert into app.facility (name, lga, state, lat, lng, public_phone_e164)
+    values ('ZZ_PROBE_ROLLED_BACK','Ikeja','Lagos',6.6,3.35,'+2348000000000')
+    returning id into fid;
+  insert into app.ward_status (facility_id, category, offering, bed_count)
+    values (fid,'ICU_ADULT','OFFERED',3) returning id into wid;
+  insert into app.ward_status_event
+    (ward_status_id, facility_id, category, offering, bed_count, accepting, state, source, version)
+    values (wid, fid,'ICU_ADULT','OFFERED',3,true,'OK','WARD',1) returning id into eid;
+  insert into app.audit_log (facility_id, ward_category, action, new_value, version)
+    values (fid,'ICU_ADULT','probe.append_only','{"bed_count":3}'::jsonb,1) returning id into aid;
+  raise notice 'CONTROL PASS: inserts accepted. audit_log id %, event id %', aid, eid;
+
+  begin
+    update app.audit_log set action = 'tampered.probe' where id = aid;
+    get diagnostics n = row_count;
+    raise notice 'LEG 1 FAIL: update not refused, % row(s) changed', n;
+  exception when others then
+    msg := SQLERRM;
+    if msg like 'APPEND_ONLY_VIOLATION%' then ok_u := true;
+      raise notice 'LEG 1 PASS trigger: %', msg;
+    elsif SQLSTATE = '42501' then
+      raise notice 'LEG 1 PARTIAL grant-only, trigger never reached: %', msg;
+    else raise notice 'LEG 1 FAIL wrong reason [%]: %', SQLSTATE, msg;
+    end if;
+  end;
+
+  begin
+    delete from app.ward_status_event where id = eid;
+    get diagnostics n = row_count;
+    raise notice 'LEG 2 FAIL: delete not refused, % row(s) removed', n;
+  exception when others then
+    msg := SQLERRM;
+    if msg like 'APPEND_ONLY_VIOLATION%' then ok_d := true;
+      raise notice 'LEG 2 PASS trigger: %', msg;
+    elsif SQLSTATE = '42501' then
+      raise notice 'LEG 2 PARTIAL grant-only, trigger never reached: %', msg;
+    else raise notice 'LEG 2 FAIL wrong reason [%]: %', SQLSTATE, msg;
+    end if;
+  end;
+
+  if ok_u and ok_d then raise notice 'RESULT: BOTH LEGS PROVED ON THE HOSTED ROLE GRAPH';
+  else raise notice 'RESULT: NOT PROVED';
+  end if;
+end
+$probe$;
+rollback;
+SQL
+```
+
+**Three properties of this block are load-bearing. An edit that loses any one of
+them turns it back into a rubber stamp:**
+
+1. **The `CONTROL PASS` notice fires before the two legs.** "Both refused" can
+   then never be satisfied by a broken connection, a missing table or a failed
+   plant — without the control line there is no result.
+2. **SQLSTATE `42501` is reported separately from `APPEND_ONLY_VIOLATION`.** A
+   grant-level refusal can never be recorded as the trigger firing; it reports
+   `PARTIAL grant-only`.
+3. **The whole thing rolls back.** These tables are append-only, so a planted row
+   that committed could never be removed.
+
+### Result, 2026-09-13, project `klrlpxysjsjpdkeqdhvl`
+
+Output, verbatim:
+
+```
+BEGIN
+NOTICE:  CONTROL PASS: inserts accepted. audit_log id 1, event id 1
+NOTICE:  LEG 1 PASS trigger: APPEND_ONLY_VIOLATION: UPDATE on app.audit_log is not permitted
+NOTICE:  LEG 2 PASS trigger: APPEND_ONLY_VIOLATION: DELETE on app.ward_status_event is not permitted
+NOTICE:  RESULT: BOTH LEGS PROVED ON THE HOSTED ROLE GRAPH
+DO
+ROLLBACK
+```
+
+Trigger state:
+
+```
+ trg_audit_log_append_only         | app.audit_log         | A
+ trg_ward_status_event_append_only | app.ward_status_event | A
+(2 rows)
+```
+
+**The role, which is what makes this result exact:** `current_user = postgres`,
+`session_user = postgres`. Migration 010 revokes `UPDATE` and `DELETE` from
+`anon`, `authenticated` and `service_role` — **not from `postgres`**. So
+`postgres` still held both privileges, and **the trigger is what refused.** That
+is the defence-in-depth layer holding for the one role the grant layer
+deliberately does not cover, on the hosted role graph where `postgres` is not a
+superuser.
+
+**What this does NOT prove:** the **grant** leg on hosted. No update or delete was
+attempted as `anon`, `authenticated` or `service_role`, so the revocations were
+not exercised here. Only the trigger leg is proved.
+
+- [x] Both legs PASS **via the trigger** (`APPEND_ONLY_VIOLATION`, not `42501`), as
+      `postgres`, after `CONTROL PASS` — 2026-09-13
+- [x] Both triggers present with `tgenabled = A`, on `app.audit_log` and
+      `app.ward_status_event` — 2026-09-13
+
+### ID gaps in the append-only tables are expected — read this before auditing them
+
+**The rolled-back probe permanently consumed `app.audit_log` id 1 and
+`app.ward_status_event` id 1.** Identity sequences are non-transactional: a value
+handed out inside a transaction that rolls back is never handed out again. **The
+first real row in each table is id 2.**
+
+**A gap in the id sequence of an append-only table is NOT evidence of a deleted
+row.** Any rolled-back or failed insert leaves one. Without this note, the first
+person to audit these tables finds a missing row 1 in a table that cannot lose
+rows. What would indicate tampering is the trigger not being `tgenabled = A` —
+the check above — not a gap. The same note sits beside the id column in
+`database/migrations/005_app_audit_referral_outbox_tables.sql`.
 
 ---
 
@@ -638,20 +883,68 @@ hosted.** Record the hosted auth version here when you run these by hand.
 
 ## 10. Realtime publication  *(was §6)*
 
-- [ ] `select tablename from pg_publication_tables where pubname='supabase_realtime'` returns exactly
-      `facility_public`, `ward_public`, `lga_rollup`
-- [ ] `select relreplident from pg_class where relname in (...)` returns `d` for all three —
+**EXACTLY those three, not "those three are present".** A presence check passes
+with a fourth table published, and a fourth published table is a fourth stream
+of DELETE payloads nobody reviewed. So assert set equality, with no schema filter
+— a table from any schema reddens it:
+
+```sql
+select schemaname, tablename from pg_publication_tables
+ where pubname = 'supabase_realtime' order by tablename;
+
+select coalesce(array_agg(tablename::text order by tablename), '{}')
+       = array['facility_public','lga_rollup','ward_public'] as exactly_three
+  from pg_publication_tables where pubname = 'supabase_realtime';   -- PASS = t
+
+select relname, relreplident from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+ where n.nspname = 'public' and relname in ('facility_public','ward_public','lga_rollup');
+```
+
+- [x] The publication contains **exactly** `facility_public`, `lga_rollup`,
+      `ward_public` — 2026-09-13, project `klrlpxysjsjpdkeqdhvl`: those three,
+      exactly 3 rows
+- [x] `relreplident` is `d` for all three —
       **never `f`.** `FULL` ships the whole old row in a DELETE payload, Realtime
       DELETE events are not RLS-filtered, and quiet mode removes rows by DELETE.
+      2026-09-13: `facility_public` d, `ward_public` d, `lga_rollup` d
+
+The local half — the publication holds exactly these three and none has
+`relreplident = 'f'` — is asserted by `tests/db/config_drift.test.ts`, per 013's
+header. These checkboxes are the hosted half.
 
 ---
 
 
 ## 11. Keys  *(was §7)*
 
-- [ ] `service_role` key stored in the server-side secret store only
-- [ ] It appears in no `NEXT_PUBLIC_*` or `VITE_*` variable anywhere
+- [ ] **OPENS WHEN BUNDLE 3 SHIPS A SERVER. Do not tick before then.**
+      `service_role` key stored in the server-side secret store only.
+
+      **There is no server yet, so there is no server-side secret store for this
+      to describe.** Ticking it would certify a store that does not exist — the
+      phantom Clause 4 of `.claude/rules/code-pipeline.md` forbids. What is
+      observed instead, 2026-09-13, project `klrlpxysjsjpdkeqdhvl`:
+
+      - The key exists in Supabase and in **no repository file**.
+      - There is **no `.env` at the repository root**, and none is tracked.
+      - **No `NEXT_PUBLIC_*` or `VITE_*` assignment exists anywhere in the
+        tree.** The only `VITE_` names in application code are two **reads** of
+        public values in `apps/ward-console/src/main.ts`
+        (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`).
+      - **Every `service_role` string in the repository is a name, never a key
+        value.** It is the Postgres role name in SQL and test code, and otherwise
+        the filename of `scripts/lint_no_service_role_in_bundle.sh` where other
+        files cite it; that guard's detection patterns in
+        `scripts/scan_bundle_credentials.mjs`; comments about the legacy JWT in
+        `scripts/get_publishable_key.sh`; a comment in `supabase/config.toml`; the
+        key's *name* field in
+        `packages/fixtures/supabase-api-keys-response.redacted.json`; and prose in
+        docs, rules and sprint kickoffs.
+- [x] It appears in no `NEXT_PUBLIC_*` or `VITE_*` variable anywhere — 2026-09-13,
+      per the observed state above
 - [ ] Rotation procedure read: [`runbook-key-rotation.md`](runbook-key-rotation.md)
+      — the founder's own attestation, left for them to tick
 
 ---
 
@@ -661,9 +954,9 @@ hosted.** Record the hosted auth version here when you run these by hand.
 | Property | Why no test can cover it |
 |---|---|
 | Region pin | Assertable via the Management API, declined on credential-surface grounds |
-| Hosted exposed-schemas list | A dashboard setting with no in-database representation |
+| Hosted exposed-schemas list | A dashboard setting with no in-database representation — **but not unobservable.** Discharged by hand probe on 2026-09-13: the live project's `PGRST106` body carries `hint: "Only the following schemas are exposed: public, graphql_public"` (step 2). No test carries it, because the suite never targets hosted (step 6). `extra_search_path` is a separate setting and stays open (step 2) |
 | Hosted superuser semantics | The local role graph differs from the hosted one |
-| Hosted auth session bounds (`timebox`, `inactivity_timeout`) | A dashboard setting with no in-database representation. Both bounds ARE proved locally in `tests/db/auth_refresh_live.test.ts`; the hosted values are step 9 |
+| Hosted auth session bounds (`timebox`, `inactivity_timeout`) | A dashboard setting with no in-database representation. Both bounds ARE proved locally in `tests/db/auth_refresh_live.test.ts`; the hosted values are step 3 |
 | Magic-link single-use and expiry | Enforced by Supabase auth, not by this schema, since `app.invite` no longer holds a token |
 | Branch protection and its required-check set | A GitHub setting; reading it in CI needs a token this public repository should not carry |
 | Push protection | A GitHub repository setting; CI runs after the push |

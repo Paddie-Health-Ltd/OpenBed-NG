@@ -77,6 +77,16 @@ CREATE TABLE IF NOT EXISTS app.audit_log (
     --
     -- IT MUST NEVER REACH THE PUBLIC SNAPSHOT: a sequential id leaks total write
     -- volume across every facility.
+    --
+    -- A GAP IN THIS id SEQUENCE IS NOT EVIDENCE OF A DELETED ROW. Identity
+    -- sequences are non-transactional: a value consumed by an insert that rolls
+    -- back or fails is never reissued. On 2026-09-13 the hosted append-only probe
+    -- (docs/runbook-supabase-project-creation.md step 8, project
+    -- klrlpxysjsjpdkeqdhvl) planted a row here and in app.ward_status_event, then
+    -- rolled back -- consuming id 1 in BOTH tables permanently. The first real row
+    -- in each is id 2. An auditor finding a missing id in a table 010 makes
+    -- undeletable should read a rolled-back insert, and check the trigger's
+    -- tgenabled = 'A' for tampering, not the sequence.
     id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
     -- NULLABLE: a platform-scope action has no facility, and forcing a sentinel
