@@ -368,8 +368,20 @@ policy is even consulted. Decision A3: RLS is the second line, not the only one.
       with `db_extra_search_path is present and EMPTY`**, an empty list cannot
       contain `app` — but it is refused because empty output is also what a broken
       filter produces, so record that message itself as the result rather than a
-      PASS line. **Any other STOP: do not tick.** Not yet run on the hosted
-      project; this checkbox is open until the founder runs it.
+      PASS line. **Any other STOP: do not tick.**
+
+      **THE FIRST RUN IS A STOP CONDITION, NOT A FORMALITY.** This script has
+      never run against the live endpoint, and its fixture is taken from
+      Supabase's documentation, not from a captured response. Its tests prove it
+      handles the *documented* shape; they say nothing about the shape Supabase
+      actually returns. That is the exact history of
+      `scripts/get_publishable_key.sh`: a filter written against an imagined
+      response body, cited as the sanctioned method for four days, and wrong at
+      the first pipe on first execution. **If the first run exits non-zero, that
+      is the documentation-derived assumption failing. Stop and report it as
+      such. Do not work around it** — no hand-written call, no edited filter, no
+      bare curl against the endpoint. This checkbox is open until that first run
+      passes.
 
 **Covered by tests: partially, and only locally.** The control is three parts and
 only two are automatable:
