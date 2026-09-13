@@ -451,20 +451,35 @@ rotation probe in `runbook-key-rotation.md`: the check passes for a reason
 unrelated to what it guards. Take the key from the script, never from a
 remembered value.
 
+**AND NEVER RUN A PROBE ON AN EMPTY KEY.** Until 2026-09-13 both blocks below
+did a bare `KEY="$(bash scripts/get_publishable_key.sh)"`. A script that fails
+inside a command substitution leaves `KEY` empty and the shell carries on, so
+every probe returned 401 -- which this runbook reads as "the key is wrong". The
+script's own stop condition cannot reach past a caller's `$( )`. So the guard
+lives here, at the caller: one check collapses any bad value to empty, and every
+use refuses empty.
+
 ```bash
-KEY="$(bash scripts/get_publishable_key.sh)"
+KEY="$(bash scripts/get_publishable_key.sh)" || KEY=
+case "$KEY" in
+  sb_publishable_?*) echo "key obtained" ;;
+  *) echo "STOP: no usable publishable key. Do not run the probes -- a 401 now means nothing."; KEY= ;;
+esac
 SUPABASE_URL="https://klrlpxysjsjpdkeqdhvl.supabase.co"
 
-# A 401 on ANY of these means the key is wrong, not that the boundary held.
+# With the guard above, an empty or malformed key can no longer reach a probe:
+# every use is ${KEY:?...}, which refuses to run the command at all. So a 401
+# below means a REAL key was refused -- the key is wrong -- never that the
+# boundary held, and never that the key fetch quietly failed.
 curl -s -w '\nHTTP %{http_code}\n' \
   "$SUPABASE_URL/rest/v1/facility?select=*" \
-  -H "apikey: $KEY" -H "Accept-Profile: app"       # expect 406, body names PGRST106
+  -H "apikey: ${KEY:?no key -- refusing to probe}" -H "Accept-Profile: app"       # expect 406, body names PGRST106
 
 curl -s "$SUPABASE_URL/rest/v1/ward_public?select=*" \
-  -H "apikey: $KEY" | head -c 200                  # expect rows, SELECT only
+  -H "apikey: ${KEY:?no key -- refusing to probe}" | head -c 200                  # expect rows, SELECT only
 
 curl -s -X POST "$SUPABASE_URL/rest/v1/ward_public" \
-  -H "apikey: $KEY" -d '{}' -w '\nHTTP %{http_code}\n'   # expect 4xx, body says why
+  -H "apikey: ${KEY:?no key -- refusing to probe}" -d '{}' -w '\nHTTP %{http_code}\n'   # expect 4xx, body says why
 ```
 
 - [ ] `app` schema unreachable with the publishable key
@@ -474,19 +489,25 @@ curl -s -X POST "$SUPABASE_URL/rest/v1/ward_public" \
 ### Check (a), HTTP half — run immediately after the apply
 
 ```bash
-KEY="$(bash scripts/get_publishable_key.sh)"
+KEY="$(bash scripts/get_publishable_key.sh)" || KEY=
+case "$KEY" in
+  sb_publishable_?*) echo "key obtained" ;;
+  *) echo "STOP: no usable publishable key. Do not run the probes -- a 401 now means nothing."; KEY= ;;
+esac
 REF=klrlpxysjsjpdkeqdhvl
 
 # 1. Asking for the `app` schema must be refused with PGRST106, BEFORE any
 #    policy is consulted. This is the boundary; RLS is the second line.
 curl -s "https://$REF.supabase.co/rest/v1/facility?select=*" \
-  -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Accept-Profile: app"
+  -H "apikey: ${KEY:?no key -- refusing to probe}" -H "Authorization: Bearer ${KEY:?no key -- refusing to probe}" -H "Accept-Profile: app"
 
 # 2. And by bare name, in case `app` ever reaches extra_search_path.
+#    "No 200 for any name" only means something if check 1 above returned
+#    exactly 406 / PGRST106 in THIS shell. A dead key produces "no 200" too.
 for t in facility ward_status audit_log facility_contact schema_migrations; do
   printf '%s -> ' "$t"
   curl -s -o /dev/null -w '%{http_code}\n' "https://$REF.supabase.co/rest/v1/$t?select=*" \
-    -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+    -H "apikey: ${KEY:?no key -- refusing to probe}" -H "Authorization: Bearer ${KEY:?no key -- refusing to probe}"
 done
 ```
 
