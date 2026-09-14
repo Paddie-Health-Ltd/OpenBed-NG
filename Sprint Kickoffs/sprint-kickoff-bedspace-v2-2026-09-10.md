@@ -468,10 +468,10 @@ Four. None blocks the start of Stage 0.
 
 **Stage 1's schema was always more than an index.** None of `public.publish_ward_status`, `app.regenerate_snapshot` or `public.snapshot_current` exists in migrations 001–013. `app.system_heartbeat` (004) has `last_sweep_at` and no `last_snapshot_at`, which the generator this kickoff specifies writes.
 
-**(a) Founder ruling: 014 is the write path; the snapshot is 015.** Three reasons:
+**(a) Founder ruling: 014 is the write path; the snapshot is 015 — RENUMBERED to 016 later the same day; see *Renumbered* below.** Three reasons:
 1. **The projection writer is where the granularity floor bites.** R1(a) of `Sprint Kickoffs/decision-2026-09-14-public-private-split.md` says a floor is a projection-writer change. Keeping the snapshot out of 014 lets the floor be decided before 015 without reopening a migration already applied to a production database.
 2. **The write path is independently testable.** `publish-count` and `ward-republishes` are golden-path steps that need no snapshot.
-3. **A smaller applied migration has a smaller blast radius** — and 015 carries its own schema change anyway, `last_snapshot_at`.
+3. **A smaller applied migration has a smaller blast radius** — and the snapshot migration (now 016) carries its own schema change anyway, `last_snapshot_at`.
 
 **(b) Founder ruling: the return contract carries two facts, and no field serves both.** The signature above returned `bed_count`, `accepting_effective` and `gated_by` as one row. 014 returns the ward's claim (`claim_offering`, `claim_bed_count`, `claim_accepting`) and the public view (`public_listed`, `public_bed_count`, `public_accepting_effective`, `public_gated_by`) as separately named fields.
 - **The reason is F1.** The claim and the effective value are different values in this schema; the gate derives at read time and only reduces. A nurse told one number can believe she is advertising beds she is not.
@@ -479,9 +479,25 @@ Four. None blocks the start of Stage 0.
 - **`public_listed` exists because absence is a value.** A quiet or inactive facility has no `ward_public` row, and `bed_count` NULL already means "never reported".
 - **The derivation is the implementer's proposal, for the founder's review.** The public fields are read back from `public.ward_public` in the same transaction. The 008 triggers are not deferred, so the read is not stale, and recomputing would duplicate the projection's composition and visibility rules. `tests/db/publish_ward_status.test.ts` proves it, including a planted floor that reaches `public_bed_count` with no change to the function.
 
-**Found while building, 2026-09-14: the parameters are `text`, not `app` enums.** 001's revoke wall gives `authenticated` no USAGE on schema `app`, and PostgREST's RPC query names each parameter's type. The golden path's publish steps were refused with `42501 permission denied for schema app` until the category, offering and reason parameters became `text`, cast inside the function. An unknown value is refused as `INVALID_ARGUMENT`, naming the parameter. The same defect is live in 011's `public.ward_status_history(p_category app.ward_category, …)`, which no client has yet called over HTTP. It is recorded here and not fixed in 014.
+**Found while building, 2026-09-14: the parameters are `text`, not `app` enums.** 001's revoke wall gives `authenticated` no USAGE on schema `app`, and PostgREST's RPC query names each parameter's type. The golden path's publish steps were refused with `42501 permission denied for schema app` until the category, offering and reason parameters became `text`, cast inside the function. An unknown value is refused as `INVALID_ARGUMENT`, naming the parameter. The same defect is live in 011's `public.ward_status_history(p_category app.ward_category, …)`, which no client has yet called over HTTP. It was fixed in migration 015, by founder ruling later the same day; see *Renumbered* below.
 
 **(c) Founder ruling: runbook step 5's stop condition names files, not a count**, in the same change that made "exactly 13 pending" wrong. The migration-window rule above already prescribed naming files.
+
+### Renumbered — recorded 2026-09-14, later: 015 is the 011 repair, and the snapshot is 016
+
+**Migration 015 is `015_ward_status_history_text_category.sql`; the snapshot migration is 016.** Founder ruling: 011's `public.ward_status_history` has the defect 014 found — an `app`-typed parameter that no client can pass through PostgREST — so it is fixed now, in the same pull request as 014, rather than carried forward. Every earlier "the snapshot is 015", in this document and elsewhere, is superseded by this line.
+
+**The parameter-type rulings, with their reasons corrected:**
+- **`text` parameters, cast inside the function: APPROVED.** The diagnosis was observed (42501 on the golden path), not inferred.
+- **Granting USAGE on `app` to `authenticated`: rejected.**
+  - The ruling's own reason was that schema USAGE is the only barrier to calling projection internals. Checked against the catalogue, it is one of two barriers: `authenticated` also holds EXECUTE on none of `app`'s functions, and `app.project_facility` has PUBLIC revoked (008, and again 013).
+  - So granting USAGE removes one of two layers. The per-function layer protects only functions whose EXECUTE was revoked explicitly, or that the migrating role created under 001's default privileges.
+- **Moving the enums to `public`: rejected — but not because it would edit applied migrations.** That reason was wrong: `ALTER TYPE … SET SCHEMA`, in a new migration, moves a type.
+  - It loses because `public` is the exposed schema.
+  - Observed 2026-09-14: anon's PostgREST OpenAPI document already carries `ward_category` values, through `ward_public`'s typed columns, while `zero_reason` and `app_role` values appear nowhere in it. What a moved type would add was not measured.
+- **The write-path derivation (read back from `ward_public`) and the implementer's five decisions: ACCEPTED, with condition G** — a replay is named in the response.
+
+**The gating conditions A–I for that pull request are recorded in `Sprint Kickoffs/decision-2026-09-14-public-private-split.md`, not copied here.**
 
 ## Supporting docs
 

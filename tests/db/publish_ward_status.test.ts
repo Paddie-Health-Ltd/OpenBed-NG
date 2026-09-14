@@ -95,6 +95,7 @@ function claims(sub: string, sessionId: string = randomUUID()): Record<string, u
 interface Contract {
   version: number;
   updated_at: Date;
+  replayed: boolean;
   claim_offering: string;
   claim_bed_count: number | null;
   claim_accepting: boolean;
@@ -192,6 +193,7 @@ describe('publish_ward_status — the write path', () => {
     );
 
     expect(out.c.version, 'the first publish did not move version from 1 to 2').toBe(2);
+    expect(out.c.replayed, 'a fresh publish was reported as a replay').toBe(false);
     expect(out.c.claim_bed_count, 'the claim was not returned as recorded').toBe(4);
     expect(out.c.claim_accepting).toBe(true);
     expect(out.c.claim_offering).toBe('OFFERED');
@@ -240,6 +242,15 @@ describe('publish_ward_status — the write path', () => {
     expect(r.message).toContain('INVALID_ARGUMENT');
     expect(r.code).toBe('P0001');
     expect(r.detail, 'the refusal did not name the parameter').toBe(param);
+  });
+
+  test.each([
+    ['lower-cased', 'maternity'],
+    ['space-padded', ' MATERNITY'],
+  ] as const)('a %s category is rejected with INVALID_ARGUMENT — the function accepts exactly what the enum accepts, with no normalisation', async (_label, category) => {
+    const r = await refusal(withRole('authenticated', claims(U_MATERNITY), (tx) => publish(tx, { category }), seed));
+    expect(r.message).toContain('INVALID_ARGUMENT');
+    expect(r.detail).toBe('p_category');
   });
 
   test('ward staff publish to another category is rejected with WARD_SCOPE_DENIED', async () => {
@@ -356,7 +367,11 @@ describe('publish_ward_status — the write path', () => {
       },
       seed,
     );
-    expect(out.second, 'a replay returned a different payload').toEqual(out.first);
+    // Condition G: a replay is NAMED. version alone cannot distinguish it -- an
+    // immediate retry returns the same version the original call returned.
+    expect(out.first.replayed, 'a fresh publish was reported as a replay').toBe(false);
+    expect(out.second.replayed, 'a replay was not named as one in the response').toBe(true);
+    expect({ ...out.second, replayed: false }, 'a replay returned different state').toEqual(out.first);
     expect(out.counts, 'a replay wrote a second event, a second audit row, or bumped version twice').toEqual({ events: 1, audits: 1, version: 2 });
   });
 
@@ -469,7 +484,7 @@ describe('publish_ward_status — the write path', () => {
     );
     expect(appTyped?.n, 'a parameter is typed in schema app, which no client can name').toBe(0);
     expect(row?.result).toBe(
-      'TABLE(version integer, updated_at timestamp with time zone, claim_offering app.ward_offering, claim_bed_count integer, ' +
+      'TABLE(version integer, updated_at timestamp with time zone, replayed boolean, claim_offering app.ward_offering, claim_bed_count integer, ' +
         'claim_accepting boolean, public_listed boolean, public_bed_count integer, public_accepting_effective boolean, ' +
         'public_gated_by app.gate_reason)',
     );

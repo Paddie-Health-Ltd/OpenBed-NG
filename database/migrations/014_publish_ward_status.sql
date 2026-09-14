@@ -3,10 +3,11 @@
 -- ============================================================
 -- Stage 1. The write path: public.publish_ward_status() and the idempotency
 -- index it relies on. The snapshot (snapshot_current, regenerate_snapshot, the
--- heartbeat's last_snapshot_at) is 015, not this file -- founder ruling
+-- heartbeat's last_snapshot_at) is 016, not this file -- founder ruling
 -- 2026-09-14, recorded with its reasons in the dated "Superseded" section of
 -- the v2 sprint kickoff, which is where the kickoff's own "014 is one index"
--- is corrected.
+-- is corrected. The snapshot was numbered 015 until later the same day, when 015
+-- became the repair of 011's ward_status_history.
 --
 -- Empirical state at base: 001-013 applied. publish_ward_status,
 -- regenerate_snapshot and snapshot_current exist in none of them;
@@ -31,6 +32,11 @@
 --     accepting AND gate IS NULL) and its VISIBILITY rule (active and not quiet).
 --     The gate itself is already single; those two are not, and a floor added to
 --     the projection writer would never reach a recomputation.
+--   - A REPLAY IS NAMED IN THE RESPONSE (condition G, 2026-09-14). replayed is
+--     true when this client_mutation_id was already recorded for the ward and
+--     nothing was written; the state returned is current either way. version
+--     alone cannot say which: an immediate retry returns the same version the
+--     original call returned.
 --   - ABSENCE IS A VALUE. A quiet or inactive facility has NO ward_public row --
 --     the projection deletes it. public_listed = false says so. bed_count NULL
 --     cannot, because NULL already means "never reported".
@@ -43,7 +49,15 @@
 -- "permission denied for schema app". Result columns typed app.* are fine --
 -- my_facility_wards() returns them over HTTP. So the enums are cast INSIDE this
 -- definer function, and an unknown value is refused as INVALID_ARGUMENT naming
--- the parameter. Granting USAGE on app instead would dismantle the revoke wall.
+-- the parameter.
+--   - Granting USAGE on app instead was rejected (founder ruling, 2026-09-14): it
+--     removes one of the two layers -- schema USAGE and per-function EXECUTE --
+--     that keep authenticated out of app's internals, app.project_facility
+--     included.
+--   - THE REFUSAL COMES FROM THE CAST AND NOTHING ELSE (condition A): no value
+--     list in this body, no upper, lower or trim. The enum is the single source
+--     of truth, and the function accepts exactly what the enum accepts. The btrim
+--     below is on client_mutation_id, which is not an enum.
 --
 -- ORDER OF CHECKS, and why it is this order:
 --   1. identity: NOT_AUTHENTICATED / NOT_A_MEMBER / ACCOUNT_DEACTIVATED
@@ -129,6 +143,7 @@ CREATE OR REPLACE FUNCTION public.publish_ward_status(
 RETURNS TABLE (
     version                    integer,
     updated_at                 timestamptz,
+    replayed                   boolean,
     claim_offering             app.ward_offering,
     claim_bed_count            integer,
     claim_accepting            boolean,
@@ -154,6 +169,7 @@ DECLARE
     v_session       uuid;
     v_ws            app.ward_status%ROWTYPE;
     v_new           app.ward_status%ROWTYPE;
+    v_replayed      boolean := true;
 BEGIN
     -- 1. Identity.
     v_uid := auth.uid();
@@ -232,6 +248,7 @@ BEGIN
          WHERE e.ward_status_id     = v_ws.id
            AND e.client_mutation_id = p_client_mutation_id
     ) THEN
+        v_replayed := false;
         -- 7. The rules.
         IF p_composed_at > now() + interval '30 seconds' THEN
             RAISE EXCEPTION 'FUTURE_MUTATION' USING ERRCODE = 'P0001';
@@ -284,6 +301,7 @@ BEGIN
     RETURN QUERY
     SELECT ws.version,
            ws.updated_at,
+           v_replayed,
            ws.offering,
            ws.bed_count,
            ws.accepting,

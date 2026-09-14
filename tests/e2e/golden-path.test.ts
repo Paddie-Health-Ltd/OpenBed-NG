@@ -71,6 +71,7 @@ const RUN = Date.now().toString(36);
 /** publish_ward_status's result row (014): the ward's claim and the public view, never one field for both. */
 interface PublishContract {
   version?: number;
+  replayed?: boolean;
   claim_bed_count?: number | null;
   claim_accepting?: boolean;
   public_listed?: boolean;
@@ -182,6 +183,7 @@ describe('golden path — release gate 2', () => {
     const row = rows[0];
     expect(row, 'publish returned no row').toBeDefined();
     expect(row?.version, 'publish did not return an incremented version').toBe(2);
+    expect(row?.replayed, 'a fresh publish was reported as a replay').toBe(false);
     // TWO FACTS, NEVER ONE FIELD FOR BOTH (founder ruling, 2026-09-14): what the
     // ward claimed, and what the public sees -- the latter read back from the
     // same projection the dashboard reads.
@@ -211,6 +213,7 @@ describe('golden path — release gate 2', () => {
     expect(res.status, `the second publish failed: ${JSON.stringify(res.body)}`).toBe(200);
     const row = (res.body as PublishContract[])[0];
     expect(row?.version, 'the second publish did not increment version').toBe(3);
+    expect(row?.replayed, 'a fresh publish was reported as a replay').toBe(false);
     expect(row?.claim_bed_count, 'the second publish did not take').toBe(6);
     expect(row?.public_bed_count, 'the second publish did not reach the public projection').toBe(6);
   });

@@ -77,7 +77,7 @@ Verified this session rather than assumed: hosted project `klrlpxysjsjpdkeqdhvl`
 
 **Stop at `handover-lists-facility-wards`.** The step after it needs `014`.
 
-**4. Stage 1's migration work**, once the apply lands: `014` carrying the `client_mutation_id` unique index, then `publish_ward_status` with its ward-scope check, the symmetric `composed_at` window, and the `session_id ≠ auth.uid()` test against a real GoTrue token — which is the first and only assertion of **CTO condition (2)** anywhere in the codebase.
+**4. Stage 1's migration work** **[SUPERSEDED 2026-09-14 — see the note at the end of this file.]**, once the apply lands: `014` carrying the `client_mutation_id` unique index, then `publish_ward_status` with its ward-scope check, the symmetric `composed_at` window, and the `session_id ≠ auth.uid()` test against a real GoTrue token — which is the first and only assertion of **CTO condition (2)** anywhere in the codebase.
 
 **5. Stages 2–5** per `Sprint Kickoffs/sprint-kickoff-bedspace-v2-2026-09-10.md`, unchanged.
 
@@ -113,3 +113,14 @@ That principle is what turned "one masked leg in one guard" into 86 legs measure
 **Founder-side, non-blocking, carried from the v2 kickoff.** Clause X needs a Nigerian-qualified lawyer before it goes in front of a CMD — two of its eight questions are ripe now: whether a supplier's warranty plus an express no-verification acknowledgement keeps the Operator outside controllership, and what actually binds a Lagos State public tertiary hospital, since that determines whether `agreement_accepted_at` evidences anything. Separately: the NDPC registration threshold question has been asked of nobody, and the public dashboard still has no privacy notice — half a day of writing, and the first artefact a hospital's legal officer asks for.
 
 **Named exception, not a silent ticket.** The four clinician questions are unanswered and time-boxed at two days. Everything landed stands either way: both ward-category corrections have the cheap-if-wrong asymmetry, because recovery is `ALTER TYPE ... ADD VALUE`, the one enum operation that survives a live ledger. **Hesitation on the ICU split blocks; the other three do not.**
+
+---
+
+## Superseded — recorded 2026-09-14
+
+Item 4 above described `014` as the `client_mutation_id` index followed by `publish_ward_status`. As built and ruled on 2026-09-14:
+- **014 is the write path:** `publish_ward_status`, with the index.
+- **015 repairs 011's `ward_status_history`:** a `text` category, because no client can pass an `app`-typed parameter through PostgREST.
+- **The snapshot is 016.**
+
+The reasons are recorded in the dated sections at the end of `Sprint Kickoffs/sprint-kickoff-bedspace-v2-2026-09-10.md`. This handoff is otherwise left as written.
