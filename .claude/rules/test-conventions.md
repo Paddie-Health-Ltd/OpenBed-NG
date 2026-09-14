@@ -510,6 +510,53 @@ fallback — and now a guard whose verdict did not come from an executed check.
 defence is always the same: name the exact condition that means pass, and make
 every other outcome loud.
 
+### Invented here: a reason given for an instruction is a premise — verify it before acting on it (2026-09-14)
+
+**When an instruction arrives with a reason, the reason is checked before the
+instruction is acted on.** A reason of this kind is anything the instruction
+rests on: a line number, a step or section it names, a mechanism, a claim about
+what a file contains, a count. **When the reason does not hold, say so
+explicitly — even when the instruction survives on other grounds — and record
+the reason that actually holds.**
+
+**Why this is a rule and not a courtesy.** A right instruction resting on a false
+premise is luck. It stops being lucky the moment the premise becomes
+load-bearing, because the next decision reuses the *reason*, not the
+instruction. This is Clause 5's failure mode applied to instructions: a
+justification that is present and does not reach.
+
+**Six instances on 2026-09-14 alone**, described by shape, not by who gave them:
+
+1. A fix to ten runbook lines, justified by the lines being in a step that
+   contained no shell blocks at all.
+2. A rule to unset a credential, aimed at an export that did not exist.
+3. A causal story for why a defect missed a run — for a defect written after
+   that run.
+4. A ruling that would have silently reversed a recorded `noindex` its author
+   did not know about.
+5. A withholding mechanism the schema does not provide.
+6. A citation to an "existing" list that did not exist.
+
+In four of the six, the instruction survived: the first three, and the sixth,
+where the list was created. **In none of them did the stated reason survive.**
+
+**The first premise this rule tested was the one in the instruction that created
+it.** That instruction said five of these had been caught in a day, an uncounted
+assertion about its own author's errors. Recounted under the rule, it is six.
+That matters more than the six instances: it shows the rule does not depend on
+the person applying it being the careful one.
+
+**How to apply:**
+- Read the cited line or section. Check the mechanism against the artefact.
+  Recount any count.
+- An "it is not there" finding gets §8's read-the-lines discipline and a
+  known-present control, like any other absence.
+- Report the mismatch before acting or alongside the action, never silently.
+- **Do not loosen a rule because its stated reason failed.** Find the reason
+  that actually holds and write that one down instead.
+
+A human rule. It cites no enforcement artefact, and none exists (Clause 4).
+
 Conventions deliberately **not** ported, so nobody re-derives them by accident:
 
 - The `requires_real_db` fixture gating: here, a `db` test that cannot reach the
