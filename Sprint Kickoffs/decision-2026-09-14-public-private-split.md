@@ -3,6 +3,13 @@
 _Founder rulings, relayed 2026-09-14. Documents only: no schema, no code, no
 projection change. Migration 014 stays on hold._
 
+_**Later on 2026-09-14: the hold on migration 014 was RELEASED** by founder
+ruling. The hold existed so the runbook could be closed against the hosted
+project, and everything within the project's control is now closed. Step 9's
+remainder is blocked by a vendor email rate limit, which 014 does not touch (see
+step 9 of `docs/runbook-supabase-project-creation.md`). The lines above and under
+"Does not change" that record the hold are kept as written._
+
 _**This file is the single record of these decisions.** Point to it; do not copy
 it. Two copies of a decision drift._
 
@@ -66,6 +73,34 @@ unsupported**, and are recorded as such rather than kept:
 - that he ran a chat version rather than the document's;
 - the implementer's own inference, in #18's body and since corrected there,
   that his five 404s implied a shell other than default zsh.
+
+**(iv) The credential rule's author broke it the same day.**
+- Step P's rule — *every block that reads a credential removes it again* — was
+  ruled on 2026-09-14 and reached `main` at 09:48 (`0a06132`, #18).
+- Later that day, the step 9 verify block handed to the founder read a link
+  token into `TOKEN`. It also left a live access token and refresh token in
+  `BODY`, with no `unset`. The founder ran it as written.
+- As worded that morning, the rule named only the personal access token and the
+  database connection string, so **the block broke the rule's purpose, not its
+  letter.** #21 added `unset TOKEN BODY` to the block, and link and session tokens
+  to the rule's scope.
+- **Why it is kept:** the rule's own author violated it within hours of writing
+  it. That is the strongest available argument that a rule of this kind must be
+  structural — checked on every block — rather than remembered by whoever writes
+  the next one.
+
+**(v) The implementer searched where it should have read.**
+- While planning #21, the implementer stated that no tracked file recorded the
+  hold on migration 014.
+- **This record held it, at lines 4 and 343** (as of `39c3f03`).
+- The search was `git grep -E '\b014\b'`. POSIX extended regular expressions have
+  no `\b` word boundary, so on the machine used (Apple git 2.54) it matched
+  nothing. The same pattern with `-P` finds 10 lines.
+- An absence was asserted from a count, without reading the lines and without a
+  known-present control. That is the exact shape §8 of
+  `.claude/rules/test-conventions.md` forbids.
+- **It is recorded beside the founder's entries because §8 is about premises, not
+  about who holds them.**
 
 ---
 
@@ -268,7 +303,7 @@ entry points to its source; nothing is copied.**
 | Processor | What it processes | Outstanding | Source |
 |---|---|---|---|
 | Cloudflare | Every public visitor's IP, at the edge for `openbed.ng` | s.29 written agreement; s.41 transfer basis; retention | R3, this record |
-| Email provider(s) | Magic-link and escalation mail | As recorded at the source | v2:322; clauseX:123 |
+| Email provider(s): **custom SMTP and its written processor agreement, ONE item** | Magic-link and escalation mail | **A prerequisite for facility one** (2026-09-14). Custom SMTP must be configured, AND the NDPA s.29 written processor agreement executed with whichever provider it uses. They are one item because whatever sends the links is the processor (v2:323), so configuring the sender is choosing the processor. The built-in sender returned HTTP 429 on the fourth OTP request of a single sitting, so it cannot carry even the runbook's own verification procedure. The s.41 transfer basis and log retention are as recorded at clauseX:123 | Runbook step 9, run on 2026-09-14 (`docs/runbook-supabase-project-creation.md`); v2:322/323; clauseX:123 |
 
 ---
 
@@ -341,3 +376,4 @@ consent basis exists anywhere in this system (clauseX:96).
 - the snapshot and caching design (R2);
 - any schema, projection, code or test;
 - the hold on migration 014.
+  - _Released later on 2026-09-14; see the note at the top of this record._
