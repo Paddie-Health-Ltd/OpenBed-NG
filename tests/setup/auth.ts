@@ -48,10 +48,13 @@ import { sql } from './db.js';
  *      "magiclink"; a new one yields "signup"; the harness does not care which.
  *
  * NOT ASSERTED HERE, deliberately: hosted magic-link single-use. Local GoTrue is
- * pinned by the Supabase CLI; hosted auth is upgraded by Supabase out-of-band and
- * is not that version. docs/runbook-supabase-project-creation.md step 9 (headed
- * "was §5b", because that runbook was renumbered into execution order on
- * 2026-09-11) is the only control over the hosted property and stays open.
+ * pinned by the Supabase CLI; Supabase can upgrade hosted auth at any time, without
+ * notice. On 2026-09-14 hosted reported the same v2.196.0 -- a snapshot the next
+ * hosted upgrade silently invalidates, so it discharges nothing.
+ * docs/runbook-supabase-project-creation.md step 9 (headed "was §5b", because that
+ * runbook was renumbered into execution order on 2026-09-11) is the only control
+ * over the hosted property. It is partly closed: hosted signup-type single use is
+ * proved; magiclink single use and real-time expiry remain open.
  */
 
 export interface MintedLink {

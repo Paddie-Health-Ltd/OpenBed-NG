@@ -42,8 +42,9 @@ import { sql } from '../setup/db.js';
  *     whose recorded age exceeds `timebox` / `inactivity_timeout`. Waiting a
  *     day in CI is not a trade anyone should take.
  *   - That the hosted GoTrue behaves as the local one does. Local GoTrue is
- *     pinned by the Supabase CLI; hosted auth is upgraded by Supabase
- *     out-of-band and is not that version. That asymmetry is a runbook step.
+ *     pinned by the Supabase CLI; Supabase can upgrade hosted auth at any time,
+ *     without notice. On 2026-09-14 hosted reported the same v2.196.0 -- a
+ *     snapshot, not a guarantee. That asymmetry is a runbook step.
  */
 
 const EMAIL = `refresh-probe-${Date.now()}@ward.invalid`;

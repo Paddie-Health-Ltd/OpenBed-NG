@@ -39,7 +39,7 @@ kickoff is a historical record that does not get rewritten.
 | 6 | Verify the boundary by hand *(was §4)* | Its own text: run immediately after the apply. |
 | 7 | Postgres version, recorded *(was §4b)* | Recorded alongside the apply. |
 | 8 | Append-only on the hosted role graph *(was §5)* | Needs the migrations applied. |
-| 9 | Magic-link single-use *(was §5b)* | Needs hosted auth reachable; independent of the tables. |
+| 9 | Magic-link single-use *(was §5b)* | Needs hosted auth reachable; independent of the tables. **Partly closed 2026-09-14**; the remainder needs custom SMTP. |
 | 10 | Realtime publication *(was §6)* | The publication is created by the migrations. |
 | 11 | Keys *(was §7)* | Storage hygiene; no dependency, last because nothing waits on it. |
 
@@ -114,7 +114,8 @@ block look safe to add back.
 ### Every block that reads a credential removes it again
 
 A block that reads a secret into the shell -- the Supabase personal access
-token, or the database connection string -- **ends with `unset`**, and each
+token, the database connection string, or a link or session token (step 9) --
+**ends with `unset`**, and each
 block that needs one reads it itself rather than inheriting it from an earlier
 step. A credential left exported lives for the rest of the terminal session, and
 a personal access token outranks `service_role`.
@@ -141,7 +142,9 @@ never in the same bash block.
   block changes hosted state.**
 - Checked on 2026-09-14 against every stop condition in both runbooks: step P's
   `psql --version`, step 5's dry run, step 2's probe and step 6's two key guards
-  all comply.
+  all comply. Step 9's key guard, added later the same day, complies too: its
+  only other command is a read-only GET, and the link request and the verify
+  are separate blocks.
 
 ---
 
@@ -510,8 +513,11 @@ refresh round trip per hour of use; it has not been done, and the number is
 written here so the decision is made with it rather than around it.
 
 **Covered by tests: the local-integration leg only, against GoTrue v2.196.0.**
-The hosted setting is a dashboard value with no in-database representation, and
-hosted auth is upgraded by Supabase out-of-band and is not that version.
+The hosted setting is a dashboard value with no in-database representation.
+Supabase can upgrade hosted auth at any time and without notice, while the CLI
+pins the local version. On 2026-09-14 hosted reported the same v2.196.0 (step 9).
+That is a snapshot the next hosted upgrade silently invalidates, and it says
+nothing about the hosted session-bound **values**, which remain this step's.
 
 ---
 
@@ -1012,16 +1018,159 @@ establishes. The Self-Check Protocol already requires that every Postgres featur
 behave as claimed *in the version Supabase actually runs* rather than as inferred;
 the same discipline applies to hosted auth.
 
-Verify once, empirically, on the hosted project:
+Verified empirically on the hosted project **on 2026-09-14, project
+`klrlpxysjsjpdkeqdhvl`, hosted GoTrue v2.196.0. The step is partly closed.** What
+remains is blocked by the built-in email sender's rate limit, not by a failure.
 
-1. Invite a test ward account and capture the magic link.
-2. Consume it. Confirm a session is issued.
-3. **Consume the same link a second time.** It must be refused.
-4. Let a second link expire, then attempt it. It must be refused.
+- [x] A **signup-type** link cannot be consumed twice: 200, then 403
+      `otp_expired`. The positive control ran immediately before the refusal,
+      in the same shell, so the refusal cannot be a malformed call.
+- [ ] A **magiclink-type** link cannot be consumed twice. Not run: the rate
+      limit ended the sitting.
+- [ ] An expired link is refused **on real time alone**. Not proved; see the
+      near-miss below.
+- [x] Recorded: the Supabase auth version these were observed against,
+      **v2.196.0**
 
-- [ ] A magic link cannot be consumed twice
-- [ ] An expired magic link is refused
-- [ ] Recorded: the Supabase auth version these were observed against
+### The two link types, and what actually decides between them
+
+The emailed link carries a `type`, and the verify body must echo it: GoTrue
+looks a `signup` token up by the account's confirmation token and a `magiclink`
+token by its recovery token, so the wrong type finds nothing.
+
+**The account decides the type, not the request.** An address GoTrue has never
+seen, or one whose email is not yet confirmed, is sent a `signup` link. A
+confirmed account is sent a `magiclink` link. `create_user` does not choose
+between them: it defaults to `true`, so omitting it sends the same request, and
+`false` only refuses an address GoTrue does not know. This was read in the GoTrue
+v2.196.0 source (supabase/auth, internal/api/otp.go and
+internal/api/magic_link.go) on 2026-09-14, and matches what the local harness
+recorded in `tests/setup/auth.ts`.
+
+With Confirm email on, the first request for a new address therefore yields
+`signup`, and every request after that link has been consumed yields
+`magiclink`.
+
+### The commands, as run on 2026-09-14
+
+Step P first. The first block is the key guard, and it must print `KEY OK`. Its
+only other command is a read-only GET, so it complies with step P's
+stop-condition rule.
+
+```bash
+KEY="$(bash scripts/get_publishable_key.sh)" || KEY=
+case "$KEY" in
+  sb_publishable_?*) echo "KEY OK" ;;
+  *) echo "STOP: no usable publishable key." ; KEY= ;;
+esac
+REF=klrlpxysjsjpdkeqdhvl
+curl -s "https://$REF.supabase.co/auth/v1/health" -H "apikey: ${KEY:?no key}"
+```
+
+Observed:
+
+```text
+{"version":"v2.196.0","name":"GoTrue","description":"GoTrue is a user registration and authentication API"}
+```
+
+The next block requests a link. It changes hosted state: it creates the account
+if absent and sends an email. So it is its own block, run only after the block
+above printed `KEY OK`.
+
+```bash
+curl -s -X POST "https://$REF.supabase.co/auth/v1/otp" \
+  -H "apikey: ${KEY:?no key}" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"security@openbed.ng","create_user":true}' \
+  -w '\nHTTP %{http_code}\n'
+```
+
+Observed: `{}` and `HTTP 200`. The emailed link had this shape:
+
+```text
+https://<ref>.supabase.co/auth/v1/verify?token=<TOKEN>&type=signup&redirect_to=http://localhost:3000
+```
+
+The next block consumes the link at the public endpoint with the publishable
+key. It mirrors `verifyToken` in `tests/setup/auth.ts`, and this is the only leg
+single use lives in. At the silent prompt, paste the `token` value from the link.
+To test a second use, run the block again and paste the same value.
+
+Four properties of it are deliberate; keep all four:
+
+1. **The token reaches curl on stdin, through `printf`.** `printf` is a shell
+   builtin, so the token never becomes a process argument that the process list
+   can show. Steps 1 and 4 still have that exposure; see step P.
+2. **`read -rs`**, so the token is neither echoed nor kept in history.
+3. **The response is filtered.** A successful verify returns a live access token
+   and refresh token. The `jq` reduces the response to a summary, so no session
+   credential reaches the terminal or a transcript.
+4. **It ends with `unset TOKEN BODY`.** That line was added after the run, under
+   step P's credential rule: until it runs, `BODY` holds the live session.
+
+```bash
+read -rs TOKEN
+BODY="$(printf '{"type":"signup","token_hash":"%s"}' "${TOKEN:?no token}" | \
+  curl -s -X POST "https://$REF.supabase.co/auth/v1/verify" \
+    -H "apikey: ${KEY:?no key}" -H "Content-Type: application/json" \
+    --data-binary @- -w '\n%{http_code}')"
+echo "$BODY" | tail -1
+echo "$BODY" | sed '$d' | jq -c 'if .access_token then {result:"SESSION ISSUED", token_type, expires_in, email:.user.email} else . end'
+unset TOKEN BODY
+```
+
+Observed:
+
+```text
+first use    200
+             {"result":"SESSION ISSUED","token_type":"bearer","expires_in":3600,"email":"security@openbed.ng"}
+same token   403
+             {"code":403,"error_code":"otp_expired","msg":"Email link is invalid or has expired"}
+```
+
+### Why real-time expiry is NOT proved: the near-miss
+
+A `magiclink` token did return 403 after more than 120 seconds, and that looks
+like the result. **It is not one.** No `magiclink` verify had returned 200 in that
+shell, so the refusal was equally consistent with a wrong request shape for that
+type.
+
+GoTrue cannot tell those apart for you. In v2.196.0 (supabase/auth,
+internal/api/verify.go), any token its lookup cannot find returns the identical
+403 `otp_expired`, "Email link is invalid or has expired", that a genuinely
+expired token returns. That covers the wrong type, an already-consumed token and
+a token that was never issued. **Without a 200 for the same type first, the 403
+has no discriminating power.** It is the dead-key 401 (the fallback entry in §8
+of `.claude/rules/test-conventions.md`) and step 8's empty-table no-op in a third
+costume. It is recorded as a data point, not a pass.
+
+Signup single use is proved precisely because it has that 200.
+
+### Expiry is a dashboard value, and restoring it is part of the procedure
+
+The setting is the dashboard field **Email OTP Expiration**, in seconds. No API
+call was used.
+- Observed at 3600, set to 120, then 300, for the attempt, and **restored to 3600
+  by the founder.** The project's value is 3600.
+- Lowering it changes production auth, so restoring it is a step of this
+  procedure, not an afterthought. It is also the **last** step, for the reason
+  given in the closing procedure below.
+
+### Rate limit and Site URL, observed
+
+- **HTTP 429 on the fourth OTP request of the sitting.** The count is what makes
+  "the built-in sender cannot support this procedure" a measurement rather than an
+  impression. That makes custom SMTP a prerequisite for facility one. It is
+  recorded **once**, as one item with the email provider's written processor
+  agreement, in the open processor obligations of
+  `Sprint Kickoffs/decision-2026-09-14-public-private-split.md`. Point to it there;
+  do not restate it here.
+- **`redirect_to=http://localhost:3000` in both links examined.** That is the
+  Supabase default Site URL. A ward clicking a real link today would be sent to
+  their own machine. See the Site URL row of the un-automatable table at the end
+  of this runbook.
+
+### Hosted and local ran the same GoTrue on 2026-09-14: a snapshot, not a discharge
 
 **Covered by tests: the local-integration leg only, against GoTrue v2.196.0**
 (the build shipped by Supabase CLI 2.117.0, printed by the `golden-path` job on
@@ -1030,12 +1179,17 @@ through the admin API, consumes it at the public `POST /auth/v1/verify`, and
 asserts that a second use and an expired link are both refused with HTTP 403
 `otp_expired`.
 
-**The hosted vendor property remains uncovered, and this checkbox is still the
-only control over it.** Supabase upgrades hosted auth out-of-band, so the hosted
-GoTrue is not the version above and no test in this repository can reach it.
+**Supabase can upgrade hosted auth at any time and without notice, while the CLI
+pins the local version.** On 2026-09-14 the two matched: hosted `/auth/v1/health`
+reported v2.196.0. The local single-use and expiry-refusal legs were therefore
+proved against the binary hosted was running that day.
+
+**That does not discharge any box above.** It is a snapshot that the next hosted
+upgrade silently invalidates, and no test in this repository can reach hosted.
+The boxes remain the only control over the hosted property.
 
 Two details that change what the local leg proves, recorded because a reader
-deciding whether this checkbox is still needed will decide from them:
+deciding whether these boxes are still needed will decide from them:
 
 - Expiry is FORCED, by ageing `auth.users.confirmation_sent_at` past
   `otp_expiry`. Established by controlled probe with a positive control -- ageing
@@ -1047,8 +1201,36 @@ deciding whether this checkbox is still needed will decide from them:
   with the anon key. Nothing in the suite mints a session without consuming a
   link.
 
-**Item 3 of the checklist above is therefore discharged for local and open for
-hosted.** Record the hosted auth version here when you run these by hand.
+### How step 9 closes, so nobody re-derives it
+
+**Precondition: custom SMTP is configured** (the email-provider row of the open
+processor obligations in
+`Sprint Kickoffs/decision-2026-09-14-public-private-split.md`). After that it
+takes two emails and about five minutes, using the three blocks above.
+`security@openbed.ng` is now confirmed, so every link it is sent is `magiclink`.
+
+1. Run the key block. It must print `KEY OK`.
+2. Run the link-request block. Check that the emailed link says `type=magiclink`.
+3. Run the verify block with `"type":"magiclink"` in place of `"type":"signup"`.
+   That word is the only change. It must print 200 and `SESSION ISSUED`. **This
+   is the control.**
+4. Run the verify block again with the same token. It must print 403
+   `otp_expired`. Tick the magiclink single-use box.
+5. In the dashboard, lower Email OTP Expiration (2026-09-14 used 120).
+6. Run the link-request block for a second link, then wait past the lowered
+   expiry.
+7. Run the verify block with `"type":"magiclink"` and the second token. It must
+   print 403 `otp_expired`. Tick the expiry box. The 200 in step 3 is what gives
+   this 403 its meaning.
+8. **Only then** restore Email OTP Expiration to 3600, and confirm the dashboard
+   shows 3600.
+   - GoTrue checks expiry **when the link is verified**, against the value
+     configured at that moment (supabase/auth v2.196.0, internal/api/verify.go).
+   - So restoring before step 7 revives the aged link. Step 7 would then print
+     200, a spurious failure produced by the procedure's own ordering.
+
+Record the hosted auth version again when these are run. A change from v2.196.0
+is a finding in its own right.
 
 ---
 
@@ -1133,10 +1315,10 @@ header. These checkboxes are the hosted half.
 |---|---|
 | Region pin | Assertable via the Management API, declined on credential-surface grounds |
 | Hosted exposed-schemas list | A dashboard setting with no in-database representation — **but not unobservable.** Discharged by hand probe on 2026-09-13: the live project's `PGRST106` body carries `hint: "Only the following schemas are exposed: public, graphql_public"` (step 2). No test carries it, because the suite never targets hosted (step 6). `extra_search_path` is a separate setting, discharged by its own single-field probe on 2026-09-13 (step 2): `public, extensions`, the untouched Supabase default |
-| Hosted Auth Site URL and redirect allowlist | A dashboard setting with no in-database representation, the same idiom as the exposed-schemas list. Decided 2026-09-14 (`Sprint Kickoffs/decision-2026-09-14-public-private-split.md`, D2): the Site URL is on `app.openbed.ng`, the allowlist is confined to it, and `openbed.ng` is never an auth redirect target. Record the exact hosted strings here when they are entered. The values in `supabase/config.toml` are local-only |
+| Hosted Auth Site URL and redirect allowlist | A dashboard setting with no in-database representation, the same idiom as the exposed-schemas list. Decided 2026-09-14 (`Sprint Kickoffs/decision-2026-09-14-public-private-split.md`, D2): the Site URL is on `app.openbed.ng`, the allowlist is confined to it, and `openbed.ng` is never an auth redirect target. **Observed 2026-09-14 (step 9): the hosted Site URL is still http://localhost:3000, the Supabase default.** It arrives as `redirect_to` in every link examined, so a ward clicking a real link today is sent to their own machine. It becomes https://app.openbed.ng when the app exists. Record the exact hosted strings here when they are entered. The values in `supabase/config.toml` are local-only |
 | Hosted superuser semantics | The local role graph differs from the hosted one |
 | Hosted auth session bounds (`timebox`, `inactivity_timeout`) | A dashboard setting with no in-database representation. Both bounds ARE proved locally in `tests/db/auth_refresh_live.test.ts`; the hosted values are step 3 |
-| Magic-link single-use and expiry | Enforced by Supabase auth, not by this schema, since `app.invite` no longer holds a token |
+| Magic-link single-use and expiry | Enforced by Supabase auth, not by this schema, since `app.invite` no longer holds a token. Step 9 is the hand check, partly closed on 2026-09-14. Closing it needs custom SMTP, which is recorded once, as the email-provider row of the open processor obligations in `Sprint Kickoffs/decision-2026-09-14-public-private-split.md` |
 | Branch protection and its required-check set | A GitHub setting; reading it in CI needs a token this public repository should not carry |
 | Push protection | A GitHub repository setting; CI runs after the push |
 
