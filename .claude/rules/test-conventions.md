@@ -539,7 +539,12 @@ justification that is present and does not reach.
 
 In four of the six, the instruction survived: the first three, and the sixth,
 where the list was created. **In none of them did the stated reason survive.**
-The count first given for these was five; recounted under this rule, it is six.
+
+**The first premise this rule tested was the one in the instruction that created
+it.** That instruction said five of these had been caught in a day, an uncounted
+assertion about its own author's errors. Recounted under the rule, it is six.
+That matters more than the six instances: it shows the rule does not depend on
+the person applying it being the careful one.
 
 **How to apply:**
 - Read the cited line or section. Check the mechanism against the artefact.
