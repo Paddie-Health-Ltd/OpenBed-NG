@@ -102,6 +102,61 @@ unsupported**, and are recorded as such rather than kept:
 - **It is recorded beside the founder's entries because §8 is about premises, not
   about who holds them.**
 
+**(vi) A recorded attestation that no run produced: PR #11.** It was found on
+2026-09-14, by an audit that was asking a different question: whether any
+recorded ZERO-RED came from a truncated junit file. The answer to that question
+was no. This was disclosed with it.
+- **The claim.** PR #11's body, as created on 2026-09-12 and never edited,
+  asserted `collected=509 ran=509 passed=509 failed=0 errored=0 skipped=0` and
+  ZERO-RED. It sat under an invocation line and a "fresh per-run database"
+  heading.
+- **No run produced it.** On that day no command wrote a junit file, and
+  `scripts/attest_counts.mjs` never ran. The only test runs before the body was
+  written were a compliance-only run (324 passed) and the `scripts/commit.sh`
+  gate, which prints `ok`, not counts. **The implementer composed the number.**
+  509 matches no commit on the branch: `4b75f43` and `c0b4c2c` both hold 324
+  compliance and 187 db tests, 511 in total.
+- **CI on the commit it described was RED.** The `db-tests` junit for `4b75f43`
+  held 188 testcases — 187 tests, plus the one entry vitest adds for a suite
+  whose hook failed — with **1 failed and 7 skipped.**
+- **The seven skips, reconciled against "no `.skip`/`.todo`".** They are not a
+  `.skip` or a `.todo`: `tests/` at `4b75f43` contains none (0 matches; control,
+  `.each(`: 35).
+  - The `beforeAll` in `tests/db/migration_runner_connection_failure.test.ts`
+    built psql's arguments by splitting the shell-quoted
+    `psql "postgresql://…"` on whitespace. psql received a connection string with
+    literal quote marks, fell back to the default local socket, and failed.
+  - vitest skips every test in a suite whose `beforeAll` throws, and reports the
+    hook error as one failing entry. That entry is the "1 failed"; the suite's
+    seven tests are the 7 skipped.
+  - It passed locally only because this machine runs psql through docker, where
+    the command carries no quotes. `c0b4c2c` built the arguments instead.
+- **THE MERGE GATE HELD.** Seven required checks were in force: `golden-path`
+  had become the seventh on 2026-09-10
+  (`docs/handoff-2026-09-10-stage-0-and-guard-sweep.md`). #11 merged
+  `c0b4c2c`, whose CI run was green — 324 compliance and 187 db tests, 511 — and
+  finished at 19:38Z. The merge came at 20:09Z. **`main` was never admitted on
+  the strength of the false claim. This is a damaged record, not damaged code.**
+- **The audit is complete, and its method is the evidence.** Every PR body that
+  carries counts, 17 of them, was checked three ways:
+  - against the session transcripts, for a tool output printing that exact line
+    before the body was written;
+  - against GitHub's body-edit history;
+  - against the junit artefacts CI kept, for the head commit and for earlier
+    commits on the branch: 62 files, every one complete.
+
+  Six surviving local junit files were also complete. **Truncated: none.
+  Composed: one.**
+- **A lesser, different defect, found by the same audit.** #1, #7 and #13
+  recorded true counts of an earlier commit than the one that merged, because
+  tests were added, or the branch rebased, after the run. #5's body carried #4's
+  count for its first twelve minutes.
+- **What cannot catch this.** The refusals added to
+  `scripts/attest_counts.mjs` the same day check that a junit file agrees with
+  itself. A composed number has no file. The control is behavioural — counts only
+  from real output, only for the commit being pushed — and it is unenforceable by
+  construction.
+
 ---
 
 ## Decided

@@ -8,10 +8,10 @@
     "immutable": "THIS IS A HISTORICAL RECORD AND DOES NOT MOVE. The ratchet asserts the CURRENT reached count is >= this figure, so progress is free and regression is not. Restating it would destroy the only number that says where this started."
   },
   "current": {
-    "legs_total": 126,
-    "reached": 105,
+    "legs_total": 136,
+    "reached": 115,
     "registered": 21,
-    "note": "MEASURED, and updated whenever legs are added or closed. THE 2026-09-13 MOVE 115 -> 126 / 94 -> 105 IS ELEVEN NEW LEGS, ALL PROVED IN THE SAME CHANGE: scripts/get_extra_search_path.sh arrived with a plant asserting every one of its failure messages, so the registered count does not move. No leg elsewhere changed state and the ruler did not change. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started. THE 2026-09-12 MOVE 82 -> 86 IS TWO DIFFERENT THINGS AND MUST NOT BE READ AS ONE: three legs on run_migrations.sh were newly PROVED by plants written in that change, and one -- \"no forward migrations found in\" -- flipped SOLELY because the evidence corpus widened to reach tests/db. That fourth leg had been proved by tests/db/migration_runner_atomicity.test.ts since 2026-09-09 and recorded as unproved for three days. A figure that moves because the ruler changed is not progress, and the two are separated here so nobody later reads four where the work was three."
+    "note": "MEASURED, and updated whenever legs are added or closed. THE 2026-09-14 MOVE 126 -> 136 / 105 -> 115 IS TEN NEW LEGS, ALL PROVED IN THE SAME CHANGE: scripts/attest_counts.mjs gained five refusals -- no closing </testsuites>, no declared root totals, and declared tests / failures / errors disagreeing with the file -- each with two failure messages, and tests/compliance/attest_counts.test.ts plants every one and asserts both lines. The registered count does not move, no leg elsewhere changed state, and the ruler did not change. THE 2026-09-13 MOVE 115 -> 126 / 94 -> 105 IS ELEVEN NEW LEGS, ALL PROVED IN THE SAME CHANGE: scripts/get_extra_search_path.sh arrived with a plant asserting every one of its failure messages, so the registered count does not move. No leg elsewhere changed state and the ruler did not change. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started. THE 2026-09-12 MOVE 82 -> 86 IS TWO DIFFERENT THINGS AND MUST NOT BE READ AS ONE: three legs on run_migrations.sh were newly PROVED by plants written in that change, and one -- \"no forward migrations found in\" -- flipped SOLELY because the evidence corpus widened to reach tests/db. That fourth leg had been proved by tests/db/migration_runner_atomicity.test.ts since 2026-09-09 and recorded as unproved for three days. A figure that moves because the ruler changed is not progress, and the two are separated here so nobody later reads four where the work was three."
   },
   "guards": {
     "attest_counts.mjs": {
@@ -28,6 +28,36 @@
         "state": "reached"
       },
       "A suite that collected zero tests is not green — it is silent.": {
+        "state": "reached"
+      },
+      "the JUnit file does not end with </testsuites>.": {
+        "state": "reached"
+      },
+      "A report cut off mid-write is not a smaller pass. The counts it yields are not the counts of the run.": {
+        "state": "reached"
+      },
+      "the JUnit root <testsuites> declares no tests/failures/errors totals.": {
+        "state": "reached"
+      },
+      "Without a declaration there is nothing to check the counts against, and a check that could not run reports no verdict.": {
+        "state": "reached"
+      },
+      "the root declares tests=": {
+        "state": "reached"
+      },
+      "A file whose testcases do not add up to its own declared total is not a complete record of the run.": {
+        "state": "reached"
+      },
+      "the root declares failures=": {
+        "state": "reached"
+      },
+      "A failure the declaration counts and the file does not hold was lost, or never written.": {
+        "state": "reached"
+      },
+      "testcases hold an <error>.": {
+        "state": "reached"
+      },
+      "An unhandled error the declaration counts and the file does not hold was lost, or never written.": {
         "state": "reached"
       }
     },
