@@ -30,6 +30,37 @@
 # list never get endpoints, so a 404 looks the same whether or not app is in it.
 # Reading the setting is the only probe that discriminates.
 #
+# ============================================================
+# THE RESPONSE SHAPE IS NOW CONFIRMED AGAINST A LIVE CALL, 2026-09-13.
+# ============================================================
+# This script was written, tested and merged against a response shape taken from
+# Supabase's documentation, with no live capture -- the precise setup under which
+# scripts/get_publishable_key.sh failed at the first pipe on ITS first
+# execution. Its own first live execution, the founder's, against project
+# klrlpxysjsjpdkeqdhvl on 2026-09-13, succeeded: it printed `public, extensions`
+# and the runbook caller printed PASS. This time the documented shape matched the
+# real response.
+#
+# WHAT THAT CONFIRMS, and nothing wider: ONE response, from ONE project, through
+# ONE CLI-free Management API call. The URL path and the token curl read from
+# stdin were accepted (a 2xx -- --fail did not fire); the body was exactly one
+# JSON object; db_extra_search_path was present, a string, and of the shape the
+# check below accepts.
+#
+# WHAT IT DOES NOT CONFIRM:
+#   - That Supabase will not change the shape. That is why the object check, the
+#     type check and the shape check all stay: they are what turns a future
+#     change into a refusal in this script's own words instead of a wrong value.
+#   - The other five documented fields -- db_schema, max_rows, db_pool,
+#     db_pool_acquisition_timeout and jwt_secret. By design none was read or
+#     printed, so their presence and types remain documentation-derived, and
+#     packages/fixtures/supabase-postgrest-config-response.documented.json keeps
+#     its name because that is still true of its field set.
+#
+# So the tests prove one thing they did not before: the shape they are built on
+# matched the live endpoint for the one field this script reads. They still say
+# nothing about next month's response.
+#
 # CLASSIFICATION (Clause 5): LIVE. Its subject, the hosted project, exists.
 #
 # ============================================================

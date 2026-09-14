@@ -31,8 +31,16 @@ import DOCUMENTED from '../../packages/fixtures/supabase-postgrest-config-respon
  * packages/fixtures/supabase-api-keys-response.redacted.json, which is a
  * founder's redacted capture. packages/fixtures/supabase-postgrest-config-response.documented.json
  * carries the six properties of the OpenAPI schema as read on 2026-09-13, with
- * placeholder values. Nobody has observed a live response from this endpoint;
- * the first real run is the founder's, from runbook step 2.
+ * placeholder values.
+ *
+ * WHAT A LIVE RUN HAS SINCE CONFIRMED, AND WHAT IT HAS NOT. The founder's first
+ * run against the hosted project on 2026-09-13 succeeded: one response, from one
+ * project, was exactly one JSON object whose db_extra_search_path was a string
+ * of the accepted shape. So the part of this fixture the script READS is now
+ * confirmed against a live response. The other five fields, jwt_secret among
+ * them, were never read or printed, by design, and remain documentation-derived
+ * -- which is why the fixture is still named .documented.json. The script's
+ * header records the same split.
  *
  * NOT ASSERTED HERE, deliberately:
  *   - That the live endpoint matches the documented schema. No test can reach
