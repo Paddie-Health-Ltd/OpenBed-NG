@@ -100,9 +100,12 @@ further commands; backticks in it execute; and **an apostrophe in it opens a
 quote that silently swallows every real command after it.** Observed on
 2026-09-14 by pasting each of the 33 comment lines these two runbooks carried
 into `zsh -f -i`, with `interactivecomments` switched on as the counter-control:
-all 33 misbehaved, including an apostrophe that stopped step 6 check (a) 2's
-loop from running at all. Every explanation now sits in the prose above its
-block.
+all 33 misbehaved. **The worst was an apostrophe** — `step 2's`, added in #16
+on 2026-09-13 — that stopped step 6 check (a) 2's loop from running at all:
+**1 curl call where 6 are written**, and a vacuous "no 200". It was live on
+`main` from 2026-09-13 21:28 until #18 removed it at 2026-09-14 09:48, and it
+post-dates the founder's recorded step 6 run. Every explanation now sits in the
+prose above its block.
 
 **Do not "fix" this by turning `interactivecomments` on.** It is a remembered
 step: a new terminal reintroduces every defect, and it makes a comment inside a
@@ -120,6 +123,25 @@ a personal access token outranks `service_role`.
 `$SUPABASE_ACCESS_TOKEN` straight into curl's arguments, where the process list
 can show it, and neither says how the token is set or removed. They are open
 items for the `scripts/` survey, not examples to copy.
+
+### A stop condition and the action it gates never share a fence
+
+**This was the most serious defect #18 fixed — more serious than the comments.**
+Step 5's dry run is a stop condition: exactly `13 migration(s) pending.`, or
+stop. Until 2026-09-14 it sat in the same block as the apply, so pasting that
+block ran the apply immediately after the dry run, before anyone could read the
+count. **The runbook declared a stop condition, and its own formatting defeated
+it.**
+
+**The rule, which is checkable:** a command whose output is a stop condition,
+and a command that acts on the hosted project only if that condition passes, are
+never in the same bash block.
+- A block may still print its own verdict (`STOP`, `PASS`, `FAIL`), as step 2's
+  probe and step 6's key guards do, **provided nothing after the verdict in that
+  block changes hosted state.**
+- Checked on 2026-09-14 against every stop condition in both runbooks: step P's
+  `psql --version`, step 5's dry run, step 2's probe and step 6's two key guards
+  all comply.
 
 ---
 
@@ -1111,6 +1133,7 @@ header. These checkboxes are the hosted half.
 |---|---|
 | Region pin | Assertable via the Management API, declined on credential-surface grounds |
 | Hosted exposed-schemas list | A dashboard setting with no in-database representation — **but not unobservable.** Discharged by hand probe on 2026-09-13: the live project's `PGRST106` body carries `hint: "Only the following schemas are exposed: public, graphql_public"` (step 2). No test carries it, because the suite never targets hosted (step 6). `extra_search_path` is a separate setting, discharged by its own single-field probe on 2026-09-13 (step 2): `public, extensions`, the untouched Supabase default |
+| Hosted Auth Site URL and redirect allowlist | A dashboard setting with no in-database representation, the same idiom as the exposed-schemas list. Decided 2026-09-14 (`Sprint Kickoffs/decision-2026-09-14-public-private-split.md`, D2): the Site URL is on `app.openbed.ng`, the allowlist is confined to it, and `openbed.ng` is never an auth redirect target. Record the exact hosted strings here when they are entered. The values in `supabase/config.toml` are local-only |
 | Hosted superuser semantics | The local role graph differs from the hosted one |
 | Hosted auth session bounds (`timebox`, `inactivity_timeout`) | A dashboard setting with no in-database representation. Both bounds ARE proved locally in `tests/db/auth_refresh_live.test.ts`; the hosted values are step 3 |
 | Magic-link single-use and expiry | Enforced by Supabase auth, not by this schema, since `app.invite` no longer holds a token |
