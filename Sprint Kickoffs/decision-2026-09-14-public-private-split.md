@@ -27,6 +27,46 @@ corrected here rather than restated:
 3. **"The same open list as the email provider DPA"**: no such list existed.
    This record creates it. See the open processor obligations below.
 
+### How these rulings were made — premises that were wrong
+
+These are kept because they are about how rulings in this project get made,
+not only about the rulings above.
+
+**(i) The decisive reason for fixing all ten trailing-comment runbook lines was
+invented.**
+- The reason given, on 2026-09-14, for fixing all ten lines rather than one was
+  that lines 584 and 595 were step 9, the next step the founder would run.
+- **Step 9 contains no bash blocks at all.** Those lines were in step 6.
+- The answer — fix them all — was right, and the reason was not. **A right
+  answer on a false premise is luck, not judgement.**
+- **The real reason:** 23 of the 33 comment lines were full-line comments
+  already broken before that day. Most of those blocks had never been executed,
+  as written, by anyone.
+
+**(ii) The unset rule was aimed at an export that did not exist.**
+- The instruction was to apply it to step 8's `DATABASE_URL` export. **Step 8
+  had no export; it inherited step 5's.**
+- The construction used instead is better than the rule as given, because it
+  does not depend on spotting an export: **each block reads its own credential
+  and ends with `unset`.**
+
+**(iii) A timeline, from git, that corrects two claims.** The apostrophe in
+`step 2's`, inside a comment in runbook step 6 check (a), made that check issue
+**1 curl call where 6 are written** when pasted into default zsh, and report a
+vacuous "no 200".
+- The founder's step 6 results were recorded at 2026-09-13 21:13 (`4e90f36`).
+- The apostrophe was written at 21:24 (`f06c8df`; the comment at `4e90f36` has
+  none) and reached `main` at 21:28 (`d7e711a`, #16).
+- It was removed at 2026-09-14 09:48 (`0398509`, #18).
+
+**So it was a live false negative on `main` for about twelve hours, and it
+post-dates the founder's run.** It could not have caught him, whichever text he
+pasted. **Two explanations offered for why it missed him are therefore
+unsupported**, and are recorded as such rather than kept:
+- that he ran a chat version rather than the document's;
+- the implementer's own inference, in #18's body and since corrected there,
+  that his five 404s implied a shell other than default zsh.
+
 ---
 
 ## Decided
@@ -146,9 +186,7 @@ built, they do not.**
 - A ward can signal that it is not accepting. It cannot, today, do so without
   its number also being public.
 - **Withholding the number while not accepting would itself be a
-  projection-writer change**, and so falls under (a). It is recorded here as
-  the softer instrument available *if* one is wanted, not as something that
-  exists.
+  projection-writer change**, and so falls under (a).
 
 ### R2. Caching — NO CHANGE
 
