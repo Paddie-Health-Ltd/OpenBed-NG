@@ -1128,23 +1128,46 @@ same token   403
              {"code":403,"error_code":"otp_expired","msg":"Email link is invalid or has expired"}
 ```
 
+### A 403 from this endpoint never means one thing, so every 403 here needs a same-type 200
+
+`POST /auth/v1/verify` returns **one** refusal body, 403 `otp_expired` with
+"Email link is invalid or has expired", for four different situations:
+
+- **A token the lookup cannot find.** The `type` chooses which stored token the
+  hash is matched against, so a token verified with the wrong type finds nothing,
+  and so does one that was never issued. GoTrue v2.196.0 (supabase/auth,
+  internal/api/verify.go) returns the body above at line 664.
+- **A token that has aged past Email OTP Expiration.** It is found, judged
+  expired, and gets the same body from a different branch, at line 692.
+- **A token already consumed.** Its refusal was observed on 2026-09-14, above,
+  and the body is the same.
+
+**So on this endpoint a 403 never distinguishes a spent token, a token malformed
+for its type, and an aged one.** That is a property of the endpoint, not a
+judgement about any particular run, and no amount of care in reading the 403
+recovers the difference.
+
+**The only thing that gives any 403 in this step a meaning is a 200 at the same
+type, first, in the same shell.** The 200 establishes that the key, the request
+shape and the type are right. Only then can a later 403 be attributed to the
+property under test. That governs every 403 in this step: the signup single-use
+result above, and steps 4 and 7 of the closing procedure below. **A 403 without
+its same-type 200 is not a weak result. It is no result.**
+
 ### Why real-time expiry is NOT proved: the near-miss
 
-A `magiclink` token did return 403 after more than 120 seconds, and that looks
-like the result. **It is not one.** No `magiclink` verify had returned 200 in that
-shell, so the refusal was equally consistent with a wrong request shape for that
-type.
+A `magiclink` token did return 403 after more than 120 seconds. No `magiclink`
+verify had returned 200 in that shell. By the mechanism above, that 403 is what a
+spent token, a request malformed for the type and an aged token all return, so it
+carries no information about expiry. It is recorded as a data point, not a pass
+and not a close call.
 
-GoTrue cannot tell those apart for you. In v2.196.0 (supabase/auth,
-internal/api/verify.go), any token its lookup cannot find returns the identical
-403 `otp_expired`, "Email link is invalid or has expired", that a genuinely
-expired token returns. That covers the wrong type, an already-consumed token and
-a token that was never issued. **Without a 200 for the same type first, the 403
-has no discriminating power.** It is the dead-key 401 (the fallback entry in §8
-of `.claude/rules/test-conventions.md`) and step 8's empty-table no-op in a third
-costume. It is recorded as a data point, not a pass.
+It is the dead-key 401 (the fallback entry in §8 of
+`.claude/rules/test-conventions.md`) and step 8's empty-table no-op in a third
+costume: a check reporting the expected refusal for a reason unrelated to what it
+guards.
 
-Signup single use is proved precisely because it has that 200.
+Signup single use is proved precisely because its 403 has that 200.
 
 ### Expiry is a dashboard value, and restoring it is part of the procedure
 
@@ -1223,11 +1246,18 @@ takes two emails and about five minutes, using the three blocks above.
    print 403 `otp_expired`. Tick the expiry box. The 200 in step 3 is what gives
    this 403 its meaning.
 8. **Only then** restore Email OTP Expiration to 3600, and confirm the dashboard
-   shows 3600.
-   - GoTrue checks expiry **when the link is verified**, against the value
-     configured at that moment (supabase/auth v2.196.0, internal/api/verify.go).
-   - So restoring before step 7 revives the aged link. Step 7 would then print
-     200, a spurious failure produced by the procedure's own ordering.
+   shows 3600. **This order is load-bearing, not tidiness. Do not reorder it for
+   neatness** — for example, by restoring the setting straight after the second
+   link is sent.
+   - GoTrue does not stamp an expiry onto a link when it is sent. It judges
+     expiry **when the link is verified**, comparing the link's sent-at time
+     against the setting **in force at that moment** (supabase/auth v2.196.0,
+     internal/api/verify.go, lines 685–692 and 791–793).
+   - So restoring 3600 before step 7 puts the aged link back inside the window.
+     Step 7 then prints **200** where 403 is required.
+   - **That is a false fail, and it points the wrong way.** It reads as "hosted
+     GoTrue does not enforce expiry", which is a finding about the vendor, when
+     the only defect is the order the steps were run in.
 
 Record the hosted auth version again when these are run. A change from v2.196.0
 is a finding in its own right.

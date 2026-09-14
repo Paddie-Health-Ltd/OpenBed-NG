@@ -74,6 +74,34 @@ unsupported**, and are recorded as such rather than kept:
 - the implementer's own inference, in #18's body and since corrected there,
   that his five 404s implied a shell other than default zsh.
 
+**(iv) The credential rule's author broke it the same day.**
+- Step P's rule — *every block that reads a credential removes it again* — was
+  ruled on 2026-09-14 and reached `main` at 09:48 (`0a06132`, #18).
+- Later that day, the step 9 verify block handed to the founder read a link
+  token into `TOKEN`. It also left a live access token and refresh token in
+  `BODY`, with no `unset`. The founder ran it as written.
+- As worded that morning, the rule named only the personal access token and the
+  database connection string, so **the block broke the rule's purpose, not its
+  letter.** #21 added `unset TOKEN BODY` to the block, and link and session tokens
+  to the rule's scope.
+- **Why it is kept:** the rule's own author violated it within hours of writing
+  it. That is the strongest available argument that a rule of this kind must be
+  structural — checked on every block — rather than remembered by whoever writes
+  the next one.
+
+**(v) The implementer searched where it should have read.**
+- While planning #21, the implementer stated that no tracked file recorded the
+  hold on migration 014.
+- **This record held it, at lines 4 and 343** (as of `39c3f03`).
+- The search was `git grep -E '\b014\b'`. POSIX extended regular expressions have
+  no `\b` word boundary, so on the machine used (Apple git 2.54) it matched
+  nothing. The same pattern with `-P` finds 10 lines.
+- An absence was asserted from a count, without reading the lines and without a
+  known-present control. That is the exact shape §8 of
+  `.claude/rules/test-conventions.md` forbids.
+- **It is recorded beside the founder's entries because §8 is about premises, not
+  about who holds them.**
+
 ---
 
 ## Decided
