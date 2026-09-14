@@ -78,14 +78,48 @@ these steps are run from, it is Homebrew's **keg-only** `libpq`, which Homebrew
 deliberately does not link onto PATH. A bare `psql` exits 127 (command not
 found), and a step that chains on it proves nothing.
 
+The second command is a stop condition: it must print a version. Recorded
+2026-09-13: `psql (PostgreSQL) 18.6`.
+
 ```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-psql --version    # STOP CONDITION: must print a version. Recorded 2026-09-13: psql (PostgreSQL) 18.6
+psql --version
 ```
 
 Anything other than a version line — stop. Do not run step 5, 6, 8 or 10 until
 it prints one. The client version this project was applied through is recorded
 in step 7.
+
+### Every bash block in this runbook holds commands only
+
+**No `#` comment appears inside a bash block, and none may be added.** In an
+interactive zsh -- the macOS default shell -- `#` does not start a comment
+unless the `interactivecomments` option is set, and it is off by default. A
+pasted comment then runs as a command named `#`; words after a `;` in it run as
+further commands; backticks in it execute; and **an apostrophe in it opens a
+quote that silently swallows every real command after it.** Observed on
+2026-09-14 by pasting each of the 33 comment lines these two runbooks carried
+into `zsh -f -i`, with `interactivecomments` switched on as the counter-control:
+all 33 misbehaved, including an apostrophe that stopped step 6 check (a) 2's
+loop from running at all. Every explanation now sits in the prose above its
+block.
+
+**Do not "fix" this by turning `interactivecomments` on.** It is a remembered
+step: a new terminal reintroduces every defect, and it makes a comment inside a
+block look safe to add back.
+
+### Every block that reads a credential removes it again
+
+A block that reads a secret into the shell -- the Supabase personal access
+token, or the database connection string -- **ends with `unset`**, and each
+block that needs one reads it itself rather than inheriting it from an earlier
+step. A credential left exported lives for the rest of the terminal session, and
+a personal access token outranks `service_role`.
+
+**Not yet true of steps 1 and 4**, recorded rather than implied: both pass
+`$SUPABASE_ACCESS_TOKEN` straight into curl's arguments, where the process list
+can show it, and neither says how the token is set or removed. They are open
+items for the `scripts/` survey, not examples to copy.
 
 ---
 
@@ -163,12 +197,16 @@ in step 7.
 
       Derive both sides and compare, rather than trusting either:
 
+      What CI actually defines:
+
       ```bash
-      # what CI actually defines
       node -e "const y=require('js-yaml');const f=require('fs');\
       console.log(Object.keys(y.load(f.readFileSync('.github/workflows/ci.yml','utf8')).jobs).sort().join('\n'))"
+      ```
 
-      # what main actually requires
+      What `main` actually requires:
+
+      ```bash
       gh api repos/Paddie-Health-Ltd/OpenBed-NG/branches/main/protection \
         --jq '.required_status_checks.contexts | sort | .[]'
       ```
@@ -233,9 +271,10 @@ matters, it simply had to be a region that exists.
 Re-derivable by anyone with a management token. Do not read this off the
 dashboard; read it from the API, so the answer is evidence rather than a memory.
 
+This prints the full project objects. Read region, status and Postgres version
+off the output rather than through a field path this runbook guessed at.
+
 ```bash
-# Prints the full project objects. Read region / status / Postgres version off
-# the output rather than through a field path this runbook guessed at.
 curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
   https://api.supabase.com/v1/projects | jq .
 ```
@@ -305,8 +344,23 @@ policy is even consulted. Decision A3: RLS is the second line, not the only one.
       That hint is PostgREST reporting its own `db-schemas`, so it is the hosted
       setting, observed. Re-derive it by re-running step 6 check (a) 1 and
       reading the `hint` field.
-- [ ] `extra_search_path` does not include `app` — **OPEN, and the step 6 404s do
-      not close it.** PostgREST's configuration reference says of
+- [x] `extra_search_path` does not include `app` — **DISCHARGED BY PROBE,
+      2026-09-13, project `klrlpxysjsjpdkeqdhvl`.** The founder's run of the
+      caller below printed, verbatim:
+
+      ```
+      db_extra_search_path = public, extensions
+      PASS: app absent from db_extra_search_path
+      ```
+
+      **`public, extensions` is the Supabase default: nothing in this project
+      ever set it.** So this PASS records an untouched default rather than a
+      deliberate configuration, and a later change to that setting in the
+      dashboard would not announce itself anywhere in this repository.
+
+      How this box came to be discharged, kept because the wrong routes are
+      tempting: the step 6 404s did not close it. PostgREST's configuration
+      reference says of
       `db-extra-search-path`: *"These schemas tables, views and functions don't
       get API endpoints, they can only be referred from the database objects
       inside your db-schemas."* So a bare-name request (step 6 check (a) 2)
@@ -348,8 +402,13 @@ policy is even consulted. Decision A3: RLS is the second line, not the only one.
       the variable empty and the shell carries on. The pass signal is named, never
       a negation.
 
+      The first line waits silently for the token: paste it and press Enter.
+      Never put it inline, where it would land in shell history. **The last line
+      removes it from the shell.** A personal access token outranks
+      `service_role`, and nothing after this block needs it.
+
       ```bash
-      read -rs SUPABASE_ACCESS_TOKEN && export SUPABASE_ACCESS_TOKEN   # prompts; never inline
+      read -rs SUPABASE_ACCESS_TOKEN && export SUPABASE_ACCESS_TOKEN
       ESP="$(bash scripts/get_extra_search_path.sh)" || ESP=
       case "$ESP" in
         "") echo "STOP: no db_extra_search_path value. Read the script's own message above. Do not tick." ;;
@@ -361,6 +420,7 @@ policy is even consulted. Decision A3: RLS is the second line, not the only one.
               *)       echo "PASS: app absent from db_extra_search_path" ;;
             esac ;;
       esac
+      unset SUPABASE_ACCESS_TOKEN
       ```
 
       Tick this box only on the line `PASS: app absent from db_extra_search_path`,
@@ -370,18 +430,16 @@ policy is even consulted. Decision A3: RLS is the second line, not the only one.
       filter produces, so record that message itself as the result rather than a
       PASS line. **Any other STOP: do not tick.**
 
-      **THE FIRST RUN IS A STOP CONDITION, NOT A FORMALITY.** This script has
-      never run against the live endpoint, and its fixture is taken from
-      Supabase's documentation, not from a captured response. Its tests prove it
-      handles the *documented* shape; they say nothing about the shape Supabase
-      actually returns. That is the exact history of
-      `scripts/get_publishable_key.sh`: a filter written against an imagined
-      response body, cited as the sanctioned method for four days, and wrong at
-      the first pipe on first execution. **If the first run exits non-zero, that
-      is the documentation-derived assumption failing. Stop and report it as
-      such. Do not work around it** — no hand-written call, no edited filter, no
-      bare curl against the endpoint. This checkbox is open until that first run
-      passes.
+      **THE FIRST RUN WAS A STOP CONDITION, AND IT PASSED ON 2026-09-13.** The
+      script's fixture is taken from Supabase's documentation, not from a captured
+      response — the exact setup under which `scripts/get_publishable_key.sh`,
+      cited as the sanctioned method for four days, was wrong at the first pipe on
+      its first execution. This time the documented shape matched the real
+      response. What that does and does not confirm is recorded in the script's
+      own header. **The rule stands for any future first run**, after a change to
+      the script or to Supabase's API: if it exits non-zero, that is an assumption
+      failing. Stop and report it as such. **Do not work around it** — no
+      hand-written call, no edited filter, no bare curl against the endpoint.
 
 **Covered by tests: partially, and only locally.** The control is three parts and
 only two are automatable:
@@ -390,7 +448,7 @@ only two are automatable:
 |---|---|
 | A live anon request for `app` is refused with `PGRST106` | `tests/db/rls_anon_reachability.test.ts` — **local PostgREST only** |
 | `supabase/config.toml` `[api] schemas` excludes `app` | `tests/db/config_drift.test.ts` — static |
-| The **hosted** setting excludes `app` | **Recorded probe result, 2026-09-13:** the live `PGRST106` hint, `Only the following schemas are exposed: public, graphql_public` (above). A hand probe, not a test |
+| The **hosted** setting excludes `app` | **Recorded probe results, 2026-09-13:** the live `PGRST106` hint, `Only the following schemas are exposed: public, graphql_public`; and `scripts/get_extra_search_path.sh` reading `db_extra_search_path = public, extensions`, the untouched Supabase default (both above). Hand probes, not tests |
 
 ---
 
@@ -461,19 +519,36 @@ is nothing to restore. It stops being moot the moment that apply succeeds.
 
 ## 5. Apply migrations  *(was §3)*
 
-```bash
-read -rs DATABASE_URL && export DATABASE_URL   # prompts; keeps the password out of ~/.zsh_history
-bash scripts/run_migrations.sh --dry-run       # STOP CONDITION: exactly 13 pending
-bash scripts/run_migrations.sh
-```
+**Two blocks, run separately, because the dry run is a stop condition and the
+apply must not follow it until you have read the count.** Until 2026-09-14 both
+commands sat in one block, so pasting it ran the apply straight after the dry run
+and the stop condition could not be honoured by anyone who pasted the block.
 
-Use `read -rs`, not an inline `export DATABASE_URL='...'` -- the connection
-string carries the hosted database password and an inline export writes it into
-your shell history.
+Each block's first line waits silently for the connection string: paste it and
+press Enter. Use `read -rs`, not an inline `export DATABASE_URL='...'` -- the
+connection string carries the hosted database password and an inline export
+writes it into your shell history. **Each block's last line removes it from the
+shell again.**
+
+The dry run. **Stop condition: exactly `13 migration(s) pending.`**
+
+```bash
+read -rs DATABASE_URL && export DATABASE_URL
+bash scripts/run_migrations.sh --dry-run
+unset DATABASE_URL
+```
 
 **The dry run is a stop condition, not a look.** Anything other than
 `13 migration(s) pending.` -- stop and report. A dry run without a stated
 expectation is just output.
+
+Only after reading that count, the apply:
+
+```bash
+read -rs DATABASE_URL && export DATABASE_URL
+bash scripts/run_migrations.sh
+unset DATABASE_URL
+```
 
 ### Expected output, including the one line that looks like a failure and is not
 
@@ -496,9 +571,14 @@ thirteen as pending. The two numbers are measuring different things.
 **Confirm it by the ledger, which is the artefact that matters, not by the
 count:**
 
+Expect `13` from the ledger query and `0 migration(s) pending.` from the dry run.
+The first line waits silently for the connection string; the last removes it.
+
 ```bash
-psql "$DATABASE_URL" -Atc "select count(*) from app.schema_migrations"   # expect 13
-bash scripts/run_migrations.sh --dry-run                                 # expect 0 pending
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -Atc "select count(*) from app.schema_migrations"
+bash scripts/run_migrations.sh --dry-run
+unset DATABASE_URL
 ```
 
 Verified against a virgin local database on 2026-09-10: dry run 13 pending,
@@ -574,25 +654,35 @@ case "$KEY" in
   *) echo "STOP: no usable publishable key. Do not run the probes -- a 401 now means nothing."; KEY= ;;
 esac
 SUPABASE_URL="https://klrlpxysjsjpdkeqdhvl.supabase.co"
+```
 
-# With the guard above, an empty or malformed key can no longer reach a probe:
-# every use is ${KEY:?...}, which refuses to run the command at all. So a 401
-# below means a REAL key was refused -- the key is wrong -- never that the
-# boundary held, and never that the key fetch quietly failed.
+With the guard above, an empty or malformed key can no longer reach a probe:
+every use is `${KEY:?...}`, which refuses to run the command at all. So a 401
+below means a REAL key was refused -- the key is wrong -- never that the boundary
+held, and never that the key fetch quietly failed.
+
+The schema probe. Expect HTTP 406, with a body naming `PGRST106`:
+
+```bash
 curl -s -w '\nHTTP %{http_code}\n' \
   "$SUPABASE_URL/rest/v1/facility?select=*" \
-  -H "apikey: ${KEY:?no key -- refusing to probe}" -H "Accept-Profile: app"       # expect 406, body names PGRST106
+  -H "apikey: ${KEY:?no key -- refusing to probe}" -H "Accept-Profile: app"
+```
 
-# ALL THREE mirrors, read and write. The checkboxes below claim all three, so the
-# probe covers all three -- ward_public alone did not reach what they claim.
+All three mirrors, read and write. The checkboxes below claim all three, so the
+probe covers all three -- `ward_public` alone did not reach what they claim. Each
+read must return HTTP 200. **Each write passes only on body code `42501`** -- read
+the body, as the next paragraph explains.
+
+```bash
 for t in facility_public ward_public lga_rollup; do
   printf '== %s READ  ' "$t"
   curl -s -w '\nHTTP %{http_code}\n' "$SUPABASE_URL/rest/v1/$t?select=*" \
-    -H "apikey: ${KEY:?no key -- refusing to probe}" | head -c 300               # expect HTTP 200
+    -H "apikey: ${KEY:?no key -- refusing to probe}" | head -c 300
   printf '\n== %s WRITE ' "$t"
   curl -s -X POST "$SUPABASE_URL/rest/v1/$t" \
     -H "apikey: ${KEY:?no key -- refusing to probe}" -H "Content-Type: application/json" \
-    -d '{}' -w '\nHTTP %{http_code}\n'                                           # PASS = BODY code 42501. Read the body.
+    -d '{}' -w '\nHTTP %{http_code}\n'
 done
 ```
 
@@ -627,20 +717,25 @@ case "$KEY" in
   *) echo "STOP: no usable publishable key. Do not run the probes -- a 401 now means nothing."; KEY= ;;
 esac
 REF=klrlpxysjsjpdkeqdhvl
+```
 
-# 1. Asking for the `app` schema must be refused with PGRST106, BEFORE any
-#    policy is consulted. This is the boundary; RLS is the second line.
+**1.** Asking for the `app` schema must be refused with `PGRST106`, BEFORE any
+policy is consulted. This is the boundary; RLS is the second line.
+
+```bash
 curl -s "https://$REF.supabase.co/rest/v1/facility?select=*" \
   -H "apikey: ${KEY:?no key -- refusing to probe}" -H "Authorization: Bearer ${KEY:?no key -- refusing to probe}" -H "Accept-Profile: app"
+```
 
-# 2. And by bare name: no `app` table may answer under the default profile.
-#    A 404 HERE CAN NEVER DETECT `app` IN extra_search_path, in either state.
-#    That setting only affects name, function and type resolution INSIDE the
-#    database; it never creates an endpoint, so a bare name 404s whether `app`
-#    is in it or not. The only evidence for that checkbox is step 2's
-#    single-field probe -- never this loop.
-#    "No 200 for any name" only means something if check 1 above returned
-#    exactly 406 / PGRST106 in THIS shell. A dead key produces "no 200" too.
+**2.** And by bare name: no `app` table may answer under the default profile.
+**A 404 here can never detect `app` in `extra_search_path`, in either state.**
+That setting only affects name, function and type resolution inside the
+database; it never creates an endpoint, so a bare name 404s whether `app` is in
+it or not. The only evidence for that checkbox is step 2's single-field probe --
+never this loop. "No 200 for any name" only means something if check 1 above
+returned exactly 406 / `PGRST106` in THIS shell. A dead key produces "no 200" too.
+
+```bash
 for t in facility ward_status audit_log facility_contact schema_migrations; do
   printf '%s -> ' "$t"
   curl -s -o /dev/null -w '%{http_code}\n' "https://$REF.supabase.co/rest/v1/$t?select=*" \
@@ -710,10 +805,13 @@ reason for the check.
 
 Re-derive with:
 
+Locally:
+
 ```bash
-docker ps --format '{{.Image}}' | grep supabase/postgres   # local
-# hosted: the same Management API call as step 1
+docker ps --format '{{.Image}}' | grep supabase/postgres
 ```
+
+Hosted: the same Management API call as step 1.
 
 ---
 
@@ -745,7 +843,14 @@ statements would have run. It is replaced by a plant-then-assert block.
 
 ### The probe — run verbatim, connected with `DATABASE_URL` (step P first)
 
+The first line waits silently for the connection string: paste it and press
+Enter. **The last line removes it from the shell.** Those two lines were added on
+2026-09-14; until then this block had no `read` of its own and relied on the
+variable step 5 left exported for the rest of the session. **The SQL between the
+heredoc markers is unchanged from the run recorded below.**
+
 ```bash
+read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" <<'SQL'
 begin;
 do $probe$
@@ -800,6 +905,7 @@ end
 $probe$;
 rollback;
 SQL
+unset DATABASE_URL
 ```
 
 **Three properties of this block are load-bearing. An edit that loses any one of
@@ -930,19 +1036,25 @@ hosted.** Record the hosted auth version here when you run these by hand.
 **EXACTLY those three, not "those three are present".** A presence check passes
 with a fourth table published, and a fourth published table is a fourth stream
 of DELETE payloads nobody reviewed. So assert set equality, with no schema filter
-— a table from any schema reddens it:
+— a table from any schema reddens it. The first line waits silently for the
+connection string; the last line removes it from the shell. In the output, the
+middle query's `exactly_three` column is the assertion: **PASS is `t`**.
 
-```sql
+```bash
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" <<'SQL'
 select schemaname, tablename from pg_publication_tables
  where pubname = 'supabase_realtime' order by tablename;
 
 select coalesce(array_agg(tablename::text order by tablename), '{}')
        = array['facility_public','lga_rollup','ward_public'] as exactly_three
-  from pg_publication_tables where pubname = 'supabase_realtime';   -- PASS = t
+  from pg_publication_tables where pubname = 'supabase_realtime';
 
 select relname, relreplident from pg_class c
   join pg_namespace n on n.oid = c.relnamespace
  where n.nspname = 'public' and relname in ('facility_public','ward_public','lga_rollup');
+SQL
+unset DATABASE_URL
 ```
 
 - [x] The publication contains **exactly** `facility_public`, `lga_rollup`,
@@ -998,7 +1110,7 @@ header. These checkboxes are the hosted half.
 | Property | Why no test can cover it |
 |---|---|
 | Region pin | Assertable via the Management API, declined on credential-surface grounds |
-| Hosted exposed-schemas list | A dashboard setting with no in-database representation — **but not unobservable.** Discharged by hand probe on 2026-09-13: the live project's `PGRST106` body carries `hint: "Only the following schemas are exposed: public, graphql_public"` (step 2). No test carries it, because the suite never targets hosted (step 6). `extra_search_path` is a separate setting and stays open (step 2) |
+| Hosted exposed-schemas list | A dashboard setting with no in-database representation — **but not unobservable.** Discharged by hand probe on 2026-09-13: the live project's `PGRST106` body carries `hint: "Only the following schemas are exposed: public, graphql_public"` (step 2). No test carries it, because the suite never targets hosted (step 6). `extra_search_path` is a separate setting, discharged by its own single-field probe on 2026-09-13 (step 2): `public, extensions`, the untouched Supabase default |
 | Hosted superuser semantics | The local role graph differs from the hosted one |
 | Hosted auth session bounds (`timebox`, `inactivity_timeout`) | A dashboard setting with no in-database representation. Both bounds ARE proved locally in `tests/db/auth_refresh_live.test.ts`; the hosted values are step 3 |
 | Magic-link single-use and expiry | Enforced by Supabase auth, not by this schema, since `app.invite` no longer holds a token |

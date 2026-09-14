@@ -51,8 +51,9 @@ scraper's index within minutes. Rotate first, clean up second.
 Rotation makes the leaked value useless. History cleanup is about not shipping a
 credential-shaped string in a public repository, and it is secondary.
 
+Confirm what is actually in history before rewriting anything:
+
 ```bash
-# Confirm what is actually in history before rewriting anything.
 git log -p -S '<the leaked fragment>' --all | head -50
 ```
 
@@ -87,8 +88,9 @@ into a runbook is a symptom fix, because the next person types the subcommand.
 
 After rotating or disabling a key, **assert the old one is dead**:
 
+**Keep the body.** `-o /dev/null` is what makes this probe lie -- see below.
+
 ```bash
-# KEEP THE BODY. `-o /dev/null` is what makes this probe lie -- see below.
 curl -s -w '\nHTTP %{http_code}\n' \
   "https://<ref>.supabase.co/rest/v1/ward_public?select=facility_id&limit=1" \
   -H "apikey: <THE OLD KEY>" -H "Authorization: Bearer <THE OLD KEY>"
