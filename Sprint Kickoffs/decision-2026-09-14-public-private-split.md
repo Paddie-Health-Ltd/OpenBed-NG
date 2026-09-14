@@ -362,6 +362,38 @@ entry points to its source; nothing is copied.**
 
 ---
 
+## Blocks facility-one onboarding
+
+_Added 2026-09-14. An item here is acted on before the first real facility is
+onboarded; it is not merely read._
+
+### B1. The facility's agreement to publish its live capacity *(was O3)*
+
+**Why it blocks now, and did not before.** Migration 014
+(`database/migrations/014_publish_ward_status.sql`) adds the write path. Once 014
+is applied to the hosted project, publishing a live bed count becomes POSSIBLE
+for any onboarded ward: nothing technical stands between onboarding a facility
+and its capacity going public. Before 014 no ward could publish, so the missing
+permission gated nothing.
+
+**It is not in clauseX.**
+- Its drafting note defines `Purpose` narrowly — "operating the bed-visibility
+  service and its operational notifications" (clauseX:22).
+- **It grants no permission to publish a facility's live capacity.**
+
+**This is a contractual permission from the institution, not a data-protection
+consent.** `agreement_accepted_at` is explicitly not a consent record, and no
+consent basis exists anywhere in this system (clauseX:96).
+
+**The gap is recorded. The clause is not drafted.**
+
+### B2. Custom SMTP and the email provider's written processor agreement
+
+Recorded once, as the email-provider row of the open processor obligations
+above. Not restated here.
+
+---
+
 ## Open — questions, not decisions
 
 ### O1. `noindex` against an indexable static shell — OPEN CONFLICT, pending the founder
@@ -404,18 +436,10 @@ separately, each looks like a pure loss.
   (memo:33), and an opaque, short-lived session identifier (memo:35).
 - **Individual dispatcher accounts** reopen it.
 
-### O3. The facility's agreement to publish its live capacity
+### O3. Moved on 2026-09-14 — now B1, under "Blocks facility-one onboarding"
 
-**It is not in clauseX.**
-- Its drafting note defines `Purpose` narrowly — "operating the bed-visibility
-  service and its operational notifications" (clauseX:22).
-- **It grants no permission to publish a facility's live capacity.**
-
-**This is a contractual permission from the institution, not a data-protection
-consent.** `agreement_accepted_at` is explicitly not a consent record, and no
-consent basis exists anywhere in this system (clauseX:96).
-
-**The gap is recorded. The clause is not drafted.**
+The facility's agreement to publish its live capacity is no longer only an open
+question. See B1 above.
 
 ---
 
@@ -424,7 +448,10 @@ consent basis exists anywhere in this system (clauseX:96).
 **Changes:**
 - the IP-derived step of v1:245 is retired (D4);
 - an open processor-obligations list now exists (R3);
-- one row is added to the runbook's un-automatable table (D2).
+- one row is added to the runbook's un-automatable table (D2);
+- later on 2026-09-14, O3 moved to a new section, *Blocks facility-one
+  onboarding*, as B1, because migration 014 makes publishing possible once
+  applied hosted.
 
 **Does not change:**
 - v1:250 and v2:273 (O1);

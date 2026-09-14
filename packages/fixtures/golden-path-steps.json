@@ -56,7 +56,7 @@
     },
     {
       "id": "publish-count",
-      "description": "One category's bed_count and accepting are published in a single transaction, returning version, updated_at, bed_count, accepting_effective and gated_by. The facility is resolved from auth.uid(), never from a caller-supplied argument. FIRST of two publishes on this path -- ward-republishes follows immediately, and it is the SECOND value that reaches the projection.",
+      "description": "One category's bed_count and accepting are published in a single transaction, returning version and updated_at with the ward's claim (claim_offering, claim_bed_count, claim_accepting) and the public view (public_listed, public_bed_count, public_accepting_effective, public_gated_by) as separate fields -- never one field for both. The facility is resolved from auth.uid(), never from a caller-supplied argument. FIRST of two publishes on this path -- ward-republishes follows immediately, and it is the SECOND value that reaches the projection.",
       "gate2_clause": "sets count and accepting per category -> publishes",
       "owning_stage": 1,
       "needs_browser": false

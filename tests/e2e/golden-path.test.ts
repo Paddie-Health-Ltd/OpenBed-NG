@@ -59,6 +59,26 @@ function name(id: string): string {
 /** Shared across steps within the single-threaded run. */
 const state: { link?: MintedLink; expiringLink?: MintedLink } = {};
 
+/**
+ * One id per run, suffixed onto every client_mutation_id. Since 014 a mutation id
+ * already recorded for a ward is a REPLAY -- it returns the current state and
+ * writes nothing -- and the E2E ward's history is append-only, so it survives
+ * between local runs. A fixed id would make the second run's publish a replay of
+ * the first run's, and version would never move.
+ */
+const RUN = Date.now().toString(36);
+
+/** publish_ward_status's result row (014): the ward's claim and the public view, never one field for both. */
+interface PublishContract {
+  version?: number;
+  claim_bed_count?: number | null;
+  claim_accepting?: boolean;
+  public_listed?: boolean;
+  public_bed_count?: number | null;
+  public_accepting_effective?: boolean | null;
+  public_gated_by?: string | null;
+}
+
 describe('golden path — release gate 2', () => {
   // ---------------------------------------------------------------- stage 0
   test(name('magic-link-minted'), async () => {
@@ -153,18 +173,24 @@ describe('golden path — release gate 2', () => {
         p_accepting: true,
         p_reason: null,
         p_expected_version: 1,
-        p_client_mutation_id: 'e2e-publish-1',
+        p_client_mutation_id: `e2e-publish-1-${RUN}`,
         p_composed_at: new Date().toISOString(),
       },
     });
     expect(res.status, `publish_ward_status failed: ${JSON.stringify(res.body)}`).toBe(200);
-    const rows = res.body as { version?: number; accepting_effective?: boolean; gated_by?: string | null }[];
+    const rows = res.body as PublishContract[];
     const row = rows[0];
     expect(row, 'publish returned no row').toBeDefined();
     expect(row?.version, 'publish did not return an incremented version').toBe(2);
-    // The nurse's screen must show what the public sees, from the same derivation.
-    expect(row?.accepting_effective, 'publish did not return the effective gate').toBe(true);
-    expect(row?.gated_by ?? null, 'an ungated ward reported a gate reason').toBeNull();
+    // TWO FACTS, NEVER ONE FIELD FOR BOTH (founder ruling, 2026-09-14): what the
+    // ward claimed, and what the public sees -- the latter read back from the
+    // same projection the dashboard reads.
+    expect(row?.claim_bed_count, 'publish did not return the claim as recorded').toBe(4);
+    expect(row?.claim_accepting, 'publish did not return the accepting claim').toBe(true);
+    expect(row?.public_listed, 'an active, non-quiet facility was not listed').toBe(true);
+    expect(row?.public_bed_count, 'the public count differs from an ungated claim').toBe(4);
+    expect(row?.public_accepting_effective, 'publish did not return the effective gate').toBe(true);
+    expect(row?.public_gated_by ?? null, 'an ungated ward reported a gate reason').toBeNull();
   });
 
   test(name('ward-republishes'), async () => {
@@ -178,14 +204,15 @@ describe('golden path — release gate 2', () => {
         p_accepting: true,
         p_reason: null,
         p_expected_version: 2,
-        p_client_mutation_id: 'e2e-publish-2',
+        p_client_mutation_id: `e2e-publish-2-${RUN}`,
         p_composed_at: new Date().toISOString(),
       },
     });
     expect(res.status, `the second publish failed: ${JSON.stringify(res.body)}`).toBe(200);
-    const row = (res.body as { version?: number; bed_count?: number }[])[0];
+    const row = (res.body as PublishContract[])[0];
     expect(row?.version, 'the second publish did not increment version').toBe(3);
-    expect(row?.bed_count, 'the second publish did not take').toBe(6);
+    expect(row?.claim_bed_count, 'the second publish did not take').toBe(6);
+    expect(row?.public_bed_count, 'the second publish did not reach the public projection').toBe(6);
   });
 
   test(name('snapshot-regenerates'), async () => {
