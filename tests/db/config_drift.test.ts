@@ -143,7 +143,10 @@ describe('configuration drift', () => {
        where n.nspname = 'public' and c.relkind = 'r'
        order by c.relname
     `;
-    expect(rows.length, 'no public tables found — vacuous').toBe(3);
+    // 4 since 016: the three mirrors plus public.snapshot_current, which is
+    // service_role-only and not published to Realtime -- but it is a public
+    // table, and REPLICA IDENTITY FULL on it is refused like any other.
+    expect(rows.length, 'no public tables found — vacuous').toBe(4);
     for (const row of rows) {
       expect(row.relreplident, `public.${row.relname} is REPLICA IDENTITY FULL`).not.toBe('f');
     }

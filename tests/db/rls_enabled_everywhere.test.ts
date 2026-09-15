@@ -14,19 +14,28 @@ import { sql } from '../setup/db.js';
  * while the ACTUAL control -- unreachability -- is asserted by
  * tests/db/rls_anon_reachability.test.ts.
  *
- * So this file asserts RLS where RLS is load-bearing (the three published
- * mirrors) and asserts the real control for `app` (no client-role grants).
+ * So this file asserts RLS where RLS is load-bearing (every table in `public`:
+ * the three published mirrors, and since 016 public.snapshot_current) and
+ * asserts the real control for `app` (no client-role grants).
  * Claiming a blanket "RLS on every table" would be a stronger-sounding statement
  * that means less.
  *
  * FORCE ROW LEVEL SECURITY is asserted as well as ENABLE. Without FORCE, the
  * table OWNER bypasses its own policies -- and the projection trigger runs as a
  * SECURITY DEFINER function owned by that same role.
+ *
+ * THE PAIRING WITH 016 (R-2026-09-15-05). This file catches RLS being DROPPED
+ * from a mirror. app.regenerate_snapshot()'s `row_security = off` attribute
+ * catches the opposite direction: the generator losing its bypass, which would
+ * otherwise read the forced mirrors as empty. Each covers the case the other
+ * cannot.
  */
 describe('row level security', () => {
   const MIRRORS = ['facility_public', 'ward_public', 'lga_rollup'];
+  // service_role-only: RLS forced with ZERO policies (016). Not a mirror.
+  const SERVICE_ONLY = ['snapshot_current'];
 
-  test('every public mirror has RLS enabled and forced', async () => {
+  test('every public table has RLS enabled and forced', async () => {
     const rows = await sql()<{ relname: string; enabled: boolean; forced: boolean }[]>`
       select c.relname, c.relrowsecurity as enabled, c.relforcerowsecurity as forced
         from pg_class c
@@ -35,7 +44,7 @@ describe('row level security', () => {
        order by c.relname
     `;
 
-    expect(rows.map((r) => r.relname).sort(), 'unexpected table set in public').toEqual([...MIRRORS].sort());
+    expect(rows.map((r) => r.relname).sort(), 'unexpected table set in public').toEqual([...MIRRORS, ...SERVICE_ONLY].sort());
 
     for (const row of rows) {
       expect(row.enabled, `RLS is disabled on public.${row.relname}`).toBe(true);

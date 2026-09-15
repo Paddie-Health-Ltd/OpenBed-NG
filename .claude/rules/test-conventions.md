@@ -183,10 +183,16 @@ faked:
   decide from the reason.
 - The **hosted** exposed-schemas list is a dashboard setting. The local
   `supabase/config.toml` is asserted; the hosted one is a runbook step.
-- **Append-only enforcement behaves differently hosted than locally**, because
-  Supabase's `postgres` role is superuser locally and is not hosted. The test can
-  pass locally and the production behaviour still differ. That asymmetry belongs
-  in the test's own header.
+- **Append-only enforcement may behave differently hosted than locally.** The
+  reason this entry gave — "Supabase's `postgres` role is superuser locally and
+  is not hosted" — **does not hold locally**: on 2026-09-15 (Supabase CLI
+  2.117.0, PostgreSQL 17.6) local `postgres` read `rolsuper f`, `rolbypassrls t`.
+  BYPASSRLS does not exempt a role from triggers, so whether local append-only
+  behaviour actually differs from hosted is now unverified, not established.
+  Hosted `postgres` is covered by the trigger, not 010's REVOKE (runbook step 8,
+  2026-09-13). What stays true is the discipline: a local green on a
+  role-sensitive control is not a hosted fact, and the asymmetry, once
+  observed, belongs in the test's own header.
 
 ---
 

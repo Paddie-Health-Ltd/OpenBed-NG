@@ -47,6 +47,7 @@ and `tests/compliance/down_migration_symmetry.test.ts`.
 | 013 | `realtime_publication_and_grant_sweep` | Publishes the three mirrors and re-asserts every revocation from 001 now that all objects exist. **Last of Bundle 1**, because it asserts over everything that existed when it ran. It is applied and not edited; later migrations carry their own by-name grants. |
 | 014 | `publish_ward_status` | **The write path.** `public.publish_ward_status()`, plus a unique partial index on `ward_status_event (ward_status_id, client_mutation_id)` that makes a retry a replay. Returns the ward's claim and the public view as separate fields, the public view read back from `ward_public`. Parameters are `text` because a client cannot name an `app` type. The snapshot is 016. |
 | 015 | `ward_status_history_text_category` | **The 011 repair.** `public.ward_status_history` is dropped and recreated with a `text` category, cast inside the function, because no client can pass an `app`-typed parameter through PostgREST. The caps and grants are 011's, unchanged. |
+| 016 | `snapshot` | **The snapshot.** `public.snapshot_current` (`service_role`-only: RLS forced, zero policies), `app.regenerate_snapshot()`, `app.snapshot_retention()` and `app.system_heartbeat.last_snapshot_at`. The generator reads only the two mirrors and writes only the snapshot and the heartbeat, in one transaction; `row_security = off` makes a caller without bypass fail loudly; EXECUTE is owner only. The rollup is out; the schedule is 017. |
 
 ## Ward-level identity
 
