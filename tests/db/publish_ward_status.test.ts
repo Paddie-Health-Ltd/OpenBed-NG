@@ -29,9 +29,12 @@ import { withRole } from '../setup/db.js';
  * NOT ASSERTED HERE, deliberately:
  *   - HOSTED ROW-LEVEL SECURITY ON THE MIRRORS. public.ward_public is FORCE ROW
  *     LEVEL SECURITY (007), and reading it inside the function needs the owner to
- *     bypass that. Locally postgres is a superuser, so this suite cannot observe
- *     the hosted case. The projection's own upsert needs the same privilege in the
- *     same transaction, so a hosted owner without it fails loudly there first.
+ *     bypass that. Locally postgres holds BYPASSRLS (rolsuper f), and this suite
+ *     cannot observe hosted. Observed 2026-09-15: hosted postgres is the same,
+ *     rolsuper f / rolbypassrls t; the hosted OWNER of these functions is read in
+ *     runbook step 5 after the apply. The projection's own upsert needs the same
+ *     privilege in the same transaction, so a hosted owner without it would fail
+ *     loudly there first.
  *   - That session_id comes from a REAL GoTrue session. Claims here are hand-set,
  *     which is fine for the refusal but cannot show a GoTrue-minted session id
  *     differs from the account and changes across sessions. That is

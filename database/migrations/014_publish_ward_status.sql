@@ -99,9 +99,11 @@
 -- HOSTED ASYMMETRY, named rather than implied. The three mirrors FORCE ROW LEVEL
 -- SECURITY (007). Reading ward_public here needs the function owner to bypass
 -- it -- the same privilege the projection's own upsert into ward_public needs,
--- in the same transaction. Locally postgres is a superuser and hosted it is not;
--- if the owner could not bypass RLS hosted, the projection would already fail
--- loudly before this read.
+-- in the same transaction. CORRECTED 2026-09-15 (comment only; 014 is unapplied
+-- on hosted): this said "locally postgres is a superuser and hosted it is not".
+-- Observed, postgres is rolsuper f / rolbypassrls t both locally and on hosted
+-- klrlpxysjsjpdkeqdhvl, so the owner bypasses RLS in both places. If a future
+-- hosted owner could not, the projection would fail loudly before this read.
 --
 -- Idempotency: CREATE UNIQUE INDEX IF NOT EXISTS; CREATE OR REPLACE FUNCTION;
 -- grants re-applied by name.

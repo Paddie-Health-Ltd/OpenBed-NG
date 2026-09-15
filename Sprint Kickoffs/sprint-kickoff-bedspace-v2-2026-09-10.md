@@ -45,15 +45,15 @@ All nine were verified against the files during scoping, not inferred. Six are d
 
 1. **`app.refresh_lga_rollup()` has no production caller.** Its only invocations in the repository are `database/seed/001_synthetic_seed.sql:165` and `tests/db/lga_rollup_kfloor.test.ts`. No trigger, no `pg_cron` entry, no scheduled job. Quiet facilities' rollup is frozen at seed time and will never move. Bundle 1's DoD passed because the seed happens to call it. This is a Clause 5 defect — a mechanism present and not reaching — and it is the sixth instance of that shape this fortnight. → **Stage 3.**
 
-2. **`client_mutation_id` has no index and no unique constraint.** `database/migrations/004:183` declares it as bare `text`; `012_indexes.sql` does not mention it. Idempotency on retry is currently nominal: a retried write inserts a second event and bumps `version` twice. → **Stage 1.**
+2. **`client_mutation_id` has no index and no unique constraint.** `database/migrations/004:183` declares it as bare `text`; `012_indexes.sql` does not mention it. Idempotency on retry is currently nominal: a retried write inserts a second event and bumps `version` twice. → **Stage 1.** **[SWEEP 2026-09-15: SUPERSEDED — true when written; migration 014 creates the unique index `ward_status_event_client_mutation_uidx` (`database/migrations/014_publish_ward_status.sql`). See *Pre-017 sweep*.]**
 
-3. **`ward_reply` is capped at 1000 characters and the comment above it says 256.** `005:208` sets `char_length(ward_reply) <= 1000`. `005:97`, describing the audit-value cap, says it is *"in the same idiom as `referral_ward_reply_capped`: 256 holds `{"bed_count":4,"accepting":true}` and does not hold a narrative. A narrative is where a patient enters a system that has none."* The two disagree by a factor of four, and the larger one is on the only field a human is invited to type prose into. The stated compensating control — RPC-layer patient-information validation — does not exist and is not reliably buildable. → **Stage 5**, with the cap.
+3. **`ward_reply` is capped at 1000 characters and the comment above it says 256.** `005:208` sets `char_length(ward_reply) <= 1000`. `005:97`, describing the audit-value cap, says it is *"in the same idiom as `referral_ward_reply_capped`: 256 holds `{"bed_count":4,"accepting":true}` and does not hold a narrative. A narrative is where a patient enters a system that has none."* The two disagree by a factor of four, and the larger one is on the only field a human is invited to type prose into. The stated compensating control — RPC-layer patient-information validation — does not exist and is not reliably buildable. → **Stage 5**, with the cap. **[SWEEP 2026-09-15: VERIFIED — the 1000 cap and the 256 idiom both stand, and no referral RPC exists. The line references have drifted: the cap is now at `005:219` and the 256 comment at `005:107`. 005's comment at line 211 still claims patient-information validation "runs at the RPC layer"; that is false, and 005 is applied, so the correction is recorded in *Pre-017 sweep*, not by editing 005.]**
 
 4. **`app.referral.updated_at` has no touch trigger.** `005` creates four tables and zero triggers. The column has `DEFAULT now()` and is thereafter whatever a writer supplies, including nothing. `ward_replied_at` is evidence in the qualified-privilege story and an unstamped sibling beside it degrades the record. → **Stage 5.**
 
-5. **`.ci/ci-gate-exceptions.yml:27` cites a test that does not exist.** It names `tests/compliance/ci_gate_exceptions.test.ts`; the assertions actually live in `tests/compliance/ci_required_checks_not_paths_filtered.test.ts`. It escapes `no_phantom_paths.test.ts` only because the citation is not in backticks. A live Clause 4 phantom, in the one file whose purpose is to make CI exemptions visible. → **Stage 0.**
+5. **`.ci/ci-gate-exceptions.yml:27` cites a test that does not exist.** It names `tests/compliance/ci_gate_exceptions.test.ts`; the assertions actually live in `tests/compliance/ci_required_checks_not_paths_filtered.test.ts`. It escapes `no_phantom_paths.test.ts` only because the citation is not in backticks. A live Clause 4 phantom, in the one file whose purpose is to make CI exemptions visible. → **Stage 0.** **[SWEEP 2026-09-15: SUPERSEDED — true when written; fixed in commit 31ac05e. `.ci/ci-gate-exceptions.yml` now cites the real test in backticks and records "FINDING 5, fixed 2026-09-10".]**
 
-6. **Two guards whose headers describe something other than what they do.** `packages/fixtures/package.json` exports only `./truth-table.json`, while `config_drift.test.ts` reaches `public-relations.json` by relative path — the exports map is decorative. And `scripts/lint_from_allowlist.sh:31` extracts the allowlist with a fixed alternation, `grep -oE '"(facility_public|ward_public|lga_rollup|my_facility_wards|ward_status_history)"'`, while its header says the allowlist is not hardcoded there. It fails closed, so it is not dangerous — but Stage 1 adds a sixth name to that allowlist and the header will then be false in a way that matters. → **Stage 0.**
+6. **Two guards whose headers describe something other than what they do.** `packages/fixtures/package.json` exports only `./truth-table.json`, while `config_drift.test.ts` reaches `public-relations.json` by relative path — the exports map is decorative. And `scripts/lint_from_allowlist.sh:31` extracts the allowlist with a fixed alternation, `grep -oE '"(facility_public|ward_public|lga_rollup|my_facility_wards|ward_status_history)"'`, while its header says the allowlist is not hardcoded there. It fails closed, so it is not dangerous — but Stage 1 adds a sixth name to that allowlist and the header will then be false in a way that matters. → **Stage 0.** **[SWEEP 2026-09-15: SUPERSEDED — both halves true when written; both fixed in commit 31ac05e. `packages/fixtures/package.json` now has no exports map and says so; `scripts/lint_from_allowlist.sh` parses the fixture with node and records "FINDING 6, fixed". "It fails closed" still holds.]**
 
 **Traps in correct code — no fix, a recorded decision.**
 
@@ -67,7 +67,7 @@ All nine were verified against the files during scoping, not inferred. Six are d
 
 ## The migration window
 
-The founder's next irreversible step is applying migrations 001–013 to hosted, with a stop condition of **exactly 13 pending**. A `014_*.sql` merged to `main` before that makes the dry run report 14 and the founder stops — a self-inflicted block on the last step of the hosted setup.
+The founder's next irreversible step is applying migrations 001–013 to hosted, with a stop condition of **exactly 13 pending**. A `014_*.sql` merged to `main` before that makes the dry run report 14 and the founder stops — a self-inflicted block on the last step of the hosted setup. **[SWEEP 2026-09-15: SUPERSEDED — the count rule became "the stop condition names files" (runbook step 5, founder ruling (c) below). Hosted holds 001–013; its next apply brings in 014, 015 and 016 together, three named `WOULD APPLY` lines.]**
 
 **This resolves itself, and no coordination is required, because Stage 0 contains no migrations at all.** The spine touches `tests/`, `scripts/`, `packages/` and `.github/` only. By the time Stage 1 needs `014`, the apply is done.
 
@@ -82,7 +82,7 @@ Everything else — `tests/`, `scripts/`, `apps/`, `packages/`, `.github/` — m
 
 ## Stage 0 — The spine
 
-**Why bundled together:** the fundamental says write the golden-path E2E early and let it be red. There is no Playwright, no E2E project and no CI job, so *"let it be red"* is currently a phantom — there is nothing to be red. This stage builds the thing that can go red, and it touches no migration, so it is also the work that runs while the founder applies to hosted.
+**Why bundled together:** the fundamental says write the golden-path E2E early and let it be red. There is no Playwright, no E2E project and no CI job, so *"let it be red"* is currently a phantom — there is nothing to be red. **[SWEEP 2026-09-15: SUPERSEDED in part — the E2E project (`tests/e2e/`) and the `golden-path` CI job now exist. Playwright is still absent from every `package.json`, as Stage 3 plans.]** This stage builds the thing that can go red, and it touches no migration, so it is also the work that runs while the founder applies to hosted.
 
 ### The problem with a deliberately-red test, and the mechanism that solves it
 
@@ -127,7 +127,7 @@ Assertion (2) is what makes progress non-optional. When Stage 1 lands `publish_w
 
 Read the `generate_link` response field names off the GoTrue in the pinned CLI (`supabase` 2.117.0), not off the docs — print it verbatim in the first commit and assert against what came back. And mint **one** ward session per E2E run and reuse it: `[auth.rate_limit] sign_in_sign_ups = 30` and `token_verifications = 30` are per 5 minutes **per IP**, and a CI runner is one IP. A ratchet re-minting per step is a 429 waiting to be misfiled as a flake.
 
-**The single-use probe — run it, and keep the runbook checkbox open.** Add it as an E2E step: mint → verify (session issued) → verify the same `token_hash` again (must be refused) → mint, force expiry, verify (must be refused). Record *how* expiry was forced, because that changes what was proved. Then, per test-conventions §4, the file header carries: *NOT ASSERTED HERE, deliberately: hosted magic-link single-use. Local GoTrue is pinned by the Supabase CLI; hosted auth is upgraded by Supabase out-of-band and is not that version.* And `docs/runbook-supabase-project-creation.md` §5b currently reads *"Covered by tests: nothing."* — after this lands that sentence is false and must become *"the local-integration leg only, against GoTrue \<version\>; the hosted vendor property remains uncovered and this checkbox is still the only control."* Have the job print `curl -s http://127.0.0.1:54321/auth/v1/health` every run so the local claim always carries the version it is true of.
+**The single-use probe — run it, and keep the runbook checkbox open.** Add it as an E2E step: mint → verify (session issued) → verify the same `token_hash` again (must be refused) → mint, force expiry, verify (must be refused). Record *how* expiry was forced, because that changes what was proved. Then, per test-conventions §4, the file header carries: *NOT ASSERTED HERE, deliberately: hosted magic-link single-use. Local GoTrue is pinned by the Supabase CLI; hosted auth is upgraded by Supabase out-of-band and is not that version.* And `docs/runbook-supabase-project-creation.md` §5b currently reads *"Covered by tests: nothing."* **[SWEEP 2026-09-15: SUPERSEDED — §5b is now step 9, and the sentence reads "Covered by tests: the local-integration leg only, against GoTrue v2.196.0".]** — after this lands that sentence is false and must become *"the local-integration leg only, against GoTrue \<version\>; the hosted vendor property remains uncovered and this checkbox is still the only control."* Have the job print `curl -s http://127.0.0.1:54321/auth/v1/health` every run so the local claim always carries the version it is true of.
 
 ### Gate 2, restated — [CORRECTED]
 
@@ -159,7 +159,7 @@ Everything else in Gate 2 stands.
 
 ### From Bundle 2 — three things
 
-- [ ] **The `auth.uid()` → `app.ward_account.id` seam.** Nothing in the repository creates a `ward_account` today; `003`'s `id` is a bare `uuid PRIMARY KEY` with no FK to `auth.users` and no writer. Build `scripts/provision_ward_account.mjs`: service-role, calls the GoTrue admin API to invite a role address, inserts the matching `app.ward_account` row with `id = <auth user id>`, stamps `app.invite.accepted_at`. **A script, not an RPC** — Sprint 1 ships no self-serve admin surface anywhere, so an `accept_invite` RPC would be a public write surface with no caller, and holding the client-reachable write surface at exactly one function is what keeps `rls_rpc_execute_allowlist.test.ts` cheap to keep honest.
+- [ ] **The `auth.uid()` → `app.ward_account.id` seam.** Nothing in the repository creates a `ward_account` today; `003`'s `id` is a bare `uuid PRIMARY KEY` with no FK to `auth.users` and no writer. **[SWEEP 2026-09-15: SUPERSEDED in part — `scripts/provision_ward_account.mjs` now writes the row (`tests/e2e/frontier.json` records NOT_A_MEMBER discharged 2026-09-10). The bare `uuid PRIMARY KEY` with no FK to `auth.users` still holds.]** Build `scripts/provision_ward_account.mjs`: service-role, calls the GoTrue admin API to invite a role address, inserts the matching `app.ward_account` row with `id = <auth user id>`, stamps `app.invite.accepted_at`. **A script, not an RPC** — Sprint 1 ships no self-serve admin surface anywhere, so an `accept_invite` RPC would be a public write surface with no caller, and holding the client-reachable write surface at exactly one function is what keeps `rls_rpc_execute_allowlist.test.ts` cheap to keep honest.
 - [ ] Magic-link sign-in in a new `apps/ward-console/`. One screen. Session held by supabase-js.
 - [ ] **A second ward account at the same facility, on a different category.** Its only purpose is to make finding 8 observable. Without it the ward-scope check and its absence are indistinguishable.
 
@@ -214,7 +214,10 @@ Deferred to Stage 2: admin challenge, admin publish, the +/- counter, optimistic
 - [ ] **`packages/fixtures/snapshot-shape.json`** (landed in Stage 0). Carries `envelope`, `facilityColumns`, `wardColumns` — the frozen `public.ward_public` list from `007` — a named `pollCadenceSeconds`, and a `golden` payload.
 - [ ] **`packages/snapshot/src/codec.ts` — one implementation, not two.** Both sides importing the JSON and each writing their own mapping is two derivation sites one layer down. Build `encodeWard` / `decodeWard` from `wardColumns` at module load; the generator imports the encoder, the dashboard imports the decoder, **neither contains a column list**.
 - [ ] `packages/snapshot/src/freshness.ts` and `anchor.ts`. **Not in `packages/gate`** — see the safety notes.
-- [ ] **`app.regenerate_snapshot()`**, `SECURITY DEFINER`, `SET search_path = ''`, EXECUTE revoked from PUBLIC and granted to `service_role` only. Reads the three mirrors, writes one row to `public.snapshot_current` **and** `app.system_heartbeat.last_snapshot_at` **in the same transaction**, so it can never claim a regeneration that did not commit.
+- [ ] **`app.regenerate_snapshot()`**, `SECURITY DEFINER`, `SET search_path = ''`, EXECUTE revoked from PUBLIC and granted to `service_role` only. Reads the three mirrors, writes one row to `public.snapshot_current` **and** `app.system_heartbeat.last_snapshot_at` **in the same transaction**, so it can never claim a regeneration that did not commit. **[SWEEP 2026-09-15: SUPERSEDED in two parts by migration 016.]**
+  - **EXECUTE is held by the owner only.** `service_role` has no USAGE on schema `app` (001, 013; hosted, runbook step 6), so the `service_role` grant was one nobody could exercise.
+  - **It reads two mirrors, not three.** `lga_rollup` is excluded by ruling R-2026-09-15-04.
+  - **Verified:** the same-transaction heartbeat, `SECURITY DEFINER` and the pinned `search_path`.
 - [ ] **`v` is a monotonic run counter or a content hash — never a timestamp aggregate** (finding 7). Record the reason in the fixture, not only in the function.
 - [ ] **The snapshot never carries duty flags.** The F2 ESLint rule matches on *identifier names* (`/anaesthetist|obstetrician|paediatrician/i`); arrays-of-arrays destroys names, and `!f[3]` is invisible to it. Today the payload carries only `gated_by`, so exposure is zero — but the natural widening ("show *why* it's closed in a tooltip") is exactly what reintroduces it. Written down as a decision in the fixture comment, because it is currently a property nobody has stated.
 - [ ] The tile: name, phone as the only full-width action, count, absolute timestamp with explicit `Africa/Lagos`, freshness band. Plus the persistent *"indicative — call before you travel"* banner and the permanent 767 / 112 / LASAMBUS strip. Roughly fifteen lines of static markup, and they are what makes an ugly slice not dangerous if anyone opens it.
@@ -232,7 +235,7 @@ Deferred to Stage 3: geolocation, haversine, the LGA fallback, the first-run int
 
 **The generator's death is camouflaged by correct UI behaviour, and this is the trap worth naming.** A dead generator degrades into grey badges, "last known", and at 24h "Status unknown — call to confirm" — exactly the states Bundle 4 is designed to render *calmly*. `stale-while-revalidate=300` keeps the CDN serving a plausible file for five minutes after the origin dies. So the sensor cannot be the dashboard, and it cannot be a timestamp either: a generator that runs and emits an identical payload looks fine on `generated_at`. **The discriminating signal is that `version` stopped incrementing**, backed by the transactional heartbeat. Both are in this stage rather than waiting for Bundle 5, because the slice is the first thing that can actually stop.
 
-**Blast radius.** **[SUPERSEDED 2026-09-14 — see *Superseded — recorded 2026-09-14* below.]** `014` adds one index and no column, so nothing shipped changes shape; `rls_anon_column_containment.test.ts` and the frozen-list assertions are untouched. Replacing that test's literal FROZEN list with `snapshot-shape.json`'s `wardColumns` makes `007`'s table, the anon-surface guard and the snapshot contract one source instead of three — do it in this stage, and confirm `rls_anon_column_containment` still passes against the live `information_schema` rather than only against the fixture. Adding `publish_ward_status` adds a sixth name to `lint_from_allowlist.sh`'s allowlist, which is why finding 6 is fixed in Stage 0 rather than here. Note also that the lint greps `.from(` only, so `.rpc('publish_ward_status')` is entirely outside its coverage — add that as a NOT-ASSERTED line rather than leaving it as an assumption. `public.my_facility_wards()` returns every category of the facility, including other wards' private `reason_code`, to a single-ward account; within a facility that is probably right, but it is currently an accident rather than a decision, and the slice will not surface it — record it in Stage 2.
+**Blast radius.** **[SUPERSEDED 2026-09-14 — see *Superseded — recorded 2026-09-14* below.]** `014` adds one index and no column, so nothing shipped changes shape; `rls_anon_column_containment.test.ts` and the frozen-list assertions are untouched. Replacing that test's literal FROZEN list with `snapshot-shape.json`'s `wardColumns` **[SWEEP 2026-09-15: SUPERSEDED in part — done for `ward_public`, whose list `tests/db/rls_anon_column_containment.test.ts` now imports from the fixture. `facility_public`'s list in that test is still literal.]** makes `007`'s table, the anon-surface guard and the snapshot contract one source instead of three — do it in this stage, and confirm `rls_anon_column_containment` still passes against the live `information_schema` rather than only against the fixture. Adding `publish_ward_status` adds a sixth name to `lint_from_allowlist.sh`'s allowlist, which is why finding 6 is fixed in Stage 0 rather than here. Note also that the lint greps `.from(` only, so `.rpc('publish_ward_status')` is entirely outside its coverage — add that as a NOT-ASSERTED line rather than leaving it as an assumption. `public.my_facility_wards()` returns every category of the facility, including other wards' private `reason_code`, to a single-ward account; within a facility that is probably right, but it is currently an accident rather than a decision, and the slice will not surface it — record it in Stage 2.
 
 **Definition of done:** the golden-path frontier has moved through `publish-count` and `tile-shows-count`; a real magic link produces a session that publishes and the number appears in `public.ward_public` and then in `snapshot_current`; a second publish at a stale `expected_version` raises `VERSION_CONFLICT`; the second ward account is refused with `WARD_SCOPE_DENIED`; a `composed_at` three minutes old and one thirty-one seconds in the future are both refused; the same `client_mutation_id` twice yields one event; `session_id` differs from `auth.uid()` and changes across sessions; unscheduling the generator drives `/api/health` to 500 and the observed latency is written down.
 
@@ -316,8 +319,10 @@ The correct anchor is `freshnessBand(updatedAtIso, serverNowIso, elapsedSinceFet
 
 **Two things it inherits from earlier stages rather than building:**
 
-- [ ] **The dual scheduler already exists.** Stage 1 stood up `pg_cron` plus the external caller for `regenerate_snapshot`, for the reason Bundle 5 gives — Supabase pauses free projects after 7 days of low activity, pg_cron's own activity does not count toward preventing it, and pg_cron cannot report its own death because it *is* the thing that is off. The sweep joins the same schedule rather than inventing a second one.
-- [ ] **`/api/health` and the heartbeat already exist.** Bundle 5 widens `/api/health`'s second condition (zero notifications reaching DELIVERED or ACKED in 24h while at least one was QUEUED) and builds the full `/status` page on top of the minimal surface Stage 1 shipped.
+- [ ] **The dual scheduler already exists.** Stage 1 stood up `pg_cron` plus the external caller for `regenerate_snapshot`, for the reason Bundle 5 gives — Supabase pauses free projects after 7 days of low activity, pg_cron's own activity does not count toward preventing it, and pg_cron cannot report its own death because it *is* the thing that is off. The sweep joins the same schedule rather than inventing a second one. **[SWEEP 2026-09-15: SUPERSEDED — FAILED against the repo. Neither `pg_cron` nor an external caller exists; every `pg_cron` / `cron.schedule` hit across `supabase/`, `database/`, `scripts/`, `.github/`, `apps/`, `packages/` and `tests/` is a comment. The control grep for `system_heartbeat` hits 004. The schedule is migration 017, whose caller route is still to be decided.]**
+- [ ] **`/api/health` and the heartbeat already exist.** Bundle 5 widens `/api/health`'s second condition (zero notifications reaching DELIVERED or ACKED in 24h while at least one was QUEUED) and builds the full `/status` page on top of the minimal surface Stage 1 shipped. **[SWEEP 2026-09-15: SUPERSEDED in part — FAILED for `/api/health`, VERIFIED for the heartbeat.]**
+  - **`/api/health`:** its only hit anywhere is a comment in 004. `apps/public-dashboard` has no route, and `docs/runbook-snapshot-stopped.md` does not exist. The control grep for `publish_ward_status` hits `apps/ward-console`.
+  - **The heartbeat:** `app.system_heartbeat` exists (004), and migration 016 added `last_snapshot_at`.
 
 **Three additions from this scoping pass:**
 
@@ -385,7 +390,7 @@ All five legs accumulate; none short-circuits. So a plant that trips several sti
 
 Positive control: reordering `portal_viewed_at` and `arrived_at` must exit 0, or people learn to disable the guard rather than read it. Three anti-vacuity legs, all exiting 2 and all asserting their own message, since their statuses are identical: no `CREATE TABLE app.referral` in the corpus; fixture absent; fixture present but parsing to zero columns.
 
-**Clause 5 classification: GUARD-AHEAD-OF-SUBJECT.** Legs 1–4 execute non-vacuously over the real migrations today. Leg 5 is non-vacuous only in the negative sense — the function it forbids does not exist yet, which is the point of writing it before Bundle 6 rather than after. Reclassify to LIVE as part of this stage, in the script header, in the same idiom as `lint_audit_log_columns.sh`.
+**Clause 5 classification: GUARD-AHEAD-OF-SUBJECT.** Legs 1–4 execute non-vacuously over the real migrations today. **[SWEEP 2026-09-15: SUPERSEDED — FAILED as a present-tense claim. No leg executes, because none of the guard's four files exists (`packages/fixtures/referral-columns.json`, `scripts/lint_referral_ward_to_ward.sh`, `tests/compliance/referral_ward_to_ward.test.ts`, `tests/db/referral_column_list.test.ts`). The same existence check finds the audit-log triple present. This is Stage 5 work not yet built; the sentence describes the guard once built.]** Leg 5 is non-vacuous only in the negative sense — the function it forbids does not exist yet, which is the point of writing it before Bundle 6 rather than after. Reclassify to LIVE as part of this stage, in the script header, in the same idiom as `lint_audit_log_columns.sh`.
 
 **What it does NOT cover — in the header, not in a ticket.** The **contents** of `ward_reply`: a column-list guard is structurally blind to what a human types into a permitted column, and this is the largest residual risk on the table. The real controls are the 240-character cap (structural), the field label (behavioural, partial), and RPC-layer validation — which **does not exist, is not reliably buildable, and must not be described as a control**. The **re-identifiability of the tuple** (below); nothing mechanical catches it and nothing should try. A **new sibling table** — `app.referral_note`, `app.outcome_detail` — carrying what this one refuses would pass every leg; the generalisation is a checked-in inventory of tables in `app` with any new table failing the build until it has a column-list fixture, and that is Sprint 2, named here so the boundary is known rather than missed. The **client**: a form collecting a clinician's name and discarding it before the RPC leaves no trace, and that is acceptable, because the property being defended is what the database holds.
 
@@ -399,7 +404,7 @@ Positive control: reordering `portal_viewed_at` and `arrived_at` must exit 0, or
 
 The correct claim is scoped, and it is still a strong differentiator: **no natural person is identified in the operational record, no account belongs to an individual, and no individual is attributed to any published figure.** The unscoped version currently appears in the handoff, the memo and several schema comments. Fix it everywhere before a facility or a funder quotes it back.
 
-**Blast radius.** The `ward_reply` cap is a tightening CHECK on a table with no production rows, so nothing existing violates it — but confirm the seed does not plant a longer reply before shipping the migration. The touch trigger changes `updated_at` from writer-supplied to server-stamped, which is what `003`'s `app.touch_updated_at()` already does for four other tables and is the shape `timestamps_are_timestamptz.test.ts` expects. Extending `lint_from_allowlist.sh` for the export prohibition touches the same file finding 6 fixes in Stage 0 — do that fix first or the header claim compounds. The referral guard's live twin queries `information_schema` and therefore needs the `db` project, not `compliance`; put the halves in their correct projects or the static half will silently become the only one that runs.
+**Blast radius.** The `ward_reply` cap is a tightening CHECK on a table with no production rows, so nothing existing violates it — but confirm the seed does not plant a longer reply before shipping the migration. The touch trigger changes `updated_at` from writer-supplied to server-stamped, which is what `003`'s `app.touch_updated_at()` already does for four other tables and is the shape `timestamps_are_timestamptz.test.ts` expects. **[SWEEP 2026-09-15: SUPERSEDED — FAILED as a count. The function backs FIVE triggers, not four: `facility` (003:138), `facility_ops` (003:186), `facility_contact` (003:359), `ward_status` (004:130) and `system_heartbeat` (004:315). The shape claim holds.]** Extending `lint_from_allowlist.sh` for the export prohibition touches the same file finding 6 fixes in Stage 0 — do that fix first or the header claim compounds. The referral guard's live twin queries `information_schema` and therefore needs the `db` project, not `compliance`; put the halves in their correct projects or the static half will silently become the only one that runs.
 
 **Definition of done:** as Bundle 6 — plus the guard reds on all eight plants, passes its positive control and all three anti-vacuity legs; `ward_reply` rejects 241 characters at the database and shows a counter in the UI; `app.referral.updated_at` is server-stamped; a reference to `app.referral` in any client source reds `bundle-guards`; and the golden path logs an ACCEPTED outcome that appears in the audit log, closing the last ratchet step.
 
@@ -430,7 +435,7 @@ The rule that does bind both is the one above it: everything must flow. A featur
 
 **If a facility cannot supply a ward-level address.** If a pilot facility insists on individual nurse logins, **do not quietly add individual accounts.** Stop and re-open `decision-2026-09-08-ward-level-identity.md`. That is the single condition that would make the design unworkable, and it should be tested at facility #1 rather than discovered at facility #20.
 
-**And the pattern the corrections section exists for.** Five instances this fortnight of *a mechanism present and not reaching*: the `grep` exit-2 fail-open guard, the `sed` plant that never planted, three phantom cross-file links, the `fingerprint` alert with no consumer, and now `refresh_lga_rollup()` with no caller. Finding 6's two false headers are the same family. When something claims to check a thing, the claim needs a probe — that is Clause 5, and it is the rule that has earned its keep.
+**And the pattern the corrections section exists for.** **[SWEEP 2026-09-15: this count disagrees with finding 1 above, which calls `refresh_lga_rollup()` "the sixth instance". Recorded as a contradiction in the document, not resolved here; the list below names five.]** Five instances this fortnight of *a mechanism present and not reaching*: the `grep` exit-2 fail-open guard, the `sed` plant that never planted, three phantom cross-file links, the `fingerprint` alert with no consumer, and now `refresh_lga_rollup()` with no caller. Finding 6's two false headers are the same family. When something claims to check a thing, the claim needs a probe — that is Clause 5, and it is the rule that has earned its keep.
 
 ---
 
@@ -464,7 +469,7 @@ Four. None blocks the start of Stage 0.
 
 ### Superseded — recorded 2026-09-14: what migration 014 is, and the write contract
 
-**This kickoff said `014` was "the idempotency index" (Stage 1, finding 2) and that "`014` adds one index and no column" (Stage 1, blast radius). Both are superseded.** Three code references already said otherwise — `apps/ward-console/src/main.ts`, `tests/e2e/_harness.ts` and `tests/e2e/frontier.json` each named `publish_ward_status` as migration 014 — and a document left disagreeing with three code references is a premise waiting to be inherited.
+**This kickoff said `014` was "the idempotency index" (Stage 1, finding 2) and that "`014` adds one index and no column" (Stage 1, blast radius). Both are superseded.** Three code references already said otherwise — `apps/ward-console/src/main.ts`, `tests/e2e/_harness.ts` and `tests/e2e/frontier.json` each named `publish_ward_status` as migration 014 — and a document left disagreeing with three code references is a premise waiting to be inherited. **[SWEEP 2026-09-15: SUPERSEDED for the frontier leg. `tests/e2e/frontier.json` no longer names 014; it passes through `stale-ward-payload-carries-duty-phone` since 016, beyond this kickoff's Stage 1 definition-of-done target `tile-shows-count`. `apps/ward-console/src/main.ts` and `tests/e2e/_harness.ts` still correctly place `publish_ward_status` in 014.]**
 
 **Stage 1's schema was always more than an index.** None of `public.publish_ward_status`, `app.regenerate_snapshot` or `public.snapshot_current` exists in migrations 001–013. `app.system_heartbeat` (004) has `last_sweep_at` and no `last_snapshot_at`, which the generator this kickoff specifies writes.
 
@@ -498,6 +503,72 @@ Four. None blocks the start of Stage 0.
 - **The write-path derivation (read back from `ward_public`) and the implementer's five decisions: ACCEPTED, with condition G** — a replay is named in the response.
 
 **The gating conditions A–I for that pull request are recorded in `Sprint Kickoffs/decision-2026-09-14-public-private-split.md`, not copied here.**
+
+### Pre-017 sweep — recorded 2026-09-15
+
+_Founder ruling R-2026-09-15-08: before 017, every assertion in this kickoff that something exists, is in place, was stood up, runs or is asserted is marked VERIFIED or SUPERSEDED. Five had failed against the repository by then._
+
+**Method.**
+- **The whole document was read, not grepped.** A grep for "already" matched mostly prose and missed the claims that had failed, which were worded as plain present-tense facts.
+- **96 assertions were enumerated with line citations.** Each "does not exist" verdict names its search and a known-present control from the same search.
+- **Evidence status:**
+  - every FAILED or STALE verdict below was re-checked by hand on 2026-09-15 before it was marked;
+  - the VERIFIED rows rest on the enumeration's cited reading, and the citations are kept so any row can be re-derived.
+- **Markers:** SUPERSEDED claims carry an inline `[SWEEP 2026-09-15: …]` marker at their line. VERIFIED claims are listed here and not marked inline, so the document stays readable.
+
+**Result:**
+
+| Verdict | Count | What it means |
+|---|---|---|
+| VERIFIED | 68 | holds against today's repository |
+| SUPERSEDED, failed | 5 | was not true of the repo when marked |
+| SUPERSEDED, stale | 9 | true when written; the repo moved on |
+| SUPERSEDED in this document already | 5 | a later section of this kickoff superseded it |
+| Not checkable from the repository | 9 | a vendor, hosted or history fact |
+
+**SUPERSEDED — FAILED (5):**
+- **Stage 1, `app.regenerate_snapshot()`.**
+  - The `service_role` EXECUTE grant: `service_role` has no USAGE on `app`, so the grant was unusable. Migration 016 grants EXECUTE to the owner only.
+  - "Reads the three mirrors": 016 reads two, `lga_rollup` excluded by ruling.
+- **Stage 4, "the dual scheduler already exists".** No `pg_cron` and no external caller anywhere; the schedule is 017.
+- **Stage 4, "`/api/health` … already exist[s]".** No route exists; `docs/runbook-snapshot-stopped.md` does not exist. The heartbeat half is VERIFIED.
+- **Stage 5, "legs 1–4 execute … today".** None of the referral guard's files exists.
+- **Stage 5 blast radius, "four other tables".** Five triggers use `app.touch_updated_at()`.
+
+**SUPERSEDED — STALE (9):**
+- finding 2, the `client_mutation_id` index (014 created it);
+- finding 5, the `.ci/ci-gate-exceptions.yml` citation (fixed in 31ac05e);
+- finding 6, two claims: the exports map, and the allowlist parser (both fixed in 31ac05e);
+- Stage 0, "no E2E project and no CI job" (both exist; Playwright is still absent);
+- Stage 0, runbook §5b's "Covered by tests: nothing" (now step 9, local leg covered);
+- Stage 1, "nothing creates a `ward_account`" (`scripts/provision_ward_account.mjs`);
+- Stage 1 blast radius, the frozen list (`ward_public`'s is now imported; `facility_public`'s is still literal);
+- the superseded section's frontier leg (the frontier passes through `stale-ward-payload-carries-duty-phone`).
+**SUPERSEDED in this document already (5):** the "exactly 13 pending" count, the `app`-typed signature, "014 is the idempotency index", "014 adds one index and no column", and "the snapshot is 015".
+
+**Not checkable from the repository (9):** the "sixth" and "five" instance counts; the CDN cache headers and `stale-while-revalidate` behaviour; Supabase's pause rule; the unpapered DPA; "no production rows"; the free-tier connection limit; and the runtime OpenAPI observation. These are vendor, hosted or history facts; they are not repo state.
+
+**VERIFIED (68).** Every other assertion. The ones later work leans on:
+- **finding 1:** `refresh_lga_rollup()` still has no production caller, and **finding 1 stays OPEN** (016 declined to become its caller);
+- **finding 3:** the 1000 cap and the 256 idiom, with drifted line references;
+- **finding 4:** `app.referral` has no touch trigger;
+- **finding 7:** `008` writes `ward_public.updated_at = ws.updated_at`;
+- **findings 8 and 9;**
+- `supabase/config.toml`'s SMTP and rate-limit lines;
+- the pinned CLI 2.117.0;
+- `withRole()`'s rollback sentinel and `sqlSecond()`;
+- the heartbeat;
+- no `ORDER BY ws.category` in `008` yet;
+- no `app.update_request` table;
+- no public privacy notice and no `ARCHITECTURE.md`;
+- the BedSpace/OpenBed naming state.
+
+**Found in passing, and recorded rather than fixed.** Migration 005's comment at line 211 says patient-information validation "also runs at the RPC layer". No such validation exists, and this kickoff says it is not reliably buildable. 005 is applied and is not edited; this line is its correction.
+
+**Also VERIFIED by observation on 2026-09-15** (recorded in `Sprint Kickoffs/decision-2026-09-14-public-private-split.md`, "Hosted role rows — R-2026-09-15-08"):
+- **H1:** hosted `postgres` and `service_role` are `rolsuper f`, `rolbypassrls t`, so the hold on the hosted apply is lifted.
+- **H2:** R-2026-09-15-06 item (2) is closed on those attributes. The hosted owner of the two SECURITY DEFINER writers is read after the apply (runbook step 5).
+- **H3:** `.claude/rules/test-conventions.md` §4 is closed; local and hosted match on the role attributes.
 
 ## Supporting docs
 

@@ -123,9 +123,15 @@ export async function seedE2eCorpus(): Promise<void> {
   // replica suppresses ordinary triggers, including the 008 projection, so the
   // mirrors are brought up to date explicitly afterwards. The append-only guards
   // are ENABLE ALWAYS and still fire -- and this touches neither of their tables.
-  // Setting session_replication_role needs a superuser, which the local stack's
-  // and CI's postgres is; anywhere else this fails loudly rather than seeding
-  // half a corpus.
+  // Setting session_replication_role is superuser-only in stock Postgres, and
+  // postgres is NOT a superuser here (rolsuper f, observed 2026-09-15). It works
+  // because Supabase's supautils extension lets members of
+  // supautils.privileged_role (supabase_privileged_role, which postgres is a
+  // member of) set the settings in supautils.privileged_role_allowed_configs, and
+  // session_replication_role is on that list -- observed locally 2026-09-15, and
+  // true of CI's stack by the same image. It must be SET inside the session;
+  // PGOPTIONS at connection start is refused. Anywhere that grant is absent this
+  // fails loudly rather than seeding half a corpus.
   const wards: [string, string, string, number | null, string, string][] = [
     // facility, category, offering, bed_count, monitoring_state, updated_at offset
     [ALPHA.id, PUBLISH_CATEGORY, 'OFFERED', null, 'PENDING', '0 seconds'], // the ward the golden path publishes to

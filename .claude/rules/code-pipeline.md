@@ -42,7 +42,7 @@ so they do not read as repo paths.
 
 **This applies with full force to hand-checks.** Several things this project
 depends on cannot be tested from inside the repository — the Supabase region
-pin, the hosted exposed-schemas list, hosted superuser behaviour. Each is
+pin, the hosted exposed-schemas list, hosted role attributes. Each is
 recorded as a checklist step in `docs/runbook-supabase-project-creation.md` and
 named as unautomatable in the test that comes closest to it. **Shipping a test
 that claims to check one of them would be the exact defect this clause exists to

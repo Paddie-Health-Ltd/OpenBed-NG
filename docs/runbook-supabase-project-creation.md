@@ -657,6 +657,32 @@ unset KEY BODY
 
 - [ ] Post-apply probe: `PASS`, recorded with its date
 
+### After the apply: who owns the two SECURITY DEFINER writers
+
+**Why (R-2026-09-15-08, H2).** `app.project_facility` (008) and
+`app.regenerate_snapshot()` (016) run as their OWNER, so the owner's role
+attributes decide whether their reads and writes on the FORCE-RLS mirrors bypass
+RLS. Hosted `postgres` holds `rolbypassrls t` (observed 2026-09-15); the owner of
+these two functions on hosted has not been observed. Expected: `postgres`, the
+role that applied the migrations.
+
+The first line waits silently for the connection string; the last removes it.
+
+```bash
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -Atc "select proname || ' owner=' || pg_get_userbyid(proowner) from pg_proc where proname in ('project_facility', 'regenerate_snapshot') order by proname"
+unset DATABASE_URL
+```
+
+- **PASS:** exactly two lines, `project_facility owner=postgres` and
+  `regenerate_snapshot owner=postgres`. Record them with the date; this closes
+  H2's owner half.
+- **Any other owner, or fewer than two lines: stop and report.** Do not change
+  ownership by hand; a different owner changes what `row_security = off` and the
+  mirrors' FORCE RLS mean for both functions.
+
+- [ ] Owners read: both `postgres`, recorded with their date
+
 ### Expected output, including the one line that looks like a failure and is not
 
 **On the hosted project today** (001 through 013 already applied; the thirteen
@@ -917,10 +943,17 @@ divergence to reason about, and the earlier record of "17.6.1 both" was true at
 that precision but not at patch level.
 
 **Do not read that as making step 8 less necessary.** The hosted append-only hand
-check exists because of the **role graph** — Supabase's `postgres` role is a
-superuser locally and is not hosted — and that asymmetry is independent of the
-Postgres version. Matching versions remove one confound; they remove none of the
-reason for the check.
+check exists because a local green on a role-sensitive control is not a hosted
+fact until the hosted role graph is observed. This paragraph used to give the
+reason as "Supabase's `postgres` role is a superuser locally and is not hosted".
+**Observed 2026-09-15, that is false on both sides:**
+- local `postgres` is `rolsuper f`, `rolbypassrls t`;
+- hosted `postgres` on `klrlpxysjsjpdkeqdhvl` is `rolsuper f`, `rolbypassrls t`.
+
+The graphs match on those attributes (recorded in
+`Sprint Kickoffs/decision-2026-09-14-public-private-split.md`, "Hosted role rows
+— R-2026-09-15-08"). Step 8's result stands on what it observed on hosted, not on
+the old asymmetry.
 
 Re-derive with:
 
@@ -940,10 +973,12 @@ Hosted: the same Management API call as step 1.
 **This is the step the local suite genuinely cannot stand in for**, and the reason
 is specific rather than general.
 
-Supabase's `postgres` role **is a superuser on a local stack and is not on a
-hosted project**. `tests/db/append_only_enforcement.test.ts` proves the trigger
-fires for a local superuser, which is strong evidence — but the *grant* half of
-that test describes the local role graph, and the hosted one differs.
+`tests/db/append_only_enforcement.test.ts` proves the trigger fires locally,
+which is strong evidence — but a local result is not a hosted fact until the
+hosted role graph has been observed, and this step is where it is observed.
+_Corrected 2026-09-15:_ this paragraph said `postgres` "is a superuser on a local
+stack and is not on a hosted project". Observed, it is superuser on neither:
+`rolsuper f` and `rolbypassrls t` both locally and on `klrlpxysjsjpdkeqdhvl`.
 
 ### The SQL this step used to carry was a no-op, and that is observed
 
@@ -1067,7 +1102,8 @@ Trigger state:
 `postgres` still held both privileges, and **the trigger is what refused.** That
 is the defence-in-depth layer holding for the one role the grant layer
 deliberately does not cover, on the hosted role graph where `postgres` is not a
-superuser.
+superuser (observed 2026-09-15: `rolsuper f`, `rolbypassrls t` — and the same
+locally, so this holds on both).
 
 **What this does NOT prove:** the **grant** leg on hosted. No update or delete was
 attempted as `anon`, `authenticated` or `service_role`, so the revocations were
@@ -1437,7 +1473,7 @@ header. These checkboxes are the hosted half.
 | Region pin | Assertable via the Management API, declined on credential-surface grounds |
 | Hosted exposed-schemas list | A dashboard setting with no in-database representation — **but not unobservable.** Discharged by hand probe on 2026-09-13: the live project's `PGRST106` body carries `hint: "Only the following schemas are exposed: public, graphql_public"` (step 2). No test carries it, because the suite never targets hosted (step 6). `extra_search_path` is a separate setting, discharged by its own single-field probe on 2026-09-13 (step 2): `public, extensions`, the untouched Supabase default |
 | Hosted Auth Site URL and redirect allowlist | A dashboard setting with no in-database representation, the same idiom as the exposed-schemas list. Decided 2026-09-14 (`Sprint Kickoffs/decision-2026-09-14-public-private-split.md`, D2): the Site URL is on `app.openbed.ng`, the allowlist is confined to it, and `openbed.ng` is never an auth redirect target. **Observed 2026-09-14 (step 9): the hosted Site URL is still http://localhost:3000, the Supabase default.** It arrives as `redirect_to` in every link examined, so a ward clicking a real link today is sent to their own machine. It becomes https://app.openbed.ng when the app exists. Record the exact hosted strings here when they are entered. The values in `supabase/config.toml` are local-only |
-| Hosted superuser semantics | The local role graph differs from the hosted one |
+| Hosted role attributes | A property of Supabase-managed roles; no migration can assert it and a platform upgrade or project restore can change it. **Observed 2026-09-15 by Cowork, read-only:** hosted `postgres` and `service_role` are both `rolsuper f`, `rolbypassrls t`, identical to local. The old row said the local role graph differs from the hosted one; on these attributes it does not. Re-observe after any Supabase platform change |
 | Hosted auth session bounds (`timebox`, `inactivity_timeout`) | A dashboard setting with no in-database representation. Both bounds ARE proved locally in `tests/db/auth_refresh_live.test.ts`; the hosted values are step 3 |
 | Magic-link single-use and expiry | Enforced by Supabase auth, not by this schema, since `app.invite` no longer holds a token. Step 9 is the hand check, partly closed on 2026-09-14. Closing it needs custom SMTP, which is recorded once, as the email-provider row of the open processor obligations in `Sprint Kickoffs/decision-2026-09-14-public-private-split.md` |
 | Branch protection and its required-check set | A GitHub setting; reading it in CI needs a token this public repository should not carry |
