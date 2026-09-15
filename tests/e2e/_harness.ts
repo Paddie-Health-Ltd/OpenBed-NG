@@ -128,10 +128,14 @@ export async function seedE2eCorpus(): Promise<void> {
   // because Supabase's supautils extension lets members of
   // supautils.privileged_role (supabase_privileged_role, which postgres is a
   // member of) set the settings in supautils.privileged_role_allowed_configs, and
-  // session_replication_role is on that list -- observed locally 2026-09-15, and
-  // true of CI's stack by the same image. It must be SET inside the session;
-  // PGOPTIONS at connection start is refused. Anywhere that grant is absent this
-  // fails loudly rather than seeding half a corpus.
+  // session_replication_role is on that list -- observed locally 2026-09-15. CI
+  // is OBSERVED too, not inferred from the image: the golden-path job runs this
+  // function through scripts/run_e2e.sh and passed 10/10 on 2439938, and it
+  // could not have without the grant, because this fails loudly when the grant
+  // is absent. It must be SET inside the session; PGOPTIONS at connection start is
+  // refused. Anywhere that grant is absent this fails loudly rather than seeding
+  // half a corpus. Recorded as a vendor dependency, LOCAL AND CI ONLY, in the
+  // un-automatable table of docs/runbook-supabase-project-creation.md.
   const wards: [string, string, string, number | null, string, string][] = [
     // facility, category, offering, bed_count, monitoring_state, updated_at offset
     [ALPHA.id, PUBLISH_CATEGORY, 'OFFERED', null, 'PENDING', '0 seconds'], // the ward the golden path publishes to

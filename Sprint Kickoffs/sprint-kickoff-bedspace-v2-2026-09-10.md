@@ -435,7 +435,11 @@ The rule that does bind both is the one above it: everything must flow. A featur
 
 **If a facility cannot supply a ward-level address.** If a pilot facility insists on individual nurse logins, **do not quietly add individual accounts.** Stop and re-open `decision-2026-09-08-ward-level-identity.md`. That is the single condition that would make the design unworkable, and it should be tested at facility #1 rather than discovered at facility #20.
 
-**And the pattern the corrections section exists for.** **[SWEEP 2026-09-15: this count disagrees with finding 1 above, which calls `refresh_lga_rollup()` "the sixth instance". Recorded as a contradiction in the document, not resolved here; the list below names five.]** Five instances this fortnight of *a mechanism present and not reaching*: the `grep` exit-2 fail-open guard, the `sed` plant that never planted, three phantom cross-file links, the `fingerprint` alert with no consumer, and now `refresh_lga_rollup()` with no caller. Finding 6's two false headers are the same family. When something claims to check a thing, the claim needs a probe — that is Clause 5, and it is the rule that has earned its keep.
+**And the pattern the corrections section exists for.** **[SWEEP 2026-09-15, resolved by R-2026-09-15-09: the unit resolves it.]**
+- **The list below names five FAMILIES and seven INSTANCES,** because one bullet is "three phantom cross-file links". `refresh_lga_rollup()` is the fifth family and the seventh instance.
+- **The sentence's "five" is right only as families.** Finding 1's "the sixth instance" matches neither count.
+- **Whether that many incidents occurred that fortnight is history,** not repository state, and stays parked.
+- **Whether the document's stated count matches its own list is repository state, and it does not:** SUPERSEDED as failed. Five instances this fortnight of *a mechanism present and not reaching*: the `grep` exit-2 fail-open guard, the `sed` plant that never planted, three phantom cross-file links, the `fingerprint` alert with no consumer, and now `refresh_lga_rollup()` with no caller. Finding 6's two false headers are the same family. When something claims to check a thing, the claim needs a probe — that is Clause 5, and it is the rule that has earned its keep.
 
 ---
 
@@ -521,12 +525,15 @@ _Founder ruling R-2026-09-15-08: before 017, every assertion in this kickoff tha
 | Verdict | Count | What it means |
 |---|---|---|
 | VERIFIED | 68 | holds against today's repository |
-| SUPERSEDED, failed | 5 | was not true of the repo when marked |
+| SUPERSEDED, failed | 6 | was not true of the repo when marked |
 | SUPERSEDED, stale | 9 | true when written; the repo moved on |
 | SUPERSEDED in this document already | 5 | a later section of this kickoff superseded it |
-| Not checkable from the repository | 9 | a vendor, hosted or history fact |
+| Not checkable from the repository | 8 | a vendor, hosted or history fact |
 
-**SUPERSEDED — FAILED (5):**
+_Corrected 2026-09-15 (R-2026-09-15-09):_ the first version of this section counted failed 5 and not checkable 9. It parked the instance-count contradiction whole, although half of it is repository state; that half moved to failed.
+
+**SUPERSEDED — FAILED (6):**
+- **"Five instances this fortnight" against finding 1's "sixth".** The document's own list names five families and seven instances. The stated counts do not match the enumerated list; the unit is now stated at the :433 sentence.
 - **Stage 1, `app.regenerate_snapshot()`.**
   - The `service_role` EXECUTE grant: `service_role` has no USAGE on `app`, so the grant was unusable. Migration 016 grants EXECUTE to the owner only.
   - "Reads the three mirrors": 016 reads two, `lga_rollup` excluded by ruling.
@@ -546,7 +553,7 @@ _Founder ruling R-2026-09-15-08: before 017, every assertion in this kickoff tha
 - the superseded section's frontier leg (the frontier passes through `stale-ward-payload-carries-duty-phone`).
 **SUPERSEDED in this document already (5):** the "exactly 13 pending" count, the `app`-typed signature, "014 is the idempotency index", "014 adds one index and no column", and "the snapshot is 015".
 
-**Not checkable from the repository (9):** the "sixth" and "five" instance counts; the CDN cache headers and `stale-while-revalidate` behaviour; Supabase's pause rule; the unpapered DPA; "no production rows"; the free-tier connection limit; and the runtime OpenAPI observation. These are vendor, hosted or history facts; they are not repo state.
+**Not checkable from the repository (8):** whether that many instances occurred that fortnight (history; the count's match against the list is under FAILED); the CDN cache headers and `stale-while-revalidate` behaviour; Supabase's pause rule; the unpapered DPA; "no production rows"; the free-tier connection limit; and the runtime OpenAPI observation. These are vendor, hosted or history facts; they are not repo state.
 
 **VERIFIED (68).** Every other assertion. The ones later work leans on:
 - **finding 1:** `refresh_lga_rollup()` still has no production caller, and **finding 1 stays OPEN** (016 declined to become its caller);

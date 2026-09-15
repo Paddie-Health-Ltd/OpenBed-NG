@@ -731,6 +731,18 @@ _Standing rules, 2026-09-15. This record is their home._
      - the hosted session-200 probe;
      - attaching the handoff to #23.
    - **Later instance, 2026-09-15:** "the count check guards MATERIALIZED staying put" (R-2026-09-15-06 item (3)). EXPLAIN showed the keyword is not load-bearing; the correction was accepted in R-2026-09-15-08. It is the second mechanism claim caught in the 016 review loop, after count-equality.
+6. **A sweep targets the tense, not a phrase** (R-2026-09-15-09). The pre-017 sweep of the v2 kickoff first tried a grep for "already". It matched mostly prose, and missed the claims that had failed, because they were worded as plain present-tense facts ("`014` adds one index", "EXECUTE … granted to `service_role`").
+   - The sweep that worked read the whole document for every present-tense assertion that something exists, is in place, was stood up, runs or is asserted.
+   - Any later sweep of a planning document starts from the same target.
+7. **An explanation carrying a decision is a premise too** (proposed by the founder in R-2026-09-15-09; judged coherent by the implementer, restated to cover both directions).
+   - **This is not Clause 5.** Clause 5 is a mechanism present and not reaching: something that does not fire. **Nor is it `.claude/rules/test-conventions.md` §8,** which is a reason given WITH AN INSTRUCTION. This family is a causal explanation of observed behaviour — why something works, or why it fails — that a decision was resting on, and that nobody probed.
+   - **Four instances this fortnight.** Three worked, and the stated reason was wrong:
+     - the "postgres is superuser locally" claim, in six places and load-bearing for a hosted hand check;
+     - the count-equality control, green for a reason other than the one given;
+     - `session_replication_role`, which `postgres` sets through `supautils`, not as a superuser.
+   - **The fourth is the mirror case:** zsh `PIPESTATUS` FAILED, and the stated reason for the failure ("zsh arrays are 1-indexed") was wrong — zsh does not set `PIPESTATUS` at all. The shape holds in both directions, so the note is worded for both.
+   - **How to apply:** when an explanation of why something works or fails is about to carry a decision, probe the explanation, not only the outcome.
+   - **For the `scripts/` survey,** this is a sharper target than "does this run": is the stated reason it works, or fails, the actual reason.
 
 ---
 
@@ -756,7 +768,12 @@ _Standing rules, 2026-09-15. This record is their home._
 - later on 2026-09-15, the hosted role rows (R-2026-09-15-08): H1 the hold
   lifted, H2 item (2) closed with its owner half pending the post-apply read, H3
   §4 closed, the policy restated as defence in depth, the prune DELETE checked
-  and dropped, and method note 5's second instance.
+  and dropped, and method note 5's second instance;
+- later on 2026-09-15, R-2026-09-15-09's follow-ups: method notes 6 (a sweep
+  targets the tense, not a phrase) and 7 (an explanation carrying a decision is
+  a premise too), with the instance-count row, the harness comment and the
+  supautils dependency corrected in the v2 kickoff, `tests/e2e/_harness.ts` and
+  the runbook.
 
 **Does not change:**
 - v1:250 and v2:273 (O1);
