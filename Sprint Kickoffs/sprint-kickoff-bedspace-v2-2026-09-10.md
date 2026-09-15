@@ -443,7 +443,7 @@ The rule that does bind both is the one above it: everything must flow. A featur
 - **The two counts do not contradict each other; the unit was unstated.** It is stated here.
 - _Corrected by R-2026-09-15-10:_ the R-09 version of this marker counted five families and seven instances, said finding 1's "sixth" matched neither, and marked the row failed. It had left out finding 6's clause.
 - **Whether that many incidents occurred that fortnight is history,** not repository state, and stays parked.
-- **Whether the document's stated count matches its own list is repository state, and it does not:** SUPERSEDED as failed. Five instances this fortnight of *a mechanism present and not reaching*: the `grep` exit-2 fail-open guard, the `sed` plant that never planted, three phantom cross-file links, the `fingerprint` alert with no consumer, and now `refresh_lga_rollup()` with no caller. Finding 6's two false headers are the same family. When something claims to check a thing, the claim needs a probe — that is Clause 5, and it is the rule that has earned its keep.
+- **The paragraph as written:** Five instances this fortnight of *a mechanism present and not reaching*: the `grep` exit-2 fail-open guard, the `sed` plant that never planted, three phantom cross-file links, the `fingerprint` alert with no consumer, and now `refresh_lga_rollup()` with no caller. Finding 6's two false headers are the same family. When something claims to check a thing, the claim needs a probe — that is Clause 5, and it is the rule that has earned its keep.
 
 ---
 
