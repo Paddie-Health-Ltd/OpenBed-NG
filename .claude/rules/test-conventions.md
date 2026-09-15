@@ -557,6 +557,45 @@ the person applying it being the careful one.
 
 A human rule. It cites no enforcement artefact, and none exists (Clause 4).
 
+### Invented here: a verification script runs under bash, strict, and is never pasted (2026-09-15)
+
+**Every shell script in `scripts/` begins `#!/usr/bin/env bash` and runs
+`set -euo pipefail` as its first command. It is invoked as `bash scripts/x.sh`
+and never pasted into an interactive shell.** No exception list: a runner that
+reports every failure captures each check's status (`rc=0; check || rc=$?`)
+rather than switching `-e` off.
+
+**Five verification failures came from the shell, each patched on its own:**
+1. `#` in 33 runbook fences, which default interactive zsh does not treat as a
+   comment;
+2. grep returning zero matches for patterns holding `$`, `{` or `?`;
+3. two test paths passed as one argument, because zsh does not word-split an
+   unquoted variable — a neuter run that tested nothing;
+4. and 5. an exit status read from `${PIPESTATUS[...]}` in zsh, empty both times.
+
+**The mechanisms, because two were misattributed.** zsh does not set
+`PIPESTATUS` at all (`${+PIPESTATUS}` is 0), so it printed empty whatever the
+index; zsh's array is `pipestatus`, and it is 1-indexed, which is a second trap
+for whoever reaches for it. Item 2 was not zsh: it was a `grep` shell function
+defined by the agent tool's shell snapshot (a ugrep wrapper). A script run under
+bash inherits neither.
+
+**Why `-e` even in an aggregator.** Without it, a runner catches only the
+failures it counts. A failed `cd`, a typo or a missing file between two checks
+runs on silently — in `scripts/commit.sh`, on toward `git commit`.
+
+**A limit of `-e`, observed on the day the rule was written:** a failing `$(...)`
+inside an ARGUMENT, as in `echo "state: $(query)"`, does not abort. Assign a value
+you depend on on its own line, where a failure does.
+
+**Runbook fences are the exception by design.** They exist to be pasted, and are
+verified by interactive paste instead.
+
+Enforced by `tests/compliance/shell_pin.test.ts`; the runners' capture-and-abort
+behaviour by `tests/compliance/runner_aggregation.test.ts`. Neither can check
+HOW a script is invoked: `zsh scripts/x.sh` ignores the shebang, and nothing in
+a file can stop it.
+
 Conventions deliberately **not** ported, so nobody re-derives them by accident:
 
 - The `requires_real_db` fixture gating: here, a `db` test that cannot reach the

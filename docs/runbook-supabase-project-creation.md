@@ -592,6 +592,70 @@ bash scripts/run_migrations.sh
 unset DATABASE_URL
 ```
 
+### After the apply: PostgREST must be serving 015's signature, not a cached one
+
+**Why this exists (ruling R-2026-09-15-02).** PostgREST caches the schema, and 015
+drops `ward_status_history` and recreates it with a `text` parameter. Supabase's
+DDL event trigger should make PostgREST reload, and "should" is how a
+production-only failure gets written. So the reload is sent explicitly, then the
+answer is probed. No session is needed, which is the point: a ward session cannot
+exist before onboarding (B1 in
+`Sprint Kickoffs/decision-2026-09-14-public-private-split.md`).
+
+**The mechanism, observed 2026-09-15 on the local stack (PostgREST 16.2, Supabase
+CLI 2.117.0) with the local anon key.** Both answers are HTTP 401 with code
+`42501`; they differ in the object they name.
+- **A fresh cache** resolves the `text` signature, calls the function, and the
+  grant refuses anon: `permission denied for function ward_status_history`.
+- **A stale cache** still holds 011's `app.ward_category` signature, casts to it,
+  and fails on the schema: `permission denied for schema app`. Planted by applying
+  015 with the DDL event triggers suppressed (`session_replication_role =
+  replica`) after a reload in 011's state.
+
+**Not observed hosted, and not observed with an `sb_publishable_` key.** Both
+strings are vendor prose, which changes. That is why the probe below passes on
+one exact string only. **An answer matching NEITHER string is a FAILURE, never a
+pass**: a probe that passes once it stops understanding the answer is vacuous.
+
+The reload. The first line waits silently for the connection string; the last
+removes it.
+
+```bash
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "notify pgrst, 'reload schema'"
+unset DATABASE_URL
+```
+
+Wait a few seconds, then take the key exactly as step 6 does:
+
+```bash
+KEY="$(bash scripts/get_publishable_key.sh)" || KEY=
+case "$KEY" in
+  sb_publishable_?*) echo "key obtained" ;;
+  *) echo "STOP: no usable publishable key. Do not run the probe -- its answer now means nothing."; KEY= ;;
+esac
+```
+
+The probe. It prints a verdict, not the body:
+
+```bash
+BODY="$(curl -s --max-time 12 -X POST "https://klrlpxysjsjpdkeqdhvl.supabase.co/rest/v1/rpc/ward_status_history" -H "apikey: ${KEY:?no key -- refusing to probe}" -H "Content-Type: application/json" -d '{"p_category":"ICU_ADULT"}')" || BODY=
+case "$BODY" in
+  *'"permission denied for function ward_status_history"'*) echo "PASS: PostgREST resolved the text signature and the grant refused anon" ;;
+  *'"permission denied for schema app"'*) echo "STOP: stale schema cache -- send the reload again, wait, and re-probe" ;;
+  *) echo "FAIL: the answer matches neither observed message -- the probe no longer understands it" ;;
+esac
+unset KEY BODY
+```
+
+- **PASS:** tick the box below.
+- **STOP:** run the reload block again, wait, and re-run the probe. A second STOP
+  is reported, not retried a third time.
+- **FAIL:** stop and report. Do not tick. Do not rewrite the expected string to
+  match what came back without a new observation of both states.
+
+- [ ] Post-apply probe: `PASS`, recorded with its date
+
 ### Expected output, including the one line that looks like a failure and is not
 
 **On the hosted project today** (001 through 013 already applied; the thirteen

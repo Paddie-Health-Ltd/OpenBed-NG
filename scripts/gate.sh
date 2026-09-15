@@ -32,24 +32,41 @@
 # instances inside this repository's own guards -- and this file plus the
 # 2026-09-10 repeat are the same category one layer up, in the process.
 #
+# WHY `set -e`, IN A SCRIPT WHOSE JOB IS TO KEEP GOING (founder ruling
+# R-2026-09-15-03). Until then this ran `set -uo pipefail`, because it reports
+# every failing check rather than stopping at the first. That caught the failures
+# it COUNTED and nothing else: a failed `cd`, a typo, a missing file between two
+# checks ran on silently. So each check's status is now captured explicitly
+# (`rc=0; "$@" || rc=$?` in run() below), which reports intended failures and
+# keeps going, while `-e` aborts on anything that is not a counted check.
+# tests/compliance/runner_aggregation.test.ts plants both.
+#
+# A LIMIT OF `-e`, observed 2026-09-15: a failing `$(...)` inside an ARGUMENT
+# (`echo "x: $(false)"`) does not abort. A value this script depends on is
+# assigned on its own line, where a failure does.
+#
 # Usage: bash scripts/gate.sh [--fast]
 #   --fast   Skip the e2e phase, which needs a running Supabase stack.
-# Exit: 0 all clear, 1 a check failed.
+# Exit: 0 all clear, 1 a check failed, other non-zero: the gate itself broke.
 # ============================================================
-set -uo pipefail
+set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 FAST=0
-[ "${1:-}" = "--fast" ] && FAST=1
+if [ "${1:-}" = "--fast" ]; then
+    FAST=1
+fi
 
 FAILED=()
 run () {  # $1 label, rest: command
     local label="$1"; shift
-    if "$@" >/dev/null 2>&1; then
+    local rc=0
+    "$@" >/dev/null 2>&1 || rc=$?
+    if [ "$rc" -eq 0 ]; then
         printf '  %-34s ok\n' "$label"
     else
-        printf '  %-34s FAILED\n' "$label"
+        printf '  %-34s FAILED (exit %s)\n' "$label" "$rc"
         FAILED+=("$label")
     fi
 }
@@ -66,7 +83,9 @@ run "bundle: updated_at"  bash scripts/lint_no_updated_at_filter.sh
 run "bundle: from-allowlist" bash scripts/lint_from_allowlist.sh
 run "grep exit codes"    bash scripts/lint_grep_exit_codes.sh
 run "audit-log columns"  bash scripts/lint_audit_log_columns.sh
-[ "$FAST" -eq 1 ] || run "golden path + ratchet" npm run test:e2e
+if [ "$FAST" -eq 0 ]; then
+    run "golden path + ratchet" npm run test:e2e
+fi
 
 if [ "${#FAILED[@]}" -gt 0 ]; then
     echo
