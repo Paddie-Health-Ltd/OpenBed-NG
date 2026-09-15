@@ -59,11 +59,23 @@ export const SECOND_CATEGORY = 'THEATRE';
 export const STALE_CATEGORY = 'ICU_ADULT';
 
 /**
- * Remove every E2E_ row, then rebuild.
+ * Remove the E2E_ accounts, and take the E2E_ facilities OUT OF PUBLIC VIEW.
  *
  * Deletion is by the prefix and the fixed ids, never "delete everything": a helper
  * that truncates is one careless import away from wiping the seeded corpus the
  * `db` suite depends on.
+ *
+ * THE FACILITIES ARE DEACTIVATED, NOT DELETED, SINCE 014. Once the golden path
+ * publishes, app.ward_status_event and app.audit_log hold rows for these
+ * facilities. Both reference app.facility (and the event references
+ * app.ward_status) ON DELETE RESTRICT, and 010 makes both tables append-only, so
+ * the history cannot be removed and neither can the rows it points at. That is
+ * the schema working, not something to route around with CASCADE or by disabling
+ * the append-only triggers.
+ *
+ * Deactivating removes both facilities from every public mirror (008 deletes the
+ * mirror rows of an inactive facility), so the `db` suite's mirror assertions see
+ * nothing of them. seedE2eCorpus() reactivates them and restores the baseline.
  */
 export async function resetE2eCorpus(): Promise<void> {
   const db = sql();
@@ -72,10 +84,11 @@ export async function resetE2eCorpus(): Promise<void> {
   // RESTRICT -- a facility cannot be deleted out from under an account, so an
   // account can never be orphaned into a facility-less state that the
   // ward_account_scope_matches_role CHECK exists to make unrepresentable.
-  // The teardown respects it rather than working around it with CASCADE.
+  // Accounts carry no history (events and audit rows have no actor), so they are
+  // still deleted and re-provisioned every run.
   await db`delete from app.ward_account where facility_id in (${ALPHA.id}::uuid, ${BETA.id}::uuid)`;
   await db`delete from app.invite where facility_id in (${ALPHA.id}::uuid, ${BETA.id}::uuid)`;
-  await db`delete from app.facility where id in (${ALPHA.id}::uuid, ${BETA.id}::uuid)`;
+  await db`update app.facility set is_active = false where id in (${ALPHA.id}::uuid, ${BETA.id}::uuid)`;
   await db`delete from auth.users where email like ${`%@e2e.invalid`}`;
 }
 
@@ -83,43 +96,62 @@ export async function seedE2eCorpus(): Promise<void> {
   const db = sql();
 
   for (const f of [ALPHA, BETA]) {
+    // Reactivated on conflict: resetE2eCorpus() deactivates rather than deletes.
     await db`
-      insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, quiet_mode)
-      values (${f.id}::uuid, ${f.name}, ${f.lga}, 'Lagos', ${f.lat}, ${f.lng}, ${f.phone}, false)
-      on conflict (id) do nothing
+      insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, quiet_mode, is_active)
+      values (${f.id}::uuid, ${f.name}, ${f.lga}, 'Lagos', ${f.lat}, ${f.lng}, ${f.phone}, false, true)
+      on conflict (id) do update set is_active = true, quiet_mode = false
     `;
-    // Duty flags left at their NOT NULL DEFAULT 'UNKNOWN' -- the state every real
-    // facility is in on day one. If the gate ever treats UNKNOWN as closed, these
-    // rows go dark and the golden path goes with them.
-    await db`insert into app.facility_ops (facility_id) values (${f.id}::uuid) on conflict (facility_id) do nothing`;
+    // Duty flags at 'UNKNOWN' -- the state every real facility is in on day one.
+    // If the gate ever treats UNKNOWN as closed, these rows go dark and the golden
+    // path goes with them. Reset on conflict, so a run that set a flag cannot
+    // leak it into the next.
+    await db`
+      insert into app.facility_ops (facility_id) values (${f.id}::uuid)
+      on conflict (facility_id) do update
+        set anaesthetist = 'UNKNOWN', obstetrician = 'UNKNOWN', paediatrician = 'UNKNOWN'
+    `;
   }
 
-  // Alpha: the ward the golden path publishes to, never updated yet.
-  await db`
-    insert into app.ward_status (facility_id, category, offering, bed_count, accepting, monitoring_state, source)
-    values (${ALPHA.id}::uuid, ${PUBLISH_CATEGORY}::app.ward_category, 'OFFERED', null, true, 'PENDING', 'WARD')
-    on conflict (facility_id, category) do nothing
-  `;
-  await db`
-    insert into app.ward_status (facility_id, category, offering, bed_count, accepting, monitoring_state, source)
-    values (${ALPHA.id}::uuid, ${SECOND_CATEGORY}::app.ward_category, 'OFFERED', null, true, 'PENDING', 'WARD')
-    on conflict (facility_id, category) do nothing
-  `;
-
-  // A deliberately STALE ward. updated_at is supplied explicitly rather than
-  // defaulted: app.touch_updated_at() is a BEFORE UPDATE trigger, so ageing this
-  // row with an UPDATE would stamp it back to now() and silently undo the point.
-  await db`
-    insert into app.ward_status (facility_id, category, offering, bed_count, accepting, monitoring_state, source, updated_at)
-    values (${ALPHA.id}::uuid, ${STALE_CATEGORY}::app.ward_category, 'OFFERED', 3, true, 'ACTIVE', 'WARD', now() - interval '4 hours')
-    on conflict (facility_id, category) do nothing
-  `;
-
-  await db`
-    insert into app.ward_status (facility_id, category, offering, bed_count, accepting, monitoring_state, source)
-    values (${BETA.id}::uuid, ${PUBLISH_CATEGORY}::app.ward_category, 'OFFERED', 2, true, 'ACTIVE', 'WARD')
-    on conflict (facility_id, category) do nothing
-  `;
+  // THE WARD BASELINE IS RESTORED WITH ROW TRIGGERS SUPPRESSED, and that is why
+  // it is one transaction with session_replication_role = replica:
+  //   - app.touch_updated_at() is a BEFORE UPDATE trigger. Restoring the STALE
+  //     ward through an ordinary UPDATE would stamp it back to now() and silently
+  //     undo the point of having one.
+  //   - version must return to 1, because the golden path publishes with
+  //     p_expected_version 1.
+  // replica suppresses ordinary triggers, including the 008 projection, so the
+  // mirrors are brought up to date explicitly afterwards. The append-only guards
+  // are ENABLE ALWAYS and still fire -- and this touches neither of their tables.
+  // Setting session_replication_role needs a superuser, which the local stack's
+  // and CI's postgres is; anywhere else this fails loudly rather than seeding
+  // half a corpus.
+  const wards: [string, string, string, number | null, string, string][] = [
+    // facility, category, offering, bed_count, monitoring_state, updated_at offset
+    [ALPHA.id, PUBLISH_CATEGORY, 'OFFERED', null, 'PENDING', '0 seconds'], // the ward the golden path publishes to
+    [ALPHA.id, SECOND_CATEGORY, 'OFFERED', null, 'PENDING', '0 seconds'],
+    [ALPHA.id, STALE_CATEGORY, 'OFFERED', 3, 'ACTIVE', '4 hours'], // deliberately stale
+    [BETA.id, PUBLISH_CATEGORY, 'OFFERED', 2, 'ACTIVE', '0 seconds'],
+  ];
+  await db.begin(async (tx) => {
+    await tx`set local session_replication_role = replica`;
+    for (const [facility, category, offering, bedCount, monitoring, age] of wards) {
+      await tx`
+        insert into app.ward_status
+          (facility_id, category, offering, bed_count, accepting, state, source, monitoring_state, version, updated_at)
+        values
+          (${facility}::uuid, ${category}::app.ward_category, ${offering}::app.ward_offering, ${bedCount}, true,
+           'OK', 'WARD', ${monitoring}::app.monitoring_state, 1, now() - ${age}::interval)
+        on conflict (facility_id, category) do update set
+          offering = excluded.offering, bed_count = excluded.bed_count, accepting = true,
+          state = 'OK', source = 'WARD', monitoring_state = excluded.monitoring_state,
+          version = 1, updated_at = excluded.updated_at
+      `;
+    }
+  });
+  for (const f of [ALPHA, BETA]) {
+    await db`select app.project_facility(${f.id}::uuid)`;
+  }
 }
 
 /** Loud, and it names what was missing. A corpus that half-seeded is worse than none. */
@@ -183,10 +215,12 @@ export async function loadFuture<T>(relativeToE2eDir: string, owningStage: numbe
  * TWO ACCOUNTS AT ONE FACILITY, ON DIFFERENT CATEGORIES. The second exists
  * solely to make ward-scope enforcement observable: with one account, an RPC
  * that checks facility membership but never checks p_category behaves
- * identically to one that does. ITS PURPOSE CANNOT BE EXERCISED YET -- that
- * check lives in publish_ward_status, which needs migration 014, which is
- * blocked on the hosted apply. It lands mute, deliberately, and this comment is
- * here so that reads as a decision rather than an oversight.
+ * identically to one that does. The check now exists -- publish_ward_status
+ * (014) refuses WARD_SCOPE_DENIED -- and it is proved in
+ * tests/db/publish_ward_status.test.ts, inside a rolled-back transaction. No
+ * golden-path step publishes as this account, because Gate 2's path is one ward
+ * publishing; the account is provisioned here so the production script is
+ * exercised for a second category.
  */
 export function provisionE2eWardAccounts(): void {
   for (const [email, category] of [

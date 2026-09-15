@@ -167,6 +167,8 @@ Deferred to Stage 2, and the slice is not a lie without them: `app.device` bindi
 
 ### From Bundle 3 — one RPC, and the rules that cannot be added later without a migration
 
+**[The parameter types and the return row of the signature below are SUPERSEDED 2026-09-14 — see *Superseded — recorded 2026-09-14* below.]**
+
 ```sql
 public.publish_ward_status(
     p_category           app.ward_category,
@@ -200,7 +202,7 @@ Inside it, one transaction: `UPDATE app.ward_status … WHERE facility_id = v_fa
 
 - [ ] **Ward-scope enforcement** (finding 8): `IF v_role = 'WARD_STAFF' AND v_ward_category IS DISTINCT FROM p_category THEN RAISE … ERRCODE = '42501'`, tested with the second account. Without it, the widening pass is where a MATERNITY account starts writing `ICU_PAEDIATRIC` counts.
 - [ ] **A symmetric `composed_at` window.** The spec is `now() - composed_at > interval '2 minutes'` → `STALE_MUTATION`. A handset three hours **fast** — the exact device F3 is about — sends a future `composed_at`, the difference is negative, and the check passes forever. Add `IF p_composed_at > now() + interval '30 seconds' THEN RAISE 'FUTURE_MUTATION'`. One device in the slice means zero skew, so this is otherwise unobservable.
-- [ ] **`014`: the idempotency index** (finding 2). `CREATE UNIQUE INDEX IF NOT EXISTS ward_status_event_client_mutation_uidx ON app.ward_status_event (ward_status_id, client_mutation_id) WHERE client_mutation_id IS NOT NULL`. Test: the same `client_mutation_id` twice yields one event row, one version bump, the same returned payload.
+- [ ] **`014`: the idempotency index** (finding 2). **[SUPERSEDED 2026-09-14 — 014 is the whole write path, this index included; see *Superseded — recorded 2026-09-14* below.]** `CREATE UNIQUE INDEX IF NOT EXISTS ward_status_event_client_mutation_uidx ON app.ward_status_event (ward_status_id, client_mutation_id) WHERE client_mutation_id IS NOT NULL`. Test: the same `client_mutation_id` twice yields one event row, one version bump, the same returned payload.
 - [ ] **The `session_id ≠ auth.uid()` test, against a real GoTrue token.** `005` says explicitly that a CHECK cannot enforce this and that the rule belongs to the Bundle 3 writer RPC and must be asserted there. Derive it once as `(auth.jwt() ->> 'session_id')::uuid`; assert it differs from `auth.uid()` and that it changes across two GoTrue sessions of the same account. Without this test, **CTO condition (2) of the ward-identity memo is a comment**.
 - [ ] **The sequential version-conflict test** — publish twice with `expected_version = 1`. Needs no second connection and catches the whole optimistic-locking class. The interleaved two-connection test is Stage 2, on `sqlSecond()`.
 - [ ] **Server-side `ZERO_REQUIRES_REASON`** — one `IF`. The one-tap chip UI is Stage 2; the server rule is not.
@@ -230,7 +232,7 @@ Deferred to Stage 3: geolocation, haversine, the LGA fallback, the first-run int
 
 **The generator's death is camouflaged by correct UI behaviour, and this is the trap worth naming.** A dead generator degrades into grey badges, "last known", and at 24h "Status unknown — call to confirm" — exactly the states Bundle 4 is designed to render *calmly*. `stale-while-revalidate=300` keeps the CDN serving a plausible file for five minutes after the origin dies. So the sensor cannot be the dashboard, and it cannot be a timestamp either: a generator that runs and emits an identical payload looks fine on `generated_at`. **The discriminating signal is that `version` stopped incrementing**, backed by the transactional heartbeat. Both are in this stage rather than waiting for Bundle 5, because the slice is the first thing that can actually stop.
 
-**Blast radius.** `014` adds one index and no column, so nothing shipped changes shape; `rls_anon_column_containment.test.ts` and the frozen-list assertions are untouched. Replacing that test's literal FROZEN list with `snapshot-shape.json`'s `wardColumns` makes `007`'s table, the anon-surface guard and the snapshot contract one source instead of three — do it in this stage, and confirm `rls_anon_column_containment` still passes against the live `information_schema` rather than only against the fixture. Adding `publish_ward_status` adds a sixth name to `lint_from_allowlist.sh`'s allowlist, which is why finding 6 is fixed in Stage 0 rather than here. Note also that the lint greps `.from(` only, so `.rpc('publish_ward_status')` is entirely outside its coverage — add that as a NOT-ASSERTED line rather than leaving it as an assumption. `public.my_facility_wards()` returns every category of the facility, including other wards' private `reason_code`, to a single-ward account; within a facility that is probably right, but it is currently an accident rather than a decision, and the slice will not surface it — record it in Stage 2.
+**Blast radius.** **[SUPERSEDED 2026-09-14 — see *Superseded — recorded 2026-09-14* below.]** `014` adds one index and no column, so nothing shipped changes shape; `rls_anon_column_containment.test.ts` and the frozen-list assertions are untouched. Replacing that test's literal FROZEN list with `snapshot-shape.json`'s `wardColumns` makes `007`'s table, the anon-surface guard and the snapshot contract one source instead of three — do it in this stage, and confirm `rls_anon_column_containment` still passes against the live `information_schema` rather than only against the fixture. Adding `publish_ward_status` adds a sixth name to `lint_from_allowlist.sh`'s allowlist, which is why finding 6 is fixed in Stage 0 rather than here. Note also that the lint greps `.from(` only, so `.rpc('publish_ward_status')` is entirely outside its coverage — add that as a NOT-ASSERTED line rather than leaving it as an assumption. `public.my_facility_wards()` returns every category of the facility, including other wards' private `reason_code`, to a single-ward account; within a facility that is probably right, but it is currently an accident rather than a decision, and the slice will not surface it — record it in Stage 2.
 
 **Definition of done:** the golden-path frontier has moved through `publish-count` and `tile-shows-count`; a real magic link produces a session that publishes and the number appears in `public.ward_public` and then in `snapshot_current`; a second publish at a stale `expected_version` raises `VERSION_CONFLICT`; the second ward account is refused with `WARD_SCOPE_DENIED`; a `composed_at` three minutes old and one thirty-one seconds in the future are both refused; the same `client_mutation_id` twice yields one event; `session_id` differs from `auth.uid()` and changes across sessions; unscheduling the generator drives `/api/health` to 500 and the observed latency is written down.
 
@@ -459,6 +461,43 @@ Four. None blocks the start of Stage 0.
 **The BedSpace name — ruled on by the founder, 2026-09-13.** The user-facing and legal-identity occurrences follow the product, so the public dashboard's page title, `README.md` and the first line of `NOTICE` now read OpenBed. "BedSpace" **stays** among `NOTICE`'s protected names, beside "OpenBed", `openbed.ng` and `toni.health`: it has been public in this repository's planning documents since the first day, so a fork trading on it is a real if smaller risk, and that list is protective and additive. The historical documents — the v1 kickoff, the earlier handoffs and the decision memos — are untouched, file names included; each said BedSpace when it was written, and that was true when it was written. `package.json`'s `name` is already `openbed-ng` and is unchanged; its `description` still begins "BedSpace —", which the ruling left as it is.
 
 ---
+
+### Superseded — recorded 2026-09-14: what migration 014 is, and the write contract
+
+**This kickoff said `014` was "the idempotency index" (Stage 1, finding 2) and that "`014` adds one index and no column" (Stage 1, blast radius). Both are superseded.** Three code references already said otherwise — `apps/ward-console/src/main.ts`, `tests/e2e/_harness.ts` and `tests/e2e/frontier.json` each named `publish_ward_status` as migration 014 — and a document left disagreeing with three code references is a premise waiting to be inherited.
+
+**Stage 1's schema was always more than an index.** None of `public.publish_ward_status`, `app.regenerate_snapshot` or `public.snapshot_current` exists in migrations 001–013. `app.system_heartbeat` (004) has `last_sweep_at` and no `last_snapshot_at`, which the generator this kickoff specifies writes.
+
+**(a) Founder ruling: 014 is the write path; the snapshot is 015 — RENUMBERED to 016 later the same day; see *Renumbered* below.** Three reasons:
+1. **The projection writer is where the granularity floor bites.** R1(a) of `Sprint Kickoffs/decision-2026-09-14-public-private-split.md` says a floor is a projection-writer change. Keeping the snapshot out of 014 lets the floor be decided before 015 without reopening a migration already applied to a production database.
+2. **The write path is independently testable.** `publish-count` and `ward-republishes` are golden-path steps that need no snapshot.
+3. **A smaller applied migration has a smaller blast radius** — and the snapshot migration (now 016) carries its own schema change anyway, `last_snapshot_at`.
+
+**(b) Founder ruling: the return contract carries two facts, and no field serves both.** The signature above returned `bed_count`, `accepting_effective` and `gated_by` as one row. 014 returns the ward's claim (`claim_offering`, `claim_bed_count`, `claim_accepting`) and the public view (`public_listed`, `public_bed_count`, `public_accepting_effective`, `public_gated_by`) as separately named fields.
+- **The reason is F1.** The claim and the effective value are different values in this schema; the gate derives at read time and only reduces. A nurse told one number can believe she is advertising beds she is not.
+- **A floor adopted later changes a value, not a signature**: no drop and recreate, no re-grant, no console change.
+- **`public_listed` exists because absence is a value.** A quiet or inactive facility has no `ward_public` row, and `bed_count` NULL already means "never reported".
+- **The derivation is the implementer's proposal, for the founder's review.** The public fields are read back from `public.ward_public` in the same transaction. The 008 triggers are not deferred, so the read is not stale, and recomputing would duplicate the projection's composition and visibility rules. `tests/db/publish_ward_status.test.ts` proves it, including a planted floor that reaches `public_bed_count` with no change to the function.
+
+**Found while building, 2026-09-14: the parameters are `text`, not `app` enums.** 001's revoke wall gives `authenticated` no USAGE on schema `app`, and PostgREST's RPC query names each parameter's type. The golden path's publish steps were refused with `42501 permission denied for schema app` until the category, offering and reason parameters became `text`, cast inside the function. An unknown value is refused as `INVALID_ARGUMENT`, naming the parameter. The same defect is live in 011's `public.ward_status_history(p_category app.ward_category, …)`, which no client has yet called over HTTP. It was fixed in migration 015, by founder ruling later the same day; see *Renumbered* below.
+
+**(c) Founder ruling: runbook step 5's stop condition names files, not a count**, in the same change that made "exactly 13 pending" wrong. The migration-window rule above already prescribed naming files.
+
+### Renumbered — recorded 2026-09-14, later: 015 is the 011 repair, and the snapshot is 016
+
+**Migration 015 is `015_ward_status_history_text_category.sql`; the snapshot migration is 016.** Founder ruling: 011's `public.ward_status_history` has the defect 014 found — an `app`-typed parameter that no client can pass through PostgREST — so it is fixed now, in the same pull request as 014, rather than carried forward. Every earlier "the snapshot is 015", in this document and elsewhere, is superseded by this line.
+
+**The parameter-type rulings, with their reasons corrected:**
+- **`text` parameters, cast inside the function: APPROVED.** The diagnosis was observed (42501 on the golden path), not inferred.
+- **Granting USAGE on `app` to `authenticated`: rejected.**
+  - The ruling's own reason was that schema USAGE is the only barrier to calling projection internals. Checked against the catalogue, it is one of two barriers: `authenticated` also holds EXECUTE on none of `app`'s functions, and `app.project_facility` has PUBLIC revoked (008, and again 013).
+  - So granting USAGE removes one of two layers. The per-function layer protects only functions whose EXECUTE was revoked explicitly, or that the migrating role created under 001's default privileges.
+- **Moving the enums to `public`: rejected — but not because it would edit applied migrations.** That reason was wrong: `ALTER TYPE … SET SCHEMA`, in a new migration, moves a type.
+  - It loses because `public` is the exposed schema.
+  - Observed 2026-09-14: anon's PostgREST OpenAPI document already carries `ward_category` values, through `ward_public`'s typed columns, while `zero_reason` and `app_role` values appear nowhere in it. What a moved type would add was not measured.
+- **The write-path derivation (read back from `ward_public`) and the implementer's five decisions: ACCEPTED, with condition G** — a replay is named in the response.
+
+**The gating conditions A–I for that pull request are recorded in `Sprint Kickoffs/decision-2026-09-14-public-private-split.md`, not copied here.**
 
 ## Supporting docs
 

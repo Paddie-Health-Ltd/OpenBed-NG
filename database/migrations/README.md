@@ -44,7 +44,9 @@ and `tests/compliance/down_migration_symmetry.test.ts`.
 | 010 | `append_only_enforcement` | Revokes plus `ENABLE ALWAYS` triggers on the two append-only tables. **Points backwards**: after this, no later migration may rewrite their rows. |
 | 011 | `read_rpcs_capped` | `app.assert_member()` and two capped RPCs. No offset parameter exists in either signature — absence is the control. |
 | 012 | `indexes` | The seven from the kickoff. No PostGIS. Deliberately nothing that would make a facility-level time series fast. |
-| 013 | `realtime_publication_and_grant_sweep` | Publishes the three mirrors and re-asserts every revocation from 001 now that all objects exist. **Last**, because it asserts over everything. |
+| 013 | `realtime_publication_and_grant_sweep` | Publishes the three mirrors and re-asserts every revocation from 001 now that all objects exist. **Last of Bundle 1**, because it asserts over everything that existed when it ran. It is applied and not edited; later migrations carry their own by-name grants. |
+| 014 | `publish_ward_status` | **The write path.** `public.publish_ward_status()`, plus a unique partial index on `ward_status_event (ward_status_id, client_mutation_id)` that makes a retry a replay. Returns the ward's claim and the public view as separate fields, the public view read back from `ward_public`. Parameters are `text` because a client cannot name an `app` type. The snapshot is 016. |
+| 015 | `ward_status_history_text_category` | **The 011 repair.** `public.ward_status_history` is dropped and recreated with a `text` category, cast inside the function, because no client can pass an `app`-typed parameter through PostgREST. The caps and grants are 011's, unchanged. |
 
 ## Ward-level identity
 

@@ -261,7 +261,12 @@ describe('the runner refuses to report a count it did not obtain', () => {
     const r = runRunner(envFor('virgin'), '--dry-run');
     expect(r.status, `a virgin database was refused:\n${r.out}`).toBe(0);
     expect(r.out, `a virgin database did not report a full set of pending migrations:\n${r.out}`).toContain(
-      '13 migration(s) pending.',
+      // A LITERAL, deliberately, and it must move with every migration added:
+      // 13 until 014_publish_ward_status.sql, 14 until
+      // 015_ward_status_history_text_category.sql. Deriving it from the
+      // directory would compare the runner's file count with the test's own
+      // file count, which agrees even when both are wrong.
+      '15 migration(s) pending.',
     );
   });
 

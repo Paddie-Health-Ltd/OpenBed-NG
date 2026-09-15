@@ -25,14 +25,14 @@ import { SessionExpiredError, SessionHolder, sessionFromUrlFragment } from '@ope
  * one screen removes the cross-tab race the library's machinery exists for.
  *
  * SCOPE, stated so the emptiness is not read as unfinished work. The handover
- * list is everything this screen can honestly do today: publishing a bed count
- * needs `public.publish_ward_status`, which is migration 014, which is blocked
- * on the founder applying 001-013 to the hosted project. The golden path stops
- * at the same step for the same reason.
+ * list is everything this screen does today. `public.publish_ward_status` has
+ * existed since migration 014, but the publish screen that calls it is not
+ * built: that is the rest of Stage 1's console work.
  *
  * CLASSIFICATION (Clause 5): the sign-in and handover path is LIVE -- it runs
- * against the local stack and golden-path steps 0-5 pass against it. The
- * publish path does not exist.
+ * against the local stack and golden-path steps 0-5 pass against it. The publish
+ * RPC is LIVE, proved by tests/db/publish_ward_status.test.ts and the golden
+ * path's publish steps. THIS CONSOLE'S publish path does not exist.
  */
 
 const API_URL = import.meta.env['VITE_SUPABASE_URL'] as string | undefined;

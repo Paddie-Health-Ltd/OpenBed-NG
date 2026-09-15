@@ -11,6 +11,7 @@
   ],
   "rpcs": [
     "my_facility_wards",
-    "ward_status_history"
+    "ward_status_history",
+    "publish_ward_status"
   ]
 }

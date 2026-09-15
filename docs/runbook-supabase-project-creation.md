@@ -128,8 +128,8 @@ items for the `scripts/` survey, not examples to copy.
 ### A stop condition and the action it gates never share a fence
 
 **This was the most serious defect #18 fixed â€” more serious than the comments.**
-Step 5's dry run is a stop condition: exactly `13 migration(s) pending.`, or
-stop. Until 2026-09-14 it sat in the same block as the apply, so pasting that
+Step 5's dry run is a stop condition: its `WOULD APPLY` lines must name exactly
+the migration files not yet applied, or stop. Until 2026-09-14 it sat in the same block as the apply, so pasting that
 block ran the apply immediately after the dry run, before anyone could read the
 count. **The runbook declared a stop condition, and its own formatting defeated
 it.**
@@ -558,7 +558,8 @@ connection string carries the hosted database password and an inline export
 writes it into your shell history. **Each block's last line removes it from the
 shell again.**
 
-The dry run. **Stop condition: exactly `13 migration(s) pending.`**
+The dry run. **Stop condition: the `WOULD APPLY` lines name exactly the migration
+files this project has not yet received -- no more, no fewer.**
 
 ```bash
 read -rs DATABASE_URL && export DATABASE_URL
@@ -566,11 +567,24 @@ bash scripts/run_migrations.sh --dry-run
 unset DATABASE_URL
 ```
 
-**The dry run is a stop condition, not a look.** Anything other than
-`13 migration(s) pending.` -- stop and report. A dry run without a stated
-expectation is just output.
+**The dry run is a stop condition, not a look.** A dry run without a stated
+expectation is just output. The expectation is stated as **files, not a count**:
+a count moves every time a migration is added, and a stop condition that reads
+wrong on a correct run teaches whoever runs it to ignore stop conditions. Until
+2026-09-14 this read `exactly 13 migration(s) pending.`, and migration 014 made
+that wrong.
 
-Only after reading that count, the apply:
+- **The hosted project today** holds 001 through 013 (see step 7). The dry run
+  must print exactly **two** `WOULD APPLY` lines, **in apply order** --
+  `014_publish_ward_status.sql`, then
+  `015_ward_status_history_text_category.sql` -- followed by
+  `2 migration(s) pending.` Every other file must read `already applied`.
+- **Any other `WOULD APPLY` line, a missing one, or any other count: stop and
+  report.**
+- **When a migration is added,** this list is restated in the same change that
+  adds it, never in a follow-up: in between, the document would be wrong.
+
+Only after reading those lines, the apply:
 
 ```bash
 read -rs DATABASE_URL && export DATABASE_URL
@@ -580,26 +594,38 @@ unset DATABASE_URL
 
 ### Expected output, including the one line that looks like a failure and is not
 
-On a virgin database the two commands report **different numbers**, and the
+**On the hosted project today** (001 through 013 already applied; the thirteen
+`already applied` lines are omitted below):
+
+```
+  WOULD APPLY     : 014_publish_ward_status.sql                 <- dry run, first
+  WOULD APPLY     : 015_ward_status_history_text_category.sql   <- dry run, second
+2 migration(s) pending.
+Migrations complete (2 applied this run).   <- apply
+```
+
+**On a virgin database** the two commands report **different numbers**, and the
 second is lower:
 
 ```
-13 migration(s) pending.          <- dry run
-Migrations complete (12 applied this run).   <- apply
+15 migration(s) pending.          <- dry run
+Migrations complete (14 applied this run).   <- apply
 ```
 
-**Twelve is correct. Nothing was skipped.** Migration 001 creates the `app`
+**Fourteen is correct there. Nothing was skipped.** Migration 001 creates the `app`
 schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
 recorded by a ledger that does not exist yet. The runner applies and ledgers it
 in a separate **bootstrap** step, and the apply loop then counts only what it
-applied itself -- 002 through 013, which is twelve. The dry run has no bootstrap
+applied itself -- 002 through 015, which is fourteen. The dry run has no bootstrap
 branch: `is_applied` returns 0 while the ledger is absent, so it counts all
-thirteen as pending. The two numbers are measuring different things.
+fifteen as pending. The two numbers are measuring different things.
 
 **Confirm it by the ledger, which is the artefact that matters, not by the
 count:**
 
-Expect `13` from the ledger query and `0 migration(s) pending.` from the dry run.
+Expect the ledger query to return one row per forward migration file -- `15`
+since `015_ward_status_history_text_category.sql` -- and `0 migration(s) pending.`
+from the dry run.
 The first line waits silently for the connection string; the last removes it.
 
 ```bash
@@ -645,7 +671,7 @@ Do **not** run `scripts/seed.sh`. It refuses any non-local database by design â€
 the seed inserts synthetic facilities that would be indistinguishable from real
 ones.
 
-- [ ] All 13 migrations applied; `select count(*) from app.schema_migrations` returns 13
+- [ ] Every forward migration applied, `015_ward_status_history_text_category.sql` last; the second dry run reports `0 migration(s) pending.`
 
 ---
 

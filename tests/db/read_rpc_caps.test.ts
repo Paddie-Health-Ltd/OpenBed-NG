@@ -132,6 +132,28 @@ describe('read RPC caps', () => {
     expect(args).not.toMatch(/facility/i);
   });
 
+  test('an unknown ward_status_history category is rejected with INVALID_ARGUMENT naming the parameter — the cast refuses, not a value list', async () => {
+    // 015: p_category is text, cast inside the function. An unknown value fails
+    // the cast and nothing else; there is no list of categories to drift.
+    let err: { code?: string; message: string; detail?: string } | undefined;
+    try {
+      await withRole(
+        'authenticated',
+        CLAIMS,
+        async (tx) => {
+          await tx.unsafe(`select count(*) from public.ward_status_history('NOT_A_WARD', null, 10)`);
+        },
+        (tx) => seedFixture(tx, 1),
+      );
+    } catch (e) {
+      err = e as { code?: string; message: string; detail?: string };
+    }
+    expect(err, 'an unknown category was accepted').toBeDefined();
+    expect(err?.message).toContain('INVALID_ARGUMENT');
+    expect(err?.code).toBe('P0001');
+    expect(err?.detail).toBe('p_category');
+  });
+
   test('missing-context — an unauthenticated caller is rejected with 42501', async () => {
     await expect(
       withRole('authenticated', null, async (tx) => {

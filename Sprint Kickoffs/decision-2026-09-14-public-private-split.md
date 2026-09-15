@@ -362,6 +362,38 @@ entry points to its source; nothing is copied.**
 
 ---
 
+## Blocks facility-one onboarding
+
+_Added 2026-09-14. An item here is acted on before the first real facility is
+onboarded; it is not merely read._
+
+### B1. The facility's agreement to publish its live capacity *(was O3)*
+
+**Why it blocks now, and did not before.** Migration 014
+(`database/migrations/014_publish_ward_status.sql`) adds the write path. Once 014
+is applied to the hosted project, publishing a live bed count becomes POSSIBLE
+for any onboarded ward: nothing technical stands between onboarding a facility
+and its capacity going public. Before 014 no ward could publish, so the missing
+permission gated nothing.
+
+**It is not in clauseX.**
+- Its drafting note defines `Purpose` narrowly — "operating the bed-visibility
+  service and its operational notifications" (clauseX:22).
+- **It grants no permission to publish a facility's live capacity.**
+
+**This is a contractual permission from the institution, not a data-protection
+consent.** `agreement_accepted_at` is explicitly not a consent record, and no
+consent basis exists anywhere in this system (clauseX:96).
+
+**The gap is recorded. The clause is not drafted.**
+
+### B2. Custom SMTP and the email provider's written processor agreement
+
+Recorded once, as the email-provider row of the open processor obligations
+above. Not restated here.
+
+---
+
 ## Open — questions, not decisions
 
 ### O1. `noindex` against an indexable static shell — OPEN CONFLICT, pending the founder
@@ -404,18 +436,57 @@ separately, each looks like a pure loss.
   (memo:33), and an opaque, short-lived session identifier (memo:35).
 - **Individual dispatcher accounts** reopen it.
 
-### O3. The facility's agreement to publish its live capacity
+### O3. Moved on 2026-09-14 — now B1, under "Blocks facility-one onboarding"
 
-**It is not in clauseX.**
-- Its drafting note defines `Purpose` narrowly — "operating the bed-visibility
-  service and its operational notifications" (clauseX:22).
-- **It grants no permission to publish a facility's live capacity.**
+The facility's agreement to publish its live capacity is no longer only an open
+question. See B1 above.
 
-**This is a contractual permission from the institution, not a data-protection
-consent.** `agreement_accepted_at` is explicitly not a consent record, and no
-consent basis exists anywhere in this system (clauseX:96).
+---
 
-**The gap is recorded. The clause is not drafted.**
+## Rulings on migrations 014 and 015 — 2026-09-14
+
+_Founder rulings on what building migration 014 found. This record is their single home; the dated sections of the v2 kickoff point here._
+
+### M1. `text` parameters on public RPCs — APPROVED
+
+**The diagnosis was observed, not inferred.** Both golden-path publish steps were refused with `42501 permission denied for schema app` while their parameters were `app` enums. 001's revoke wall gives `authenticated` no USAGE on `app`, and PostgREST names parameter types.
+
+**The rejected alternatives, with the reasons corrected:**
+- **Moving the enums to `public`.** The first reason given, that it means editing applied migrations, was wrong: `ALTER TYPE … SET SCHEMA` in a new migration moves a type. It still loses, because `public` is the exposed schema and the move would publish enum values as API surface.
+  - Observed 2026-09-14: anon's OpenAPI document already carries `ward_category` values, through `ward_public`'s columns. `zero_reason` and `app_role` values do not appear.
+- **Granting USAGE on `app` to `authenticated`.** The ruling called schema USAGE the only barrier to `authenticated` calling projection internals. **Checked, that premise does not hold: there are two barriers.**
+  - `authenticated` holds EXECUTE on none of `app`'s 8 functions, and `app.project_facility`'s ACL is `{postgres=X/postgres}`.
+  - The rejection stands on the corrected reason: USAGE would remove one of the two layers, and the other layer covers only functions whose EXECUTE was revoked.
+
+### M2. 011's `ward_status_history` — FIX NOW, as migration 015; the snapshot becomes 016
+
+The renumber is recorded explicitly in the v2 kickoff and in `docs/handoff-2026-09-10-stage-0-and-guard-sweep.md`, the way ruling (a) recorded its supersession.
+
+### M3. The write-path derivation — ACCEPTED
+
+The public fields are read back from `public.ward_public` inside the write transaction. The implementer's five decisions are approved as built, with condition G.
+
+### Gating conditions — all to hold before that pull request opens
+
+- **A.** An unknown value is refused because the cast fails (`EXCEPTION WHEN invalid_text_representation`), not by a value list in the function body. The enum stays the single source of truth. No normalisation — no upper, lower or trim: the function accepts exactly what the enum accepts.
+- **B.** Definer safety, for `publish_ward_status` and the recreated `ward_status_history` both:
+  - `SECURITY DEFINER` with `search_path` pinned, and every reference schema-qualified;
+  - EXECUTE revoked from PUBLIC, then granted to the intended role only;
+  - a test that anon cannot EXECUTE at all. Refused-inside is a weaker result than never-ran.
+- **C.** A catalogue test that no function in `public` takes an `app`-typed parameter, across all functions, with no exception list. It ships with 015, the migration that makes it true.
+  - *Implementation note:* it checks input parameters. Result columns legitimately return `app` types and work over HTTP.
+- **D.** The 011 repair uses DROP FUNCTION explicitly before CREATE. CREATE OR REPLACE cannot change a parameter type and would leave two overloads, which PostgREST refuses as ambiguous (PGRST203).
+  - After the recreate, assert the grant set matches what 011 established, with PUBLIC revoked.
+  - Before dropping, check for internal callers. Checked 2026-09-14: none.
+- **E.** Runbook step 5's stop condition names both files in apply order: two `WOULD APPLY` lines on hosted, not one. Shipping 015 without that restatement would make the document wrong on a correct run — the #18 class, arriving through an unrelated fix.
+- **F.** A catalogue test that the projection triggers are enabled and not deferrable. Every `public_*` field in 014's contract depends on it, and nothing asserted it.
+- **G.** A replay must be distinguishable from a fresh publish in the response. Unchanged `version` does not carry that — an immediate retry returns the version the original returned — so the response gains `replayed`. Returning current state on retry stays.
+- **H.** The neuter harness hard-fails when zero tests are selected. The first run of 014's last neuter tested nothing and did not say so: the #22 hazard, inside the harness that certifies 014.
+- **I.** Before running `attest_counts`, state the expected total and its arithmetic, `594 + 3 (015 down-symmetry) + n`, with `n` named per condition. Paste the prediction and the result together. A disagreement is the finding.
+
+### Deferred, deliberately, to the `scripts/` survey
+
+**PR evidence tables generated from artefacts, not typed,** and failing when a referenced artefact is missing. This is the structural answer to the "→ 0" shape, and it belongs with the other verification instruments rather than bolted onto the 014 pull request.
 
 ---
 
@@ -424,7 +495,12 @@ consent basis exists anywhere in this system (clauseX:96).
 **Changes:**
 - the IP-derived step of v1:245 is retired (D4);
 - an open processor-obligations list now exists (R3);
-- one row is added to the runbook's un-automatable table (D2).
+- one row is added to the runbook's un-automatable table (D2);
+- later on 2026-09-14, O3 moved to a new section, *Blocks facility-one
+  onboarding*, as B1, because migration 014 makes publishing possible once
+  applied hosted;
+- later on 2026-09-14, the rulings on migrations 014 and 015 (M1–M3) and the
+  gating conditions A–I are recorded here.
 
 **Does not change:**
 - v1:250 and v2:273 (O1);

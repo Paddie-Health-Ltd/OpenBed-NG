@@ -67,7 +67,7 @@ describe('RPC execute allowlist', () => {
     expect(bad, 'definer functions without SET search_path').toEqual([]);
   });
 
-  test('the two authenticated RPCs are executable by authenticated and nobody else', async () => {
+  test('the three authenticated RPCs are executable by authenticated and nobody else', async () => {
     // The positive control. Without it, revoking EXECUTE from everyone would pass
     // the first test perfectly while breaking the product -- a guard that rejects
     // everything is a rubber stamp.
@@ -78,11 +78,12 @@ describe('RPC execute allowlist', () => {
         has_function_privilege('anon', p.oid, 'EXECUTE')          as anon
       from pg_proc p
       join pg_namespace n on n.oid = p.pronamespace
-      where n.nspname = 'public' and p.proname in ('my_facility_wards', 'ward_status_history')
+      where n.nspname = 'public' and p.proname in ('my_facility_wards', 'ward_status_history', 'publish_ward_status')
       order by 1
     `;
 
-    expect(rows.length, 'the two read RPCs are missing').toBe(2);
+    // Three since 014: the two capped reads and the write path.
+    expect(rows.length, 'one of the three authenticated RPCs is missing').toBe(3);
     for (const row of rows) {
       expect(row.authed, `${row.signature} is not callable by authenticated`).toBe(true);
       expect(row.anon, `${row.signature} is callable by anon`).toBe(false);
