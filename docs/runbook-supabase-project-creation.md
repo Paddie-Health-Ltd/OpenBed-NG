@@ -575,10 +575,11 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions. Until
 that wrong.
 
 - **The hosted project today** holds 001 through 013 (see step 7). The dry run
-  must print exactly **two** `WOULD APPLY` lines, **in apply order** --
+  must print exactly **three** `WOULD APPLY` lines, **in apply order** --
   `014_publish_ward_status.sql`, then
-  `015_ward_status_history_text_category.sql` -- followed by
-  `2 migration(s) pending.` Every other file must read `already applied`.
+  `015_ward_status_history_text_category.sql`, then `016_snapshot.sql` --
+  followed by `3 migration(s) pending.` Every other file must read
+  `already applied`.
 - **Any other `WOULD APPLY` line, a missing one, or any other count: stop and
   report.**
 - **When a migration is added,** this list is restated in the same change that
@@ -664,32 +665,32 @@ unset KEY BODY
 ```
   WOULD APPLY     : 014_publish_ward_status.sql                 <- dry run, first
   WOULD APPLY     : 015_ward_status_history_text_category.sql   <- dry run, second
-2 migration(s) pending.
-Migrations complete (2 applied this run).   <- apply
+  WOULD APPLY     : 016_snapshot.sql                            <- dry run, third
+3 migration(s) pending.
+Migrations complete (3 applied this run).   <- apply
 ```
 
 **On a virgin database** the two commands report **different numbers**, and the
 second is lower:
 
 ```
-15 migration(s) pending.          <- dry run
-Migrations complete (14 applied this run).   <- apply
+16 migration(s) pending.          <- dry run
+Migrations complete (15 applied this run).   <- apply
 ```
 
-**Fourteen is correct there. Nothing was skipped.** Migration 001 creates the `app`
+**Fifteen is correct there. Nothing was skipped.** Migration 001 creates the `app`
 schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
 recorded by a ledger that does not exist yet. The runner applies and ledgers it
 in a separate **bootstrap** step, and the apply loop then counts only what it
-applied itself -- 002 through 015, which is fourteen. The dry run has no bootstrap
+applied itself -- 002 through 016, which is fifteen. The dry run has no bootstrap
 branch: `is_applied` returns 0 while the ledger is absent, so it counts all
-fifteen as pending. The two numbers are measuring different things.
+sixteen as pending. The two numbers are measuring different things.
 
 **Confirm it by the ledger, which is the artefact that matters, not by the
 count:**
 
-Expect the ledger query to return one row per forward migration file -- `15`
-since `015_ward_status_history_text_category.sql` -- and `0 migration(s) pending.`
-from the dry run.
+Expect the ledger query to return one row per forward migration file -- `16`
+since `016_snapshot.sql` -- and `0 migration(s) pending.` from the dry run.
 The first line waits silently for the connection string; the last removes it.
 
 ```bash
@@ -735,7 +736,7 @@ Do **not** run `scripts/seed.sh`. It refuses any non-local database by design â€
 the seed inserts synthetic facilities that would be indistinguishable from real
 ones.
 
-- [ ] Every forward migration applied, `015_ward_status_history_text_category.sql` last; the second dry run reports `0 migration(s) pending.`
+- [ ] Every forward migration applied, `016_snapshot.sql` last; the second dry run reports `0 migration(s) pending.`
 
 ---
 

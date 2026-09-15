@@ -225,10 +225,13 @@ describe('golden path — release gate 2', () => {
     const after = await db<{ v: number }[]>`select v from public.snapshot_current order by v desc limit 1`;
 
     expect(after[0], 'no snapshot row after regeneration').toBeDefined();
+    // v is bigint (016, ruled), which postgres.js returns as a STRING; observed
+    // 2026-09-15 as "actual value must be number or bigint, received string".
+    // Coerced here, same comparison.
     expect(
-      after[0]?.v ?? 0,
+      Number(after[0]?.v ?? 0),
       'v did not increment — a version that does not move is the one signal that distinguishes a dead generator from a quiet one',
-    ).toBeGreaterThan(before[0]?.v ?? -1);
+    ).toBeGreaterThan(Number(before[0]?.v ?? -1));
 
     // The heartbeat must move in the SAME transaction, so a regeneration can
     // never be claimed that did not commit.
@@ -236,6 +239,21 @@ describe('golden path — release gate 2', () => {
       select (now() - last_snapshot_at) < interval '1 minute' as fresh from app.system_heartbeat
     `;
     expect(beat?.fresh, 'the snapshot heartbeat did not move with the snapshot').toBe(true);
+
+    // The step's description claims the snapshot carries the REPUBLISHED count,
+    // so the step verifies it (R-2026-09-15-04: a step claiming more than it
+    // checks is the #11 family). tile-shows-count below reads the same payload
+    // through the client codec; this reads it here, where it was generated.
+    const [snap] = await db<{ v: number; payload: { v: number; wards: unknown[][] } }[]>`
+      select v, payload from public.snapshot_current order by v desc limit 1
+    `;
+    expect(Number(snap?.payload.v), 'the payload does not name its own version').toBe(Number(snap?.v));
+    const { decodeWard } = await import('../../packages/snapshot/src/codec.js');
+    const republished = (snap?.payload.wards ?? [])
+      .map((r) => decodeWard(r))
+      .find((w) => w['facility_id'] === ALPHA.id && w['category'] === PUBLISH_CATEGORY);
+    expect(republished, 'the republished ward is absent from the regenerated snapshot').toBeDefined();
+    expect(republished?.['bed_count'], 'the regenerated snapshot does not carry the republished count').toBe(6);
   });
 
   test(name('tile-shows-count'), async () => {

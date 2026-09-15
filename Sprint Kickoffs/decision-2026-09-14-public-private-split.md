@@ -286,9 +286,14 @@ pre-generated snapshot:
 - `GET /beds.json`, regenerated every 60 seconds, carrying `server_now` and
   arrays-of-arrays, with client-side haversine (v1:65);
 - a service-role, server-side generator over the three mirrors (v1:235);
-- in v2, the generator is `app.regenerate_snapshot()` — `SECURITY DEFINER`,
-  EXECUTE granted to `service_role` only — writing `public.snapshot_current`
-  (v2:215);
+- in v2, the generator is `app.regenerate_snapshot()` — `SECURITY DEFINER` —
+  writing `public.snapshot_current` (v2:217).
+  - _Corrected 2026-09-15 (R-2026-09-15-05):_ this line restated v2:217's
+    "EXECUTE granted to `service_role` only". **That grant is dead:**
+    `service_role` has no USAGE on schema `app`, observed locally and on hosted
+    (runbook step 6, 2026-09-13), so it could never call the function. As built
+    in 016, EXECUTE is held by the owner only; 017 decides the caller. The
+    citation was also wrong (v2:215; the line is v2:217).
 - the public dashboard deploys to Cloudflare Pages (v1:79).
 
 **The cache headers are `s-maxage=30, stale-while-revalidate=300`** (v1:235,
@@ -303,15 +308,21 @@ only one of them.**
    RLS. That is the path the authenticated app uses, and the one anyone holding
    the published key can call.
 2. **The snapshot's contents are not governed by RLS.** The generator runs with
-   service-role privilege (v1:235, v2:215), so **the public payload's shape is
+   service-role privilege (v1:235, v2:217), so **the public payload's shape is
    whatever the generator's column selection emits.** Step 6 does not touch
    that, and a green step 6 must never be read as covering it.
 
 **What guards the snapshot's columns today: nothing.**
 - **The generator is not built.** No definition of `app.regenerate_snapshot()`
   or `public.snapshot_current` exists under `database/`. The golden-path step
-  that exercises them, `snapshot-regenerates`, lies beyond the ratchet frontier,
-  which passes through `handover-lists-facility-wards` (`tests/e2e/frontier.json`).
+  that exercises them, `snapshot-regenerates`, lies beyond the ratchet frontier
+  (`tests/e2e/frontier.json`).
+  - _Corrected 2026-09-15:_ this line said the frontier passes through
+    `handover-lists-facility-wards`. Since 014 it passed through
+    `ward-republishes`; 016 moves it again, and the file records where.
+  - _016 builds the generator_ and the guard this section names: the columns
+    of an actual generated payload are asserted against the fixture in
+    `tests/db/snapshot.test.ts`. This section is kept as written for 2026-09-14.
 - **Partial guards exist. None of them asserts a generated payload:**
   - `packages/snapshot/src/codec.ts` — `encode` emits exactly the fixture's
     columns, so it filters extra fields **if, and only if,** the generator
@@ -536,10 +547,67 @@ _Rulings R-2026-09-15-02 and R-2026-09-15-03._
 ### 016 — unblocked for a scope proposal, with a constraint
 
 - **The snapshot derives from `ward_public`, never from the base tables.** `snapshot_current` is the public read path, cached at the edge. A snapshot assembled from base tables would be a second route to ungated counts: the (b) defect one layer out, served to anonymous traffic through a CDN. A structural reason it cannot read `ward_public` is raised before building.
+  - _SUPERSEDED by R-2026-09-15-04, below: the constraint was stated at the wrong level._
 - **Condition F extends** to whatever refreshes `snapshot_current`.
 - **R1(a) holds nothing up.** O2 settled the floor, and 014's floor test showed that adopting one later is a value change, not a signature change.
 
 **Sequence after 016's ruling:** tick reconciliation, then the `scripts/` survey.
+
+## Migration 016 — the snapshot, 2026-09-15
+
+_Rulings R-2026-09-15-04 and R-2026-09-15-05. #24 merged at c618b8f first._
+
+### The constraint, corrected — two clauses
+
+**The founder's correction of their own wording.** "Derives from `ward_public`, never the base tables" was stated at the wrong level. `public.lga_rollup` is a published surface with its own control (the k-floor and the 0.40 dominance rule), so reading it would not be an ungated route.
+
+**The real defect in v2:280** is that `app.refresh_lga_rollup()` would make the generator a WRITER of a published surface inside the public read path, holding base-table locks in the snapshot transaction. 008:176-177 already states the principle: `app.project_facility` is "the single writer of public.facility_public and public.ward_public".
+
+**The constraint is now:**
+- the generator READS only published surfaces;
+- the generator WRITES only `public.snapshot_current` and the heartbeat.
+
+Both clauses are asserted against the live function body in `tests/db/snapshot.test.ts`, with plants for a rollup refresh, a write to another published surface and a base-table read.
+
+### The five decisions
+
+1. **The rollup is OUT of 016.** No refresh call and no payload key; it gets its own ruling at Stage 3.
+   - Beyond the writer clause: v2:225 defers the payload key to Stage 3, and the fixture envelope has no rollup key, so the refresh would compute something nothing reads.
+   - v2's finding 1 — `refresh_lga_rollup()` has no production caller — is real and stays **OPEN**. Its reason does not imply v2:280's instruction; any scheduled caller solves it.
+2. **The scheduler is split.** 016 is the table, the generator and the heartbeat column. 017 is the pg_cron extension, the schedule, and condition F's analogue asserting the job exists, is active and is on schedule.
+   - The reasons: different blast radius, independent down-paths, and F can only assert a mechanism that exists.
+   - v2:319 ("the dual scheduler already exists") is a failed kickoff claim. **Required before 017:** sweep v2 for every "already exists" / "already stood up" assertion and mark each verified or superseded. Five have failed so far: "014 is one index", the frontier line, v2:319, v2:320 (heartbeat yes, `/api/health` nowhere) and v2:217's `service_role` grant.
+3. **The reader is `service_role` ONLY.**
+   - v1:258 already ruled the mirrors are defence in depth, not the serving path; the serving path is the static file at the edge.
+   - An anon-readable `snapshot_current` would be a second serving path around the CDN, with no `s-maxage`, disagreeing with the edge on freshness.
+   - As built: RLS enabled and FORCEd, zero policies, every client role revoked by name, `GRANT SELECT TO service_role`.
+4. **Retention appends, is bounded, and is pruned in the generator's own transaction.**
+   - A separate pruning job would be a second orphan needing a caller.
+   - The window is `app.snapshot_retention()`, 24 hours, the ruled default absent a measured detection latency.
+   - The reason that carries it: the heartbeat says the generator is stale now; history says when it stopped and for how long.
+5. **`v` is a bigint from the identity sequence,** never `max(v)+1`.
+   - A content hash is identical across two runs on a quiet night, so "`v` has not moved" could not tell a dead generator from a quiet one.
+   - **A gap in `v` is not a missing snapshot.**
+
+### The RLS hazard, and the control actually adopted
+
+- **The founder's hazard (R-2026-09-15-04, inferred) was checked.** Local `postgres` is `rolsuper f`, `rolbypassrls t`, and so is `service_role` (observed); it is not superuser, as that ruling guessed. A non-bypass role reading a FORCE-RLS table silently reads zero rows (observed). Hosted role attributes are unobserved: the founder's check.
+- **The ruled durable control was null under its own hazard, and that was the founder's error (R-2026-09-15-05).** A count-equality check reads the mirrors as the same role under the same RLS, so under the hazard both the payload and the count are zero, and the check passes exactly when the system is broken. It stays, re-aimed at rows dropped between read and encode, with its own plant.
+- **Adopted: `SET row_security = off` as a function attribute.** With it, Postgres raises "query would be affected by row-level security policy" at the read instead of applying a policy. This is enforced by the engine at the point of the defect, and asks the actual question rather than a proxy such as `rolbypassrls`. Planted in `tests/db/snapshot.test.ts` with a non-bypass owner.
+- **Narrower than first stated, observed while building.** Without the attribute, today's table would not publish an empty snapshot. `snapshot_current` has zero policies, so a non-bypass owner's INSERT is refused too, naming `snapshot_current` rather than the mirror that was read wrongly. An empty snapshot is published only if a policy ever lets the generator's role write; that is reproduced as a counter-control.
+- **The pairing:** `row_security = off` catches the generator losing its bypass; `tests/db/rls_enabled_everywhere.test.ts` catches RLS being dropped from a mirror.
+
+### EXECUTE is owner only
+
+REVOKE from PUBLIC, anon, authenticated and `service_role`; no grant in 016. A grant through a schema wall the grantee cannot see is the shape M1 rejected at 014.
+
+**Flagged forward to 017:** a `service_role` grant is no route for an external caller. The real options are pg_cron running as `postgres`, a direct connection as the owner, or a public wrapper with EXECUTE for `service_role` — which reopens decision 3 and must be faced deliberately.
+
+### Also in the 016 change
+
+- Golden-path `snapshot-regenerates` now verifies the republished count its description claims.
+- 003:98-101 and 003:129-132 name `app.lga_rollup`; the table is `public.lga_rollup`.
+  - **The ruling asked for 003 to be edited. The standing rule forbids editing applied migrations 001–013**, so the correction is recorded here and in 016's header instead.
 
 ## Method notes — how rulings reach the implementer
 
@@ -555,6 +623,11 @@ _Standing rules, 2026-09-15. This record is their home._
      - Item 5 asked for a hosted session-200 check that `assert_member`, B1 and B2 make impossible before onboarding.
      - Both errors were the founder's, and are recorded as such.
 4. **PGRST203 stays recorded as an untested assertion** (condition D). The drop makes it moot. It is never cited later as a finding.
+5. **Cowork rules the property; Claude Code proposes the mechanism** (R-2026-09-15-05). A mechanism named in a ruling is an illustration of the property, not an instruction, and the implementer says so when the two come apart.
+   - **Why:** every ruling that held stated a property that must be true, and every one that failed specified how. (b) held because it ruled the contract and left the derivation open. The three that failed each reached past the property into the mechanism:
+     - the count-equality control;
+     - the hosted session-200 probe;
+     - attaching the handoff to #23.
 
 ---
 
@@ -571,7 +644,10 @@ _Standing rules, 2026-09-15. This record is their home._
   gating conditions A–I are recorded here;
 - on 2026-09-15, the review of #23, the six items required before 016, 016's
   derivation constraint, and the method notes on how rulings reach the
-  implementer.
+  implementer;
+- later on 2026-09-15, 016's rulings: the constraint corrected to two clauses,
+  the five decisions, the RLS control actually adopted, owner-only EXECUTE, the
+  dead `service_role` grant in R2, the stale frontier line, and method note 5.
 
 **Does not change:**
 - v1:250 and v2:273 (O1);
