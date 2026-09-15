@@ -711,6 +711,83 @@ _#26 merged at 9e77e9c (merge commit 984ff1b)._
 - **EXPLAIN showed otherwise:** a CTE referenced twice is materialised regardless, and `NOT MATERIALIZED` still reads under one statement snapshot.
 - **The founder accepted the correction** (R-2026-09-15-08). It follows the count-equality control.
 
+### R-2026-09-15-09 — PR #27, the pre-017 sweep
+
+_#27 was approved and merged at 2439938 (merge commit 3a45e67). The follow-ups F1–F3 were commissioned in the same ruling and delivered in #28._
+
+**The sweep.**
+- **96 claims were enumerated with line citations,** in `Sprint Kickoffs/sweep-2026-09-15-v2-enumeration.md`. Each is an assertion in the v2 kickoff that something exists, is in place, was stood up, runs or is asserted.
+- **The verdict split, as corrected by R-2026-09-15-10:**
+
+  | Verdict | Count |
+  |---|---|
+  | VERIFIED | 70 |
+  | SUPERSEDED, failed | 5 |
+  | SUPERSEDED, stale | 9 |
+  | superseded in the document already | 5 |
+  | not checkable from the repository | 7 |
+
+- **The unit** is one enumerated claim. An item carrying several assertions takes one verdict.
+
+**What the sweep found beyond what was already known, classified by verdict.**
+- **The five known going in** were:
+  - three failed claims: `regenerate_snapshot`'s `service_role` grant and "three mirrors", the dual scheduler, and `/api/health`;
+  - two claims already superseded in the document: "014 is the idempotency index" and "014 adds one index".
+- **New failed claims (two):**
+  - the referral guard's "legs 1–4 execute today", with none of its four files present;
+  - the touch-trigger count: five triggers, not four.
+- **New stale claims:** finding 2, overtaken by 014's unique index, and seven others. They are listed in the kickoff's sweep section.
+- **Outside the 96, found in passing:** 005:211's comment that patient-information validation "also runs at the RPC layer". No such validation exists. 005 is applied, so the sweep section records the correction.
+- _The ruling text of R-2026-09-15-10 called these "four new failures". Two are failed, one is stale, and one is not an enumerated claim. They are recorded here by class._
+
+**The superuser claim was swept, not patched.**
+- **Found by grep and corrected:** six places, listed under "Hosted role rows — R-2026-09-15-08" above.
+  - One is runbook step 8.
+  - One is a comment in 014. It is comment only, and 014 is unapplied on hosted.
+- **Recorded, not edited:** `database/migrations/010_append_only_enforcement.sql`'s header. 010 is applied.
+
+**F1–F3, each discharged by #28 as amended by R-2026-09-15-10:**
+- **F1:** the instance-count items. Ruled under R-10 A1 as six families and nine instances; the unit is stated at the kickoff's paragraph and under its verdict table.
+- **F2:** `tests/e2e/_harness.ts`'s CI claim, from inferred to observed. R-10 P1 rewrote it to the ratchet mechanism.
+- **F3:** the supautils dependency, as a LOCAL AND CI ONLY row in the runbook's un-automatable table. R-10 P2 rewrote "superuser-only" as superuser by default, and named GRANT SET ON PARAMETER as the route not in use.
+- **Method notes 6 and 7** were added below.
+
+### R-2026-09-15-10 — PR #28 review
+
+_Approved in substance at e133ff6, with three amendments and two precision points, then one verification pass before a merge pinned to the amended head._
+
+**A1 — ruled (a): finding 6's two headers are in the family.**
+- **The clause:** "the same family" follows the one family the paragraph names, a mechanism present and not reaching.
+- **Families (six):** grep guard, sed plant, phantom links, fingerprint alert, finding 6's headers, `refresh_lga_rollup()`.
+- **Instances (nine):** 1 + 1 + 3 + 1 + 2 + 1.
+- **The two stated counts:** finding 1's "sixth" is the sixth family, and "Five" counts the list before the finding-6 clause.
+- **Verdict:** not a failure; the unit was unstated. #28's first version, "matches neither", is recorded as corrected. The finding-6 clause is unchanged.
+
+**A2 — the unit stated under the table, and a recount.**
+- **Premise correction:** the table counts by enumerated claim, not by assertion. Recounted mechanically from the enumeration, one verdict per item.
+  - The ruling's own proofs fit that unit: finding 6 is two items (#10, #11), and the CDN pair is two items (#28, #44).
+  - It is not an assertion count: #41 is one item carrying two failed assertions, and VERIFIED items #25, #53, #82 and #95 each carry several.
+  - A strict assertion recount would re-split all 96 by a rule no reader could re-derive.
+- **So failed was 6 before A1, not 7;** after A1 it is 5.
+- **Result:** 70 / 5 / 9 / 5 / 7, total 96 unchanged.
+- **Found while recounting:** the sweep section said the citations "are kept". They were kept only in a session-local transcript, so the enumeration file was added.
+
+**A3.** The R-2026-09-15-09 block above was missing, and is written.
+
+**P1.** `tests/e2e/_harness.ts` and the runbook row now name the ratchet mechanism:
+- the e2e project's globalSetup calls `seedE2eCorpus()`;
+- the golden-path job gates on the ratchet's 10 tests, not the 20-step golden path;
+- its anti-vacuity leg and its at-or-before-the-frontier leg cannot be green without the seed;
+- both were green on 2439938.
+
+**P2.** "Superuser-only in stock Postgres" became superuser by default.
+- `supabase/config.toml` pins PG17, and since PG15 `GRANT SET ON PARAMETER` can delegate the setting.
+- That route is not the one in use: `has_parameter_privilege('postgres', 'session_replication_role', 'SET')` is f, observed 2026-09-15.
+
+**The handoff** `docs/handoff-2026-09-15-rulings-06-to-09-and-hosted-rows.md` moved into `docs/` with #28, not with 017, and carries a location note.
+
+**Unchanged:** F2 and F3 discharge on their conditions; method notes 6 and 7 are accepted as written.
+
 ## Method notes — how rulings reach the implementer
 
 _Standing rules, 2026-09-15. This record is their home._
@@ -731,6 +808,18 @@ _Standing rules, 2026-09-15. This record is their home._
      - the hosted session-200 probe;
      - attaching the handoff to #23.
    - **Later instance, 2026-09-15:** "the count check guards MATERIALIZED staying put" (R-2026-09-15-06 item (3)). EXPLAIN showed the keyword is not load-bearing; the correction was accepted in R-2026-09-15-08. It is the second mechanism claim caught in the 016 review loop, after count-equality.
+6. **A sweep targets the tense, not a phrase** (R-2026-09-15-09). The pre-017 sweep of the v2 kickoff first tried a grep for "already". It matched mostly prose, and missed the claims that had failed, because they were worded as plain present-tense facts ("`014` adds one index", "EXECUTE … granted to `service_role`").
+   - The sweep that worked read the whole document for every present-tense assertion that something exists, is in place, was stood up, runs or is asserted.
+   - Any later sweep of a planning document starts from the same target.
+7. **An explanation carrying a decision is a premise too** (proposed by the founder in R-2026-09-15-09; judged coherent by the implementer, restated to cover both directions).
+   - **This is not Clause 5.** Clause 5 is a mechanism present and not reaching: something that does not fire. **Nor is it `.claude/rules/test-conventions.md` §8,** which is a reason given WITH AN INSTRUCTION. This family is a causal explanation of observed behaviour — why something works, or why it fails — that a decision was resting on, and that nobody probed.
+   - **Four instances this fortnight.** Three worked, and the stated reason was wrong:
+     - the "postgres is superuser locally" claim, in six places and load-bearing for a hosted hand check;
+     - the count-equality control, green for a reason other than the one given;
+     - `session_replication_role`, which `postgres` sets through `supautils`, not as a superuser.
+   - **The fourth is the mirror case:** zsh `PIPESTATUS` FAILED, and the stated reason for the failure ("zsh arrays are 1-indexed") was wrong — zsh does not set `PIPESTATUS` at all. The shape holds in both directions, so the note is worded for both.
+   - **How to apply:** when an explanation of why something works or fails is about to carry a decision, probe the explanation, not only the outcome.
+   - **For the `scripts/` survey,** this is a sharper target than "does this run": is the stated reason it works, or fails, the actual reason.
 
 ---
 
@@ -756,7 +845,17 @@ _Standing rules, 2026-09-15. This record is their home._
 - later on 2026-09-15, the hosted role rows (R-2026-09-15-08): H1 the hold
   lifted, H2 item (2) closed with its owner half pending the post-apply read, H3
   §4 closed, the policy restated as defence in depth, the prune DELETE checked
-  and dropped, and method note 5's second instance.
+  and dropped, and method note 5's second instance;
+- later on 2026-09-15, R-2026-09-15-09's follow-ups: method notes 6 (a sweep
+  targets the tense, not a phrase) and 7 (an explanation carrying a decision is
+  a premise too), with the instance-count row, the harness comment and the
+  supautils dependency corrected in the v2 kickoff, `tests/e2e/_harness.ts` and
+  the runbook;
+- later on 2026-09-15, R-2026-09-15-09's ruling block, and R-2026-09-15-10's
+  amendments: A1 (finding 6 in the family; the instance counts VERIFIED), A2 (the
+  unit stated, the recount to 70 / 5 / 9 / 5 / 7, the enumeration committed), P1 (the
+  ratchet mechanism) and P2 (superuser by default; GRANT SET ON PARAMETER named),
+  and the 2026-09-15 rulings handoff moved into `docs/`.
 
 **Does not change:**
 - v1:250 and v2:273 (O1);
