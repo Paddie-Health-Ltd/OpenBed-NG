@@ -609,6 +609,53 @@ REVOKE from PUBLIC, anon, authenticated and `service_role`; no grant in 016. A g
 - 003:98-101 and 003:129-132 name `app.lga_rollup`; the table is `public.lga_rollup`.
   - **The ruling asked for 003 to be edited. The standing rule forbids editing applied migrations 001–013**, so the correction is recorded here and in 016's header instead.
 
+### After the merge — R-2026-09-15-06 and R-2026-09-15-07
+
+_#25 merged at ca79b5d (merge commit f3afcfc). 016 was then amended in a follow-up change, before any durable database ran it._
+
+**(1) Property: the snapshot reader must not be able to read zero rows silently.** The founder ruled the property; the mechanism was the implementer's.
+- **Observed 2026-09-15, locally, rolled back:**
+  - a reader holding SELECT on `snapshot_current` but not BYPASSRLS reads `rows=0` silently, as a plain grantee and as a non-bypass member of `service_role`;
+  - with a policy `FOR SELECT TO service_role USING (true)`, that member reads `rows=1`;
+  - anon, with the policy present, is still refused with `permission denied for table snapshot_current`.
+- **Mechanism: the policy.** Prevention beats detection where prevention is available: the read stops depending on a role attribute, rather than merely failing loudly when the attribute is gone. The generator took `row_security = off` because it has no alternative — a policy for it on the mirrors would widen the mirrors.
+- **Rejected: `ALTER ROLE service_role SET row_security = off`,** for three reasons:
+  - it converts a silent wrong answer into a loud outage;
+  - its blast radius is every `service_role` read of every RLS table;
+  - it mutates a Supabase-managed role no migration can assert and a platform upgrade can reset — a proxy control.
+- **Decision 3 is unchanged in substance.** The reader is still `service_role` only, and the GRANT is what makes that true: anon is excluded by the missing grant, checked before RLS is consulted, so a policy scoped TO `service_role` opens no second serving path.
+- **The test asserts the one policy exactly** (name, SELECT, TO `service_role`, qual `true`), with a non-bypass-member leg, a counter-control where the dropped policy reads zero, and the anon leg.
+
+**C2 — BOUNDED ACCEPTANCE: the ledger cannot distinguish the two versions of 016.**
+- `app.schema_migrations` records a file by name with `ON CONFLICT (filename) DO NOTHING`, so a database that ran the pre-amendment 016 records nothing when the amended file arrives.
+- It is accepted because no durable database has run either version: 016 has run only on disposable local and CI databases, and the hosted apply is held.
+- **The boundary:** the hosted apply happens from the amended file only, and no database that matters ever runs the pre-amendment version.
+- **If that ceases to be true before the hosted apply, this acceptance is void and returns to the founder.**
+
+**C3.** 016's reader section is rewritten, not annotated: grant decides who can read, RLS decides what a reader sees, and why the `service_role` policy does not reopen decision 3.
+
+**(3) The count-equality check guards an edit, not a runtime event.**
+- **The founder's correction holds.** The read CTE and the encoded array consume one statement's snapshot, and `jsonb_build_array` is never NULL, so they cannot disagree at runtime; the header claimed more than that.
+- **Two parts of the ruling's reasoning did not hold, checked 2026-09-15:**
+  - **"It guards MATERIALIZED staying put".** EXPLAIN shows a CTE referenced twice is materialised without the keyword, and `NOT MATERIALIZED` still reads under one statement snapshot, so the keyword is not load-bearing.
+  - **"surfaceViolations catches the source edit more directly".** An encode-side `WHERE` on `src` names no new table, so the surface check passes it; the rows-dropped plant is exactly that edit.
+- **What the check actually guards,** now stated in 016's header and the test name: a source edit that filters or drops rows in the encode step.
+
+**(2) The hosted role check.**
+- **Both rows are to be recorded when the founder returns them:** `postgres` and `service_role`, `rolsuper` and `rolbypassrls`.
+- **Premise correction, repeated in -06 and -07, still not holding.** "The hosted projection working is evidence postgres comes back t" rests on something that has not happened. No facility is onboarded (B1), `scripts/seed.sh` refuses non-local databases, and runbook step 6 recorded only `HTTP 200` for the mirror reads. The projection has never written a row on hosted, so neither row has evidence.
+- **What each row changes:**
+  - **hosted `postgres` without bypass:** 016's generator raises on every run, loud by design and pointless to schedule; 008's `project_facility` upsert would be refused loudly, and its DELETE would remove zero rows silently.
+  - **hosted `service_role` without bypass:** since the amendment, the snapshot read still works through the policy. It is no longer silent either way.
+- **008's `project_facility` DELETE** depends on owner bypass, is not reached by a `service_role` policy, and stays its own item on this branch. A policy for the owner would widen the mirrors' policy set and is not ruled.
+- **Held until the rows return:** the hosted apply of 016 and 017's schedule.
+
+**(4) Closed items.**
+- **`app.system_heartbeat` has no RLS in any migration** (observed `relrowsecurity` f; all 16 `app` tables are RLS-disabled, the `app` wall being grants and schema USAGE). So `row_security = off` bites only on the generator's two mirror reads. The prior handoff's open item is closed.
+- **Realtime:** `tests/db/config_drift.test.ts` asserts the publication holds exactly the three mirrors, so `snapshot_current`'s absence is asserted, not merely commented.
+- **The 2026-09-15 handoff** is in `docs/`.
+- **Noticed while meeting C1:** the idempotency digest in `tests/db/migration_idempotency.test.ts` did not cover policies. It now does, with a plant. It still does not cover grants or RLS flags, which is recorded for the `scripts/` survey.
+
 ## Method notes — how rulings reach the implementer
 
 _Standing rules, 2026-09-15. This record is their home._

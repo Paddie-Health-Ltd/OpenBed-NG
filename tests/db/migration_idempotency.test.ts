@@ -68,6 +68,15 @@ async function digest(): Promise<string> {
     ), cons as (
       select string_agg(conname, ',' order by conname) s
         from pg_constraint c join pg_namespace n on n.oid = c.connamespace where n.nspname in ('app','public')
+    ), pols as (
+      -- POLICIES, added 2026-09-15 (R-2026-09-15-07, C1). 016 now creates a
+      -- policy, and until this component a re-apply that added, rewrote or
+      -- duplicated a policy under another name changed nothing this digest could
+      -- see. Grants and RLS flags are still outside the digest (recorded for the
+      -- scripts/ survey).
+      select coalesce(string_agg(schemaname||'.'||tablename||'.'||policyname||':'||cmd||':'||roles::text||':'||coalesce(qual,'')||':'||coalesce(with_check,''),
+                                 ',' order by schemaname, tablename, policyname), 'none') s
+        from pg_policies where schemaname in ('app','public')
     ), contents as (
       -- CONTENT HASH per table, not merely a row count.
       --
@@ -85,8 +94,8 @@ async function digest(): Promise<string> {
                ',' order by t.tablename) s
         from pg_tables t where t.schemaname = 'app'
     )
-    select cols.s||'|'||enums.s||'|'||funcs.s||'|'||trigs.s||'|'||cons.s||'|'||contents.s as d
-      from cols, enums, funcs, trigs, cons, contents
+    select cols.s||'|'||enums.s||'|'||funcs.s||'|'||trigs.s||'|'||cons.s||'|'||pols.s||'|'||contents.s as d
+      from cols, enums, funcs, trigs, cons, pols, contents
   `;
   return row?.d ?? '';
 }
@@ -141,6 +150,29 @@ describe('migration idempotency', () => {
     } finally {
       execFileSync('bash', ['-c',
         `${psql} -c 'DROP TABLE IF EXISTS app.plant_mutate_probe' >/dev/null 2>&1 || true`]);
+    }
+  });
+
+  test('plant — a re-apply that silently ADDS A POLICY is caught by the digest', async () => {
+    // C1 (R-2026-09-15-07). A policy created without an IF NOT EXISTS guard
+    // errors on re-apply and the first plant catches that. This one does not
+    // error: it adds a second policy under a new name, the shape a careless
+    // "idempotent" rewrite of 016's reader policy would take.
+    const plant = '/tmp/openbed-plant-policy.sql';
+    const psql = psqlCommand();
+    try {
+      execFileSync('bash', ['-c',
+        `printf 'CREATE POLICY zz_plant_extra_policy ON public.snapshot_current FOR SELECT TO service_role USING (true);\\n' > ${plant}`]);
+
+      const before = await digest();
+      applyFile(plant);                        // succeeds, no error
+      const after = await digest();
+
+      expect(before, 'the digest does not carry the policies component').toContain('snapshot_current_service_role_select');
+      expect(after, 'a re-apply that added a policy was NOT caught by the digest').not.toBe(before);
+    } finally {
+      execFileSync('bash', ['-c',
+        `${psql} -c 'DROP POLICY IF EXISTS zz_plant_extra_policy ON public.snapshot_current' >/dev/null 2>&1 || true`]);
     }
   });
 });

@@ -42,10 +42,14 @@ describe('anon writes are rejected', () => {
     expect(rows.map((r) => `${r.table_name}:${r.privilege_type}`)).toEqual([]);
   });
 
-  test('no write policy exists on any mirror for any role', async () => {
+  test('no write policy exists on any public table for any role', async () => {
     // Under RLS a missing policy is a denial, so the ABSENCE is the control. The
-    // three expected SELECT policies are asserted by name, so that swapping one
-    // for a FOR ALL policy fails here rather than quietly widening the surface.
+    // expected SELECT policies are asserted by name, so that swapping one for a
+    // FOR ALL policy fails here rather than quietly widening the surface.
+    // Four since 016's amendment (R-2026-09-15-07): the three mirror policies for
+    // anon and authenticated, and snapshot_current's one policy, SELECT TO
+    // service_role -- which reaches no client role, since none holds a grant on
+    // that table. tests/db/snapshot.test.ts asserts that policy exactly.
     const rows = await sql()<{ tablename: string; policyname: string; cmd: string }[]>`
       select tablename, policyname, cmd
         from pg_policies
@@ -53,13 +57,14 @@ describe('anon writes are rejected', () => {
        order by tablename, policyname
     `;
 
-    expect(rows.length, 'no policies found at all — the mirrors may be unprotected').toBe(3);
+    expect(rows.length, 'no policies found at all — the public tables may be unprotected').toBe(4);
     for (const row of rows) {
       expect(row.cmd, `policy ${row.policyname} on ${row.tablename} is not SELECT-only`).toBe('SELECT');
     }
     expect(rows.map((r) => r.policyname).sort()).toEqual([
       'facility_public_anon_select',
       'lga_rollup_anon_select',
+      'snapshot_current_service_role_select',
       'ward_public_anon_select',
     ]);
   });
