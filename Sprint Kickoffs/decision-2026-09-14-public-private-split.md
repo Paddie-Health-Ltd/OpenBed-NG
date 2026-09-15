@@ -591,7 +591,7 @@ Both clauses are asserted against the live function body in `tests/db/snapshot.t
 
 ### The RLS hazard, and the control actually adopted
 
-- **The founder's hazard (R-2026-09-15-04, inferred) was checked.** Local `postgres` is `rolsuper f`, `rolbypassrls t`, and so is `service_role` (observed); it is not superuser, as that ruling guessed. A non-bypass role reading a FORCE-RLS table silently reads zero rows (observed). Hosted role attributes are unobserved: the founder's check.
+- **The founder's hazard (R-2026-09-15-04, inferred) was checked.** Local `postgres` is `rolsuper f`, `rolbypassrls t`, and so is `service_role` (observed); it is not superuser, as that ruling guessed. A non-bypass role reading a FORCE-RLS table silently reads zero rows (observed). Hosted role attributes were unobserved here; they were observed on 2026-09-15 and are identical to local (see "Hosted role rows — R-2026-09-15-08" below).
 - **The ruled durable control was null under its own hazard, and that was the founder's error (R-2026-09-15-05).** A count-equality check reads the mirrors as the same role under the same RLS, so under the hazard both the payload and the count are zero, and the check passes exactly when the system is broken. It stays, re-aimed at rows dropped between read and encode, with its own plant.
 - **Adopted: `SET row_security = off` as a function attribute.** With it, Postgres raises "query would be affected by row-level security policy" at the read instead of applying a policy. This is enforced by the engine at the point of the defect, and asks the actual question rather than a proxy such as `rolbypassrls`. Planted in `tests/db/snapshot.test.ts` with a non-bypass owner.
 - **Narrower than first stated, observed while building.** Without the attribute, today's table would not publish an empty snapshot. `snapshot_current` has zero policies, so a non-bypass owner's INSERT is refused too, naming `snapshot_current` rather than the mirror that was read wrongly. An empty snapshot is published only if a policy ever lets the generator's role write; that is reproduced as a counter-control.
@@ -628,7 +628,8 @@ _#25 merged at ca79b5d (merge commit f3afcfc). 016 was then amended in a follow-
 
 **C2 — BOUNDED ACCEPTANCE: the ledger cannot distinguish the two versions of 016.**
 - `app.schema_migrations` records a file by name with `ON CONFLICT (filename) DO NOTHING`, so a database that ran the pre-amendment 016 records nothing when the amended file arrives.
-- It is accepted because no durable database has run either version: 016 has run only on disposable local and CI databases, and the hosted apply is held.
+- It is accepted because no durable database has run either version: 016 has run only on disposable local and CI databases, and the hosted apply was held.
+  - _The hold was lifted on 2026-09-15 by R-2026-09-15-08. The boundary below is unchanged: the hosted apply runs from the amended file on `main`._
 - **The boundary:** the hosted apply happens from the amended file only, and no database that matters ever runs the pre-amendment version.
 - **If that ceases to be true before the hosted apply, this acceptance is void and returns to the founder.**
 
@@ -642,6 +643,7 @@ _#25 merged at ca79b5d (merge commit f3afcfc). 016 was then amended in a follow-
 - **What the check actually guards,** now stated in 016's header and the test name: a source edit that filters or drops rows in the encode step.
 
 **(2) The hosted role check.**
+- **The rows were returned on 2026-09-15** and are recorded below under "Hosted role rows — R-2026-09-15-08". What follows is kept as written before they arrived.
 - **Both rows are to be recorded when the founder returns them:** `postgres` and `service_role`, `rolsuper` and `rolbypassrls`.
 - **Premise correction, repeated in -06 and -07, still not holding.** "The hosted projection working is evidence postgres comes back t" rests on something that has not happened. No facility is onboarded (B1), `scripts/seed.sh` refuses non-local databases, and runbook step 6 recorded only `HTTP 200` for the mirror reads. The projection has never written a row on hosted, so neither row has evidence.
 - **What each row changes:**
@@ -655,6 +657,59 @@ _#25 merged at ca79b5d (merge commit f3afcfc). 016 was then amended in a follow-
 - **Realtime:** `tests/db/config_drift.test.ts` asserts the publication holds exactly the three mirrors, so `snapshot_current`'s absence is asserted, not merely commented.
 - **The 2026-09-15 handoff** is in `docs/`.
 - **Noticed while meeting C1:** the idempotency digest in `tests/db/migration_idempotency.test.ts` did not cover policies. It now does, with a plant. It still does not cover grants or RLS flags, which is recorded for the `scripts/` survey.
+
+### Hosted role rows — R-2026-09-15-08
+
+_#26 merged at 9e77e9c (merge commit 984ff1b)._
+
+**The rows, observed 2026-09-15 by Cowork, read-only, on Supabase project `klrlpxysjsjpdkeqdhvl`:**
+
+| role | `rolsuper` | `rolbypassrls` |
+|---|---|---|
+| `postgres` | f | t |
+| `service_role` | f | t |
+
+- **The ref is OpenBed's,** confirmed against this repository's own records before recording: runbook step 1 (`ref : klrlpxysjsjpdkeqdhvl`), the region discharge at v1:105, and the ward-level identity memo.
+- **Both rows are identical to local** (observed 2026-09-15, Supabase CLI 2.117.0, PostgreSQL 17.6).
+
+**H1 — the hosted hold is lifted.** The generator's owner holds BYPASSRLS, so `row_security = off` will not raise on hosted, and 016 is not dead on arrival. The hosted apply of 014–016 and work on 017's schedule are both unblocked.
+- **The apply is the founder's to run,** from the amended 016 on `main`, so C2's boundary holds.
+- **Three migrations arrive together:** hosted holds 001–013, so step 5's dry run shows three `WOULD APPLY` lines.
+
+**H2 — R-2026-09-15-06 item (2) is closed, on observed attributes.** `postgres` holds BYPASSRLS on hosted, so 008's `project_facility` DELETEs on the FORCE-RLS mirrors do not silently remove nothing.
+- **One half rests on inference, stated rather than hidden.** A SECURITY DEFINER function runs as its OWNER, and the hosted owner of `project_facility` and `app.regenerate_snapshot()` has not been observed.
+- It is expected to be `postgres`, the role that applies migrations, and runbook step 5 now carries a post-apply owner read that makes it observed.
+
+**H3 — `.claude/rules/test-conventions.md` §4 is closed.**
+- **The original claim was wrong in both directions.** It said "Supabase's `postgres` role is superuser locally and is not hosted". Local `postgres` is not superuser, and hosted `postgres` is not either.
+- **On this axis, append-only enforcement does not differ** between local and hosted.
+- **The §4 entry moves from unverified to observed,** and keeps its discipline sentence.
+- **Runbook step 8 carried the same claim** as its reason for existing, and is corrected in the same change.
+- **So did five other places, found by grep and corrected in the same change:**
+  - the headers and two test names of `tests/db/append_only_enforcement.test.ts` ("even as superuser");
+  - the header of `tests/db/publish_ward_status.test.ts`;
+  - a comment in 014 (comment only; 014 is unapplied on hosted);
+  - `.claude/rules/code-pipeline.md` Clause 4's list of hand checks;
+  - the comment in `tests/e2e/_harness.ts` about who may set `session_replication_role`.
+- **`database/migrations/010_append_only_enforcement.sql` carries it too** (header lines 26-28). 010 is applied and is not edited; this record is its correction.
+
+**The reader policy stays — as defence in depth, not as a fix for a live fault.**
+- **The hazard it prevents was never live on hosted:** `service_role` holds BYPASSRLS there.
+- **The reasoning was never that the attribute was false.** It was that the snapshot read should not depend on an attribute Supabase manages, which a platform upgrade or a project restore can change.
+- **Nothing in R-2026-09-15-07 is reversed.**
+
+**Checked and dropped, recorded so it is not re-raised.**
+- **The concern:** the generator's prune DELETE would silently remove nothing under a non-bypass role, which looked like a second silent path beside the reader policy.
+- **Why it is not one:** `app.regenerate_snapshot()` is SECURITY DEFINER, so the effective role is always the owner, and `row_security = off` raises at the first mirror read long before the DELETE.
+- **Covered by the existing pairing;** no new control.
+
+**For 017.**
+- **Role attributes do not block the public-wrapper option:** `service_role` holds BYPASSRLS on hosted.
+- **The wrapper still reopens decision 3** on the public-surface question. That is the reason to choose or reject it, not the role attributes.
+
+**Method note 5 — the second mechanism claim this loop caught.** R-2026-09-15-06 item (3) said the count check "guards MATERIALIZED staying put".
+- **EXPLAIN showed otherwise:** a CTE referenced twice is materialised regardless, and `NOT MATERIALIZED` still reads under one statement snapshot.
+- **The founder accepted the correction** (R-2026-09-15-08). It follows the count-equality control.
 
 ## Method notes — how rulings reach the implementer
 
@@ -675,6 +730,7 @@ _Standing rules, 2026-09-15. This record is their home._
      - the count-equality control;
      - the hosted session-200 probe;
      - attaching the handoff to #23.
+   - **Later instance, 2026-09-15:** "the count check guards MATERIALIZED staying put" (R-2026-09-15-06 item (3)). EXPLAIN showed the keyword is not load-bearing; the correction was accepted in R-2026-09-15-08. It is the second mechanism claim caught in the 016 review loop, after count-equality.
 
 ---
 
@@ -694,7 +750,13 @@ _Standing rules, 2026-09-15. This record is their home._
   implementer;
 - later on 2026-09-15, 016's rulings: the constraint corrected to two clauses,
   the five decisions, the RLS control actually adopted, owner-only EXECUTE, the
-  dead `service_role` grant in R2, the stale frontier line, and method note 5.
+  dead `service_role` grant in R2, the stale frontier line, and method note 5;
+- later on 2026-09-15, the follow-ups (R-2026-09-15-06 and -07): the reader
+  policy, C2's bounded acceptance, the count-check correction, and closed items;
+- later on 2026-09-15, the hosted role rows (R-2026-09-15-08): H1 the hold
+  lifted, H2 item (2) closed with its owner half pending the post-apply read, H3
+  §4 closed, the policy restated as defence in depth, the prune DELETE checked
+  and dropped, and method note 5's second instance.
 
 **Does not change:**
 - v1:250 and v2:273 (O1);

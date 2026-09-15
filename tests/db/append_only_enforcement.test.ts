@@ -15,13 +15,16 @@ import { sql, withRole } from '../setup/db.js';
  *
  * NOT ASSERTED HERE, AND THIS MATTERS -- read before trusting a green run.
  *
- * Supabase's `postgres` role IS a superuser on a LOCAL stack and is NOT on a
- * hosted project. A superuser can `ALTER TABLE ... DISABLE TRIGGER` and is
- * unaffected by REVOKE. So:
- *   - The trigger assertions below are meaningful (a trigger fires regardless of
- *     who you are, which the local superuser run demonstrates directly).
- *   - The GRANT assertions describe the local role graph, which differs from the
- *     hosted one.
+ * CORRECTED 2026-09-15. This header said Supabase's `postgres` role "IS a
+ * superuser on a LOCAL stack and is NOT on a hosted project". Observed, it is
+ * superuser on neither: `rolsuper f`, `rolbypassrls t` locally (Supabase CLI
+ * 2.117.0, PostgreSQL 17.6) and on hosted `klrlpxysjsjpdkeqdhvl` (read-only, by
+ * Cowork). The role graphs match on those attributes. So:
+ *   - The trigger assertions below are meaningful: a trigger fires regardless of
+ *     the role's attributes, which the `postgres` run demonstrates directly.
+ *   - The GRANT assertions describe the local role graph. It matches hosted on
+ *     rolsuper and rolbypassrls; per-object grants hosted are still observed by
+ *     hand, not by this suite.
  * The hosted behaviour is a HAND CHECK in
  * docs/runbook-supabase-project-creation.md. Do not add a test that claims to
  * verify it -- this suite cannot reach a hosted project, and a test that appeared
@@ -30,7 +33,7 @@ import { sql, withRole } from '../setup/db.js';
 describe('append-only enforcement', () => {
   const TABLES = ['ward_status_event', 'audit_log'] as const;
 
-  test('UPDATE on app.ward_status_event raises APPEND_ONLY_VIOLATION, even as superuser', async () => {
+  test('UPDATE on app.ward_status_event raises APPEND_ONLY_VIOLATION, even as the table owner postgres', async () => {
     await expect(
       withRole('postgres', null, async (tx) => {
         await tx.unsafe(`
@@ -53,7 +56,7 @@ describe('append-only enforcement', () => {
     ).rejects.toThrow(/APPEND_ONLY_VIOLATION/);
   });
 
-  test('DELETE on app.audit_log raises APPEND_ONLY_VIOLATION, even as superuser', async () => {
+  test('DELETE on app.audit_log raises APPEND_ONLY_VIOLATION, even as the table owner postgres', async () => {
     await expect(
       withRole('postgres', null, async (tx) => {
         await tx.unsafe(`insert into app.audit_log (action) values ('test.append_only')`);
@@ -86,8 +89,9 @@ describe('append-only enforcement', () => {
    *
    * The owner is constrained by the TRIGGER instead, which is exactly what the
    * first two tests in this file demonstrate: the UPDATE and DELETE attempts
-   * above run as `postgres`, which is a superuser on this local stack, and they
-   * still raise. That is the assertion that covers the owner. This one covers
+   * above run as `postgres`, the owner -- not a superuser, locally or hosted
+   * (observed 2026-09-15), but holding every privilege the grant layer does not
+   * revoke from it -- and they still raise. That is the assertion that covers the owner. This one covers
    * everybody else.
    */
   test.each(TABLES)('no client role holds UPDATE or DELETE on app.%s', async (table) => {
