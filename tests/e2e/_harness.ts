@@ -123,17 +123,24 @@ export async function seedE2eCorpus(): Promise<void> {
   // replica suppresses ordinary triggers, including the 008 projection, so the
   // mirrors are brought up to date explicitly afterwards. The append-only guards
   // are ENABLE ALWAYS and still fire -- and this touches neither of their tables.
-  // Setting session_replication_role is superuser-only in stock Postgres, and
-  // postgres is NOT a superuser here (rolsuper f, observed 2026-09-15). It works
+  // Setting session_replication_role needs superuser BY DEFAULT, and postgres is
+  // NOT a superuser here (rolsuper f, observed 2026-09-15). This is PostgreSQL 17
+  // (supabase/config.toml pins major_version = 17), so GRANT SET ON PARAMETER
+  // session_replication_role -- available since PG15 -- is another route that
+  // exists. It is NOT the one in use: has_parameter_privilege('postgres',
+  // 'session_replication_role', 'SET') is f, observed 2026-09-15. It works
   // because Supabase's supautils extension lets members of
   // supautils.privileged_role (supabase_privileged_role, which postgres is a
   // member of) set the settings in supautils.privileged_role_allowed_configs, and
-  // session_replication_role is on that list -- observed locally 2026-09-15. CI
-  // is OBSERVED too, not inferred from the image: the golden-path job runs this
-  // function through scripts/run_e2e.sh and passed 10/10 on 2439938, and it
-  // could not have without the grant, because this fails loudly when the grant
-  // is absent. It must be SET inside the session; PGOPTIONS at connection start is
-  // refused. Anywhere that grant is absent this fails loudly rather than seeding
+  // session_replication_role is on that list -- observed locally 2026-09-15.
+  // CI is OBSERVED too, not inferred from the image. The e2e vitest project's
+  // globalSetup (vitest.config.ts) is tests/e2e/global-setup.ts, which calls
+  // this function; scripts/run_e2e.sh only runs that project. The golden-path
+  // CI job gates on the frontier RATCHET, tests/e2e/ratchet.test.ts -- 10 tests,
+  // not the 20-step golden path. Its anti-vacuity leg, and its "every step at or
+  // before the frontier PASSED" leg, cannot be green unless the corpus seeded.
+  // Both were green on 2439938, so the grant was present in CI. It must be SET
+  // inside the session; PGOPTIONS at connection start is refused. Anywhere that grant is absent this fails loudly rather than seeding
   // half a corpus. Recorded as a vendor dependency, LOCAL AND CI ONLY, in the
   // un-automatable table of docs/runbook-supabase-project-creation.md.
   const wards: [string, string, string, number | null, string, string][] = [

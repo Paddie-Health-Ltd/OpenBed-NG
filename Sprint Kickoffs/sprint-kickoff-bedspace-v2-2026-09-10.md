@@ -435,9 +435,13 @@ The rule that does bind both is the one above it: everything must flow. A featur
 
 **If a facility cannot supply a ward-level address.** If a pilot facility insists on individual nurse logins, **do not quietly add individual accounts.** Stop and re-open `decision-2026-09-08-ward-level-identity.md`. That is the single condition that would make the design unworkable, and it should be tested at facility #1 rather than discovered at facility #20.
 
-**And the pattern the corrections section exists for.** **[SWEEP 2026-09-15, resolved by R-2026-09-15-09: the unit resolves it.]**
-- **The list below names five FAMILIES and seven INSTANCES,** because one bullet is "three phantom cross-file links". `refresh_lga_rollup()` is the fifth family and the seventh instance.
-- **The sentence's "five" is right only as families.** Finding 1's "the sixth instance" matches neither count.
+**And the pattern the corrections section exists for.** **[SWEEP 2026-09-15, resolved by R-2026-09-15-09 and corrected by R-2026-09-15-10: the unit resolves it, and it is not a failure.]**
+- **The paragraph below names SIX FAMILIES and NINE INSTANCES.** Its last-but-one sentence, "Finding 6's two false headers are the same family", admits finding 6 into the family the paragraph names.
+  - Families: the `grep` guard, the `sed` plant, the phantom links, the `fingerprint` alert, finding 6's headers, `refresh_lga_rollup()` = 6.
+  - Instances: 1 + 1 + 3 + 1 + 2 + 1 = 9.
+- **Finding 1's "the sixth instance" reconstructs exactly under the family unit.** "Five instances" counts the five families in its own list, and the sentence after it adds the sixth.
+- **The two counts do not contradict each other; the unit was unstated.** It is stated here.
+- _Corrected by R-2026-09-15-10:_ the R-09 version of this marker counted five families and seven instances, said finding 1's "sixth" matched neither, and marked the row failed. It had left out finding 6's clause.
 - **Whether that many incidents occurred that fortnight is history,** not repository state, and stays parked.
 - **Whether the document's stated count matches its own list is repository state, and it does not:** SUPERSEDED as failed. Five instances this fortnight of *a mechanism present and not reaching*: the `grep` exit-2 fail-open guard, the `sed` plant that never planted, three phantom cross-file links, the `fingerprint` alert with no consumer, and now `refresh_lga_rollup()` with no caller. Finding 6's two false headers are the same family. When something claims to check a thing, the claim needs a probe — that is Clause 5, and it is the rule that has earned its keep.
 
@@ -514,27 +518,32 @@ _Founder ruling R-2026-09-15-08: before 017, every assertion in this kickoff tha
 
 **Method.**
 - **The whole document was read, not grepped.** A grep for "already" matched mostly prose and missed the claims that had failed, which were worded as plain present-tense facts.
-- **96 assertions were enumerated with line citations.** Each "does not exist" verdict names its search and a known-present control from the same search.
+- **96 claims were enumerated with line citations,** in `Sprint Kickoffs/sweep-2026-09-15-v2-enumeration.md`. Each "does not exist" verdict names its search and a known-present control from the same search.
 - **Evidence status:**
   - every FAILED or STALE verdict below was re-checked by hand on 2026-09-15 before it was marked;
-  - the VERIFIED rows rest on the enumeration's cited reading, and the citations are kept so any row can be re-derived.
+  - the VERIFIED rows rest on the enumeration's cited reading. The citations are in that file, so any row can be re-derived.
+  - _Corrected by R-2026-09-15-10:_ this line said the citations "are kept" while they existed only in a session-local transcript. The file was added in #28.
 - **Markers:** SUPERSEDED claims carry an inline `[SWEEP 2026-09-15: …]` marker at their line. VERIFIED claims are listed here and not marked inline, so the document stays readable.
 
 **Result:**
 
 | Verdict | Count | What it means |
 |---|---|---|
-| VERIFIED | 68 | holds against today's repository |
-| SUPERSEDED, failed | 6 | was not true of the repo when marked |
+| VERIFIED | 70 | holds against today's repository |
+| SUPERSEDED, failed | 5 | was not true of the repo when marked |
 | SUPERSEDED, stale | 9 | true when written; the repo moved on |
 | SUPERSEDED in this document already | 5 | a later section of this kickoff superseded it |
-| Not checkable from the repository | 8 | a vendor, hosted or history fact |
+| Not checkable from the repository | 7 | a vendor, hosted or history fact |
 
-_Corrected 2026-09-15 (R-2026-09-15-09):_ the first version of this section counted failed 5 and not checkable 9. It parked the instance-count contradiction whole, although half of it is repository state; that half moved to failed.
+_Unit: one enumerated claim, numbered in `Sprint Kickoffs/sweep-2026-09-15-v2-enumeration.md`. An item carrying several assertions takes one verdict, and its marker names the parts. An item with a part not checkable from the repository takes its repository-checkable verdict._
 
-**SUPERSEDED — FAILED (6):**
-- **"Five instances this fortnight" against finding 1's "sixth".** The document's own list names five families and seven instances. The stated counts do not match the enumerated list; the unit is now stated at the :433 sentence.
-- **Stage 1, `app.regenerate_snapshot()`.**
+_Corrected 2026-09-15:_
+- **R-2026-09-15-09.** The first version of this section counted 68 / 5 / 9 / 5 / 9. It parked the instance-count items whole; #28 moved their count-against-list half to failed, giving 68 / 6 / 9 / 5 / 8.
+- **R-2026-09-15-10.** That move left out the paragraph's own clause, "Finding 6's two false headers are the same family". With it, the paragraph names six families and nine instances. Finding 1's "sixth" reconstructs, and "Five" counts the list before that clause, so the two items are VERIFIED, not failed. The unit is now stated under the table, giving 70 / 5 / 9 / 5 / 7.
+  - Counted by that unit, `app.regenerate_snapshot()` is one claim carrying two failed assertions.
+
+**SUPERSEDED — FAILED (5):**
+- **Stage 1, `app.regenerate_snapshot()`,** one claim carrying two failed assertions.
   - The `service_role` EXECUTE grant: `service_role` has no USAGE on `app`, so the grant was unusable. Migration 016 grants EXECUTE to the owner only.
   - "Reads the three mirrors": 016 reads two, `lga_rollup` excluded by ruling.
 - **Stage 4, "the dual scheduler already exists".** No `pg_cron` and no external caller anywhere; the schedule is 017.
@@ -553,9 +562,10 @@ _Corrected 2026-09-15 (R-2026-09-15-09):_ the first version of this section coun
 - the superseded section's frontier leg (the frontier passes through `stale-ward-payload-carries-duty-phone`).
 **SUPERSEDED in this document already (5):** the "exactly 13 pending" count, the `app`-typed signature, "014 is the idempotency index", "014 adds one index and no column", and "the snapshot is 015".
 
-**Not checkable from the repository (8):** whether that many instances occurred that fortnight (history; the count's match against the list is under FAILED); the CDN cache headers and `stale-while-revalidate` behaviour; Supabase's pause rule; the unpapered DPA; "no production rows"; the free-tier connection limit; and the runtime OpenAPI observation. These are vendor, hosted or history facts; they are not repo state.
+**Not checkable from the repository (7):** the CDN cache headers; the `stale-while-revalidate` behaviour; Supabase's pause rule; the unpapered DPA; "no production rows"; the free-tier connection limit; and the runtime OpenAPI observation. These are vendor or hosted facts; they are not repo state.
 
-**VERIFIED (68).** Every other assertion. The ones later work leans on:
+**VERIFIED (70).** Every other claim. The ones later work leans on:
+- **the instance counts, v2:46 "sixth" and the :442 paragraph's "Five"** (R-2026-09-15-10). They reconcile under the family unit: six families and nine instances, with finding 6 in the family. Whether that many incidents occurred that fortnight is history and stays parked;
 - **finding 1:** `refresh_lga_rollup()` still has no production caller, and **finding 1 stays OPEN** (016 declined to become its caller);
 - **finding 3:** the 1000 cap and the 256 idiom, with drifted line references;
 - **finding 4:** `app.referral` has no touch trigger;
