@@ -387,6 +387,19 @@ consent basis exists anywhere in this system (clauseX:96).
 
 **The gap is recorded. The clause is not drafted.**
 
+**What B1 gates, and what it does not (ruling R-2026-09-15-02 and -03).** B1 gates
+ONBOARDING a facility. It does not gate merging a migration, and it does not gate
+applying one to the hosted project: applying 014 makes publishing possible, and
+with no facility onboarded there is nothing to publish. Holding the hosted apply
+until a ward account exists was proposed and **rejected**, because it conflates
+a contractual permission with schema correctness.
+
+**Onboarding step added 2026-09-15: a real ward session reads
+`ward_status_history` over HTTP and gets 200.** It cannot run earlier. 015 keeps
+011's `app.assert_member(v_facility, 'WARD_STAFF')`, so a 200 needs a ward account
+at an onboarded facility, which B1 and B2 both block. The hosted apply is checked
+instead by runbook step 5's post-apply probe, which needs no session.
+
 ### B2. Custom SMTP and the email provider's written processor agreement
 
 Recorded once, as the email-provider row of the open processor obligations
@@ -475,7 +488,8 @@ The public fields are read back from `public.ward_public` inside the write trans
   - a test that anon cannot EXECUTE at all. Refused-inside is a weaker result than never-ran.
 - **C.** A catalogue test that no function in `public` takes an `app`-typed parameter, across all functions, with no exception list. It ships with 015, the migration that makes it true.
   - *Implementation note:* it checks input parameters. Result columns legitimately return `app` types and work over HTTP.
-- **D.** The 011 repair uses DROP FUNCTION explicitly before CREATE. CREATE OR REPLACE cannot change a parameter type and would leave two overloads, which PostgREST refuses as ambiguous (PGRST203).
+- **D.** The 011 repair uses DROP FUNCTION explicitly before CREATE. CREATE OR REPLACE cannot change a parameter type and would leave two overloads (observed 2026-09-14: 2 rows in `pg_proc`).
+  - _That PostgREST would then refuse the call as ambiguous (PGRST203) is the founder's assertion and was **never tested**. The drop makes it moot. It is not a finding and must not be cited as one (ruling R-2026-09-15-02)._
   - After the recreate, assert the grant set matches what 011 established, with PUBLIC revoked.
   - Before dropping, check for internal callers. Checked 2026-09-14: none.
 - **E.** Runbook step 5's stop condition names both files in apply order: two `WOULD APPLY` lines on hosted, not one. Shipping 015 without that restatement would make the document wrong on a correct run — the #18 class, arriving through an unrelated fix.
@@ -490,6 +504,60 @@ The public fields are read back from `public.ward_public` inside the write trans
 
 ---
 
+## Review of PR #23, and what comes before 016 — 2026-09-15
+
+_Rulings R-2026-09-15-02 and R-2026-09-15-03._
+
+### Merge
+
+**#23 merged at a6f58c6 as reviewed** (merge commit 7cfc960). The evidence rested on CI, not the local run: 610 on a6f58c6, split 382 compliance and 228 db across two independent jobs, matching the local fresh-database total. **Merging is not applying.** B1 gates onboarding, not the merge and not the hosted apply.
+
+### Premise corrections, accepted
+
+- **The EXECUTE claim** stated a Postgres default (functions grant EXECUTE to PUBLIC) as an observed fact about this database. It was not in force here. The USAGE rejection stands on defence in depth, not a sole barrier (M1).
+- **The enum-move reason** was overstated. `ward_category` is already public through `ward_public`, so the incremental disclosure is `zero_reason` and `app_role` only.
+- **Condition C checks input parameters, and "the handoff chain" was one document.** Both corrections accepted.
+
+### Required before 016
+
+1. **The shell is pinned.** Every shell script in `scripts/` starts `#!/usr/bin/env bash` and runs `set -euo pipefail` as its first command, with no exception list (`tests/compliance/shell_pin.test.ts`). It is invoked directly, never pasted into an interactive shell.
+   - **Five incidents, and the mechanism corrected.** Four were zsh: `#` in 33 runbook fences, two paths passed as one argument, and `PIPESTATUS` read in zsh twice. zsh does not set `PIPESTATUS` at all (`${+PIPESTATUS}` is 0), so it printed empty whatever the index; zsh's array is `pipestatus`, 1-indexed. The fifth, grep false zeros, was a `grep` shell function from the agent tool's shell snapshot, not zsh; a bash script does not inherit it.
+   - **The three aggregating runners take `-e` too** (`scripts/gate.sh`, `scripts/commit.sh`, `scripts/lint_migrations_all.sh`), with each check's status captured explicitly. Without `-e`, an aggregator catches only the failures it counts. A failed `cd` or a missing file between checks passed invisibly. Planted both ways per runner in `tests/compliance/runner_aggregation.test.ts`.
+   - Runbook fences remain paste targets by design, and are verified by interactive paste.
+2. **The neuter overshoots of #23, classified.** None was collateral.
+   - N10's two extra reds are condition A's lower-cased and space-padded tests, which exercise the neutered cast handler. **Genuine coverage**; the prediction was written before those tests existed.
+   - N15's extra red is `tests/db/rls_rpc_execute_allowlist.test.ts`, "the three authenticated RPCs are executable by authenticated and nobody else". It asserts the same anon-EXECUTE property as condition B's test and the allowlist's other test. **Genuine but overlapping:** that property is asserted three times, so every grant neuter fires in three places.
+   - Found while neutering the runners on 2026-09-15: a plant that deletes a statement can leave an empty `then` block, a bash syntax error that reddens unrelated legs. That is collateral from the plant, not entanglement in the tests, and the plant was re-made as `:`.
+3. **Condition I's baselines come from the artefact.** `scripts/predict_counts.mjs` reads per-file counts from the previous JUnit file and takes only typed deltas with a condition and reason. A typed baseline is refused. Its first real run reproduced #23's prediction from `junit-014`: 610, with `45 -> 48` read rather than "42 -> 45" typed.
+4. **The verification instruments are tracked,** before the pin: `scripts/neuter.sh` and `scripts/neuter_plant.mjs`, with legs in `tests/compliance/neuter.test.ts`. Re-running #23's sixteen neuters through the tracked harness reddened the same tests as the scratchpad run.
+5. **The handoff of 2026-09-14 is in `docs/`.** The miss is the founder's item 4: the review was pinned to a SHA, and a docs commit would have moved #23's head off it.
+6. **Runbook step 5 gains a post-apply probe with no session.** The observations, their mechanism, and the rule that an answer matching neither string fails, are in step 5 of `docs/runbook-supabase-project-creation.md`. The session-200 check moved to onboarding (B1).
+
+### 016 — unblocked for a scope proposal, with a constraint
+
+- **The snapshot derives from `ward_public`, never from the base tables.** `snapshot_current` is the public read path, cached at the edge. A snapshot assembled from base tables would be a second route to ungated counts: the (b) defect one layer out, served to anonymous traffic through a CDN. A structural reason it cannot read `ward_public` is raised before building.
+- **Condition F extends** to whatever refreshes `snapshot_current`.
+- **R1(a) holds nothing up.** O2 settled the floor, and 014's floor test showed that adopting one later is a value change, not a signature change.
+
+**Sequence after 016's ruling:** tick reconciliation, then the `scripts/` survey.
+
+## Method notes — how rulings reach the implementer
+
+_Standing rules, 2026-09-15. This record is their home._
+
+1. **Every ruling block carries an id, `R-YYYY-MM-DD-nn`, on its first line.** The implementer states the id received before acting. A block with no id, or a stale one, is stopped and confirmed, never acted on.
+   - **Why:** on 2026-09-15 a block from before #23 was pasted again. A wrong or stale paste is otherwise indistinguishable from a repeat, a silent transport failure of the same class as the zsh findings.
+2. **Every load-bearing claim in a ruling is tagged observed or inferred.** Inferred means check before relying. This is `.claude/rules/test-conventions.md` §8 applied to the rulings themselves.
+   - **Why:** the EXECUTE-default claim above. The error was of the class the ruling was enforcing.
+3. **An instruction naming a command, a SHA, a PR or a runnable check is PROPOSED, NOT VERIFIED.** Its feasibility is checked before executing, and a conflict comes back rather than being worked around.
+   - **Why:** two of R-2026-09-15-02's four operational instructions did not survive contact. The design rulings did.
+     - Item 4 attached a docs chore to a PR whose approval was pinned to a SHA.
+     - Item 5 asked for a hosted session-200 check that `assert_member`, B1 and B2 make impossible before onboarding.
+     - Both errors were the founder's, and are recorded as such.
+4. **PGRST203 stays recorded as an untested assertion** (condition D). The drop makes it moot. It is never cited later as a finding.
+
+---
+
 ## What this record changes, and what it does not
 
 **Changes:**
@@ -500,7 +568,10 @@ The public fields are read back from `public.ward_public` inside the write trans
   onboarding*, as B1, because migration 014 makes publishing possible once
   applied hosted;
 - later on 2026-09-14, the rulings on migrations 014 and 015 (M1–M3) and the
-  gating conditions A–I are recorded here.
+  gating conditions A–I are recorded here;
+- on 2026-09-15, the review of #23, the six items required before 016, 016's
+  derivation constraint, and the method notes on how rulings reach the
+  implementer.
 
 **Does not change:**
 - v1:250 and v2:273 (O1);

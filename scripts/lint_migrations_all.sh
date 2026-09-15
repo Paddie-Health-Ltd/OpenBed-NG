@@ -6,10 +6,15 @@
 # first. A run that stops at the first failure makes a five-problem branch take
 # five round trips.
 #
+# `set -e` WITH EXPLICIT CAPTURE (founder ruling R-2026-09-15-03). Reporting every
+# failure needs each lint's status captured (`rc=0; bash lint || rc=$?`), not
+# `-e` switched off: without `-e` a failure OUTSIDE the counted lints -- a bad
+# path, a failed command between two lints -- ran on silently.
+#
 # Usage: bash scripts/lint_migrations_all.sh [ROOT]
-# Exit: 0 if all pass, 1 if any failed.
+# Exit: 0 if all pass, 1 if any failed, other non-zero: the aggregator broke.
 # ============================================================
-set -uo pipefail
+set -euo pipefail
 ROOT="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
@@ -22,7 +27,9 @@ LINTS=(
 
 FAILED=()
 for lint in "${LINTS[@]}"; do
-    if ! bash "$HERE/$lint" "$ROOT"; then
+    rc=0
+    bash "$HERE/$lint" "$ROOT" || rc=$?
+    if [ "$rc" -ne 0 ]; then
         FAILED+=("$lint")
     fi
 done

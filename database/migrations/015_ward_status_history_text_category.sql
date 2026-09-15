@@ -24,9 +24,11 @@
 -- literals that resolve against a text parameter unchanged.
 --
 -- DROP, THEN CREATE -- NOT CREATE OR REPLACE ALONE. CREATE OR REPLACE cannot
--- change a parameter's type; it would create a second overload beside 011's, and
--- PostgREST would then refuse the call as ambiguous (PGRST203). The old
--- signature is dropped by name first. Re-applying 011 recreates the old overload
+-- change a parameter's type; it would create a second overload beside 011's
+-- (observed 2026-09-14: two pg_proc rows). That PostgREST would then refuse the
+-- call as ambiguous (PGRST203) was asserted in the founder's ruling and never
+-- tested; the drop makes it moot, and it is not a finding. The old signature is
+-- dropped by name first. Re-applying 011 recreates the old overload
 -- and re-applying this file drops it again, so re-application converges.
 --
 -- THE REFUSAL COMES FROM THE CAST, AND FROM NOTHING ELSE (condition A). There is

@@ -41,8 +41,13 @@
 #        bash scripts/commit.sh --fast -F /tmp/msg.txt
 #        bash scripts/commit.sh --amend --no-edit
 # Exit: 0 committed, 1 the gate failed (nothing committed), 2 usage.
+#
+# `set -e` (founder ruling R-2026-09-15-03). Every status this script acts on is
+# already captured explicitly -- the staged-change check and the gate both use
+# `|| var=$?` -- so `-e` changes no counted outcome; it makes anything ELSE that
+# fails abort instead of running on toward `git commit`.
 # ============================================================
-set -uo pipefail
+set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 

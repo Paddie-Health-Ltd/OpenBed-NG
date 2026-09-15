@@ -8,10 +8,10 @@
     "immutable": "THIS IS A HISTORICAL RECORD AND DOES NOT MOVE. The ratchet asserts the CURRENT reached count is >= this figure, so progress is free and regression is not. Restating it would destroy the only number that says where this started."
   },
   "current": {
-    "legs_total": 136,
-    "reached": 115,
-    "registered": 21,
-    "note": "MEASURED, and updated whenever legs are added or closed. THE 2026-09-14 MOVE 126 -> 136 / 105 -> 115 IS TEN NEW LEGS, ALL PROVED IN THE SAME CHANGE: scripts/attest_counts.mjs gained five refusals -- no closing </testsuites>, no declared root totals, and declared tests / failures / errors disagreeing with the file -- each with two failure messages, and tests/compliance/attest_counts.test.ts plants every one and asserts both lines. The registered count does not move, no leg elsewhere changed state, and the ruler did not change. THE 2026-09-13 MOVE 115 -> 126 / 94 -> 105 IS ELEVEN NEW LEGS, ALL PROVED IN THE SAME CHANGE: scripts/get_extra_search_path.sh arrived with a plant asserting every one of its failure messages, so the registered count does not move. No leg elsewhere changed state and the ruler did not change. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started. THE 2026-09-12 MOVE 82 -> 86 IS TWO DIFFERENT THINGS AND MUST NOT BE READ AS ONE: three legs on run_migrations.sh were newly PROVED by plants written in that change, and one -- \"no forward migrations found in\" -- flipped SOLELY because the evidence corpus widened to reach tests/db. That fourth leg had been proved by tests/db/migration_runner_atomicity.test.ts since 2026-09-09 and recorded as unproved for three days. A figure that moves because the ruler changed is not progress, and the two are separated here so nobody later reads four where the work was three."
+    "legs_total": 183,
+    "reached": 161,
+    "registered": 22,
+    "note": "MEASURED, and updated whenever legs are added or closed. THE 2026-09-14 MOVE 126 -> 136 / 105 -> 115 IS TEN NEW LEGS, ALL PROVED IN THE SAME CHANGE: scripts/attest_counts.mjs gained five refusals -- no closing </testsuites>, no declared root totals, and declared tests / failures / errors disagreeing with the file -- each with two failure messages, and tests/compliance/attest_counts.test.ts plants every one and asserts both lines. The registered count does not move, no leg elsewhere changed state, and the ruler did not change. THE 2026-09-13 MOVE 115 -> 126 / 94 -> 105 IS ELEVEN NEW LEGS, ALL PROVED IN THE SAME CHANGE: scripts/get_extra_search_path.sh arrived with a plant asserting every one of its failure messages, so the registered count does not move. No leg elsewhere changed state and the ruler did not change. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started. THE 2026-09-12 MOVE 82 -> 86 IS TWO DIFFERENT THINGS AND MUST NOT BE READ AS ONE: three legs on run_migrations.sh were newly PROVED by plants written in that change, and one -- \"no forward migrations found in\" -- flipped SOLELY because the evidence corpus widened to reach tests/db. That fourth leg had been proved by tests/db/migration_runner_atomicity.test.ts since 2026-09-09 and recorded as unproved for three days. A figure that moves because the ruler changed is not progress, and the two are separated here so nobody later reads four where the work was three. THE 2026-09-15 MOVE 136 -> 183 / 115 -> 161 IS 47 NEW LEGS FROM THREE TRACKED VERIFICATION INSTRUMENTS (ruling R-2026-09-15-03): scripts/neuter.sh, scripts/neuter_plant.mjs and scripts/predict_counts.mjs, 45 of them proved in the same change; the two registered (no-seam) are neuter.sh checks that sit behind neuter_plant.mjs refusals. gate.sh check(s) did not pass moved from registered to reached, closed by tests/compliance/runner_aggregation.test.ts, which is the injectable check list its closes_with named. A FIRST VERSION of both .mjs instruments routed refusals through a helper taking an array of messages, and this register saw no legs in neuter_plant.mjs at all: test-conventions section 2(d), reproduced while building an instrument, fixed by literal console.error at every site."
   },
   "guards": {
     "attest_counts.mjs": {
@@ -80,10 +80,7 @@
     },
     "gate.sh": {
       "check(s) did not pass": {
-        "state": "registered",
-        "reason": "no-seam",
-        "why": "gate.sh runs the real check suite, so exercising this leg means failing one of them for real -- there is no injected check list to make one fail cheaply. Demonstrated by hand on 2026-09-10: it exited 1 and named the failing check.",
-        "closes_with": "An injectable check list, so a test can hand it one command that fails and assert the exit status and the message."
+        "state": "reached"
       }
     },
     "get_extra_search_path.sh": {
@@ -528,6 +525,157 @@
         "state": "reached"
       },
       ", which no longer exists in the script": {
+        "state": "reached"
+      }
+    },
+    "neuter.sh": {
+      ", which does not exist under": {
+        "state": "reached"
+      },
+      "did not reach its target -- the PROBE is unchanged after APPLY": {
+        "state": "reached"
+      },
+      "differs from its original after restore": {
+        "state": "reached"
+      },
+      "hook command failed (exit": {
+        "state": "reached"
+      },
+      "neuter(s) survived": {
+        "state": "reached"
+      },
+      "no neuter spec given. Usage: bash scripts/neuter.sh <spec.json> [ROOT] [NAME...]": {
+        "state": "reached"
+      },
+      "the PROBE command failed (exit": {
+        "state": "reached"
+      },
+      "the PROBE did not return to its original value": {
+        "state": "reached"
+      },
+      "the harness cannot run tests there": {
+        "state": "reached"
+      },
+      "zero tests selected for neuter": {
+        "state": "reached"
+      },
+      "is unchanged after planting": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "Defence in depth behind scripts/neuter_plant.mjs, which refuses a byte-identical plant before this check can run. Reaching it needs a plant tool that reports success without writing, and the harness offers no seam to substitute one -- deliberately, since a substitutable plant tool is a hole in what the harness certifies."
+      },
+      "no neuters selected from": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "Unreachable through the CLI: an empty name list arises only from a spec with no neuters, which scripts/neuter_plant.mjs refuses first (that refusal is reached). Kept so a future change to the name listing cannot yield a run over nothing that exits 0."
+      }
+    },
+    "neuter_plant.mjs": {
+      "A harness run over no neuters certifies nothing.": {
+        "state": "reached"
+      },
+      "An unlanded plant leaves the file unchanged, and a green suite would then be reported against a control nobody touched.": {
+        "state": "reached"
+      },
+      "Each needs a name, a file, at least one {old, new, count>0} replacement and at least one test file.": {
+        "state": "reached"
+      },
+      "PLANT DID NOT LAND — neuter": {
+        "state": "reached"
+      },
+      "PLANT DID NOT LAND — the replacements left the target byte-identical": {
+        "state": "reached"
+      },
+      "cannot read the neuter spec as JSON": {
+        "state": "reached"
+      },
+      "is malformed": {
+        "state": "reached"
+      },
+      "the neuter spec has no neuter named": {
+        "state": "reached"
+      },
+      "the neuter spec holds no neuters.": {
+        "state": "reached"
+      },
+      "the plant target cannot be read, so nothing was planted": {
+        "state": "reached"
+      },
+      "twice. An ambiguous neuter is not a neuter.": {
+        "state": "reached"
+      },
+      "usage: node scripts/neuter_plant.mjs apply <spec.json> <name> <root> -- apply needs the root it plants under": {
+        "state": "reached"
+      },
+      "usage: node scripts/neuter_plant.mjs names|describe|apply <spec.json> [name] [root]": {
+        "state": "reached"
+      }
+    },
+    "predict_counts.mjs": {
+      ") carries a typed baseline.": {
+        "state": "reached"
+      },
+      ") names no condition or no reason. A delta without its reason cannot be checked against the change.": {
+        "state": "reached"
+      },
+      ", which is not in the baseline and is not marked new.": {
+        "state": "reached"
+      },
+      "<testcase> elements.": {
+        "state": "reached"
+      },
+      "A baseline cut off mid-write predicts a smaller suite, and the attestation would then agree with a run that lost tests.": {
+        "state": "reached"
+      },
+      "A change that adds no tests states that with a delta of 0 and its reason, not with an empty file.": {
+        "state": "reached"
+      },
+      "A prediction from an empty baseline predicts nothing.": {
+        "state": "reached"
+      },
+      "A suite that does not agree with its own declared total is not a baseline.": {
+        "state": "reached"
+      },
+      "Baselines are read from the JUnit artefact, never typed; a typed baseline is the mislabel this script exists to remove.": {
+        "state": "reached"
+      },
+      "Either the path is wrong or the file is new; say which.": {
+        "state": "reached"
+      },
+      "a baseline <testsuite> carries no name or no declared tests total: <testsuite": {
+        "state": "reached"
+      },
+      "as new, but the baseline already holds it with": {
+        "state": "reached"
+      },
+      "below zero tests (": {
+        "state": "reached"
+      },
+      "cannot read the baseline JUnit file": {
+        "state": "reached"
+      },
+      "cannot read the deltas file as JSON": {
+        "state": "reached"
+      },
+      "needs a string file and an integer delta; got file=": {
+        "state": "reached"
+      },
+      "the baseline JUnit file does not end with </testsuites>.": {
+        "state": "reached"
+      },
+      "the baseline JUnit file holds no testcases.": {
+        "state": "reached"
+      },
+      "the baseline root declares tests=": {
+        "state": "reached"
+      },
+      "the deltas file holds no deltas.": {
+        "state": "reached"
+      },
+      "usage: node scripts/predict_counts.mjs <baseline-junit.xml> <deltas.json>": {
+        "state": "reached"
+      },
+      "carries keys this script does not accept": {
         "state": "reached"
       }
     }
