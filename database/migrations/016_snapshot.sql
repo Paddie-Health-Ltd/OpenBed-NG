@@ -9,8 +9,20 @@
 -- app.system_heartbeat (004) has last_sweep_at and no last_snapshot_at.
 --
 -- Idempotency: CREATE TABLE IF NOT EXISTS; ADD COLUMN IF NOT EXISTS; CREATE OR
--- REPLACE FUNCTION; ENABLE/FORCE ROW LEVEL SECURITY, REVOKE and GRANT are
--- no-ops when already in force. Re-applying changes nothing.
+-- REPLACE FUNCTION; the reader policy is created only IF NOT EXISTS in
+-- pg_policies; ENABLE/FORCE ROW LEVEL SECURITY, REVOKE and GRANT are no-ops when
+-- already in force. Re-applying changes nothing -- asserted by
+-- tests/db/migration_idempotency.test.ts, whose digest covers policies since
+-- this amendment.
+--
+-- AMENDED 2026-09-15 (R-2026-09-15-07), after 016 merged in #25 and before any
+-- durable database ran it: the reader policy, and the rewritten reader and
+-- SNAPSHOT_ROWS_DROPPED sections below. app.schema_migrations records this file
+-- by NAME, so a database that ran the earlier version would record nothing new
+-- when this one arrives. That is accepted as BOUNDED in the decision record: the
+-- hosted apply runs from this amended file, and no database that matters ever
+-- runs the earlier one. If that stops being true before the hosted apply, the
+-- acceptance is void.
 --
 -- THE CONSTRAINT, TWO CLAUSES (founder ruling R-2026-09-15-04, correcting the
 -- 2026-09-15 wording "derives from ward_public, never the base tables"):
@@ -46,34 +58,58 @@
 -- question -- would a policy have applied to this read -- rather than a proxy
 -- such as rolbypassrls.
 -- WHAT HAPPENS WITHOUT IT, OBSERVED, and narrower than first stated. As built,
--- snapshot_current has zero policies, so a non-bypass owner's INSERT is refused
+-- snapshot_current has no INSERT or DELETE policy (its one policy is SELECT TO
+-- service_role), so a non-bypass owner's INSERT is refused
 -- too ("new row violates row-level security policy for table snapshot_current"):
 -- today the empty read would fail at the WRITE, naming the wrong table. An EMPTY
 -- snapshot is published only if a policy ever lets the generator's role write
 -- (planted in tests/db/snapshot.test.ts, which reproduces it). The attribute
 -- fails at the defect, names the mirror, and does not depend on the write-side
--- table staying policy-free.
+-- table staying without a write policy.
 -- Local `postgres`, which owns this function, is rolsuper f / rolbypassrls t
 -- (observed); hosted values are the founder's check.
 -- The pairing: row_security = off catches the GENERATOR losing its bypass;
 -- tests/db/rls_enabled_everywhere.test.ts catches RLS being dropped from a MIRROR.
 --
--- ROWS DROPPED BETWEEN READ AND ENCODE ARE REFUSED. Each mirror is read once, in
--- one statement (one snapshot), and counted from that read; the encoded array
--- must hold the same number of rows or the function raises SNAPSHOT_ROWS_DROPPED.
--- This check cannot see the RLS hazard -- under it, the read and the count are
--- both zero -- and it is not aimed at it; row_security = off is.
+-- SNAPSHOT_ROWS_DROPPED GUARDS AN EDIT, NOT A RUNTIME EVENT (corrected
+-- 2026-09-15, R-2026-09-15-06). Each mirror is read once into a CTE and counted
+-- from it; the encoded array must hold the same number of rows or the function
+-- raises. At runtime the two cannot disagree: both consume one statement's
+-- snapshot, and jsonb_build_array is never NULL, so jsonb_agg skips nothing. Nor
+-- is the MATERIALIZED keyword load-bearing: a CTE referenced twice is
+-- materialised without it, and NOT MATERIALIZED still reads under one statement
+-- snapshot (EXPLAIN observed 2026-09-15). What the check catches is a SOURCE
+-- EDIT that filters or drops rows in the encode step -- a WHERE on src -- which
+-- the surface check in tests/db/snapshot.test.ts does not see, because src names
+-- no new table. It cannot see the RLS hazard either; row_security = off is aimed
+-- at that.
 --
--- READER: service_role ONLY (R-2026-09-15-04). v1:258 made the mirrors
--- defence-in-depth rather than the serving path; the serving path is the static
--- file at the edge. An anon-readable snapshot_current would be a second serving
--- path around the CDN, with no s-maxage, disagreeing with the edge on freshness.
--- RLS is enabled and FORCEd with ZERO policies; every client role is revoked by
--- name, because Supabase's default privileges grant ALL on new public tables to
--- anon, authenticated AND service_role (observed 2026-09-15 in pg_default_acl:
--- arwdDxtm for all three, from both postgres and supabase_admin; 007 section 5
--- names the first two). service_role is revoked too, then granted SELECT alone,
--- so the reader holds exactly what it needs and no write.
+-- READER: service_role ONLY (R-2026-09-15-04), AND ITS READ NEVER COMES BACK
+-- EMPTY FOR A REASON UNRELATED TO THE TABLE (R-2026-09-15-06; amended into this
+-- file by R-2026-09-15-07).
+--   WHO CAN READ is decided by the GRANT. v1:258 made the mirrors defence in
+--   depth; the serving path is the static file at the edge, so an anon-readable
+--   snapshot_current would be a second serving path around the CDN, with no
+--   s-maxage, disagreeing with the edge on freshness. Supabase's default
+--   privileges grant ALL on new public tables to anon, authenticated AND
+--   service_role (observed 2026-09-15 in pg_default_acl: arwdDxtm for all three,
+--   from postgres and supabase_admin), so every one is revoked by name and
+--   service_role alone is granted SELECT.
+--   WHAT A READER SEES is decided by RLS, enabled and FORCEd. With no policy, a
+--   reader holding the grant but not BYPASSRLS gets ZERO ROWS, silently --
+--   observed 2026-09-15: a non-bypass member of service_role read rows=0. So ONE
+--   policy exists, SELECT TO service_role USING (true); with it the same member
+--   read rows=1. The read no longer rests on a role attribute nobody has observed
+--   on hosted. Prevention was chosen over making the loss loud with
+--   ALTER ROLE service_role SET row_security = off, which would turn a wrong
+--   answer into an outage across every service_role read of every RLS table, and
+--   mutate a Supabase-managed role no migration can assert.
+--   WHY THIS POLICY DOES NOT REOPEN THE READER DECISION: anon and authenticated
+--   hold no grant, and the grant is checked before RLS is consulted. With the
+--   policy present, anon still reads "permission denied for table
+--   snapshot_current" (observed 2026-09-15). The policy names service_role and
+--   no one else. A policy for a client role, or a grant to one, is the widening:
+--   do neither.
 --
 -- EXECUTE: OWNER ONLY (R-2026-09-15-05). service_role has no USAGE on schema app
 -- (observed locally, and hosted in runbook step 6 on 2026-09-13), so v2:217's
@@ -134,6 +170,20 @@ BEGIN
     END LOOP;
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
         EXECUTE 'GRANT SELECT ON public.snapshot_current TO service_role';
+    END IF;
+END $$;
+
+-- The reader's one policy (see the READER section of the header). Created only
+-- if absent, so re-applying this file changes nothing.
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role')
+       AND NOT EXISTS (SELECT 1 FROM pg_policies
+                        WHERE schemaname = 'public' AND tablename = 'snapshot_current'
+                          AND policyname = 'snapshot_current_service_role_select') THEN
+        EXECUTE $POLICY$
+            CREATE POLICY snapshot_current_service_role_select ON public.snapshot_current
+                FOR SELECT TO service_role USING (true)
+        $POLICY$;
     END IF;
 END $$;
 

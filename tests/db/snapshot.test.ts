@@ -27,13 +27,21 @@ import SHAPE from '../../packages/fixtures/snapshot-shape.json';
  *     attribute from the same planted owner and shows the silent empty
  *     snapshot it prevents -- so the attribute, not something else, is what
  *     makes the failure loud.
- *   - ROWS DROPPED BETWEEN READ AND ENCODE ARE REFUSED (the count check,
- *     re-aimed by R-2026-09-15-05).
+ *   - AN ENCODE-SIDE EDIT THAT DROPS ROWS IS REFUSED (the count check). It
+ *     guards a SOURCE edit, not a runtime event: at runtime the read and the
+ *     encode consume one statement snapshot and cannot disagree (corrected by
+ *     R-2026-09-15-06; see 016's header). The surface check below does not see
+ *     such an edit, because a WHERE on src names no new table.
  *   - READS ONLY PUBLISHED SURFACES; WRITES ONLY snapshot_current AND THE
  *     HEARTBEAT (R-2026-09-15-04), read off the live function source.
  *   - RETENTION BITES, v FROM THE SEQUENCE, THE HEARTBEAT IN THE SAME
  *     TRANSACTION, A GATED WARD CARRIED AS GATED.
- *   - READER service_role ONLY; EXECUTE OWNER ONLY.
+ *   - READER service_role ONLY, decided by the GRANT; and THE READER CANNOT READ
+ *     ZERO ROWS SILENTLY (R-2026-09-15-06/-07): one policy, SELECT TO
+ *     service_role USING (true), asserted exactly, so a service_role member
+ *     without BYPASSRLS still reads the rows. Counter-control: the policy
+ *     dropped, the same member reads zero. anon stays refused by the missing
+ *     grant with the policy present. EXECUTE OWNER ONLY.
  *
  * NOT ASSERTED HERE, deliberately:
  *   - Hosted role attributes. Local `postgres` is rolsuper f / rolbypassrls t
@@ -212,7 +220,7 @@ describe('snapshot generator — 016', () => {
     expect(r.afterRecent, 'rows inside the window were pruned, or the new row is missing').toBeGreaterThanOrEqual(3);
   });
 
-  test('plant — rows dropped between read and encode are refused with SNAPSHOT_ROWS_DROPPED', async () => {
+  test('plant — an encode-side edit that drops rows is refused with SNAPSHOT_ROWS_DROPPED (a source edit; it cannot happen at runtime)', async () => {
     const r = await withRole('postgres', null, (tx) => refusal(() => generate(tx)), (tx) =>
       plantGenerator(tx, ") ORDER BY src.facility_id, src.category), '[]'::jsonb) AS rows\n          FROM src\n",
         ") ORDER BY src.facility_id, src.category), '[]'::jsonb) AS rows\n          FROM src WHERE src.category::text <> 'A_AND_E'\n"),
@@ -250,7 +258,8 @@ describe('snapshot generator — 016', () => {
   });
 
   test('counter-control — without row_security = off, as built, the failure lands on the snapshot write and names the wrong table', async () => {
-    // Observed 2026-09-15. Zero policies on snapshot_current refuse the
+    // Observed 2026-09-15. snapshot_current has no INSERT policy (its one policy
+    // is SELECT TO service_role), which refuses the
     // non-bypass owner's INSERT, so today's table would not publish an empty
     // snapshot even without the attribute -- but the reads have ALREADY returned
     // zero rows silently, and the error points at snapshot_current rather than
@@ -283,12 +292,36 @@ describe('snapshot generator — 016', () => {
     expect(r.violations).toContain(expected);
   });
 
-  test.each(['anon', 'authenticated'] as const)('%s select on snapshot_current is rejected — service_role only', async (role) => {
+  test.each(['anon', 'authenticated'] as const)('%s select on snapshot_current is rejected by the missing grant — the service_role policy does not reach it', async (role) => {
+    // The policy is present in this database. A refusal here is the GRANT
+    // excluding the client role, checked before RLS is consulted.
     const r = await withRole(role, null, (tx) => refusal(() => tx.unsafe('select v from public.snapshot_current limit 1')));
     expect(r.message).toContain('permission denied for table snapshot_current');
   });
 
-  test('service_role reads snapshot_current; RLS is forced with zero policies', async () => {
+  test('snapshot_current has RLS forced and exactly one policy: SELECT TO service_role USING (true)', async () => {
+    // Exact, not "at least one" (R-2026-09-15-07, C4). A policy for any client
+    // role would be the widening; this one exists so a reader that loses
+    // BYPASSRLS still reads rows instead of an empty table.
+    const cat = await withRole('postgres', null, async (tx) => {
+      const [c] = await tx.unsafe<{ enabled: boolean; forced: boolean }[]>(
+        `select c.relrowsecurity as enabled, c.relforcerowsecurity as forced
+           from pg_class c where c.oid = 'public.snapshot_current'::regclass`,
+      );
+      const policies = await tx.unsafe<{ policyname: string; cmd: string; permissive: string; roles: string; qual: string | null; with_check: string | null }[]>(
+        `select policyname, cmd, permissive, roles::text as roles, qual, with_check
+           from pg_policies where schemaname = 'public' and tablename = 'snapshot_current'`,
+      );
+      return { ...c, policies };
+    });
+    expect(cat.enabled).toBe(true);
+    expect(cat.forced).toBe(true);
+    expect(cat.policies, 'snapshot_current must carry exactly the service_role SELECT policy').toEqual([
+      { policyname: 'snapshot_current_service_role_select', cmd: 'SELECT', permissive: 'PERMISSIVE', roles: '{service_role}', qual: 'true', with_check: null },
+    ]);
+  });
+
+  test('service_role reads the rows through its grant — today it also holds BYPASSRLS locally, so the next test removes that', async () => {
     const r = await withRole('service_role', null, async (tx) => {
       const [n] = await tx.unsafe<{ n: string }[]>('select count(*) as n from public.snapshot_current');
       return Number(n?.n);
@@ -296,17 +329,23 @@ describe('snapshot generator — 016', () => {
       await tx.unsafe(`insert into public.snapshot_current (generated_at, payload) values (now(), '{}'::jsonb)`);
     });
     expect(r, 'service_role could not read the row the setup wrote').toBeGreaterThanOrEqual(1);
-    const cat = await withRole('postgres', null, async (tx) => {
-      const [c] = await tx.unsafe<{ enabled: boolean; forced: boolean; policies: string }[]>(
-        `select c.relrowsecurity as enabled, c.relforcerowsecurity as forced,
-                (select count(*) from pg_policies p where p.schemaname = 'public' and p.tablename = 'snapshot_current') as policies
-           from pg_class c where c.oid = 'public.snapshot_current'::regclass`,
-      );
-      return c;
+  });
+
+  test('a service_role member WITHOUT BYPASSRLS still reads the rows — the read does not rest on a role attribute', async () => {
+    const r = await withRole('postgres', null, (tx) => nonBypassMemberCount(tx), (tx) => nonBypassMember(tx));
+    expect(r.written, 'the setup wrote no rows, so the read proves nothing').toBeGreaterThanOrEqual(1);
+    expect(r.seen, 'a non-bypass service_role member read an empty table').toBe(r.written);
+  });
+
+  test('counter-control — with the policy dropped, the same member reads ZERO rows silently', async () => {
+    // What the policy prevents, reproduced: no error, permission granted, and an
+    // empty answer from a table that holds rows.
+    const r = await withRole('postgres', null, (tx) => nonBypassMemberCount(tx), async (tx) => {
+      await nonBypassMember(tx);
+      await tx.unsafe('drop policy snapshot_current_service_role_select on public.snapshot_current');
     });
-    expect(cat?.enabled).toBe(true);
-    expect(cat?.forced).toBe(true);
-    expect(Number(cat?.policies), 'a policy on snapshot_current opens a second serving path').toBe(0);
+    expect(r.written, 'the setup wrote no rows, so zero would prove nothing').toBeGreaterThanOrEqual(1);
+    expect(r.seen, 'without the policy the non-bypass member still read rows — the counter-control did not reproduce the hazard').toBe(0);
   });
 
   test('EXECUTE on the generator and the retention constant is held by the owner only', async () => {
@@ -322,6 +361,27 @@ describe('snapshot generator — 016', () => {
     expect(rows.filter((x) => x.ok).map((x) => `${x.role}:${x.fn}`), 'a client role can run the generator').toEqual([]);
   });
 });
+
+/**
+ * A fresh role WITHOUT BYPASSRLS that is a MEMBER of service_role, so policy role
+ * matching (which goes by membership) applies to it while the attribute, which
+ * is not inherited, does not. Writes rows as postgres first. Rolled back.
+ */
+async function nonBypassMember(tx: TransactionSql): Promise<void> {
+  await tx.unsafe(`insert into public.snapshot_current (generated_at, payload)
+                   select now(), '{}'::jsonb from generate_series(1, 3)`);
+  await tx.unsafe('create role zz_snapshot_reader_nobypass nologin nobypassrls inherit');
+  await tx.unsafe('grant zz_snapshot_reader_nobypass to postgres');
+  await tx.unsafe('grant service_role to zz_snapshot_reader_nobypass');
+}
+
+/** Rows as written (as postgres), then rows as seen by the non-bypass member. */
+async function nonBypassMemberCount(tx: TransactionSql): Promise<{ written: number; seen: number }> {
+  const [w] = await tx.unsafe<{ n: string }[]>('select count(*) as n from public.snapshot_current');
+  await tx.unsafe('set local role zz_snapshot_reader_nobypass');
+  const [s] = await tx.unsafe<{ n: string }[]>('select count(*) as n from public.snapshot_current');
+  return { written: Number(w?.n), seen: Number(s?.n) };
+}
 
 /**
  * Hands the generator to a fresh role WITHOUT BYPASSRLS that holds every table
