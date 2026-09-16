@@ -3,12 +3,12 @@ Date: 2026-09-16 | Prepared by: Cowork sprint-push
 Base: `main` at `af36ba1`. Hosted holds 001-016. Nothing open.
 
 **File location note.** Written in `cowork-handoff/`, outside the repo, and moved
-here with the 017 PR as the founder directed. The body below is byte-identical to
-the 349-line version of 2026-09-16 (R-2026-09-16-10); only this note was added.
-The R-2026-09-16-07 to -10 block in
-`Sprint Kickoffs/decision-2026-09-14-public-private-split.md` records what the
-Bundle 0 probes found and the three places this document still disagrees with
-itself.
+here with the 017 PR as the founder directed. The body below is the 349-line
+version of 2026-09-16 (R-2026-09-16-10) with one change: the Bundle 2 line on
+`packages/fixtures/leg-coverage.json` is struck, with its dated correction, as
+R-2026-09-16-11 directed. The R-2026-09-16-07 to -11 blocks in
+`Sprint Kickoffs/decision-2026-09-14-public-private-split.md` record what the
+Bundle 0 probes found and the three places this document disagreed with itself.
 
 ## Division of responsibilities
 
@@ -258,8 +258,10 @@ exists, is active and is on schedule. F can only assert a mechanism that exists.
       demonstrated failure case is the shape this repository keeps catching.
 - [ ] Confirm the plant landed before trusting any plant — the step that caught
       the `004_ward_status.sql` misnaming in #29.
-- [ ] Register the new legs in `packages/fixtures/leg-coverage.json` and state the
-      totals move in the PR body.
+- [ ] ~~Register the new legs in `packages/fixtures/leg-coverage.json` and state the
+      totals move in the PR body.~~ _Corrected 2026-09-16 (R-2026-09-16-11): that
+      register covers guard scripts in `scripts/` only; this change adds none, and
+      the register correctly does not move._
 
 **Specialist input incorporated:** qa-specialist, inline. The assertion set is
 existence + active + schedule + command + username because each is a distinct way

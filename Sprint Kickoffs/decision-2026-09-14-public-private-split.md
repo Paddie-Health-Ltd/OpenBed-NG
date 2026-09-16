@@ -915,12 +915,41 @@ _Ruled by Cowork in `Sprint Kickoffs/sprint-kickoff-017-schedule-2026-09-16.md`,
 - **The pause is load-bearing, shown both ways.** With the live snapshot job set to `'1 seconds'` before every run: the pause call removed, 4 of 4 runs of `migration_idempotency` red; the pause restored, 4 of 4 green.
 - **What the local suite does not prove: that the jobs are active on hosted.** The runbook's post-apply step for 017 reads both rows and a `succeeded` run for each.
 
-**Watch item.** `tests/compliance/frozen_migrations.test.ts` writes a placeholder named `017_snapshot_schedule.sql` into a scratch copy and expects no finding. That holds while 017 is unfrozen. When 017's hosted apply is recorded in `applied-hosted.json`, that placeholder becomes an edit to a frozen file and the test must move to 018 in the same change.
+**OWED — on the hosted apply of 017, move the frozen_migrations placeholder to 018** (R-2026-09-16-11).
+- **Trigger:** the change that records 017's hosted apply in `database/migrations/applied-hosted.json` (runbook step 5, `freeze_applied_migrations.mjs 17 …`).
+- **Destination:** `tests/compliance/frozen_migrations.test.ts`, which writes a placeholder named `017_snapshot_schedule.sql` into a scratch copy and expects no finding. Once 017 is frozen that placeholder is an edit to a frozen file, and the test reds.
+- **Carried in the same change as the trigger, not a follow-up.** Also held in the resume memory with this trigger and destination.
 
 **Findings outside these rulings, reported and not built.**
+- _Superseded 2026-09-16 (R-2026-09-16-11): the first two were required rather than reported, and are built. See the next block. The third went to Cowork with line numbers._
 - The e2e project has its own globalSetup and does not get the pause. `tests/e2e/golden-path.test.ts`'s "heartbeat fresh within one minute" check can pass because the live job wrote the heartbeat rather than the step's own call.
 - In CI the jobs are live between `scripts/run_migrations.sh` and the db globalSetup, a window that includes `scripts/seed.sh`'s own `refresh_lga_rollup()` call. A rollup tick landing there fails loudly on the primary key (observed shape above), never silently.
 - In the kickoff: Bundle 0 Q3 still says `migration_idempotency` "will catch it either way", unannotated; Bundle 2's blast radius says "n/a — new test file", but R-10 changes `tests/setup/global-setup.ts`; and Bundle 2's definition of done says "all three plants" against a list that grew.
+
+### R-2026-09-16-11 — 017 approved in substance; the pause widened to the whole run
+
+_Ruled by Cowork on afbd51c. Verified independently by the founder: parent af36ba1; the migrations diff is the two 017 files plus the README, no frozen file edited; 701 + 19 + 3 = 723; the sweep recount 69/5/10/5/7 = 96. Every "observed" below was run by Claude Code on the local stack._
+
+**The ruling's premise, checked, and it did not hold as stated.** R-11 said golden-path step 9 (`snapshot-regenerates`) "is currently vacuous" and "can be green with the generator broken".
+- **Observed:** with the step's own `select app.regenerate_snapshot()` removed, no pause, and the snapshot job running every SECOND (sixty times its real cadence, and it ran three times inside one 2.4-second e2e run), step 9 went **red in 4 of 4 runs** on "v did not increment". Its two reads of `v` sit milliseconds either side of the call, and a job commit would have to land inside that gap.
+- **What does hold:** the step's heartbeat-freshness and republished-count checks WOULD be satisfied by a job regeneration. They are safe only because they sit behind `v`. A generator that raises, or that silently writes nothing, fails the job's run as well, so the job cannot mask a broken generator either.
+- **The instruction survives on the reason that holds:** attributable evidence, and closing the rare window the `v` check leaves. That reason is now in the step's own comment.
+
+**The seeding collision, checked, and not reproduced.** With the rollup job every second and the pause removed from `scripts/seed.sh`, seeding succeeded in **3 of 3** fresh resets, and no job run failed. The collision's mechanism is real: two overlapping refreshes make the second fail on `lga_rollup_pkey` (observed with a held transaction, above). But a millisecond refresh rarely overlaps one. The pause closes a possible window rather than a demonstrated flake, and is recorded as such.
+
+**The seam, derived.** The ruling named the scope, migration to end of run, and left the seam open.
+- **`scripts/seed.sh` applies the pause, after its host check and before any seed file.** It is the one script that structurally cannot reach hosted (`tests/compliance/seed_local_only.test.ts`), and it runs straight after `scripts/run_migrations.sh` on every local and CI database: `npm run db:reset`, CI `db-tests`, CI `golden-path`.
+- **Rejected: `scripts/run_migrations.sh`.** It is also the hosted runner, and on hosted the jobs must stay active.
+- **One implementation:** `database/local/pause_scheduled_jobs.sql`. Two top-level statements, so psql commits the pause before waiting out any in-flight run. The file raises `OPENBED_JOBS_NOT_PAUSED` on no pg_cron, a missing job, or a run still in flight at its deadline.
+- **The db and e2e setups apply the same file again** through `tests/setup/db.ts`, then check the result with `scheduledJobPauseViolations()`. Step 9 calls the same checker before relying on the pause.
+- **The settle is observed, not assumed.** After a committed pause, no run of a one-second job started in the next four seconds, in 5 of 5 trials, while its earlier runs were recorded. Two seconds is waited.
+
+**The leg, with plants:** `tests/db/scheduled_jobs_paused.test.ts`, 11 tests.
+- The checker: real, reactivated and unscheduled plants for each job, and anti-vacuity.
+- The file: real, plus plants for no pg_cron (`DROP EXTENSION` rolled back), a missing job, and a run in flight at the deadline (a planted `running` row). A positive control shows a stale `running` row does not hold the pause.
+- Five neuters of the file and the checker each turned exactly their leg red.
+
+**Also corrected by R-11, as Cowork's:** the kickoff's Bundle 2 line registering new legs in `packages/fixtures/leg-coverage.json`. That register covers guard scripts in `scripts/` only, and correctly does not move. The line is struck in the moved copy.
 
 ## Method notes — how rulings reach the implementer
 

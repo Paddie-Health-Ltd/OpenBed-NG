@@ -1,5 +1,7 @@
 import postgres from 'postgres';
 import { execFileSync } from 'node:child_process';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { dbUrl, apiUrl, anonKey } from './local-keys.js';
 
 /**
@@ -132,6 +134,59 @@ export async function withRole<T>(
       return (e as { out: T }).out;
     }
     throw e;
+  }
+}
+
+/**
+ * THE TWO pg_cron JOBS 017 SCHEDULES, and the pause both test setups apply
+ * (R-2026-09-16-10, R-2026-09-16-11).
+ *
+ * The pause itself lives in ONE place, database/local/pause_scheduled_jobs.sql,
+ * which scripts/seed.sh also applies. pauseScheduledJobs() feeds that file to
+ * psql on stdin -- psql autocommits its two statements, so the pause is committed
+ * before the in-flight wait, which a single postgres.js query could not
+ * guarantee. scheduledJobPauseViolations() is the independent check of the
+ * result, planted in tests/db/scheduled_jobs_paused.test.ts.
+ */
+export const SCHEDULED_JOBS = ['openbed_refresh_lga_rollup', 'openbed_regenerate_snapshot'] as const;
+
+export const PAUSE_SCHEDULED_JOBS_SQL = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'database', 'local', 'pause_scheduled_jobs.sql');
+
+/** Applies database/local/pause_scheduled_jobs.sql with psql. Throws with psql's output on any failure. */
+export function pauseScheduledJobs(): void {
+  const cmd = `${psqlCommand()} -X -q -v ON_ERROR_STOP=1 < ${JSON.stringify(PAUSE_SCHEDULED_JOBS_SQL)}`;
+  try {
+    execFileSync('bash', ['-c', cmd], { stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (e) {
+    const err = e as { stderr?: Buffer | string; stdout?: Buffer | string };
+    throw new Error(
+      `Could not pause the 017 pg_cron jobs; the run would race them.\n` +
+        `  applied: ${PAUSE_SCHEDULED_JOBS_SQL}\n` +
+        `  psql said: ${String(err.stderr ?? '').trim() || String(err.stdout ?? '').trim() || String(e)}`,
+    );
+  }
+}
+
+/** Every way the two jobs are not paused, by name. Empty means both exist and are inactive. */
+export async function scheduledJobPauseViolations(q: postgres.Sql | postgres.TransactionSql): Promise<string[]> {
+  const rows = await q.unsafe<{ jobname: string; active: boolean }[]>(
+    'select jobname, active from cron.job where jobname = any($1) and username = current_user order by jobname',
+    [[...SCHEDULED_JOBS]] as never[],
+  );
+  const out: string[] = [];
+  for (const name of SCHEDULED_JOBS) {
+    const mine = rows.filter((r) => r.jobname === name);
+    if (mine.length === 0) out.push(`${name} is not scheduled`);
+    for (const r of mine) if (r.active) out.push(`${name} is active`);
+  }
+  return out;
+}
+
+/** Throws unless both jobs are paused. `what` names the run in the message. */
+export async function assertScheduledJobsPaused(what: string): Promise<void> {
+  const v = await scheduledJobPauseViolations(sql());
+  if (v.length > 0) {
+    throw new Error(`The 017 pg_cron jobs are not paused for ${what}: ${v.join('; ')}`);
   }
 }
 

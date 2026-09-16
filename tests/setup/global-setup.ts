@@ -1,4 +1,4 @@
-import { sql, endPool } from './db.js';
+import { sql, endPool, pauseScheduledJobs, assertScheduledJobsPaused } from './db.js';
 import { dbUrl } from './local-keys.js';
 
 /**
@@ -34,67 +34,42 @@ export async function setup(): Promise<void> {
     );
   }
 
-  await pauseScheduledJobs();
+  pauseScheduledJobs();
+  await assertScheduledJobsPaused('the db run');
 }
 
 /**
  * THE TWO pg_cron JOBS 017 SCHEDULES ARE PAUSED FOR THE WHOLE db RUN
- * (R-2026-09-16-10). Not optional: this is the flake fix.
+ * (R-2026-09-16-10, R-2026-09-16-11). Not optional: this is the flake fix.
  *
  * WHY. openbed_regenerate_snapshot writes app.system_heartbeat every minute, and
  * tests/db/migration_idempotency.test.ts hashes every app table before and after
  * re-applying the migrations. With the job live, 2 of 83 consecutive runs of that
- * test went red, each spanning a job run (observed 2026-09-16). The rollup job's
- * DELETE-and-recompute of public.lga_rollup would race
- * tests/db/lga_rollup_kfloor.test.ts the same way.
+ * test went red, each spanning a job run; with a '1 seconds' job, 4 of 4 red
+ * unpaused and 4 of 4 green paused (observed 2026-09-16).
+ *
+ * WHERE THE PAUSE COMES FROM. scripts/seed.sh applies
+ * database/local/pause_scheduled_jobs.sql straight after the migrations, which
+ * closes the window from migration to test. This setup applies the SAME file
+ * again, so a database migrated without the seed is paused too, and then checks
+ * the result independently. One implementation, two call sites; the file's
+ * header carries the reasons.
  *
  * WHY THE PAUSE HOLDS FOR THE WHOLE RUN. migration_idempotency re-applies 017
- * mid-suite, and cron.schedule upserts by name WITHOUT resetting `active`: a job
- * paused with cron.alter_job stayed paused when re-scheduled, even with a changed
- * schedule string (observed 2026-09-16). So nothing later in the run un-pauses it.
+ * mid-suite, and cron.schedule upserts by name WITHOUT resetting `active`
+ * (observed 2026-09-16). Nothing later in the run un-pauses it.
  *
  * WHAT THIS DOES NOT DO. It does not stand in for condition F.
  * tests/db/snapshot_schedule_state.test.ts never reads these ambient rows' `active`
  * flag; it asserts what 017 produces from its own rolled-back re-application.
  *
- * SIDE EFFECT ON A LOCAL STACK. The pause is committed. The e2e project and any
- * local session afterwards see paused jobs until `npm run db:reset` re-applies
- * 017. CI provisions a database per job, so nothing carries over there.
+ * SIDE EFFECT ON A LOCAL STACK. The pause is committed and stays until
+ * `npm run db:reset` re-applies 017 -- after which the seed pauses the jobs again.
+ * A local stack therefore never runs them; hosted always does.
  *
- * LOUD, NEVER SKIPPED (section 6). A database without the two jobs is a database
- * not migrated to 017, and this throws saying so rather than running the suite
- * with live jobs.
+ * LOUD, NEVER SKIPPED (section 6). The file raises OPENBED_JOBS_NOT_PAUSED rather
+ * than letting the suite run with live jobs.
  */
-const SCHEDULED_JOBS = ['openbed_refresh_lga_rollup', 'openbed_regenerate_snapshot'];
-
-async function pauseScheduledJobs(): Promise<void> {
-  const db = sql();
-  const [cron] = await db<{ present: boolean }[]>`select to_regclass('cron.job') is not null as present`;
-  if (!cron?.present) {
-    throw new Error(
-      `pg_cron is not installed (no cron.job): the database is not migrated to 017_snapshot_schedule.sql.\n` +
-        `  Run:  npm run db:reset`,
-    );
-  }
-  await db`
-    select cron.alter_job(jobid, active := false)
-      from cron.job
-     where jobname = any(${SCHEDULED_JOBS}) and username = current_user
-  `;
-  const rows = await db<{ jobname: string; active: boolean }[]>`
-    select jobname, active from cron.job
-     where jobname = any(${SCHEDULED_JOBS}) and username = current_user
-     order by jobname
-  `;
-  const state = rows.map((r) => `${r.jobname}:active=${r.active}`).join(', ');
-  if (rows.length !== SCHEDULED_JOBS.length || rows.some((r) => r.active)) {
-    throw new Error(
-      `Could not pause the 017 pg_cron jobs before the db run; the suite would race them.\n` +
-        `  expected: ${SCHEDULED_JOBS.join(', ')} all active=false\n` +
-        `  found:    ${state || 'no rows'}`,
-    );
-  }
-}
 
 export async function teardown(): Promise<void> {
   await endPool();
