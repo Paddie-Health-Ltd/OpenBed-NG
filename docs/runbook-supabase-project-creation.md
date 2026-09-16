@@ -574,9 +574,13 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions. Until
 2026-09-14 this read `exactly 13 migration(s) pending.`, and migration 014 made
 that wrong.
 
-- **The hosted project today** holds 001 through 016 (see step 7). Every file
-  must read `already applied`, there must be **no `WOULD APPLY` line at all**,
-  and the dry run must end `0 migration(s) pending.`
+- **The hosted project today** holds 001 through 016 (see step 7). Files 001
+  through 016 must read `already applied`, there must be **exactly one `WOULD
+  APPLY` line, `017_snapshot_schedule.sql`**, and the dry run must end
+  `1 migration(s) pending.`
+- **Restated 2026-09-16 (R-2026-09-16-09), in the change that adds 017.** Until
+  then this expected no `WOULD APPLY` line and `0 migration(s) pending.`, which was
+  right for a project at 016 while the repository also ended at 016.
 - **Restated 2026-09-16 (R-2026-09-16-02).** Until that day this expected three
   `WOULD APPLY` lines -- `014_publish_ward_status.sql`,
   `015_ward_status_history_text_category.sql`, `016_snapshot.sql` -- and
@@ -588,6 +592,33 @@ that wrong.
   this list was last restated, or hosted is not where this document says it is.
 - **When a migration is added,** this list is restated in the same change that
   adds it, never in a follow-up: in between, the document would be wrong.
+
+### Before applying 017: pg_cron must be available to the database
+
+**Why (R-2026-09-16-07).** `017_snapshot_schedule.sql` runs `CREATE EXTENSION IF
+NOT EXISTS pg_cron`. pg_cron only loads if it is in `shared_preload_libraries`,
+and whether the hosted project offers it is a platform fact the repository cannot
+assert. Locally it is preloaded, 1.6.4, not installed (observed 2026-09-16). If
+hosted does not offer it, the apply fails inside 017's transaction and nothing of
+017 commits -- safe, but the fix is founder-side and belongs before the apply.
+
+This block only reads. The first line waits silently for the connection string;
+the last removes it.
+
+```bash
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -Atc "select name || ' default=' || default_version || ' installed=' || coalesce(installed_version, 'none') from pg_available_extensions where name = 'pg_cron'"
+psql "$DATABASE_URL" -Atc "select 'preloaded=' || (current_setting('shared_preload_libraries') like '%pg_cron%')"
+unset DATABASE_URL
+```
+
+- **PASS:** a `pg_cron default=... installed=...` line, and `preloaded=true`.
+  `installed=none` is expected before the apply.
+- **No `pg_cron` line, or `preloaded=false`: stop.** Enabling the extension is a
+  dashboard action and is the founder's. Do not run the apply until this read
+  passes.
+
+- [ ] pg_cron available on hosted before 017's apply
 
 Only after reading those lines, the apply:
 
@@ -665,7 +696,7 @@ unset KEY BODY
 
 - [x] Post-apply probe, 2026-09-16: **PASS**, matching the fresh-cache string `permission denied for function ward_status_history`
 
-### After the apply: who owns the two SECURITY DEFINER writers
+### After the apply: who owns the SECURITY DEFINER writers
 
 **Why (R-2026-09-15-08, H2).** `app.project_facility` (008) and
 `app.regenerate_snapshot()` (016) run as their OWNER, so the owner's role
@@ -675,20 +706,26 @@ was observed on 2026-09-16: both functions are owned by `postgres`,** the role
 that applies the migrations, which closes H2 in full (R-2026-09-16-02). The read
 below is kept as the check every future apply runs.
 
+**From 017 on it reads THREE functions.** 017 gives `app.refresh_lga_rollup()`
+(009) a scheduled caller and `row_security = off`, so its owner matters in the
+same way: the job runs it as `postgres`, and an owner without BYPASSRLS would make
+every refresh raise.
+
 The first line waits silently for the connection string; the last removes it.
 
 ```bash
 read -rs DATABASE_URL && export DATABASE_URL
-psql "$DATABASE_URL" -Atc "select proname || ' owner=' || pg_get_userbyid(proowner) from pg_proc where proname in ('project_facility', 'regenerate_snapshot') order by proname"
+psql "$DATABASE_URL" -Atc "select proname || ' owner=' || pg_get_userbyid(proowner) from pg_proc where proname in ('project_facility', 'refresh_lga_rollup', 'regenerate_snapshot') order by proname"
 unset DATABASE_URL
 ```
 
-- **PASS:** exactly two lines, `project_facility owner=postgres` and
-  `regenerate_snapshot owner=postgres`. Record them with the date; this closes
-  H2's owner half. Recorded 2026-09-16, both lines exactly as above.
-- **Any other owner, or fewer than two lines: stop and report.** Do not change
-  ownership by hand; a different owner changes what `row_security = off` and the
-  mirrors' FORCE RLS mean for both functions.
+- **PASS:** exactly three lines, `project_facility owner=postgres`,
+  `refresh_lga_rollup owner=postgres` and `regenerate_snapshot owner=postgres`.
+  Record them with the date. Recorded 2026-09-16, before 017, with the two lines
+  that query then read.
+- **Any other owner, or fewer lines: stop and report.** Do not change ownership
+  by hand; a different owner changes what `row_security = off` and the FORCE RLS
+  tables mean for all three functions.
 
 - [x] Owners read, 2026-09-16: `project_facility owner=postgres` and `regenerate_snapshot owner=postgres`
 
@@ -736,6 +773,55 @@ with `tests/db/snapshot.test.ts`, which asserts this exact shape on every run.
 
 - [x] Reader policy read, 2026-09-16: one row, `snapshot_current_service_role_select | SELECT | permissive=PERMISSIVE | roles={service_role} | qual=true | with_check=(null)`, and `true true`
 
+### After the apply of 017: the two jobs are scheduled, active, and running
+
+**Why (R-2026-09-16-10).** The repository cannot prove the hosted jobs are live.
+`tests/db/snapshot_schedule_state.test.ts` asserts what 017 PRODUCES, from a
+rolled-back re-application, and the db test run deliberately pauses both jobs so
+they cannot write mid-test. A green suite is therefore not a live-schedule
+guarantee. This step is where "active on hosted" is observed. **On hosted the jobs
+must NOT be paused**; nothing here pauses them.
+
+This block only reads. The first line waits silently for the connection string;
+the last removes it.
+
+```bash
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -Atc "select jobname || ' | ' || schedule || ' | ' || command || ' | ' || username || ' | active=' || active from cron.job where jobname like 'openbed_%' order by jobname"
+psql "$DATABASE_URL" -Atc "select proname || ' ' || array_to_string(proconfig, ',') from pg_proc where proname = 'refresh_lga_rollup'"
+unset DATABASE_URL
+```
+
+**PASS: exactly these three lines.**
+
+```
+openbed_refresh_lga_rollup | */5 * * * * | select app.refresh_lga_rollup() | postgres | active=true
+openbed_regenerate_snapshot | * * * * * | select app.regenerate_snapshot() | postgres | active=true
+refresh_lga_rollup search_path="",row_security=off
+```
+
+Then **wait at least five minutes**, so both jobs have had a tick, and read the
+runs. This block only reads.
+
+```bash
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -Atc "select j.jobname || ' ' || d.status || ' ' || count(*) from cron.job_run_details d join cron.job j using (jobid) where j.jobname like 'openbed_%' group by j.jobname, d.status order by 1"
+unset DATABASE_URL
+```
+
+- **PASS:** a `succeeded` line for BOTH jobs, and no `failed` line. Each line is
+  the job, the status and a run count, e.g. `openbed_regenerate_snapshot succeeded 5`.
+- **A `failed` line for `openbed_refresh_lga_rollup` alone, once, beside
+  `succeeded` lines,** can be a lost race with another refresh: two overlapping
+  refreshes make the second fail on the primary key and leave correct rows (observed
+  locally 2026-09-16, and recorded in 017's header). Read again after the next
+  tick; a second `failed` is stopped and reported.
+- **Anything else -- a missing job, `active=false`, another role, a different
+  schedule or command, no `succeeded` line: stop and report.** Do not reschedule
+  or alter a job by hand; hosted would then run a schedule no migration produced.
+
+- [ ] 017's jobs read on hosted: both rows exactly as above, and a `succeeded` run for each
+
 ### After the apply: record the frozen boundary in the repository
 
 **Why (R-2026-09-16-03).** A migration recorded in hosted's `app.schema_migrations`
@@ -750,8 +836,14 @@ when a frozen file's bytes change.
 the ledger count read in the block above -- not with a number from memory. The
 recorder refuses if that count and the repository's forward migrations disagree.
 
+**For 017's apply the count is 17**, with the apply's date and the ruling that
+records it written in before pasting. As printed below the date and ruling are
+placeholders, and the recorder refuses a malformed date, so an unedited paste
+fails loudly rather than recording anything. The invocation that recorded 001-016
+was `node scripts/freeze_applied_migrations.mjs 16 2026-09-16 R-2026-09-16-02`.
+
 ```bash
-node scripts/freeze_applied_migrations.mjs 16 2026-09-16 R-2026-09-16-02
+node scripts/freeze_applied_migrations.mjs 17 YYYY-MM-DD R-YYYY-MM-DD-NN
 ```
 
 - **PASS:** it prints the count it recorded, and the first and last file. Commit
@@ -768,12 +860,18 @@ node scripts/freeze_applied_migrations.mjs 16 2026-09-16 R-2026-09-16-02
 
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 016 already applied), the dry run
-prints sixteen `already applied` lines, no `WOULD APPLY` line, and:
+**On the hosted project today** (001 through 016 already applied, 017 not yet),
+the dry run prints sixteen `already applied` lines, one `WOULD APPLY` line, and
+the apply then reports one file:
 
 ```
-0 migration(s) pending.
+  WOULD APPLY     : 017_snapshot_schedule.sql   <- dry run
+1 migration(s) pending.
+Migrations complete (1 applied this run).       <- apply
 ```
+
+**After 017's apply,** the dry run prints seventeen `already applied` lines, no
+`WOULD APPLY` line, and `0 migration(s) pending.`
 
 **On 2026-09-16, when 014-016 were still pending,** the same two commands printed
 this -- kept because it is what a project one apply behind looks like (the
@@ -791,23 +889,24 @@ Migrations complete (3 applied this run).   <- apply
 second is lower:
 
 ```
-16 migration(s) pending.          <- dry run
-Migrations complete (15 applied this run).   <- apply
+17 migration(s) pending.          <- dry run
+Migrations complete (16 applied this run).   <- apply
 ```
 
-**Fifteen is correct there. Nothing was skipped.** Migration 001 creates the `app`
+**Sixteen is correct there. Nothing was skipped.** Migration 001 creates the `app`
 schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
 recorded by a ledger that does not exist yet. The runner applies and ledgers it
 in a separate **bootstrap** step, and the apply loop then counts only what it
-applied itself -- 002 through 016, which is fifteen. The dry run has no bootstrap
+applied itself -- 002 through 017, which is sixteen. The dry run has no bootstrap
 branch: `is_applied` returns 0 while the ledger is absent, so it counts all
-sixteen as pending. The two numbers are measuring different things.
+seventeen as pending. The two numbers are measuring different things.
 
 **Confirm it by the ledger, which is the artefact that matters, not by the
 count:**
 
-Expect the ledger query to return one row per forward migration file -- `16`
-since `016_snapshot.sql` -- and `0 migration(s) pending.` from the dry run.
+Expect the ledger query to return one row per forward migration file -- `17`
+since `017_snapshot_schedule.sql` -- and `0 migration(s) pending.` from the dry
+run.
 The first line waits silently for the connection string; the last removes it.
 
 ```bash
@@ -857,6 +956,7 @@ the seed inserts synthetic facilities that would be indistinguishable from real
 ones.
 
 - [x] Every forward migration applied, `016_snapshot.sql` last, 2026-09-16: ledger 16 rows, and the second dry run reported `0 migration(s) pending.`
+- [ ] 017 applied, `017_snapshot_schedule.sql` last: ledger 17 rows, and the second dry run reports `0 migration(s) pending.`
 
 ---
 

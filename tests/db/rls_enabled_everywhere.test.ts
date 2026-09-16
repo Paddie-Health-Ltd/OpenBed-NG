@@ -28,7 +28,8 @@ import { sql } from '../setup/db.js';
  * from a mirror. app.regenerate_snapshot()'s `row_security = off` attribute
  * catches the opposite direction: the generator losing its bypass, which would
  * otherwise read the forced mirrors as empty. Each covers the case the other
- * cannot.
+ * cannot. Since 017 app.refresh_lga_rollup() carries the same attribute, for the
+ * writer of public.lga_rollup (asserted in tests/db/snapshot_schedule_state.test.ts).
  */
 describe('row level security', () => {
   const MIRRORS = ['facility_public', 'ward_public', 'lga_rollup'];

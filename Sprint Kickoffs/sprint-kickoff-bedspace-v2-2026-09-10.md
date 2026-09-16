@@ -43,7 +43,7 @@ All nine were verified against the files during scoping, not inferred. Six are d
 
 **Defects.**
 
-1. **`app.refresh_lga_rollup()` has no production caller.** Its only invocations in the repository are `database/seed/001_synthetic_seed.sql:165` and `tests/db/lga_rollup_kfloor.test.ts`. No trigger, no `pg_cron` entry, no scheduled job. Quiet facilities' rollup is frozen at seed time and will never move. Bundle 1's DoD passed because the seed happens to call it. This is a Clause 5 defect — a mechanism present and not reaching — and it is the sixth instance of that shape this fortnight. → **Stage 3.**
+1. **`app.refresh_lga_rollup()` has no production caller.** Its only invocations in the repository are `database/seed/001_synthetic_seed.sql:165` and `tests/db/lga_rollup_kfloor.test.ts`. No trigger, no `pg_cron` entry, no scheduled job. Quiet facilities' rollup is frozen at seed time and will never move. Bundle 1's DoD passed because the seed happens to call it. This is a Clause 5 defect — a mechanism present and not reaching — and it is the sixth instance of that shape this fortnight. → **Stage 3.** **[SWEEP 2026-09-16: STALE — true when written. Migration 017 (R-2026-09-16-08) gives `app.refresh_lga_rollup()` its production caller, the pg_cron job `openbed_refresh_lga_rollup` every five minutes, as a separate transaction outside the snapshot generator; the "→ Stage 3" routing is superseded, and the finding is CLOSED. 017 also adds `SET row_security = off` to the function, because a caller activates the silent below-floor path an owner without BYPASSRLS would take.]**
 
 2. **`client_mutation_id` has no index and no unique constraint.** `database/migrations/004:183` declares it as bare `text`; `012_indexes.sql` does not mention it. Idempotency on retry is currently nominal: a retried write inserts a second event and bumps `version` twice. → **Stage 1.** **[SWEEP 2026-09-15: SUPERSEDED — true when written; migration 014 creates the unique index `ward_status_event_client_mutation_uidx` (`database/migrations/014_publish_ward_status.sql`). See *Pre-017 sweep*.]**
 
@@ -568,7 +568,7 @@ _Corrected 2026-09-15:_
 
 **VERIFIED (70).** Every other claim. The ones later work leans on:
 - **the instance counts, v2:46 "sixth" and the :442 paragraph's "Five"** (R-2026-09-15-10). They reconcile under the family unit: six families and nine instances, with finding 6 in the family. Whether that many incidents occurred that fortnight is history and stays parked;
-- **finding 1:** `refresh_lga_rollup()` still has no production caller, and **finding 1 stays OPEN** (016 declined to become its caller);
+- **finding 1:** `refresh_lga_rollup()` still has no production caller, and **finding 1 stays OPEN** (016 declined to become its caller); **[SWEEP 2026-09-16: STALE since 017 — closed by a separate pg_cron job (R-2026-09-16-08). This line records the state on 2026-09-15. The enumeration's item #3 moves from HOLDS to STALE, and its verdict table is restated there: 69 / 5 / 10 / 5 / 7.]**
 - **finding 3:** the 1000 cap and the 256 idiom, with drifted line references;
 - **finding 4:** `app.referral` has no touch trigger;
 - **finding 7:** `008` writes `ward_public.updated_at = ws.updated_at`;

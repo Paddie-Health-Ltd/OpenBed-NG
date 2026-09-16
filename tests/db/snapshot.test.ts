@@ -47,9 +47,10 @@ import SHAPE from '../../packages/fixtures/snapshot-shape.json';
  *   - Hosted role attributes. Local `postgres` is rolsuper f / rolbypassrls t
  *     (observed 2026-09-15); hosted is the founder's check. The loud-read plant
  *     proves what happens if hosted differs; it cannot prove hosted does not.
- *   - The schedule. Nothing calls the generator in 016; pg_cron and its catalogue
- *     assertion are 017.
- *   - public.lga_rollup. Out of 016 by ruling; v2's finding 1 stays open.
+ *   - The schedule. Nothing calls the generator in 016. Since 017 a pg_cron job
+ *     does, asserted in tests/db/snapshot_schedule_state.test.ts (condition F).
+ *   - public.lga_rollup. Out of the GENERATOR by ruling, and still out: 017
+ *     closes v2's finding 1 with a separate job, not from here.
  */
 
 const WRITES_ALLOWED = ['app.system_heartbeat', 'public.snapshot_current'];
