@@ -855,6 +855,27 @@ _Ruled while recording the apply above, on the branch carrying it. It supersedes
 
 **Also closed here:** the runbook's "the client used for that run is not recorded here". The founder confirmed `psql` **18.6** for the 2026-09-16 apply, so step 7 carries it as an observation of that run rather than a version carried forward from 2026-09-13.
 
+### R-2026-09-16-04 — PR #29 verified and merged
+
+_#29 merged at 0d3de1c, pinned (merge commit f8ffc8f). VERIFIED with no amendments, and no further review round._
+
+**What the founder verified independently, rather than taking as reported.** The distinction matters: the PR's own attestation is the implementer's claim about the implementer's work.
+- **All 16 recorded SHA-256 digests recomputed from disk:** no mismatches. `ledger_rows=16` agrees with `frozen.length=16` and with the ledger observed hosted.
+- **The `database/migrations/` diff is exactly one line:** `A applied-hosted.json`. **No applied migration was edited** — the rule this PR restates, checked against the PR that restates it.
+- **`forwardFiles` excludes `.down.sql` and non-`.sql`,** so the boundary file cannot perturb its own instrument. An instrument that counted itself would be the failure this repository keeps finding one level up.
+- **The dated records are untouched:** both 2026-09-10 handoffs, and this record's R-08 line.
+- **The moved handoff's body is still byte-identical** to the copy in `cowork-handoff/`; only its location note grew.
+- **No assertion line removed** under `tests/`.
+
+**The two assertions the implementer added beyond the ruling, and the reason, which is the load-bearing part.** `tests/compliance/frozen_migrations.test.ts` asserts, besides each frozen file's hash, that the frozen list is a **contiguous prefix** of the migration sequence and that its length equals the recorded `ledger_rows`.
+- **The obvious move is not regenerating a hash. It is deleting the row for the file you just edited.** A hash-only guard is defeated by that, silently, without anyone having to write down anything false.
+- **With these two, that move fails loudly,** and greening a genuine edit also means restating what hosted ran — a claim with a date and a ledger count behind it, which someone has to assert rather than quietly refresh.
+- The design was specified by the ruling as a hash set; these were the implementer's addition, and the ruling invited exactly that judgement.
+
+**A premise the founder corrected as their own.** R-2026-09-16-03 said the five modified files were uncommitted **on main**. They were not: the branch was cut before the edits, and main was clean at 2eed3ef throughout.
+
+**017 is not started.** Its caller route is the founder's and undecided, and building the schedule against an undecided route is the deferral this sequence exists to avoid.
+
 ## Method notes — how rulings reach the implementer
 
 _Standing rules, 2026-09-15. This record is their home._
@@ -935,7 +956,10 @@ _Standing rules, 2026-09-15. This record is their home._
 - on 2026-09-16, the frozen window (R-2026-09-16-03): the freeze rule restated as
   a criterion with one recorded boundary, the live-rule/dated-record discriminator
   as method note 8, R-02's sweep instruction corrected rather than executed, and
-  the frozen-migration guard with its recorder and runbook step.
+  the frozen-migration guard with its recorder and runbook step;
+- on 2026-09-16, #29 verified and merged (R-2026-09-16-04): what was verified
+  independently, why the guard carries a contiguous-prefix and ledger-count check
+  beyond the hash set, and the R-03 premise the founder corrected as their own.
 
 **Does not change:**
 - v1:250 and v2:273 (O1);
