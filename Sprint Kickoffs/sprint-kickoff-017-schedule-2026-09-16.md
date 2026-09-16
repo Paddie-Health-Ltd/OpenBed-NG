@@ -3,10 +3,10 @@ Date: 2026-09-16 | Prepared by: Cowork sprint-push
 Base: `main` at `af36ba1`. Hosted holds 001-016. Nothing open.
 
 **File location note.** Written in `cowork-handoff/`, outside the repo, and moved
-here with the 017 PR as the founder directed. The body below is the 371-line
-version of 2026-09-16 (R-2026-09-16-12) with one change: the Bundle 2 line on
+here with the 017 PR as the founder directed. The body below is the 386-line
+version of 2026-09-16 (R-2026-09-16-13) with one change: the Bundle 2 line on
 `packages/fixtures/leg-coverage.json` is struck, with its dated correction, as
-R-2026-09-16-11 directed. The R-2026-09-16-07 to -12 blocks in
+R-2026-09-16-11 directed. The R-2026-09-16-07 to -13 blocks in
 `Sprint Kickoffs/decision-2026-09-14-public-private-split.md` record what the
 Bundle 0 probes found and how this document's contradictions were corrected.
 
@@ -85,7 +85,10 @@ with the command and its raw output:**
       covered. _Corrected 2026-09-16 (R-2026-09-16-11): this question previously
       said migration_idempotency "will catch it either way". R-09 withdrew that
       claim in Bundle 2 and this line was left standing — the withdrawal and the
-      claim sat eleven lines apart in one document._
+      claim sat 160 lines apart in one document — l.74 and l.234 before this fix.
+      _Corrected again (R-2026-09-16-13): the note first said "eleven lines". A
+      figure written without counting, in a note whose subject is a claim that was
+      not checked._
 - [ ] Does a scheduled job actually fire locally, and does `cron.job_run_details`
       exist on this pg_cron version? If runs are not recorded, Bundle 2 asserts
       the job's existence and configuration only, and says so rather than
@@ -243,8 +246,9 @@ exists, is active and is on schedule. F can only assert a mechanism that exists.
         suite asserts what the migration produces; the hosted jobs are confirmed at
         the apply, in the runbook. Say so in the test header so nobody later reads
         a green suite as a live-schedule guarantee.
-- [ ] **Catch a duplicate job.** `migration_idempotency` would NOT catch one and
-      line 71's claim that it would is withdrawn: it asserts re-application is a
+- [ ] **Catch a duplicate job.** `migration_idempotency` would NOT catch one, and
+      the claim that it would — **in Bundle 0's third question**, cited by name
+      rather than by line — is withdrawn: it asserts re-application is a
       no-op against the schema, and a second `cron.job` row is data, not schema.
       Re-apply 017 in the same test and assert **exactly one row per job name**,
       with a plant that inserts a duplicate and proves the assertion reds.
@@ -285,7 +289,18 @@ by the time those landed._ This bundle now reaches:
   is its OWN call;
 - `tests/db/migration_idempotency.test.ts` — unchanged in text, but its freedom
   from the live jobs now depends on the pause holding. That dependency is the
-  thing to re-check if the pause ever moves.
+  thing to re-check if the pause ever moves;
+- `database/local/pause_scheduled_jobs.sql`, `tests/setup/db.ts` and
+  `tests/db/scheduled_jobs_paused.test.ts` — the pause itself, its checker, and the
+  leg that proves it. _Added by R-2026-09-16-13: the first correction of this blast
+  radius still left out the three files the pause is actually made of. Nothing it
+  said was wrong; it was incomplete, which is the failure mode a blast radius
+  exists to prevent._
+
+**A note on citations in this document.** Two of the corrections above originally
+cited line numbers. A line number inside a document that edits itself is stale as
+soon as anything above it moves — which is what correcting this document did. Cite
+the section or the question by NAME.
 
 **Definition of done:** **every plant in the task list above** demonstrated red,
 each one named with its result, and the real repository green, with the

@@ -972,6 +972,17 @@ _Ruled by Cowork after 839241a, which it accepted as built with no changes._
 
 **Next, in order:** Cowork reviews the PR head; it merges; the hosted apply is the founder's (check pg_cron, apply, check the jobs, record the frozen boundary at 17). That apply discharges the OWED move of the frozen_migrations placeholder to 018.
 
+### R-2026-09-16-13 — PR #31 approved; the kickoff's last three defects fixed by Cowork
+
+_Ruled on 190f881. Verified independently by Cowork: three commits chaining from af36ba1, `main` still af36ba1; across the whole range `database/migrations/` gains only the two 017 files and the README row, so no frozen migration is edited in any commit; the three modified guards read individually (the runner literal 16 → 17, still not derived from the directory; two header-comment updates), with no assertion weakened. Merge pinned to the head carrying this block, with no further review round._
+
+**Cowork's, all three, fixed in the kickoff as R-2026-09-16-13 (supersedes what R-12 left standing):**
+- **"Eleven lines apart" becomes 160 (l.74 and l.234 before the fix).** A figure written without counting, inside a note whose subject was an unchecked claim. It is the third stated count in this document's lineage to disagree with what it describes, after "the five answers" and "all three plants".
+- **"Line 71's claim" is now cited by name,** as Bundle 0's third question. A standing note at the end of Bundle 2's blast radius says why: a line number inside a document that edits itself goes stale as soon as anything above it moves, which is exactly what correcting this document did. Cite the section by name.
+- **The blast radius now names `database/local/pause_scheduled_jobs.sql`, `tests/setup/db.ts` and `tests/db/scheduled_jobs_paused.test.ts`.** The first correction was not wrong; it was incomplete, which is the failure a blast radius exists to prevent, and the note says so.
+
+The moved copy is the 386-line original plus its location note and R-11's strike of the leg-coverage line; `diff` shows the strike as the only change to the body.
+
 ## Method notes — how rulings reach the implementer
 
 _Standing rules, 2026-09-15. This record is their home._
@@ -1063,7 +1074,9 @@ _Standing rules, 2026-09-15. This record is their home._
 - on 2026-09-16, R-2026-09-16-11 and -12: the pause widened from migration to end
   of run through `scripts/seed.sh`, its leg and plants, the frozen_migrations
   placeholder recorded as OWED, R-11's two premises checked and recorded as
-  failed, and the kickoff's three contradictions corrected by Cowork.
+  failed, and the kickoff's three contradictions corrected by Cowork;
+- on 2026-09-16, R-2026-09-16-13: #31 approved, and the kickoff's miscounted note,
+  line-number citation and incomplete blast radius fixed by Cowork.
 
 **Does not change:**
 - v1:250 and v2:273 (O1);
