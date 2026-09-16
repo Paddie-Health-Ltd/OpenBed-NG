@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import STEPS from '../../packages/fixtures/golden-path-steps.json';
 import SHAPE from '../../packages/fixtures/snapshot-shape.json';
-import { sql } from '../setup/db.js';
+import { sql, scheduledJobPauseViolations } from '../setup/db.js';
 import { anonKey, apiUrl } from '../setup/local-keys.js';
 import {
   mintMagicLink,
@@ -220,6 +220,27 @@ describe('golden path — release gate 2', () => {
 
   test(name('snapshot-regenerates'), async () => {
     const db = sql();
+    // THIS STEP'S SUBJECT IS ITS OWN CALL to app.regenerate_snapshot() below, and
+    // since migration 017 that needs stating (R-2026-09-16-11). 017 schedules the
+    // same function as the pg_cron job openbed_regenerate_snapshot. What a live job
+    // could and could not do to this step, OBSERVED 2026-09-16 with this call
+    // removed and the job running every SECOND, sixty times its real cadence:
+    //   - the `v` check below still went red in 4 of 4 runs. Its two reads sit
+    //     milliseconds either side of the call, and a job commit landing inside
+    //     that gap is what it would take to pass without the call. That check is
+    //     what makes the step about its own call, and it held;
+    //   - the heartbeat-freshness and republished-count checks WOULD be satisfied
+    //     by a job regeneration. They are safe only because they sit behind `v`.
+    // So the pause is not what keeps this step honest today; it keeps the step's
+    // evidence attributable, and it closes the rare window the `v` check leaves.
+    // The e2e setup pauses both jobs (tests/e2e/global-setup.ts,
+    // database/local/pause_scheduled_jobs.sql), and the step checks that pause
+    // itself rather than trusting a setup it cannot see. The checker's plants are
+    // in tests/db/scheduled_jobs_paused.test.ts.
+    expect(
+      await scheduledJobPauseViolations(db),
+      'a live pg_cron job could have produced this regeneration; the step would not be testing its own call',
+    ).toEqual([]);
     const before = await db<{ v: number }[]>`select v from public.snapshot_current order by v desc limit 1`;
     await db`select app.regenerate_snapshot()`;
     const after = await db<{ v: number }[]>`select v from public.snapshot_current order by v desc limit 1`;

@@ -10,13 +10,16 @@ This is the enumeration behind the verdict table in `Sprint Kickoffs/sprint-kick
 
 **Verdict words.** HOLDS = VERIFIED. FAILS = SUPERSEDED, failed. STALE = SUPERSEDED, stale (true when written; the repository moved on). SUPERSEDED-IN-DOC = superseded by a later section of the kickoff. NOT CHECKABLE = a vendor, hosted or history fact.
 
-**Amendments since the enumeration was taken:** #4 and #77, NOT CHECKABLE → HOLDS (R-2026-09-15-10 A1). No other verdict changed.
+**Amendments since the enumeration was taken:**
+- #4 and #77, NOT CHECKABLE → HOLDS (R-2026-09-15-10 A1).
+- #3, HOLDS → STALE (2026-09-16, R-2026-09-16-08): migration 017 gives `app.refresh_lga_rollup()` a production caller, so v2:46's "no `pg_cron` entry, no scheduled job" was true when written and is not now.
+- No other verdict changed. **The unit is unchanged: one enumerated claim per numbered item**, so the total stays 96 and only the split moves (HOLDS 70 → 69, STALE 9 → 10).
 
 | Verdict | Count | Items |
 |---|---|---|
-| HOLDS (VERIFIED) | 70 | every item not listed below |
+| HOLDS (VERIFIED) | 69 | every item not listed below |
 | FAILS | 5 | #41, #59, #61, #67, #71 |
-| STALE | 9 | #5, #9, #10, #11, #18, #27, #30, #46, #83 |
+| STALE | 10 | #3, #5, #9, #10, #11, #18, #27, #30, #46, #83 |
 | SUPERSEDED-IN-DOC | 5 | #16, #33, #38, #45, #94 |
 | NOT CHECKABLE | 7 | #28, #44, #60, #64, #74, #79, #91 |
 
@@ -35,7 +38,9 @@ Total 96. Every item below ends with its verdict in bold; the last bold verdict 
    - Evidence: a grep across database, scripts, tests, apps, packages, .github and supabase finds only `database/seed/001_synthetic_seed.sql:165` and `tests/db/lga_rollup_kfloor.test.ts:99,121,136`.
    - `tests/db/snapshot.test.ts:287` is a planted string, not a caller.
    - M/016:34-45 says calling it from the generator is rejected, and that finding 1 "is real and stays OPEN".
-   - **HOLDS**.
+   - HOLDS as swept on 2026-09-15.
+   - _[SWEEP 2026-09-16: M/017 schedules `select app.refresh_lga_rollup()` as the pg_cron job `openbed_refresh_lga_rollup` (`*/5 * * * *`), asserted by `tests/db/snapshot_schedule_state.test.ts`. True when written; the repository moved on (R-2026-09-16-08).]_
+   - **STALE**.
 4. **v2:46** "it is the sixth instance of that shape this fortnight" – v2:433 says "Five instances". The document contradicts itself, and the count is history rather than repo state. **NOT CHECKABLE** as first marked. **Amended to HOLDS by R-2026-09-15-10 A1:** with finding 6's two headers in the family (v2:433's own clause), the paragraph names six families and nine instances; finding 1's "sixth" is the sixth family, and "Five" counts the five families in its own list before that clause adds the sixth. Whether that many occurred is history and stays parked; the item takes its repository-checkable verdict, as #19, #25 and #81 do. **HOLDS**.
 5. **v2:48** "`client_mutation_id` has no index and no unique constraint … `012_indexes.sql` does not mention it"
    - At writing: M/004:183 is `client_mutation_id text,`, and grepping 012 for it gives zero hits (the same grep hits M/014).

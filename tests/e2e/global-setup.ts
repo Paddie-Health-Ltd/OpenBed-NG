@@ -1,4 +1,4 @@
-import { endPool, sql } from '../setup/db.js';
+import { endPool, sql, pauseScheduledJobs, assertScheduledJobsPaused } from '../setup/db.js';
 import { gotrueVersion } from '../setup/auth.js';
 import { apiUrl } from '../setup/local-keys.js';
 import { resetE2eCorpus, seedE2eCorpus, assertE2eCorpus, provisionE2eWardAccounts } from './_harness.js';
@@ -34,6 +34,17 @@ export async function setup(): Promise<void> {
   if (!ledger || ledger.n === 0) {
     throw new Error('Database is reachable but not migrated: app.schema_migrations does not exist.\n  Run:  npm run db:reset');
   }
+
+  // THE 017 pg_cron JOBS ARE PAUSED FOR THE WHOLE E2E RUN (R-2026-09-16-11), the
+  // same file and the same loud failure as the db run: tests/setup/db.ts. In CI
+  // this job's own database is migrated and seeded, and scripts/seed.sh already
+  // paused them; applying it here covers a database that skipped the seed. Why it
+  // matters here: a live openbed_regenerate_snapshot would satisfy the
+  // snapshot-regenerates step's heartbeat and payload checks without that step's
+  // own call; only its millisecond-bracketed `v` check would still catch a
+  // missing call (see the step's comment). The step asserts the pause itself.
+  pauseScheduledJobs();
+  await assertScheduledJobsPaused('the e2e run');
 
   let version: string;
   try {

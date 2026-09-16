@@ -574,6 +574,7 @@ Both clauses are asserted against the live function body in `tests/db/snapshot.t
 1. **The rollup is OUT of 016.** No refresh call and no payload key; it gets its own ruling at Stage 3.
    - Beyond the writer clause: v2:225 defers the payload key to Stage 3, and the fixture envelope has no rollup key, so the refresh would compute something nothing reads.
    - v2's finding 1 — `refresh_lga_rollup()` has no production caller — is real and stays **OPEN**. Its reason does not imply v2:280's instruction; any scheduled caller solves it.
+     - _Superseded 2026-09-16 (R-2026-09-16-08): closed by 017's second pg_cron job, a separate transaction outside the generator. See the R-2026-09-16-07 to -10 block below._
 2. **The scheduler is split.** 016 is the table, the generator and the heartbeat column. 017 is the pg_cron extension, the schedule, and condition F's analogue asserting the job exists, is active and is on schedule.
    - The reasons: different blast radius, independent down-paths, and F can only assert a mechanism that exists.
    - v2:319 ("the dual scheduler already exists") is a failed kickoff claim. **Required before 017:** sweep v2 for every "already exists" / "already stood up" assertion and mark each verified or superseded. Five have failed so far: "014 is one index", the frontier line, v2:319, v2:320 (heartbeat yes, `/api/health` nowhere) and v2:217's `service_role` grant.
@@ -875,6 +876,112 @@ _#29 merged at 0d3de1c, pinned (merge commit f8ffc8f). VERIFIED with no amendmen
 **A premise the founder corrected as their own.** R-2026-09-16-03 said the five modified files were uncommitted **on main**. They were not: the branch was cut before the edits, and main was clean at 2eed3ef throughout.
 
 **017 is not started.** Its caller route is the founder's and undecided, and building the schedule against an undecided route is the deferral this sequence exists to avoid.
+- _Superseded 2026-09-16: the route was ruled (R-2026-09-16-07) and 017 was built. See the next block._
+
+**Watch item, carried into this block by the next change to touch the repository (R-2026-09-16-06), which was 017's.** The first exercise of `scripts/freeze_applied_migrations.mjs` in anger is 017's own hosted apply, through the runbook step that regenerates `database/migrations/applied-hosted.json`. Every refusal has a plant, but the path has never been walked end to end, and the boundary regeneration is the step to watch when 017 lands. **A watch item, not a defect.**
+
+### R-2026-09-16-07 to -10 — migration 017, the snapshot schedule
+
+_Ruled by Cowork in `Sprint Kickoffs/sprint-kickoff-017-schedule-2026-09-16.md`, amended three times on 2026-09-16 as the Bundle 0 probe answers came back. Every "observed" below was run by Claude Code against the local stack (Supabase CLI image, PostgreSQL 17.6, pg_cron 1.6.4), in rolled-back transactions where it touched data. Nothing here was observed on hosted._
+
+**R-2026-09-16-07 — the route: pg_cron running as `postgres`, single head.**
+- **The caller route and the scheduler shape were one decision, not two.** There is no server: `apps/public-dashboard` and `apps/ward-console` are static builds, and no `api` directory exists, so v1:293's `/api/sweep` and v1:294's `/api/health` never had a host. The external half of the "dual scheduler" could only have targeted PostgREST, and that is the public wrapper, which is decision 3.
+- **v1 contradicts itself about pausing.** v1:293 justifies the external caller as a keep-alive because free projects pause. v1:396 settles Supabase Pro, "no pausing", and the project has been on Pro since 2026-09-12. v1:363 still makes "is the project paused" the first diagnostic step. The sensor argument survives (pg_cron cannot report its own death), but a sensor needs a reader of `app.system_heartbeat.last_snapshot_at`, not an HTTP endpoint; that is the alerting sprint's.
+- **Cadence.** One minute (`* * * * *`), the nearest cron expression to v1:65's sixty seconds. v1:293's "every 10 minutes" is the alert sweep's cadence, not the snapshot's.
+- **No grant.** The job runs as the role that scheduled it (`cron.job.username = postgres`, observed), and `postgres` owns both functions. `service_role` has no USAGE on `app`, so a grant to it was never a route. Rejected: a direct owner connection (a host and a stored credential that do not exist), and a public wrapper with EXECUTE for `service_role` (reopens decision 3).
+
+**R-2026-09-16-08 — schedule the rollup too, and repair it first. Closes v2's finding 1.**
+- A second job, `openbed_refresh_lga_rollup`, every five minutes. 016 declined to be the caller because calling the refresh FROM THE GENERATOR would make the generator a writer of a published surface inside the public read path. A separate job is its own transaction, outside that path.
+- **The repair, and the reason that actually holds, which is the probe's, not the kickoff's first wording.** The kickoff first said a non-bypass owner "deletes nothing, inserts nothing, and nothing errors". Observed instead, with `app.refresh_lga_rollup()` handed to an owner without BYPASSRLS:
+  - where any cell publishes, the INSERT is refused loudly;
+  - where the recompute should make a cell **vanish** below the k-floor, the DELETE affects nothing, the function returns 0 silently, and **the cell stays published at its exact bed count** (Alimosho ICU_ADULT, 15 beds, after one of its five quiet facilities was deactivated). That is the disclosure the k-floor exists to prevent.
+  - With `SET row_security = off` the same case raises at the DELETE: `query would be affected by row-level security policy for table "lga_rollup"`. Under `postgres` the refresh is unchanged.
+- 009 is frozen, so the repair is a `CREATE OR REPLACE` in 017: 009's function text byte-for-byte plus the one attribute line.
+- **Also observed, because 017 creates the first concurrent caller.** 009's header says concurrent refreshes are "safe under the table's primary key". Two overlapping refreshes: the second fails `duplicate key value violates unique constraint "lga_rollup_pkey"`, and the published rows are the first's and correct. Safe in that nothing is corrupted; the loser errors.
+
+**R-2026-09-16-09 — corrections, and the duplicate check.**
+- Withdrawn by Cowork as its own errors, each with a dated note in the kickoff: "one minute is the pg_cron floor" (1.6.4 accepts `'30 seconds'`, observed); "the five answers" against a list of six (restated as the list, not a count); and "deletes nothing, inserts nothing, and nothing errors" (above).
+- **"`migration_idempotency` will catch a duplicate job" is withdrawn.** Its digest covers `app` and `public`; a second `cron.job` row is data in `cron`. Condition F re-applies 017 and asserts exactly one row per job name, with a duplicate plant.
+- **Why a duplicate needs a second role.** `cron.job` carries `UNIQUE (jobname, username)`, and `postgres` cannot insert into `cron.job` directly (permission denied, observed). A same-name job exists only under another role, which is what the plant schedules.
+
+**R-2026-09-16-10 — keeping the suite clear of the jobs: BOTH mechanisms. Supersedes R-09's single-mechanism framing.**
+- **The flake is real and was measured.** With `openbed_regenerate_snapshot` live, 2 of 83 consecutive runs of `tests/db/migration_idempotency.test.ts` went red, each spanning a job run: the job writes `app.system_heartbeat`, which that test hashes before and after re-applying the migrations.
+- **R-09 offered a rolled-back re-application inside condition F as the preferred answer and pausing as the fallback. They are not alternatives.** A rolled-back transaction inside F does nothing about a job writing during another test. So:
+  - **suite isolation:** `tests/setup/global-setup.ts` pauses both jobs with `cron.alter_job(active := false)` and throws unless both then read inactive;
+  - **condition F:** `tests/db/snapshot_schedule_state.test.ts` unschedules both jobs inside a rolled-back transaction, applies 017's file twice, and asserts the rows that produced. It never reads the ambient rows' `active` flag.
+- **Two probe answers decided the shape (Bundle 0 Q8 and Q7).**
+  - **Q8: re-scheduling does NOT reset `active`.** A job paused with `cron.alter_job` stayed paused when `cron.schedule` ran again for its name, even with a changed schedule string. So the pause survives `migration_idempotency` re-applying 017 mid-suite, and F must unschedule before re-applying or it would assert the pause, not the migration. Re-scheduling DOES overwrite `schedule` and `command`.
+  - **Q7: `cron.schedule`, `cron.unschedule` and `cron.alter_job` are transactional.** Each left no trace after a rollback.
+- **The pause is load-bearing, shown both ways.** With the live snapshot job set to `'1 seconds'` before every run: the pause call removed, 4 of 4 runs of `migration_idempotency` red; the pause restored, 4 of 4 green.
+- **What the local suite does not prove: that the jobs are active on hosted.** The runbook's post-apply step for 017 reads both rows and a `succeeded` run for each.
+
+**OWED — on the hosted apply of 017, move the frozen_migrations placeholder to 018** (R-2026-09-16-11).
+- **Trigger:** the change that records 017's hosted apply in `database/migrations/applied-hosted.json` (runbook step 5, `freeze_applied_migrations.mjs 17 …`).
+- **Destination:** `tests/compliance/frozen_migrations.test.ts`, which writes a placeholder named `017_snapshot_schedule.sql` into a scratch copy and expects no finding. Once 017 is frozen that placeholder is an edit to a frozen file, and the test reds.
+- **Carried in the same change as the trigger, not a follow-up.** Also held in the resume memory with this trigger and destination.
+
+**Findings outside these rulings, reported and not built.**
+- _Superseded 2026-09-16 (R-2026-09-16-11): the first two were required rather than reported, and are built. See the next block. The third went to Cowork with line numbers._
+- The e2e project has its own globalSetup and does not get the pause. `tests/e2e/golden-path.test.ts`'s "heartbeat fresh within one minute" check can pass because the live job wrote the heartbeat rather than the step's own call.
+- In CI the jobs are live between `scripts/run_migrations.sh` and the db globalSetup, a window that includes `scripts/seed.sh`'s own `refresh_lga_rollup()` call. A rollup tick landing there fails loudly on the primary key (observed shape above), never silently.
+- In the kickoff: Bundle 0 Q3 still says `migration_idempotency` "will catch it either way", unannotated; Bundle 2's blast radius says "n/a — new test file", but R-10 changes `tests/setup/global-setup.ts`; and Bundle 2's definition of done says "all three plants" against a list that grew.
+
+### R-2026-09-16-11 — 017 approved in substance; the pause widened to the whole run
+
+_Ruled by Cowork on afbd51c. Verified independently by the founder: parent af36ba1; the migrations diff is the two 017 files plus the README, no frozen file edited; 701 + 19 + 3 = 723; the sweep recount 69/5/10/5/7 = 96. Every "observed" below was run by Claude Code on the local stack._
+
+**The ruling's premise, checked, and it did not hold as stated.** R-11 said golden-path step 9 (`snapshot-regenerates`) "is currently vacuous" and "can be green with the generator broken".
+- **Observed:** with the step's own `select app.regenerate_snapshot()` removed, no pause, and the snapshot job running every SECOND (sixty times its real cadence, and it ran three times inside one 2.4-second e2e run), step 9 went **red in 4 of 4 runs** on "v did not increment". Its two reads of `v` sit milliseconds either side of the call, and a job commit would have to land inside that gap.
+- **What does hold:** the step's heartbeat-freshness and republished-count checks WOULD be satisfied by a job regeneration. They are safe only because they sit behind `v`. A generator that raises, or that silently writes nothing, fails the job's run as well, so the job cannot mask a broken generator either.
+- **The instruction survives on the reason that holds:** attributable evidence, and closing the rare window the `v` check leaves. That reason is now in the step's own comment.
+
+**The seeding collision, checked, and not reproduced.** With the rollup job every second and the pause removed from `scripts/seed.sh`, seeding succeeded in **3 of 3** fresh resets, and no job run failed. The collision's mechanism is real: two overlapping refreshes make the second fail on `lga_rollup_pkey` (observed with a held transaction, above). But a millisecond refresh rarely overlaps one. The pause closes a possible window rather than a demonstrated flake, and is recorded as such.
+
+**The seam, derived.** The ruling named the scope, migration to end of run, and left the seam open.
+- **`scripts/seed.sh` applies the pause, after its host check and before any seed file.** It is the one script that structurally cannot reach hosted (`tests/compliance/seed_local_only.test.ts`), and it runs straight after `scripts/run_migrations.sh` on every local and CI database: `npm run db:reset`, CI `db-tests`, CI `golden-path`.
+- **Rejected: `scripts/run_migrations.sh`.** It is also the hosted runner, and on hosted the jobs must stay active.
+- **One implementation:** `database/local/pause_scheduled_jobs.sql`. Two top-level statements, so psql commits the pause before waiting out any in-flight run. The file raises `OPENBED_JOBS_NOT_PAUSED` on no pg_cron, a missing job, or a run still in flight at its deadline.
+- **The db and e2e setups apply the same file again** through `tests/setup/db.ts`, then check the result with `scheduledJobPauseViolations()`. Step 9 calls the same checker before relying on the pause.
+- **The settle is observed, not assumed.** After a committed pause, no run of a one-second job started in the next four seconds, in 5 of 5 trials, while its earlier runs were recorded. Two seconds is waited.
+
+**The leg, with plants:** `tests/db/scheduled_jobs_paused.test.ts`, 11 tests.
+- The checker: real, reactivated and unscheduled plants for each job, and anti-vacuity.
+- The file: real, plus plants for no pg_cron (`DROP EXTENSION` rolled back), a missing job, and a run in flight at the deadline (a planted `running` row). A positive control shows a stale `running` row does not hold the pause.
+- Five neuters of the file and the checker each turned exactly their leg red.
+
+**Also corrected by R-11, as Cowork's:** the kickoff's Bundle 2 line registering new legs in `packages/fixtures/leg-coverage.json`. That register covers guard scripts in `scripts/` only, and correctly does not move. The line is struck in the moved copy.
+
+### R-2026-09-16-12 — the kickoff corrected; R-11's two false premises recorded as Cowork's
+
+_Ruled by Cowork after 839241a, which it accepted as built with no changes._
+
+**R-11's premises, withdrawn by Cowork as its own errors.** The pause's reason is not restated from R-11 anywhere, because that reason did not survive.
+- **"Step 9 can be green with the generator broken": false.** The disproof needed no run. The job calls the same function, so a broken generator breaks the job's runs too, and `v` moves from neither source. The millisecond gap between the step's two reads of `v` is why the claim never held, and the 4-of-4 with the step's own call removed is the observation. Cowork's own summary: R-11 asserted a failure mode from reading the source in the same breath as insisting a fix is accepted by executing it.
+- **"The seeding collision is a flake": not reproduced.** 3 of 3 clean with a one-second rollup job. The accurate record is "a rare window, not a flake", and that wording replaces R-11's.
+- **The pause stands on the justification that held:** the step's evidence stays attributable to its own call, and the rare collision window is closed.
+
+**The kickoff's three contradictions, fixed by Cowork with dated R-11 notes** in `Sprint Kickoffs/sprint-kickoff-017-schedule-2026-09-16.md`:
+- Q3's "`migration_idempotency` will catch it either way" is replaced by why nothing existing catches a duplicate (it asserts schema, and a second `cron.job` row is data), which is why the check is Bundle 2's.
+- Bundle 2's "Blast radius: n/a" is replaced by its real reach, including `migration_idempotency`'s new dependency on the pause holding, named as the thing to re-check if the pause ever moves.
+- Bundle 2's "all three plants" is replaced by the list. It was the second count in that document to disagree with its own list.
+
+**Checked when the corrected kickoff was recopied (observed):**
+- **Premise that did not hold.** The Q3 correction note says the claim and R-09's withdrawal "sat eleven lines apart". Before the fix they were at l.74 and l.234 of the `cowork-handoff/` original (l.82 and l.242 of the copy committed at afbd51c). That is **160 lines**, not eleven. The note is Cowork's dated correction and is left as written. The withdrawal line still cites the claim as "line 71", a stale line reference.
+- **Complete as far as it goes.** The corrected blast radius does not name `database/local/pause_scheduled_jobs.sql`, `tests/setup/db.ts` or `tests/db/scheduled_jobs_paused.test.ts`. Incomplete rather than false; reported, not edited.
+- **The moved copy** is the corrected original plus its location note and the R-11 strike of the leg-coverage line, which the original does not carry.
+
+**Next, in order:** Cowork reviews the PR head; it merges; the hosted apply is the founder's (check pg_cron, apply, check the jobs, record the frozen boundary at 17). That apply discharges the OWED move of the frozen_migrations placeholder to 018.
+
+### R-2026-09-16-13 — PR #31 approved; the kickoff's last three defects fixed by Cowork
+
+_Ruled on 190f881. Verified independently by Cowork: three commits chaining from af36ba1, `main` still af36ba1; across the whole range `database/migrations/` gains only the two 017 files and the README row, so no frozen migration is edited in any commit; the three modified guards read individually (the runner literal 16 → 17, still not derived from the directory; two header-comment updates), with no assertion weakened. Merge pinned to the head carrying this block, with no further review round._
+
+**Cowork's, all three, fixed in the kickoff as R-2026-09-16-13 (supersedes what R-12 left standing):**
+- **"Eleven lines apart" becomes 160 (l.74 and l.234 before the fix).** A figure written without counting, inside a note whose subject was an unchecked claim. It is the third stated count in this document's lineage to disagree with what it describes, after "the five answers" and "all three plants".
+- **"Line 71's claim" is now cited by name,** as Bundle 0's third question. A standing note at the end of Bundle 2's blast radius says why: a line number inside a document that edits itself goes stale as soon as anything above it moves, which is exactly what correcting this document did. Cite the section by name.
+- **The blast radius now names `database/local/pause_scheduled_jobs.sql`, `tests/setup/db.ts` and `tests/db/scheduled_jobs_paused.test.ts`.** The first correction was not wrong; it was incomplete, which is the failure a blast radius exists to prevent, and the note says so.
+
+The moved copy is the 386-line original plus its location note and R-11's strike of the leg-coverage line; `diff` shows the strike as the only change to the body.
 
 ## Method notes — how rulings reach the implementer
 
@@ -959,7 +1066,17 @@ _Standing rules, 2026-09-15. This record is their home._
   the frozen-migration guard with its recorder and runbook step;
 - on 2026-09-16, #29 verified and merged (R-2026-09-16-04): what was verified
   independently, why the guard carries a contiguous-prefix and ledger-count check
-  beyond the hash set, and the R-03 premise the founder corrected as their own.
+  beyond the hash set, and the R-03 premise the founder corrected as their own;
+- on 2026-09-16, migration 017 (R-2026-09-16-07 to -10): the route, the rollup
+  job closing v2's finding 1 with its repair and the probe that justifies it, the
+  withdrawn kickoff claims, suite isolation and condition F as two mechanisms,
+  the R-04 watch item carried in, and a supersede note on decision 1's "stays OPEN";
+- on 2026-09-16, R-2026-09-16-11 and -12: the pause widened from migration to end
+  of run through `scripts/seed.sh`, its leg and plants, the frozen_migrations
+  placeholder recorded as OWED, R-11's two premises checked and recorded as
+  failed, and the kickoff's three contradictions corrected by Cowork;
+- on 2026-09-16, R-2026-09-16-13: #31 approved, and the kickoff's miscounted note,
+  line-number citation and incomplete blast radius fixed by Cowork.
 
 **Does not change:**
 - v1:250 and v2:273 (O1);

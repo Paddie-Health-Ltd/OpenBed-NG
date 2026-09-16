@@ -81,6 +81,14 @@ else
     PSQL=(psql "$URL" -v ON_ERROR_STOP=1)
 fi
 
+# PAUSE 017's pg_cron JOBS BEFORE ANY SEED FILE (R-2026-09-16-11). Here, after the
+# host check above, because this script is the one that cannot reach hosted, and
+# it runs straight after the migrations on every local and CI database. The
+# seed's own app.refresh_lga_rollup() call would otherwise race the live rollup
+# job. The file's header carries the reasons and the observations.
+echo "Pausing the 017 pg_cron jobs (local only)..."
+"${PSQL[@]}" < "$ROOT/database/local/pause_scheduled_jobs.sql"
+
 for f in $(printf '%s\n' "${files[@]}" | sort); do
     echo "Seeding $(basename "$f")..."
     "${PSQL[@]}" < "$f"
