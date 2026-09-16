@@ -27,6 +27,9 @@ file as written. Superseded or corrected since, each recorded in
   010 recorded and not edited.
 - **The "proposed, not ruled" defect family** was judged coherent, restated for both
   directions, and accepted as method note 7 (R-10).
+- **"Hosted still holds 001–013"** was true when written. The founder applied 014–016
+  on 2026-09-16 (R-2026-09-16-02), so hosted now holds 001–016, and the "what's next"
+  list's first item is done.
 
 ---
 

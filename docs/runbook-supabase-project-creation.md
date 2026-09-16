@@ -574,14 +574,18 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions. Until
 2026-09-14 this read `exactly 13 migration(s) pending.`, and migration 014 made
 that wrong.
 
-- **The hosted project today** holds 001 through 013 (see step 7). The dry run
-  must print exactly **three** `WOULD APPLY` lines, **in apply order** --
-  `014_publish_ward_status.sql`, then
-  `015_ward_status_history_text_category.sql`, then `016_snapshot.sql` --
-  followed by `3 migration(s) pending.` Every other file must read
-  `already applied`.
-- **Any other `WOULD APPLY` line, a missing one, or any other count: stop and
-  report.**
+- **The hosted project today** holds 001 through 016 (see step 7). Every file
+  must read `already applied`, there must be **no `WOULD APPLY` line at all**,
+  and the dry run must end `0 migration(s) pending.`
+- **Restated 2026-09-16 (R-2026-09-16-02).** Until that day this expected three
+  `WOULD APPLY` lines -- `014_publish_ward_status.sql`,
+  `015_ward_status_history_text_category.sql`, `016_snapshot.sql` -- and
+  `3 migration(s) pending.` The founder's run printed exactly those three, in
+  that order, and applied them. Left as it was, the expectation would now read
+  wrong on a correct run, which is the failure this section is about.
+- **Any `WOULD APPLY` line at all, or any count other than zero: stop and
+  report.** A pending file means either a migration reached the repository after
+  this list was last restated, or hosted is not where this document says it is.
 - **When a migration is added,** this list is restated in the same change that
   adds it, never in a follow-up: in between, the document would be wrong.
 
@@ -613,7 +617,11 @@ CLI 2.117.0) with the local anon key.** Both answers are HTTP 401 with code
   015 with the DDL event triggers suppressed (`session_replication_role =
   replica`) after a reload in 011's state.
 
-**Not observed hosted, and not observed with an `sb_publishable_` key.** Both
+**The fresh-cache string is now observed hosted.** The founder ran this step's
+blocks against `klrlpxysjsjpdkeqdhvl` on 2026-09-16, after the apply of 014-016,
+with the key this step's own block obtains, and the probe answered PASS on
+`permission denied for function ward_status_history`. **The stale-cache string
+has still never been seen hosted** -- it was planted locally. Both
 strings are vendor prose, which changes. That is why the probe below passes on
 one exact string only. **An answer matching NEITHER string is a FAILURE, never a
 pass**: a probe that passes once it stops understanding the answer is vacuous.
@@ -655,16 +663,17 @@ unset KEY BODY
 - **FAIL:** stop and report. Do not tick. Do not rewrite the expected string to
   match what came back without a new observation of both states.
 
-- [ ] Post-apply probe: `PASS`, recorded with its date
+- [x] Post-apply probe, 2026-09-16: **PASS**, matching the fresh-cache string `permission denied for function ward_status_history`
 
 ### After the apply: who owns the two SECURITY DEFINER writers
 
 **Why (R-2026-09-15-08, H2).** `app.project_facility` (008) and
 `app.regenerate_snapshot()` (016) run as their OWNER, so the owner's role
 attributes decide whether their reads and writes on the FORCE-RLS mirrors bypass
-RLS. Hosted `postgres` holds `rolbypassrls t` (observed 2026-09-15); the owner of
-these two functions on hosted has not been observed. Expected: `postgres`, the
-role that applied the migrations.
+RLS. Hosted `postgres` holds `rolbypassrls t` (observed 2026-09-15). **The owner
+was observed on 2026-09-16: both functions are owned by `postgres`,** the role
+that applies the migrations, which closes H2 in full (R-2026-09-16-02). The read
+below is kept as the check every future apply runs.
 
 The first line waits silently for the connection string; the last removes it.
 
@@ -676,17 +685,99 @@ unset DATABASE_URL
 
 - **PASS:** exactly two lines, `project_facility owner=postgres` and
   `regenerate_snapshot owner=postgres`. Record them with the date; this closes
-  H2's owner half.
+  H2's owner half. Recorded 2026-09-16, both lines exactly as above.
 - **Any other owner, or fewer than two lines: stop and report.** Do not change
   ownership by hand; a different owner changes what `row_security = off` and the
   mirrors' FORCE RLS mean for both functions.
 
-- [ ] Owners read: both `postgres`, recorded with their date
+- [x] Owners read, 2026-09-16: `project_facility owner=postgres` and `regenerate_snapshot owner=postgres`
+
+### After the apply: the reader policy is actually there
+
+**Why this exists (R-2026-09-16-02).** 016 creates `public.snapshot_current`'s one
+reader policy inside a `pg_policies`-guarded `DO` block, so psql echoes `DO`
+whether the block created the policy or found one already there. **The apply's own
+output cannot witness the policy.** Nor would an ordinary read notice its absence:
+`service_role` holds `rolbypassrls t` on hosted, so it returns the rows either
+way, and a missing policy would surface only at the platform change the policy
+exists to survive -- the restore or upgrade that clears that attribute. So the
+policy is read directly.
+
+This block only reads. The first line waits silently for the connection string;
+the last removes it.
+
+```bash
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -Atc "select policyname || ' | ' || cmd || ' | permissive=' || permissive || ' | roles=' || roles::text || ' | qual=' || coalesce(qual,'(null)') || ' | with_check=' || coalesce(with_check,'(null)') from pg_policies where schemaname = 'public' and tablename = 'snapshot_current' order by policyname"
+psql "$DATABASE_URL" -Atc "select relrowsecurity || ' ' || relforcerowsecurity from pg_class where oid = 'public.snapshot_current'::regclass"
+unset DATABASE_URL
+```
+
+**PASS: exactly one policy row, and exactly these two lines.**
+
+```
+snapshot_current_service_role_select | SELECT | permissive=PERMISSIVE | roles={service_role} | qual=true | with_check=(null)
+true true
+```
+
+**It is `true true`, not `t t`, and that is not a typo.** `relrowsecurity` and
+`relforcerowsecurity` are `boolean`, and concatenating a boolean into text renders
+`true` or `false`. `t` and `f` are only psql's column DISPLAY form, which `-Atc`
+with `||` never produces. The first draft of this step's ruling expected `t t`;
+the run printed `true true`. A stop condition that reads wrong on a correct run
+teaches whoever runs it to ignore stop conditions -- the same reason this step
+expresses the dry run as files rather than as a count.
+
+**Stop and report on anything else:** zero rows, more than one policy, or any
+difference in the name, the command, the role, the qualifier or the check.
+**Never create or alter the policy by hand.** Hosted would then carry a policy no
+migration produced, out of step with `database/migrations/016_snapshot.sql` and
+with `tests/db/snapshot.test.ts`, which asserts this exact shape on every run.
+
+- [x] Reader policy read, 2026-09-16: one row, `snapshot_current_service_role_select | SELECT | permissive=PERMISSIVE | roles={service_role} | qual=true | with_check=(null)`, and `true true`
+
+### After the apply: record the frozen boundary in the repository
+
+**Why (R-2026-09-16-03).** A migration recorded in hosted's `app.schema_migrations`
+has already run there, and editing the file afterwards makes this repository
+disagree with the database **silently** -- the ledger still holds the filename and
+the schema still holds the old shape. The rule is therefore a criterion, not a
+range: **frozen once ledgered.** `database/migrations/applied-hosted.json` is the
+one place the range lives, and `tests/compliance/frozen_migrations.test.ts` reds
+when a frozen file's bytes change.
+
+**That file cannot see hosted, so this step is what keeps it true.** Run it with
+the ledger count read in the block above -- not with a number from memory. The
+recorder refuses if that count and the repository's forward migrations disagree.
+
+```bash
+node scripts/freeze_applied_migrations.mjs 16 2026-09-16 R-2026-09-16-02
+```
+
+- **PASS:** it prints the count it recorded, and the first and last file. Commit
+  the updated `database/migrations/applied-hosted.json` in the pull request that
+  records this apply.
+- **A refusal is a stop condition, not a nudge to pass a different number.** It
+  means the repository and hosted are not at the same point: either a migration
+  is in the repo and unapplied, or hosted ran a file this checkout does not hold.
+- **Never run this to green a failing `frozen_migrations` test.** That test fails
+  because an applied migration was edited, and the fix for that is a new
+  migration.
+
+- [x] Frozen boundary recorded, 2026-09-16: 16 migrations, `001_app_schema_and_migration_ledger.sql` first, `016_snapshot.sql` last
 
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 013 already applied; the thirteen
-`already applied` lines are omitted below):
+**On the hosted project today** (001 through 016 already applied), the dry run
+prints sixteen `already applied` lines, no `WOULD APPLY` line, and:
+
+```
+0 migration(s) pending.
+```
+
+**On 2026-09-16, when 014-016 were still pending,** the same two commands printed
+this -- kept because it is what a project one apply behind looks like (the
+thirteen `already applied` lines are omitted):
 
 ```
   WOULD APPLY     : 014_publish_ward_status.sql                 <- dry run, first
@@ -729,6 +820,9 @@ unset DATABASE_URL
 Verified against a virgin local database on 2026-09-10: dry run 13 pending,
 apply `12 applied this run`, ledger 13 rows, second dry run 0 pending.
 
+Observed on hosted `klrlpxysjsjpdkeqdhvl` on 2026-09-16, after the apply of
+014-016: ledger **16 rows**, second dry run `0 migration(s) pending.`
+
 ### What happens if it dies partway -- documented, not discovered
 
 Each migration is applied with **both** `--single-transaction` and
@@ -762,7 +856,7 @@ Do **not** run `scripts/seed.sh`. It refuses any non-local database by design â€
 the seed inserts synthetic facilities that would be indistinguishable from real
 ones.
 
-- [ ] Every forward migration applied, `016_snapshot.sql` last; the second dry run reports `0 migration(s) pending.`
+- [x] Every forward migration applied, `016_snapshot.sql` last, 2026-09-16: ledger 16 rows, and the second dry run reported `0 migration(s) pending.`
 
 ---
 
@@ -930,13 +1024,18 @@ rather than implied by step 8:
 |---|---|---|
 | Hosted | 17.6.1.**166** | Management API, 2026-09-09 |
 | Local (`supabase start`) | 17.6.1.**167** | image `public.ecr.aws/supabase/postgres:17.6.1.167` |
-| **Client** used for the hosted apply | `psql` **18.6** (Homebrew keg-only `libpq`, see step P) | `psql --version`, 2026-09-13 |
+| **Client** used for the hosted apply of 001-013 | `psql` **18.6** (Homebrew keg-only `libpq`, see step P) | `psql --version`, 2026-09-13 |
+| **Client** used for the hosted apply of 014-016 | `psql` **18.6**, the same client | confirmed by the founder for the 2026-09-16 run (R-2026-09-16-03). **Not carried forward from the row above** -- an assumed client is the thing this row exists to prevent |
 
 **The client is newer than the server: psql 18.6 against server 17.6.1.166.**
 All thirteen migrations were applied to project `klrlpxysjsjpdkeqdhvl` through
 that client, and steps 6, 8 and 10 were run through it on 2026-09-13. This table
 previously recorded server versions only, which left the one tool every SQL
 result above passed through unrecorded.
+
+**Hosted now holds 001 through 016.** Migrations 014, 015 and 016 were applied on
+2026-09-16 (R-2026-09-16-02); step 5 carries that run's output, its post-apply
+probe, the owners read, the reader-policy read and the frozen-boundary record.
 
 **Same major and minor; the patch differs by one (166 vs 167).** No major-version
 divergence to reason about, and the earlier record of "17.6.1 both" was true at

@@ -607,7 +607,9 @@ REVOKE from PUBLIC, anon, authenticated and `service_role`; no grant in 016. A g
 
 - Golden-path `snapshot-regenerates` now verifies the republished count its description claims.
 - 003:98-101 and 003:129-132 name `app.lga_rollup`; the table is `public.lga_rollup`.
-  - **The ruling asked for 003 to be edited. The standing rule forbids editing applied migrations 001–013**, so the correction is recorded here and in 016's header instead.
+  - **The ruling asked for 003 to be edited. The standing rule forbids editing a migration once it is FROZEN — recorded in hosted's `app.schema_migrations`** — so the correction is recorded here and in 016's header instead.
+    - **The criterion is the rule; the range is an observation.** Which files are frozen is recorded in one place, `database/migrations/applied-hosted.json`, and is not restated in prose (R-2026-09-16-03).
+    - _Dated note: the window was 001–013 when this was written, and the apply of 2026-09-16 made it 001–016. 003 was frozen then and is frozen now, so this correction stands as recorded._
 
 ### After the merge — R-2026-09-15-06 and R-2026-09-15-07
 
@@ -675,6 +677,7 @@ _#26 merged at 9e77e9c (merge commit 984ff1b)._
 **H1 — the hosted hold is lifted.** The generator's owner holds BYPASSRLS, so `row_security = off` will not raise on hosted, and 016 is not dead on arrival. The hosted apply of 014–016 and work on 017's schedule are both unblocked.
 - **The apply is the founder's to run,** from the amended 016 on `main`, so C2's boundary holds.
 - **Three migrations arrive together:** hosted holds 001–013, so step 5's dry run shows three `WOULD APPLY` lines.
+  - _Superseded 2026-09-16 (R-2026-09-16-02): the apply ran, printed exactly those three lines, and hosted now holds 001–016._
 
 **H2 — R-2026-09-15-06 item (2) is closed, on observed attributes.** `postgres` holds BYPASSRLS on hosted, so 008's `project_facility` DELETEs on the FORCE-RLS mirrors do not silently remove nothing.
 - **One half rests on inference, stated rather than hidden.** A SECURITY DEFINER function runs as its OWNER, and the hosted owner of `project_facility` and `app.regenerate_snapshot()` has not been observed.
@@ -788,6 +791,70 @@ _Approved in substance at e133ff6, with three amendments and two precision point
 
 **Unchanged:** F2 and F3 discharge on their conditions; method notes 6 and 7 are accepted as written.
 
+### R-2026-09-16-01/02 — the hosted apply of 014-016
+
+_Run by the founder on hosted `klrlpxysjsjpdkeqdhvl`, 2026-09-16, from `main` at 2eed3ef. R-2026-09-16-02 supersedes the -01 paste block: same work, plus the reader-policy read and one corrected expected string. Everything below is **observed**, founder-run; Claude Code read the outputs, not the project._
+
+**The run.**
+- **Dry run:** 13 already applied; exactly three `WOULD APPLY` lines in apply order -- `014_publish_ward_status.sql`, `015_ward_status_history_text_category.sql`, `016_snapshot.sql`; `3 migration(s) pending.`
+- **Apply:** `Migrations complete (3 applied this run).`
+- **Ledger:** 16 rows; the second dry run `0 migration(s) pending.`
+- **Reload:** `NOTIFY`. **Probe:** PASS on `permission denied for function ward_status_history`, the fresh-cache string.
+- **Owners:** `project_facility owner=postgres`, `regenerate_snapshot owner=postgres`.
+- **Reader policy:** exactly one row -- `snapshot_current_service_role_select | SELECT | permissive=PERMISSIVE | roles={service_role} | qual=true | with_check=(null)` -- and `relrowsecurity`/`relforcerowsecurity` = `true true`.
+
+**H2 is CLOSED IN FULL.** Both SECURITY DEFINER writers are owned by `postgres`, which holds `rolbypassrls t` on hosted (R-2026-09-15-08).
+- **The inferred half is gone.** A SECURITY DEFINER function runs as its owner, and that owner is now observed.
+- So nothing in 008's `project_facility` DELETE behaviour, or 016's generator INSERT and mirror reads, rests on an unobserved attribute.
+
+**The reader policy is LIVE HOSTED, observed, with its exact shape.** R-2026-09-15-07 chose prevention over detection; that choice is now a control on hosted rather than an inference from a local run.
+- **Why the observation was needed, and why the apply could not supply it.** 016 creates the policy inside a `pg_policies`-guarded `DO` block, and psql echoes `DO` whether the block created the policy or found one. The apply's own output cannot witness it.
+- **And why nothing else would have caught it.** `service_role` holds BYPASSRLS hosted, so a missing policy reads identically until the platform change the policy exists to survive.
+
+**C2's BOUNDARY HELD, AND WAS OBSERVED.** The acceptance was that no durable database ever runs the pre-amendment 016.
+- **The evidence is the apply's own echo:** 016 printed **three** top-level `DO` blocks.
+- **That distinguishes the two versions.** At ca79b5d, 016 as first merged, there were **two** `DO` blocks and no `CREATE POLICY`; from 9e77e9c there are **three** and one. So hosted received the amended file, and the boundary is observed rather than asserted.
+
+**HOSTED NOW HOLDS 001-016.** Corrected in the same pass, each dated rather than rewritten: this record's R-08 line, the v2 kickoff's :70 marker, the 2026-09-15 handoff's location note, `docs/runbook-key-rotation.md`, and the runbook's step 5 and step 7.
+- **Step 5's dry-run expectation is restated** for a project at 016: no `WOULD APPLY` line and `0 migration(s) pending.` The three-line expectation would now read wrong on a correct run, which is the defect that section exists to warn about.
+
+**The runbook gap, closed in the same change.** Step 5 checked the schema cache and the function owners, and nothing read the policy. It now carries a third post-apply subsection, with the two-query read-only block, the exact PASS lines, the failure rule, and its own box.
+- **`true true`, not `t t`.** `relrowsecurity` is `boolean`, and concatenating a boolean into text renders `true`/`false`; `t`/`f` is psql's column display form only. The -01 draft said `t t`. Recorded because a stop condition that reads wrong on a correct run trains readers to ignore stop conditions.
+- **Never create or alter the policy by hand.** Hosted would then hold a policy no migration produced, out of step with 016 and with `tests/db/snapshot.test.ts`.
+
+**The reader-policy check adds no test, and that is deliberate.** The policy's exact shape is already asserted by `tests/db/snapshot.test.ts` on every run; hosted itself cannot be asserted from the repository, so it is a hand check with a box (Clause 4). _R-2026-09-16-02 said this change carried no test change at all. That was superseded within the same change by R-2026-09-16-03, which requires the frozen-migration guard below._
+
+**Not in scope, and untouched:** anything that changes hosted state, running the generator hosted, and 017's caller route, which stays the founder's and undecided.
+
+### R-2026-09-16-03 — the frozen window: a criterion, a discriminator, and a guard
+
+_Ruled while recording the apply above, on the branch carrying it. It supersedes R-2026-09-16-02's "docs only" and "no test change expected" framings._
+
+**The rule is a CRITERION, not a range. A migration is frozen once it is recorded in hosted's `app.schema_migrations`.**
+- **Restated in both live rules:** this record at the 003 correction, and the v2 kickoff's second standing rule. v2's failure-mode sentence is kept verbatim -- a Stage 1 fix quietly editing `004` on a branch that outlives the apply, after which the ledger and the schema disagree and nothing errors.
+- **The range is an observation with a date, and it lives in ONE place** both rules cite: `database/migrations/applied-hosted.json`. It was 001–013 until 2026-09-16 and is 001–016 now.
+- **Why:** a hardcoded range went stale at this apply and would go stale at every future one, in however many places it had been restated by then. It is step 5's own "express it as files, not a count", and `.claude/rules/test-conventions.md` §8's shared-fixture-link principle applied to prose.
+
+**LIVE RULES versus DATED RECORDS — the discriminator, recorded as method note 8 below.**
+- **Amended:** the two live rules only.
+- **Not amended, deliberately:** `docs/handoff-2026-09-10-stage-0-and-guard-sweep.md`, and the R-2026-09-15-08 line in this record saying hosted holds 001–013. Each describes a moment; each is superseded by a dated note, never rewritten. The precedents are the moved handoffs and 010's header.
+
+**R-2026-09-16-02's own sweep instruction was wrong, and is corrected rather than executed.**
+- It said to grep every present-tense "hosted holds 001–013" and fix each in the same pass. Executed literally, that edits `database/migrations/014_publish_ward_status.sql:12` -- "Empirical state at base: 001-013 applied".
+- **014 is frozen.** It was applied hosted on 2026-09-16, so the sweep instruction and the freeze rule contradicted each other, and **the rule wins**.
+- **014 is not edited.** Its line is now itself frozen, and this record is its correction -- the same idiom as 010's header. It is a worked example of the rule's reach: the sweep that records an apply can be the very thing that edits applied history.
+
+**The rule was enforced by nothing. It is now enforced by a guard, in the same change.**
+- **`database/migrations/applied-hosted.json`** records the project ref, the observed date, the ruling, the ledger count, and a sha256 per frozen forward file. `.down.sql` files are never applied hosted, so they are not frozen.
+- **`tests/compliance/frozen_migrations.test.ts`** asserts each frozen file's current hash, that the frozen list is a **contiguous prefix** of the migration sequence, and that its length equals the recorded ledger count.
+  - **The last two are the implementer's addition to the specified design.** The reflex to survive is not only "regenerate the hash" but "delete the row for the file I just edited". Contiguity plus the count makes that visible: greening a real edit then also means restating what hosted ran, which someone has to write down.
+  - **Its failure message names the defect and the right move** -- a new migration -- and never points at the recorder.
+- **Legs:** a plant editing a frozen file's bytes, a plant deleting an entry from the boundary, a plant deleting a frozen file, an ACCEPT over the real tree, a NEGATIVE CONTROL showing an unapplied `017` is untouched by the guard, and two anti-vacuity legs (an empty frozen list, a missing boundary file).
+- **`scripts/freeze_applied_migrations.mjs`** records the boundary from the ledger count read in the same session, and **refuses** when that count and the repository's forward migrations disagree rather than recording a mismatch nobody observed.
+- **Runbook step 5 gains the step that runs it,** so the file cannot drift from the ledger silently.
+
+**Also closed here:** the runbook's "the client used for that run is not recorded here". The founder confirmed `psql` **18.6** for the 2026-09-16 apply, so step 7 carries it as an observation of that run rather than a version carried forward from 2026-09-13.
+
 ## Method notes — how rulings reach the implementer
 
 _Standing rules, 2026-09-15. This record is their home._
@@ -820,6 +887,11 @@ _Standing rules, 2026-09-15. This record is their home._
    - **The fourth is the mirror case:** zsh `PIPESTATUS` FAILED, and the stated reason for the failure ("zsh arrays are 1-indexed") was wrong — zsh does not set `PIPESTATUS` at all. The shape holds in both directions, so the note is worded for both.
    - **How to apply:** when an explanation of why something works or fails is about to carry a decision, probe the explanation, not only the outcome.
    - **For the `scripts/` survey,** this is a sharper target than "does this run": is the stated reason it works, or fails, the actual reason.
+8. **A live rule is amended; a dated record is superseded** (R-2026-09-16-03). Before changing a sentence that has gone false, decide which it is.
+   - **A LIVE RULE binds future behaviour and must be correct now.** The two freeze rules are the example: left naming 001–013, they would have licensed editing 014.
+   - **A DATED RECORD describes a moment.** A handoff, a ruling block, an applied migration's header. It is superseded by a note -- at the top of its block, or in a later block -- and never rewritten. Editing one destroys the evidence of what was believed when a decision was taken.
+   - **This is the companion to note 6.** The pre-017 sweep targeted present-tense claims, and **the tense alone does not say whether a claim is a rule or a record.** Both read identically; only their function separates them.
+   - **Why it earned a note:** R-2026-09-16-02 instructed a present-tense sweep that, executed literally, would have edited an applied migration -- the rule and the instruction pointing in opposite directions.
 
 ---
 
@@ -855,7 +927,15 @@ _Standing rules, 2026-09-15. This record is their home._
   amendments: A1 (finding 6 in the family; the instance counts VERIFIED), A2 (the
   unit stated, the recount to 70 / 5 / 9 / 5 / 7, the enumeration committed), P1 (the
   ratchet mechanism) and P2 (superuser by default; GRANT SET ON PARAMETER named),
-  and the 2026-09-15 rulings handoff moved into `docs/`.
+  and the 2026-09-15 rulings handoff moved into `docs/`;
+- on 2026-09-16, the hosted apply of 014–016 (R-2026-09-16-01/02): H2 closed in
+  full, the reader policy observed live hosted, C2's boundary observed by the
+  three-`DO`-block echo, hosted recorded at 001–016 with every present-tense
+  statement corrected, and the runbook's new reader-policy check;
+- on 2026-09-16, the frozen window (R-2026-09-16-03): the freeze rule restated as
+  a criterion with one recorded boundary, the live-rule/dated-record discriminator
+  as method note 8, R-02's sweep instruction corrected rather than executed, and
+  the frozen-migration guard with its recorder and runbook step.
 
 **Does not change:**
 - v1:250 and v2:273 (O1);
