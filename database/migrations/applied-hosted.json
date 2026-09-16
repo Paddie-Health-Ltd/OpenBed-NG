@@ -1,0 +1,83 @@
+{
+  "//": [
+    "THE FROZEN BOUNDARY. This file records which forward migrations hosted has already run,",
+    "and it is the one home the freeze rule cites: a migration is frozen once it is recorded in",
+    "hosted app.schema_migrations. Editing a frozen file edits applied history -- hosted keeps the",
+    "bytes it ran, this repository would hold different ones, and nothing errors. The fix for a",
+    "defect in a frozen migration is ALWAYS a new migration.",
+    "SCOPE: forward files only. A .down.sql is never applied hosted, so it is not frozen here.",
+    "UPDATED ONLY BY A HOSTED APPLY: runbook step 5 regenerates it after the ledger check, and the",
+    "observed/ledger_rows/ruling fields below are the claim that the apply happened. Regenerating it",
+    "to green a failing build is the one thing it must never be used for."
+  ],
+  "project_ref": "klrlpxysjsjpdkeqdhvl",
+  "observed": "2026-09-16",
+  "ruling": "R-2026-09-16-02",
+  "ledger_rows": 16,
+  "frozen": [
+    {
+      "file": "001_app_schema_and_migration_ledger.sql",
+      "sha256": "dfa58747f3fd347bc7737f24d535452ac32b170529f09b7a1801a1b46a8b02d7"
+    },
+    {
+      "file": "002_enums.sql",
+      "sha256": "4b0dfcf12016ad5dd5f09945b0987faf2ff88ee1a9b0f659fd69aadda7bd1517"
+    },
+    {
+      "file": "003_app_facility_and_identity_tables.sql",
+      "sha256": "670bb1874d77eceba371baa659f99214d91e03119fa51457097d0c2c3d5d7205"
+    },
+    {
+      "file": "004_app_ward_status_tables.sql",
+      "sha256": "1117862ebde4a594b2b6b4e1f9167d8d83d43aa5a7a1d3c438833107971ae381"
+    },
+    {
+      "file": "005_app_audit_referral_outbox_tables.sql",
+      "sha256": "8f2015e96592de7c0e088194186a2e0298292412c5b4621096c7dd4bfad8f08d"
+    },
+    {
+      "file": "006_gate_function.sql",
+      "sha256": "2f2cd2052e3e85295898256287ce4b3352628c500c243306c01fe5dd2720a631"
+    },
+    {
+      "file": "007_public_projection_tables.sql",
+      "sha256": "f0ebb84d9acf10b25d10ad84da0dde412de1167beb4520d5b0db7656d62eab6c"
+    },
+    {
+      "file": "008_projection_triggers.sql",
+      "sha256": "26740193ae2edc46e8224d6dcd258bee29e2864a908ee0f0f5d7a15380ff2cd8"
+    },
+    {
+      "file": "009_lga_rollup_kfloor.sql",
+      "sha256": "5e6c423fe22d3e6eafca519135827b9ec0b33aba348d8730d2d689ab37275bd4"
+    },
+    {
+      "file": "010_append_only_enforcement.sql",
+      "sha256": "7200a6f64a94b46cf7c191585d8a01c08388873443ab86264a971083d1def6bc"
+    },
+    {
+      "file": "011_read_rpcs_capped.sql",
+      "sha256": "ca1997dbbe440e0422c523c56f489732fbc2d48710628f1d0f89d14bebe6db3d"
+    },
+    {
+      "file": "012_indexes.sql",
+      "sha256": "e9d6068cefa18cff0a54a7ffb9909cf62b94f60272452060c88186dc84f282d8"
+    },
+    {
+      "file": "013_realtime_publication_and_grant_sweep.sql",
+      "sha256": "9ad2e19fd59992d745081a4fa357afc52bb8d1224664f128de6b651c024f5dee"
+    },
+    {
+      "file": "014_publish_ward_status.sql",
+      "sha256": "b837e3e22373fcc1fcb5e24ce46f2d6e45d9b46208ba0a4e1e61d2633401a33d"
+    },
+    {
+      "file": "015_ward_status_history_text_category.sql",
+      "sha256": "7a70cffdd8815c3bff3910d9e2656835def1677779604bdc68dbea33098a3c4f"
+    },
+    {
+      "file": "016_snapshot.sql",
+      "sha256": "b872a3e06649b086103643315b88e8d6b40dc33913ed0c2df69431f65a97d098"
+    }
+  ]
+}

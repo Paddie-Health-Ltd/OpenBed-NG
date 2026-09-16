@@ -111,6 +111,13 @@ returns a non-200 **whether the old key is dead or alive** — and `-o /dev/null
 discards the one thing that tells them apart. A "not 200" checkbox passes on the
 404 and records a rotation that was never demonstrated.
 
+**Updated 2026-09-16.** Hosted now holds migrations 001-016, so
+`public.ward_public` exists there and this endpoint no longer 404s for that
+reason: a live legacy key would now answer **200** and a dead one **401**. The
+defect below is unchanged, and so is the fix -- `-o /dev/null` discards the body
+that tells the readings apart, and the 404 era is exactly how a "not 200"
+checkbox came to pass on nothing.
+
 The general form of the defect: **a probe whose pass condition is satisfied by
 its own precondition being absent.** Same shape as an anti-vacuity failure, and
 the same fix — name the expected signal exactly, and read the body that carries

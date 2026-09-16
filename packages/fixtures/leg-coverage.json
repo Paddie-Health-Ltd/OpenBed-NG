@@ -8,10 +8,10 @@
     "immutable": "THIS IS A HISTORICAL RECORD AND DOES NOT MOVE. The ratchet asserts the CURRENT reached count is >= this figure, so progress is free and regression is not. Restating it would destroy the only number that says where this started."
   },
   "current": {
-    "legs_total": 183,
-    "reached": 161,
+    "legs_total": 191,
+    "reached": 169,
     "registered": 22,
-    "note": "MEASURED, and updated whenever legs are added or closed. THE 2026-09-14 MOVE 126 -> 136 / 105 -> 115 IS TEN NEW LEGS, ALL PROVED IN THE SAME CHANGE: scripts/attest_counts.mjs gained five refusals -- no closing </testsuites>, no declared root totals, and declared tests / failures / errors disagreeing with the file -- each with two failure messages, and tests/compliance/attest_counts.test.ts plants every one and asserts both lines. The registered count does not move, no leg elsewhere changed state, and the ruler did not change. THE 2026-09-13 MOVE 115 -> 126 / 94 -> 105 IS ELEVEN NEW LEGS, ALL PROVED IN THE SAME CHANGE: scripts/get_extra_search_path.sh arrived with a plant asserting every one of its failure messages, so the registered count does not move. No leg elsewhere changed state and the ruler did not change. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started. THE 2026-09-12 MOVE 82 -> 86 IS TWO DIFFERENT THINGS AND MUST NOT BE READ AS ONE: three legs on run_migrations.sh were newly PROVED by plants written in that change, and one -- \"no forward migrations found in\" -- flipped SOLELY because the evidence corpus widened to reach tests/db. That fourth leg had been proved by tests/db/migration_runner_atomicity.test.ts since 2026-09-09 and recorded as unproved for three days. A figure that moves because the ruler changed is not progress, and the two are separated here so nobody later reads four where the work was three. THE 2026-09-15 MOVE 136 -> 183 / 115 -> 161 IS 47 NEW LEGS FROM THREE TRACKED VERIFICATION INSTRUMENTS (ruling R-2026-09-15-03): scripts/neuter.sh, scripts/neuter_plant.mjs and scripts/predict_counts.mjs, 45 of them proved in the same change; the two registered (no-seam) are neuter.sh checks that sit behind neuter_plant.mjs refusals. gate.sh check(s) did not pass moved from registered to reached, closed by tests/compliance/runner_aggregation.test.ts, which is the injectable check list its closes_with named. A FIRST VERSION of both .mjs instruments routed refusals through a helper taking an array of messages, and this register saw no legs in neuter_plant.mjs at all: test-conventions section 2(d), reproduced while building an instrument, fixed by literal console.error at every site."
+    "note": "THE 2026-09-16 MOVE 183 -> 191 / 161 -> 169 IS EIGHT NEW LEGS, ALL PROVED IN THE SAME CHANGE: scripts/freeze_applied_migrations.mjs is the recorder for the frozen boundary (ruling R-2026-09-16-03), run by hand once per hosted apply from runbook step 5, so nothing else exercises its refusals. tests/compliance/freeze_applied_migrations.test.ts plants every one -- no arguments, a malformed date, a non-integer ledger count, a count disagreeing with the repository, and an empty migration directory -- and asserts each message. The script takes an optional repository root as its FOURTH argument for the same reason every lint in scripts/ takes one as $1: without that seam the empty-directory refusal could not be reached by a plant, because a plant is by construction not this repository. The registered count does not move and no leg elsewhere changed state. MEASURED, and updated whenever legs are added or closed. THE 2026-09-14 MOVE 126 -> 136 / 105 -> 115 IS TEN NEW LEGS, ALL PROVED IN THE SAME CHANGE: scripts/attest_counts.mjs gained five refusals -- no closing </testsuites>, no declared root totals, and declared tests / failures / errors disagreeing with the file -- each with two failure messages, and tests/compliance/attest_counts.test.ts plants every one and asserts both lines. The registered count does not move, no leg elsewhere changed state, and the ruler did not change. THE 2026-09-13 MOVE 115 -> 126 / 94 -> 105 IS ELEVEN NEW LEGS, ALL PROVED IN THE SAME CHANGE: scripts/get_extra_search_path.sh arrived with a plant asserting every one of its failure messages, so the registered count does not move. No leg elsewhere changed state and the ruler did not change. The baseline above is the historical record and does not move; the ratchet asserts current.reached >= baseline.reached, so progress is free and regression is not. Restating the baseline would destroy the only number that says where this started. THE 2026-09-12 MOVE 82 -> 86 IS TWO DIFFERENT THINGS AND MUST NOT BE READ AS ONE: three legs on run_migrations.sh were newly PROVED by plants written in that change, and one -- \"no forward migrations found in\" -- flipped SOLELY because the evidence corpus widened to reach tests/db. That fourth leg had been proved by tests/db/migration_runner_atomicity.test.ts since 2026-09-09 and recorded as unproved for three days. A figure that moves because the ruler changed is not progress, and the two are separated here so nobody later reads four where the work was three. THE 2026-09-15 MOVE 136 -> 183 / 115 -> 161 IS 47 NEW LEGS FROM THREE TRACKED VERIFICATION INSTRUMENTS (ruling R-2026-09-15-03): scripts/neuter.sh, scripts/neuter_plant.mjs and scripts/predict_counts.mjs, 45 of them proved in the same change; the two registered (no-seam) are neuter.sh checks that sit behind neuter_plant.mjs refusals. gate.sh check(s) did not pass moved from registered to reached, closed by tests/compliance/runner_aggregation.test.ts, which is the injectable check list its closes_with named. A FIRST VERSION of both .mjs instruments routed refusals through a helper taking an array of messages, and this register saw no legs in neuter_plant.mjs at all: test-conventions section 2(d), reproduced while building an instrument, fixed by literal console.error at every site."
   },
   "guards": {
     "attest_counts.mjs": {
@@ -76,6 +76,32 @@
         "reason": "could-not-run",
         "why": "Fires only when `git diff --cached --quiet` exits above 1 -- a corrupt index or a resource failure. Planting it needs a repository whose index git cannot read, and a deliberately corrupted index is not a portable construction.",
         "closes_with": "A portable way to make git fail to read an index, verified on both macOS and the CI runner. Shares its seam with every other could-not-run leg in this register."
+      }
+    },
+    "freeze_applied_migrations.mjs": {
+      "usage: node scripts/freeze_applied_migrations.mjs <ledger-rows> <YYYY-MM-DD> <ruling-id> [root]": {
+        "state": "reached"
+      },
+      "All three come from the hosted apply that was just run, not from this repository.": {
+        "state": "reached"
+      },
+      "is not YYYY-MM-DD. It is the date the ledger was read hosted.": {
+        "state": "reached"
+      },
+      "is not a positive integer.": {
+        "state": "reached"
+      },
+      "refusing to record an empty boundary.": {
+        "state": "reached"
+      },
+      "ledger rows, this repository holds": {
+        "state": "reached"
+      },
+      "Recording that mismatch would assert something nobody observed. Stop and report instead": {
+        "state": "reached"
+      },
+      "either an unapplied migration is in the repo, or hosted ran a file this checkout does not have.": {
+        "state": "reached"
       }
     },
     "gate.sh": {
@@ -388,146 +414,6 @@
         "state": "reached"
       }
     },
-    "provision_ward_account.mjs": {
-      "usage: node scripts/provision_ward_account.mjs --email <addr> --facility <uuid> --category <ward_category> [--role WARD_STAFF]": {
-        "state": "reached"
-      },
-      "SUPABASE_SERVICE_ROLE_KEY is not set — refusing to guess a credential": {
-        "state": "reached"
-      },
-      "GoTrue returned a non-JSON body (HTTP": {
-        "state": "registered",
-        "reason": "no-seam",
-        "why": "Fires only on a GoTrue response of a specific shape -- a non-200 from admin/generate_link, a 200 with no user id, or a non-JSON body. Reaching it needs a stub GoTrue that returns a crafted response, and no such seam exists: the script takes SUPABASE_API_URL but nothing in the repo serves a scripted reply on it. The unreachable-host leg IS planted, so the transport failure path is covered; these three are the shapes a REACHABLE but misbehaving GoTrue would produce.",
-        "closes_with": "A tiny scripted HTTP responder bound to a scratch port, pointed at via SUPABASE_API_URL, returning one canned body per plant."
-      },
-      "admin/generate_link refused the invite (HTTP": {
-        "state": "registered",
-        "reason": "no-seam",
-        "why": "Fires only on a GoTrue response of a specific shape -- a non-200 from admin/generate_link, a 200 with no user id, or a non-JSON body. Reaching it needs a stub GoTrue that returns a crafted response, and no such seam exists: the script takes SUPABASE_API_URL but nothing in the repo serves a scripted reply on it. The unreachable-host leg IS planted, so the transport failure path is covered; these three are the shapes a REACHABLE but misbehaving GoTrue would produce.",
-        "closes_with": "A tiny scripted HTTP responder bound to a scratch port, pointed at via SUPABASE_API_URL, returning one canned body per plant."
-      },
-      "admin/generate_link returned no auth user id. Keys": {
-        "state": "registered",
-        "reason": "no-seam",
-        "why": "Fires only on a GoTrue response of a specific shape -- a non-200 from admin/generate_link, a 200 with no user id, or a non-JSON body. Reaching it needs a stub GoTrue that returns a crafted response, and no such seam exists: the script takes SUPABASE_API_URL but nothing in the repo serves a scripted reply on it. The unreachable-host leg IS planted, so the transport failure path is covered; these three are the shapes a REACHABLE but misbehaving GoTrue would produce.",
-        "closes_with": "A tiny scripted HTTP responder bound to a scratch port, pointed at via SUPABASE_API_URL, returning one canned body per plant."
-      },
-      "provisioning failed for": {
-        "state": "reached"
-      }
-    },
-    "run_e2e.sh": {
-      "phase 1 produced no junit-e2e.xml — the golden path did not run at all.": {
-        "state": "registered",
-        "reason": "could-not-run",
-        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
-        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
-      }
-    },
-    "run_migrations.sh": {
-      "COUNT(*) returned no value for $1 -- the ledger query did not run.": {
-        "state": "reached"
-      },
-      "migration directory not found at": {
-        "state": "registered",
-        "reason": "no-seam",
-        "why": "No guard-over-a-guard test file exists for this script yet.",
-        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
-      },
-      "no forward migrations found in": {
-        "state": "reached"
-      },
-      "psql not on PATH. Install postgresql-client, or set OPENBED_PSQL.": {
-        "state": "registered",
-        "reason": "no-seam",
-        "why": "No guard-over-a-guard test file exists for this script yet.",
-        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
-      },
-      "the configured psql exited 0 but did not answer SELECT 1.": {
-        "state": "reached"
-      },
-      "the database was not queried.": {
-        "state": "reached"
-      },
-      "unknown option $1": {
-        "state": "registered",
-        "reason": "no-seam",
-        "why": "No guard-over-a-guard test file exists for this script yet.",
-        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
-      }
-    },
-    "scan_bundle_credentials.mjs": {
-      "service-role credential reachable from a built client bundle": {
-        "state": "reached"
-      },
-      "more in this file": {
-        "state": "reached"
-      },
-      "no files given to scan -- the bundle scan did not run": {
-        "state": "reached"
-      },
-      "Usage: node scripts/scan_bundle_credentials.mjs <file> [<file>...]": {
-        "state": "reached"
-      },
-      "as JavaScript -- comment stripping needs a real parse, so the bundle scan did not run.": {
-        "state": "reached"
-      },
-      "the bundle file is unreadable, so nothing was scanned": {
-        "state": "registered",
-        "reason": "could-not-run",
-        "why": "Fires only when a built bundle exists and cannot be read. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested -- a root user reads a 000 file and the plant would silently prove nothing.",
-        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner. Shared with every other could-not-run leg here."
-      }
-    },
-    "seed.sh": {
-      "seed data is synthetic and must never reach a non-local database.": {
-        "state": "reached"
-      },
-      "seed directory not found at": {
-        "state": "registered",
-        "reason": "no-seam",
-        "why": "No guard-over-a-guard test file exists for this script yet.",
-        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
-      },
-      "no seed files found in": {
-        "state": "registered",
-        "reason": "no-seam",
-        "why": "No guard-over-a-guard test file exists for this script yet.",
-        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
-      },
-      "psql not on PATH. Install postgresql-client, or set OPENBED_PSQL.": {
-        "state": "registered",
-        "reason": "no-seam",
-        "why": "No guard-over-a-guard test file exists for this script yet.",
-        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
-      }
-    },
-    "tests/compliance/_legs.ts": {
-      "leg parser could not parse this script, so its legs were never enumerated": {
-        "state": "reached"
-      }
-    },
-    "tests/compliance/leg_coverage.test.ts": {
-      "is not in the register — add it as reached or registered": {
-        "state": "reached"
-      },
-      "is marked reached but no test asserts its message": {
-        "state": "reached"
-      },
-      "IS now reached — delete its register entry": {
-        "state": "reached"
-      },
-      ", which is not one of the allowed reasons": {
-        "state": "reached"
-      },
-      "is registered with no reason given": {
-        "state": "reached"
-      },
-      ", which no longer exists in the script": {
-        "state": "reached"
-      }
-    },
     "neuter.sh": {
       ", which does not exist under": {
         "state": "reached"
@@ -676,6 +562,146 @@
         "state": "reached"
       },
       "carries keys this script does not accept": {
+        "state": "reached"
+      }
+    },
+    "provision_ward_account.mjs": {
+      "usage: node scripts/provision_ward_account.mjs --email <addr> --facility <uuid> --category <ward_category> [--role WARD_STAFF]": {
+        "state": "reached"
+      },
+      "SUPABASE_SERVICE_ROLE_KEY is not set — refusing to guess a credential": {
+        "state": "reached"
+      },
+      "GoTrue returned a non-JSON body (HTTP": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "Fires only on a GoTrue response of a specific shape -- a non-200 from admin/generate_link, a 200 with no user id, or a non-JSON body. Reaching it needs a stub GoTrue that returns a crafted response, and no such seam exists: the script takes SUPABASE_API_URL but nothing in the repo serves a scripted reply on it. The unreachable-host leg IS planted, so the transport failure path is covered; these three are the shapes a REACHABLE but misbehaving GoTrue would produce.",
+        "closes_with": "A tiny scripted HTTP responder bound to a scratch port, pointed at via SUPABASE_API_URL, returning one canned body per plant."
+      },
+      "admin/generate_link refused the invite (HTTP": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "Fires only on a GoTrue response of a specific shape -- a non-200 from admin/generate_link, a 200 with no user id, or a non-JSON body. Reaching it needs a stub GoTrue that returns a crafted response, and no such seam exists: the script takes SUPABASE_API_URL but nothing in the repo serves a scripted reply on it. The unreachable-host leg IS planted, so the transport failure path is covered; these three are the shapes a REACHABLE but misbehaving GoTrue would produce.",
+        "closes_with": "A tiny scripted HTTP responder bound to a scratch port, pointed at via SUPABASE_API_URL, returning one canned body per plant."
+      },
+      "admin/generate_link returned no auth user id. Keys": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "Fires only on a GoTrue response of a specific shape -- a non-200 from admin/generate_link, a 200 with no user id, or a non-JSON body. Reaching it needs a stub GoTrue that returns a crafted response, and no such seam exists: the script takes SUPABASE_API_URL but nothing in the repo serves a scripted reply on it. The unreachable-host leg IS planted, so the transport failure path is covered; these three are the shapes a REACHABLE but misbehaving GoTrue would produce.",
+        "closes_with": "A tiny scripted HTTP responder bound to a scratch port, pointed at via SUPABASE_API_URL, returning one canned body per plant."
+      },
+      "provisioning failed for": {
+        "state": "reached"
+      }
+    },
+    "run_e2e.sh": {
+      "phase 1 produced no junit-e2e.xml — the golden path did not run at all.": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when the check itself fails to execute. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner."
+      }
+    },
+    "run_migrations.sh": {
+      "COUNT(*) returned no value for $1 -- the ledger query did not run.": {
+        "state": "reached"
+      },
+      "migration directory not found at": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      },
+      "no forward migrations found in": {
+        "state": "reached"
+      },
+      "psql not on PATH. Install postgresql-client, or set OPENBED_PSQL.": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      },
+      "the configured psql exited 0 but did not answer SELECT 1.": {
+        "state": "reached"
+      },
+      "the database was not queried.": {
+        "state": "reached"
+      },
+      "unknown option $1": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      }
+    },
+    "scan_bundle_credentials.mjs": {
+      "service-role credential reachable from a built client bundle": {
+        "state": "reached"
+      },
+      "more in this file": {
+        "state": "reached"
+      },
+      "no files given to scan -- the bundle scan did not run": {
+        "state": "reached"
+      },
+      "Usage: node scripts/scan_bundle_credentials.mjs <file> [<file>...]": {
+        "state": "reached"
+      },
+      "as JavaScript -- comment stripping needs a real parse, so the bundle scan did not run.": {
+        "state": "reached"
+      },
+      "the bundle file is unreadable, so nothing was scanned": {
+        "state": "registered",
+        "reason": "could-not-run",
+        "why": "Fires only when a built bundle exists and cannot be read. Planting it needs an unreadable-input seam (chmod 000), whose behaviour under a root CI user is untested -- a root user reads a 000 file and the plant would silently prove nothing.",
+        "closes_with": "A seam that makes an input unreadable portably, verified on both macOS and the CI runner. Shared with every other could-not-run leg here."
+      }
+    },
+    "seed.sh": {
+      "seed data is synthetic and must never reach a non-local database.": {
+        "state": "reached"
+      },
+      "seed directory not found at": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      },
+      "no seed files found in": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      },
+      "psql not on PATH. Install postgresql-client, or set OPENBED_PSQL.": {
+        "state": "registered",
+        "reason": "no-seam",
+        "why": "No guard-over-a-guard test file exists for this script yet.",
+        "closes_with": "A test file on the lint_no_replica_identity_full.test.ts shape."
+      }
+    },
+    "tests/compliance/_legs.ts": {
+      "leg parser could not parse this script, so its legs were never enumerated": {
+        "state": "reached"
+      }
+    },
+    "tests/compliance/leg_coverage.test.ts": {
+      "is not in the register — add it as reached or registered": {
+        "state": "reached"
+      },
+      "is marked reached but no test asserts its message": {
+        "state": "reached"
+      },
+      "IS now reached — delete its register entry": {
+        "state": "reached"
+      },
+      ", which is not one of the allowed reasons": {
+        "state": "reached"
+      },
+      "is registered with no reason given": {
+        "state": "reached"
+      },
+      ", which no longer exists in the script": {
         "state": "reached"
       }
     }

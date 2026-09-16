@@ -67,13 +67,15 @@ All nine were verified against the files during scoping, not inferred. Six are d
 
 ## The migration window
 
-The founder's next irreversible step is applying migrations 001–013 to hosted, with a stop condition of **exactly 13 pending**. A `014_*.sql` merged to `main` before that makes the dry run report 14 and the founder stops — a self-inflicted block on the last step of the hosted setup. **[SWEEP 2026-09-15: SUPERSEDED — the count rule became "the stop condition names files" (runbook step 5, founder ruling (c) below). Hosted holds 001–013; its next apply brings in 014, 015 and 016 together, three named `WOULD APPLY` lines.]**
+The founder's next irreversible step is applying migrations 001–013 to hosted, with a stop condition of **exactly 13 pending**. A `014_*.sql` merged to `main` before that makes the dry run report 14 and the founder stops — a self-inflicted block on the last step of the hosted setup. **[SWEEP 2026-09-15: SUPERSEDED — the count rule became "the stop condition names files" (runbook step 5, founder ruling (c) below). Hosted held 001–013 when this was marked; on 2026-09-16 that apply ran -- three named `WOULD APPLY` lines, all three applied -- and hosted now holds 001–016 (R-2026-09-16-02).]**
 
 **This resolves itself, and no coordination is required, because Stage 0 contains no migrations at all.** The spine touches `tests/`, `scripts/`, `packages/` and `.github/` only. By the time Stage 1 needs `014`, the apply is done.
 
 Two rules follow, and they hold for the rest of the project:
 
-- **Do not edit 001–013.** Treat the window as closed from today rather than from the moment the apply lands. Every fix above is `014` or later. The failure mode being prevented is a Stage 1 fix quietly editing `004` on a branch that outlives the apply, after which the ledger and the schema disagree and nothing errors.
+- **Do not edit a FROZEN migration — one already recorded in hosted's `app.schema_migrations`.** Treat the window as closed from today rather than from the moment the apply lands. Every fix to a frozen file is a new migration. The failure mode being prevented is a Stage 1 fix quietly editing `004` on a branch that outlives the apply, after which the ledger and the schema disagree and nothing errors.
+  - **The criterion is the rule; the range is an observation with a date,** recorded in one place, `database/migrations/applied-hosted.json`, and enforced by `tests/compliance/frozen_migrations.test.ts` (R-2026-09-16-03). A range restated in prose goes stale at every apply, which is this step's own "files, not a count" reasoning.
+  - _Dated note: the window was 001–013 until the hosted apply of 2026-09-16, and is now 001–016._
 - **If the apply slips past Stage 0,** do not hold the sprint. Restate the runbook's stop condition as *the thirteen named files* rather than a count, and say so in the pasteback so the founder is not reading a number that has moved.
 
 Everything else — `tests/`, `scripts/`, `apps/`, `packages/`, `.github/` — merges freely throughout. Nothing in Stages 0–5 needs the hosted project: `db-tests` and the new E2E job provision their own local stack and local GoTrue is a real GoTrue.
