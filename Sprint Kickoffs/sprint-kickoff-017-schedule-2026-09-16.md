@@ -3,12 +3,12 @@ Date: 2026-09-16 | Prepared by: Cowork sprint-push
 Base: `main` at `af36ba1`. Hosted holds 001-016. Nothing open.
 
 **File location note.** Written in `cowork-handoff/`, outside the repo, and moved
-here with the 017 PR as the founder directed. The body below is the 349-line
-version of 2026-09-16 (R-2026-09-16-10) with one change: the Bundle 2 line on
+here with the 017 PR as the founder directed. The body below is the 371-line
+version of 2026-09-16 (R-2026-09-16-12) with one change: the Bundle 2 line on
 `packages/fixtures/leg-coverage.json` is struck, with its dated correction, as
-R-2026-09-16-11 directed. The R-2026-09-16-07 to -11 blocks in
+R-2026-09-16-11 directed. The R-2026-09-16-07 to -12 blocks in
 `Sprint Kickoffs/decision-2026-09-14-public-private-split.md` record what the
-Bundle 0 probes found and the three places this document disagreed with itself.
+Bundle 0 probes found and how this document's contradictions were corrected.
 
 ## Division of responsibilities
 
@@ -78,9 +78,14 @@ with the command and its raw output:**
 - [ ] What schema does it land in, and what is in `cron.job`'s column list?
 - [ ] Can `postgres` call `cron.schedule(name, schedule, command)` and does the
       3-argument by-name form **upsert** on re-run, or does it create a duplicate?
-      Migration idempotency depends on the answer and
-      `tests/db/migration_idempotency.test.ts` will catch it either way — better
-      to know before writing the file than to discover it in a red.
+      Migration idempotency depends on the answer, and **nothing existing would
+      catch a duplicate** — `tests/db/migration_idempotency.test.ts` asserts
+      re-application is a no-op against the SCHEMA, and a second `cron.job` row is
+      DATA. That is why the duplicate check is Bundle 2's, not something already
+      covered. _Corrected 2026-09-16 (R-2026-09-16-11): this question previously
+      said migration_idempotency "will catch it either way". R-09 withdrew that
+      claim in Bundle 2 and this line was left standing — the withdrawal and the
+      claim sat eleven lines apart in one document._
 - [ ] Does a scheduled job actually fire locally, and does `cron.job_run_details`
       exist on this pg_cron version? If runs are not recorded, Bundle 2 asserts
       the job's existence and configuration only, and says so rather than
@@ -269,10 +274,27 @@ the job can be present and not reaching: unscheduled, scheduled-but-off,
 scheduled-wrong, and scheduled-as-the-wrong-role. Dropping any one leaves a
 Clause 5 hole.
 
-**Blast radius:** n/a — new test file, no existing assertion changed.
+**Blast radius:** NOT n/a. _Corrected 2026-09-16 (R-2026-09-16-11): this read
+"n/a — new test file", written before R-09 and R-10 added the pause. It was wrong
+by the time those landed._ This bundle now reaches:
+- `tests/setup/global-setup.ts` — the db run's pause, and the loud failure if it
+  cannot pause;
+- the e2e run's pause and `scripts/seed.sh`, which is where the window from
+  migration to end-of-run is actually closed;
+- `tests/e2e/golden-path.test.ts` step 9, whose comment changes to say its subject
+  is its OWN call;
+- `tests/db/migration_idempotency.test.ts` — unchanged in text, but its freedom
+  from the live jobs now depends on the pause holding. That dependency is the
+  thing to re-check if the pause ever moves.
 
-**Definition of done:** all three plants demonstrated red and the real repository
-green, with the plant-landed confirmation shown.
+**Definition of done:** **every plant in the task list above** demonstrated red,
+each one named with its result, and the real repository green, with the
+plant-landed confirmation shown. _Corrected 2026-09-16 (R-2026-09-16-11): this
+said "all three plants" while the list had grown well past three. Second stated
+count in this document to disagree with its own list — see Bundle 0's done-line.
+Both are now expressed as the list. A count written beside a list that is still
+being edited is a defect waiting for the next edit, and this document produced two
+of them in one sitting._
 
 ### Bundle 3: the records — and the carry obligation this PR discharges
 

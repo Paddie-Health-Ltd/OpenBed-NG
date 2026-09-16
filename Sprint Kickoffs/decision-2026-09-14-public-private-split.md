@@ -951,6 +951,27 @@ _Ruled by Cowork on afbd51c. Verified independently by the founder: parent af36b
 
 **Also corrected by R-11, as Cowork's:** the kickoff's Bundle 2 line registering new legs in `packages/fixtures/leg-coverage.json`. That register covers guard scripts in `scripts/` only, and correctly does not move. The line is struck in the moved copy.
 
+### R-2026-09-16-12 — the kickoff corrected; R-11's two false premises recorded as Cowork's
+
+_Ruled by Cowork after 839241a, which it accepted as built with no changes._
+
+**R-11's premises, withdrawn by Cowork as its own errors.** The pause's reason is not restated from R-11 anywhere, because that reason did not survive.
+- **"Step 9 can be green with the generator broken": false.** The disproof needed no run. The job calls the same function, so a broken generator breaks the job's runs too, and `v` moves from neither source. The millisecond gap between the step's two reads of `v` is why the claim never held, and the 4-of-4 with the step's own call removed is the observation. Cowork's own summary: R-11 asserted a failure mode from reading the source in the same breath as insisting a fix is accepted by executing it.
+- **"The seeding collision is a flake": not reproduced.** 3 of 3 clean with a one-second rollup job. The accurate record is "a rare window, not a flake", and that wording replaces R-11's.
+- **The pause stands on the justification that held:** the step's evidence stays attributable to its own call, and the rare collision window is closed.
+
+**The kickoff's three contradictions, fixed by Cowork with dated R-11 notes** in `Sprint Kickoffs/sprint-kickoff-017-schedule-2026-09-16.md`:
+- Q3's "`migration_idempotency` will catch it either way" is replaced by why nothing existing catches a duplicate (it asserts schema, and a second `cron.job` row is data), which is why the check is Bundle 2's.
+- Bundle 2's "Blast radius: n/a" is replaced by its real reach, including `migration_idempotency`'s new dependency on the pause holding, named as the thing to re-check if the pause ever moves.
+- Bundle 2's "all three plants" is replaced by the list. It was the second count in that document to disagree with its own list.
+
+**Checked when the corrected kickoff was recopied (observed):**
+- **Premise that did not hold.** The Q3 correction note says the claim and R-09's withdrawal "sat eleven lines apart". Before the fix they were at l.74 and l.234 of the `cowork-handoff/` original (l.82 and l.242 of the copy committed at afbd51c). That is **160 lines**, not eleven. The note is Cowork's dated correction and is left as written. The withdrawal line still cites the claim as "line 71", a stale line reference.
+- **Complete as far as it goes.** The corrected blast radius does not name `database/local/pause_scheduled_jobs.sql`, `tests/setup/db.ts` or `tests/db/scheduled_jobs_paused.test.ts`. Incomplete rather than false; reported, not edited.
+- **The moved copy** is the corrected original plus its location note and the R-11 strike of the leg-coverage line, which the original does not carry.
+
+**Next, in order:** Cowork reviews the PR head; it merges; the hosted apply is the founder's (check pg_cron, apply, check the jobs, record the frozen boundary at 17). That apply discharges the OWED move of the frozen_migrations placeholder to 018.
+
 ## Method notes — how rulings reach the implementer
 
 _Standing rules, 2026-09-15. This record is their home._
@@ -1038,7 +1059,11 @@ _Standing rules, 2026-09-15. This record is their home._
 - on 2026-09-16, migration 017 (R-2026-09-16-07 to -10): the route, the rollup
   job closing v2's finding 1 with its repair and the probe that justifies it, the
   withdrawn kickoff claims, suite isolation and condition F as two mechanisms,
-  the R-04 watch item carried in, and a supersede note on decision 1's "stays OPEN".
+  the R-04 watch item carried in, and a supersede note on decision 1's "stays OPEN";
+- on 2026-09-16, R-2026-09-16-11 and -12: the pause widened from migration to end
+  of run through `scripts/seed.sh`, its leg and plants, the frozen_migrations
+  placeholder recorded as OWED, R-11's two premises checked and recorded as
+  failed, and the kickoff's three contradictions corrected by Cowork.
 
 **Does not change:**
 - v1:250 and v2:273 (O1);
