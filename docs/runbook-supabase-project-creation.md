@@ -567,6 +567,23 @@ bash scripts/run_migrations.sh --dry-run
 unset DATABASE_URL
 ```
 
+**An error naming a database with a leading or trailing space -- `psql: database
+"postgres " does not exist` -- is a stray character in the pasted connection
+string, not a missing database.** `read -rs` hides what you paste, by design, so a
+trailing space is invisible and will recur. Re-paste the string; do not
+investigate the project. Observed on hosted 2026-09-17, on the first dry run of
+017's apply (R-2026-09-17-01).
+
+**What held on that run is the reason this is recorded, not the typo.**
+`scripts/run_migrations.sh` refused to report ANY migration count over the failed
+connection: it printed psql's error and "NO MIGRATION COUNT IS REPORTED", and
+exited 3. A count over a dead connection is indistinguishable from one taken
+against a virgin database, and that count is this step's stop condition. That is
+`.claude/rules/test-conventions.md`'s "a check that could not run must never report
+a verdict" firing on a real hosted apply -- the first time, per R-2026-09-17-01.
+The refusal was added on 2026-09-12 (commit 4b75f43), after the same script
+printed `13 migration(s) pending.` against a host that did not resolve.
+
 **The dry run is a stop condition, not a look.** A dry run without a stated
 expectation is just output. The expectation is stated as **files, not a count**:
 a count moves every time a migration is added, and a stop condition that reads
@@ -574,10 +591,13 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions. Until
 2026-09-14 this read `exactly 13 migration(s) pending.`, and migration 014 made
 that wrong.
 
-- **The hosted project today** holds 001 through 016 (see step 7). Files 001
-  through 016 must read `already applied`, there must be **exactly one `WOULD
-  APPLY` line, `017_snapshot_schedule.sql`**, and the dry run must end
-  `1 migration(s) pending.`
+- **The hosted project today** holds 001 through 017 (see step 7). Every file
+  must read `already applied`, there must be **no `WOULD APPLY` line at all**,
+  and the dry run must end `0 migration(s) pending.`
+- **Restated 2026-09-17 (R-2026-09-17-01), in the change that records 017's
+  apply.** Until then this expected exactly one `WOULD APPLY` line,
+  `017_snapshot_schedule.sql`, and `1 migration(s) pending.` The founder's run
+  printed exactly that and applied it.
 - **Restated 2026-09-16 (R-2026-09-16-09), in the change that adds 017.** Until
   then this expected no `WOULD APPLY` line and `0 migration(s) pending.`, which was
   right for a project at 016 while the repository also ended at 016.
@@ -618,7 +638,7 @@ unset DATABASE_URL
   dashboard action and is the founder's. Do not run the apply until this read
   passes.
 
-- [ ] pg_cron available on hosted before 017's apply
+- [x] pg_cron available on hosted before 017's apply, 2026-09-17: `pg_cron default=1.6.4 installed=none` and `preloaded=true`. Hosted pg_cron 1.6.4 matches the local 1.6.4 the Bundle 0 probes ran against.
 
 Only after reading those lines, the apply:
 
@@ -695,6 +715,7 @@ unset KEY BODY
   match what came back without a new observation of both states.
 
 - [x] Post-apply probe, 2026-09-16: **PASS**, matching the fresh-cache string `permission denied for function ward_status_history`
+- [x] Post-apply probe after 017, 2026-09-17: reload NOTIFY sent, **PASS** on the same fresh-cache string
 
 ### After the apply: who owns the SECURITY DEFINER writers
 
@@ -728,6 +749,7 @@ unset DATABASE_URL
   tables mean for all three functions.
 
 - [x] Owners read, 2026-09-16: `project_facility owner=postgres` and `regenerate_snapshot owner=postgres`
+- [x] Owners read after 017, 2026-09-17, three lines: `project_facility owner=postgres`, `refresh_lga_rollup owner=postgres`, `regenerate_snapshot owner=postgres`
 
 ### After the apply: the reader policy is actually there
 
@@ -772,6 +794,7 @@ migration produced, out of step with `database/migrations/016_snapshot.sql` and
 with `tests/db/snapshot.test.ts`, which asserts this exact shape on every run.
 
 - [x] Reader policy read, 2026-09-16: one row, `snapshot_current_service_role_select | SELECT | permissive=PERMISSIVE | roles={service_role} | qual=true | with_check=(null)`, and `true true`
+- [x] Reader policy read after 017, 2026-09-17: unchanged and exact -- the same one row and `true true`
 
 ### After the apply of 017: the two jobs are scheduled, active, and running
 
@@ -820,7 +843,7 @@ unset DATABASE_URL
   schedule or command, no `succeeded` line: stop and report.** Do not reschedule
   or alter a job by hand; hosted would then run a schedule no migration produced.
 
-- [ ] 017's jobs read on hosted: both rows exactly as above, and a `succeeded` run for each
+- [x] 017's jobs read on hosted, 2026-09-17: `openbed_refresh_lga_rollup | */5 * * * * | select app.refresh_lga_rollup() | postgres | active=true`, `openbed_regenerate_snapshot | * * * * * | select app.regenerate_snapshot() | postgres | active=true`, `refresh_lga_rollup search_path="",row_security=off`; runs `openbed_refresh_lga_rollup succeeded 3` and `openbed_regenerate_snapshot succeeded 13`, no `failed` line (consistent with five-minute and one-minute cadences over about thirteen minutes)
 
 ### After the apply: record the frozen boundary in the repository
 
@@ -836,14 +859,21 @@ when a frozen file's bytes change.
 the ledger count read in the block above -- not with a number from memory. The
 recorder refuses if that count and the repository's forward migrations disagree.
 
-**For 017's apply the count is 17**, with the apply's date and the ruling that
-records it written in before pasting. As printed below the date and ruling are
-placeholders, and the recorder refuses a malformed date, so an unedited paste
-fails loudly rather than recording anything. The invocation that recorded 001-016
-was `node scripts/freeze_applied_migrations.mjs 16 2026-09-16 R-2026-09-16-02`.
+**For the next apply (018) the count is 18**, with the apply's date and the
+ruling that records it written in before pasting. As printed below the date and
+ruling are placeholders, and the recorder refuses a malformed date, so an unedited
+paste fails loudly rather than recording anything. The invocations that recorded
+the boundary so far: `node scripts/freeze_applied_migrations.mjs 16 2026-09-16 R-2026-09-16-02`
+(001-016) and `node scripts/freeze_applied_migrations.mjs 17 2026-09-17 R-2026-09-17-01`
+(001-017).
+
+**In the same change, move the placeholder** in
+`tests/compliance/frozen_migrations.test.ts`'s unfrozen-migration test to the next
+number. A placeholder named after the migration just recorded is an edit to a
+frozen file, and the test reds (observed 2026-09-17, when 017 was recorded).
 
 ```bash
-node scripts/freeze_applied_migrations.mjs 17 YYYY-MM-DD R-YYYY-MM-DD-NN
+node scripts/freeze_applied_migrations.mjs 18 YYYY-MM-DD R-YYYY-MM-DD-NN
 ```
 
 - **PASS:** it prints the count it recorded, and the first and last file. Commit
@@ -857,21 +887,27 @@ node scripts/freeze_applied_migrations.mjs 17 YYYY-MM-DD R-YYYY-MM-DD-NN
   migration.
 
 - [x] Frozen boundary recorded, 2026-09-16: 16 migrations, `001_app_schema_and_migration_ledger.sql` first, `016_snapshot.sql` last
+- [x] Frozen boundary recorded, 2026-09-17: 17 migrations, `001_app_schema_and_migration_ledger.sql` first, `017_snapshot_schedule.sql` last (R-2026-09-17-01), with the frozen_migrations placeholder moved to 018 in the same change
 
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 016 already applied, 017 not yet),
-the dry run prints sixteen `already applied` lines, one `WOULD APPLY` line, and
-the apply then reports one file:
+**On the hosted project today** (001 through 017 already applied), the dry run
+prints seventeen `already applied` lines, no `WOULD APPLY` line, and:
+
+```
+0 migration(s) pending.
+```
+
+**On 2026-09-17, when 017 was pending,** the same two commands printed this, and
+the apply's echo mapped one-for-one to 017's statements in order, with the two
+`cron.schedule` calls returning jobids 1 and 2 (the first cron jobs on the
+project):
 
 ```
   WOULD APPLY     : 017_snapshot_schedule.sql   <- dry run
 1 migration(s) pending.
 Migrations complete (1 applied this run).       <- apply
 ```
-
-**After 017's apply,** the dry run prints seventeen `already applied` lines, no
-`WOULD APPLY` line, and `0 migration(s) pending.`
 
 **On 2026-09-16, when 014-016 were still pending,** the same two commands printed
 this -- kept because it is what a project one apply behind looks like (the
@@ -922,6 +958,9 @@ apply `12 applied this run`, ledger 13 rows, second dry run 0 pending.
 Observed on hosted `klrlpxysjsjpdkeqdhvl` on 2026-09-16, after the apply of
 014-016: ledger **16 rows**, second dry run `0 migration(s) pending.`
 
+Observed on hosted `klrlpxysjsjpdkeqdhvl` on 2026-09-17, after the apply of 017:
+ledger **17 rows**, second dry run `0 migration(s) pending.`
+
 ### What happens if it dies partway -- documented, not discovered
 
 Each migration is applied with **both** `--single-transaction` and
@@ -956,7 +995,7 @@ the seed inserts synthetic facilities that would be indistinguishable from real
 ones.
 
 - [x] Every forward migration applied, `016_snapshot.sql` last, 2026-09-16: ledger 16 rows, and the second dry run reported `0 migration(s) pending.`
-- [ ] 017 applied, `017_snapshot_schedule.sql` last: ledger 17 rows, and the second dry run reports `0 migration(s) pending.`
+- [x] 017 applied, `017_snapshot_schedule.sql` last, 2026-09-17: dry run one `WOULD APPLY 017_snapshot_schedule.sql` and `1 migration(s) pending.`; apply `Migrations complete (1 applied this run).`; ledger 17 rows, and the second dry run reported `0 migration(s) pending.`
 
 ---
 
@@ -1126,6 +1165,7 @@ rather than implied by step 8:
 | Local (`supabase start`) | 17.6.1.**167** | image `public.ecr.aws/supabase/postgres:17.6.1.167` |
 | **Client** used for the hosted apply of 001-013 | `psql` **18.6** (Homebrew keg-only `libpq`, see step P) | `psql --version`, 2026-09-13 |
 | **Client** used for the hosted apply of 014-016 | `psql` **18.6**, the same client | confirmed by the founder for the 2026-09-16 run (R-2026-09-16-03). **Not carried forward from the row above** -- an assumed client is the thing this row exists to prevent |
+| **Client** used for the hosted apply of 017 | `psql` **18.6** | observed by the founder for the 2026-09-17 run (R-2026-09-17-01), not carried forward |
 
 **The client is newer than the server: psql 18.6 against server 17.6.1.166.**
 All thirteen migrations were applied to project `klrlpxysjsjpdkeqdhvl` through
@@ -1133,9 +1173,10 @@ that client, and steps 6, 8 and 10 were run through it on 2026-09-13. This table
 previously recorded server versions only, which left the one tool every SQL
 result above passed through unrecorded.
 
-**Hosted now holds 001 through 016.** Migrations 014, 015 and 016 were applied on
-2026-09-16 (R-2026-09-16-02); step 5 carries that run's output, its post-apply
-probe, the owners read, the reader-policy read and the frozen-boundary record.
+**Hosted now holds 001 through 017.** Migrations 014, 015 and 016 were applied on
+2026-09-16 (R-2026-09-16-02), and 017 on 2026-09-17 (R-2026-09-17-01); step 5
+carries each run's output, its post-apply probe, the owners read, the
+reader-policy read, 017's jobs read and the frozen-boundary record.
 
 **Same major and minor; the patch differs by one (166 vs 167).** No major-version
 divergence to reason about, and the earlier record of "17.6.1 both" was true at

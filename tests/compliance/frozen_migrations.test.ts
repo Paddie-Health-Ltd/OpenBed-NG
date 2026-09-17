@@ -166,11 +166,15 @@ describe('frozen migrations — applied history is not edited', () => {
   test('an UNFROZEN migration is untouched by this guard — it freezes applied history, not the directory', () => {
     withScratch((root) => {
       copyMigrations(root);
-      place(root, 'database/migrations/017_snapshot_schedule.sql', '-- not applied hosted, so not frozen\nselect 1;\n');
-      place(root, 'database/migrations/017_snapshot_schedule.down.sql', '-- reversal\nselect 1;\n');
+      // The placeholder is the NEXT number after the recorded boundary. It was 017
+      // until 017's hosted apply was recorded (R-2026-09-17-01), at which point a
+      // placeholder of that name became an edit to a frozen file. Move it again in
+      // the change that records 018's apply.
+      place(root, 'database/migrations/018_placeholder.sql', '-- not applied hosted, so not frozen\nselect 1;\n');
+      place(root, 'database/migrations/018_placeholder.down.sql', '-- reversal\nselect 1;\n');
 
       const v = frozenViolations(root);
-      expect(v, `an unapplied 017 must be free to change. Checker said:\n${report(v)}`).toEqual([]);
+      expect(v, `an unapplied 018 must be free to change. Checker said:\n${report(v)}`).toEqual([]);
     });
   });
 
