@@ -1134,6 +1134,47 @@ The baseline is not hypothetical: anon holds `SELECT` on the three mirrors, `pub
 
 **Also found while reading 013.** Its header restates "Realtime is retained for AUTHENTICATED ward and admin devices only" — the claim #27 disproves — and defends the DELETE payload by pointing at 008. The first half is false as a property of the database; the second is correct. 013 is frozen, so both are noted rather than edited.
 
+### R-2026-09-17-08 — the accumulation boundary, and one sprint rather than two
+
+_#35 merged at `cb260ee`. Everything tagged **observed** was run by Claude Code on 2026-09-17 against the local stack, on a fresh database at the merged head; the seeded state was restored afterwards. Nothing here is a hosted observation._
+
+**B — E2 stands as measured, and the condition travels with the result.** One write sequence, four arms, same ward:
+
+| arm | writes 2s apart | writes 200ms apart | cost |
+|---|---|---|---|
+| Realtime, anon | 4 / 4 states | 6 / 6 | 0 requests |
+| Realtime, service_role (control) | 4 / 4 | 6 / 6 | — |
+| PostgREST poll, anon, 1s | 4 / 4 | 2 of 6 | 10–16 requests |
+| PostgREST poll, anon, 30s (the designed cadence) | 1 / 4 | 0 of 6 | 1 request |
+
+Push adds **nothing** against a poller faster than the write rate; it is **complete** where writes fall inside the poll interval, and the designed cadence loses almost everything. Neither half of that sentence is safe to quote without the other.
+
+**B1 — the unknown is named, not replaced by a worst case.** How often a real ward writes twice inside a poll interval is **unmeasured, and unmeasurable before facility one**. The design actively suppresses it: the counter-taps task keeps taps as local state and transmits one absolute value, and the double-submission task allows a single in-flight write per ward. **So E2's delta is bounded by a write cadence nobody has observed**, and that is the whole honest statement of it.
+
+> This is the third honest-unknown this chain has reached rather than filling with a worst case: whether a runtime without `performance.now()` exists in the target population, whether hosted Realtime behaves as local does, and now the real write cadence. Each is recorded as unknown with the reason it cannot be settled here. A chain that produces three of these is working; a chain that produces none is guessing.
+
+**C — THE FINDING ABOVE E2 AND E3. The design prevents history from being READ, and does not prevent it from being ACCUMULATED.**
+
+`app.ward_status_event` is private, and the history RPC is capped at ≤200 rows over ≤30 days with no offset paging and no CSV. **But every read of current state is legitimate, and a series is just many of them.** The caps govern the RPCs; they were never a control over repetition.
+
+**Measured, so the size of it is not a guess [observed]:**
+- A bare anon `GET /rest/v1/ward_public?select=*` returns **every row in one request** — 11 of 11 seeded, `Content-Range: 0-10/11`, HTTP 200 — carrying `bed_count`, `updated_at`, `monitoring_state`, `gated_by`, `accepting_effective`, `state`, `source`, `offering` and `category`. `facility_public` and `lga_rollup` answer the same way.
+- **Offset paging works on the table**: `?offset=8&limit=5` returns HTTP 200 and rows. So `max_rows = 1000` in `supabase/config.toml` — left at the cloud default deliberately, so tests are not optimistic — is a **page size, not a cap**.
+- Nothing rate-limits any of it (R-07's C2).
+
+**So the pull path already concedes the series**, and Realtime is the faster instance of the same defect rather than a separate one. **The only control that can cover accumulation is rate limiting**, and it carries three defects at once: it is specified in the kickoff for an unrelated safety reason — named wards' duty numbers as a harassment vector — it is unbuilt, and its stated site cannot reach the push path at all. **E2 and E3 are both instances of C.**
+
+**D — sequencing, re-ruled: ONE SPRINT, both paths.** Not "018 first".
+- **The database half** is migration 018, on R-06's root: 013 publishes the mirrors on a rationale A1 had already reversed, and nothing subscribes.
+- **The edge half** is the rate limit, which needs a host — the **Cloudflare Pages Functions** ruled in R-05, **the same host the six `/api` items wait on**.
+- **Shipping either half alone reproduces exactly what C2 exposed:** a control believed to cover a surface it cannot reach. Unpublishing the mirrors without a rate limit leaves the pull path conceding the series; a rate limit at the edge without 018 leaves a websocket that never traverses the edge.
+- **D1.** It still precedes the `scripts/` survey, now on C rather than on E2 alone.
+- **D2.** The survey keeps the unguarded `<> 'NO'` as item 1 and **gains item 2: nothing validates SQL fragments quoted in prose.** The duty-flag lint strips string literals and comments before matching — correctly, so it does not fire on its own documentation — which makes **documentation structurally invisible to it**. That is how a corrections section came to prescribe `IS NOT DISTINCT FROM NO`. The survey's charter is *is the stated reason it works the actual reason*, and here it arrives inside the survey's own subject matter.
+
+**E — the founder-side line, narrowed again and now resting on C.** Quiet mode **can** be promised honestly: 008 is right that delisting is observable and unhideable, and R-07 retracted the claim against it. **The history-is-private commitment cannot be promised until the accumulation boundary is closed** — and the reason is not the RPC, which is capped. It is that **unlimited reads of current state assemble the series the RPC refuses.** `M/004`'s `ward_status_event` comment grounds that commitment where it belongs: facilities that fear being graded stop telling the truth, and a dishonest bed count kills someone. A blocker on the agreement's wording, not on the repository.
+
+**On the numbering of F's note.** R-08 proposes it as method note 11. **#35 had already taken 11** ("cite by section name, not line number"), so it lands as **note 12**. Recorded rather than silently renumbered, because a ruling that names a number is easier to follow back if the collision is written down.
+
 ## Method notes — how rulings reach the implementer
 
 _Standing rules, 2026-09-15. This record is their home._
@@ -1185,6 +1226,11 @@ _Standing rules, 2026-09-15. This record is their home._
     - **Three drifts in one session, every one caused by markers this same chain added:** `M/006:57` (the sentence is at :75), `v1:396` and `v1:400` (both moved by two lines).
     - **Where it binds:** the v1 and v2 kickoffs, this record, and any future sweep — documents that take inline markers. **Where it does not:** a frozen migration, whose lines cannot move, and the enumeration, whose header pins its citations to `db528f8` and which is a dated record besides.
     - **How to apply:** name the section, the task, or the sentence — "F2's SQL prescription", "A2's hosting split", "008's quiet-mode block". A reader finds those after any edit; a line number survives only until the next marker.
+12. **A control names its enforcement point, and the point is checked** (R-2026-09-17-08; proposed as note 11, renumbered because #35 had taken it). When a control is written down, name **where** it is enforced — then check two things about that site, because each failure alone is fatal and both are invisible while the control is only ever read:
+    - **Does the site exist?** "The public rate limit is enforced at the edge" named a deployment that does not exist.
+    - **Can it see the whole surface?** A Realtime subscription is a websocket to Supabase and never traverses the edge, so that site could not have covered the push path however well it were built.
+    - **Narrowing, offered by the implementer:** where a site cannot cover the whole surface, **name the part it cannot reach** rather than dropping the control. A rate limit at the edge is still right for the pull path; what was wrong was believing it covered everything. The gap belongs in the sentence, not in the reader's head.
+    - **Against the clauses.** Clause 4 is a cited artefact that does not exist. This is a named site that **exists and cannot see the surface** — Clause 5 pointed at controls rather than at mechanisms. **Note 10 sizes an exposure; note 12 sizes a control**, and the two together are what stops a finding being written up against a control nobody checked.
 
 ---
 
@@ -1252,6 +1298,12 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-17, R-2026-09-17-08: the accumulation boundary named as the root above
+  E2 and E3 — the design prevents history being READ and not being ACCUMULATED, with
+  a bare anon table read returning every row in one request and offset paging working;
+  the sequencing re-ruled to ONE sprint covering both the database and edge halves;
+  the founder-side line narrowed to history-is-private; survey item 2 added; and
+  method note 12;
 - on 2026-09-17, R-2026-09-17-07: E1 retracted as overstated (008 already defends that
   payload; the k-floor protects a quiet facility's numbers, not its identity), E2's
   delta measured against polling the mirrors and recorded as conditional on write
