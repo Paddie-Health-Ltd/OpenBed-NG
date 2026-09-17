@@ -1051,6 +1051,40 @@ In positive position the two forms agree, in a WHERE clause and in a CASE arm al
 
 **Scope held:** one pull request, no new migrations, no new tests, no API, no strings module, and no edit to 002, 004, 005, 006 or 014. The change to `.claude/rules/code-pipeline.md` is called out in the pull request as a rules change.
 
+### R-2026-09-17-05 — #33 merged, three design rulings, and what the push side of the boundary turns out to allow
+
+_#33 merged at its reviewed head `cc51d5d`, untouched; nothing was attached to a SHA-pinned approval. Everything below is the follow-up. Probe results tagged **observed** were run by Claude Code on 2026-09-17 against the local stack (Realtime v2.130.0, PostgreSQL 17.6), each with a service-role control subscribing in the same run. None is a hosted observation._
+
+**Design ruling 1 — B5's external caller: CLOUDFLARE PAGES FUNCTIONS.** Founder's call, 2026-09-17. Cloudflare is already the deploy target and already an open s.29 / s.41 item, so this extends an agreement in progress rather than opening a second processor thread; the free tier covers this volume; launch cost stays ~$25/month (the kickoff's open decision 2, Supabase Pro, settled). It restores a host for `/api/*`, which is what six items failed for want of.
+- The markers on #28, #30, #87, #88, #89, #92 and #107 now read *ruled 2026-09-17, build not yet scoped*. **No verdict changed**: those sentences were false at `db528f8`, and a later decision does not make them true.
+- #28 and #107 carried no "open" clause — they were amended against the 2026-09-10 Gate 2 restatement, not against the host — so each gained one sentence saying the restatement stands regardless, because it turns on `stale-while-revalidate` rather than on where anything is hosted.
+- **Not built here.** A host, `/api/health`, `/status`, the digest and the sweep caller are a sprint with a kickoff. R-2026-09-16-07's constraint binds whatever gets built: the sensor reads `app.system_heartbeat` and must not share pg_cron's failure mode.
+
+**Design ruling 2 — when a tile may render GREEN (#15).** The property, mechanism left to the implementer (method note 5): *a tile renders GREEN only on an age whose elapsed term is known to be advancing. Where it cannot be, the badge degrades rather than greens.*
+
+- **The finding is narrower than the ruling assumes, and for a stronger reason than D1's [observed].** `markFetch()` and `elapsedSince()` have **no production caller**. The only importer of either is `tests/compliance/freshness_bands.test.ts`; no app fetches, polls or renders a snapshot, and `apps/public-dashboard/src/main.ts` is the Bundle 1 stub that says so. Control: `@openbed/gate` *is* imported by that app, so the search reaches. **So there is no fetch to fail, no poll to stop and no tile to green.** This is a specification obligation on Bundle 4, not a live defect.
+- **D1 — a runtime without `performance.now()` is not a real target [inferred, and not checkable from this repository].** It has been universally available in browsers since roughly Chrome 24 and Android WebView 4.4 (2013), which covers the low-end Android population this product aims at. There is no telemetry and, by design, no analytics, so the repository cannot settle it; what would settle it is field data the product does not collect. Accordingly the `markFetch()` → `0` branch guards a runtime the target population does not have, and **the finding narrows to the failed-fetch path**, as the ruling allows.
+- **D2 — what a tile does when a fetch FAILS is unspecified, because there is no fetch.** Bundle 4 must state it, and the property above decides it: after a failed refresh the elapsed term keeps advancing from the last good mark, so age keeps growing and a tile ages out of GREEN by itself. A band must never be recomputed from a mark treated as fresh, and a refresh that has been failing for longer than `pollCadenceSeconds` must degrade rather than hold its last band. The danger is not a wrong number; it is a tile that is green and structurally incapable of being correct, which is the failure A1 reversed the Realtime design to remove.
+- **Clause 5 classification, recorded:** `packages/snapshot/src/anchor.ts` and `packages/snapshot/src/freshness.ts` are **GUARD-AHEAD-OF-SUBJECT** — correct, tested, and reaching no production caller. They become LIVE as part of Bundle 4, not as a later tidy-up.
+
+**Design ruling 3 — Realtime on the public mirrors (#27): NOT RULED.** The publication and the policies are untouched. The UPDATE payload carries nothing anon cannot already `SELECT`, so that half is not a disclosure. Both probes the ruling asked for were run, and both confirmed what was feared.
+
+- **E1 — the DELETE case. CONFIRMED [observed].** Flipping one seeded facility to `quiet_mode = true` — the projection's delete path — delivered **7 DELETE events to the anon subscriber**: six on `public.ward_public`, one on `public.facility_public`. The control received the same seven. Under REPLICA IDENTITY DEFAULT the old row is the primary key, and `ward_public`'s key is `(facility_id, category)`, so each event reads:
+
+  ```
+  ward_public     DELETE record=null old_record={"category":"ICU_ADULT","facility_id":"a0000000-…-000000000001"}
+  facility_public DELETE record=null old_record={"facility_id":"a0000000-…-000000000001"}
+  ```
+
+  **So an anon subscriber learns which facility went quiet, at the moment it went quiet, and which ward categories it had.** The k-floor exists to stop exactly that being recovered by subtraction from the rollup; a DELETE stream needs no subtraction. Quiet mode is unobservable only to someone who is not listening.
+- **E2 — the accumulation case. CONFIRMED [observed].** Two successive writes to one ward delivered two full rows to the anon subscriber: `bed_count=7 @ 18:22:55.966943+00` then `bed_count=3 @ 18:23:00.05206+00`, each with `facility_id`, `category` and `updated_at`. A subscriber that simply keeps them has a facility-level time series at whatever resolution the publisher writes. `M/011` caps the pull path — ≤200 rows, ≤30 days, no offset paging, no CSV — and v1:148 says a legitimate caller "must not be able to assemble a time series". **The push path is uncapped**, so the prohibition is defeated through a door the caps do not cover. This is also the "no public facility-level time series" rule of v1:250 and the `ward_status_event` comment, reached from outside the table they protect.
+- **E3 — THE ROOT, and it outlives both answers.** Every negative test asserts what anon can **PULL**: reachability (`rls_anon_reachability`), column containment (`rls_anon_column_containment`), writes rejected (`rls_anon_writes_rejected`), the RPC allowlist (`rls_rpc_execute_allowlist`), the read caps (`read_rpc_caps`). **Nothing asserts what anon can be PUSHED.** Confirmed by reading: the only Realtime assertions in the suite are publication membership in `tests/db/config_drift.test.ts` and the replica-identity lint — both about configuration, neither about delivery. The boundary is specified in one direction and silent in the other, and everything E1 and E2 found lives in that silence. A1's "anon attack surface collapses to one static file" is true of the serving path and not of the publication left beside it.
+- **Nothing is remediated here.** Whether the answer is unpublishing the mirrors, moving Realtime to a private channel, tombstoning instead of deleting, or accepting the exposure is a design ruling with consequences for quiet mode's promise to facilities.
+
+**`scripts/` survey item 1, recorded.** The duty-flag lint catches `NOT flag`, which cannot compile against the enum, and misses `<> 'NO'` and `NOT (flag = 'NO')`, which compile and silently drop a NULL flag expression — now banned by `.claude/rules/code-pipeline.md` and enforced by nothing. **The guard catches the impossible and misses the possible.** NULL reaches a duty-flag expression by one route, verified in migration 006: `app.gate_for_facility()` LEFT JOINs `app.facility_ops`, and 006's own comment says a facility with no ops row "yields three NULLs, which app.gate() treats as ungated". Dropping that facility's row from a filtered query is the never-set-flag-closes-the-city regression in new clothes. Survey item 1, with plants both ways per §2 of the test conventions; not in this change, which touches no tests.
+
+**Scope held:** documents only. No migration, test, script, workflow or app file changed; the publication and policies untouched; #33 unmodified.
+
 ## Method notes — how rulings reach the implementer
 
 _Standing rules, 2026-09-15. This record is their home._
@@ -1088,6 +1122,12 @@ _Standing rules, 2026-09-15. This record is their home._
    - **A DATED RECORD describes a moment.** A handoff, a ruling block, an applied migration's header. It is superseded by a note -- at the top of its block, or in a later block -- and never rewritten. Editing one destroys the evidence of what was believed when a decision was taken.
    - **This is the companion to note 6.** The pre-017 sweep targeted present-tense claims, and **the tense alone does not say whether a claim is a rule or a record.** Both read identically; only their function separates them.
    - **Why it earned a note:** R-2026-09-16-02 instructed a present-tense sweep that, executed literally, would have edited an applied migration -- the rule and the instruction pointing in opposite directions.
+9. **A tool you ran is not a tool that exists** (R-2026-09-17-05). Proposed by the founder; **the wording below is narrowed by the implementer, and the narrowing is the point.** As drafted it read as though an ad-hoc check were itself the defect. It is not: an ad-hoc check is legitimate evidence. **What this note binds is the CITATION, not the running.**
+   - **Run it, tag it observed, and give the command.** That is a report, and it is how most of the findings in this record were made.
+   - **It becomes a defect the moment it is cited as something another party can re-run, or as an artefact of the repository.** Before an instruction names a check, say where the check lives. If the answer is "in my shell", the instruction is to BUILD it, not to re-run it.
+   - **Why:** R-2026-09-17-03 item 1 said "re-run that parser". No parser existed -- it had been run ad hoc and its output pasted. The implementer could not comply, derived the counts independently, reported the mismatch and committed the derivation, which is what the instruction should have asked for.
+   - **It is Clause 4's phantom enforcement, one level up.** A cited script that does not exist reads exactly like one that does. And it is enumeration item #109 -- Gate 3 asserting a property test nobody built -- committed inside the document that records it.
+   - **How it differs from note 3.** Note 3 is about an instruction naming a runnable check: its feasibility is checked before executing. This note is about describing a check you performed as an artefact of the repository. Note 3 asks *can this be run here?*; note 9 asks *does this exist at all?*
 
 ---
 
@@ -1154,7 +1194,14 @@ _Standing rules, 2026-09-15. This record is their home._
   against `app.tri_state`; an anon subscriber receives `ward_public` change
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
-  `database/migrations/README.md`, and three design rulings left open.
+  `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-17, R-2026-09-17-05: #33 merged untouched at its reviewed head; B5's
+  external caller ruled (Cloudflare Pages Functions) and its seven markers moved
+  from open to ruled; the GREEN-tile property ruled and recorded as a Bundle 4
+  obligation; Realtime on the public mirrors left unruled, with the DELETE and
+  accumulation probes run and their root recorded — the negative suite asserts what
+  anon can pull and nothing asserts what anon can be pushed; method note 9; and
+  `scripts/` survey item 1 recorded.
 
 **Does not change:**
 - v1:250 and v2:273 (O1);
