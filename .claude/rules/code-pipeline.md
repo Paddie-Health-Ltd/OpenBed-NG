@@ -264,12 +264,18 @@ PR opened without it is incomplete.**
 
 - [ ] **No `!flag` or `flag === false` on a duty flag, and no bare `not` on a
       `tri_state` in SQL.** The flags are three-state. `NOT NULL DEFAULT
-      'UNKNOWN'` makes the wrong shape unrepresentable in the database; use
-      `is false` / `is not false` in SQL. On day one no facility has touched a
+      'UNKNOWN'` makes the wrong shape unrepresentable in the database; in SQL
+      compare with `IS NOT DISTINCT FROM 'NO'`, and for the complement
+      `IS DISTINCT FROM 'NO'` — never `<> 'NO'` or `NOT (flag = 'NO')`, which
+      drop a row whose flag expression is NULL. (`is false` / `is not false`,
+      prescribed here until 2026-09-17, do not compile against the enum —
+      R-2026-09-17-04.) On day one no facility has touched a
       flag, so a single falsy check renders every hospital in Lagos as closed —
-      and in SQL `not <null>` is `null`, which is not `true`, so the row silently
-      drops out of a filtered query while the JavaScript version reports it
-      truthy. The two layers disagree and neither errors.
+      and had the flag been a nullable boolean, in SQL `not <null>` is `null`,
+      which is not `true`, so the row silently drops out of a filtered query while
+      the JavaScript version reports it truthy. The two layers disagree and neither
+      errors. Against the enum a bare `not` is a type error instead; the silent
+      drop comes back through a negated comparison on a NULL flag expression.
 - [ ] **No `service_role` or `SUPABASE_SERVICE*` reachable from a client-imported
       module, a `NEXT_PUBLIC_` variable or a `VITE_` variable.** When blocked by
       the security boundary, the temptations are to widen an RLS policy or to

@@ -37,7 +37,7 @@ and `tests/compliance/down_migration_symmetry.test.ts`.
 | 003 | `app_facility_and_identity_tables` | `facility` (Nigeria bounding box, E.164 check), `facility_ops` (**the duty flags**), `ward_account` (**an account is a ward, never a person**), `facility_contact` (the one invited human per facility, deliberately erasable, carrying `agreement_accepted_at` as the evidence for the role-address clause), `device`, `invite` (**the onboarding chase list, not a credential store** — no address, no token, no expiry). Plus `app.touch_updated_at()`. |
 | 004 | `app_ward_status_tables` | `ward_status` — **finding F1**, `accepting` is the ward's claim and is never derived. `ward_status_event` (append-only, the only home of `reason_code`, and carrying **no actor**), `challenge`, `ward_alert_state`, `system_heartbeat`. |
 | 005 | `app_audit_referral_outbox_tables` | `audit_log` (**no personal data at all** — no actor, no detail jsonb; column list frozen by two guards), `referral` (**ward-to-ward**), `alert`, `notification_outbox`. |
-| 006 | `gate_function` | `app.gate()` — **the single derivation site** for the duty-cover gate. Mirrored by `packages/gate/src/gate.ts`; the two are asserted together against one 48-row fixture. |
+| 006 | `gate_function` | `app.gate()` — **the single derivation site** for the duty-cover gate. Mirrored by `packages/gate/src/gate.ts`; the two are asserted together against one 60-row fixture. |
 | 007 | `public_projection_tables` | The three public mirrors. Real tables, not views: Realtime cannot publish a view, and a table's column list can be frozen and asserted. |
 | 008 | `projection_triggers` | `app.project_facility()` and triggers on **three** parents — `ward_status`, `facility_ops` and `facility`. Quiet mode is enforced here, in the projection. |
 | 009 | `lga_rollup_kfloor` | `app.refresh_lga_rollup()`. Quiet facilities only, k ≥ 5, no facility over 40% of summed beds, and the all-zero cell published before any division. |
@@ -49,6 +49,36 @@ and `tests/compliance/down_migration_symmetry.test.ts`.
 | 015 | `ward_status_history_text_category` | **The 011 repair.** `public.ward_status_history` is dropped and recreated with a `text` category, cast inside the function, because no client can pass an `app`-typed parameter through PostgREST. The caps and grants are 011's, unchanged. |
 | 016 | `snapshot` | **The snapshot.** `public.snapshot_current` (`service_role`-only: RLS forced, zero policies), `app.regenerate_snapshot()`, `app.snapshot_retention()` and `app.system_heartbeat.last_snapshot_at`. The generator reads only the two mirrors and writes only the snapshot and the heartbeat, in one transaction; `row_security = off` makes a caller without bypass fail loudly; EXECUTE is owner only. The rollup is out; the schedule is 017. |
 | 017 | `snapshot_schedule` | **The schedule.** pg_cron, and two jobs run as `postgres`: `openbed_regenerate_snapshot` every minute and `openbed_refresh_lga_rollup` every five, which gives 009's refresh its first production caller. Repairs `app.refresh_lga_rollup()` with `SET row_security = off` by `CREATE OR REPLACE` (009 is frozen), because a caller activates the path where an owner without BYPASSRLS leaves a below-floor cell published. No grant; `cron` is not exposed. The down file unschedules both jobs and does not drop the extension. |
+
+## Corrections to frozen migrations
+
+A migration recorded in `database/migrations/applied-hosted.json` is frozen and is
+never edited, so a false comment inside one is corrected here, and in the ruling
+block that found it, rather than in the file. Recorded 2026-09-17 by the v1 sweep
+(R-2026-09-17-03 and -04, `Sprint Kickoffs/sweep-2026-09-17-v1-enumeration.md`).
+The 2026-09-15 correction to 005:211 is repeated here so every correction lives in
+one place.
+
+- **002:74** — "Use `is false` / `is not false` in SQL". Neither compiles against
+  `app.tri_state` ("argument of IS FALSE must be type boolean"; observed, local
+  PostgreSQL 17.6). The form is `IS NOT DISTINCT FROM NO`, and its complement is
+  `IS DISTINCT FROM NO`.
+- **004:294** — "/api/health returns 500 when it …". There is no `/api` host: both
+  apps are static builds and no API directory exists. The sensor argument survives
+  as `app.system_heartbeat`, read directly (R-2026-09-16-07). What replaces the
+  external caller is an open design question with no kickoff.
+- **005:211** — "Validation for patient information also runs at the RPC layer".
+  No referral RPC exists, and nothing in any migration inspects the content of
+  `ward_reply`. Only the 1000-character cap is real. First found by the v2 sweep
+  (#7), and found again independently by the v1 sweep (#63, #97).
+- **006:75-83** — the form is right and the stated reason is not. The comment says
+  `= NO` and `IS NOT DISTINCT FROM NO` "diverge exactly when an argument
+  arrives NULL" and the CASE branch is then "silently not taken". Observed over
+  YES/UNKNOWN/NO/NULL: in a CASE arm and in a WHERE clause the two forms agree,
+  because NULL and false both skip, and `app.gate()` returns NULL for a NULL flag.
+  They diverge only under negation: `<> NO` drops the NULL row, while
+  `IS DISTINCT FROM NO` keeps it. `IS NOT DISTINCT FROM` is the right choice
+  because it stays total when negated.
 
 ## Ward-level identity
 

@@ -45,12 +45,16 @@ not report a verdict.
 | Verdict | Count | Items |
 |---|---|---|
 | HOLDS (VERIFIED) | 66 | every item not listed below |
-| FAILS | 21 | #5, #13, #15, #28, #30, #31, #36, #63, #71, #78, #79, #87, #88, #89, #90, #92, #97, #107, #109, #115, #116 |
+| FAILS | 24 | #5, #12, #13, #15, #27, #28, #30, #31, #36, #63, #71, #78, #79, #87, #88, #89, #90, #92, #97, #107, #109, #115, #116, #118 |
 | STALE | 12 | #1, #4, #25, #33, #41, #51, #61, #91, #95, #110, #113, #117 |
 | SUPERSEDED-IN-DOC | 7 | #22, #48, #55, #72, #86, #96, #104 |
-| NOT CHECKABLE | 11 | #3, #12, #19, #20, #26, #27, #29, #69, #80, #81, #111 |
+| NOT CHECKABLE | 9 | #3, #19, #20, #26, #29, #69, #80, #81, #111 |
 
-Total 117. Every item below ends with its verdict in bold; the last bold verdict
+Total 118. _Restated by R-2026-09-17-04 from the parser output in the reconciliation
+below. As committed, the table read 117: 66 / 21 / 12 / 7 / 11. The two checks
+handed over moved #12 and #27 from NOT CHECKABLE to FAILS, and #118 was added._
+
+Every item below ends with its verdict in bold; the last bold verdict
 word in an item is its verdict, and the table above is derived from those, not
 typed alongside them — see the reconciliation at the end.
 
@@ -63,6 +67,11 @@ mechanism claims, which is where the record says Cowork's errors live:
   `public.ward_public`, which is what v1:73's "authenticated devices only" turns
   on. The three relations in the `supabase_realtime` publication are exactly the
   anon-readable mirrors.
+
+_Both answered by Claude Code on 2026-09-17 against the local stack (R-2026-09-17-04);
+the results are appended at #12 and #27. Both are **FAILS**: `is false` does not
+compile against the enum, and an anon subscriber receives `ward_public` change
+events._
 
 **Found in passing, outside the enumeration:**
 
@@ -79,6 +88,40 @@ mechanism claims, which is where the record says Cowork's errors live:
 - v1:137's enum list names ten types and omits `gate_reason`, `alert_cause`,
   `alert_state` and `notification_channel`; fourteen exist. Already recorded at
   `database/migrations/README.md:36`. It is a task list, so it is not enumerated.
+
+_Extended by R-2026-09-17-04 (A5), found by Claude Code while landing this sweep:_
+
+- **The stale 48 was in four live files, not one.** Besides the script at `:28`,
+  `database/migrations/README.md:40` ("one 48-row fixture"),
+  `packages/fixtures/package.json:6` ("the 48-row gate contract") and
+  `packages/gate/src/gate.ts:10` ("one fixture, 48 rows"). The fixture has 60
+  entries. As first written, the bullet above understated how far it had spread.
+- **The `is false` prescription had five homes:** v1:35 (#12), v1:141 (#118), the
+  lint header at `:15`, the SOP self-check at `.claude/rules/code-pipeline.md:268`,
+  and `M/002:74`, which is frozen.
+- **The lint's stated reason is the rejected shape's reason.**
+  `scripts/lint_sql_no_bare_not_duty_flag.sh:10-13` explains the guard by
+  `not x` on NULL silently dropping a row. That is the nullable-boolean failure F2
+  rejected. Against the enum, bare `NOT` is a type error (observed; see #12).
+- **`M/006:75-83` gives a false reason for a correct form.** It says `= 'NO'` and
+  `IS NOT DISTINCT FROM 'NO'` "diverge exactly when an argument arrives NULL",
+  and that the CASE branch is then "silently not taken". Observed on local 17.6
+  over `YES`, `UNKNOWN`, `NO` and NULL:
+  - the two forms select the same rows in a WHERE clause (the `NO` row only);
+  - in a CASE arm both skip NULL, and `app.gate()` returns NULL for it too;
+  - they diverge only under negation: `<> 'NO'` and `NOT (x = 'NO')` drop the NULL
+    row, while `IS DISTINCT FROM 'NO'` keeps it.
+
+  `IS NOT DISTINCT FROM` is the right form because it stays total when negated,
+  not for the reason given. 006 is frozen.
+- **`toni.health` survives at two more live lines:** the v1:83 heading, which
+  carries #31's claim, and v1:320's Bundle 5 definition of done, which no item
+  here enumerates.
+- **The lint does not catch `NOT (anaesthetist = 'NO')` or `<> 'NO'`.** Its regex
+  wants `NOT` directly before a flag identifier.
+- **This file's own header miscounts.** "Two sweep markers from 2026-09-16" is
+  followed by three line numbers, and there are three. The sentence is left as
+  written.
 
 ---
 
@@ -149,6 +192,15 @@ mechanism claims, which is where the record says Cowork's errors live:
     `lint_sql_no_bare_not_duty_flag.sh:15`'s list of "correct forms" wrong —
     needs a live database. `psql` and Docker are absent here. **NOT CHECKABLE**
     this pass; handed to Claude Code.
+    _Amended to FAILS by R-2026-09-17-04, on a check Claude Code ran against the
+    local stack (PostgreSQL 17.6, 2026-09-17), observed:_ against
+    `app.facility_ops.anaesthetist`, `is false` raises "argument of IS FALSE must
+    be type boolean, not type app.tri_state", `is not false` raises the same for
+    IS NOT FALSE, and bare `not` raises "argument of NOT must be type boolean". The
+    control in the same run, `IS NOT DISTINCT FROM 'NO'` and `= 'NO'`, each
+    returned the one seeded `NO` row. So v1:35 prescribes a form that cannot
+    compile, and `scripts/lint_sql_no_bare_not_duty_flag.sh:15` listed both as
+    correct. LIVE RULE. **FAILS**.
 13. **v1:41** "the client computes `skew = server_now - Date.now()` and anchors
     it against `performance.now()`" — **known failure, confirmed.** There is no
     skew term anywhere: `grep -rn skew` across the tree returns only
@@ -232,6 +284,25 @@ mechanism claims, which is where the record says Cowork's errors live:
     the consumer side is unbuilt. Whether an `anon` key would in fact receive
     change events on `ward_public`, which is what "authenticated only" turns on,
     needs a live database. **NOT CHECKABLE** this pass; handed to Claude Code.
+    _Amended to FAILS by R-2026-09-17-04, on a probe Claude Code ran against the
+    local stack (Realtime v2.130.0, 2026-09-17), observed:_ two websocket
+    subscribers joined `postgres_changes` on `public.ward_public` in the same run,
+    one with the local anon JWT and a control with the service-role key, and both
+    acknowledged "Subscribed to PostgreSQL". One write flipping a visible
+    facility's `anaesthetist` to `NO` delivered **six UPDATE events to each**,
+    full `record` included (the THEATRE row carrying
+    `gated_by = NO_ANAESTHETIST_ON_DUTY`). The control receiving is what makes the
+    anon result a statement about the policy rather than the harness. The
+    mechanism matches the static read: `ward_public` is in `supabase_realtime`,
+    anon holds SELECT, and `ward_public_anon_select` is `USING (true)` for
+    `{anon,authenticated}`. So "Realtime is retained for authenticated ward and
+    admin devices only" is false **as a property of the database**: any holder of
+    the published key can subscribe. Nothing in the repository subscribes, so it
+    is not false as a statement of what the client does. Hosted Realtime was not
+    observed, and a local green is not a hosted fact
+    (`.claude/rules/test-conventions.md` §4). LIVE RULE; what replaces it is a
+    design ruling, not a patch, and the publication and policy are left
+    untouched. **FAILS**.
 28. **v1:75** "'Tile flips live via Realtime with no refresh' becomes 'tile flips
     within 60 seconds with no refresh.'" — **known failure, confirmed.**
     `packages/fixtures/golden-path-steps.json:4` records the restatement in full:
@@ -377,6 +448,14 @@ mechanism claims, which is where the record says Cowork's errors live:
     three as tables, and `snapshot-shape.json`'s `wardColumns` carries every
     named column plus `monitoring_state`, which is a superset of what v1 lists.
     **HOLDS**.
+118. **v1:141** "`is false` only" — _added by R-2026-09-17-04, found by the
+     implementer; numbered 118 rather than inserted so no existing number moves._
+     A third claim at this citation: #48 takes the signature and #49 the
+     IMMUTABLE and single-derivation-site claims, and neither covers the
+     prescribed comparison form. It is #12's defect at its second citation:
+     `is false` against `app.tri_state` is a type error (observed; see #12), and
+     `M/006` gates with `IS NOT DISTINCT FROM 'NO'`. LIVE RULE — it is the
+     instruction for the gate's own body. **FAILS**.
 51. **v1:143** "Projection trigger fires on **both** `ward_status` and
     `facility_ops`" — there are **three** triggers on three tables
     (`M/008:64-71`), and `M/008:25-33` says the third is "REQUIRED, and not named
@@ -793,3 +872,50 @@ R-2026-09-16-07 found the absence from the `/api/sweep` end and marked :293;
 further **five** (#1, #31, #33, #91, #113) are the `toni.health` → `openbed.ng`
 rename, which had reached `NOTICE` and `SECURITY.md` but not the document that
 decides the sending domain.
+
+### Re-run after R-2026-09-17-04
+
+**The parser behind the output above was never committed.** The run above is
+Cowork's, and no parser exists anywhere in the repository. So "re-run that
+parser" could not be done literally. At `70b6270` (this file as committed), a
+fresh derivation from the rule stated above reproduced all six counts: 117 / 66 /
+21 / 12 / 7 / 11. The derivation is now in the file, so the next reader re-runs it
+instead of trusting a pasted block. Run from the repository root:
+
+```bash
+node -e '
+const t=require("fs").readFileSync("Sprint Kickoffs/sweep-2026-09-17-v1-enumeration.md","utf8");
+const body=t.split(/\n---\n/)[1], V=["SUPERSEDED-IN-DOC","NOT CHECKABLE","HOLDS","FAILS","STALE"];
+const items=[];let cur=null;
+for(const l of body.split("\n")){const m=l.match(/^(\d+)\. /);
+  if(m)items.push(cur={n:+m[1],txt:l});else if(/^## /.test(l))cur=null;else if(cur)cur.txt+="\n"+l;}
+const ns=items.map(i=>i.n),max=Math.max(...ns),by={},nov=[];
+for(const it of items){const b=[...it.txt.matchAll(/\*\*([^*]+?)\*\*/g)].map(x=>x[1].trim()).filter(x=>V.includes(x));
+  if(!b.length)nov.push(it.n);else(by[b.at(-1)]??=[]).push(it.n);}
+const miss=[];for(let i=1;i<=max;i++)if(!ns.includes(i))miss.push(i);
+console.log(`items parsed: ${items.length} | numbering 1..${max}`);
+console.log(`missing numbers: ${miss.join(", ")||"none"}`);
+console.log(`duplicate numbers: ${ns.filter((x,i)=>ns.indexOf(x)!==i).join(", ")||"none"}`);
+console.log(`items with no verdict: ${nov.join(", ")||"none"}`);
+for(const v of V){const l=(by[v]||[]).sort((a,b)=>a-b);console.log(`${v.padEnd(20)} ${String(l.length).padStart(3)}   items: ${l.join(", ")}`);}
+console.log(`TOTAL                ${items.length}`);'
+```
+
+It reads the items between the first two `---` rules, which means the header
+above and this reconciliation below stay outside the corpus. Output against the
+amended file:
+
+```
+items parsed: 118 | numbering 1..118
+missing numbers: none
+duplicate numbers: none
+items with no verdict: none
+SUPERSEDED-IN-DOC      7   items: 22, 48, 55, 72, 86, 96, 104
+NOT CHECKABLE          9   items: 3, 19, 20, 26, 29, 69, 80, 81, 111
+HOLDS                 66   items: 2, 6, 7, 8, 9, 10, 11, 14, 16, 17, 18, 21, 23, 24, 32, 34, 35, 37, 38, 39, 40, 42, 43, 44, 45, 46, 47, 49, 50, 52, 53, 54, 56, 57, 58, 59, 60, 62, 64, 65, 66, 67, 68, 70, 73, 74, 75, 76, 77, 82, 83, 84, 85, 93, 94, 98, 99, 100, 101, 102, 103, 105, 106, 108, 112, 114
+FAILS                 24   items: 5, 12, 13, 15, 27, 28, 30, 31, 36, 63, 71, 78, 79, 87, 88, 89, 90, 92, 97, 107, 109, 115, 116, 118
+STALE                 12   items: 1, 4, 25, 33, 41, 51, 61, 91, 95, 110, 113, 117
+TOTAL                118
+```
+
+The table at the top of this file is copied from that output.
