@@ -1010,6 +1010,47 @@ _Run by the founder on hosted `klrlpxysjsjpdkeqdhvl`, 2026-09-17, from `main` at
 
 **Queued, and none of it starts here:** the full v1 sweep, tick reconciliation, the scripts/ survey.
 
+### R-2026-09-17-03 and -04 — the v1 sweep landed, and two mechanism checks run
+
+_Cowork swept the v1 kickoff (117 items, `Sprint Kickoffs/sweep-2026-09-17-v1-enumeration.md`) and handed over two checks it could not run. Claude Code committed the enumeration unchanged, ran both checks against the local stack, and marked the kickoff. Everything tagged **observed** below was run by Claude Code on 2026-09-17 against local PostgreSQL 17.6 and Realtime v2.130.0; nothing here is a hosted observation._
+
+**The reconciliation, and a premise that did not hold.** R-03 §1 said to re-run the enumeration's parser. **No such parser exists anywhere in the repository** — the enumeration pastes its output only. A fresh derivation from the rule the file states (each item's last bold verdict word) reproduced all six counts exactly: 117 = 66 / 21 / 12 / 7 / 11. The enumeration now carries that derivation as a runnable block, so the next reader re-runs it instead of trusting a paste.
+
+**#12 — `is false` against a `tri_state` column [observed].** All three of `is false`, `is not false` and a bare `not` raise a type error ("argument of IS FALSE must be type boolean, not type app.tri_state"). The control in the same run, `IS NOT DISTINCT FROM 'NO'` and `= 'NO'`, returned the seeded row. So v1:35, v1:141 and the lint's own list of "correct forms" each prescribed SQL that cannot compile. Verdict **FAILS**, and the correction reached four editable copies plus a note for frozen 002.
+
+**#27 — Realtime and the anon key [observed].** Two subscribers joined `postgres_changes` on `public.ward_public` in one run, one holding only the anon JWT and a service-role control. One write to a visible facility's duty flag delivered **six UPDATE events, with full records, to each**. The control receiving is what makes this a statement about the policy rather than the harness. So "Realtime is retained for authenticated ward and admin devices only" is false as a property of the database: any holder of the published key can subscribe to the public mirrors. Nothing in the repository subscribes, so no client violates it today. Verdict **FAILS**, marked with the gap stated; the publication and policies are untouched, because what replaces the rule is a design ruling.
+
+**R-04 A4's premise, checked before acting, and it does not hold as stated [observed].** A4 inferred that `= 'NO'` in a WHERE clause is "the silent-drop hazard returning by the front door". Over `YES`, `UNKNOWN`, `NO` and NULL:
+
+| form | rows returned |
+|---|---|
+| `= 'NO'` | NO |
+| `IS NOT DISTINCT FROM 'NO'` | NO |
+| `<> 'NO'` | YES, UNKNOWN |
+| `NOT (flag = 'NO')` | YES, UNKNOWN |
+| `IS DISTINCT FROM 'NO'` | YES, UNKNOWN, NULL |
+
+In positive position the two forms agree, in a WHERE clause and in a CASE arm alike, because NULL and false both skip; `app.gate()` returns NULL for a NULL flag. **They diverge only under negation.** So the property A4 ruled is satisfied by naming `IS NOT DISTINCT FROM 'NO'` as the form with `IS DISTINCT FROM 'NO'` as its complement, and allowing `= 'NO'` in positive position only — which is what the lint header and the SOP now say.
+
+**The same finding one layer down: `M/006:75-83` gives a false reason for a correct form.** It says the two forms "diverge exactly when an argument arrives NULL" and the CASE branch is "silently not taken". In the CASE shape 006 actually uses they agree. `IS NOT DISTINCT FROM` is right because it stays total when negated. This is method note 7 again — an explanation carrying a decision, never probed — inside the single derivation site. 006 is frozen; the correction is in `database/migrations/README.md`.
+
+**A3's root, stated.** The lint's header justified itself by the silent drop of a nullable boolean, which is the shape F2 rejected. Against the enum that shape does not compile. The guard is kept for the two reasons that do hold — the column type is a decision a later migration could undo, and the JavaScript half is still silent — and the header now says so. **The negated forms `<> 'NO'` and `NOT (flag = 'NO')` are caught by nothing** (planted, and the lint passes them, while a planted bare `NOT` fails as it should). That is now a NOT ASSERTED line rather than an assumption.
+
+**Corrections to frozen migrations** are collected in `database/migrations/README.md` under *Corrections to frozen migrations*: 002:74, 004:294, 005:211 and 006:75-83. No applied migration was edited.
+
+**#118 added.** v1:141's "`is false` only" is a third claim at a citation the enumeration covers twice (#48, #49). Numbered 118 so nothing renumbers; the unit is unchanged. The recount, from the committed parser, is **118 = 66 HOLDS / 24 FAILS / 12 STALE / 7 SUPERSEDED-IN-DOC / 9 NOT CHECKABLE**.
+
+**Obligations carried, and the code left alone.**
+- **#71.** `publish_ward_status` writes the status, the event and the audit row in one transaction and enqueues nothing to `app.notification_outbox`. v1 requires the enqueue from B3's transaction at two places. 014 is frozen, so it lands as a `CREATE OR REPLACE` in a later migration, in the B5 sprint that does not yet exist, alongside the dispatcher that consumes the rows.
+- **Recorded here, fixed by a later change:** #63/#97 (`ward_reply` has a cap and no content validation), #109 (Gate 3's property test does not exist), #115 (no strings module).
+
+**Open design rulings this sweep produced, none of which an implementer can take.**
+1. **The external-caller half of B5 (#30, with #87, #88, #89, #92).** v1:81 put "the API" on Vercel and nothing was ever built there. R-2026-09-16-07 marked the `/api/sweep` leaf and left the root, which is how six more items reached this sweep on the same premise. Until this is ruled, every B5 item naming an HTTP route is unbuildable as written.
+2. **Realtime on the public mirrors (#27).** Either the rule changes, or the publication does.
+3. **Whether an understated-but-bounded age may render green (#15).** The never-green guarantee as v1 words it does not hold; what shipped is a different and arguably better property.
+
+**Scope held:** one pull request, no new migrations, no new tests, no API, no strings module, and no edit to 002, 004, 005, 006 or 014. The change to `.claude/rules/code-pipeline.md` is called out in the pull request as a rules change.
+
 ## Method notes — how rulings reach the implementer
 
 _Standing rules, 2026-09-15. This record is their home._
@@ -1107,7 +1148,13 @@ _Standing rules, 2026-09-15. This record is their home._
 - on 2026-09-17, the hosted apply of 017 (R-2026-09-17-01): hosted at 001-017 with
   both jobs live and succeeding, the frozen boundary at 17 with the placeholder
   moved to 018, and the runner's dead-connection refusal recorded as a control
-  that fired on a real hosted apply.
+  that fired on a real hosted apply;
+- on 2026-09-17, the v1 sweep (R-2026-09-17-03 and -04): the enumeration committed
+  and the v1 kickoff marked, two mechanism checks run (`is false` does not compile
+  against `app.tri_state`; an anon subscriber receives `ward_public` change
+  events), the duty-flag lint's stated reason and correct-forms list corrected
+  along with the SOP self-check, four corrections to frozen migrations recorded in
+  `database/migrations/README.md`, and three design rulings left open.
 
 **Does not change:**
 - v1:250 and v2:273 (O1);

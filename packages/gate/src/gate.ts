@@ -7,7 +7,7 @@
  * without a round trip. Two implementations of a safety rule is a drift risk by
  * construction, so the drift is closed by test rather than by discipline:
  *
- *   packages/fixtures/truth-table.json   -- one fixture, 48 rows
+ *   packages/fixtures/truth-table.json   -- one fixture, 60 rows
  *   tests/db/gate_truth_table.test.ts    -- ONE test.each block, BOTH call sites
  *
  * One block makes it structurally impossible to run one side without the other.
