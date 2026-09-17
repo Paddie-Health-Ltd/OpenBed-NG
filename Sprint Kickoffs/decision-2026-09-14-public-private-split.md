@@ -1016,7 +1016,7 @@ _Cowork swept the v1 kickoff (117 items, `Sprint Kickoffs/sweep-2026-09-17-v1-en
 
 **The reconciliation, and a premise that did not hold.** R-03 §1 said to re-run the enumeration's parser. **No such parser exists anywhere in the repository** — the enumeration pastes its output only. A fresh derivation from the rule the file states (each item's last bold verdict word) reproduced all six counts exactly: 117 = 66 / 21 / 12 / 7 / 11. The enumeration now carries that derivation as a runnable block, so the next reader re-runs it instead of trusting a paste.
 
-**#12 — `is false` against a `tri_state` column [observed].** All three of `is false`, `is not false` and a bare `not` raise a type error ("argument of IS FALSE must be type boolean, not type app.tri_state"). The control in the same run, `IS NOT DISTINCT FROM 'NO'` and `= 'NO'`, returned the seeded row. So v1:35, v1:141 and the lint's own list of "correct forms" each prescribed SQL that cannot compile. Verdict **FAILS**, and the correction reached four editable copies plus a note for frozen 002.
+**#12 — `is false` against a `tri_state` column [observed].** All three of `is false`, `is not false` and a bare `not` raise a type error ("argument of IS FALSE must be type boolean, not type app.tri_state"). The control in the same run, `IS NOT DISTINCT FROM 'NO'` and `= 'NO'`, returned the seeded row. So F2's SQL prescription, Bundle 1's `app.gate()` task and the lint's own list of "correct forms" each prescribed SQL that cannot compile. Verdict **FAILS**, and the correction reached four editable copies plus a note for frozen 002.
 
 **#27 — Realtime and the anon key [observed].** Two subscribers joined `postgres_changes` on `public.ward_public` in one run, one holding only the anon JWT and a service-role control. One write to a visible facility's duty flag delivered **six UPDATE events, with full records, to each**. The control receiving is what makes this a statement about the policy rather than the harness. So "Realtime is retained for authenticated ward and admin devices only" is false as a property of the database: any holder of the published key can subscribe to the public mirrors. Nothing in the repository subscribes, so no client violates it today. Verdict **FAILS**, marked with the gap stated; the publication and policies are untouched, because what replaces the rule is a design ruling.
 
@@ -1038,14 +1038,14 @@ In positive position the two forms agree, in a WHERE clause and in a CASE arm al
 
 **Corrections to frozen migrations** are collected in `database/migrations/README.md` under *Corrections to frozen migrations*: 002:74, 004:294, 005:211 and 006:75-83. No applied migration was edited.
 
-**#118 added.** v1:141's "`is false` only" is a third claim at a citation the enumeration covers twice (#48, #49). Numbered 118 so nothing renumbers; the unit is unchanged. The recount, from the committed parser, is **118 = 66 HOLDS / 24 FAILS / 12 STALE / 7 SUPERSEDED-IN-DOC / 9 NOT CHECKABLE**.
+**#118 added.** Bundle 1's `app.gate()` task, "`is false` only", is a third claim at a citation the enumeration covers twice (#48, #49). Numbered 118 so nothing renumbers; the unit is unchanged. The recount, from the committed parser, is **118 = 66 HOLDS / 24 FAILS / 12 STALE / 7 SUPERSEDED-IN-DOC / 9 NOT CHECKABLE**.
 
 **Obligations carried, and the code left alone.**
 - **#71.** `publish_ward_status` writes the status, the event and the audit row in one transaction and enqueues nothing to `app.notification_outbox`. v1 requires the enqueue from B3's transaction at two places. 014 is frozen, so it lands as a `CREATE OR REPLACE` in a later migration, in the B5 sprint that does not yet exist, alongside the dispatcher that consumes the rows.
 - **Recorded here, fixed by a later change:** #63/#97 (`ward_reply` has a cap and no content validation), #109 (Gate 3's property test does not exist), #115 (no strings module).
 
 **Open design rulings this sweep produced, none of which an implementer can take.**
-1. **The external-caller half of B5 (#30, with #87, #88, #89, #92).** v1:81 put "the API" on Vercel and nothing was ever built there. R-2026-09-16-07 marked the `/api/sweep` leaf and left the root, which is how six more items reached this sweep on the same premise. Until this is ruled, every B5 item naming an HTTP route is unbuildable as written.
+1. **The external-caller half of B5 (#30, with #87, #88, #89, #92).** A2's hosting split put "the API" on Vercel and nothing was ever built there. R-2026-09-16-07 marked the `/api/sweep` leaf and left the root, which is how six more items reached this sweep on the same premise. Until this is ruled, every B5 item naming an HTTP route is unbuildable as written.
 2. **Realtime on the public mirrors (#27).** Either the rule changes, or the publication does.
 3. **Whether an understated-but-bounded age may render green (#15).** The never-green guarantee as v1 words it does not hold; what shipped is a different and arguably better property.
 
@@ -1083,7 +1083,7 @@ _#33 merged at its reviewed head `cc51d5d`, untouched; nothing was attached to a
 
   **The corrected E1, and the record carries only this:** over a client already polling the mirrors, the DELETE stream's marginal disclosure is **timing resolution** — sub-second and pushed, against one poll interval and pulled. **Not the fact of delisting**, which is public either way, by 008's argument and because the facility simply stops appearing in the next read.
 
-  **This does not touch #27's verdict.** #27 rests on an anon subscriber receiving events at all, which v1:73 denies. E1 and E2 are consequences of that verdict, not its evidence, and collapsing the two is how the first write-up took its severity from its framing rather than from its observations.
+  **This does not touch #27's verdict.** #27 rests on an anon subscriber receiving events at all, which A1's "Realtime is retained for authenticated ward and admin devices only" denies. E1 and E2 are consequences of that verdict, not its evidence, and collapsing the two is how the first write-up took its severity from its framing rather than from its observations.
 - **E2 — the accumulation case. CONFIRMED [observed].** Two successive writes to one ward delivered two full rows to the anon subscriber: `bed_count=7 @ 18:22:55.966943+00` then `bed_count=3 @ 18:23:00.05206+00`, each with `facility_id`, `category` and `updated_at`. A subscriber that simply keeps them has a facility-level series at whatever resolution the publisher writes. The kickoff's read-RPC task caps the pull path — ≤200 rows, ≤30 days, no offset paging, no CSV — and requires that a legitimate caller "must not be able to assemble a time series".
 
   **The severity of this is NOT RECORDED HERE, and that is deliberate (R-2026-09-17-07).** The observation above stands; what it *adds* does not, until it is measured against what the designed public path already gives away. Anon holds `SELECT` on the three mirrors, `public.snapshot_current` is service_role-only, and no CDN path is built — so **polling the mirrors is the current public read path**, and a poller reconstructs some of this series by itself. The delta is the finding, and the measurement is carried in the next ruling block. E1 was overstated for exactly this reason: it was written up without its baseline.
@@ -1093,6 +1093,46 @@ _#33 merged at its reviewed head `cc51d5d`, untouched; nothing was attached to a
 **`scripts/` survey item 1, recorded.** The duty-flag lint catches `NOT flag`, which cannot compile against the enum, and misses `<> 'NO'` and `NOT (flag = 'NO')`, which compile and silently drop a NULL flag expression — now banned by `.claude/rules/code-pipeline.md` and enforced by nothing. **The guard catches the impossible and misses the possible.** NULL reaches a duty-flag expression by one route, verified in migration 006: `app.gate_for_facility()` LEFT JOINs `app.facility_ops`, and 006's own comment says a facility with no ops row "yields three NULLs, which app.gate() treats as ungated". Dropping that facility's row from a filtered query is the never-set-flag-closes-the-city regression in new clothes. Survey item 1, with plants both ways per §2 of the test conventions; not in this change, which touches no tests.
 
 **Scope held:** documents only. No migration, test, script, workflow or app file changed; the publication and policies untouched; #33 unmodified.
+
+### R-2026-09-17-07 — E1 retracted, E2 measured against its baseline, and what the measurement changes
+
+_#34 was amended before merging: the E1 retraction and the E2 hold are in the R-05 block above, where the overstatement was written. This block carries what came after. Everything tagged **observed** was run by Claude Code on 2026-09-17 against the local stack; the seeded state was restored afterwards._
+
+**Why E1 failed, stated once, because it is the reusable part.** It was written up without its baseline. The defence was already in migration 008, in the file the probe was aimed at, and the control it invoked — the k-floor — belongs to a different claim. Nothing about the observation was wrong; everything about its severity was.
+
+**C — E2 measured. One write sequence, four arms, each reading the same ward [observed].**
+
+The baseline is not hypothetical: anon holds `SELECT` on the three mirrors, `public.snapshot_current` has a single `SELECT TO service_role` policy and grants SELECT to `service_role` alone, and no CDN path is built. **Polling `public.ward_public` over PostgREST with the published key is the current public read path.**
+
+| arm | writes 2s apart | writes 200ms apart | cost |
+|---|---|---|---|
+| Realtime, anon | 4 / 4 states | **6 / 6 states** | 0 requests |
+| Realtime, service_role (control) | 4 / 4 | 6 / 6 | — |
+| PostgREST poll, anon, 1s (determined watcher) | 4 / 4 | **2 of the 6 written states** | 10–16 requests |
+| PostgREST poll, anon, 30s (the designed cadence) | 1 / 4 | **0 of the 6** | 1 request |
+
+**So the delta is conditional, and the condition is the write rate.**
+- Against a **determined watcher polling faster than the writes arrive**, push adds **nothing**: at 2s spacing the 1s poller reconstructed every state. A facility-level series is already obtainable by anyone willing to spend requests.
+- Against writes **closer together than the poll interval**, push is **complete and polling is lossy**: six states written 200ms apart, six captured by the subscriber, two by the 1s poller, none by a client at the designed cadence. The subscriber sees intermediate values — a ward that goes 0 and back — that no polling client can reconstruct, at any cadence it can afford.
+- The cost asymmetry is the second half: the subscriber pays **zero requests** and is pushed everything; the poller pays a request per interval forever and still loses states.
+
+**C2 — what rate-limits the public surface today: nothing, and the design's own answer cannot cover the push path.**
+- `supabase/config.toml` configures rate limits under `[auth.rate_limit]` only — emails, SMS, sign-ins, token refreshes, anonymous users. **There is no rate limit on the data API anywhere in this repository**, so the 16-request poller above was never throttled.
+- The kickoff requires the public surface to be rate-limited, because named wards' duty numbers are a harassment vector. `packages/fixtures/golden-path-steps.json` records where that control was meant to live: *"the public rate limit is enforced at the edge"*.
+- **A Realtime subscription does not traverse the edge.** It is a websocket to Supabase, so an edge rate limit could never have covered the push path, however well it is built. This is E3 again in a second control: the design's answer to a pull problem does not reach the push path, and nobody noticed because the push path was never in scope.
+- **Separately a finding:** the rate limit is a live rule of the kickoff with no enforcement artefact anywhere, and its stated home is a deployment that does not exist. Hosted platform limits are not checkable from this repository.
+
+**D and E3 survive unchanged, and D is strengthened.** The boundary is specified for pull and silent on push; and migration 013 publishes the mirrors on a rationale A1 had already reversed — v1's projection task required real tables rather than views because "Realtime cannot publish a view", written when Realtime *was* the public serving path. A1 moved public reads to a CDN snapshot and the publication stayed. **If the marginal exposure were only resolution, the publication would buy nothing for anyone, because nothing subscribes** — which is the argument for removing it rather than an argument for keeping it. Note that the real-tables decision keeps an independent reason of its own (a table's column list can be asserted in CI), so what died is the publication, not the table choice.
+
+**E — sequencing, and it rests on E2 alone.** Migration 018 stays ahead of the `scripts/` survey **because of the measured push/pull gap and C2's missing rate limit, not because of E1**, which is retracted. The gap is real but narrower than R-06 assumed: it binds when writes are frequent relative to a poller's cadence, and a determined watcher already reconstructs a coarse series today. **Whether that still warrants the critical path is Cowork's to re-rule**, and this record does not preserve R-06's ordering by deference: if a coarse series is already obtainable and the delta is resolution plus cost, 018 may reasonably sit behind the survey. What it does not warrant is doing nothing, because the publication has no consumer at all.
+
+**E1 — the founder-side blocker, rewritten.** R-06 blocked the facility agreement's **quiet-mode** promise. That was wrong, and 008 is why: delisting is observable and unhideable, so the quiet-mode commitment can be made honestly, and the k-floor still does its own job of protecting a quiet facility's numbers. **The commitment actually at risk is that history is private** — migration 004's comment grounds it in facilities that fear being graded ceasing to tell the truth. Until 018 lands, or a measurement shows the push path adds nothing a watcher could not already assemble, **do not promise per-ward history is private**. That is a blocker on the agreement's wording, not on the repository.
+
+**G — one more count, and the same one.** Migration 008's quiet-mode block says a facility's categories "are the same eight every facility has". Ten since the 2026-09-09 ward-category audit. 008 is frozen, so it takes a note in `database/migrations/README.md` beside 002, 004, 005 and 006. **That count has now been found wrong in five files across two documents**, which is what makes it a category rather than a typo.
+
+**Found in passing, and fixed in the same change: the corrections section itself prescribed SQL that would not run.** `database/migrations/README.md`'s 002 and 006 entries read `IS NOT DISTINCT FROM NO`, `= NO` and `<> NO` — the quotes around the `'NO'` literal were stripped when that section was written through a shell-escaped script in the v1 sweep, and unquoted `NO` is an identifier, not a value. **A section whose whole purpose is correcting a form that does not compile was itself prescribing a form that does not compile.** Corrected here; the only occurrences in the repository were those four, and the apostrophes and literals in the lint header, the SOP and the kickoff survived intact. The reusable lesson is narrow and practical: **prose written through a shell-escaped one-liner can lose characters silently**, and SQL in a document is content that a reader will copy, so it is read back after writing.
+
+**Also found while reading 013.** Its header restates "Realtime is retained for AUTHENTICATED ward and admin devices only" — the claim #27 disproves — and defends the DELETE payload by pointing at 008. The first half is false as a property of the database; the second is correct. 013 is frozen, so both are noted rather than edited.
 
 ## Method notes — how rulings reach the implementer
 
@@ -1137,6 +1177,14 @@ _Standing rules, 2026-09-15. This record is their home._
    - **Why:** R-2026-09-17-03 item 1 said "re-run that parser". No parser existed -- it had been run ad hoc and its output pasted. The implementer could not comply, derived the counts independently, reported the mismatch and committed the derivation, which is what the instruction should have asked for.
    - **It is Clause 4's phantom enforcement, one level up.** A cited script that does not exist reads exactly like one that does. And it is enumeration item #109 -- Gate 3 asserting a property test nobody built -- committed inside the document that records it.
    - **How it differs from note 3.** Note 3 is about an instruction naming a runnable check: its feasibility is checked before executing. This note is about describing a check you performed as an artefact of the repository. Note 3 asks *can this be run here?*; note 9 asks *does this exist at all?*
+10. **Severity is marginal over the existing public baseline** (R-2026-09-17-07). A finding's severity is what it adds over what is already obtainable through the designed public path, never what it sounds like alone. **State the baseline, then claim only the delta.**
+    - **One narrowing, offered by the implementer and the reason the note is worth having:** the baseline must be a **designed** public path, not another unfixed defect. Otherwise two holes excuse each other, and the second one is dismissed by pointing at the first. "Already obtainable because the snapshot publishes it" is a baseline; "already obtainable because another guard is broken" is a second finding.
+    - **A corollary, from the measurement that produced this note:** a delta is often conditional, and the condition is part of the finding. The push/pull gap on `ward_public` is zero against a watcher polling faster than writes arrive, and total against writes closer together than any affordable poll interval. A severity claim that names no condition is usually the unconditioned version of a conditional one.
+    - **Why it earned a note:** R-2026-09-17-06 wrote E1 up as defeating quiet mode without reading the defence already in migration 008, and re-sequenced a migration onto the critical path on that framing. The observation was sound; the severity came from the write-up.
+11. **Cite by section name, not line number, inside any document that edits itself** (R-2026-09-17-07; standing advice before that, now binding). A marker added at the top of a file moves every citation below it, and the citation stays plausible while pointing at the wrong line.
+    - **Three drifts in one session, every one caused by markers this same chain added:** `M/006:57` (the sentence is at :75), `v1:396` and `v1:400` (both moved by two lines).
+    - **Where it binds:** the v1 and v2 kickoffs, this record, and any future sweep — documents that take inline markers. **Where it does not:** a frozen migration, whose lines cannot move, and the enumeration, whose header pins its citations to `db528f8` and which is a dated record besides.
+    - **How to apply:** name the section, the task, or the sentence — "F2's SQL prescription", "A2's hosting split", "008's quiet-mode block". A reader finds those after any edit; a line number survives only until the next marker.
 
 ---
 
@@ -1204,6 +1252,12 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-17, R-2026-09-17-07: E1 retracted as overstated (008 already defends that
+  payload; the k-floor protects a quiet facility's numbers, not its identity), E2's
+  delta measured against polling the mirrors and recorded as conditional on write
+  rate, the missing data-API rate limit recorded as its own finding, the founder-side
+  blocker rewritten from quiet mode to history-is-private, method notes 10 and 11,
+  and notes for frozen 008 and 013;
 - on 2026-09-17, R-2026-09-17-05: #33 merged untouched at its reviewed head; B5's
   external caller ruled (Cloudflare Pages Functions) and its seven markers moved
   from open to ruled; the GREEN-tile property ruled and recorded as a Bundle 4
