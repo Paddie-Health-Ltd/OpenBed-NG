@@ -61,8 +61,8 @@ one place.
 
 - **002:74** — "Use `is false` / `is not false` in SQL". Neither compiles against
   `app.tri_state` ("argument of IS FALSE must be type boolean"; observed, local
-  PostgreSQL 17.6). The form is `IS NOT DISTINCT FROM NO`, and its complement is
-  `IS DISTINCT FROM NO`.
+  PostgreSQL 17.6). The form is `IS NOT DISTINCT FROM 'NO'`, and its complement is
+  `IS DISTINCT FROM 'NO'`.
 - **004:294** — "/api/health returns 500 when it …". There is no `/api` host: both
   apps are static builds and no API directory exists. The sensor argument survives
   as `app.system_heartbeat`, read directly (R-2026-09-16-07). What replaces the
@@ -72,13 +72,32 @@ one place.
   `ward_reply`. Only the 1000-character cap is real. First found by the v2 sweep
   (#7), and found again independently by the v1 sweep (#63, #97).
 - **006:75-83** — the form is right and the stated reason is not. The comment says
-  `= NO` and `IS NOT DISTINCT FROM NO` "diverge exactly when an argument
+  `= 'NO'` and `IS NOT DISTINCT FROM 'NO'` "diverge exactly when an argument
   arrives NULL" and the CASE branch is then "silently not taken". Observed over
   YES/UNKNOWN/NO/NULL: in a CASE arm and in a WHERE clause the two forms agree,
   because NULL and false both skip, and `app.gate()` returns NULL for a NULL flag.
-  They diverge only under negation: `<> NO` drops the NULL row, while
-  `IS DISTINCT FROM NO` keeps it. `IS NOT DISTINCT FROM` is the right choice
+  They diverge only under negation: `<> 'NO'` drops the NULL row, while
+  `IS DISTINCT FROM 'NO'` keeps it. `IS NOT DISTINCT FROM` is the right choice
   because it stays total when negated.
+
+Added 2026-09-17 by R-2026-09-17-07, from reading these two files while probing the
+Realtime publication:
+
+- **008, the quiet-mode block** — "its categories are the same eight every facility
+  has". Ten since the 2026-09-09 ward-category audit, the same drift as the truth
+  table's 48. The argument the sentence supports does not depend on the number.
+  **The rest of that block is correct and was under-read rather than wrong:** it
+  anticipated the DELETE payload a Realtime subscriber receives, named both primary
+  keys, and concluded the payload "leaks nothing beyond 'this facility stopped being
+  listed', which is exactly the observable fact quiet mode creates and cannot hide."
+  A 2026-09-17 probe reported that payload as a finding without reading this defence;
+  the defence stands and the finding was retracted.
+- **013, the REALTIME AND THE THREE MIRRORS note** — "Realtime is retained for
+  AUTHENTICATED ward and admin devices only". False as a property of the database:
+  observed 2026-09-17, a subscriber holding only the anon key receives INSERT, UPDATE
+  and DELETE events on all three mirrors, with a service-role control receiving the
+  same in the same run. The REPLICA IDENTITY half of the same note is correct, and
+  DEFAULT is what keeps the DELETE payload to the primary key.
 
 ## Ward-level identity
 
