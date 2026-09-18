@@ -1218,6 +1218,37 @@ The kickoff is `Sprint Kickoffs/sprint-kickoff-a1-accumulation-boundary-2026-09-
 
 **G — the same check runs before Bundle 3 is scoped**, not when it starts: whether Pages Functions support scheduled handlers or cron triggers, against the Pages documentation. If they do not, the external sensor is a separate Worker, and **that is a scope change to report** rather than to work around — the kickoff's own instruction on that task.
 
+### R-2026-09-18-13 — handoff documents are authored into `docs/`
+
+**Location, and nothing else.** Handoff documents are written into `docs/` at authoring time. There is no out-of-repository staging directory: `~/cowork-handoff/` is retired as a destination, and the files still there are historical copies of `docs/` content already committed, not a source of truth. **Scope is handoff documents only**; sprint kickoffs and decision memos keep their home in `Sprint Kickoffs/`.
+
+**Why:** five handoffs were authored outside the repository and every one had to be carried in afterwards, two of them late enough to be recorded as owed. This removes the staging area instead of paying the debt once per session. It is method note 15 applied to where documents are born rather than to when they are committed.
+
+_This ruling is cited for location only — not for the sequencing or the incidents recorded under R-14._
+
+### R-2026-09-18-14 — #37 carries the record items; Bundle 1 stays clean
+
+_A first version of this block arrived with no ruling id on its first line, and was **refused under method note 1** rather than acted on. It was reissued as R-13 and R-14. One line, because the protocol working is worth recording._
+
+**A — the two handoff documents land in #37, not in Bundle 1.** Bundle 1 ships the first server-side credential in the project's history, so its diff is the serving leg and nothing else, and review of it is undiluted. Both files were placed in the working tree by Cowork and **verified byte-identical before committing** — `git hash-object` gives `02dc4879028092bee328fc0d7fdbbd77dbc62b0b` for `docs/handoff-2026-09-17-017-shipped-and-hosted-at-017.md` and `8fa728b95263fa79051b0f2851a501716a27afb3` for `docs/handoff-2026-09-17-v1-sweep-and-the-accumulation-boundary.md`, matching the values Cowork stated. **This closes R-2026-09-17-12 item 7.**
+- **One superseding note, because the second handoff is a dated record and is landed unedited (method note 8).** Its *What's next* item for Bundle 1 describes the rate limit as living "in `wrangler` config". **R-2026-09-17-12 superseded that**: the Rate Limiting binding is not available to Pages Functions, and the limit is a founder-configured zone WAF rule, OWED. The same handoff lists method note 13 as "proposed, not yet recorded"; it was recorded in #37. Both documents also describe themselves as sitting in `cowork-handoff/`; they now sit in `docs/`, per R-13.
+
+**B — the implementer's item-7 report was correct in scope and overstated past it.** "Not in the tree or on the remote" was true. "Does not exist on this machine" was a claim about a scope the implementer could not see: the files were in `~/cowork-handoff/`, outside the repository and its working horizon. Method note 14's family. Declining to invent them was right; the wording reached further than the search did.
+
+**C — two implementer errors on 2026-09-17, recorded as distinct, because the difference decides which needs a mechanical guard.**
+1. **A fabricated full SHA.** To merge #36, the implementer composed a 40-character SHA from the short `2801289` rather than reading it. `gh pr merge --match-head-commit` **refused it**. **Contained by design**: a guard that existed, fired and held.
+2. **The head branch of an open PR deleted.** The implementer then deleted the local and remote branch while #36 was still open, which **closed the PR**. It was recovered — the branch restored from the local commit, the PR reopened, CI re-run on the same head, and the merge done with the SHA read back from the API — **but only because the commit still existed locally.** In a fresh clone, or after a prune, it would have been unreachable behind a closed PR. **Nothing caught it. Contained by luck.**
+
+The second is not a consequence of the first; it is its own failure, and it is the one with no guard. That is why the git-operation rules below are written into the pipeline rather than left in a note.
+
+**D — method note 16**, below.
+
+**E — three rules added to `.claude/rules/code-pipeline.md`**, under *Git and PR operations*: identifiers are read and never composed; no branch is deleted until the PR reports merged **from the API**; branch deletion is never part of a merge step. **Why in the rules file rather than only in a memory:** until now "read it, never compose it" lived in the implementer's own memory, and method note 15 — recorded in this same PR — says a rule outside version control is not landed. A memory is a transcript with better ergonomics.
+
+**F — #37 merges** with the head SHA read back from the API, and its branch is deleted only after `MERGED` is read back, as a separate action.
+
+**G — then Bundle 1**, off the new `main`, governed by the amended A1 kickoff. Where this ruling's summary of Bundle 1 differs from the kickoff, the kickoff wins; the one place they differ is recorded in Bundle 1's PR.
+
 ## Method notes — how rulings reach the implementer
 
 _Standing rules, 2026-09-15. This record is their home._
@@ -1282,8 +1313,12 @@ _Standing rules, 2026-09-15. This record is their home._
     - **Two instances on one day:** the Rate Limiting binding, which the Workers documentation presents as generally available and the Pages Functions binding list does not contain; and Bundle 3's cron triggers, flagged in the kickoff as proposed-not-verified for the same reason.
     - **How to apply:** find the variant's own enumerated list. Absence from an enumerated list is acceptable evidence **when the failure mode is loud** — an unsupported binding is a deploy-time error. Where the failure mode would be silent, absence is not enough and it is checked by running it.
 15. **A ruling, decision or scope document is not landed until it is committed** (R-2026-09-17-12). **A session transcript and an untracked working-tree file are the same defect**: both are a record that exists for whoever was present and for nobody else.
-    - **Three instances on 2026-09-17:** rulings R-09, R-10 and R-11, which reached the repository only when this change landed them; the A1 kickoff, which sat untracked in the working tree while a sprint was scoped against it; and two handoff documents that were owed and have not ridden.
+    - **Three instances on 2026-09-17:** rulings R-09, R-10 and R-11, which reached the repository only when this change landed them; the A1 kickoff, which sat untracked in the working tree while a sprint was scoped against it; and two handoff documents that were owed. **All three are now landed** — the rulings and the kickoff in #37, and the two handoff documents in #37 as amended under R-2026-09-18-14. R-2026-09-18-13 then removes the out-of-repository staging area the handoffs came from, so the next one is born in `docs/` rather than carried there.
     - **It is R-2026-09-15-10 A2 generalised** — the pre-017 sweep's citations were "kept" in a session transcript until #28 committed them — and it is the reason the enumeration is a file rather than a paste.
+16. **Read an identifier, never compose one** (R-2026-09-18-14). A commit SHA, a PR number, a migration number, a key id or a count is **read from the system that issues it and pasted verbatim** — never composed, extended, padded, or inferred from a short form. It is the attestation rule applied to every identifier: a number that looks verified and was typed is worse than an admitted gap.
+    - **Instance, 2026-09-17:** a full SHA composed from the short `2801289` to merge #36. **`--match-head-commit` refused it, and that is the point of recording it: the guard worked.** This note documents a contained failure, not a loss.
+    - **How to apply:** carry identifiers through a variable filled by the issuing system — `git rev-parse`, `gh pr view --json headRefOid`, `attest_counts.mjs` — never through a retyped string.
+    - **What this note does not cover, and R-2026-09-18-14 C says why it matters:** the branch deletion that followed was a different error and nothing caught it. That one is closed by a rule in `.claude/rules/code-pipeline.md`, because a note about reading carefully is not a guard against deleting too early.
 
 ---
 
@@ -1351,6 +1386,12 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-18, R-2026-09-18-13 and -14: handoff documents authored into `docs/`
+  and the staging area retired; the two owed handoffs landed byte-identical, with a
+  superseding note for the second's rate-limit line; the item-7 report's overstated
+  scope recorded; the fabricated SHA and the open-PR branch deletion recorded as two
+  distinct errors, one contained by a guard and one by luck; method note 16; and
+  three git-operation rules added to `.claude/rules/code-pipeline.md`;
 - on 2026-09-17, R-2026-09-17-09 to -12: the A1 accumulation-boundary sprint
   scoped and its kickoff committed; #36 merged and the kickoff's base SHA corrected;
   Bundle 1's definition of done split by performer with six founder steps OWED;
