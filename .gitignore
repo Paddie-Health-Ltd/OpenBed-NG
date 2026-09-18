@@ -30,4 +30,11 @@ supabase/.temp/
 .dev.vars
 !.dev.vars.example
 
+# wrangler's local state, and the bundled Pages Functions output built by
+# `npm run build:functions` so the service-role bundle guard can scan what the
+# Function actually ships (it bundles packages/snapshot/src/serve.ts in, which the
+# functions/ source does not contain). Both generated, never committed.
+.wrangler/
+.functions-build/
+
 .DS_Store

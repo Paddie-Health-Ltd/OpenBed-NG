@@ -25,6 +25,38 @@
 # RLS negative suite make a genuine anonymous HTTP request rather than a
 # hand-forged one that proves less.
 #
+# THE SURFACE THIS COVERS, AND WHAT IT DOES NOT (method note 12).
+#   COVERS: files in the tree that can reach the PUBLIC REPOSITORY, selected by
+#   name pattern (the find below). It scans the working tree -- tracked AND
+#   untracked -- so it sees a secret before a commit as well as after.
+#   DOES NOT COVER: what reaches a BROWSER. That is a different surface and a
+#   different control: scripts/lint_no_service_role_in_bundle.sh, over built
+#   bundles. And it does not see a file whose name matches no pattern below --
+#   which is not hypothetical:
+#
+# A NAMED GAP, OPEN: `.dev.vars` IS OUTSIDE THIS CORPUS. It is where
+# `wrangler pages dev` reads a Pages Function's environment, including the
+# service-role key, and it matches none of the patterns below. Observed
+# 2026-09-18: a `.dev.vars` holding an sb_secret_ key scanned PASS, "1 files
+# scanned" -- the file was never opened -- while the same key in a `.env` file
+# was caught. `.dev.vars` is gitignored on main (R-2026-09-18-16), which stops
+# an accidental `git add -A`; it does not stop `git add -f` or a deleted ignore
+# line, and an ignore rule is not a detection control.
+#
+# WHY THE OBVIOUS FIX WAS NOT TAKEN: adding `.dev.vars*` to the patterns was
+# tried, and the real repository then FAILED -- a developer's local `.dev.vars`
+# legitimately holds the well-known local demo key, and this scan reads the
+# working tree including ignored files. A secrets check that refuses every
+# developer's legitimate setup is the kind that gets switched off
+# (test-conventions.md section 2, the fifth way a leg goes wrong).
+#
+# THE FIX THAT FITS, recommended and not yet built: a TRACKED-FILES check -- no
+# `.dev.vars` may ever be tracked, whatever it contains -- which catches `git add
+# -f` and needs no content scan. It belongs in THIS script, because this is the
+# repository-surface control; it does not belong in the bundle guard, whose
+# surface is what reaches a browser. Brought back as a ruling question rather than
+# built into the A1 sprint's Bundle 1.
+#
 # Usage: bash scripts/lint_no_secrets.sh [ROOT]
 # Exit: 0 clean, 1 finding, 2 usage or empty corpus.
 # ============================================================

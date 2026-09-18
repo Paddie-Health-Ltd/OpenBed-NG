@@ -1,0 +1,7 @@
+# Copy to .dev.vars (gitignored) for `wrangler pages dev`. Names only, never values.
+#
+# SUPABASE_SERVICE_ROLE_KEY is the one credential in this system that cannot be
+# rotated quietly. It is read ONLY by the Function in functions/. It must never
+# be given a VITE_ prefix -- Vite inlines VITE_ variables into the browser bundle.
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=

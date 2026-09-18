@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { sql } from '../setup/db.js';
 import PUBLIC_RELATIONS from '../../packages/fixtures/public-relations.json';
+import FORBIDDEN from '../../packages/fixtures/forbidden-columns.json';
 
 /**
  * RELEASE GATE 1, LEG 2 -- the anonymous read surface exposes no private column.
@@ -26,6 +27,13 @@ import PUBLIC_RELATIONS from '../../packages/fixtures/public-relations.json';
  * THEY EXIST TODAY. Forbidding an absent name is deliberate: it catches a
  * REINTRODUCTION, which is the likelier failure once a column has been removed.
  *
+ * IMPORTED FROM packages/fixtures/forbidden-columns.json, NOT RESTATED (2026-09-18,
+ * A1 sprint Bundle 1). The same list now guards a second surface -- the served
+ * /beds.json document, in tests/db/beds_json_served.test.ts -- and two literal
+ * copies could be edited apart while both stayed green. The shared-fixture link
+ * of test-conventions.md section 8: drift now requires editing one file, which
+ * reddens both. The list itself did not change in the move.
+ *
  * A PRE-EXISTING DEFECT, FIXED HERE RATHER THAN INHERITED. The previous docstring
  * claimed all seven of these "are real column names in this schema, not
  * hypotheticals". That was already false: `refusal_note` has NEVER existed -- it
@@ -34,23 +42,7 @@ import PUBLIC_RELATIONS from '../../packages/fixtures/public-relations.json';
  * `fingerprint` too. The claim is now split so that each half is true and each
  * half is asserted.
  */
-const FORBIDDEN_COLUMNS = [
-  'reason_code',
-  'mobile_e164',
-  'admin_note',
-  'refusal_note',
-  'ward_reply',
-  'token_hash',
-  'fingerprint',
-  // Added by the ward-level identity decision (2026-09-08). Banned from the
-  // audit log and the event stream by that decision; banned from the anonymous
-  // surface here as well, at zero cost.
-  'actor_id',
-  'user_id',
-  'ip_address',
-  'user_agent',
-  'display_name',
-] as const;
+const FORBIDDEN_COLUMNS: readonly string[] = FORBIDDEN.columns;
 
 /**
  * The subset that MUST exist in `app` today. THIS IS THE ANTI-VACUITY LEG: with

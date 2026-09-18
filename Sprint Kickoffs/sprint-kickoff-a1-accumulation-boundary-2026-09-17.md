@@ -89,8 +89,8 @@ route and its scope is defined by this route's shape.
       bundle nor anything shipped to a browser. **Plant both ways** and prove the
       extension reddens on a planted key, per house convention.
 - [ ] Edge rate limit on the served route — **a founder-configured zone-level WAF
-      rate-limiting rule on `openbed.ng`, recorded OWED as step 6 of the Bundle 1
-      runbook. Not in code, and nothing is added to the wrangler config.**
+      rate-limiting rule on `openbed.ng`, recorded OWED as the rate-limit step of the
+      Bundle 1 runbook, gated by its custom-domain cutover step. Not in code, and nothing is added to the wrangler config.**
       **[CORRECTED 2026-09-17 (R-2026-09-17-12) before this document was first
       committed: this task was scoped expecting the limit to live in the wrangler
       config via Cloudflare's Rate Limiting binding. That binding is a WORKERS
@@ -143,18 +143,33 @@ the specified headers, observed from the edge and not only from the origin; a se
 request inside `s-maxage` is served by the cache; the planted service-role key
 reddens the extended guard in both trees; the served document's column lists match
 the frozen fixture exactly and carry no forbidden column; **the rate limit is
-recorded OWED as runbook step 6 with its scope stated — demonstration is
-founder-side.**
+recorded OWED as the runbook's rate-limit step with its scope stated — demonstration
+is founder-side.**
 
-**Who performs each criterion (method note 13), because five of these are not the
-implementer's to run.** Claude Code: the planted key reddening the extended guard in
-both trees, the served document's column lists, and a local `wrangler pages dev`
-proof of the route, the document and the headers **as set in code**. The founder,
-each OWED in the runbook: creating the Pages project, setting the service-role key in
-the Function environment, deploying, observing the headers **from the edge**, proving
-a cache hit inside `s-maxage`, and the rate-limiting rule. **Bundle 1 merges with the
-founder's six OWED and Bundle 2 starts on the deployment report, not on this merge**
-(R-2026-09-17-11 C).
+**Who performs each criterion, and on which side of the custom domain (method note
+13; split by R-2026-09-18-16 C3).** The Cache API works only on a custom domain and
+the rate-limiting rule is zone-level, so two criteria cannot be met until `openbed.ng`
+is live on the Pages project. R-2026-09-17-12 wrote them as independent of that; they
+are not.
+
+- **Demonstrable before the domain, by the implementer:** the Function serves the
+  current snapshot; the served document's column lists match the frozen fixture and
+  carry no forbidden column; the planted service-role key reddens the extended guard
+  in both trees; and the extension still reddens on the existing `apps/**/dist/**`
+  plant. Plus a local `wrangler pages dev` proof of the route, the document and the
+  headers **as set in code**.
+- **OWED to the founder, in the runbook, in this order:** create the Pages project;
+  set the service-role key in the Function environment; deploy; **the custom-domain
+  cutover, which GATES the next three**; observe the headers from the edge; prove a
+  cache hit inside `s-maxage`; configure the rate-limiting rule.
+- **The cache criterion is never marked met from a `*.pages.dev` preview.** It
+  cannot be exercised on Cloudflare at all before the domain exists — the Cache API
+  has no effect there — so its only pre-domain evidence is a local simulation, and
+  it is not claimed as more.
+
+**Bundle 1 merges with the founder's seven OWED, and Bundle 2 starts on the
+deployment report — the edge-headers and cache-hit steps, on the custom domain —
+not on this merge** (R-2026-09-17-11 C).
 
 ---
 
