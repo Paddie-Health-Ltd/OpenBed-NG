@@ -2,9 +2,10 @@ import { describe, expect, test } from 'vitest';
 import { join } from 'node:path';
 import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { parseLegs, parseInstrumentLegs, assertedByScript, evidenceDirs, isReached, legsWithoutIdentity, duplicateIds, type Leg } from './_legs.js';
+import { parseLegs, parseInstrumentLegs, assertedByScript, evidenceDirs, isReached, legsWithoutIdentity, duplicateIds, stringLiteralsInCode, type Leg } from './_legs.js';
 import { REPO_ROOT } from './_scratch.js';
 import REGISTER from '../../packages/fixtures/leg-coverage.json';
+import ts from 'typescript';
 
 /**
  * THE UNREACHED-LEG RATCHET.
@@ -309,5 +310,170 @@ describe('leg coverage register', () => {
 
   test('positive control — a properly registered, genuinely unreached leg is accepted', () => {
     expect(registerViolations([LEG], REG_OK, new Map([['lint_x.sh', ['something unrelated']]])), 'the register rejected the case it exists for').toEqual([]);
+  });
+});
+
+/**
+ * THE EVIDENCE COLLECTOR'S OWN PLANTS (R-2026-09-18-15).
+ *
+ * stringLiteralsInCode decides which strings in a test file count as evidence
+ * that a leg is proved. It replaced a regex comment-stripper whose `/*` search
+ * ran over raw text, so an opener inside a `//` comment swallowed code up to the
+ * next closer. These plants pin the replacement in BOTH directions: nothing live
+ * is swallowed (under-credit), and nothing in a comment is credited
+ * (over-credit). The over-credit legs are the ones a plant set leaves out when
+ * the observed failure was under-credit, so they are enumerated deliberately.
+ *
+ * Every snippet is TypeScript source handed to the collector as TEXT; nothing
+ * here is executed. A marker string that must NOT be credited is split with a
+ * concatenation, so this file's own literals never contain it whole and the
+ * negative assertions cannot be satisfied by this file.
+ */
+describe('leg evidence collector', () => {
+  const NOT_CREDITED = 'OVERCREDIT' + '-MARKER';
+
+  test('plant (a) — an opener inside a line comment, with a later block comment, swallows nothing', () => {
+    // The exact defect. The old collector's block strip reached from the `/*`
+    // in the first line's `static/*` to the JSDoc closer, and the assertion
+    // between them vanished from the register.
+    const src = [
+      '// the find predicate declares TWO paths: */dist/* and */.next/static/*.',
+      "expect(out).toContain('asserted between the opener and the closer');",
+      '/** a genuine block comment that closes here */',
+      "expect(out).toContain('asserted after the closer');",
+    ].join('\n');
+    const got = stringLiteralsInCode(src, 'plant-a.test.ts');
+    expect(got, 'live code after an opener inside a line comment was swallowed').toContain('asserted between the opener and the closer');
+    expect(got).toContain('asserted after the closer');
+  });
+
+  test('plant (b) — a closer inside a string literal terminates nothing', () => {
+    // A `/*` in one string and a `*/` in a later one bracketed live code for the
+    // old block strip, which removed everything between them.
+    const src = [
+      "const opener = 'a path with /* in it';",
+      "expect(out).toContain('asserted between two strings holding comment markers');",
+      "const closer = 'a path with */ in it';",
+    ].join('\n');
+    const got = stringLiteralsInCode(src, 'plant-b.test.ts');
+    expect(got, 'a string holding a comment closer ended something').toContain('asserted between two strings holding comment markers');
+    expect(got).toContain('a path with /* in it');
+    expect(got).toContain('a path with */ in it');
+  });
+
+  test.each([
+    ['a genuine BLOCK comment', `/* expect(out).toContain('${NOT_CREDITED}'); */\nconst x = 1;`],
+    ['a whole-line comment', `// expect(out).toContain('${NOT_CREDITED}');\nconst x = 1;`],
+    ['a TRAILING comment after code on the same line', `const x = 1; // expect(out).toContain('${NOT_CREDITED}');`],
+    ['a JSDoc block', `/**\n * expect(out).toContain('${NOT_CREDITED}');\n */\nconst x = 1;`],
+  ])('plant (c) — an assertion-shaped string inside %s is NOT credited', (_where, src) => {
+    // The over-credit guard. The trailing-comment case is one the OLD collector
+    // credited even when its block strip worked: it removed only whole-line `//`
+    // comments.
+    const got = stringLiteralsInCode(src, 'plant-c.test.ts');
+    expect(got.some((s) => s.includes(NOT_CREDITED)), `a string inside a comment was credited: ${JSON.stringify(got)}`).toBe(false);
+  });
+
+  test('plant (d) — an assertion in live code is credited, including each static span of a template', () => {
+    const src = [
+      "expect(out).toContain('asserted in a single-quoted literal');",
+      'expect(out).toContain("asserted in a double-quoted literal");',
+      'expect(out).toContain(`asserted in a plain template`);',
+      'expect(out, `template head part ${detail} template tail part`).toBe(1);',
+    ].join('\n');
+    const got = stringLiteralsInCode(src, 'plant-d.test.ts');
+    for (const s of [
+      'asserted in a single-quoted literal',
+      'asserted in a double-quoted literal',
+      'asserted in a plain template',
+      'template head part ',
+      ' template tail part',
+    ]) {
+      expect(got, `live code was not credited: ${s}`).toContain(s);
+    }
+  });
+
+  test('positive control — a regex literal holding quotes yields no string at all', () => {
+    // Why the parser and not the scanner: a scanner cannot tell a regex literal
+    // from a division slash without parse context, and produced a bogus string
+    // token starting INSIDE this exact kind of regex (observed 2026-09-18).
+    const src = "const re = /\\.(?:toContain|toThrow)\\(\\s*(['\"`])x/g;\nconst real = 'the only genuine literal';";
+    expect(stringLiteralsInCode(src, 'regex.test.ts')).toEqual(['the only genuine literal']);
+  });
+
+  test('the collector reaches the register — assertedByScript credits code after an opener in a line comment', () => {
+    // The plants above drive stringLiteralsInCode directly. This one goes
+    // through assertedByScript, which is what the register actually calls, so a
+    // future edit that bypassed the collector would redden here too.
+    const dir = mkdtempSync(join(tmpdir(), 'openbed-legs-evidence-'));
+    try {
+      writeFileSync(
+        join(dir, 'guard.test.ts'),
+        [
+          "const LINT = 'lint_planted.sh';",
+          '// the find predicate declares TWO paths: */dist/* and */.next/static/*.',
+          "expect(res.stdout).toContain('the planted guard message after the opener');",
+          '/** a closer */',
+          `// expect(res.stdout).toContain('${NOT_CREDITED}');`,
+        ].join('\n'),
+        'utf8',
+      );
+      const claims = assertedByScript(dir).get('lint_planted.sh') ?? [];
+      expect(claims, 'the register did not see an assertion after the opener').toContain('the planted guard message after the opener');
+      expect(claims.some((c) => c.includes(NOT_CREDITED)), 'the register credited a commented-out assertion').toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('plant — a test file that will not parse FAILS rather than crediting nothing', () => {
+    expect(() => stringLiteralsInCode("expect(out).toContain('unterminated", 'broken.test.ts')).toThrow(
+      'leg evidence collector could not parse this test file, so its assertions were never collected',
+    );
+  });
+
+  test('plant — an instrument file that will not parse FAILS rather than reporting no legs', () => {
+    // parseInstrumentLegs now reads with TypeScript's parser. An instrument file
+    // it cannot parse would otherwise report zero legs, which is exactly what a
+    // fully registered file looks like.
+    const dir = mkdtempSync(join(tmpdir(), 'openbed-legs-instrument-'));
+    try {
+      writeFileSync(join(dir, 'broken.ts'), 'const x = ((((;\n', 'utf8');
+      expect(() => parseInstrumentLegs(join(dir, 'broken.ts'), 'broken.ts')).toThrow(
+        'leg parser could not parse this instrument file, so its legs were never enumerated',
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('positive control — an instrument throw whose message sits on the NEXT line is a leg', () => {
+    // The case the line-scoped parser could not see, and the reason its residual
+    // note told authors to keep instrument throws on one line.
+    const dir = mkdtempSync(join(tmpdir(), 'openbed-legs-instrument-'));
+    try {
+      writeFileSync(
+        join(dir, 'multiline.ts'),
+        'export function f(): never {\n  throw new Error(\n    `a refusal whose message is on the next line for ${String(1)} reasons`,\n  );\n}\n',
+        'utf8',
+      );
+      const ids = parseInstrumentLegs(join(dir, 'multiline.ts'), 'multiline.ts').map((l) => l.id);
+      expect(ids, 'a multi-line throw was invisible to the instrument parser').toContain('a refusal whose message is on the next line for');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('plant — a parser that exposes no diagnostics FAILS rather than being trusted', () => {
+    // The typescript dependency is pinned; an upgrade that stopped recording
+    // parseDiagnostics would otherwise make every file "parse" and this check
+    // silently stop running.
+    const noDiagnostics = (f: string, s: string) => {
+      const sf = ts.createSourceFile(f, s, ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
+      return new Proxy(sf, { get: (t, p) => (p === 'parseDiagnostics' ? undefined : Reflect.get(t, p)) });
+    };
+    expect(() => stringLiteralsInCode("const x = 'ok';", 'nodiag.test.ts', noDiagnostics)).toThrow(
+      'leg evidence collector cannot verify a parse: the typescript parser exposed no parseDiagnostics for',
+    );
   });
 });

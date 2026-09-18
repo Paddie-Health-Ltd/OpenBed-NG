@@ -1249,6 +1249,29 @@ The second is not a consequence of the first; it is its own failure, and it is t
 
 **G — then Bundle 1**, off the new `main`, governed by the amended A1 kickoff. Where this ruling's summary of Bundle 1 differs from the kickoff, the kickoff wins; the one place they differ is recorded in Bundle 1's PR.
 
+### R-2026-09-18-15 — the leg register's evidence collector, fixed at the root in its own PR
+
+**The finding, stated the way Cowork verified it on the tree.** `assertedByScript` in `tests/compliance/_legs.ts` stripped `/* … */` with a regex over RAW text, before whole-line `//` comments were removed, so a `/*` inside a `//` comment was live. The trigger is a line comment in `tests/compliance/bundle_guards.test.ts`'s `.next/static` plant — "TWO paths: `*/dist/*` and `*/.next/static/*`" — whose unclosed `/*` reached forward to the next `*/` in the file. **On `main` there was none after it, so it swallowed nothing and the register was CORRECT: the defect was LATENT AND ARMED, not active, and no historical register result needs re-auditing.** The first JSDoc block Bundle 1 added below that line supplied a closer, and three existing assertions vanished from the register — observed as under-credit. Over-credit was never merely theoretical: pairing is sensitive to what the strip removes, in both directions (Cowork measured 219 regex pairings over `main` with the strip and 187 without; directional, not register counts).
+
+**The fix, and one premise corrected in doing it.**
+- **Mechanism: TypeScript's parser, not its scanner.** R-15 proposed `ts.createScanner` as cheaper and sufficient. **It is not sufficient** — observed 2026-09-18: on a regex literal from `tests/compliance/leg_coverage.test.ts`, the scanner produced a bogus string token beginning *inside* the regex, the very pairing desync the fix exists to remove, while `ts.createSourceFile` yielded only the genuine literal. A scanner cannot tell a regex from a division slash without parse context. Method note 5 leaves the mechanism to the implementer; the evidence is in the PR.
+- **`parseInstrumentLegs` moved onto the same parser, in the same file.** It was line-scoped, with a residual note reading "keep instrument throws on one line until there is a TypeScript parse to hang this on". The collector's fix introduced that parse, so the note's own exit condition was met in this change. Recorded as a scope extension inside `_legs.ts`, flagged in the PR.
+- **acorn untouched**, as ruled. `blankComments` still parses `.mjs` guards with it; the TypeScript parser supersedes no acorn use, because `parseInstrumentLegs` never used acorn.
+- **The new dependence, stated:** the collector's behaviour now tracks the pinned `typescript` devDependency's parser, pinned by plants rather than by assumption.
+
+**Acceptance, in the ruled order.**
+- **(i) No change on `main`.** Run over a clean checkout of `main`, the fixed collector and parser reproduced `main`'s register output exactly, leg for leg — 191 legs, 169 reached, diff empty.
+- **(ii) The defect is gone on Bundle 1's content.** Over `main` + the fix + Bundle 1's parked changes, the three swallowed assertions are reached again, and every other difference is Bundle 1's own legs or this PR's three refusals.
+
+**Plants, both directions, as enumerated:** (a) an opener inside a line comment with a later closer swallows nothing; (b) a closer inside a string terminates nothing; (c) an assertion-shaped string inside a block comment, a whole-line comment, a *trailing* comment and a JSDoc block is **not** credited — the trailing case is one the old collector credited even when its strip worked; (d) live code is credited, template spans included. Three neuters turned them red: the old algorithm restored (6 red), comments credited (all four over-credit rows red), and multi-line instrument throws ignored (the register itself red).
+
+**Found and named, not fixed, because R-15 scopes this PR to `_legs.ts` and its plants:**
+- the **script-mapping** half of `assertedByScript` — which scripts a test file exercises — is still regex over raw text, including comments, so a backticked script path in a comment maps a file to a guard. An over-credit channel of the same shape;
+- `tests/compliance/leg_coverage.test.ts` reads its **own** assertions with a regex over its own source. The same family.
+- **In Bundle 1, found by acceptance (ii):** the scanner's FAIL site became a ternary choosing between two messages, and the leg parser sees neither, so the client-bundle FAIL leg silently dropped out of the register. Bundle 1 fixes it with two plain failure sites.
+
+**Also recorded:** R-15's sequence began "merge #37 first". #37 had already merged under R-14 F (`92c79e5`, `MERGED` read back from the API before its branch was deleted), so that step was already satisfied.
+
 ## Method notes — how rulings reach the implementer
 
 _Standing rules, 2026-09-15. This record is their home._
@@ -1319,6 +1342,11 @@ _Standing rules, 2026-09-15. This record is their home._
     - **Instance, 2026-09-17:** a full SHA composed from the short `2801289` to merge #36. **`--match-head-commit` refused it, and that is the point of recording it: the guard worked.** This note documents a contained failure, not a loss.
     - **How to apply:** carry identifiers through a variable filled by the issuing system — `git rev-parse`, `gh pr view --json headRefOid`, `attest_counts.mjs` — never through a retyped string.
     - **What this note does not cover, and R-2026-09-18-14 C says why it matters:** the branch deletion that followed was a different error and nothing caught it. That one is closed by a rule in `.claude/rules/code-pipeline.md`, because a note about reading carefully is not a guard against deleting too early.
+17. **A tool that reasons about a language it does not parse will eventually be wrong in a way that silently changes what it reports** (R-2026-09-18-15). Use the language's own parser -- or, where only a scanner is on offer, prove the scanner is enough for the constructs present before trusting it.
+    - **Instance (i), 2026-09-18:** the leg register's evidence collector stripped TypeScript comments with a regex over raw text, and a `/*` inside a `//` comment was armed for weeks before a JSDoc block elsewhere in the file fired it. Its replacement was first proposed as TypeScript's *scanner*; the scanner was then observed mis-reading a regex literal containing quotes -- **the proposed fix carried the same defect one level down**, and only the parser resolved it. That second half is the reason for the clause about scanners.
+    - **Instance (ii), carried into the `scripts/` survey so the survey inherits the note rather than rediscovering it:** nothing validates SQL fragments quoted in prose. The duty-flag lint strips string literals and comments before matching, so documentation is structurally invisible to it, which is how the frozen-migration corrections section came to prescribe `IS NOT DISTINCT FROM NO` -- a form that does not compile, in a section whose purpose is correcting a form that does not compile. Survey item 2.
+    - **How to apply:** before a tool decides what is code, a comment, a string or a statement in some language, ask which parser made that decision. If the answer is a regex, the tool is guessing, and its guess changes silently whenever the input's shape does.
+    - **What it does not say:** that every regex over source is forbidden. A regex matching a fixed token in a known position -- a filename, a key -- is fine. The note binds when the tool must know the language's *structure* to be right.
 
 ---
 
@@ -1386,6 +1414,12 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-18, R-2026-09-18-15: the leg register's evidence collector moved from a
+  regex comment-stripper to TypeScript's parser (the scanner, as first proposed, was
+  observed mis-reading regex literals), with the instrument-leg parser moved onto the
+  same parse under its own residual note; the defect recorded as latent and armed, not
+  active, with main's register reproduced exactly; plants in both directions; and
+  method note 17;
 - on 2026-09-18, R-2026-09-18-13 and -14: handoff documents authored into `docs/`
   and the staging area retired; the two owed handoffs landed byte-identical, with a
   superseding note for the second's rate-limit line; the item-7 report's overstated

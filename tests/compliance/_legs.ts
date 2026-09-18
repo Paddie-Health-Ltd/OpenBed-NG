@@ -1,4 +1,5 @@
 import * as acorn from 'acorn';
+import ts from 'typescript';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -308,22 +309,107 @@ export function assertedByScript(testsDir: string): Map<string, string[]> {
     // assertion the way the tool wants rather than the way the test reads best.
     //
     // So the boundary is comment-vs-code, which is what clause (a) is actually
-    // about. Comments are stripped and every string literal in the remaining
-    // code counts. RESIDUAL RISK, stated rather than hidden: a leg message used
-    // as plant INPUT rather than as an assertion would over-credit. Nothing here
-    // does that today -- plant inputs are SQL and TypeScript snippets, not guard
-    // messages -- and the neutering discipline is what actually proves a leg;
-    // this decides only what the register records.
-    const code = raw
-      .replace(/\/\*[\s\S]*?\*\//g, ' ')
-      .split('\n')
-      .map((l) => l.replace(/^\s*\/\/.*$/, ''))
-      .join('\n');
-
-    const asserted: string[] = [];
-    for (const m of code.matchAll(/(['"`])((?:[^\\]|\\.)*?)\1/g)) asserted.push(m[2] as string);
+    // about: every string literal IN CODE counts, and nothing in a comment does.
+    // WHICH IS CODE AND WHICH IS COMMENT IS DECIDED BY TYPESCRIPT'S OWN PARSER --
+    // see stringLiteralsInCode below for why, and for what that does and does not
+    // guarantee.
+    const asserted = stringLiteralsInCode(raw, name);
     for (const script of scripts) out.set(script, [...(out.get(script) ?? []), ...asserted]);
   }
+  return out;
+}
+
+/**
+ * EVERY STRING LITERAL IN CODE, AS TYPESCRIPT'S PARSER SEES IT. (R-2026-09-18-15.)
+ *
+ * WHAT THIS REPLACED, AND WHY A REGEX COULD NOT BE REFINED INTO SHAPE. The
+ * collector used to strip `/* ... *\/` with a regex over RAW text, then strip
+ * whole-line `//` comments, then pair quotes with another regex. The block strip
+ * ran first, so a `/*` inside a `//` comment was live: tests/compliance/
+ * bundle_guards.test.ts has a line comment reading "TWO paths: *\/dist/* and
+ * *\/.next/static/*", and the unclosed `/*` at `static/*` reached forward to the
+ * next `*\/` in the file. On main there was none after it, so it swallowed
+ * nothing and the register was CORRECT -- the defect was LATENT AND ARMED, not
+ * active. The first JSDoc block added below that line (A1 sprint, Bundle 1,
+ * 2026-09-18) supplied a `*\/`, and three existing assertions vanished from the
+ * register. It failed loud that time, as under-credit. It could equally have
+ * over-credited: quote pairing depends on what the strip removed, and Cowork
+ * measured 219 regex pairings over main with the strip and 187 without it.
+ *
+ * WHY THE PARSER AND NOT THE SCANNER. R-2026-09-18-15 proposed ts.createScanner
+ * as cheaper and sufficient. It is not sufficient: a scanner cannot tell a regex
+ * literal from a division slash without parse context, and this repository's
+ * tests are full of regex literals containing quotes. Observed 2026-09-18 on a
+ * line from tests/compliance/leg_coverage.test.ts -- the scanner produced a
+ * bogus string token beginning INSIDE the regex, which is exactly the pairing
+ * desync this function exists to remove. ts.createSourceFile resolves it the way
+ * the compiler does. Method note 17: a tool that reasons about a language it does
+ * not parse will eventually be wrong in a way that silently changes what it
+ * reports.
+ *
+ * WHAT IS COLLECTED: the cooked text of every StringLiteral and
+ * NoSubstitutionTemplateLiteral, and every static span of a TemplateExpression
+ * (head, middles, tail) -- the parts a `toContain` can match. Comments, regex
+ * literals and interpolated expressions are not strings and are never collected.
+ *
+ * WHAT THIS NOW GUARANTEES, AND WHAT IT STILL DOES NOT (the residual-risk note,
+ * rewritten in the same pass as the fix, because the old one said "nothing here
+ * does that today" about the one over-credit it had reasoned about and missed
+ * this one):
+ *   - GUARANTEED: nothing inside a comment is ever credited, however the comment
+ *     is written, and no quote inside a comment, a regex or another string can
+ *     desync what counts as a literal.
+ *   - NOT GUARANTEED: that a collected string is an ASSERTION. A leg message used
+ *     as plant INPUT, or quoted in a test NAME, is a string in code and is
+ *     credited. That is a known over-credit channel, deliberately left open: the
+ *     boundary this collector draws is comment-vs-code, and the neutering
+ *     discipline -- not this register -- is what proves a leg can fail.
+ *   - NOT COVERED HERE: which scripts a test file is mapped to. That mapping is
+ *     still regex over raw text, including comments, in assertedByScript above;
+ *     it is outside R-2026-09-18-15's scope and is named in that PR.
+ *
+ * A NEW DEPENDENCE, STATED: this collector's behaviour now tracks the pinned
+ * `typescript` devDependency's parser. It is pinned by plants in
+ * tests/compliance/leg_coverage.test.ts, not by an assumption -- a parser upgrade
+ * that changed what counts as a literal would redden them.
+ *
+ * A FILE THAT WILL NOT PARSE IS FATAL, as in blankComments: skipping it would
+ * credit nothing silently, and a partial parse would credit whatever survived.
+ */
+export function stringLiteralsInCode(
+  source: string,
+  file: string,
+  // THE SEAM for the refusal below. A test injects a parser that returns a source
+  // file carrying no parseDiagnostics, which is the only way to reach it without
+  // monkey-patching the typescript module.
+  parse: (file: string, source: string) => ts.SourceFile = (f, s) =>
+    ts.createSourceFile(f, s, ts.ScriptTarget.Latest, false, ts.ScriptKind.TS),
+): string[] {
+  const sf = parse(file, source);
+  // parseDiagnostics is not in the public .d.ts, but it is where createSourceFile
+  // records syntax errors. Its ABSENCE would mean this check cannot run, which is
+  // itself fatal rather than a pass.
+  const diags = (sf as unknown as { parseDiagnostics?: readonly ts.Diagnostic[] }).parseDiagnostics;
+  if (diags === undefined) {
+    throw new Error(
+      `leg evidence collector cannot verify a parse: the typescript parser exposed no parseDiagnostics for ${file}`,
+    );
+  }
+  if (diags.length > 0) {
+    const first = ts.flattenDiagnosticMessageText(diags[0]?.messageText ?? '', ' ');
+    throw new Error(`leg evidence collector could not parse this test file, so its assertions were never collected: ${file}: ${first}`);
+  }
+  const out: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+      out.push(node.text);
+    } else if (ts.isTemplateExpression(node)) {
+      out.push(node.head.text);
+      for (const span of node.templateSpans) out.push(span.literal.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
   return out;
 }
 
@@ -391,29 +477,65 @@ export function evidenceDirs(testsRoot: string): string[] {
  * guard's are -- from source -- and held to the same reaching-plant rule.
  */
 export function parseInstrumentLegs(file: string, label: string): Leg[] {
+  // A `throw` is a leg too, and so is every `out.push(`...`)` in the register
+  // test's violation function. The instrument corpus was once one file and one
+  // shape, so a refusal raised anywhere else in the instrument was invisible to
+  // the register that enforces registration. An instrument exempt from its own
+  // standard is what this whole register exists to stop.
+  //
+  // PARSED WITH TYPESCRIPT, NOT READ LINE BY LINE (R-2026-09-18-15). This was
+  // line-scoped, with a residual note reading "Keep instrument throws on one line
+  // until there is a TypeScript parse to hang this on." The evidence collector's
+  // fix introduced that parse in this file, so the note's own exit condition was
+  // met in the same change. Line scope had two costs: a `throw new Error(` whose
+  // message sat on the next line was invisible, and -- the same defect as the
+  // collector's -- a leg-shaped string inside a STRING or a comment continuation
+  // line not starting with `//` or `*` would have been read as a leg. The parser
+  // sees only real `throw new Error(...)` and `out.push(...)` calls.
+  //
+  // IDENTITY IS UNCHANGED: the message's static parts with each interpolation
+  // replaced by `$X`, then longestStatic -- exactly what the line-scoped version
+  // computed for a single-line call. Verified against main's register output,
+  // leg for leg, when this changed.
+  const source = readFileSync(file, 'utf8');
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
+  const diags = (sf as unknown as { parseDiagnostics?: readonly ts.Diagnostic[] }).parseDiagnostics;
+  if (diags === undefined || diags.length > 0) {
+    throw new Error(`leg parser could not parse this instrument file, so its legs were never enumerated: ${label}`);
+  }
+
+  /** The message's text with every interpolation as `$X`; null if it is not a string at all. */
+  const messageText = (node: ts.Expression): string | null => {
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
+    if (ts.isTemplateExpression(node)) return node.head.text + node.templateSpans.map((s) => `$X${s.literal.text}`).join('');
+    return null;
+  };
+
   const legs: Leg[] = [];
-  readFileSync(file, 'utf8').split('\n').forEach((raw, i) => {
-    const line = raw.trim();
-    if (line.startsWith('//') || line.startsWith('*')) return;
-    for (const m of line.matchAll(/out\.push\(\s*`([^`]+)`/g)) {
-      const id = longestStatic((m[1] as string).replace(/\$\{[^}]*\}/g, '$X'));
-      if (id !== null) legs.push({ script: label, line: i + 1, id });
+  const visit = (node: ts.Node): void => {
+    let text: string | null = null;
+    if (ts.isThrowStatement(node) && ts.isNewExpression(node.expression)) {
+      const ne = node.expression;
+      if (ts.isIdentifier(ne.expression) && ne.expression.text === 'Error' && ne.arguments && ne.arguments[0]) {
+        text = messageText(ne.arguments[0]);
+      }
+    } else if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      ts.isIdentifier(node.expression.expression) &&
+      node.expression.expression.text === 'out' &&
+      node.expression.name.text === 'push' &&
+      node.arguments[0] &&
+      (ts.isTemplateExpression(node.arguments[0]) || ts.isNoSubstitutionTemplateLiteral(node.arguments[0]))
+    ) {
+      text = messageText(node.arguments[0]);
     }
-    // A `throw` is a leg too, and THIS FILE now has one. The instrument corpus
-    // was one file and one shape -- `out.push(...)` in the register test -- so a
-    // refusal raised anywhere else in the instrument was invisible to the
-    // register that enforces registration. An instrument exempt from its own
-    // standard is what this whole register exists to stop.
-    //
-    // NOTE THE RESIDUAL SCOPE, rather than leaving it to be discovered: this
-    // half is LINE-SCOPED, because acorn parses JavaScript and these instrument
-    // files are TypeScript. A `throw new Error(` whose message sits on the next
-    // line is still invisible here. Keep instrument throws on one line until
-    // there is a TypeScript parse to hang this on.
-    for (const m of line.matchAll(/throw new Error\(\s*(['"`])((?:[^\\]|\\.)*?)\1/g)) {
-      const id = longestStatic((m[2] as string).replace(/\$\{[^}]*\}/g, '$X'));
-      if (id !== null) legs.push({ script: label, line: i + 1, id });
+    if (text !== null) {
+      const id = longestStatic(text);
+      if (id !== null) legs.push({ script: label, line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1, id });
     }
-  });
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
   return legs;
 }
