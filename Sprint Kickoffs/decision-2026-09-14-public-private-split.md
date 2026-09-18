@@ -1175,6 +1175,80 @@ Push adds **nothing** against a poller faster than the write rate; it is **compl
 
 **On the numbering of F's note.** R-08 proposes it as method note 11. **#35 had already taken 11** ("cite by section name, not line number"), so it lands as **note 12**. Recorded rather than silently renumbered, because a ruling that names a number is easier to follow back if the collision is written down.
 
+### R-2026-09-17-09 — #36 approved, and the anon grants found to be the same story
+
+_Recorded 2026-09-17 by the implementer, and **the limit of this record is stated first**: R-09's full text was delivered to Cowork, not to Claude Code. What follows is what the ruling chain and the A1 kickoff attribute to it, not a transcription. Anything R-09 said beyond this is not recorded here and should be landed from its own text if it exists._
+
+- **A — #36 approved** (the accumulation-boundary record). It merged on 2026-09-17 at `2801289`, and `main` became `262ad61`.
+- **D — the 018 anon `SELECT` revoke is the founder's call**, not Claude Code's. It is the single item in the A1 kickoff's *Open decisions needing your call*, and Bundle 2's revoke half is gated on it. The publication half is not gated.
+- **The finding R-09 added to R-06's:** R-06 named migration 013's publication as a decision whose rationale A1 had reversed. **R-09 found that v1's anon `SELECT` grants on the three mirrors are the same story** — a decision taken before A1 and never revisited — and that scoping a sprint around the two symptoms separately would have missed the root a second time. That is why bundles 1 and 2 of the A1 sprint are one fix in one order.
+
+### R-2026-09-17-10 — the A1 accumulation-boundary sprint is scoped
+
+The kickoff is `Sprint Kickoffs/sprint-kickoff-a1-accumulation-boundary-2026-09-17.md`, landed by this change and amended by R-11 and R-12 before its first commit.
+
+- **Bundle order is a constraint, not a preference.** Bundle 1 before Bundle 2: the interval between closing the direct read path and opening the served one is an interval with **no public read path at all**. Bundle 3 needs Bundle 1 and is otherwise independent.
+- **One PR per bundle**, and the kickoff lands with the first PR that touches the repository.
+- **The two things most likely to go wrong**, named so they are checked rather than discovered: the service-role key reaching a client-exposed variable, and `packages/fixtures/public-relations.json`'s `mirrors` key serving two consumers whose meanings diverge under 018.
+
+### R-2026-09-17-11 — #36 merges first, and Bundle 1's definition of done splits at the founder line
+
+- **A — #36 merged before anything else**, and **A1 — the kickoff's stated base corrected** from `feefcf3` to `262ad61`. A base SHA is a citation, and it went stale inside a single ruling. Method note 11's family: the rule about self-editing documents applies to the repository's own head as much as to a line number.
+- **B1 — recorded as a defect of the scoping, because it is one.** The kickoff's Bundle 1 definition of done listed **five criteria only the founder can perform** and marked none of them OWED. That is enumeration item **#92's shape** — a definition of done resting on something the party expected to meet it does not have — **committed inside the sprint that closes #92.** It is the fifth premise of Cowork's corrected in this session and **the first that is a process defect rather than a factual one**. Fixed in the kickoff itself rather than noted for whoever hit it.
+- **B2 — what Bundle 1's PR carries**, and **this item is recorded in its corrected form rather than as it was first reasoned**: the Function, its wrangler config, `wrangler pages dev` proofs against the local stack, both credential guards extended to the Pages Functions output with plants both ways, and the served document's column lists asserted against `snapshot-shape.json`. **As first written, B2 also placed the rate limit "in code rather than in a dashboard". That was wrong and is corrected below at R-12 before its first recording** — the Rate Limiting binding is a Workers feature, absent from the Pages Functions binding list. Recording it wrong and amending afterwards would put a false mechanism into the record for the sake of a faithful transcript.
+- **B3 — the PR carries a founder runbook** for the hosted steps, each OWED, in `docs/runbook-supabase-project-creation.md` step 5's shape: it states the symptom of each step going wrong, not only the happy path.
+- **B4 — no Cloudflare deploy token is issued to the implementer.** A new credential surface in the sprint whose subject is credential discipline is not a trade worth making for speed. **Declined deliberately, and recorded so it is not revisited by drift.**
+- **C — R-10's ordering item corrected. Bundle 2's gate is the founder's deployment report, not Bundle 1's merge.** Merging code does not open a served path, and the ordering constraint was always about the served path existing. Bundle 1 may merge with its hosted half OWED.
+
+### R-2026-09-17-12 — Bundle 1's rate limit is not code, and why that is not a workaround
+
+**A — the mechanism, checked against the platform actually shipping.** The Cloudflare **Rate Limiting binding is not available to Pages Functions**. The Pages Functions wrangler-configuration page enumerates eleven supported bindings — D1, Durable Objects, environment variables, Hyperdrive, KV, Queues producers, R2, Vectorize, Service bindings, Analytics Engine, Workers AI — and rate limiting is **absent**; the binding's own page does not mention Pages at all, and records besides that its counters are **per Cloudflare location** and its `period` must be 10 or 60. Cited to the platform's own documentation rather than the parent product's. **The evidence is absence from an enumerated list**, which is acceptable here because the failure mode is a deploy-time error rather than a silent no-op — an unsupported binding does not quietly do nothing.
+
+**B — no code change in Bundle 1.** The Function, the service-role credential, the guard extension across both trees, the served-document column assertions and the edge cache-header observation are all unchanged. `/beds.json` is already a discrete path, which is all a zone rule needs to target. **Nothing is added to the wrangler config.**
+
+**C — the limit becomes a sixth OWED step** in the Bundle 1 founder runbook. Per method note 13, a definition-of-done criterion its addressee cannot perform is **OWED with its owner named**, never listed as done-when. **Bundle 1 merges with it OWED.**
+
+**D — the recorded scope, per method note 12, and all four statements travel together.** The rule covers **HTTP requests to `/beds.json` on the `openbed.ng` zone**. It does **not** see the Supabase Realtime websocket at all — that connection never transits this zone, being a different origin entirely. Its counters are **per Cloudflare location, not global**. And it does **not bound accumulation**: paging within the limit still yields a series over time. **The boundary is Bundle 2's revoke; this is a throttle.**
+
+**E — plan availability is unverified.** If the founder's Cloudflare plan does not permit the rule, **it is reported unmet and left unmet.** No Durable Object limiter, no move to Workers, to recover it. The control is not load-bearing.
+
+**F — rejected, with the reasons recorded so they are not re-litigated by drift:**
+- **A Durable Object limiter** — adds a stateful binding and likely a paid plan, expanding surface in the sprint whose subject is minimising it, to strengthen a control that is not holding the boundary.
+- **Deploying as a Worker instead of Pages** — reverses A2's Pages deployment mid-sprint, which is an architecture decision rather than an implementation one; and the binding is per-location anyway, so it does not deliver the global limit its name implies.
+
+**G — the same check runs before Bundle 3 is scoped**, not when it starts: whether Pages Functions support scheduled handlers or cron triggers, against the Pages documentation. If they do not, the external sensor is a separate Worker, and **that is a scope change to report** rather than to work around — the kickoff's own instruction on that task.
+
+### R-2026-09-18-13 — handoff documents are authored into `docs/`
+
+**Location, and nothing else.** Handoff documents are written into `docs/` at authoring time. There is no out-of-repository staging directory: `~/cowork-handoff/` is retired as a destination, and the files still there are historical copies of `docs/` content already committed, not a source of truth. **Scope is handoff documents only**; sprint kickoffs and decision memos keep their home in `Sprint Kickoffs/`.
+
+**Why:** five handoffs were authored outside the repository and every one had to be carried in afterwards, two of them late enough to be recorded as owed. This removes the staging area instead of paying the debt once per session. It is method note 15 applied to where documents are born rather than to when they are committed.
+
+_This ruling is cited for location only — not for the sequencing or the incidents recorded under R-14._
+
+### R-2026-09-18-14 — #37 carries the record items; Bundle 1 stays clean
+
+_A first version of this block arrived with no ruling id on its first line, and was **refused under method note 1** rather than acted on. It was reissued as R-13 and R-14. One line, because the protocol working is worth recording._
+
+**A — the two handoff documents land in #37, not in Bundle 1.** Bundle 1 ships the first server-side credential in the project's history, so its diff is the serving leg and nothing else, and review of it is undiluted. Both files were placed in the working tree by Cowork and **verified byte-identical before committing** — `git hash-object` gives `02dc4879028092bee328fc0d7fdbbd77dbc62b0b` for `docs/handoff-2026-09-17-017-shipped-and-hosted-at-017.md` and `8fa728b95263fa79051b0f2851a501716a27afb3` for `docs/handoff-2026-09-17-v1-sweep-and-the-accumulation-boundary.md`, matching the values Cowork stated. **This closes R-2026-09-17-12 item 7.**
+- **One superseding note, because the second handoff is a dated record and is landed unedited (method note 8).** Its *What's next* item for Bundle 1 describes the rate limit as living "in `wrangler` config". **R-2026-09-17-12 superseded that**: the Rate Limiting binding is not available to Pages Functions, and the limit is a founder-configured zone WAF rule, OWED. The same handoff lists method note 13 as "proposed, not yet recorded"; it was recorded in #37. Both documents also describe themselves as sitting in `cowork-handoff/`; they now sit in `docs/`, per R-13.
+
+**B — the implementer's item-7 report was correct in scope and overstated past it.** "Not in the tree or on the remote" was true. "Does not exist on this machine" was a claim about a scope the implementer could not see: the files were in `~/cowork-handoff/`, outside the repository and its working horizon. Method note 14's family. Declining to invent them was right; the wording reached further than the search did.
+
+**C — two implementer errors on 2026-09-17, recorded as distinct, because the difference decides which needs a mechanical guard.**
+1. **A fabricated full SHA.** To merge #36, the implementer composed a 40-character SHA from the short `2801289` rather than reading it. `gh pr merge --match-head-commit` **refused it**. **Contained by design**: a guard that existed, fired and held.
+2. **The head branch of an open PR deleted.** The implementer then deleted the local and remote branch while #36 was still open, which **closed the PR**. It was recovered — the branch restored from the local commit, the PR reopened, CI re-run on the same head, and the merge done with the SHA read back from the API — **but only because the commit still existed locally.** In a fresh clone, or after a prune, it would have been unreachable behind a closed PR. **Nothing caught it. Contained by luck.**
+
+The second is not a consequence of the first; it is its own failure, and it is the one with no guard. That is why the git-operation rules below are written into the pipeline rather than left in a note.
+
+**D — method note 16**, below.
+
+**E — three rules added to `.claude/rules/code-pipeline.md`**, under *Git and PR operations*: identifiers are read and never composed; no branch is deleted until the PR reports merged **from the API**; branch deletion is never part of a merge step. **Why in the rules file rather than only in a memory:** until now "read it, never compose it" lived in the implementer's own memory, and method note 15 — recorded in this same PR — says a rule outside version control is not landed. A memory is a transcript with better ergonomics.
+
+**F — #37 merges** with the head SHA read back from the API, and its branch is deleted only after `MERGED` is read back, as a separate action.
+
+**G — then Bundle 1**, off the new `main`, governed by the amended A1 kickoff. Where this ruling's summary of Bundle 1 differs from the kickoff, the kickoff wins; the one place they differ is recorded in Bundle 1's PR.
+
 ## Method notes — how rulings reach the implementer
 
 _Standing rules, 2026-09-15. This record is their home._
@@ -1231,6 +1305,20 @@ _Standing rules, 2026-09-15. This record is their home._
     - **Can it see the whole surface?** A Realtime subscription is a websocket to Supabase and never traverses the edge, so that site could not have covered the push path however well it were built.
     - **Narrowing, offered by the implementer:** where a site cannot cover the whole surface, **name the part it cannot reach** rather than dropping the control. A rate limit at the edge is still right for the pull path; what was wrong was believing it covered everything. The gap belongs in the sentence, not in the reader's head.
     - **Against the clauses.** Clause 4 is a cited artefact that does not exist. This is a named site that **exists and cannot see the surface** — Clause 5 pointed at controls rather than at mechanisms. **Note 10 sizes an exposure; note 12 sizes a control**, and the two together are what stops a finding being written up against a control nobody checked.
+13. **A definition of done names who performs each criterion** (R-2026-09-17-11 D). Where a criterion cannot be performed by the party the document addresses, it is **OWED with its owner named**, never listed as done-when.
+    - **Narrowing, offered by the implementer:** the note binds where the performer is **outside the document's addressee**, and the fix is **naming the owner, not removing the criterion.** An unrunnable criterion that matters stays, as OWED — the failure being corrected is a silent transfer of work, not the existence of work someone else must do.
+    - **Why it earned a note:** R-2026-09-17-10's Bundle 1 listed five founder-only criteria as Claude Code's definition of done. It would also have caught **v1's Bundle 5 definition of done**, which requires killing pg_cron and pausing the database, and **v1's Bundle 1 definition of done**, which requires a hand-run `select *` with the anon key against every `app` table — both criteria nobody in the loop was assigned.
+    - **Companion to note 12.** Note 12 asks whether a control can reach its surface; note 13 asks whether a criterion can reach its performer.
+14. **A feature documented for a platform's parent is not thereby available on the variant deployed** (R-2026-09-17-12). Note 12's "the enforcement point exists" is checked against **the platform actually shipping**, citing that platform's own documentation.
+    - **Two instances on one day:** the Rate Limiting binding, which the Workers documentation presents as generally available and the Pages Functions binding list does not contain; and Bundle 3's cron triggers, flagged in the kickoff as proposed-not-verified for the same reason.
+    - **How to apply:** find the variant's own enumerated list. Absence from an enumerated list is acceptable evidence **when the failure mode is loud** — an unsupported binding is a deploy-time error. Where the failure mode would be silent, absence is not enough and it is checked by running it.
+15. **A ruling, decision or scope document is not landed until it is committed** (R-2026-09-17-12). **A session transcript and an untracked working-tree file are the same defect**: both are a record that exists for whoever was present and for nobody else.
+    - **Three instances on 2026-09-17:** rulings R-09, R-10 and R-11, which reached the repository only when this change landed them; the A1 kickoff, which sat untracked in the working tree while a sprint was scoped against it; and two handoff documents that were owed. **All three are now landed** — the rulings and the kickoff in #37, and the two handoff documents in #37 as amended under R-2026-09-18-14. R-2026-09-18-13 then removes the out-of-repository staging area the handoffs came from, so the next one is born in `docs/` rather than carried there.
+    - **It is R-2026-09-15-10 A2 generalised** — the pre-017 sweep's citations were "kept" in a session transcript until #28 committed them — and it is the reason the enumeration is a file rather than a paste.
+16. **Read an identifier, never compose one** (R-2026-09-18-14). A commit SHA, a PR number, a migration number, a key id or a count is **read from the system that issues it and pasted verbatim** — never composed, extended, padded, or inferred from a short form. It is the attestation rule applied to every identifier: a number that looks verified and was typed is worse than an admitted gap.
+    - **Instance, 2026-09-17:** a full SHA composed from the short `2801289` to merge #36. **`--match-head-commit` refused it, and that is the point of recording it: the guard worked.** This note documents a contained failure, not a loss.
+    - **How to apply:** carry identifiers through a variable filled by the issuing system — `git rev-parse`, `gh pr view --json headRefOid`, `attest_counts.mjs` — never through a retyped string.
+    - **What this note does not cover, and R-2026-09-18-14 C says why it matters:** the branch deletion that followed was a different error and nothing caught it. That one is closed by a rule in `.claude/rules/code-pipeline.md`, because a note about reading carefully is not a guard against deleting too early.
 
 ---
 
@@ -1298,6 +1386,18 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-18, R-2026-09-18-13 and -14: handoff documents authored into `docs/`
+  and the staging area retired; the two owed handoffs landed byte-identical, with a
+  superseding note for the second's rate-limit line; the item-7 report's overstated
+  scope recorded; the fabricated SHA and the open-PR branch deletion recorded as two
+  distinct errors, one contained by a guard and one by luck; method note 16; and
+  three git-operation rules added to `.claude/rules/code-pipeline.md`;
+- on 2026-09-17, R-2026-09-17-09 to -12: the A1 accumulation-boundary sprint
+  scoped and its kickoff committed; #36 merged and the kickoff's base SHA corrected;
+  Bundle 1's definition of done split by performer with six founder steps OWED;
+  Bundle 2's gate corrected to the deployment report; the rate limit moved out of
+  code because the Rate Limiting binding is not available to Pages Functions; the
+  deploy token declined; and method notes 13, 14 and 15;
 - on 2026-09-17, R-2026-09-17-08: the accumulation boundary named as the root above
   E2 and E3 — the design prevents history being READ and not being ACCUMULATED, with
   a bare anon table read returning every row in one request and offset paging working;

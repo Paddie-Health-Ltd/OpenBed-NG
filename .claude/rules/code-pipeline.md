@@ -223,6 +223,26 @@ item — one hallucination means there are probably more.
 
 ---
 
+## Git and PR operations
+
+Added 2026-09-18 by R-2026-09-18-14, after two errors merging #36 on 2026-09-17: a
+composed SHA, which `--match-head-commit` refused, and the deletion of an open PR's
+head branch, which **closed the PR and was caught by nothing** — it was recoverable
+only because the commit still existed locally.
+
+- **Identifiers are read from the API or from git and pasted verbatim.** A commit
+  SHA, PR number, migration number, key id or count is never composed, extended,
+  padded or inferred from a short form. Carry it through a variable filled by the
+  system that issues it. (Method note 16 in
+  `Sprint Kickoffs/decision-2026-09-14-public-private-split.md`.)
+- **Never delete a branch, local or remote, until the PR that has it as head reports
+  `MERGED` from the API** — `gh pr view <n> --json state` — not from the web UI and
+  not from inference.
+- **Branch deletion is never part of a merge step.** It is a separate action, taken
+  after merged status has been read back.
+
+---
+
 ## AI Agent Self-Check Protocol
 
 **Run this before opening any PR and confirm each item in the PR description. A
