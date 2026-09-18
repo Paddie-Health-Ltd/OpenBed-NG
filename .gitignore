@@ -19,4 +19,15 @@ supabase/.temp/
 .env.*
 !.env.example
 
+# Cloudflare Pages Functions local secrets. `wrangler pages dev` reads a Function's
+# environment -- including the service-role key -- from `.dev.vars`, and `.env.*`
+# above does not match it. Added 2026-09-18 by R-2026-09-18-16, on main and ahead of
+# the Bundle 1 code that uses it, because an untracked file holding a service key is
+# one `git add -A` from a public repository and naming files at staging protects one
+# commit, not the next session. Verified before adding: no `.dev.vars` has ever been
+# committed on any ref, in any stash or in the reflog. `.dev.vars.example` names the
+# variables, never their values.
+.dev.vars
+!.dev.vars.example
+
 .DS_Store
