@@ -201,6 +201,42 @@ never in the same bash block.
       the same rule this project applies to the merge-blocking probe: you do not
       establish a control by attempting the harm it prevents.
 
+      **Re-read 2026-09-19, still enabled** (R-2026-09-18-17, R-2026-09-19-19):
+      `gh api repos/Paddie-Health-Ltd/OpenBed-NG --jq .security_and_analysis`
+      returned `secret_scanning_push_protection: enabled`, with
+      `secret_scanning`, `secret_scanning_ai_detection` and
+      `secret_scanning_non_provider_patterns` also `enabled`. A ruling that day
+      proposed enabling it as a new step; this entry already recorded it done,
+      and the API agreed (method note 19). **Enabled is not coverage** (method
+      note 18): it has still never been observed blocking anything here.
+
+- [ ] **OWED to the founder — which Supabase key formats push protection
+      covers. A DOCUMENTATION check, never a push test** (R-2026-09-19-19 B3).
+      From GitHub's list of supported secret-scanning patterns, record SEPARATELY
+      for each of the two formats this project uses whether it is covered by
+      push protection:
+      1. the short-string keys, `sb_secret_…` and `sb_publishable_…`;
+      2. the legacy service-role JWT.
+
+      They may differ. Supabase's partner entry predates the short-string
+      format, and Supabase's own API-keys documentation makes no scanning claim
+      for it. Record what the list says, with the date read; do not infer one
+      format's coverage from the other's.
+
+      **Why not a push test.** A block would prove coverage, but a non-block
+      proves nothing: partner patterns commonly check entropy or a checksum, so
+      a fabricated key may pass for reasons unrelated to coverage. And the
+      fabricated string then sits in a public repository's history needing
+      removal. The documentation check is deterministic both ways and leaves no
+      residue. A push test given on 2026-09-19 was WITHDRAWN by R-2026-09-19-19
+      B4. If it was already run: a block stands as positive evidence and is
+      recorded here; any other outcome, delete the branch it was pushed on and
+      confirm `main` does not contain the string.
+
+      The in-repository backstop for credential FILES is the location check in
+      `scripts/lint_no_secrets.sh`, which reports after the push. It does not
+      block, and it is not a substitute for this item.
+
 - [ ] **Branch protection on `main`, requiring exactly these SEVEN checks:**
       `repo-lint`, `migration-lint`, `compliance-tests`, `db-tests`,
       `bundle-guards`, `secret-scan`, `golden-path`.

@@ -26,39 +26,62 @@
 # hand-forged one that proves less.
 #
 # THE SURFACE THIS COVERS, AND WHAT IT DOES NOT (method note 12).
-#   COVERS: files in the tree that can reach the PUBLIC REPOSITORY, selected by
-#   name pattern (the find below). It scans the working tree -- tracked AND
-#   untracked -- so it sees a secret before a commit as well as after.
+#   COVERS: files in the tree that can reach the PUBLIC REPOSITORY, two ways.
+#   (1) CONTENT: files selected by name pattern (the find below) are read for
+#       credential shapes. It scans the working tree -- tracked AND untracked --
+#       so it sees a secret before a commit as well as after.
+#   (2) LOCATION: no credential FILE may be tracked, whatever it contains (the
+#       DENY list below). No file contents are read.
 #   DOES NOT COVER: what reaches a BROWSER. That is a different surface and a
 #   different control: scripts/lint_no_service_role_in_bundle.sh, over built
-#   bundles. And it does not see a file whose name matches no pattern below --
-#   which is not hypothetical:
+#   bundles.
 #
-# A NAMED GAP, OPEN: `.dev.vars` IS OUTSIDE THIS CORPUS. It is where
-# `wrangler pages dev` reads a Pages Function's environment, including the
-# service-role key, and it matches none of the patterns below. Observed
-# 2026-09-18: a `.dev.vars` holding an sb_secret_ key scanned PASS, "1 files
-# scanned" -- the file was never opened -- while the same key in a `.env` file
-# was caught. `.dev.vars` is gitignored on main (R-2026-09-18-16), which stops
-# an accidental `git add -A`; it does not stop `git add -f` or a deleted ignore
-# line, and an ignore rule is not a detection control.
+# WHY LOCATION, NOT CONTENT, FOR CREDENTIAL FILES (R-2026-09-18-17). `.dev.vars`
+# is where `wrangler pages dev` reads a Pages Function's environment, including
+# the service-role key, and the content scan never opened it: observed
+# 2026-09-18, a `.dev.vars` holding an sb_secret_ key scanned PASS, "1 files
+# scanned". The invariant for such a file is "this file must never be tracked",
+# which is not "this file must not contain a secret". Content scanning is the
+# wrong instrument for a location property, and it is wrong in BOTH directions:
+# it misses a secret it does not recognise, and it fires on the demo key that
+# legitimately belongs in a developer's working tree.
+#   That second direction was observed, not predicted. The first fix added
+# `.dev.vars*` to the content patterns, and the real repository then FAILED on a
+# developer's local `.dev.vars` holding the well-known local demo key. It was
+# REVERTED rather than papered over with exceptions: a guard that fails a
+# legitimate local setup gets switched off, and a switched-off guard is worse
+# than none, because its header still claims the coverage. The untracked-file
+# plant in tests/compliance/no_secrets.test.ts encodes that lesson as a leg.
 #
-# WHY THE OBVIOUS FIX WAS NOT TAKEN: adding `.dev.vars*` to the patterns was
-# tried, and the real repository then FAILED -- a developer's local `.dev.vars`
-# legitimately holds the well-known local demo key, and this scan reads the
-# working tree including ignored files. A secrets check that refuses every
-# developer's legitimate setup is the kind that gets switched off
-# (test-conventions.md section 2, the fifth way a leg goes wrong).
+# THREE CONTROLS ON A CREDENTIAL FILE, THREE DIFFERENT FAILURE MODES.
+#   - The `.gitignore` lines: prevent an accidental `git add -A`. They do not
+#     survive their own deletion, and they do not stop `git add -f`.
+#   - THIS tracked-files check: catches `git add -f` and a deleted ignore line.
+#     In CI it runs AFTER the push, so it REPORTS an exposure; it does not
+#     prevent one. Run locally it also catches a file that is only staged,
+#     because `git ls-files` reads the index.
+#   - GitHub secret scanning with PUSH PROTECTION: blocks at the remote, before
+#     exposure -- the only one of the three that blocks rather than reports.
+#     ENABLED: read from the repository API on 2026-09-19 with
+#       gh api repos/Paddie-Health-Ltd/OpenBed-NG --jq .security_and_analysis
+#     (secret_scanning_push_protection: enabled), agreeing with the entry of
+#     2026-09-10 in docs/runbook-supabase-project-creation.md section 0.
+#     ENABLED IS NOT COVERAGE: it has never been observed blocking anything on
+#     this repository, and whether its patterns cover this project's two Supabase
+#     key formats is OWED to the founder as a documentation check in that same
+#     runbook section (R-2026-09-19-19 B3).
+# For a PUBLIC repository this check is a BACKSTOP, NOT A BOUNDARY: a pushed
+# credential cannot be rotated quietly (v1 kickoff, line 368), so by the time
+# CI reports it the exposure has happened.
 #
-# THE FIX THAT FITS, recommended and not yet built: a TRACKED-FILES check -- no
-# `.dev.vars` may ever be tracked, whatever it contains -- which catches `git add
-# -f` and needs no content scan. It belongs in THIS script, because this is the
-# repository-surface control; it does not belong in the bundle guard, whose
-# surface is what reaches a browser. Brought back as a ruling question rather than
-# built into the A1 sprint's Bundle 1.
+# NOT ASSERTED HERE, deliberately: that every credential file the repository
+# ignores has a DENY entry. Which `.gitignore` lines name credential files is a
+# judgement, not a parse. What IS asserted, by the test, is the other direction:
+# every DENY and ALLOW entry below is a line of the root `.gitignore`, so the
+# location invariant and the ignore rule cannot drift apart silently.
 #
-# Usage: bash scripts/lint_no_secrets.sh [ROOT]
-# Exit: 0 clean, 1 finding, 2 usage or empty corpus.
+# Usage: bash scripts/lint_no_secrets.sh [ROOT]   (ROOT must be a git work tree)
+# Exit: 0 clean, 1 finding, 2 usage, empty corpus, or a check that could not run.
 # ============================================================
 set -euo pipefail
 ROOT="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
@@ -144,6 +167,68 @@ for f in "${FILES[@]}"; do
     done
 done
 
+# ---- LOCATION: no credential file may be tracked, whatever it contains ----
+# Each entry: BASENAME GLOB|one-line reason. Matched against the basename, so a
+# credential file is denied at ANY depth. The next credential file is one line
+# here, not a new ruling (R-2026-09-18-17 A2).
+DENY=(
+  '.env|dotenv secrets; wrangler also reads it for local dev'
+  '.env.*|per-environment and .local dotenv variants (.env.production, .env.local)'
+  '.dev.vars|a Pages Function local environment, including the service-role key'
+  '.dev.vars.*|wrangler per-environment form, loaded before .dev.vars (.dev.vars.production)'
+)
+# Conventionally tracked templates that name variables and never hold values.
+# Checked FIRST. Exactly the `!` negations in the root .gitignore, no more.
+ALLOW=(
+  '.env.example'
+  '.dev.vars.example'
+)
+
+# `git ls-files` has the same three-outcome problem grep has: whichever branch
+# "could not run" lands on is what it silently becomes. Its status is captured by
+# hand and anything nonzero is fatal and loud -- including "not a git
+# repository", because a tracked-files check that cannot see tracking must not
+# report clean. -z output goes to a file so the status is not lost to a pipe.
+TRACKED_LIST="$(mktemp)"
+trap 'rm -f "$TRACKED_LIST"' EXIT
+gst=0
+git -C "$ROOT" ls-files -z > "$TRACKED_LIST" 2>/dev/null || gst=$?
+if [ "$gst" -ne 0 ]; then
+    echo "ERROR: git ls-files exited $gst under $ROOT -- the tracked-files check did not run" >&2
+    exit 2
+fi
+
+TRACKED=0
+while IFS= read -r -d '' path; do
+    TRACKED=$((TRACKED+1))
+    base="${path##*/}"
+    allowed=0
+    for a in "${ALLOW[@]}"; do
+        if [ "$base" = "$a" ]; then allowed=1; fi
+    done
+    if [ "$allowed" -eq 1 ]; then continue; fi
+    for entry in "${DENY[@]}"; do
+        glob="${entry%%|*}"
+        reason="${entry#*|}"
+        # Unquoted on purpose: $glob is a pattern. `case` forks nothing and has
+        # no third outcome.
+        case "$base" in
+            $glob)
+                echo "FAIL: credential file is tracked: $path -- $reason"
+                echo "  Untrack it (git rm --cached) and treat anything it held as exposed."
+                VIOLATIONS=$((VIOLATIONS+1))
+                break ;;
+        esac
+    done
+done < "$TRACKED_LIST"
+
+# ANTI-VACUITY for the location half. A repository with nothing tracked is a
+# scratch tree or a broken checkout, and a check over nothing is not a pass.
+if [ "$TRACKED" -eq 0 ]; then
+    echo "ERROR: no tracked files under $ROOT -- a tracked-files check over nothing is not a pass" >&2
+    exit 2
+fi
+
 if [ "$VIOLATIONS" -gt 0 ]; then
     echo
     echo "lint_no_secrets.sh: FAILED ($VIOLATIONS finding(s))"
@@ -151,4 +236,4 @@ if [ "$VIOLATIONS" -gt 0 ]; then
     echo "  from history — deleting the line is not enough. See docs/runbook-key-rotation.md."
     exit 1
 fi
-echo "lint_no_secrets.sh: PASS (${#FILES[@]} files scanned, 0 findings)"
+echo "lint_no_secrets.sh: PASS (${#FILES[@]} files scanned, $TRACKED tracked files checked, 0 findings)"

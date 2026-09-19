@@ -27,7 +27,12 @@ supabase/.temp/
 # commit, not the next session. Verified before adding: no `.dev.vars` has ever been
 # committed on any ref, in any stash or in the reflog. `.dev.vars.example` names the
 # variables, never their values.
+# `.dev.vars.*` added 2026-09-19 by R-2026-09-18-17: wrangler loads
+# `.dev.vars.<environment>` in preference to `.dev.vars` (observed in the pinned
+# wrangler 4.134.0), and the bare line above did not match it. The negation must
+# stay AFTER the glob or the glob re-ignores the template.
 .dev.vars
+.dev.vars.*
 !.dev.vars.example
 
 # wrangler's local state, and the bundled Pages Functions output built by

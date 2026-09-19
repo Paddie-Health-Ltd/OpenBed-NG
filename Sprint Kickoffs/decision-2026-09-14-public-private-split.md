@@ -1293,6 +1293,42 @@ The second is not a consequence of the first; it is its own failure, and it is t
 - **C4** -- the runbook records the hosted findings as the implementer's, cited to where they were read: `sb_secret_` keys on `apikey` only, the legacy local key needing `Bearer`, side by side; and that a fresh `db:reset` leaves the snapshot table empty.
 - **C5** -- the credential guard's surface, per note 12: it scans BUILT BUNDLES, what reaches a browser. The `.dev.vars` exposure is about what reaches a PUBLIC REPOSITORY, a different surface. The guard's header says which it covers and which it does not, and whether a tracked-files check belongs in it or elsewhere. **The ignore line in A1 is not the whole answer.**
 
+### R-2026-09-18-17 — a LOCATION check for credential files; the scope of three controls; method note 18
+
+**Accepted: the tracked-files check, in its own PR (branch `lint-tracked-secrets`), after #39.** Not folded into #39, because #39 was green with 778 predicted against 778 passed, and a guard change re-opens that prediction. The residual risk over one cycle was low: the ignore line was on `main` and history had been verified clean.
+
+**The rationale, recorded as ruled: the invariant is LOCATION, not CONTENT.** "This file must never be tracked" is not "this file must not contain a secret". Content scanning is the wrong instrument for a location property, and it can only be wrong in both directions: it misses a secret it does not recognise, and it fires on a demo key that legitimately belongs in a developer's working tree.
+- **The reverted first attempt is part of this ruling.** Adding `.dev.vars*` to `scripts/lint_no_secrets.sh`'s content patterns failed the real repository on a developer's local `.dev.vars`, which holds the well-known local demo key. A guard that fails a legitimate local setup gets switched off, and a switched-off guard is worse than none, because its header still claims the coverage. It was reverted, not papered over with exceptions.
+
+**What landed.**
+- **A1/A2: a DENY list, not a filename.** `.env`, `.env.*`, `.dev.vars` and `.dev.vars.*`, each with a one-line reason and matched by basename at any depth, against `git ls-files`. No file contents are read. An explicit ALLOW covers `.env.example` and `.dev.vars.example`, exactly the `.gitignore` negations. A test asserts every DENY entry is a `.gitignore` line and every ALLOW a `!` line. The reverse direction is named NOT ASSERTED: which ignore lines are credential files is a judgement.
+- **A scope change, reported.** Seeding the list from "whatever `.env` forms the repo already ignores" turned up a form the ignore missed: the pinned wrangler 4.134.0 loads `.dev.vars.<environment>` before `.dev.vars`, and `git check-ignore` did not match `.dev.vars.production`. `.dev.vars.*` is now both ignored and denied, so the ignore and the check agree.
+- **A3: plants both ways.**
+  - Red: a force-added `.dev.vars`, a `.dev.vars` tracked after its ignore line was deleted, and every DENY entry at the root and nested.
+  - Green: the SAME BYTES untracked, holding the demo key. This is the plant that encodes the reverted attempt as a leg rather than a commit message. A tracked `.env.example` and `.dev.vars.example` also stay green.
+  - Anti-vacuity: a non-repository, a corrupt index and an empty index each exit 2 as a check that did not run.
+- **A4: the header states three controls and three failure modes.**
+  - The ignore line: `git add -A` only.
+  - This check: after the push, so it reports and does not prevent.
+  - Push protection: blocks at the remote.
+
+  For a public repository the CI check is a backstop, not a boundary (v1:368).
+
+**A5's premise FAILED, recorded as Cowork's.** A5 proposed enabling GitHub push protection as a new founder step. **It has been enabled since 2026-09-10.** The repository API read it `enabled` on 2026-09-19, and `docs/runbook-supabase-project-creation.md` section 0 already recorded it done. Corrected by R-2026-09-19-19 B. The first instance of method note 19 attributed to a ruling's account-state claim.
+
+**B1: the #39 wording tightened before merge.** The kickoff, the Pages runbook and the PR now say the local Miniflare run is evidence that the cache code path EXECUTES, and NOT evidence for the cache criterion, which stays OWED and UNMET until observed on the custom domain. #39 merged at `374475d`, and its remote branch was deleted after `MERGED` was read back.
+
+### R-2026-09-19-19 — foreign working-tree edits left untouched; A5 corrected; method note 19
+
+**A: foreign edits are left untouched.** On 2026-09-19 the implementer found in its working tree an uncommitted addendum to this record and an untracked supabase-proxy directory, neither made by the implementer and neither covered by a ruling. R-17's work ran in a separate git worktree; neither was staged, and both were hashed before and after. **Rationale, as ruled:** this record is the single home for every ruling, and committing unreviewed text into it is worse than leaving it uncommitted. Stashing moves another party's work without their knowledge and restores it onto a base that has since moved. The addendum's text is reported in the PR, verbatim and UNVERIFIED. **None of it is recorded here**, for the same reason.
+
+**B: A5 corrected. Push protection is ENABLED, and ENABLED IS NOT COVERAGE.**
+- The header of `scripts/lint_no_secrets.sh` cites the API probe and the runbook's 2026-09-10 entry, and says in the same breath that it has never been observed blocking anything.
+- **The OWED founder step becomes a documentation check, not a push test.** From GitHub's supported-patterns list, record separately whether push protection covers the `sb_secret_` / `sb_publishable_` short-string keys and the legacy service-role JWT. They may differ.
+- **Cowork withdrew the fabricated-key push test** it gave the founder on 2026-09-19. A block would prove coverage, but a non-block proves nothing, because partner patterns commonly check entropy or a checksum, and the string then sits in a public history.
+
+**Identifiers, read and not composed (note 16).** R-19 cites "R-2026-09-19-18 step 3" and "R-18 A5". The ruling the implementer received is **R-2026-09-18-17**, and its A5 is the push-protection item. The custom-domain status ("process started, only the NS on the registrar pending") arrived as a status line under R-17, not as a numbered ruling step. **No ruling numbered -18 has reached the repository.** This is recorded, not inferred around. The cutover's state remains UNVERIFIED here.
+
 ## Method notes — how rulings reach the implementer
 
 _Standing rules, 2026-09-15. This record is their home._
@@ -1370,6 +1406,18 @@ _Standing rules, 2026-09-15. This record is their home._
     - **How to apply:** before a tool decides what is code, a comment, a string or a statement in some language, ask which parser made that decision. If the answer is a regex or a scanner, the tool is guessing, and its guess changes silently whenever the input's shape does.
     - **What it does not say:** that every regex over source is forbidden. A regex matching a fixed token in a known position -- a filename, a key -- is fine. The note binds when the tool must know the language's *structure* to be right.
 
+18. **A negative result is evidence only once the method has been shown to produce a positive one** (R-2026-09-18-17). A search that returns nothing, a scan that reports clean, a test that passes: each needs a control demonstrating that the same method, on the same surface, can return a hit. **This is the plant convention generalised from guards to searches.**
+    - **Instance, 2026-09-18:** the `.dev.vars` history search across 59 refs, the stashes and the reflog found nothing. It was evidence only because a control search, run unprompted, found `.dev.vars.example` and `wrangler.toml` in a stash's untracked-files commit, proving that the search reached stash content.
+    - **Instance, standing:** plants both ways on every guard. The untracked-`.dev.vars` leg in `tests/compliance/no_secrets.test.ts` is its newest form: a green that is evidence only because the same bytes, tracked, go red.
+    - **Instance, 2026-09-19:** "push protection is enabled" is a configuration fact with no positive observed, so it is recorded as ENABLED and not as coverage.
+    - **How to apply:** before reporting absence, name the known-present thing the same method found.
+19. **Read state, never assert it** (R-2026-09-19-19). The state of a system that can be read is read before it is relied on: a PR's merged status, a repository or account setting, a deployment, a branch head, a runbook entry recording a step already done. **Where it cannot be read in the moment, the claim is marked UNVERIFIED rather than stated.** The sibling of note 16: that note binds identifiers, and this one binds state.
+    - **All three instances so far are Cowork's, within two days:**
+      - 2026-09-18: R-2026-09-18-15 sequenced #37 as still to merge, when it was already at `92c79e5`;
+      - 2026-09-19: R-2026-09-18-17 A5 proposed enabling push protection, which had been enabled since 2026-09-10, as the runbook said;
+      - 2026-09-19: the custom-domain cutover's state was relayed without being read, and it stays UNVERIFIED in this record.
+    - **How to apply:** a ruling that depends on state quotes the read that established it, or says UNVERIFIED.
+
 ---
 
 ## What this record changes, and what it does not
@@ -1436,6 +1484,15 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-19, R-2026-09-18-17 and R-2026-09-19-19: a LOCATION check for
+  credential files added to `scripts/lint_no_secrets.sh`, with the reverted
+  content-scan attempt recorded as part of the ruling and encoded as a leg;
+  `.dev.vars.*` ignored and denied after the pinned wrangler was found to load it;
+  the three controls on a credential file stated with their failure modes; A5's
+  premise recorded as failed, because push protection has been enabled since
+  2026-09-10, and the OWED step made a documentation check; #39's cache wording
+  tightened before its merge; foreign working-tree edits left untouched; method
+  notes 18 and 19;
 - on 2026-09-18, R-2026-09-18-16: `.dev.vars` ignored on main after a history check;
   method note 17 amended to say parser, with the scanner prescription as its third
   instance; the two remaining regex readers given a named follow-up PR; R-12's two
