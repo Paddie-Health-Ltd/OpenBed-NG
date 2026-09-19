@@ -1367,6 +1367,56 @@ _Issued as R-PROVISIONAL-2026-09-19-A. Number assigned on landing from the recor
 
 **E — sequence.** Next is the two-regex-readers PR (R-2026-09-18-16 B). **Bundle 2 waits on the founder's deployment report AND on C2's trace.**
 
+### R-2026-09-19-21 — whatever turn it arose in; the Free-plan rate-limit parameters; the console survives 018; the console's origin has no record
+
+_Issued as R-PROVISIONAL-2026-09-19-B. Number assigned on landing from the record's last as read on merged `main` (`af58b5c`): R-2026-09-19-20._
+
+**A clarification to R-2026-09-19-20, not a new note: anything Cowork intends for the record goes in a provisional block, WHATEVER TURN IT AROSE IN.** Void -18's three pieces are the evidence. Two reached the record by other routes. The one that did not, the Free-plan parameters, is precisely the one that existed only in an answer to the founder. **A reply to the founder is not a channel to the recorder.** Method note 1 carries this as a line.
+
+**A — #41 merged** at `af58b5c`, with the head SHA read from the API and the branch deleted after `MERGED` was read back. **Recording -18 as VOID rather than reconstructing it is affirmed.** Inferring its content would have meant the implementer writing Cowork's ruling and Cowork then inheriting it as its own.
+
+**B — the Free-plan rate-limit parameters, landed in the Pages runbook's rate-limit step.** Each line is labelled for what kind of claim it is. **The implementer checked each DOCUMENTED line against Cloudflare's pages before recording it** (method note 19). Read on 2026-09-19: rate-limiting rules (overview and availability table), request rate calculation, and rule parameters.
+- **B1 — DOCUMENTED, as issued and confirmed:**
+  - the counting characteristic is IP only;
+  - period 10 s;
+  - mitigation timeout 10 s;
+  - counters are per data centre, not global (data centres sharing one location share counters);
+  - excess requests can reach the origin before enforcement, because counters update with a delay.
+- **DOCUMENTED, found in checking and not in the issued text:** Free allows ONE rate-limiting rule, and its rule expression may use Path and Verified Bot. "URI Path equals `/beds.json`" is expressible. **A second rule, for example for the proxy's hostname (R-20 C3), is not available on Free.**
+- **B1's action line, NOT CONFIRMED.** Cowork issued "action: Block; no Log-only or Managed Challenge action is available" as DOCUMENTED.
+  - No page read lists actions by plan.
+  - The parameters page states "Customers on Free, Pro, and Business plans cannot select a duration when using a challenge action", which implies challenge actions ARE available on Free.
+  - It is recorded as Cowork's claim, NOT CONFIRMED. The founder reads the actions the dashboard actually offers when creating the rule.
+- **B2 — CHOSEN by Cowork: 60 requests per 10 seconds per IP on `/beds.json`.** The reasoning holds as checked: `snapshot-shape.json`'s `pollCadenceSeconds` is 30 and the document is cached at `s-maxage=30`, so one legitimate client makes at most one request per 10-second window. **Arithmetic recorded beside it, so it can be argued with:** 60 per window lets about 180 simultaneous 30-second pollers share one address before it blocks.
+- **B3 — the reason the headroom is not generosity, and a NEW reason, not a restatement of R-2026-09-17-12.** Nigerian mobile networks use carrier-grade NAT heavily, and a hospital or a carrier can put hundreds of legitimate users behind one address. An IP-keyed threshold tight enough to stop a determined scraper would block a whole network of real users in Lagos. **The threshold must be generous enough to survive CGNAT, which means it CANNOT be tight enough to be a boundary.** The rate limit is a throttle on one route; the boundary is Bundle 2's revoke.
+- **B4 — operational, in the runbook step.** After deploying, watch Security Events. **If legitimate traffic trips the rule, RAISE THE THRESHOLD, DO NOT REMOVE THE RULE.** Removing it is the tempting move at 2am. The instruction stands on its own. Its stated premise, that Free offers no log-only observation period, rests on the NOT CONFIRMED action line.
+
+**C — R-2026-09-19-20 C2's premise, corrected.**
+- **C1 and C2 accepted as reported.** A signed-in ward-console request runs as `authenticated`, which 018 also revokes. As built, the console calls `rpc/my_facility_wards` and `/auth/v1`, and no mirror directly.
+- **C3 — Cowork's overstatement, corrected.** Cowork wrote that the ward console "now routes through this proxy". That was inferred from the uncommitted addendum's text and stated as fact. It is UNVERIFIED: the base URL is a build-time setting, and nothing in the repository sets it. **Method note 19's fourth instance, all four Cowork's.**
+- **C4 — the trace's decisive question, answered: SECURITY DEFINER.** Read from source and from the live catalogue, 2026-09-19.
+  - `public.my_facility_wards()` is created once, in `database/migrations/011_read_rpcs_capped.sql`: `SECURITY DEFINER`, `SET search_path = ''`, with `EXECUTE` granted to `authenticated` only.
+  - On the local stack, `pg_proc.prosecdef` is `t`, owner `postgres`. Control: `app.assert_member`, also `t`.
+  - **What it reads:** `app.ward_account`, `app.ward_status` and `app.ward_status_event`. Through `app.assert_member` it reads `app.ward_account`. Through `app.gate_for_facility` it reads `app.facility_ops`: that function is SECURITY INVOKER, but called from inside a definer function it runs with the definer's privileges.
+  - **Against 018's revoke list (`public.facility_public`, `public.ward_public`, `public.lga_rollup`): none.** A pattern search over the three function definitions found no `public.` relation except `public.my_facility_wards` itself, which also shows the search could hit.
+  - **The ward console as built survives the revoke:** only `EXECUTE` on the function matters, and 018 does not touch it.
+- **The rest of the traced client code:**
+  - the public dashboard performs no fetch;
+  - the `/beds.json` Function reads `public.snapshot_current` as service_role, which 018 does not revoke.
+- **The proxy** forwards whatever its caller sends, so it adds no endpoint the console uses. It is a second route for OTHER callers, whose direct mirror reads are exactly what 018 is meant to cut.
+- **Re-run the trace if the console gains a read.**
+
+**D — a finding in its own right: nothing in the repository sets the console's API origin.**
+- `VITE_SUPABASE_URL` is READ in `apps/ward-console/src/main.ts` and set nowhere tracked. `apps/ward-console` has no deployment configuration and no runbook.
+- So the repository cannot tell anyone what the production console talks to. That is a configuration surface with no record, no guard and no test, and **it is the mechanism by which a proxy could be placed in front of production without a single file changing.** It survives whatever is decided about the proxy.
+- **Not fixed here.** Where the fix belongs: a ward-console deployment change, meaning a tracked, non-secret record of the production API origin, a runbook step for the console's deployment, and a build-output assertion that the built console's API host equals the recorded one.
+- **One constraint on it, found in checking:** Vite's conventional home for public build values, `.env.production`, is DENIED by the `.env.*` entry of `scripts/lint_no_secrets.sh` (R-2026-09-18-17). The fix must choose a mechanism compatible with that. **Adding an ALLOW in passing is not the fix; which mechanism it uses is for a ruling.**
+
+**E — unchanged.**
+- The proxy stays untouched and in no PR until the founder confirms whose change it is.
+- Next is the two-regex-readers PR.
+- **Bundle 2 waits on the founder's deployment report.** The C4 trace is now reported, and the revoke half remains gated on the founder's open decision.
+
 ## Method notes — how rulings reach the implementer
 
 _Standing rules, 2026-09-15. This record is their home._
@@ -1378,6 +1428,7 @@ _Standing rules, 2026-09-15. This record is their home._
      - The implementer assigns the real `R-YYYY-MM-DD-nn` on landing, as the record's actual last plus one, read from the merged record. It records the provisional label beside the number and reports the assigned number back.
      - A block with NO id of either form is still stopped and confirmed.
      - **Why:** Cowork numbered a ruling -18 without reading the record, and that ruling never reached it. The party that writes the record is the party that knows its last number (notes 16 and 19). Rulings numbered before this amendment keep their numbers. -18 is VOID and is not reused.
+     - **Clarified by R-2026-09-19-21: whatever turn it arose in.** Anything Cowork intends for the record goes in a provisional block, including material first given in an answer to the founder. A reply to the founder is not a channel to the recorder.
 2. **Every load-bearing claim in a ruling is tagged observed or inferred.** Inferred means check before relying. This is `.claude/rules/test-conventions.md` §8 applied to the rulings themselves.
    - **Why:** the EXECUTE-default claim above. The error was of the class the ruling was enforcing.
 3. **An instruction naming a command, a SHA, a PR or a runnable check is PROPOSED, NOT VERIFIED.** Its feasibility is checked before executing, and a conflict comes back rather than being worked around.
@@ -1455,10 +1506,11 @@ _Standing rules, 2026-09-15. This record is their home._
     - **Instance, 2026-09-19:** "push protection is enabled" is a configuration fact with no positive observed, so it is recorded as ENABLED and not as coverage.
     - **How to apply:** before reporting absence, name the known-present thing the same method found.
 19. **Read state, never assert it** (R-2026-09-19-19). The state of a system that can be read is read before it is relied on: a PR's merged status, a repository or account setting, a deployment, a branch head, a runbook entry recording a step already done. **Where it cannot be read in the moment, the claim is marked UNVERIFIED rather than stated.** The sibling of note 16: that note binds identifiers, and this one binds state.
-    - **All three instances so far are Cowork's, within two days:**
+    - **All four instances so far are Cowork's, within two days:**
       - 2026-09-18: R-2026-09-18-15 sequenced #37 as still to merge, when it was already at `92c79e5`;
       - 2026-09-19: R-2026-09-18-17 A5 proposed enabling push protection, which had been enabled since 2026-09-10, as the runbook said;
-      - 2026-09-19: the custom-domain cutover's state was relayed without being read, and it stays UNVERIFIED in this record.
+      - 2026-09-19: the custom-domain cutover's state was relayed without being read, and it stays UNVERIFIED in this record;
+      - 2026-09-19: R-2026-09-19-20 C2 stated that the ward console "now routes through" the proxy. That was inferred from an uncommitted addendum's text, and nothing in the repository sets the console's base URL (R-2026-09-19-21 C3).
     - **How to apply:** a ruling that depends on state quotes the read that established it, or says UNVERIFIED.
 
 ---
@@ -1527,6 +1579,13 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-19, R-2026-09-19-21 (issued as R-PROVISIONAL-2026-09-19-B): the
+  Free-plan rate-limit parameters landed in the Pages runbook, each labelled
+  DOCUMENTED, CHOSEN or NOT CONFIRMED, with the CGNAT reason and the instruction to
+  raise the threshold rather than remove the rule; `my_facility_wards` read as
+  SECURITY DEFINER, reading no mirror, so the console as built survives 018's
+  revoke; the console's unrecorded API origin recorded as a finding; method note
+  19's fourth instance;
 - on 2026-09-19, R-2026-09-19-20 (issued as R-PROVISIONAL-2026-09-19-A): ruling
   numbers assigned by the recorder, not Cowork, with method note 1 amended; -18
   recorded VOID; the Free-plan rate-limit parameters recorded as missing and owed;

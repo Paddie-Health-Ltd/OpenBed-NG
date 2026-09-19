@@ -248,6 +248,18 @@ Deleting it removes the only guard that would notice someone adding the mirrors 
   the `openbed.ng` zone that forwards every path to the Supabase origin. Its status is
   held for the founder, and the console's use of it is UNVERIFIED. The revoke is not
   written until the trace covers every route.
+  **TRACED, R-2026-09-19-21 C4.**
+  - `public.my_facility_wards()` is SECURITY DEFINER (011, and `prosecdef` on the
+    live catalogue). It reads `app.ward_account`, `app.ward_status`,
+    `app.ward_status_event` and, through `app.gate_for_facility`, `app.facility_ops`,
+    and none of the three mirrors. The console as built survives the revoke.
+  - The public dashboard fetches nothing, and the `/beds.json` Function reads
+    `public.snapshot_current` as service_role.
+  - Re-run this trace if any client gains a read.
+- **The console's production API origin is recorded nowhere** (R-2026-09-19-21 D).
+  `VITE_SUPABASE_URL` is read and never set in the repository, so this trace covers
+  the code and cannot cover which origin the deployed console is built against.
+  Named, not fixed here.
 - Enumeration items #27, #78 and #79 change state; the sweep section records the
   change rather than rewriting the verdicts, which were true at `db528f8`.
 

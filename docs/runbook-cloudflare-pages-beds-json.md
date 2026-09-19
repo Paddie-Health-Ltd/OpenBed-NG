@@ -197,6 +197,38 @@ over-trusted (method note 12):**
 4. It **does not bound accumulation**: paging within the limit still yields a
    series over time. **The boundary is Bundle 2's revoke. This is a throttle.**
 
+**The parameters (R-2026-09-19-21). Each line says what kind of claim it is.**
+- **DOCUMENTED** on Cloudflare's rate-limiting-rules pages, read 2026-09-19 (overview
+  and availability table, request rate calculation, rule parameters). On Free:
+  - the counting characteristic is **IP**, with no other available;
+  - the period is **10 seconds**;
+  - the mitigation timeout is **10 seconds**;
+  - counters are **per data centre, not global**;
+  - some excess requests can pass before enforcement, because counters update with
+    a delay;
+  - **ONE rule per zone**, whose expression may use Path and Verified Bot. So this
+    rule is the zone's only one: another hostname on the zone cannot get its own
+    rule on Free.
+- **NOT CONFIRMED:** "action is Block; no Log-only or Managed Challenge action".
+  No page read lists actions by plan, and the parameters page implies that Free can
+  use challenge actions. **Record which actions the dashboard actually offers you**
+  when you create the rule, and choose **Block** if it is available.
+- **CHOSEN, not documented: 60 requests per 10 seconds per IP.** A legitimate
+  client polls every 30 seconds (`pollCadenceSeconds` in
+  `packages/fixtures/snapshot-shape.json`, and `s-maxage=30`), so it makes at most
+  one request per window. At 60 per window, about 180 simultaneous pollers can share
+  one address before it blocks.
+- **Why the headroom is not generosity.** Nigerian mobile networks use carrier-grade
+  NAT heavily, and a hospital or a carrier can put hundreds of legitimate users
+  behind one address. A threshold tight enough to stop a determined scraper would
+  block a whole network of real users. It must survive CGNAT, so it **cannot** be
+  tight enough to be a boundary.
+
+**After deploying, watch Security Events. If legitimate traffic trips the rule,
+RAISE THE THRESHOLD — DO NOT REMOVE THE RULE.** Removing it is the tempting move at
+2am, and it takes the throttle with it. Assume no observation period: the rule
+blocks from the moment it deploys unless the dashboard shows you a log-only action.
+
 **Demonstrate it rejecting:** set a temporarily low threshold, send requests past
 it, and observe **HTTP 429** from the edge; then restore the real threshold.
 
