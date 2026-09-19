@@ -22,9 +22,11 @@ key); and a second request inside `s-maxage` was served from the local cache
 simulation after the origin had moved on. **None of that proves the edge.** A
 header set in code can be stripped by the platform, and a local cache is a
 simulation. **The cache path cannot be exercised on Cloudflare at all before the
-custom domain exists** — on `*.pages.dev` the Cache API has no effect by design —
-so its only pre-domain evidence is that local simulation, and it is not claimed as
-more. Steps 5 and 6 are the only proof of the edge, and they are yours.
+custom domain exists** — on `*.pages.dev` the Cache API has no effect by design.
+The local simulation is evidence that the cache code path EXECUTES; it is **not**
+evidence for the cache criterion, which stays OWED and UNMET until step 6 observes
+a hit on the custom domain (R-2026-09-18-17 B1). Steps 5 and 6 are the only proof
+of the edge, and they are yours.
 
 Run every block **in bash or with `zsh -f`**, and paste one block at a time. The
 blocks hold commands only; default interactive zsh does not treat `#` as a comment.

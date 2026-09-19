@@ -162,10 +162,13 @@ are not.
   set the service-role key in the Function environment; deploy; **the custom-domain
   cutover, which GATES the next three**; observe the headers from the edge; prove a
   cache hit inside `s-maxage`; configure the rate-limiting rule.
-- **The cache criterion is never marked met from a `*.pages.dev` preview.** It
-  cannot be exercised on Cloudflare at all before the domain exists — the Cache API
-  has no effect there — so its only pre-domain evidence is a local simulation, and
-  it is not claimed as more.
+- **The cache criterion is OWED and UNMET until it is observed on the custom domain**
+  by the runbook's cache-hit step. It is never marked met from a `*.pages.dev`
+  preview, where the Cache API has no effect, and **never marked met from the local
+  Miniflare run either.** That run is evidence that the cache code path EXECUTES —
+  the Function reads and writes the cache as written. It is NOT evidence for the
+  criterion, because it simulates the very thing the criterion exists to observe:
+  a hit served by Cloudflare's edge on the real domain (R-2026-09-18-17 B1).
 
 **Bundle 1 merges with the founder's seven OWED, and Bundle 2 starts on the
 deployment report — the edge-headers and cache-hit steps, on the custom domain —
