@@ -63,11 +63,12 @@
 #   surface. The live example is `.dev.vars`, where `wrangler pages dev` reads the
 #   Function's service-role key locally: it is never built into anything this
 #   guard scans, so a `.dev.vars` committed to the repository is invisible here BY
-#   DESIGN. The repository surface belongs to scripts/lint_no_secrets.sh -- which,
-#   observed 2026-09-18, does not open `.dev.vars` either; that gap is named in its
-#   header, with the fix recommended there (a tracked-files check). Gitignoring
-#   `.dev.vars` on main closed the accidental `git add -A`, and is not the whole
-#   answer.
+#   DESIGN. The repository surface belongs to scripts/lint_no_secrets.sh. Its
+#   content scan does not open `.dev.vars` (observed 2026-09-18), and should not:
+#   since R-2026-09-18-17 that script carries a LOCATION check instead -- no
+#   `.env`, `.env.*`, `.dev.vars` or `.dev.vars.*` file may be tracked, whatever it
+#   holds, save the two `.example` templates -- which catches `git add -f` and a deleted ignore line. Its header states what
+#   each of the three controls on such a file does and does not do.
 #
 # CLASSIFICATION (Clause 5), one per corpus, because they differ:
 #   client corpus -- GUARD-AHEAD-OF-SUBJECT. It runs and is non-vacuous against
