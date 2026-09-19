@@ -54,14 +54,48 @@
  * A file that will not parse is EXIT 2 AND LOUD. It is never re-scanned raw and
  * never skipped: a check that could not run must not report a verdict.
  *
+ * TWO CORPORA, AND WHICH TIERS EACH GETS (2026-09-18, A1 sprint Bundle 1).
+ *
+ *   CLIENT MODE (the default) -- built output a browser receives. ALL THREE
+ *     TIERS. Nothing that names the service role may reach a browser at all.
+ *
+ *   SERVER-SIDE MODE (--server-side) -- the BUILT Cloudflare Pages Functions
+ *     output, apps/<app>/.functions-build/**, which bundles in everything the
+ *     Function imports (for /beds.json, packages/snapshot/src/serve.ts). The
+ *     shell half chooses that corpus; see its header. TIERS 2 AND 3 ONLY. TIER 1
+ *     IS WITHHELD, AND THAT IS THE DESIGN, NOT A LOOSENING.
+ *       The /beds.json Function legitimately reads its key from
+ *       env.SUPABASE_SERVICE_ROLE_KEY. That is the correct shape of a
+ *       server-side credential -- a NAME, with the value supplied by the
+ *       platform -- and tier 1 matches the name. Scanning server-side code with
+ *       tier 1 would red on the correct implementation, and the header of
+ *       scripts/lint_no_service_role_in_bundle.sh predicted exactly that trap
+ *       before this mode existed: "a source-scoped grep would fail on it,
+ *       someone would widen the guard under deadline pressure, and the widened
+ *       guard is what ships."
+ *       What IS wrong in server-side code is a key VALUE committed to the
+ *       repository: a literal sb_secret_ key, a service-role JWT, or one
+ *       assembled from the prefix. Tiers 2 and 3 catch those, and in a public
+ *       repository a committed value is a total compromise whether or not it
+ *       ever reaches a browser.
+ *       Server-side files are matched RAW and never parsed: tiers 2 and 3 never
+ *       needed comment stripping -- a key in a comment is still a committed key
+ *       -- and raw matching keeps this mode independent of the bundler's output
+ *       syntax.
+ *
+ *   The two modes are asserted against each other in
+ *   tests/compliance/bundle_guards.test.ts: the legitimate env read is ACCEPTED
+ *   server-side and REJECTED in a client bundle. That pair is what proves the
+ *   server-side mode did not loosen the client one.
+ *
  * WHAT THIS DOES NOT PROVE, per Clause 5 of .claude/rules/code-pipeline.md.
  *   - It does not prove a dependency cannot READ the service key from the
  *     environment at runtime. Nothing in a bundle's text can.
  *   - It is not a control against a supply-chain attack that assembles a key
  *     through variable indirection inside vendor code. No bundle grep is.
- *   - It says nothing about server-side code, which is scoped out on purpose:
- *     the snapshot generator is legitimately service-role, and a source-scoped
- *     grep would red on it until someone widened the guard.
+ *   - In server-side mode it does not judge whether a Function SHOULD hold the
+ *     service role. That is a design decision, recorded for /beds.json in
+ *     R-2026-09-17-11; this scan only refuses a committed value.
  *
  * THERE IS NO ALLOWLIST, AND THAT IS A DECISION. The one vendor hit that
  * motivated this rewrite is cleared by putting sb_secret_ in the tier it
@@ -72,7 +106,7 @@
  * shipped ahead of that need: an empty one is a ready-made suppression path for
  * the next person who hits a red in a hurry.
  *
- * Usage: node scripts/scan_bundle_credentials.mjs <file> [<file>...]
+ * Usage: node scripts/scan_bundle_credentials.mjs [--server-side] <file> [<file>...]
  * Exit: 0 clean, 1 credential found, 2 the scan did not run.
  */
 import { readFileSync } from 'node:fs';
@@ -150,11 +184,13 @@ function collect(re, text) {
   return hits;
 }
 
-const files = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const SERVER_SIDE = argv[0] === '--server-side';
+const files = SERVER_SIDE ? argv.slice(1) : argv;
 
 if (files.length === 0) {
   console.error('ERROR: no files given to scan -- the bundle scan did not run');
-  console.error('  Usage: node scripts/scan_bundle_credentials.mjs <file> [<file>...]');
+  console.error('  Usage: node scripts/scan_bundle_credentials.mjs [--server-side] <file> [<file>...]');
   process.exit(2);
 }
 
@@ -170,7 +206,11 @@ for (const file of files) {
   }
 
   let code;
-  if (JS_EXT.test(file)) {
+  if (SERVER_SIDE) {
+    // Raw, never parsed: the two tiers that run here never needed comments
+    // stripped -- a key in a comment is still a committed key.
+    code = src;
+  } else if (JS_EXT.test(file)) {
     try {
       code = codeOnly(src, file);
     } catch (e) {
@@ -185,14 +225,25 @@ for (const file of files) {
   }
 
   const found = [
-    ...collect(TIER1, code).map((h) => ({ ...h, tier: 'word (identifier name, in code)' })),
+    // Tier 1 is withheld in server-side mode: a Function legitimately NAMES its
+    // key. See the TWO CORPORA section of the header.
+    ...(SERVER_SIDE ? [] : collect(TIER1, code).map((h) => ({ ...h, tier: 'word (identifier name, in code)' }))),
     ...collect(TIER2_SB, src).map((h) => ({ ...h, tier: 'shape (secret key with material)' })),
     ...serviceRoleJwtHits(src).map((h) => ({ ...h, tier: 'shape (JWT claiming role=service_role)' })),
     ...collect(TIER3, code).map((h) => ({ ...h, tier: 'assembly (key built from the prefix)' })),
   ];
 
   if (found.length > 0) {
-    console.error(`FAIL: service-role credential reachable from a built client bundle: ${basename(file)}`);
+    // TWO PLAIN FAILURE SITES, NOT ONE TERNARY. A ternary choosing between the
+    // two messages made BOTH invisible to the leg parser (tests/compliance/
+    // _legs.ts), so the client-bundle leg silently left the register. Found by
+    // the register's own fix (R-2026-09-18-15, acceptance ii) run over this
+    // change: an instrument fix finding a defect in the change that triggered it.
+    if (SERVER_SIDE) {
+      console.error(`FAIL: service-role credential committed as a literal in server-side code: ${basename(file)}`);
+    } else {
+      console.error(`FAIL: service-role credential reachable from a built client bundle: ${basename(file)}`);
+    }
     console.error(`  ${file}`);
     for (const h of found.slice(0, 12)) {
       console.error(`  line ${lineOf(src, h.index)}  [${h.tier}]  ${h.text.slice(0, 80)}`);

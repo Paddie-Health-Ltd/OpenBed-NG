@@ -56,7 +56,9 @@ const dutyFlagRules = [
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/.next/**', 'packages/fixtures/**'],
+    // .functions-build is the generated Pages Functions bundle (npm run build:functions),
+    // generated output like dist -- linting it lints esbuild, not this repository.
+    ignores: ['**/dist/**', '**/node_modules/**', '**/.next/**', '**/.functions-build/**', 'packages/fixtures/**'],
   },
   ...tseslint.configs.recommended,
   {

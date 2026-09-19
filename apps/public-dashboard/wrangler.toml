@@ -1,0 +1,20 @@
+# Cloudflare Pages configuration for the public dashboard and its Functions.
+# A1 sprint, Bundle 1.
+#
+# DELIBERATELY NO RATE-LIMIT BINDING (R-2026-09-17-12). The Rate Limiting binding
+# is a Workers feature and is absent from the Pages Functions binding list. The
+# limit on /beds.json is a founder-configured zone WAF rule, recorded OWED as
+# the rate-limit step of docs/runbook-cloudflare-pages-beds-json.md, gated by its
+# custom-domain cutover step, with its scope stated:
+# it covers HTTP requests to /beds.json on the openbed.ng zone; it cannot see the
+# Supabase Realtime websocket, which never transits this zone; its counters are
+# per Cloudflare location, not global; and it does not bound accumulation --
+# paging within the limit still yields a series. The boundary is Bundle 2's
+# revoke. This is a throttle.
+#
+# NO SECRETS IN THIS FILE, EVER. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are
+# set in the Pages project's environment (the runbook's environment step), and locally in
+# .dev.vars, which is gitignored. See .dev.vars.example for the names.
+name = "openbed-public-dashboard"
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-09-01"

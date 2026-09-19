@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { runLint, withScratch, place, REPO_ROOT } from './_scratch.js';
 import { PLANT_SB_SECRET, PLANT_SERVICE_ROLE_JWT, PLANT_JWT, NOT_A_CREDENTIAL_PREFIX } from './_plants.js';
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { chmodSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -16,6 +16,11 @@ import { join } from 'node:path';
  * the Bundle 1 dashboard stub -- but the code they are AIMED at, a real Supabase
  * client and a real freshness computation, arrives in Bundle 4. They become LIVE
  * as part of that bundle.
+ *
+ * ONE EXCEPTION, from 2026-09-18 (A1 sprint, Bundle 1): the service-role guard's
+ * SERVER-SIDE corpus -- the built Pages Functions output -- is LIVE. The
+ * /beds.json Function exists and holds the service-role credential now. Its
+ * CLIENT corpus is still GUARD-AHEAD-OF-SUBJECT, as above.
  *
  * That is not a reason to weaken them now. It is a reason to say so plainly here
  * rather than let a reader infer coverage that does not yet exist.
@@ -48,6 +53,21 @@ describe('service-role bundle guard', () => {
     expect(existsSync(dist), 'run `npm run build` before the compliance suite').toBe(true);
     const res = runLint(LINT, REPO_ROOT);
     expect(res.status, res.stdout).toBe(0);
+  });
+
+  test('the real Pages Functions output is scanned, not skipped — a renamed functions/ cannot go quietly vacuous', () => {
+    // The server-side corpus is reported by count, not failed, when no app has a
+    // functions/ directory (a scratch tree planting only a client bundle has
+    // none). That leaves one way for the half to rot silently: functions/ renamed
+    // or moved. This leg closes it for the real repository by requiring the
+    // count be non-zero.
+    const built = join(REPO_ROOT, 'apps', 'public-dashboard', '.functions-build');
+    expect(existsSync(built), 'run `npm run build` (it runs build:functions) before the compliance suite').toBe(true);
+    const res = runLint(LINT, REPO_ROOT);
+    expect(res.status, res.stdout).toBe(0);
+    const m = res.stdout.match(/(\d+) server-side function files scanned/);
+    expect(m, `the PASS line did not report a server-side count:\n${res.stdout}`).not.toBeNull();
+    expect(Number(m?.[1]), `the server-side corpus scanned nothing:\n${res.stdout}`).toBeGreaterThan(0);
   });
 
   test.each([
@@ -190,6 +210,112 @@ describe('service-role bundle guard', () => {
     expect(res.stdout, 'the refusal did not say how to invoke it').toContain(
       'Usage: node scripts/scan_bundle_credentials.mjs',
     );
+  });
+
+  /**
+   * THE SERVER-SIDE CORPUS -- the built Pages Functions output (A1 sprint,
+   * Bundle 1). It is scanned for a COMMITTED credential value with the scanner's
+   * literal tiers only; the identifier-name tier is withheld, because a Function
+   * legitimately reads its key from the platform environment by NAME. See the
+   * headers of both scripts for why.
+   *
+   * Each scratch tree carries a CLEAN client bundle as well, so the legs below
+   * also prove a clean client corpus cannot mask a dirty server-side one.
+   */
+  const SERVER_RULE = 'service-role credential committed as a literal in server-side code';
+  const SERVER_VERDICT =
+    'lint_no_service_role_in_bundle.sh: FAILED — a service-role credential is committed as a literal in server-side code';
+  const placeFunction = (root: string, file: string, body: string): void => {
+    place(root, 'apps/x/dist/assets/index.js', 'export const x = 1;');
+    place(root, 'apps/x/functions/beds.json.ts', 'export const onRequestGet = () => new Response("{}");');
+    place(root, `apps/x/.functions-build/${file}`, body);
+  };
+  const LEGIT_ENV_READ = 'export const k = (env) => env.SUPABASE_SERVICE_ROLE_KEY;';
+
+  test.each([
+    ['a literal sb_secret_ key with material', `export const k = "${PLANT_SB_SECRET}";`],
+    ['a JWT whose payload claims role=service_role', `export const k = "${PLANT_SERVICE_ROLE_JWT}";`],
+    ['a key ASSEMBLED from the prefix', `export const k = "${NOT_A_CREDENTIAL_PREFIX}" + material;`],
+    ['a literal key inside a COMMENT', `// leftover: ${PLANT_SB_SECRET}\nexport const x = 1;`],
+  ])('plant — %s in the built Functions output is rejected', (_name, code) => {
+    withScratch((root) => {
+      placeFunction(root, 'index.js', code);
+      const res = runLint(LINT, root);
+      expect(res.status, `a committed credential in a Function was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the scanner did not name the server-side rule').toContain(SERVER_RULE);
+      expect(res.stdout, 'the shell half printed no server-side verdict of its own').toContain(SERVER_VERDICT);
+    });
+  });
+
+  test.each(['js', 'mjs'])('corpus scope — a credential in apps/x/.functions-build/f.%s is rejected', (ext) => {
+    withScratch((root) => {
+      placeFunction(root, `f.${ext}`, `export const k = "${PLANT_SB_SECRET}";`);
+      const res = runLint(LINT, root);
+      expect(res.status, `a declared server-side extension does not actually scan:\n${res.stdout}`).toBe(1);
+      expect(res.stdout).toContain(SERVER_RULE);
+    });
+  });
+
+  test('positive control — a Function reading its key from the environment BY NAME is accepted', () => {
+    // The correct shape of a server-side secret. Rejecting it is the trap the
+    // guard's header predicted: a scan that reds on correct server code gets
+    // widened, and the widened guard is what ships.
+    withScratch((root) => {
+      placeFunction(root, 'index.js', LEGIT_ENV_READ);
+      const res = runLint(LINT, root);
+      expect(res.status, `the legitimate env read was refused server-side:\n${res.stdout}`).toBe(0);
+      expect(res.stdout).toContain('1 server-side function files scanned');
+    });
+  });
+
+  test('control for the leg above — the SAME env read in a client bundle is still rejected', () => {
+    // The pair is the proof the server-side corpus did not loosen the client
+    // one: identical text, accepted where it is correct and refused where it
+    // would ship to a browser. If this ever passes, the client corpus lost its
+    // identifier-name tier.
+    withScratch((root) => {
+      place(root, 'apps/x/dist/assets/index.js', LEGIT_ENV_READ);
+      const res = runLint(LINT, root);
+      expect(res.status, `the client corpus accepted a service-role env name:\n${res.stdout}`).toBe(1);
+      expect(res.stdout).toContain(RULE);
+    });
+  });
+
+  test('anti-vacuity — a functions/ directory with no built output FAILS rather than passing', () => {
+    withScratch((root) => {
+      place(root, 'apps/x/dist/assets/index.js', 'export const x = 1;');
+      place(root, 'apps/x/functions/beds.json.ts', 'export const onRequestGet = () => new Response("{}");');
+      const res = runLint(LINT, root);
+      expect(res.status, `an unbuilt Function was reported clean:\n${res.stdout}`).toBe(2);
+      expect(res.stdout, 'the refusal did not name itself').toContain('has a functions/ directory but no built Functions output');
+    });
+  });
+
+  test('a server-side scan that could not run FAILS LOUDLY rather than reporting clean', () => {
+    // The shell half's relay for a scanner exit it does not recognise, on the
+    // server-side corpus. An unreadable file is what makes the server-side scan
+    // exit 2: it never parses, so a parse failure cannot. Whichever branch "could
+    // not run" lands on is what it silently becomes, so the relay is asserted.
+    withScratch((root) => {
+      placeFunction(root, 'index.js', 'export const x = 1;');
+      const built = join(root, 'apps/x/.functions-build/index.js');
+      chmodSync(built, 0o000);
+      try {
+        const res = runLint(LINT, root);
+        expect(res.status, `an unreadable Function bundle did not stop the scan:\n${res.stdout}`).toBe(2);
+        expect(res.stdout, 'the shell half did not relay the server-side refusal').toContain(
+          'the server-side scan did not run (scanner exited 2)',
+        );
+      } finally {
+        chmodSync(built, 0o644);
+      }
+    });
+  });
+
+  test('anti-vacuity — the scanner invoked in server-side mode with no files refuses', () => {
+    const res = runScanner(['--server-side']);
+    expect(res.status, `server-side mode accepted an empty corpus:\n${res.stdout}`).toBe(2);
+    expect(res.stdout).toContain('no files given to scan');
   });
 
   test('a file with more hits than it prints says how many it withheld', () => {

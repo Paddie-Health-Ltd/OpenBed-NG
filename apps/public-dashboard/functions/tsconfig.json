@@ -1,0 +1,14 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    // The Pages Functions runtime is a Workers isolate, not a browser and not
+    // Node. It has WHATWG fetch, Request, Response and AbortSignal.timeout, and
+    // no DOM. `@types/node` supplies those WHATWG types with the same shapes, so
+    // it stands in here rather than adding @cloudflare/workers-types as a second
+    // dependency for three globals. DOM is deliberately absent: a Function that
+    // compiled against `document` would crash on the first request.
+    "lib": ["ES2023"],
+    "types": ["node"]
+  },
+  "include": ["**/*.ts"]
+}

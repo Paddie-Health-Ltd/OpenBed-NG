@@ -1,0 +1,18 @@
+{
+  "comment": "Column names that must never reach an anonymous caller, WHETHER OR NOT THEY EXIST TODAY. Forbidding an absent name is deliberate: it catches a REINTRODUCTION, which is the likelier failure once a column has been removed. Two tests import THIS FILE and neither restates it: tests/db/rls_anon_column_containment.test.ts asserts it against the catalogue behind the anon-readable relations, and tests/db/beds_json_served.test.ts asserts it against the columns the served /beds.json document carries. Extracted from the first of those on 2026-09-18 (A1 sprint, Bundle 1), when the containment property was relocated to the surface anon actually receives; the list itself is unchanged.",
+  "columns": [
+    "reason_code",
+    "mobile_e164",
+    "admin_note",
+    "refusal_note",
+    "ward_reply",
+    "token_hash",
+    "fingerprint",
+    "actor_id",
+    "user_id",
+    "ip_address",
+    "user_agent",
+    "display_name"
+  ],
+  "why_absent_names_are_listed": "refusal_note has NEVER existed -- it was cut from the first schema draft and survives only in comments explaining its removal. fingerprint, actor_id, user_id, ip_address, user_agent and display_name were removed or never built under the ward-level identity decision (2026-09-08), which banned them from the audit log and the event stream; they are banned from the anonymous surface as well, at zero cost. The subset that must exist in app today is kept in the catalogue test, where it is that test's own anti-vacuity leg."
+}

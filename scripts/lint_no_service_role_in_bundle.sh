@@ -37,10 +37,52 @@
 # built client output now -- before that argument happens -- is what keeps the
 # guard narrow enough to survive.
 #
-# CLASSIFICATION (Clause 5): GUARD-AHEAD-OF-SUBJECT. It runs and is non-vacuous
-# against the built dashboard and ward-console bundles, but the code it is aimed
-# at -- a real authenticated client fetch -- arrives with the ward console's
-# first screen.
+# A SECOND CORPUS, AND WHY IT GETS FEWER TIERS (2026-09-18, A1 sprint Bundle 1).
+#   apps/*/.functions-build/**   Extensions: .js .mjs
+#   -- the BUILT Pages Functions output, produced by `npm run build:functions`,
+#   required for every app that has a functions/ source directory.
+# The paragraph above predicted this exactly. The first server-side credential
+# in the project arrived with the /beds.json Pages Function, which reads its key
+# from env.SUPABASE_SERVICE_ROLE_KEY -- a NAME, the correct shape of a
+# server-side secret. Scanning it with the client rules would red on correct
+# code. So the Functions tree is scanned with --server-side: the scanner's
+# literal-credential tiers only (a committed key value, a service-role JWT, a
+# key assembled from the prefix), never its identifier-name tier. A committed
+# VALUE is a total compromise in a public repository whether or not it reaches
+# a browser; a NAME is how a server-side secret is supposed to look.
+# The client corpus is UNCHANGED and keeps all three tiers.
+# tests/compliance/bundle_guards.test.ts asserts the two against each other --
+# the same env read is accepted server-side and rejected in a client bundle --
+# which is the proof the new corpus did not loosen the old one.
+#
+# THE SURFACE THIS GUARD COVERS, AND THE ONE IT DOES NOT (method note 12;
+# R-2026-09-18-16 C5).
+#   COVERS: what reaches a BROWSER -- the built client bundles -- and a
+#   credential VALUE committed into what a Pages Function ships.
+#   DOES NOT COVER: what reaches the PUBLIC REPOSITORY. That is a different
+#   surface. The live example is `.dev.vars`, where `wrangler pages dev` reads the
+#   Function's service-role key locally: it is never built into anything this
+#   guard scans, so a `.dev.vars` committed to the repository is invisible here BY
+#   DESIGN. The repository surface belongs to scripts/lint_no_secrets.sh -- which,
+#   observed 2026-09-18, does not open `.dev.vars` either; that gap is named in its
+#   header, with the fix recommended there (a tracked-files check). Gitignoring
+#   `.dev.vars` on main closed the accidental `git add -A`, and is not the whole
+#   answer.
+#
+# CLASSIFICATION (Clause 5), one per corpus, because they differ:
+#   client corpus -- GUARD-AHEAD-OF-SUBJECT. It runs and is non-vacuous against
+#     the built dashboard and ward-console bundles, but the code it is aimed at
+#     -- a real authenticated client fetch -- arrives with the ward console's
+#     first screen.
+#   server-side corpus -- LIVE. The /beds.json Function exists and holds the
+#     service-role credential now.
+#
+# ANTI-VACUITY, per corpus. No built client output FAILS, as before. An app with
+# a functions/ source directory but no built Functions output FAILS. No
+# functions/ directory at all is reported by count rather than failed, because a
+# scratch tree planting only a client bundle has none -- and the real-corpus test
+# asserts the server-side count is non-zero, so a renamed directory cannot turn
+# this half vacuous silently.
 #
 # Usage: bash scripts/lint_no_service_role_in_bundle.sh [ROOT]
 # Exit: 0 clean, 1 violation, 2 usage or empty corpus.
@@ -64,9 +106,33 @@ if [ "${#FILES[@]}" -eq 0 ]; then
     exit 2
 fi
 
+# The server-side corpus: the BUILT Pages Functions output, one bundle per app,
+# produced by `npm run build:functions` into apps/<app>/.functions-build/. The
+# output and not the functions/ source, because the source is an adapter and the
+# code it ships -- packages/snapshot/src/serve.ts -- is bundled in at build time.
+# A scan of the adapter alone would never see a key committed in what it imports.
+#
+# ANTI-VACUITY: every app that HAS a functions/ source directory must have a
+# non-empty built output. A functions/ directory with no build is exactly the
+# "nobody ran the build" failure, and it must not report clean.
+SERVER_FILES=()
+while IFS= read -r _fn_dir; do
+    _app="$(dirname "$_fn_dir")"
+    _built=0
+    while IFS= read -r _line; do SERVER_FILES+=("$_line"); _built=$((_built + 1)); done < <(
+        find "$_app/.functions-build" -type f \( -name '*.js' -o -name '*.mjs' \) 2>/dev/null | sort
+    )
+    if [ "$_built" -eq 0 ]; then
+        echo "ERROR: $_app has a functions/ directory but no built Functions output in $_app/.functions-build." >&2
+        echo "  Run 'npm run build' first. A server-side scan over an unbuilt Function is not a pass." >&2
+        exit 2
+    fi
+done < <(find "$ROOT/apps" -mindepth 2 -maxdepth 2 -type d -name functions 2>/dev/null | sort)
+
 # The scanner has three outcomes and they are separated by hand, for the same
 # reason grep's three were: whichever branch "could not run" lands on is what it
-# silently becomes. Anything but 0 or 1 is fatal and loud.
+# silently becomes. Anything but 0 or 1 is fatal and loud. Each corpus is run
+# and judged on its own, so a clean client bundle cannot mask a dirty Function.
 st=0
 node "$HERE/scan_bundle_credentials.mjs" "${FILES[@]}" || st=$?
 case "$st" in
@@ -77,4 +143,19 @@ case "$st" in
     *)  echo "ERROR: the bundle scan did not run (scanner exited $st)" >&2
         exit 2 ;;
 esac
-echo "lint_no_service_role_in_bundle.sh: PASS (${#FILES[@]} built files scanned)"
+
+# NO "${SERVER_FILES[@]}" ON AN EMPTY ARRAY: under `set -u` that is an
+# unbound-variable error on bash 3.2, the bash macOS ships (see scripts/commit.sh).
+sst=0
+if [ "${#SERVER_FILES[@]}" -gt 0 ]; then
+    node "$HERE/scan_bundle_credentials.mjs" --server-side "${SERVER_FILES[@]}" || sst=$?
+fi
+case "$sst" in
+    0)  ;;
+    1)  echo "lint_no_service_role_in_bundle.sh: FAILED — a service-role credential is committed as a literal in server-side code"
+        echo "  A Function reads its key from the platform environment by NAME. A committed VALUE is a total compromise."
+        exit 1 ;;
+    *)  echo "ERROR: the server-side scan did not run (scanner exited $sst)" >&2
+        exit 2 ;;
+esac
+echo "lint_no_service_role_in_bundle.sh: PASS (${#FILES[@]} built files scanned; ${#SERVER_FILES[@]} server-side function files scanned)"
