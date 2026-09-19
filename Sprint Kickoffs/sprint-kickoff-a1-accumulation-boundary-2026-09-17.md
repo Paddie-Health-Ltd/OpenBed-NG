@@ -248,7 +248,8 @@ Deleting it removes the only guard that would notice someone adding the mirrors 
   before privileges, so it stays.
   **So 018 breaks no application code and no database object:** every function that
   references a mirror is SECURITY DEFINER, and no view depends on one. It moves three
-  test probes.
+  test probes, **and those re-points are carried inside 018's own change**
+  (R-2026-09-19-23 B1).
 - `apps/public-dashboard` — the Bundle 1 stub performs no fetch, so no client breaks.
 - **Every route by which client code reaches the three mirrors, traced and reported
   BEFORE the revoke half is written** (R-2026-09-19-20 C2). 018 revokes from

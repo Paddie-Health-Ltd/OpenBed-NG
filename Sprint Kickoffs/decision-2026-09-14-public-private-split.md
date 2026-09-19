@@ -369,6 +369,7 @@ entry points to its source; nothing is copied.**
 | Processor | What it processes | Outstanding | Source |
 |---|---|---|---|
 | Cloudflare | Every public visitor's IP, at the edge for `openbed.ng` | s.29 written agreement; s.41 transfer basis; retention | R3, this record |
+| Cloudflare — **Data Sub-Processor for API traffic** via `api.openbed.ng`, under its standard DPA (the founder's decision, 2026-09-19) | **Scope to be completed from the proxy review's findings, not written ahead of them:** the fields that traverse the Worker and whether any are patient-identifying or patient-adjacent; whether the platform retains request metadata; the processing regions | Sub-processor listing under the standard DPA; the s.41 transfer basis is a distinct instrument | R-2026-09-19-23 D2 |
 | Email provider(s): **custom SMTP and its written processor agreement, ONE item** | Magic-link and escalation mail | **A prerequisite for facility one** (2026-09-14). Custom SMTP must be configured, AND the NDPA s.29 written processor agreement executed with whichever provider it uses. They are one item because whatever sends the links is the processor (v2:323), so configuring the sender is choosing the processor. The built-in sender returned HTTP 429 on the fourth OTP request of a single sitting, so it cannot carry even the runbook's own verification procedure. The s.41 transfer basis and log retention are as recorded at clauseX:123 | Runbook step 9, run on 2026-09-14 (`docs/runbook-supabase-project-creation.md`); v2:322/323; clauseX:123 |
 
 ---
@@ -1487,6 +1488,71 @@ _Issued as R-PROVISIONAL-2026-09-19-C. Number assigned on landing from the recor
 - F3: the proxy review, scoped.
 - F4: Bundle 2, on the founder's deployment report and revoke decision. The console trace is done, and three test probes move inside 018.
 
+### R-2026-09-19-23 — the verification rule widened to every Cowork claim; the proxy review scoped
+
+_Issued as R-PROVISIONAL-2026-09-19-D. Number assigned on landing from the record's last as read on merged `main` (`e3651ec`): R-2026-09-19-22._
+
+**A — #43 merged** at `e3651ec`, with the head SHA read from the API and the branch deleted after `MERGED` was read back.
+
+**B — A2 corrected, and Cowork's seventh.**
+- **B1 — the corrected statement, accepted.** The app and database side survives 018's revoke. The test suite needs three re-points, `tests/e2e/golden-path.test.ts` line 108 and `tests/db/auth_refresh_live.test.ts` lines 148 and 239, **carried inside 018's own change**, to `rpc/my_facility_wards` or an equivalent. Not a blocker.
+- **B2 — Cowork's FALSE VERIFICATION, recorded as such.** The A1 kickoff's Bundle 2 section stated that the golden path was unaffected, "confirmed at `feefcf3`". Line 108 was present at that commit and had been since 2026-09-10. **This is materially worse than a wrong claim:** it is a wrong claim presented as a completed check, with a SHA attached, which suppresses the very re-checking that would have caught it.
+  - **Attribution checked, as the widened rule below requires.** The line was already in the untracked kickoff when the implementer first read that file (2026-09-17). It appears in none of the implementer's writes before then, across the five session transcripts on the implementer's machine; the same search does find the implementer's own commit text, which is the control.
+  - **The implementer's share:** it committed the line UNVERIFIED in `3993567`, which landed the kickoff for the first time. The rule widened below would now require that check before landing.
+- **B3 — no new method note. Method note 2's amendment is WIDENED** from Cowork's claims about external platforms to **ALL of Cowork's factual claims, whatever their subject**. It gains one clause: *a claim of the form "confirmed at <ref>" names the check actually performed and what it returned, or it is not written; absent that, it is marked NOT CONFIRMED.*
+  - **Reasoning, recorded:** this is the neighbourhood of the twentieth method note, and a twenty-first note nobody reads is not a control. Widening a rule already in force is.
+  - **Swept on landing:** the only other "confirmed at <sha>" in the repository, in `Sprint Kickoffs/sprint-kickoff-017-schedule-2026-09-16.md`, names each test it checked and what each filter returned. It already complies.
+
+**C — R-22's corrections, accepted.**
+- **C1:** R-2026-09-19-20 C3 never proposed a separate proxy rule; it observed that a rule COULD see proxy traffic. Cowork misread its own prior ruling. On Free that observation still costs `/beds.json` the zone's only rule, so the conclusion stands and the premise is corrected.
+- **C2:** the proxy-side harm, blocking a ward nurse's status update, is PROSPECTIVE; Cowork asserted a present harm. The `/beds.json` placement stands on the remaining ground: a cached, already-public document is the cheaper thing to spend a single rule on, and the proxy's harm profile is not yet known.
+- **C3:** rules per zone by plan (Free 1, Pro 2, Business 5, Enterprise 100) are accepted as read from Cloudflare's availability table, which closes R-22 C4's question. Actions per plan remain NOT CONFIRMED.
+
+**D — the proxy review, SCOPED.** The implementer's proposed shape is accepted:
+- a read-only review document in `docs/`;
+- no code change until Cowork rules;
+- every claim carrying its evidence kind;
+- probes limited to the publishable key and GET.
+
+It runs in this order:
+- **D0 — the decision criterion, stated at the top of the document BEFORE the review runs**, so keep-or-remove is not settled on impressions afterwards.
+  - **The proxy must name what it buys that the direct Supabase origin does not.** A more pleasant hostname is cosmetic, and does not justify an unguarded full passthrough to auth, storage and functions.
+  - **Candidates that WOULD earn it, to be confirmed or refuted, not assumed:** decoupling client builds from the Supabase project ref, so the project can be rotated or migrated without rebuilding clients; and bringing clinical traffic onto a zone where WAF rules and observability can see it.
+  - **If neither holds, "remove" is the default answer**, and the review says so.
+- **D1 — is `api.openbed.ng` live?** First, because it settles the recorded contradiction between the addendum and the `dig`.
+- **D2 — the NDPA posture is DECIDED BY THE FOUNDER, and is not an open question.** Recorded:
+  - mechanically, the Worker is a stateless pass-through router;
+  - the compliance posture shifts regardless;
+  - Cloudflare is formally listed in the NDPA inventory as a Data Sub-Processor for API traffic, under its standard DPA. **Added now**, in the processor-obligations table above, **with its scope description to be completed from the review's findings rather than written ahead of them.**
+
+  The review therefore does not ask whether the posture changed. It supplies the facts the entry needs:
+  - what data traverses the Worker, in which fields, and whether any of it is patient-identifying or patient-adjacent;
+  - **whether the Worker, or Cloudflare's own logging and analytics around it, retains request metadata.** "Stateless" is a property of the Worker's code, not necessarily of the platform hosting it, so this is a separate check and not an inference from the source;
+  - which Cloudflare regions process the traffic.
+
+  For the founder, not the implementer: the DPA and the s.41 transfer basis are distinct instruments, and sub-processor listing addresses the first.
+- **D3 — the surface:** paths, methods, the services reached, websocket upgrades, what `redirect: "manual"` exposes in `Location`, and CORS.
+- **D4 — attribution: which client address Supabase sees.** The sharpest item in the review.
+  - **Constraint:** reason about Supabase's per-IP auth limits from its documentation and from response headers. **DO NOT EXERCISE THEM.** The natural test sends real email and trips real limits on the live project, which makes the probe itself the harm it investigates.
+- **D5 — availability, platform-sre's question, not a security one.** The proxy inserts a second dependency into the path a ward console uses, for a product whose entire purpose is that this path works during an emergency. Record:
+  - what breaks if the Worker, its route or its DNS is misconfigured or unavailable;
+  - how anyone would notice;
+  - whether the client fails over to the direct origin or simply fails;
+  - what the runbook says to do.
+
+  **A reliability regression on the clinical path is a worse outcome than anything in D4.**
+- **D6 — in order:** the console route re-checked against the real build address (tied to Finding D); the rate-limit scope restated; the plan-cost question.
+- **D7 — keep or remove, answered against D0.**
+  - **If KEPT:** it enters the repository with its configuration, a guard, a runbook entry, a record entry, and the availability answer from D5.
+  - **If REMOVED:** record what the removal costs, and what replaces the stable-hostname property if anything depended on it.
+- **D8 — Finding D's fix waits on this review**, because the production address its configuration records depends on D7.
+
+**E — next.**
+- E1: #43 is merged.
+- E2: the two-regex-readers PR (R-2026-09-18-16 B).
+- E3: the proxy review, per D.
+- E4: Bundle 2 waits on the founder's deployment report and the founder's revoke decision. B1's three test re-points are carried inside 018's change.
+
 ## Method notes — how rulings reach the implementer
 
 _Standing rules, 2026-09-15. This record is their home._
@@ -1501,9 +1567,10 @@ _Standing rules, 2026-09-15. This record is their home._
      - **Clarified by R-2026-09-19-21: whatever turn it arose in.** Anything Cowork intends for the record goes in a provisional block, including material first given in an answer to the founder. A reply to the founder is not a channel to the recorder.
 2. **Every load-bearing claim in a ruling is tagged observed or inferred.** Inferred means check before relying. This is `.claude/rules/test-conventions.md` §8 applied to the rulings themselves.
    - **Why:** the EXECUTE-default claim above. The error was of the class the ruling was enforcing.
-   - **Amended by R-2026-09-19-22: Cowork's claims about EXTERNAL PLATFORM BEHAVIOUR are PROVISIONAL BY DEFAULT.**
-     - Each carries its evidence kind: DOCUMENTED-availability, DOCUMENTED-guidance, MEASURED, INFERRED or NOT CONFIRMED. It also carries its source page.
+   - **Amended by R-2026-09-19-22, and WIDENED by R-2026-09-19-23: ALL of Cowork's factual claims, whatever their subject, are PROVISIONAL BY DEFAULT.** That covers external platforms, this repository, its history and its state alike. (R-22 scoped it to external platform behaviour; R-23 widened it after a false claim about this repository's own test file.)
+     - Each carries its evidence kind: DOCUMENTED-availability, DOCUMENTED-guidance, MEASURED, INFERRED or NOT CONFIRMED. It also carries its source: a page, a file and line, or a command.
      - **Claude Code verifies each before it enters the record**, because the party that can check decides.
+     - **A claim of the form "confirmed at <ref>" names the check actually performed and what it returned, or it is not written. Absent that, it is marked NOT CONFIRMED.** A SHA attached to an unperformed check suppresses the re-check that would catch it (R-2026-09-19-23 B2).
      - **Why:** Cowork's property, ordering and scoping rulings have held, except where they rested on a mechanism or state premise. Its failures are mechanism claims, counts, citations and system state, and "be more careful" had not stopped them.
 3. **An instruction naming a command, a SHA, a PR or a runnable check is PROPOSED, NOT VERIFIED.** Its feasibility is checked before executing, and a conflict comes back rather than being worked around.
    - **Why:** two of R-2026-09-15-02's four operational instructions did not survive contact. The design rulings did.
@@ -1656,6 +1723,12 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-19, R-2026-09-19-23 (issued as R-PROVISIONAL-2026-09-19-D): the
+  verification rule in method note 2 widened to all of Cowork's factual claims, with
+  the "confirmed at <ref>" clause; the kickoff's `feefcf3` line recorded as Cowork's
+  false verification, with the implementer's share (landed unverified); Cloudflare
+  listed as a sub-processor for API traffic, scope to follow from the review; the
+  proxy review scoped (D0-D8), criterion first and "remove" by default;
 - on 2026-09-19, R-2026-09-19-22 (issued as R-PROVISIONAL-2026-09-19-C): method
   note 20 and the evidence-kind rule for external-platform claims (note 2 amended);
   B1's action line withdrawn by Cowork; the single Free rule placed on `/beds.json`,
