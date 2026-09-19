@@ -1329,12 +1329,55 @@ The second is not a consequence of the first; it is its own failure, and it is t
 
 **Identifiers, read and not composed (note 16).** R-19 cites "R-2026-09-19-18 step 3" and "R-18 A5". The ruling the implementer received is **R-2026-09-18-17**, and its A5 is the push-protection item. The custom-domain status ("process started, only the NS on the registrar pending") arrived as a status line under R-17, not as a numbered ruling step. **No ruling numbered -18 has reached the repository.** This is recorded, not inferred around. The cutover's state remains UNVERIFIED here.
 
+### R-2026-09-19-18 — VOID: issued outside the record
+
+**This number was issued by Cowork in a founder-facing turn on 2026-09-19 that never reached this record or the implementer.** Cowork picked it without reading the record's last (method notes 16 and 19, both in one line), and R-2026-09-19-19 then cited it ("R-2026-09-19-18 step 3", "R-18 A5"). **It is not reused.** Giving it content reconstructed by the recorder would compose a ruling's text. Where its known content went:
+- **The custom-domain cutover as the gate:** R-2026-09-18-16 C2, and the Pages runbook's cutover step, which gates the edge-headers, cache-hit and rate-limit steps.
+- **Push protection recorded enabled, coverage unverified:** R-2026-09-18-17, R-2026-09-19-19 B, `docs/runbook-supabase-project-creation.md` section 0, and the header of `scripts/lint_no_secrets.sh`.
+- **The Free-plan rate-limit parameters: MISSING.** They are recorded nowhere, and the implementer never received them. The rate-limit step still reads "a threshold that a client polling every 30 seconds can never reach", with no values. **Owed by Cowork as a provisional ruling.** The recorder does not write values it was never given.
+
+### R-2026-09-19-20 — the recorder assigns ruling numbers; the record's state read back; the proxy's review questions
+
+_Issued as R-PROVISIONAL-2026-09-19-A. Number assigned on landing from the record's last as read on merged `main` (`17a5780`): R-2026-09-19-19._
+
+**The structural fix: Cowork no longer assigns ruling numbers.** It issues `R-PROVISIONAL-<date>-<letter>`, and the implementer assigns the real number from the record's actual last on landing, records it, and reports it back. **The recorder assigns, because the recorder is the party that knows.** Method note 1 is amended to match. The defect is Cowork's: see the -18 entry above.
+
+**A — the record, read before anything else.**
+- **A1.** The highest ruling recorded was R-2026-09-19-19, on #40's head, and `main` stopped at R-2026-09-18-16. **No ruling numbered -18 existed under either date.** The only hit for it was R-19's own sentence saying it never arrived. A control search found R-2026-09-18-17 five times in the record (method note 18). Since 2026-09-17 the sequence runs continuously across dates.
+- **A2.** Of the 2026-09-19 material, the cutover-as-gate and the push-protection material are recorded, as listed in the -18 entry. The Free-plan rate-limit parameters are not, and are owed.
+
+**B — reading live state is not a violation.**
+- **B1.** Method note 19 requires reading state. R-19's prohibition was on ACTING on the uncommitted addendum, or verifying its claims inside #40, not on knowing things. The implementer's `dig` before R-19 arrived is recorded without fault. Reading is always permitted; acting is what gets scoped.
+- **B2 — a finding, unresolved.** The uncommitted addendum in the implementer's working tree states that `api.openbed.ng` is deployed, while a `dig` on 2026-09-19 returned **no record** for that name. Both are reported as read; neither is resolved. **The founder's to settle.**
+- **B3 — INFERENCE FROM ONE LOOKUP, not a verified state.** The same lookup showed `openbed.ng`'s name servers at Cloudflare and the apex resolving to `192.0.2.1`, which is TEST-NET-1, a documentation placeholder. That suggests the zone exists at Cloudflare but the apex is not pointed at the Pages project. The cutover being outstanding is therefore **plausible, not confirmed.**
+
+**C — the proxy needs its own review, and is held.** An untracked supabase-proxy directory, a Cloudflare Worker, sits in the implementer's working tree alongside the addendum. Nobody has confirmed whose change it is. **Not touched, and kept out of every PR until the founder confirms.** Recorded here are the questions its review must answer, unanswered:
+- **C1 — a full passthrough.** It forwards EVERY path to the Supabase origin (auth, storage and functions as well as PostgREST) behind a hostname on this project's zone, passing whatever credential the caller supplies. It grants no new authorization, but both the surface and the attribution change.
+- **C2 — a precondition on 018's revoke half.** 018 revokes `SELECT` on the three mirrors from `anon` and `authenticated`, and a second route to those tables must now be traced. **The revoke half is not written until that trace is done and reported**, or the revoke may break the ward console. Recorded in the A1 kickoff's Bundle 2 blast radius.
+  - **Premise checked, from the code, as a read and not a trace.** The ward console sends the publishable key as `apikey`, but a signed-in request runs as `authenticated`, which 018 also revokes, so the concern stands. As built, it addresses `rpc/my_facility_wards` and `/auth/v1`, and no mirror directly. Whether that RPC reaches a mirror, under which role, is part of the trace.
+  - "The ward console now routes through this proxy" is the addendum's claim. The base URL is a build-time variable, and nothing tracked sets it. **UNVERIFIED.**
+- **C3 — R-2026-09-17-12's scope statement is now incomplete, in the project's favour and by accident.** Nothing rate-limited the data API because its traffic reached Supabase's origin directly, outside this zone. Traffic through the proxy is on the zone, where a WAF rule CAN see it. Still a throttle, not a boundary. **The Pages runbook's rate-limit scope ("covers `/beds.json`"; cannot see the push path) is to be restated once the proxy's status is settled.** It is deliberately not edited before then.
+- **C4 — a production surface deployed outside the record, with no guard, no runbook entry and no test.** Whatever is decided about keeping it, that gap stands recorded here.
+
+**D — accepted as reported.**
+- **D1:** the `.dev.vars.*` scope change.
+- **D2:** "reported to Cowork", not "in the PR". A public PR publishing a third party's unreviewed note is a disclosure decision, not a formatting one.
+- **D3:** the local branch kept checked out under the foreign edits.
+- **D4:** #40 as built. **Merged at `17a5780`**, with the head SHA read from the API, and the branch deleted after `MERGED` was read back.
+
+**E — sequence.** Next is the two-regex-readers PR (R-2026-09-18-16 B). **Bundle 2 waits on the founder's deployment report AND on C2's trace.**
+
 ## Method notes — how rulings reach the implementer
 
 _Standing rules, 2026-09-15. This record is their home._
 
-1. **Every ruling block carries an id, `R-YYYY-MM-DD-nn`, on its first line.** The implementer states the id received before acting. A block with no id, or a stale one, is stopped and confirmed, never acted on.
+1. **Every ruling block carries an id on its first line.** The implementer states the id received before acting. A block with no id, or a stale one, is stopped and confirmed, never acted on.
    - **Why:** on 2026-09-15 a block from before #23 was pasted again. A wrong or stale paste is otherwise indistinguishable from a repeat, a silent transport failure of the same class as the zsh findings.
+   - **Amended by R-2026-09-19-20: the recorder assigns the number.**
+     - Cowork issues `R-PROVISIONAL-<date>-<letter>`. That id is valid and actionable.
+     - The implementer assigns the real `R-YYYY-MM-DD-nn` on landing, as the record's actual last plus one, read from the merged record. It records the provisional label beside the number and reports the assigned number back.
+     - A block with NO id of either form is still stopped and confirmed.
+     - **Why:** Cowork numbered a ruling -18 without reading the record, and that ruling never reached it. The party that writes the record is the party that knows its last number (notes 16 and 19). Rulings numbered before this amendment keep their numbers. -18 is VOID and is not reused.
 2. **Every load-bearing claim in a ruling is tagged observed or inferred.** Inferred means check before relying. This is `.claude/rules/test-conventions.md` §8 applied to the rulings themselves.
    - **Why:** the EXECUTE-default claim above. The error was of the class the ruling was enforcing.
 3. **An instruction naming a command, a SHA, a PR or a runnable check is PROPOSED, NOT VERIFIED.** Its feasibility is checked before executing, and a conflict comes back rather than being worked around.
@@ -1484,6 +1527,12 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-19, R-2026-09-19-20 (issued as R-PROVISIONAL-2026-09-19-A): ruling
+  numbers assigned by the recorder, not Cowork, with method note 1 amended; -18
+  recorded VOID; the Free-plan rate-limit parameters recorded as missing and owed;
+  the api.openbed.ng contradiction and the TEST-NET-1 apex recorded as a finding and
+  an inference; the proxy's review questions recorded unanswered; and a trace of
+  every route to the mirrors made a precondition on 018's revoke half;
 - on 2026-09-19, R-2026-09-18-17 and R-2026-09-19-19: a LOCATION check for
   credential files added to `scripts/lint_no_secrets.sh`, with the reverted
   content-scan attempt recorded as part of the ruling and encoded as a leg;

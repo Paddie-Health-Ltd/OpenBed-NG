@@ -239,6 +239,15 @@ Deleting it removes the only guard that would notice someone adding the mirrors 
   harness as service_role, not over HTTP, so it is unaffected by the anon revoke —
   confirmed at `feefcf3` rather than assumed.
 - `apps/public-dashboard` — the Bundle 1 stub performs no fetch, so no client breaks.
+- **Every route by which client code reaches the three mirrors, traced and reported
+  BEFORE the revoke half is written** (R-2026-09-19-20 C2). 018 revokes from
+  `authenticated` as well as `anon`, and a signed-in ward-console request runs as
+  `authenticated`. As built, the console addresses `rpc/my_facility_wards` and
+  `/auth/v1` and no mirror directly. Whether that RPC reaches a mirror, and under which
+  role, is part of the trace. A second route has also appeared: a proxy hostname on
+  the `openbed.ng` zone that forwards every path to the Supabase origin. Its status is
+  held for the founder, and the console's use of it is UNVERIFIED. The revoke is not
+  written until the trace covers every route.
 - Enumeration items #27, #78 and #79 change state; the sweep section records the
   change rather than rewriting the verdicts, which were true at `db528f8`.
 
