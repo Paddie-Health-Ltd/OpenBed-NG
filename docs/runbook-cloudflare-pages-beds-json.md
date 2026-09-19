@@ -186,7 +186,7 @@ client polling every 30 seconds can never reach. There is nothing in code and
 nothing in `wrangler.toml`: the Rate Limiting binding is a Workers feature, absent
 from the Pages Functions binding list (R-2026-09-17-12).
 
-**Record the rule's scope with it — all four, because each is a way it could be
+**Record the rule's scope with it — all five, because each is a way it could be
 over-trusted (method note 12):**
 
 1. It covers **HTTP requests to `/beds.json` on the `openbed.ng` zone** — nothing
@@ -196,6 +196,17 @@ over-trusted (method note 12):**
 3. Its counters are **per Cloudflare location, not global**.
 4. It **does not bound accumulation**: paging within the limit still yields a
    series over time. **The boundary is Bundle 2's revoke. This is a throttle.**
+5. **A 10-second window cannot address accumulation at all** (R-2026-09-19-22 C2). A
+   client polling every 30 seconds, the cadence `pollCadenceSeconds` itself
+   advertises, makes at most one request per window, so it never trips the rule at
+   any threshold. The rule stops burst scraping of a document that is already public
+   and already cached at the edge. Against accumulation it does nothing.
+
+**Why this route gets the zone's only rule** (R-2026-09-19-22 C3). With one rule,
+the cheaper false positive wins it. Here a false positive briefly denies a member of
+the public a bed-availability page. On a hostname carrying ward traffic, it would
+deny a ward nurse a status update, the failure this product exists to prevent. That
+second harm is prospective: no publish screen exists yet.
 
 **The parameters (R-2026-09-19-21). Each line says what kind of claim it is.**
 - **DOCUMENTED** on Cloudflare's rate-limiting-rules pages, read 2026-09-19 (overview
@@ -208,10 +219,12 @@ over-trusted (method note 12):**
     a delay;
   - **ONE rule per zone**, whose expression may use Path and Verified Bot. So this
     rule is the zone's only one: another hostname on the zone cannot get its own
-    rule on Free.
-- **NOT CONFIRMED:** "action is Block; no Log-only or Managed Challenge action".
-  No page read lists actions by plan, and the parameters page implies that Free can
-  use challenge actions. **Record which actions the dashboard actually offers you**
+    rule on Free. Rules per zone by plan, from the same table: Free 1, Pro 2,
+    Business 5, Enterprise 100.
+- **NOT CONFIRMED, and WITHDRAWN by Cowork:** "action is Block; no Log-only or
+  Managed Challenge action". Its source was a tutorial's recommended setting, not
+  an availability matrix (method note 20). No page read lists actions by plan, and
+  the parameters page implies that Free can use challenge actions. **Record which actions the dashboard actually offers you**
   when you create the rule, and choose **Block** if it is available.
 - **CHOSEN, not documented: 60 requests per 10 seconds per IP.** A legitimate
   client polls every 30 seconds (`pollCadenceSeconds` in
