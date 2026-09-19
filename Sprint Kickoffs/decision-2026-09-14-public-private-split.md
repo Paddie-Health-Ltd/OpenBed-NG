@@ -1417,6 +1417,76 @@ _Issued as R-PROVISIONAL-2026-09-19-B. Number assigned on landing from the recor
 - Next is the two-regex-readers PR.
 - **Bundle 2 waits on the founder's deployment report.** The C4 trace is now reported, and the revoke half remains gated on the founder's open decision.
 
+### R-2026-09-19-22 — note 20; external-platform claims verified before they enter the record; one rule on `/beds.json`; A2's consequence corrected
+
+_Issued as R-PROVISIONAL-2026-09-19-C. Number assigned on landing from the record's last as read on merged `main` (`fb5f662`): R-2026-09-19-21._
+
+**A — #42 merged, and C4 closed.** #42 merged at `fb5f662`, with the head SHA read from the API and the branch deleted after `MERGED` was read back. `public.my_facility_wards()` is SECURITY DEFINER and reads none of the three mirrors (R-2026-09-19-21 C4).
+- **A2's stated consequence, "018's revoke breaks nothing that exists", was checked and FAILS as worded.**
+  - **The database side holds.** Every function that references a mirror is SECURITY DEFINER: `public.publish_ward_status`, `app.regenerate_snapshot`, `app.project_facility` and `app.refresh_lga_rollup`. No view depends on a mirror; the control is that the three are read as tables. No application code reads a mirror.
+  - **Three EXISTING TESTS use `public.ward_public` as the proof that an `authenticated` token works over HTTP**, and 018 revokes `SELECT` from `authenticated`, so they would go red: `tests/e2e/golden-path.test.ts` line 108, a golden-path step under the required `golden-path` check, and `tests/db/auth_refresh_live.test.ts` lines 148 and 239. Line 161 of the latter expects a 401 on a tampered token, which fails before privileges are consulted, so it is unaffected.
+- **The accurate consequence:** 018 breaks no application code and no database object. Inside 018's change, it must re-point three test probes to a relation an `authenticated` ward session still reads. Not a blocker; Bundle 2's gate is unchanged.
+- **A false fact in the A1 kickoff's Bundle 2 blast radius, corrected there.** It said the golden path "reads `public.snapshot_current` through the db harness as service_role, not over HTTP, so it is unaffected by the anon revoke — confirmed at `feefcf3`". At `feefcf3` the file already carried line 108's HTTP read of `ward_public` as `authenticated`, present since `25238e6` (2026-09-10). The claim was true of the `snapshot_current` reads and blind to that one.
+- **Bundle 2 now waits only on the founder's deployment report and the founder's decision on the revoke.**
+
+**B — Cowork's platform claim failed again, and the fix is structural.**
+- **B1 — "action is Block; no Log-only or Managed Challenge on Free" is WITHDRAWN by Cowork.** Its source was a use-case tutorial's recommended setting ("On Free plans, select Block"), not an availability matrix: Cowork labelled a recommendation as a constraint. The runbook keeps it NOT CONFIRMED, with the instruction to the founder to record which actions the dashboard offers.
+- **B2 — method note 20**, below.
+- **B3 — a standing rule, recorded as an amendment to method note 2: Cowork's claims about external platform behaviour are PROVISIONAL BY DEFAULT.** Each carries its evidence kind and source page, and Claude Code verifies it before it enters the record. The same shape as R-2026-09-19-20's numbering fix: the party that can check decides. It is recorded because "be more careful" had failed repeatedly.
+  - **The asymmetry, recorded honestly and with one refinement.** Across 2026-09-17 to -19, Cowork's property, ordering and scoping rulings held. The failures are mechanism claims, counts, citations and system state.
+  - **The refinement:** one ordering did fail. R-2026-09-17-12 treated the cache and rate-limit steps as independent of the custom domain, and R-2026-09-18-16 C2 amended it. It failed because it rested on a mechanism premise: the Cache API and the WAF rule both need the domain. So orderings and scopings held **except where they rested on a mechanism or state premise**.
+  - **Cowork's count, "six this session", is Cowork's.** The instances this record names for 2026-09-18 and -19:
+    - the R-15 scanner prescription;
+    - R-15's sequencing of an already-merged #37;
+    - R-17 A5's push protection;
+    - the composed -18;
+    - the relayed cutover state;
+    - R-20 C2's routing;
+    - B1's action line;
+    - and, in this ruling, A2's consequence and C1's premise below.
+
+**C — one rule per zone, and it goes on `/beds.json`.**
+- **C1 — accepted: Free permits one rate-limiting rule per zone** (DOCUMENTED-availability, Cloudflare's availability table, read 2026-09-19).
+  - **The premise as issued is slightly off.** Cowork wrote that this "VOIDS R-20 C3's separate rule for the proxy hostname". R-20 C3 prescribed no separate rule: it said a WAF rule "CAN see" traffic through the proxy.
+  - What one rule per zone voids is that availability. On Free, seeing the proxy's traffic would cost `/beds.json` its rule.
+- **C2 — a FIFTH scope line, landed in the Pages runbook's rate-limit step: a 10-second window cannot address accumulation at all.** A client polling at 30 seconds, the cadence `snapshot-shape.json`'s `pollCadenceSeconds` itself advertises, makes at most one request per window, so it never trips the rule at any threshold of one or more. The rule stops burst scraping of a document that is already public and already cached at the edge; against accumulation it does nothing. **The clearest statement available of why the boundary is Bundle 2's revoke.**
+- **C3 — the rule goes on `/beds.json`: with one rule, the cheaper false positive wins it.** On `/beds.json` a false positive briefly denies a member of the public a bed-availability page. On the proxy hostname it would deny a ward nurse a status update during an emergency, the failure this product exists to prevent. Both are likely under CGNAT.
+  - **Premise checked: that harm is PROSPECTIVE.** The console's publish screen does not exist yet (its own header says so), and its routing through the proxy is UNVERIFIED. The choice stands on the cheaper-failure argument, which will bind once both are true.
+- **C4 — for the founder, not now.** If the proxy is kept, whether a paid plan permits more rules and more actions is a cost decision for the founder.
+  - **Rules per zone are already DOCUMENTED-availability** (the same table): Free 1, Pro 2, Business 5, Enterprise 100.
+  - **Actions per plan remain NOT CONFIRMED**, to be checked in the proxy review.
+
+**D — Finding D: no `.env.production` carve-out.**
+- **D1 — REJECTED: adding `.env.production` to the ALLOW list** of `scripts/lint_no_secrets.sh`. It reopens what R-2026-09-18-17 closed, and trades a security invariant for a framework convention.
+- **D2 — the root is not a missing file.** The production API address is not a recorded, asserted fact, and a `.env` file would not make it one: it would be tracked text that nothing checks.
+- **D3 — the fix:**
+  - the public build configuration goes in an ordinary tracked config file whose name is not `.env*`, keyed by environment and read at build time;
+  - **a test asserts that the built bundle contains that value.** That is the part that closes Finding D: the repository then states what production talks to and proves it.
+- **D4:** it carries only `VITE_`-prefixed public values. That the bundle credential scanner covers the console's built output is to be confirmed explicitly, with a plant, in that change, not assumed.
+- **D5 — its own change, not in the regex-readers PR. Its home is named:** a ward-console configuration PR after the proxy review, because the production value it records is what that review decides.
+
+**E — the proxy review is unblocked.**
+- **E1:** the founder has confirmed that the supabase-proxy directory and the working-tree addendum are the founder's, set up for the `api.openbed.ng` custom-domain proxy and ready for review. R-2026-09-19-20 C1–C4 are live.
+- **E2:** it gets its own pass, not inside the regex-readers PR. The implementer's proposed shape, for Cowork to scope:
+  - a read-only review document in `docs/`, with no code change until ruled;
+  - every claim tagged with its evidence kind;
+  - probes use only the publishable key and GET.
+- **The review's questions, in order:**
+  0. **E3 first:** is `api.openbed.ng` live? That is the recorded contradiction.
+  1. **The surface.** Which paths and methods reach which Supabase services, websocket upgrade for Realtime, what `redirect: "manual"` exposes in `Location`, and CORS.
+  2. **Attribution.** Which client address Supabase sees through a Worker. If it sees Cloudflare's egress addresses, auth rate limits keyed by IP (magic-link sends) collapse onto shared addresses: a lockout-or-bypass question.
+  3. **C2 re-checked** against the console's real build origin, which ties to Finding D.
+  4. **The rate-limit scope restated**, with the one-rule choice.
+  5. **C4's cost question.**
+  6. **Keep or remove.** If kept, it enters the repository with its configuration, a guard and a runbook entry.
+- **E3:** the addendum says `api.openbed.ng` is deployed; `dig` returned no record. Still unresolved, still the founder's, and the first thing the review resolves.
+
+**F — next:**
+- F1: #42 is merged.
+- F2: the two-regex-readers PR.
+- F3: the proxy review, scoped.
+- F4: Bundle 2, on the founder's deployment report and revoke decision. The console trace is done, and three test probes move inside 018.
+
 ## Method notes — how rulings reach the implementer
 
 _Standing rules, 2026-09-15. This record is their home._
@@ -1431,6 +1501,10 @@ _Standing rules, 2026-09-15. This record is their home._
      - **Clarified by R-2026-09-19-21: whatever turn it arose in.** Anything Cowork intends for the record goes in a provisional block, including material first given in an answer to the founder. A reply to the founder is not a channel to the recorder.
 2. **Every load-bearing claim in a ruling is tagged observed or inferred.** Inferred means check before relying. This is `.claude/rules/test-conventions.md` §8 applied to the rulings themselves.
    - **Why:** the EXECUTE-default claim above. The error was of the class the ruling was enforcing.
+   - **Amended by R-2026-09-19-22: Cowork's claims about EXTERNAL PLATFORM BEHAVIOUR are PROVISIONAL BY DEFAULT.**
+     - Each carries its evidence kind: DOCUMENTED-availability, DOCUMENTED-guidance, MEASURED, INFERRED or NOT CONFIRMED. It also carries its source page.
+     - **Claude Code verifies each before it enters the record**, because the party that can check decides.
+     - **Why:** Cowork's property, ordering and scoping rulings have held, except where they rested on a mechanism or state premise. Its failures are mechanism claims, counts, citations and system state, and "be more careful" had not stopped them.
 3. **An instruction naming a command, a SHA, a PR or a runnable check is PROPOSED, NOT VERIFIED.** Its feasibility is checked before executing, and a conflict comes back rather than being worked around.
    - **Why:** two of R-2026-09-15-02's four operational instructions did not survive contact. The design rulings did.
      - Item 4 attached a docs chore to a PR whose approval was pinned to a SHA.
@@ -1512,6 +1586,9 @@ _Standing rules, 2026-09-15. This record is their home._
       - 2026-09-19: the custom-domain cutover's state was relayed without being read, and it stays UNVERIFIED in this record;
       - 2026-09-19: R-2026-09-19-20 C2 stated that the ward console "now routes through" the proxy. That was inferred from an uncommitted addendum's text, and nothing in the repository sets the console's base URL (R-2026-09-19-21 C3).
     - **How to apply:** a ruling that depends on state quotes the read that established it, or says UNVERIFIED.
+20. **A citation is bound to the kind of page it came from** (R-2026-09-19-22). A tutorial's recommended value states what to CHOOSE, not what is AVAILABLE. Only an availability matrix establishes what a plan permits. **Where the two are conflated, the claim is marked NOT CONFIRMED rather than DOCUMENTED.** The sibling of note 14: that note binds a citation to the platform variant, and this one binds it to the page's purpose.
+    - **Instance, 2026-09-19:** "action is Block; no Log-only or Managed Challenge on Free" came from a use-case tutorial ("On Free plans, select Block") and was issued as DOCUMENTED. Checked against Cloudflare's availability table and rule-parameters page, it was not there. The parameters page implies challenge actions exist on Free. Withdrawn by Cowork.
+    - **How to apply:** before recording a platform limit, name the page type it came from. If it is a guide, a tutorial or an example, the claim is DOCUMENTED-guidance at most.
 
 ---
 
@@ -1579,6 +1656,14 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-19, R-2026-09-19-22 (issued as R-PROVISIONAL-2026-09-19-C): method
+  note 20 and the evidence-kind rule for external-platform claims (note 2 amended);
+  B1's action line withdrawn by Cowork; the single Free rule placed on `/beds.json`,
+  with a fifth scope line: a 10-second window cannot address accumulation; A2's
+  consequence corrected, because three tests probe `ward_public` as `authenticated`;
+  a false golden-path fact in the Bundle 2 blast radius corrected; the `.env.production`
+  carve-out rejected and Finding D's fix given a home; the proxy review unblocked, with
+  its shape proposed;
 - on 2026-09-19, R-2026-09-19-21 (issued as R-PROVISIONAL-2026-09-19-B): the
   Free-plan rate-limit parameters landed in the Pages runbook, each labelled
   DOCUMENTED, CHOSEN or NOT CONFIRMED, with the CGNAT reason and the instruction to

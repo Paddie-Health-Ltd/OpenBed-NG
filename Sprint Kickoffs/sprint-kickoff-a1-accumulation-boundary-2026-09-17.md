@@ -235,9 +235,20 @@ Deleting it removes the only guard that would notice someone adding the mirrors 
   confirm what client code is permitted to address after this change and say so.
 - `tests/db/rls_anon_column_containment.test.ts` — premise corrected, property
   relocated to Bundle 1.
-- `tests/e2e/golden-path.test.ts` reads `public.snapshot_current` through the db
-  harness as service_role, not over HTTP, so it is unaffected by the anon revoke —
-  confirmed at `feefcf3` rather than assumed.
+- **Three test probes move inside 018's change** (R-2026-09-19-22 A, which corrects
+  this entry). It used to say `tests/e2e/golden-path.test.ts` "reads
+  `public.snapshot_current` through the db harness as service_role, not over HTTP,
+  so it is unaffected by the anon revoke — confirmed at `feefcf3`". That was true of
+  its `snapshot_current` reads and FALSE of the file: line 108, present since
+  `25238e6` (2026-09-10), proves a GoTrue token by an HTTP read of `ward_public` as
+  `authenticated`. `tests/db/auth_refresh_live.test.ts` does the same at lines 148
+  and 239. 018 revokes `SELECT` from `authenticated`, so all three go red unless they
+  are re-pointed to a relation an `authenticated` ward session still reads, such as
+  `rpc/my_facility_wards`. Line 161 expects a 401 on a tampered token, which fails
+  before privileges, so it stays.
+  **So 018 breaks no application code and no database object:** every function that
+  references a mirror is SECURITY DEFINER, and no view depends on one. It moves three
+  test probes.
 - `apps/public-dashboard` — the Bundle 1 stub performs no fetch, so no client breaks.
 - **Every route by which client code reaches the three mirrors, traced and reported
   BEFORE the revoke half is written** (R-2026-09-19-20 C2). 018 revokes from
@@ -259,7 +270,13 @@ Deleting it removes the only guard that would notice someone adding the mirrors 
 - **The console's production API origin is recorded nowhere** (R-2026-09-19-21 D).
   `VITE_SUPABASE_URL` is read and never set in the repository, so this trace covers
   the code and cannot cover which origin the deployed console is built against.
-  Named, not fixed here.
+  Named, not fixed here. **Its fix (R-2026-09-19-22 D):**
+  - a tracked config file whose name is not `.env*`, keyed by environment and read
+    at build time;
+  - a test asserting the built bundle carries the production value;
+  - the bundle scanner's coverage of the console's build confirmed with a plant.
+
+  It is its own PR, after the proxy review decides the value.
 - Enumeration items #27, #78 and #79 change state; the sweep section records the
   change rather than rewriting the verdicts, which were true at `db528f8`.
 
