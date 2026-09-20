@@ -50,7 +50,15 @@ enumeration items have been blocked on for want of a host.
 
 **Out, explicitly:** the Bundle 4 dashboard UI (tiles, geolocation, interstitial,
 emergency strip, service worker) — this sprint builds the document the dashboard will
-fetch, not the dashboard. The B5 alert sweep, outbox and dispatcher. The `scripts/`
+fetch, not the dashboard.
+
+> **SCOPING DRIFT, CORRECTED 2026-09-20 (R-2026-09-20-29 E4).** That sentence was
+> written on the premise that nothing consumes `/beds.json` yet. **The DEPLOYED
+> dashboard fetches it** — code that reached production without review, the same
+> family as the direct-upload finding. So the consuming surface exists now, and with
+> it the rule that **any public surface rendering bed data must distinguish "no
+> facilities onboarded" from "no beds available", asserted at the rendered surface**.
+> What stays out of this sprint is the rest of the Bundle 4 UI. The B5 alert sweep, outbox and dispatcher. The `scripts/`
 survey, which follows this sprint. Anything touching `ward_status_event` retention.
 
 **Honest sizing:** bundles 1 and 2 are the accumulation boundary and **must ship in
@@ -191,7 +199,31 @@ edge cannot see. **Depends on Bundle 1**; do not start it before `/beds.json` se
       `public.lga_rollup` from the `supabase_realtime` publication, and revoke
       `SELECT` on all three from `anon` and `authenticated`. 001–017 are frozen, so
       this is a new migration with its `.down.sql`, not an edit.
-      **Gated on the open decision below — do not write the revoke half until it is answered.**
+      **ANSWERED 2026-09-19: the founder's decision is REVOKE** (R-2026-09-19-24 B1).
+      **TWO GATES, and only one is lifted** (R-2026-09-20-28 B): the DECISION gate is
+      discharged; the EVIDENCE gate is not. 018 removes the direct read path on the
+      premise that the served path works, and that premise is NOT CONFIRMED while the
+      cache criterion is OWED and the custom-domain cutover has not happened. **018 is
+      not written until the founder's deployment report lands** — and under direct
+      upload that report must name which artifact, from which commit, by which
+      command, because it cannot be inferred from a merge.
+- [ ] **Re-point the three `authenticated` probes, inside this change**
+      (R-2026-09-19-24 B4): `tests/e2e/golden-path.test.ts` line 108 and
+      `tests/db/auth_refresh_live.test.ts` lines 148 and 239 prove a token works by
+      reading `ward_public` over HTTP, which this migration revokes. They move to a
+      relation an `authenticated` ward session still reads, such as
+      `rpc/my_facility_wards`. Not after the migration: in it.
+- [ ] **The hosted exposed-schemas hand-check, founder-side** (R-2026-09-20-27 D2).
+      It bears on exactly this bundle's property — what an anonymous holder of the
+      published key may address — so it belongs here rather than floating. The
+      repository cannot assert a hosted dashboard setting
+      (`.claude/rules/test-conventions.md` section 4). Confirm `app` is absent from
+      the exposed list; that also disposes of Supabase's advisor report of RLS
+      disabled on 16 `app.*` tables, which assumes `app` is PostgREST-exposed.
+- [ ] **The hosted apply is where the boundary closes** (R-2026-09-19-24 B5).
+      Founder-side OWED, in `docs/runbook-supabase-project-creation.md`'s apply step.
+      Until it is recorded, the history-is-private commitment is not available,
+      whatever this PR's state.
 - [ ] Update `packages/fixtures/public-relations.json`. Its `mirrors` list is the
       client `.from()` allowlist read by `scripts/lint_from_allowlist.sh` AND the
       expected publication membership asserted by `tests/db/config_drift.test.ts`.
@@ -347,9 +379,14 @@ the other and reported; the seven items carry their built state.
 
 ---
 
-## Open decisions needing your call
+## Open decisions needing your call — ANSWERED 2026-09-19
 
-**One, and R-2026-09-17-09 D put it in your hands rather than Claude Code's.**
+**There was one, and R-2026-09-17-09 D put it in your hands rather than Claude
+Code's. It is answered: REVOKE** (R-2026-09-19-24 B1), decided on 2026-09-19 and
+after the C4 trace returned rather than before it. **The question, its reasoning and
+the objection against it are kept below rather than deleted**, because the decision is
+only readable with them. What changed: Bundle 2's revoke half may be written, and
+Bundle 2's start still waits on your deployment report.
 
 **Revoking anon `SELECT` on the three mirrors (Bundle 2).** Cowork's recommendation
 is to revoke, and the reasoning is that it is not a new idea but `M/016:90-93`'s own
@@ -362,7 +399,14 @@ may add a direct read" — the grants are a tripwire as much as a permission, an
 revoking removes the surface the column-containment control was aimed at. Cowork's
 answer to that objection is Bundle 1's relocation of the control to the served
 document, which is where the public surface will actually be; but the objection is
-real and the decision is yours. **If you decline the revoke, Bundle 2 ships the
+real and **the decision was yours; you took it on 2026-09-19 and it is REVOKE.**
+The technical cost was then measured at zero: `my_facility_wards` is SECURITY
+DEFINER and reads no mirror, every function touching one is SECURITY DEFINER, no
+view depends on one, and no client code reads one. What it costs instead is three
+test probes, re-pointed inside 018's own change.
+
+**The alternative, kept for the reader who asks what declining would have meant:
+If you decline the revoke, Bundle 2 ships the
 publication half alone and the rate limit in Bundle 1 becomes the whole of the pull
 defence — say so explicitly rather than letting it become the default by silence,
 because a rate limit is a throttle and not a boundary.**

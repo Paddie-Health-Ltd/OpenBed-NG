@@ -895,6 +895,21 @@ when a frozen file's bytes change.
 the ledger count read in the block above -- not with a number from memory. The
 recorder refuses if that count and the repository's forward migrations disagree.
 
+### The next apply is 018, and THE BOUNDARY CLOSES HERE — not at merge
+
+**OWED, founder-side (method note 13; R-2026-09-19-24 B5).** Hosted holds 001-017.
+Migration 018 removes the three public mirrors from the `supabase_realtime`
+publication and revokes `SELECT` on them from `anon` and `authenticated` — the
+founder's decision of 2026-09-19, answering R-2026-09-17-09 D.
+
+**Until this apply is recorded, the history-is-private commitment is NOT available,
+whatever any pull request's state.** A merged migration changes this repository; it
+does not change the hosted database that a facility's data actually sits in, and the
+commitment is about the database. Anyone reading a green CI badge and concluding the
+direct read path is closed is reading the wrong artefact.
+
+Apply it through this step like any other, then record the boundary below.
+
 **For the next apply (018) the count is 18**, with the apply's date and the
 ruling that records it written in before pasting. As printed below the date and
 ruling are placeholders, and the recorder refuses a malformed date, so an unedited
