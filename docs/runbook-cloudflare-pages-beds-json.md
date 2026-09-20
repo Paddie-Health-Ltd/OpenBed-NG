@@ -31,6 +31,14 @@ of the edge, and they are yours.
 Run every block **in bash or with `zsh -f`**, and paste one block at a time. The
 blocks hold commands only; default interactive zsh does not treat `#` as a comment.
 
+**One exception to how these blocks were verified, stated rather than left implied.**
+Every fence here is verified by pasting it, except the deploy step's: pasting it
+**performs a deployment** to the live project. It was verified by reading instead —
+the same reasoning the deploy step itself gives for not testing the `--branch`
+question against this project, since that project's deploy history is evidence in an
+open question. A fence with a side effect on production is not made safe by being
+short.
+
 ---
 
 ## 1. The Pages project — create it, or confirm the one that exists
@@ -172,6 +180,25 @@ Then, in the deployment's **Functions** tab, `/beds.json` must be listed.
 directory; see the third bullet above.
 
 ## 4. Custom-domain cutover — `openbed.ng` on the Pages project. GATES steps 6 and 7
+
+> ### HELD — DO NOT PERFORM THIS STEP YET (2026-09-20)
+>
+> **Cowork rescinded its own instruction.** This step was listed as the founder's
+> first action on 2026-09-19. It is held because **pointing `openbed.ng` at the Pages
+> project would publish the empty-city page to a real domain.**
+>
+> No facility has been onboarded. The served document carries `"wards":[]` and
+> `"facilities":[]`, and the deployed page renders that as an empty list — nothing on
+> it distinguishes *no facility has joined* from *no beds are available*. A visitor
+> may be routing an ambulance, and those are different facts.
+>
+> **The apex timing out is currently the only thing limiting exposure.** The
+> `*.pages.dev` alias is reachable, which is why the fix is not merely cosmetic.
+>
+> **What lifts the hold, in order:** the empty-state wording and the crawler controls
+> (`robots.txt`, and `X-Robots-Tag` on `/beds.json`) merge; the founder deploys from
+> that tree and reports the deployment per *Reporting back*; and only then is this
+> step performed.
 
 Attach `openbed.ng` to the Pages project as a custom domain, and confirm the
 dashboard reports it active. **Nothing in steps 6 and 7 may be attempted, or marked
