@@ -31,24 +31,46 @@ of the edge, and they are yours.
 Run every block **in bash or with `zsh -f`**, and paste one block at a time. The
 blocks hold commands only; default interactive zsh does not treat `#` as a comment.
 
+**One exception to how these blocks were verified, stated rather than left implied.**
+Every fence here is verified by pasting it, except the deploy step's: pasting it
+**performs a deployment** to the live project. It was verified by reading instead —
+the same reasoning the deploy step itself gives for not testing the `--branch`
+question against this project, since that project's deploy history is evidence in an
+open question. A fence with a side effect on production is not made safe by being
+short.
+
 ---
 
 ## 1. The Pages project — create it, or confirm the one that exists
 
-In the Cloudflare dashboard, the Pages project for the public dashboard must have:
+**THIS PROJECT IS DIRECT-UPLOAD, NOT GIT-CONNECTED. REPORTED by the founder,
+2026-09-20:** the dashboard offers no **Retry deployment** button, and the project
+was created by `wrangler pages project create` rather than by connecting a
+repository. Not independently verified from inside the repository, and it cannot be
+— nothing here can read a Cloudflare project's settings.
+
+**What follows from it, and it is the reason this section was rewritten: pushing to
+`main` does not deploy anything.** Until 2026-09-20 this runbook said it did. A
+merge changes the repository and leaves the running site untouched, silently. Every
+deployment is an explicit upload from a working tree — the deploy step below.
 
 - **Project name** `openbed-public-dashboard` — it matches `name` in
   `apps/public-dashboard/wrangler.toml`.
-- **Root directory** `apps/public-dashboard`. **This is the setting that decides
-  whether the Function deploys at all**: Pages looks for `functions/` at the
-  project root.
-- **Build output directory** `dist`.
-- **Production branch** `main`.
+- **Root directory** and **Build output directory** are git-build settings and do
+  **not** exist for a direct upload. Their job is done instead by
+  `pages_build_output_dir` in `apps/public-dashboard/wrangler.toml`, and by the
+  directory you run `wrangler` from — see the deploy step.
+- **Production branch** — this one still exists, and it decides which deployments
+  read the **Production** environment variables. It is the value the deploy step's
+  `--branch` must match. **Read it rather than assuming `main`:**
+  `npx wrangler pages project list` prints it.
 
-**Symptom of a wrong root directory:** `/beds.json` answers **200 with
+**Symptom that the Function is not in the upload:** `/beds.json` answers **200 with
 `content-type: text/html`** — the SPA's `index.html`, served as a fallback because
-no Function matched. It looks like success. Step 4's content-type check is what
-catches it; this exact fallback was observed locally for an unrouted path.
+no Function matched. It looks like success. The edge-headers step's content-type
+check is what catches it; this exact fallback was observed locally for an unrouted
+path. Under direct upload the cause is that `wrangler` ran from the wrong directory,
+so `functions/` was never discovered.
 
 **Do not add a zone Cache Rule for `/beds.json`.** The Function caches its own
 response (see the cache-hit step). A zone rule would serve a cached response before the Function
@@ -80,9 +102,23 @@ second. They were not re-verified by Cowork.
 **Never** give either a `VITE_` prefix — Vite inlines `VITE_` variables into the
 browser bundle. **Never** put either in `wrangler.toml`, which is committed.
 
+**WHICH DEPLOYMENTS SEE THESE VARIABLES.** A variable saved under **Production** is
+read only by a deployment that counts as production — under direct upload, one made
+with `--branch <production branch>`. That is why the deploy step requires the flag,
+and it is worth reading that step before saving anything here. Two consequences
+follow. A deployment made on any other branch value reads the **Preview** set
+instead, and finds these unset. And **saving a variable does not reach deployments
+that already exist** — it binds when a deployment is created, so a change here needs
+a fresh deploy to take effect (OBSERVED 2026-09-20: variables added to Production
+while a deployment was live did not reach it; a new deploy picked them up).
+
 **Symptoms:**
+- **500, `SUPABASE_URL is not set in the Function environment`** — the same
+  diagnosis as the next line. The Function checks `SUPABASE_URL` first, so this is
+  the message you see when **both** are missing.
 - **500, `SUPABASE_SERVICE_ROLE_KEY is not set in the Function environment`** —
-  the variable is missing, or set under Preview rather than Production.
+  the variable is missing, or set under Preview rather than Production, or set
+  after the running deployment was created.
 - **502, `the origin refused the service-role credential (HTTP 401)`** — the wrong
   key was pasted, most often the **publishable** key instead of the secret one, or
   a key that has been revoked. Supabase also returns 401 for a secret key sent from
@@ -92,13 +128,77 @@ browser bundle. **Never** put either in `wrangler.toml`, which is committed.
 
 ## 3. Deploy
 
-Push to `main`, or trigger a production deployment from the dashboard. In the
-deployment's **Functions** tab, `/beds.json` must be listed.
+**This project is direct-upload (see the Pages-project step). Pushing to `main`
+deploys nothing.** Build, then upload explicitly:
 
-**Symptom:** the Functions tab is empty or absent — go back to step 1's root
-directory.
+```bash
+cd apps/public-dashboard
+npx wrangler pages deploy --branch main
+```
+
+Substitute the production branch the Pages-project step told you to read; `main` is
+written here because that is what this project reports, not because it is a default
+to assume.
+
+Three things about that command, each of which has its own failure if you drop it:
+
+- **Always pass `--branch` explicitly.** It is what makes the deployment count as
+  production and read the Production variables from the environment step. Pass it
+  every time, including when the value looks obvious.
+- **Pass no positional directory.** `apps/public-dashboard/wrangler.toml` declares
+  `pages_build_output_dir`, and supplying a path as well conflicts with it.
+- **Run it from `apps/public-dashboard`.** That is what lets wrangler discover
+  `functions/` and compile `/beds.json` into the upload. From the repository root it
+  will not, and you get the text/html fallback described in the Pages-project step.
+
+Build first, from the repository root, so the upload carries current output:
+`npm run build`. **Do not use `apps/public-dashboard/build.sh` here** — that is the
+Pages *git* build command, and it exits early when nothing under
+`apps/public-dashboard` or `packages/` changed, leaving no `dist` to upload.
+
+**OBSERVED 2026-09-20**, against this project: the command above returned
+`Compiled Worker successfully`, `Uploading Functions bundle`, and a deployment URL;
+a request to that deployment's `/beds.json` then returned the live snapshot, which
+is only possible if the Production variables bound.
+
+> **NOT CONFIRMED — what happens if `--branch` is omitted.** Cloudflare's Wrangler
+> Configuration page, under "Production and preview deployments", says the flag is
+> optional and that Wrangler infers the branch from the repository you are in — but
+> that sentence is conditioned on *"If you use git integration"*, and this project
+> is direct-upload. **No deploy without `--branch` has been run here**, so whether
+> omitting it yields a preview deployment on this project is inferred, not observed.
+> The instruction above does not depend on it either way.
+> **What would close this:** one deploy with `--branch` omitted against a
+> **non-production** Pages project, or Cloudflare documenting the non-git case.
+> **Do not run that test against this project** — its deploy history is evidence in
+> the open question of what is running versus what was reviewed
+> (`docs/handoff-2026-09-20-pages-direct-upload.md`).
+
+Then, in the deployment's **Functions** tab, `/beds.json` must be listed.
+
+**Symptom:** the Functions tab is empty or absent — wrangler was run from the wrong
+directory; see the third bullet above.
 
 ## 4. Custom-domain cutover — `openbed.ng` on the Pages project. GATES steps 6 and 7
+
+> ### HELD — DO NOT PERFORM THIS STEP YET (2026-09-20)
+>
+> **Cowork rescinded its own instruction.** This step was listed as the founder's
+> first action on 2026-09-19. It is held because **pointing `openbed.ng` at the Pages
+> project would publish the empty-city page to a real domain.**
+>
+> No facility has been onboarded. The served document carries `"wards":[]` and
+> `"facilities":[]`, and the deployed page renders that as an empty list — nothing on
+> it distinguishes *no facility has joined* from *no beds are available*. A visitor
+> may be routing an ambulance, and those are different facts.
+>
+> **The apex timing out is currently the only thing limiting exposure.** The
+> `*.pages.dev` alias is reachable, which is why the fix is not merely cosmetic.
+>
+> **What lifts the hold, in order:** the empty-state wording and the crawler controls
+> (`robots.txt`, and `X-Robots-Tag` on `/beds.json`) merge; the founder deploys from
+> that tree and reports the deployment per *Reporting back*; and only then is this
+> step performed.
 
 Attach `openbed.ng` to the Pages project as a custom domain, and confirm the
 dashboard reports it active. **Nothing in steps 6 and 7 may be attempted, or marked
@@ -148,8 +248,20 @@ Then confirm the body is the snapshot and not an error document:
 curl -sS "$BEDS_URL" | head -c 120
 ```
 
-**Stop condition:** the output begins `{"v":` or contains `"v":` with a number and
-`"wards":[[`. An `{"error":` body is a failure whatever the status line said.
+**Stop condition:** the output begins `{"v":` with a number, and carries a `"wards":`
+key whose value is a JSON array. An `{"error":` body is a failure whatever the
+status line said.
+
+**`"wards":[]` PASSES THIS STEP. Do not report it as a failure.** Until 2026-09-20
+this stop condition demanded `"wards":[[` — an array containing at least one ward —
+which **cannot match a healthy system that has no facilities onboarded yet**, and
+would have made this step read FAILED on a correct deployment. OBSERVED 2026-09-20:
+the deployed Function returned `{"v":4993,"wards":[],"facilities":[],…}`, while
+`app.facility`, `app.ward_status`, `public.ward_public` and `public.facility_public`
+were all at zero rows and `public.snapshot_current` held 1440 rows generated one per
+minute. **An empty `wards` array is a question about onboarding, not about this
+deployment**, and the two must not be confused: the generator faithfully publishing
+an empty city is the system working.
 
 ## 6. Prove a cache hit inside `s-maxage` — on the same custom domain. GATED by step 4
 
@@ -254,7 +366,25 @@ with their reasons recorded.
 
 ## Reporting back
 
-For each step: done or not done, and the **observed** lines — the cutover from
-step 4, the three headers and body prefix from step 5, both `cf-cache-status` lines
-from step 6, and the 429 from step 7. Steps 5 and 6 together, on the custom domain,
-are the deployment report Bundle 2 waits on.
+For each step: done or not done, and the **observed** lines — the cutover from the
+custom-domain step, the three headers and body prefix from the edge-headers step,
+both `cf-cache-status` lines from the cache-hit step, and the 429 from the
+rate-limit step. The edge-headers and cache-hit steps together, on the custom
+domain, are the deployment report Bundle 2 waits on.
+
+**NAME THE DEPLOYMENT ITSELF — three things, every time (added 2026-09-20):**
+
+1. **Which artifact** was deployed — the Pages project and the deployment id or URL
+   wrangler printed.
+2. **From which commit** — the SHA of the working tree it was uploaded from, read
+   back from `git rev-parse HEAD`, never composed or abbreviated by hand.
+3. **By which command** — the verbatim invocation, including `--branch`.
+
+**Why this is required rather than tidy.** Before 2026-09-20 these steps assumed a
+deployment had happened by some mechanism that was never named, and this runbook
+named the wrong one — it said to push to `main`, which for a direct-upload project
+deploys nothing. A report can therefore say "deployed" when nothing was, and every
+step below it inherits that. Naming the artifact, the commit and the command is what
+makes the report checkable by someone who was not there. It also makes visible the
+case where what is running was never reviewed, because the commit will not be an
+ancestor of `main`.
