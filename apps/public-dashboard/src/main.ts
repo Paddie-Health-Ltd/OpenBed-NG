@@ -120,8 +120,40 @@ async function fetchSnapshot(): Promise<{ facilities: DecodedRow[]; wards: Decod
   return null;
 }
 
+/**
+ * THE EMPTY STATE IS NOT A ZERO. "No facility has joined yet" and "no beds are
+ * available" are DIFFERENT FACTS, and a page that renders both as an empty list
+ * presents absence of data as data -- to a reader who may be routing an ambulance
+ * (R-2026-09-20-29 E).
+ *
+ * The payload already carries the distinction: `facilities` is empty when nobody has
+ * joined, and non-empty with no wards when facilities are onboarded but none is
+ * reporting. It is THIS function that used to discard it, by appending nothing to a
+ * list and swapping it in.
+ *
+ * Returns the sentence to show instead of a list, or null when there are wards to
+ * render. Exported so its three branches are readable; the test asserts the RENDERED
+ * TEXT, not this return value, because a page can pass this and still say nothing.
+ */
+export function emptyStateMessage(facilities: DecodedRow[], wards: DecodedRow[]): string | null {
+  if (wards.length > 0) return null;
+  if (facilities.length === 0) {
+    return 'No facility has joined OpenBed yet, so there is nothing to show. This is NOT a report that beds are unavailable — no hospital has told us anything either way. Call the facility directly, or 112 / 767 in an emergency.';
+  }
+  return 'Facilities have joined, but none has reported a ward yet. This is NOT a report that beds are unavailable — nothing has been told to us either way. Call the facility directly, or 112 / 767 in an emergency.';
+}
+
 function renderReal(root: HTMLElement, facilities: DecodedRow[], wards: DecodedRow[]): void {
   const nameOf = new Map(facilities.map((f) => [f['facility_id'], f['name']]));
+
+  const empty = emptyStateMessage(facilities, wards);
+  if (empty !== null) {
+    const notice = document.createElement('p');
+    notice.className = 'empty-state';
+    notice.textContent = empty;
+    root.replaceChildren(notice);
+    return;
+  }
 
   const list = document.createElement('ul');
   for (const ward of wards) {
@@ -140,7 +172,12 @@ function renderReal(root: HTMLElement, facilities: DecodedRow[], wards: DecodedR
   root.replaceChildren(list);
 }
 
-async function render(): Promise<void> {
+/**
+ * Exported so a test can call it and then read the DOM, rather than re-importing
+ * the module to make it run again: the module renders once on import, and a second
+ * import is a module-cache question rather than a rendering one.
+ */
+export async function render(): Promise<void> {
   const root = document.getElementById('app');
   if (!root) return;
 

@@ -57,6 +57,28 @@ export interface BedsEnv {
 export const CACHE_CONTROL = 'public, s-maxage=30, stale-while-revalidate=300';
 export const FAILURE_CACHE_CONTROL = 'no-store';
 
+/**
+ * X-Robots-Tag, as an HTTP HEADER, because nothing else reaches this document
+ * (R-2026-09-20-29 F).
+ *
+ * The dashboard's `noindex` meta tag covers its HTML page and CANNOT cover a JSON
+ * response -- there is nowhere in JSON to put a meta tag. Without this header the
+ * only instruction a crawler has about /beds.json is the site's robots.txt, and
+ * before 2026-09-20 that path returned the SPA's HTML with a 200, which tells a
+ * crawler nothing at all.
+ *
+ * WHY IT IS NOT MERELY ABOUT SEARCH RESULTS. This document is a public snapshot of
+ * bed state. Fetched politely once a minute by an archive service, it becomes,
+ * over months, exactly the time series this design forbids: built from legitimate
+ * reads, never tripping a rate limit that counts over ten seconds, and untouched by
+ * migration 018, whose revoke does not govern this route.
+ *
+ * NOT ASSERTED HERE, deliberately: that this stops anyone. It governs WELL-BEHAVED
+ * crawlers. A determined collector ignores it, and this is not a substitute for
+ * Bundle 2's revoke.
+ */
+export const ROBOTS_TAG = 'noindex, nofollow';
+
 /** The upstream read's bounds. The pipeline caps an external call at 12s. */
 export const UPSTREAM_TIMEOUT_MS = 8000;
 export const UPSTREAM_ATTEMPTS = 2;
@@ -98,6 +120,7 @@ function failure(status: number, reason: string): Response {
     headers: {
       'content-type': 'application/json; charset=utf-8',
       'cache-control': FAILURE_CACHE_CONTROL,
+      'x-robots-tag': ROBOTS_TAG,
     },
   });
 }
@@ -163,6 +186,7 @@ export function buildBedsResponse(row: SnapshotRow | null): Response {
     headers: {
       'content-type': 'application/json; charset=utf-8',
       'cache-control': CACHE_CONTROL,
+      'x-robots-tag': ROBOTS_TAG,
     },
   });
 }

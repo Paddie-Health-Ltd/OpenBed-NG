@@ -2009,15 +2009,3 @@ _Standing rules, 2026-09-15. This record is their home._
 - the hold on migration 014.
   - _Released later on 2026-09-14; see the note at the top of this record._
 
-## Addendum — 2026-09-19: `api.openbed.ng` deployed
-
-`api.openbed.ng` is a Cloudflare Worker (`supabase-proxy/`, committed alongside
-this addendum) that Host-rewrites requests through to the Supabase origin,
-deployed as a stable domain backing
-`app.openbed.ng`/`ward-console` — `apps/ward-console/src/main.ts` already read
-`VITE_SUPABASE_URL` directly against the raw Supabase origin with the anon key
-before this change, so this only changes the hostname the client is pointed
-at, not what it is authorized to reach. Available to future consumers of the
-same API. This is a third domain alongside D1's two; it does not replace or
-change either — `openbed.ng`'s public `/beds.json` Cloudflare Pages Function
-is unaffected.
