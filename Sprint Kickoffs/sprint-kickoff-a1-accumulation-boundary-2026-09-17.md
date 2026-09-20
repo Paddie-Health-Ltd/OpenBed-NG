@@ -192,14 +192,26 @@ edge cannot see. **Depends on Bundle 1**; do not start it before `/beds.json` se
       `SELECT` on all three from `anon` and `authenticated`. 001–017 are frozen, so
       this is a new migration with its `.down.sql`, not an edit.
       **ANSWERED 2026-09-19: the founder's decision is REVOKE** (R-2026-09-19-24 B1).
-      The write gate is discharged; Bundle 2's START still waits on the deployment
-      report.
+      **TWO GATES, and only one is lifted** (R-2026-09-20-28 B): the DECISION gate is
+      discharged; the EVIDENCE gate is not. 018 removes the direct read path on the
+      premise that the served path works, and that premise is NOT CONFIRMED while the
+      cache criterion is OWED and the custom-domain cutover has not happened. **018 is
+      not written until the founder's deployment report lands** — and under direct
+      upload that report must name which artifact, from which commit, by which
+      command, because it cannot be inferred from a merge.
 - [ ] **Re-point the three `authenticated` probes, inside this change**
       (R-2026-09-19-24 B4): `tests/e2e/golden-path.test.ts` line 108 and
       `tests/db/auth_refresh_live.test.ts` lines 148 and 239 prove a token works by
       reading `ward_public` over HTTP, which this migration revokes. They move to a
       relation an `authenticated` ward session still reads, such as
       `rpc/my_facility_wards`. Not after the migration: in it.
+- [ ] **The hosted exposed-schemas hand-check, founder-side** (R-2026-09-20-27 D2).
+      It bears on exactly this bundle's property — what an anonymous holder of the
+      published key may address — so it belongs here rather than floating. The
+      repository cannot assert a hosted dashboard setting
+      (`.claude/rules/test-conventions.md` section 4). Confirm `app` is absent from
+      the exposed list; that also disposes of Supabase's advisor report of RLS
+      disabled on 16 `app.*` tables, which assumes `app` is PostgREST-exposed.
 - [ ] **The hosted apply is where the boundary closes** (R-2026-09-19-24 B5).
       Founder-side OWED, in `docs/runbook-supabase-project-creation.md`'s apply step.
       Until it is recorded, the history-is-private commitment is not available,
