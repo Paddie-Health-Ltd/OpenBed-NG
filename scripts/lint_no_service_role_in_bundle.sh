@@ -71,10 +71,17 @@
 #   each of the three controls on such a file does and does not do.
 #
 # CLASSIFICATION (Clause 5), one per corpus, because they differ:
-#   client corpus -- GUARD-AHEAD-OF-SUBJECT. It runs and is non-vacuous against
-#     the built dashboard and ward-console bundles, but the code it is aimed at
-#     -- a real authenticated client fetch -- arrives with the ward console's
-#     first screen.
+#   client corpus -- LIVE (corrected when the ward console's publish screen
+#     shipped). This was misclassified GUARD-AHEAD-OF-SUBJECT from commit
+#     fb925b2 / 349e72e onward: the code this corpus is aimed at, "a real
+#     authenticated client fetch", is apps/ward-console/src/main.ts's
+#     holder.authedFetch('rpc/my_facility_wards', ...) call -- sending
+#     apikey + Authorization: Bearer <token>, and dropping the session on a
+#     real 401 -- and that has been in the built apps/ward-console/dist bundle
+#     since those commits, which predate this correction. The publish screen's
+#     holder.authedFetch('rpc/publish_ward_status', ...) call is a SECOND
+#     authenticated client fetch over the same corpus; it does not change this
+#     classification, because it was already LIVE.
 #   server-side corpus -- LIVE. The /beds.json Function exists and holds the
 #     service-role credential now.
 #

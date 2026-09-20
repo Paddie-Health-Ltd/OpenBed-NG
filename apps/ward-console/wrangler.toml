@@ -1,0 +1,10 @@
+# Cloudflare Pages configuration for the ward console. Mirrors
+# apps/public-dashboard/wrangler.toml in shape. No functions/ directory here --
+# this app calls Supabase directly, through api.openbed.ng (supabase-proxy/),
+# with the publishable key, exactly as my_facility_wards and publish_ward_status
+# already do today. There is no server-side credential for this app to hold.
+#
+# NO SECRETS IN THIS FILE, EVER.
+name = "openbed-ward-console"
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-09-01"
