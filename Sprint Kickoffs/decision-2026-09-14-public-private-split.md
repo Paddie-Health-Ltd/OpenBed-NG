@@ -1742,6 +1742,31 @@ _Issued as R-PROVISIONAL-2026-09-20-P (the letter O was skipped, confusable with
 - **The recovery is accepted:** merge `main` into #47 rather than rebase, re-attest on the merged head (796/796, gate PASS), then merge.
 - **The rule, now in `.claude/rules/code-pipeline.md` beside the other merge rules:** when two pull requests must land in a stated order, the second is not opened until the first has merged — or, if both are open, the later one is merged up and **re-attested** before the first lands.
 
+### R-2026-09-20-31 — a dirty stamp means a control was circumvented; the mapper shaped the code; the report reads back from the surface
+
+_Issued as R-PROVISIONAL-2026-09-20-Q. Number assigned from the record's last as read on merged `main` (`2b527f6`): R-2026-09-20-30._
+
+**A — #50 merged** at `2b527f6`, with the head SHA read from the API and the branch deleted after `MERGED` was read back. Three of its decisions are accepted with their reasoning recorded, because the reasoning is what a later reader needs:
+- **`/version.json` beside the served document, not a field inside it.** The envelope is frozen, asserted by set-equality and generated in the database, so a build detail would have cost a shape change, a fixture and a generator. Recorded as restraint rather than as a limitation.
+- **Refusing beats writing `"unknown"`.** The report READS that file, so a placeholder would be **a composed value in the one place clause 4 is supposed to be a quotation** — method note 16's defect reintroduced at the end of the chain that removed it.
+- **`run_e2e.sh`'s empty-corpus branch was removed rather than registered as a leg.** With the golden path asserted present the corpus cannot be empty, and **a leg that can never fire is a test that cannot fail** — the same family as everything else corrected this week.
+
+**A4 — WHAT `dirty: true` MEANS IN A DEPLOYED STAMP, sharpened here and in the runbook.** The wrapper refuses a dirty tree. So a deployed `/version.json` carrying `"dirty": true` is not evidence that a tree was untidy: **it is evidence that the wrapper was BYPASSED**, and that the artifact matches no commit. It reports a circumvented control, which is more than "deploy it again".
+
+**B — THE MAPPER SHAPED THE CODE IT MEASURES, and that widens the regex-readers change.**
+- **The finding, observed rather than predicted:** `assertedByScript`'s literal matcher required R-2026-09-20-30's new tests to be **written a particular way to be seen** — script paths spelled as single literals, leg identities asserted with `toContain` rather than a regex.
+- **Why that is more than a nuisance. An instrument that constrains the FORM of what it measures is not reporting coverage; it is enforcing a spelling convention and presenting the result as coverage.** The file's own header warns of exactly this ("an instrument that only recognises one spelling dictates how tests are written"), and it is now observed against that file.
+- **A third instance of method note 17's root** — a tool reasoning about a language it does not parse — alongside the comment-stripper and the SQL-in-prose item. Here the tool did not merely mis-measure: it bent the code to its own limits.
+- **R-2026-09-18-16 B's change therefore gains a SECOND TASK.** After the mapper is fixed on TypeScript's parser: **re-check every test written under the old one**, say for each whether its shape was load-bearing or merely a concession to the matcher, and normalise the concessions. **Fixing an instrument while leaving behind code shaped by its defect closes half the problem.**
+
+**C — THE DEPLOYMENT REPORT READS BACK FROM THE SURFACE.**
+- **Why:** this deploy is what closes the empty-city hazard, and the only current evidence that the empty state reads correctly is **a CI assertion over what the CODE produces**. That proves the code and not the artifact — the same discipline as observing cache headers from the edge rather than from the origin, and method note 18's shape.
+- **The three read-backs, fetched from the deployed site:** the rendered empty state in the words a visitor sees; `X-Robots-Tag` on the `/beds.json` response; and `/robots.txt` returning ROBOTS CONTENT rather than the SPA fallback — a live possibility, since that path returns the SPA's HTML with a 200 today, so it is fetched rather than inferred from the file being in `dist`.
+- **A SCOPE CHANGE, reported rather than worked around (C4's own instruction).** Q asked for the header on **both** responses. Read from `packages/snapshot/src/serve.ts`: every failure does go through `failure()` and does carry the header, but the failure paths are 500 (a variable unset), 502 (the origin refused the key, or the shape is wrong) and 503 (no snapshot row). **None can be produced in production without breaking production.**
+  - **The safe method, offered and not assumed:** a PREVIEW deployment — any `--branch` other than the production branch — reads the Preview environment, where those variables are unset, so `/beds.json` returns the 500 with its headers on a throwaway URL that never touches the production alias. **Its cost:** it adds a deployment to the project's history, and that history is evidence in the what-is-running question, so it would have to be named in the report.
+  - **Until Cowork rules:** the failure-response header stays asserted in `tests/db/beds_json_served.test.ts` and is **named as NOT OBSERVED AT THE EDGE**.
+- **All three read-backs happen on the `*.pages.dev` alias**, because the cutover is held. **Reading a header there does NOT discharge the edge-headers step**, which is gated on the custom domain and is part of what Bundle 2 waits for. Stated because the two look alike in a report.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -1763,6 +1788,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | M | R-2026-09-20-29 | 2026-09-20 | Supplied the H and J texts, which are filled in under -25 and -26. |
 | N | — | 2026-09-20 | Its substance is recorded inside -30 (the #49 review, the one-unit ordering, the marking of `supabase-proxy/`, and `jsdom`'s conditions), which was the change that executed it. |
 | P | R-2026-09-20-30 | 2026-09-20 | The letter O was skipped: confusable with zero in a ruling id. |
+| Q | R-2026-09-20-31 | 2026-09-20 | |
 
 ## Method notes — how rulings reach the implementer
 
@@ -1935,6 +1961,12 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-20, R-2026-09-20-31 (issued as R-PROVISIONAL-2026-09-20-Q): a deployed
+  `dirty: true` recorded as evidence that the deploy wrapper was BYPASSED; the leg
+  register's mapper recorded as having shaped the tests it measures, which widens the
+  regex-readers change to re-check code written under it; and the deployment report
+  given three read-backs from the deployed surface, with the failure-response header
+  reported as unobservable in production without breaking it;
 - on 2026-09-20, R-2026-09-20-30 (issued as R-PROVISIONAL-2026-09-20-P): the
   deployment report's fourth clause turned from an attestation into a READING, by
   stamping the commit into the artifact as `/version.json` and adding a deploy
