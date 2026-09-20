@@ -384,10 +384,44 @@ fourth added by R-2026-09-20-30, which also made it a READING):**
    the site you just deployed and paste what it returns. The build stamps it
    (`scripts/stamp_build.mjs`), so this is the deployed artifact naming its own
    source rather than anyone remembering which tree was uploaded.
-   - `"dirty": true` means the artifact was built from uncommitted changes and **its
-     commit does not identify it**. Report that as a failed deployment and deploy
-     again from a clean tree.
-   - The deploy wrapper below refuses both cases before they can happen.
+   - **`"dirty": true` means the deploy wrapper was BYPASSED** (R-2026-09-20-31 A4).
+     The wrapper refuses a dirty tree, so a dirty stamp on a DEPLOYED artifact is not
+     a tidiness problem: it says a control was circumvented, and that the artifact
+     matches no commit. Report it as a failed deployment, say how the deploy was run,
+     and deploy again from a clean tree through the wrapper.
+
+**AND READ BACK THREE THINGS FROM THE DEPLOYED SITE (R-2026-09-20-31 C).** This
+deploy is what closes the empty-city hazard, and the only evidence so far that the
+empty state reads correctly is a CI assertion over what the CODE produces. **That
+proves the code, not the artifact** — the same reason the cache headers are observed
+from the edge rather than from the origin. Fetch each, and paste what came back:
+
+5. **The rendered empty state, in the words a visitor sees.** Open the deployment URL
+   and copy the sentence on the page. It must say that no facility has joined and
+   that this is **not** a report that beds are unavailable. **An empty list, a bare
+   zero, or a blank panel is a FAILED deployment**, whatever the build said.
+6. **`X-Robots-Tag` on `/beds.json`** — `curl -sSI <url>/beds.json` and paste the
+   header lines.
+7. **`/robots.txt` returning ROBOTS CONTENT, not the SPA fallback.** Fetch it and
+   paste the body. Before 2026-09-20 that path returned the site's `index.html` with
+   a 200, which tells a crawler nothing, so this is fetched and read rather than
+   inferred from the file being in `dist`.
+
+> **These read-backs are on the `*.pages.dev` deployment URL or alias, because the
+> custom-domain cutover is HELD. They do NOT discharge the edge-headers step**, which
+> is on the custom domain and is part of what Bundle 2 waits for. The two look alike
+> in a report and are not the same evidence.
+>
+> **NOT OBSERVED AT THE EDGE, and named rather than implied:** `X-Robots-Tag` on a
+> FAILURE response. Every failure path carries the header in code and it is asserted
+> in `tests/db/beds_json_served.test.ts`, but 500, 502 and 503 cannot be produced on
+> production without breaking production. A preview deployment (any `--branch` other
+> than the production branch) would return the 500 with its headers on a throwaway
+> URL — at the cost of one more deployment in a history that is itself evidence. Ask
+> before running it.
+
+**If any read-back does not return what is expected, that is a scope change to
+report, not to work around, and the custom-domain cutover stays held.**
 
 **Why this is required rather than tidy.** Before 2026-09-20 these steps assumed a
 deployment had happened by some mechanism that was never named, and this runbook
