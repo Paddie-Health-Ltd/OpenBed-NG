@@ -415,10 +415,21 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
 > **NOT OBSERVED AT THE EDGE, and named rather than implied:** `X-Robots-Tag` on a
 > FAILURE response. Every failure path carries the header in code and it is asserted
 > in `tests/db/beds_json_served.test.ts`, but 500, 502 and 503 cannot be produced on
-> production without breaking production. A preview deployment (any `--branch` other
-> than the production branch) would return the 500 with its headers on a throwaway
-> URL — at the cost of one more deployment in a history that is itself evidence. Ask
-> before running it.
+> production without breaking production.
+>
+> **The preview-deployment probe is DECLINED — R-2026-09-20-32 B1 — and not on cost.**
+> The reason to observe a header on a failure path is that the path leaks something or
+> loses a control. Here the control is `noindex` on a document that, when failing,
+> **carries no bed data at all**: the body is `{"error": "<a generic reason>"}`. A
+> crawler indexing that is close to harmless, so the observation buys very little, and
+> it would add a deployment to a history that is itself evidence in the
+> what-is-running question.
+>
+> **The one condition that reopens it, named so this is a decision and not a
+> permanent silence:** a preview deployment against a NON-PRODUCTION project with the
+> Preview environment variables unset, **taken if the failure path ever comes to carry
+> data.** Until then the header on a failure response is a code assertion, and this
+> runbook says so rather than implying it was checked.
 
 **If any read-back does not return what is expected, that is a scope change to
 report, not to work around, and the custom-domain cutover stays held.**

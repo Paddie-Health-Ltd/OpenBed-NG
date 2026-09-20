@@ -1767,6 +1767,41 @@ _Issued as R-PROVISIONAL-2026-09-20-Q. Number assigned from the record's last as
   - **Until Cowork rules:** the failure-response header stays asserted in `tests/db/beds_json_served.test.ts` and is **named as NOT OBSERVED AT THE EDGE**.
 - **All three read-backs happen on the `*.pages.dev` alias**, because the cutover is held. **Reading a header there does NOT discharge the edge-headers step**, which is gated on the custom domain and is part of what Bundle 2 waits for. Stated because the two look alike in a report.
 
+### R-2026-09-20-32 — the preview probe declined on reasoning; what a failure body actually contains; a failure path that skips the failure builder
+
+_Issued as R-PROVISIONAL-2026-09-20-R. Number assigned from the record's last as read on merged `main` (`00888ab`): R-2026-09-20-31._
+
+**A — #51 merged** at `00888ab`, head SHA read from the API, `MERGED` read back before `record-q` was deleted.
+
+**A2 — the alias-versus-custom-domain separation recorded as correct.** Reading a header from `*.pages.dev` and reading it from `openbed.ng` produce report lines that look identical and are not the same evidence: the Cache API has no effect off a custom domain, so one of the two checks cannot even exercise the mechanism the other does. Separating them before anyone conflates them is method note 12's discipline — **name what you are NOT asserting** — applied without being asked.
+
+**B1 — THE PREVIEW-DEPLOYMENT PROBE IS DECLINED, AND THE REASONING IS THE RULING.** R-2026-09-20-31 C offered it and named its cost. Cowork declined it **not on cost**:
+
+> The reason to observe a header on a failure path is that the path leaks something or loses a control. Here the control is noindex on a document that, when failing, carries no bed data.
+
+**That premise was checked against the code rather than accepted** (method note 2, as widened by R-2026-09-19-23). It holds: every failure path in `packages/snapshot/src/serve.ts` goes through the one `failure()` builder, whose body is `{"error": "<reason>"}` and nothing else. **A crawler that indexes a failing `/beds.json` archives a sentence, not a bed count.** The header's whole purpose — stopping the archived time series this design forbids — is not engaged by a response that carries no data to archive.
+
+**B2 — recorded NOT OBSERVED AT THE EDGE, with its closing condition named.** A standing silence is not a decision; a silence with a trigger is. The condition: **a preview deployment against a NON-PRODUCTION project with the Preview environment variables unset, taken if the failure path ever comes to carry data.** Written into `docs/runbook-cloudflare-pages-beds-json.md` beside the read-backs, so the next reader of that step finds the ruling rather than an open question.
+
+**B3 — THE BETTER QUESTION, ANSWERED BY READING: what does a failure body actually contain?**
+
+- **The headline: no failure body echoes a VALUE.** Not the credential, not the upstream response body, not a caught exception's message. Every reason string is composed of literals plus, at most, an HTTP status, an attempt count and a timeout in milliseconds.
+- **Two catch-alls are generic BY DESIGN, and that is load-bearing rather than lazy.** `serveBeds` ends `return failure(502, 'the snapshot read failed')` instead of echoing `e.message` — and **that path is where `res.json()`'s `SyntaxError` lands**, whose message routinely quotes the offending text. An echo there would republish whatever the origin actually said. The same holds for the network branch, which returns `could not reach the origin` and drops a thrown message that can carry a host and a port.
+- **What IS echoed is STRUCTURE, in exactly one place.** The 502 shape-mismatch reason interpolates `JSON.stringify(Object.keys(payload))` — the upstream document's **key names** — and, per row, an index and an arity from the codec. Key names, never values. Recorded as acceptable and as **the one place to watch**, because the thing being described there is attacker-influenced only if the origin is already compromised, at which point this is the smaller problem.
+- **Already probed, and it is worth naming what existed before this ruling:** the 500 names the variable and never its value, and one test asserts no error body carries the credential. **That probe exercises ONE path** — a 401 from the origin. It holds everywhere because the key is interpolated nowhere, but **one plant proves the instrument, never its coverage** (Standard P's own words, applied to a probe written weeks earlier).
+- **FOUR GAPS, all of them missing assertions over behaviour that is ALREADY CORRECT.** Named and closed in this change, because *correct today and unasserted* is precisely how a thing stops being correct:
+  1. **The arity plant plants a leak and never looks for it.** The existing test inserts the literal `'LEAKED'` into a ward row and asserts the body names `wardColumns`. It never asserts the body does **not** contain `'LEAKED'`. The plant was constructed for exactly this question and stopped one line short of asking it.
+  2. **A malformed upstream body has no probe** — nothing asserted that the generic catch-all does not quote the text it failed to parse.
+  3. **A thrown network error has no probe** — nothing asserted that its message is dropped.
+  4. **`SUPABASE_URL` was never asserted absent** from a failure body. It is the one configuration value in scope that carries the project ref, and the credential probe covers only the key.
+
+**B3-bis — A SCOPE CHANGE FOUND WHILE ANSWERING, REPORTED RATHER THAN FIXED.** `serveBedsCached` awaits `cache.match` and `cache.put` **outside any `try`**. An exception raised there is an **unhandled Function exception**: it does not pass through `failure()`, so it carries none of this module's headers — no `X-Robots-Tag`, no `no-store` — and the module's claim that *every* failure is uncacheable and tagged does not cover it.
+
+- **What Cloudflare returns for an unhandled Pages Function exception is NOT established here**, and is deliberately not asserted (method note 19: read state, never assert it). The finding is about **our own code's coverage of its own claim**, which is readable from the repository.
+- **The candidate fix is one `try` around the cache operations**, treating a cache failure as a cache miss — a cache is an optimisation and its failure should never be the visitor's failure. **It is not taken here**, because it changes shipped code while the founder's deployment of `00888ab` is imminent, and a deploy of a commit that is superseded the same hour is exactly the drift the deployment report exists to remove. Ruling requested.
+
+**C — the queue stands unchanged**, and C2 is recorded: the founder has the deploy and read-back steps directly and needs nothing further from the implementer now that #51 has merged.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -1789,6 +1824,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | N | — | 2026-09-20 | Its substance is recorded inside -30 (the #49 review, the one-unit ordering, the marking of `supabase-proxy/`, and `jsdom`'s conditions), which was the change that executed it. |
 | P | R-2026-09-20-30 | 2026-09-20 | The letter O was skipped: confusable with zero in a ruling id. |
 | Q | R-2026-09-20-31 | 2026-09-20 | |
+| R | R-2026-09-20-32 | 2026-09-20 | Declined the preview probe and replaced it with a question answerable by reading. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -1961,6 +1997,15 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-20, R-2026-09-20-32 (issued as R-PROVISIONAL-2026-09-20-R): the
+  preview-deployment probe declined on reasoning rather than cost — a failing
+  `/beds.json` carries no bed data, so indexing it costs little — and recorded NOT
+  OBSERVED AT THE EDGE with the condition that would reopen it; the failure bodies
+  read instead, finding that none echoes a value, that two catch-alls are generic
+  where a `SyntaxError` would otherwise republish the upstream text, and four
+  unasserted gaps, closed here; and one scope change reported rather than fixed —
+  `serveBedsCached`'s cache calls sit outside any `try`, so an exception there
+  bypasses the failure builder and its headers;
 - on 2026-09-20, R-2026-09-20-31 (issued as R-PROVISIONAL-2026-09-20-Q): a deployed
   `dirty: true` recorded as evidence that the deploy wrapper was BYPASSED; the leg
   register's mapper recorded as having shaped the tests it measures, which widens the

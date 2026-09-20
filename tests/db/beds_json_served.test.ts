@@ -255,6 +255,11 @@ describe('GET /beds.json — what is refused rather than served', () => {
     const body = (await res.json()) as { error?: string };
     expect(res.status, `a row of the wrong arity was served: ${JSON.stringify(body)}`).toBe(502);
     expect(body.error).toContain('wardColumns');
+    // The plant above inserts a VALUE, and until R-2026-09-20-32 B3 this leg never
+    // looked for it: it asserted what the message says and not what it must never
+    // say. The codec reports an arity, never a cell, and this is the assertion that
+    // holds it to that.
+    expect(JSON.stringify(body), 'the refusal echoed a value out of the row it refused').not.toContain('LEAKED');
   });
 
   test('no snapshot row yet is 503 and uncacheable, not an empty document', async () => {
@@ -278,6 +283,79 @@ describe('GET /beds.json — what is refused rather than served', () => {
     const text = await res.text();
     expect(res.status).toBe(502);
     expect(text, 'the credential value was echoed in an error body').not.toContain(secret);
+  });
+
+  /**
+   * WHAT A FAILURE BODY MAY CONTAIN (R-2026-09-20-32 B3).
+   *
+   * The preview-deployment probe was declined BECAUSE a failing /beds.json carries no
+   * bed data — the body is `{"error": "<reason>"}` and nothing else. That is a claim
+   * about this code, and these three legs are what make it a checked one rather than
+   * a reading of it. Every reason string is literals plus, at most, an HTTP status, an
+   * attempt count and a timeout; the legs below plant the three values that could
+   * turn that into an echo.
+   *
+   * NOT ASSERTED HERE, deliberately (method note 12): what Cloudflare returns for an
+   * UNHANDLED Function exception. serveBedsCached's cache calls sit outside any try,
+   * so an exception there never reaches failure() at all — reported as a scope change
+   * under R-2026-09-20-32 B3-bis, and not something this repository can observe.
+   */
+  test('an unparseable upstream body is a GENERIC 502 — the text it failed to parse is never republished', async () => {
+    // This is the path res.json()'s SyntaxError lands on, and that message quotes the
+    // offending input. Echoing e.message here would republish whatever the origin said
+    // to every anonymous reader, which is why the catch-all is generic by design.
+    const originText = 'PLANTED-UPSTREAM-TEXT-THAT-MUST-NOT-ECHO <html>not json</html>';
+    const { fetchImpl } = scripted([async () => new Response(originText, { status: 200, headers: { 'content-type': 'application/json' } })]);
+    const res = await serveBeds(serviceEnv(), fetchImpl, { attempts: 1 });
+    const text = await res.text();
+    expect(res.status, `an unparseable upstream body was served: ${text}`).toBe(502);
+    expect(text, 'the refusal quoted the upstream text it could not parse').not.toContain('PLANTED-UPSTREAM-TEXT-THAT-MUST-NOT-ECHO');
+    expect(JSON.parse(text), `the generic reason was replaced by a specific one: ${text}`).toEqual({ error: 'the snapshot read failed' });
+  });
+
+  test('a thrown network error is a GENERIC 502 — its message, which can carry a host and port, is dropped', async () => {
+    const { fetchImpl } = scripted([
+      async () => {
+        throw new Error('connect ECONNREFUSED PLANTED-HOST-THAT-MUST-NOT-ECHO:5432');
+      },
+    ]);
+    const res = await serveBeds(serviceEnv(), fetchImpl, { attempts: 1 });
+    const text = await res.text();
+    expect(res.status, `a network failure was not refused: ${text}`).toBe(502);
+    expect(text, 'the refusal echoed the thrown message, which named the unreachable host').not.toContain('PLANTED-HOST-THAT-MUST-NOT-ECHO');
+    expect(text).toContain('could not reach the origin');
+  });
+
+  test('no failure body contains SUPABASE_URL — the one configuration value that carries the project ref', async () => {
+    // The credential probe above covers the KEY and exercises ONE path. This covers
+    // the URL and sweeps every failure status the module can produce, because one
+    // plant proves an instrument and never its coverage.
+    const planted = 'https://planted-project-ref-must-not-echo.supabase.co';
+    const env = { SUPABASE_URL: planted, SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_plant' };
+    const stored = await newestRow();
+    const cases: Array<[string, () => Promise<Response>]> = [
+      ['a missing credential (500)', async () => serveBeds({ SUPABASE_URL: planted })],
+      ['a refused credential (502)', async () => serveBeds(env, scripted([async () => json(401, { message: 'no' })]).fetchImpl, { attempts: 1 })],
+      ['a rejected read (502)', async () => serveBeds(env, scripted([async () => json(400, { message: 'bad' })]).fetchImpl, { attempts: 1 })],
+      ['an origin 5xx (502)', async () => serveBeds(env, scripted([async () => json(503, { message: 'busy' })]).fetchImpl, { attempts: 1 })],
+      ['no snapshot row (503)', async () => serveBeds(env, scripted([async () => json(200, [])]).fetchImpl, { attempts: 1 })],
+      [
+        'a wrong envelope (502)',
+        async () =>
+          serveBeds(
+            env,
+            scripted([async () => json(200, [{ v: stored.v, payload: { ...(stored.payload as Record<string, unknown>), reason_codes: [] } }])]).fetchImpl,
+            { attempts: 1 },
+          ),
+      ],
+      ['an unreachable origin (502)', async () => serveBeds(env, scripted([async () => { throw new Error('down'); }]).fetchImpl, { attempts: 1 })],
+    ];
+    for (const [label, run] of cases) {
+      const res = await run();
+      const text = await res.text();
+      expect(res.status, `${label} was not a failure: ${text}`).toBeGreaterThanOrEqual(500);
+      expect(text, `${label} echoed SUPABASE_URL into a public error body`).not.toContain('planted-project-ref-must-not-echo');
+    }
   });
 
   test('a 5xx from the origin is retried once, then served when the retry succeeds', async () => {
