@@ -50,7 +50,15 @@ enumeration items have been blocked on for want of a host.
 
 **Out, explicitly:** the Bundle 4 dashboard UI (tiles, geolocation, interstitial,
 emergency strip, service worker) — this sprint builds the document the dashboard will
-fetch, not the dashboard. The B5 alert sweep, outbox and dispatcher. The `scripts/`
+fetch, not the dashboard.
+
+> **SCOPING DRIFT, CORRECTED 2026-09-20 (R-2026-09-20-29 E4).** That sentence was
+> written on the premise that nothing consumes `/beds.json` yet. **The DEPLOYED
+> dashboard fetches it** — code that reached production without review, the same
+> family as the direct-upload finding. So the consuming surface exists now, and with
+> it the rule that **any public surface rendering bed data must distinguish "no
+> facilities onboarded" from "no beds available", asserted at the rendered surface**.
+> What stays out of this sprint is the rest of the Bundle 4 UI. The B5 alert sweep, outbox and dispatcher. The `scripts/`
 survey, which follows this sprint. Anything touching `ward_status_event` retention.
 
 **Honest sizing:** bundles 1 and 2 are the accumulation boundary and **must ship in

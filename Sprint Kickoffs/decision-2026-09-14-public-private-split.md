@@ -1590,7 +1590,28 @@ _Issued as R-PROVISIONAL-2026-09-19-F. Number assigned on landing from the recor
 
 _Issued as R-PROVISIONAL-2026-09-20-H and -J, in that order. Numbers assigned from the record's last as read on merged `main` (`ac14d61`): R-2026-09-19-24._
 
-**THE LIMIT OF THIS ENTRY IS STATED FIRST, as it was for R-2026-09-17-09: the TEXT of H and J never reached the main session.** Both were issued to the handback session of 2026-09-20, which correctly declined to number them — the record's last lived in the `record-r24` worktree and not in that tree, so a number taken from there would have been a composed identifier (method note 16). **Cowork is asked for the two texts, to be filled in under these numbers.** What follows is what the repository itself attests about the work they governed, not a reconstruction of their wording.
+**THE TEXTS ARRIVED LATE, and how that was handled is recorded rather than smoothed over.** Both were issued to the handback session of 2026-09-20, which correctly declined to number them — the record's last lived in the `record-r24` worktree and not in that tree, so a number taken from there would have been a composed identifier (method note 16). When these numbers were first assigned, **the texts had not reached the main session**, so this entry recorded only what the repository itself attested, with that limit stated first, as R-2026-09-17-09 did. **R-2026-09-20-29 supplied both texts**, and they are recorded below in Cowork's own terms. The attested record that follows them was written without them and is unchanged.
+
+**R-2026-09-20-25 (was provisional H) — UNPUSHED WORK AND THE STALE RUNBOOK.**
+- The five commits of production-deployed code go to a **new branch whose name describes its contents**. **Push only: no pull request, no merge.**
+- **Do not reuse `bundle1-beds-json`**: it already resolves to merged, closed PR #39 in `gh pr list --head` and in GitHub search. An identifier resolving to two things is the defect method note 16 exists to prevent.
+- The handback notes record the branch name, its head SHA **read and not composed**, and **explicitly that these commits are a backup of UNREVIEWED work that has passed no gate**. A branch sitting on the remote otherwise reads as reviewed.
+- **Leaving it unpushed was rejected:** production sourced only from one clone is not a posture to hand across a session boundary.
+- **The stale runbook is fixed in that session, not handed over.** A procedure document instructing a reader to do something that silently does nothing produces confident wrong action — the green-light-examining-nothing shape at the human layer. The specific consequence: this runbook feeds the founder's deployment report, which gates migration 018, so a procedure that appears to succeed while deploying nothing can produce a report saying "deployed" when nothing was.
+- **Every corrected fact carries its evidence kind and source:** READ from which documentation page, or OBSERVED from which command and what it returned. Cite by section name, not line number.
+- **Reported to the main session, and larger than either fix:** if the Pages project is direct-upload, merging a pull request deploys nothing, and production code exists outside the repository. **What is running is not what was reviewed.** The deployment mechanism must be named, and the deployment report must say which artifact was deployed, from which commit, by which command.
+
+**R-2026-09-20-26 (was provisional J) — FIX BASE AND EVIDENCE FRAMING.**
+- Cut a **fresh branch from `origin/main`** for the runbook fix and the handoff note. Push, no pull request.
+- **The reason is not conflict avoidance:** a stale-base edit to a file that R-2026-09-19-21 and -22 have since amended **can REVERT those rulings while merging cleanly**. A conflict announces itself; a silent revert does not.
+- **Rebasing the backup branch is rejected** — it rewrites the five SHAs, so the recorded head stops identifying the deployed code, which was the entire purpose of recording it. Do not rebase or force-push it; the notes say it is frozen and must not be tidied by a later session.
+- **Notes-only is rejected:** it leaves a known-false deploy procedure live on `main` while the report gating 018 is produced against it.
+- **The `--branch` claim is INFERRED, not observed:** Cloudflare's "Wrangler infers the branch" wording is conditioned on git integration, this project is direct-upload, and no deploy without `--branch` was observed. All three are said.
+- **Structural: make the INSTRUCTION unconditional** — always pass `--branch` explicitly. That is correct whether or not the inference holds, so the procedure's correctness does not rest on a contested premise. The uncertainty goes in a note beside the step, never inside it.
+- **"Observe it first" is rejected, and not on cost:** the test deploys to the live project to learn where it lands, and that project's deploy history is itself evidence in the open question of what is running versus what was reviewed. **The probe would muddy the record it would inform.**
+- **An addition to the standing rule** (recorded in method note 2): a claim marked NOT CONFIRMED or INFERRED **names what would close it**, or the marking is a disclaimer rather than an open item. Here: one deploy with `--branch` omitted against a **non-production** Pages project, or Cloudflare documenting the non-git case.
+
+**What the repository attested, recorded before the texts arrived and unchanged by them:**
 
 **The finding they carry, REPORTED by the founder on 2026-09-20 and not verifiable from inside this repository** — nothing here can read a Cloudflare project's settings. The Pages project `openbed-public-dashboard` is **direct-upload, not git-connected**: the dashboard offers no *Retry deployment* button, and the project was created with `wrangler pages project create`. Three things follow if it holds:
 - **merging a pull request deploys nothing** — the running site changes only when a working tree is uploaded;
@@ -1658,6 +1679,36 @@ _Issued as R-PROVISIONAL-2026-09-20-L, carrying the substance of R-PROVISIONAL-2
 
 **D — the empty city is urgent, not prospective**, and what the alias serves a visitor today is recorded under R-2026-09-20-27 C so the founder can decide on `noindex` and interim wording with the facts in front of them.
 
+### R-2026-09-20-29 — the H and J texts supplied; the cutover HELD; the renderer rule binds at the surface; crawler controls
+
+_Issued as R-PROVISIONAL-2026-09-20-M. Number assigned from the record's last as read on merged `main` (`f3d5bbd`): R-2026-09-20-28._
+
+**A — #46 merged** at `f3d5bbd`, with the head SHA read from the API and the branch deleted after `MERGED` was read back. **The H and J texts are supplied and are filled in above**, under -25 and -26; Cowork confirms that recording what the repository attested, with the limit stated first, was the right handling while they were missing.
+
+**C — Cowork's premise failed again, and no new note is minted.** "Nothing is stranded" is accepted: `runbook-pages-direct-upload` was on the remote at `0dfc77c`, equal to local `HEAD`, and the push landed before the outage was reported. **Cowork relayed the handback session's report as state without reading it — method note 19.** Consequently **R-2026-09-20-27 B3's founder action is STRUCK as already done.**
+
+**D — ordering, and Cowork rescinds one of its own founder instructions.**
+- **D1 — the runbook branch outranks the regex-readers change, accepted.** A known-false deploy procedure live on `main`, feeding the report that gates 018, is not queued behind a refactor.
+- **D2 — the backup branch's pull request comes next**, and it is where the deployment-versus-review finding gets its own ruling.
+- **D3 — THE CUSTOM-DOMAIN CUTOVER IS HELD.** It was listed as the founder's first step on 2026-09-19. **Pointing `openbed.ng` at the Pages project would publish the empty-city page to a real domain**, and the apex timing out is the only thing currently limiting exposure. The reversal and its reason are recorded in the Pages runbook's cutover step itself, not only here. It waits for the renderer fix and the crawler controls to land and be deployed.
+
+**E — the renderer: the rule binds where the human reads.**
+- **E1, established by reading:** the payload carries the distinction between *no facility has joined* and *no beds are available*; `renderReal` discards it, appending nothing to a list and swapping it in. A visitor sees the emergency strip, the indicative-only banner, and an empty list.
+- **E2 — the rule, restated so it binds correctly: the distinction is preserved at EVERY layer, and the assertion is made AT THE RENDERED SURFACE, not at the payload.** A test that asserts the payload's honesty passes while the page lies. It is the same move as Bundle 1 relocating the containment control onto the served document: assert at the surface the reader actually receives.
+- **E3 — a BLOCKING criterion** for reviewing that code. The empty state must say, in words a dispatcher can act on, that no facility has yet joined — **never a bare zero**.
+- **E4 — the scoping drift, recorded and corrected in the kickoff.** Bundle 4 was scoped on the premise that nothing consumes `/beds.json` yet. **The deployed dashboard fetches it.** That is a second instance of deployed-diverging-from-reviewed, the same family as -25's finding.
+
+**F — `robots.txt` and `X-Robots-Tag`: a new control, and it touches the accumulation boundary.**
+- **F1 — no directive is not a permissive directive.** `/robots.txt` returns the SPA's HTML with a 200: a crawler receives a page it cannot parse as rules and proceeds. The `noindex` meta tag covers the HTML document only and **cannot cover a JSON response**.
+- **F2 — the consequence reaches the accumulation boundary, and has not been named before.** `/beds.json` is fetchable and archivable by anything that walks the site. **An archive service polling it politely over months builds exactly the time series this sprint exists to prevent.** The rate limit never sees a slow crawler, the 018 revoke does not touch `/beds.json`, and it costs the archiver nothing.
+- **F3 — two controls, both cheap and neither present:** serve a real `robots.txt`, and set `X-Robots-Tag: noindex, nofollow` as an **HTTP header** on the `/beds.json` response, which is the only mechanism that reaches a non-HTML document.
+- **F4 — the honest scope note:** this governs **well-behaved crawlers**. It is not a boundary against a determined collector, and it is not a substitute for anything in Bundle 2.
+- **F5:** it lands with the renderer fix, before the cutover.
+
+**G — the queue, with one ORDERING CORRECTION reported rather than worked around.** M placed the renderer fix (G3) before the backup branch's pull request (G4). **`main`'s dashboard is still the stub — it contains no `/beds.json` fetch and no `renderReal`, so there is no renderer on `main` to fix.** The defect exists only on the deployed backup branch, and under direct upload neither the fix nor the merge reaches a visitor until someone deploys. **The two are therefore one unit of work**: a single change that merges the frozen backup branch into a branch off `main` — preserving `ec0f578` as an ancestor, never rebasing it — and then adds the empty-state wording, `robots.txt`, `X-Robots-Tag` and their tests. It is the change that turns unreviewed production code into reviewed, corrected code, and it carries -25's finding for its ruling.
+- **A scope item inside it, reported now:** asserting at the rendered surface needs a DOM, and this repository has none — no `jsdom`, no `happy-dom`, no Playwright, and no UI test. The proposal is one registry-checked `jsdom` devDependency and a per-file environment docblock inside the **existing** `e2e` project, so **no CI job and no new required check** are added; the required-check list is branch protection the founder owns.
+- **Then:** the founder deploys from the merged `main` and reports which artifact, from which commit, by which command — and only then does D3's hold lift. Then the regex-readers change, the `public-relations.json` split, the proxy review including the stray `openbedng` Worker, Finding D, and Bundle 2 with 018.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -1676,6 +1727,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | J | R-2026-09-20-26 | 2026-09-20 | Same. The letter I is skipped deliberately, being too easily read as a pronoun. |
 | K | R-2026-09-20-27 | 2026-09-20 | |
 | L | R-2026-09-20-28 | 2026-09-20 | |
+| M | R-2026-09-20-29 | 2026-09-20 | Supplied the H and J texts, which are filled in under -25 and -26. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -1695,6 +1747,7 @@ _Standing rules, 2026-09-15. This record is their home._
      - Each carries its evidence kind: DOCUMENTED-availability, DOCUMENTED-guidance, MEASURED, INFERRED or NOT CONFIRMED. It also carries its source: a page, a file and line, or a command.
      - **Claude Code verifies each before it enters the record**, because the party that can check decides.
      - **A claim of the form "confirmed at <ref>" names the check actually performed and what it returned, or it is not written. Absent that, it is marked NOT CONFIRMED.** A SHA attached to an unperformed check suppresses the re-check that would catch it (R-2026-09-19-23 B2).
+     - **A claim marked NOT CONFIRMED or INFERRED NAMES WHAT WOULD CLOSE IT** (R-2026-09-20-29, carrying R-2026-09-20-26). Otherwise the marking is a disclaimer rather than an open item: it reads as diligence while nobody can act on it. Worked example in `docs/runbook-cloudflare-pages-beds-json.md`'s deploy step — one deploy with `--branch` omitted against a non-production project, or Cloudflare documenting the non-git case.
      - **Why:** Cowork's property, ordering and scoping rulings have held, except where they rested on a mechanism or state premise. Its failures are mechanism claims, counts, citations and system state, and "be more careful" had not stopped them.
 3. **An instruction naming a command, a SHA, a PR or a runnable check is PROPOSED, NOT VERIFIED.** Its feasibility is checked before executing, and a conflict comes back rather than being worked around.
    - **Why:** two of R-2026-09-15-02's four operational instructions did not survive contact. The design rulings did.
@@ -1847,6 +1900,14 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-20, R-2026-09-20-29 (issued as R-PROVISIONAL-2026-09-20-M): the H and J
+  texts supplied and filled in; the custom-domain cutover HELD, recorded in the
+  runbook's own step, because the cutover would publish the empty-city page to a real
+  domain; the empty-state rule restated to bind AT THE RENDERED SURFACE and made a
+  blocking review criterion; Bundle 4's scoping drift corrected; `robots.txt` and
+  `X-Robots-Tag` recorded as controls that reach the accumulation boundary, since a
+  polite crawler archiving `/beds.json` builds the series this sprint prevents; and a
+  NOT CONFIRMED claim must now name what would close it;
 - on 2026-09-20, R-2026-09-20-25 through -28 (issued as R-PROVISIONAL-2026-09-20-H,
   -J, -K and -L): the Pages project recorded as direct-upload, so merging deploys
   nothing and deployment is decoupled from review; the backup branch holding the
