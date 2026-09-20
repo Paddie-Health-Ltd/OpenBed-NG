@@ -1553,6 +1553,39 @@ It runs in this order:
 - E3: the proxy review, per D.
 - E4: Bundle 2 waits on the founder's deployment report and the founder's revoke decision. B1's three test re-points are carried inside 018's change.
 
+### R-2026-09-19-24 — the founder REVOKES: R-2026-09-17-09 D is answered
+
+_Issued as R-PROVISIONAL-2026-09-19-F. Number assigned on landing from the record's last as read on merged `main` (`55dbcec`): R-2026-09-19-23._
+
+**A — carried items.** #44 merged at `55dbcec`, with the head SHA read from the API and the branch deleted after `MERGED` was read back. **A2 and A3 were already recorded in R-2026-09-19-23** — the attribution split and the implementer's share, the adopted extension that the implementer checks text it LANDS for Cowork and not only text it writes, and the "confirmed at <ref>" sweep with its one compliant instance — so they are not restated here. **No ruling lettered E ever reached the implementer, and none is recorded**; searched across merged `main` and #44's head, which also finds the lettered rulings that did arrive.
+
+**B1 — THE FOUNDER'S DECISION, taken 2026-09-19: REVOKE.** `SELECT` on `public.facility_public`, `public.ward_public` and `public.lga_rollup` is revoked from `anon` AND `authenticated` in migration 018. This answers **R-2026-09-17-09 D**, the single item in the A1 kickoff's *Open decisions needing your call*. **It was taken AFTER the C4 trace returned, not before** (R-2026-09-19-21 C4).
+
+**B2 — the reasoning, recorded so a later reader sees why and not only what.**
+- **016's own principle, applied consistently.** The READER header of `database/migrations/016_snapshot.sql` refuses an anon-readable `snapshot_current` because it would be "a second serving path around the CDN, with no `s-maxage`, disagreeing with the edge on freshness". **Direct anon reads of the mirrors are exactly that.** (The kickoff cites this as `M/016:90-93`; the quoted text sits at lines 91–93 of that file today. Cited here by section name, per method note 11.)
+- **The standing objection, and why it is answered NOW.** v1:258 kept the grants deliberately as defence in depth — "a future contributor may add a direct read" — so the grants were a tripwire as much as a permission, and revoking removes the surface the column-containment control watched. **Bundle 1 relocated that control onto the served document, where it is now shipped and green.** The objection was real when written; its mitigation exists rather than being promised.
+- **The technical cost was MEASURED at zero, not assumed.** `public.my_facility_wards()` is SECURITY DEFINER and reads none of the three mirrors; every function touching a mirror is SECURITY DEFINER; no view depends on one; no client code reads one (R-2026-09-19-21 C4, R-2026-09-19-22 A).
+- **Reversible:** 018 ships with its `.down.sql`.
+- **Without it the rate limit is the whole pull defence**, and a 10-second window cannot stop a 30-second poller at any threshold (R-2026-09-19-22 C2).
+
+**B3 — what this unblocks, precisely.** The revoke half of migration 018 may now be WRITTEN: the DECISION gate is lifted, and the A1 kickoff's "do not write the revoke half until it is answered" is discharged.
+- **Bundle 2's START remains gated on the founder's deployment report** (R-2026-09-17-11 C). Merging code does not open a served path, and that ordering is unchanged by this decision.
+- **The implementer's reading, stated because the two sentences pull apart:** 018 is NOT written in this change. What lands now is the decision, the specification and the runbook step; the sequence keeps Bundle 2 after the regex-readers PR, the proxy review and the deployment report. If Cowork means 018 to be written before the report, that is an amendment to R-2026-09-17-11 C and is asked for explicitly.
+
+**B4 — what 018 carries**, in one migration with its `.down.sql`, since 001–017 are frozen and this is new rather than an edit:
+- removal of the three mirrors from the `supabase_realtime` publication;
+- the revoke of `SELECT` from `anon` AND `authenticated` on all three;
+- **the three test re-points inside this change, not after it**: `tests/e2e/golden-path.test.ts` line 108, and `tests/db/auth_refresh_live.test.ts` lines 148 and 239;
+- the `packages/fixtures/public-relations.json` `mirrors` split, where the client `.from()` allowlist and the expected publication membership stop sharing one key;
+- `tests/db/config_drift.test.ts`'s publication assertion RESTATED, with a comment recording why membership changed and when — never deleted around;
+- `tests/db/rls_anon_column_containment.test.ts`'s stated subject corrected to the catalogue behind the generator, with its docstring saying so;
+- `tests/db/rls_anon_reachability.test.ts` and `tests/db/rls_anon_writes_rejected.test.ts` made STRONGER rather than vacuous: anon now reaches nothing, so the denial is asserted explicitly;
+- `[SWEEP]`-style markers on v1:142 and v1:258, cited by section name.
+
+**B5 — THE BOUNDARY CLOSES ON THE HOSTED APPLY, NOT ON MERGE.** Hosted holds 001–017. Applying 018 there is a FOUNDER-SIDE OWED step (method note 13) and joins the ordered list in `docs/runbook-supabase-project-creation.md`. **Until that apply is recorded, the history-is-private commitment is not available, whatever the PR's state.** The runbook's apply step says so itself, not only this record.
+
+**C — next, unchanged:** the two-regex-readers PR; the proxy review as scoped in R-2026-09-19-23 D; Finding D's fix once the review decides the production address; Bundle 2 once the founder's deployment report lands.
+
 ## Method notes — how rulings reach the implementer
 
 _Standing rules, 2026-09-15. This record is their home._
@@ -1723,6 +1756,12 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-19, R-2026-09-19-24 (issued as R-PROVISIONAL-2026-09-19-F): the
+  founder's REVOKE decision recorded against R-2026-09-17-09 D, taken after the C4
+  trace returned, with its five strands of reasoning and the v1:258 objection kept;
+  what migration 018 carries, including the three test re-points inside its own
+  change; and the boundary recorded as closing on the HOSTED APPLY rather than on
+  merge, in the runbook's apply step as well as here;
 - on 2026-09-19, R-2026-09-19-23 (issued as R-PROVISIONAL-2026-09-19-D): the
   verification rule in method note 2 widened to all of Cowork's factual claims, with
   the "confirmed at <ref>" clause; the kickoff's `feefcf3` line recorded as Cowork's
