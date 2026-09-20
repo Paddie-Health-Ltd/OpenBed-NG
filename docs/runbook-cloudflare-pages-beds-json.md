@@ -413,8 +413,9 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
 > in a report and are not the same evidence.
 >
 > **NOT OBSERVED AT THE EDGE, and named rather than implied:** `X-Robots-Tag` on a
-> FAILURE response. Every failure path carries the header in code and it is asserted
-> in `tests/db/beds_json_served.test.ts`, but 500, 502 and 503 cannot be produced on
+> FAILURE response. Every failure RESPONSE carries the header in code — see the known
+> gap below for the path that produces no response at all — and it is asserted in
+> `tests/db/beds_json_served.test.ts`, but 500, 502 and 503 cannot be produced on
 > production without breaking production.
 >
 > **The preview-deployment probe is DECLINED — R-2026-09-20-32 B1 — and not on cost.**
@@ -430,6 +431,21 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
 > Preview environment variables unset, **taken if the failure path ever comes to carry
 > data.** Until then the header on a failure response is a code assertion, and this
 > runbook says so rather than implying it was checked.
+
+> **A KNOWN GAP IN THE DEPLOYED ARTIFACT, recorded so nobody reads the claim above
+> unqualified (R-2026-09-20-33 B3).** `serveBedsCached` calls the edge cache outside
+> any `try`, so **an exception raised inside a cache operation never reaches the
+> failure builder** and carries none of its headers — no `X-Robots-Tag`, no
+> `no-store`. It is a rare path and it carries no bed data, which is why the fix was
+> sequenced after this deployment rather than before it.
+>
+> **This caveat names no commit on purpose.** It binds **every artifact built before
+> the cache fix lands — including the one this report names.** A SHA written here
+> before the deploy happened would be a composed identifier, which is the defect the
+> fourth clause exists to remove.
+>
+> The fix ships as its own pull request immediately after this report: one `try`
+> around the cache calls only, never around the origin read.
 
 **If any read-back does not return what is expected, that is a scope change to
 report, not to work around, and the custom-domain cutover stays held.**

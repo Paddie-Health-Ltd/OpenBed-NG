@@ -1802,6 +1802,42 @@ _Issued as R-PROVISIONAL-2026-09-20-R. Number assigned from the record's last as
 
 **C — the queue stands unchanged**, and C2 is recorded: the founder has the deploy and read-back steps directly and needs nothing further from the implementer now that #51 has merged.
 
+> **SUPERSEDED IN PART by R-2026-09-20-33 B3, by note rather than by rewriting (method note 8).** Two sentences in this block — B1's *"every failure path in `packages/snapshot/src/serve.ts` goes through the one `failure()` builder"* and C's *"every failure does go through `failure()`"* — are **exhaustive claims this block's own B3-bis then contradicts**, three paragraphs later. They should have read *every failure RESPONSE*, which is what was checked. B3-bis's finding stands; the two sentences above it do not, and they are left in place as written so the contradiction remains visible to a reader of the dated record.
+
+### R-2026-09-20-33 — the cache hole ruled: merge, deploy, then fix; and an exhaustive claim caught inside the block that disproved it
+
+_Issued as R-PROVISIONAL-2026-09-20-S. Number assigned from the record's last as read on merged `main` (`9751431`): R-2026-09-20-32._
+
+**A1 — #52 merged** at `9751431`, head SHA read from the API, `MERGED` read back before `record-r` was deleted.
+
+**B1 — THE DEFECT, NAMED FOR WHAT IT IS: a control whose STATED SCOPE EXCEEDS ITS COVERAGE.** `serveBedsCached`'s cache calls sit outside any `try`, so an exception there bypasses `failure()` and every header it attaches. Method note 12's shape — *a description broader than a filter* — **in code written this week**, by the session that has been finding that shape everywhere else.
+
+**B2 — THE SEQUENCE IS MERGE, DEPLOY, THEN FIX, and the reasoning is recorded because the next such call will be made from the reasoning rather than from the verdict.** It is a severity comparison, not a preference:
+- **The live hazard is patient-facing.** The empty-city page is deployed on the `pages.dev` alias now and can read to a visitor as *"no beds available"* when the truth is *"no facility has joined"*.
+- **The cache hole is not.** It yields an untagged error response on a rare exception path, carrying no bed data — the same reason B1 of R-2026-09-20-32 declined the preview probe, applied consistently rather than only when it suited the conclusion.
+- **Holding the deploy would trade a live hazard for a theoretical one**, and the deploy is repeatable at the cost of one command.
+
+Cowork recorded that holding the fix was the right call and that **flagging rather than quietly amending shipped code with a deploy imminent was the right instinct**. Recorded here as the standing disposition: *when a fix would move the artifact under an imminent deployment, report it and let the sequence be ruled.*
+
+**B3 — THE GAP IS RECORDED AGAINST THE ARTIFACT, and TWO PREMISES FAILED ON CHECKING. Both are reported rather than worked around.**
+
+- **SCOPE CHANGE 1 — the caveat carries NO COMMIT SHA, deliberately.** S named *"the artifact deployed from `00888ab`"*. But C1 merges #52 **before** C2's deploy, so `main` moves past `00888ab` and the founder will deploy this block's own merge commit or a later one. Writing that SHA into the caveat would be **a composed fact about an event that has not happened** — method note 16's defect, inside the document that exists to prevent it. The caveat therefore binds **every artifact built before the cache fix lands, including whatever commit the forthcoming deployment report names.** Wider than asked for, and it cannot go stale.
+- **SCOPE CHANGE 2 — the false sentence is NOT in the module header. It is in the runbook and in R-2026-09-20-32's own block, and the implementer wrote all three.** S said *"the module header itself is corrected in the fix"*. Read before acting:
+  - `serve.ts`'s *"A failure is never cached"* and *"Only a 200 is ever stored"* are **still true**: an unhandled exception produces no response to store, so neither sentence is falsified by this defect.
+  - Its *WHAT IS REFUSED RATHER THAN SERVED* list is **incomplete rather than false** — the exception is a fifth outcome, neither served nor refused. It gains that outcome **in the fix**, where the outcome stops existing.
+  - The **exhaustive** claim lives in `docs/runbook-cloudflare-pages-beds-json.md` (*"Every failure path carries the header in code"*) and twice in R-2026-09-20-32 above. **The runbook is a LIVE RULE and is amended here; the dated record is SUPERSEDED BY A NOTE and never rewritten** (method note 8), which is why the note sits above rather than in place of the sentences.
+  - **What that costs to notice:** the contradiction was *three paragraphs apart in one block*, written in one sitting. A claim and its counter-example passed the gate, CI and a review together, because nothing reads prose for consistency with itself. Recorded as the honest limit of every control in this repository.
+
+**B4 — THE FIX, AND THE TRAP IN IT: one `try` wrapping THE CACHE CALLS ONLY.** Not the origin fetch, not the response construction. **A broad `catch` would convert real failures into cache misses and suppress exactly what `failure()` exists to tag — a worse version of the defect it closes.** `serveBedsCached` has three awaits, two of them cache calls; the third is `serveBeds`, which must stay outside. **The code comment says so**, so the next reader does not widen it as a tidy-up.
+
+**B5 — THE DEGRADATION, and it is INVISIBLE TO THE CLIENT BY DESIGN.** A cache read that throws is a miss and goes to origin; a cache write that throws serves the response anyway. Neither loses correctness — only the cache hit. The exception is logged server-side and **never surfaced to the client**. Stated in the scope statement as deliberate, because an invisible degradation that is *not* declared reads to a later maintainer exactly like one nobody noticed.
+
+**B6 — PLANTS BOTH WAYS, and the second is the one that matters.** With the cache throwing, the handler returns a normal tagged response. **With the ORIGIN failing behind a throwing cache, it still returns a tagged, uncacheable failure** — that is the leg that proves B4's trap was avoided, and without it the fix and the broad `catch` would look identical in green. Restores verified byte-identical.
+
+**B7 — it ships as its own small PR immediately after the deployment report lands**, folded into nothing larger.
+
+**C — the queue:** #52 merged; the founder deploys and reports the four clauses and three read-backs; the cutover hold lifts on that report; then B4's fix; then the two-regex-readers PR carrying its second task, the `public-relations.json` split, the infrastructure inventory and review, Finding D, the publish-screen echo gated on facility one, and Bundle 2 with 018.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -1825,6 +1861,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | P | R-2026-09-20-30 | 2026-09-20 | The letter O was skipped: confusable with zero in a ruling id. |
 | Q | R-2026-09-20-31 | 2026-09-20 | |
 | R | R-2026-09-20-32 | 2026-09-20 | Declined the preview probe and replaced it with a question answerable by reading. |
+| S | R-2026-09-20-33 | 2026-09-20 | Ruled the cache hole: merge, deploy, then fix. Two premises failed on checking; both reported. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -1997,6 +2034,14 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-20, R-2026-09-20-33 (issued as R-PROVISIONAL-2026-09-20-S): the cache
+  hole ruled as a control whose stated scope exceeds its coverage, and sequenced
+  merge-deploy-fix on a severity comparison — the live empty-city page is
+  patient-facing and an untagged error response carrying no bed data is not; the gap
+  recorded against the deployed artifact **without a commit SHA**, because the deploy
+  had not happened; and the exhaustive claim found to be in the runbook and in -32's
+  own block rather than in the module header, three paragraphs from the finding that
+  disproves it;
 - on 2026-09-20, R-2026-09-20-32 (issued as R-PROVISIONAL-2026-09-20-R): the
   preview-deployment probe declined on reasoning rather than cost — a failing
   `/beds.json` carries no bed data, so indexing it costs little — and recorded NOT
