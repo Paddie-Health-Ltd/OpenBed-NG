@@ -11,16 +11,28 @@ import { join } from 'node:path';
  *   scripts/lint_no_updated_at_filter.sh
  *   scripts/lint_from_allowlist.sh
  *
- * CLASSIFICATION (Clause 5 of .claude/rules/code-pipeline.md). The first two are
- * GUARD-AHEAD-OF-SUBJECT: they execute, they are non-vacuous, and they run over
- * the Bundle 1 dashboard stub -- but the code they are AIMED at, a real Supabase
- * client and a real freshness computation, arrives in Bundle 4. They become LIVE
- * as part of that bundle.
+ * CLASSIFICATION (Clause 5 of .claude/rules/code-pipeline.md). The two guards no
+ * longer share one classification -- their true subjects arrived on different
+ * schedules, and lumping them together is exactly the kind of claim that reads
+ * as covered when only half of it is. See each guard's own header for the
+ * authoritative text; summarised here so a reader of this file doesn't have to
+ * cross-reference to know what's being exercised:
  *
- * ONE EXCEPTION, from 2026-09-18 (A1 sprint, Bundle 1): the service-role guard's
- * SERVER-SIDE corpus -- the built Pages Functions output -- is LIVE. The
- * /beds.json Function exists and holds the service-role credential now. Its
- * CLIENT corpus is still GUARD-AHEAD-OF-SUBJECT, as above.
+ *   scripts/lint_no_service_role_in_bundle.sh's CLIENT corpus -- LIVE. Its
+ *     stated subject, "a real authenticated client fetch", is
+ *     apps/ward-console/src/main.ts's holder.authedFetch calls (the handover
+ *     read, live since commits fb925b2/349e72e, and the publish screen).
+ *   scripts/lint_no_updated_at_filter.sh -- still GUARD-AHEAD-OF-SUBJECT. Its
+ *     subject, distance-based public search and filtering on the dashboard, is
+ *     still Bundle 4 work and has not landed. It runs today over
+ *     apps/public-dashboard/src/main.ts's real /beds.json fetch-and-render
+ *     path (the Bundle 1 stub survives only as that fetch's failure fallback),
+ *     which filters on nothing -- so the guard stays non-vacuous and clean
+ *     without its true subject having arrived.
+ *
+ * The service-role guard's SERVER-SIDE corpus -- the built Pages Functions
+ * output -- is separately LIVE, from 2026-09-18 (A1 sprint, Bundle 1): the
+ * /beds.json Function exists and holds the service-role credential now.
  *
  * That is not a reason to weaken them now. It is a reason to say so plainly here
  * rather than let a reader infer coverage that does not yet exist.

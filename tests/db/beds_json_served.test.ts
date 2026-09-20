@@ -104,6 +104,23 @@ describe('GET /beds.json — the served document', () => {
     expect(body['v'], 'the served document is not the newest snapshot row').toBe(stored.v);
   });
 
+  test('the served document carries X-Robots-Tag, which is the only crawler directive that reaches JSON', async () => {
+    // A meta tag cannot live in a JSON document, and before 2026-09-20 /robots.txt
+    // returned the SPA's HTML with a 200 -- a crawler was told nothing. Collected
+    // politely over months, this document IS the time series the design forbids
+    // (R-2026-09-20-29 F). Asserted against the literal, not against the constant:
+    // asserting it equals the constant would pass whatever the constant became.
+    const res = await serveBeds(serviceEnv());
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-robots-tag'), 'the served document invites archiving').toBe('noindex, nofollow');
+  });
+
+  test('a FAILURE response carries it too — an error page is still a page a crawler can keep', async () => {
+    const res = await serveBeds({ SUPABASE_URL: apiUrl(), SUPABASE_SERVICE_ROLE_KEY: anonKey() });
+    expect(res.status).toBe(502);
+    expect(res.headers.get('x-robots-tag')).toBe('noindex, nofollow');
+  });
+
   test('the served envelope equals the fixture envelope exactly, as a set of names', async () => {
     const body = (await (await serveBeds(serviceEnv())).json()) as Record<string, unknown>;
     expect(Object.keys(body).sort()).toEqual([...SHAPE.envelope].sort());

@@ -21,7 +21,24 @@ Two vitest projects, and the split is about what they need, not what they cover.
 | Project | Needs | Location | Runs in CI as |
 |---|---|---|---|
 | `db` | Postgres **and** PostgREST, via `supabase start` | `tests/db/` | `db-tests` |
-| `compliance` | nothing but the filesystem | `tests/compliance/` | `compliance-tests` |
+| `compliance` | the filesystem, plus an in-process DOM (`jsdom`) for the renderer legs | `tests/compliance/` | `compliance-tests` |
+
+**The `compliance` row said "nothing but the filesystem" until 2026-09-20**, and it
+is widened rather than quietly outgrown. `jsdom` runs in-process and needs no
+service, so the property that row protects — this project runs anywhere, with
+nothing started — still holds. What changed is that one control has to read
+**rendered text**: "no facility has joined" and "no beds are available" are
+different facts, and a test over the payload passes while the page lies
+(R-2026-09-20-29 E2).
+
+**Why that control is HERE and not in `e2e`, which is where a browser-ish test
+belongs by shape.** `scripts/run_e2e.sh` runs two NAMED files —
+`tests/e2e/golden-path.test.ts` and `tests/e2e/ratchet.test.ts`. **A new file under
+`tests/e2e/` is never executed**, so the control would have been green because
+nothing ran it: the required check passes, the report says nothing failed, and no
+one looks. `compliance` is run wholesale, so a file placed here runs by existing
+there. If you add an `e2e` file, add it to that script in the same change, or it is
+decoration.
 
 **Neither job is ever paths-filtered.** GitHub counts a skipped required check as
 passing, so a required check with an `if:` on a paths filter is not a gate on

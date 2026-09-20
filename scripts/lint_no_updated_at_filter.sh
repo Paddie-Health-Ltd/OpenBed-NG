@@ -22,8 +22,14 @@
 # `OPENBED-FRESHNESS-ORDER-ONLY` and this lint accepts them; the annotation is
 # grep-able, so how many exist is itself reviewable.
 #
-# CLASSIFICATION (Clause 5): GUARD-AHEAD-OF-SUBJECT. The public search path is
-# built in Bundle 4. It runs over the Bundle 1 stub today.
+# CLASSIFICATION (Clause 5): GUARD-AHEAD-OF-SUBJECT. The public search path
+# (distance-based search and filtering) is still built in Bundle 4 and does not
+# exist yet. UPDATED when apps/public-dashboard/src/main.ts's stub was replaced
+# by a real /beds.json fetch: this no longer runs over ONLY the Bundle 1 stub --
+# main.ts now fetches, decodes and renders the real snapshot, and the stub
+# survives only as that fetch's failure-fallback branch. Neither path filters
+# on updated_at, so this guard stays non-vacuous and clean, but its true
+# subject has still not arrived.
 #
 # Usage: bash scripts/lint_no_updated_at_filter.sh [ROOT]
 # Exit: 0 clean, 1 violation, 2 usage or empty corpus.

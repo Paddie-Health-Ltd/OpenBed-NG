@@ -1,0 +1,20 @@
+# OpenBed — the public dashboard.
+#
+# WHY THIS FILE EXISTS (R-2026-09-20-29 F). Until 2026-09-20 there was no
+# robots.txt: the path returned the SPA's index.html with a 200, and a crawler
+# receiving a page it cannot parse as rules is told NOTHING. No directive is not a
+# permissive directive.
+#
+# WHAT IT IS FOR, beyond indexing. /beds.json is a public JSON document that a
+# crawler or archive service can fetch politely, forever. Collected over months that
+# IS the time series this project's design forbids -- built from legitimate reads,
+# unseen by a rate limit counting over ten seconds, and untouched by migration 018's
+# revoke, which does not govern this route.
+#
+# WHAT IT IS NOT. This governs WELL-BEHAVED crawlers only. It is not a boundary
+# against a determined collector and it replaces nothing in Bundle 2. An HTML meta
+# tag cannot cover /beds.json at all, which is why that route also carries
+# X-Robots-Tag as an HTTP header (packages/snapshot/src/serve.ts).
+
+User-agent: *
+Disallow: /
