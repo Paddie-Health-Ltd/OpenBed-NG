@@ -372,13 +372,22 @@ both `cf-cache-status` lines from the cache-hit step, and the 429 from the
 rate-limit step. The edge-headers and cache-hit steps together, on the custom
 domain, are the deployment report Bundle 2 waits on.
 
-**NAME THE DEPLOYMENT ITSELF — three things, every time (added 2026-09-20):**
+**NAME THE DEPLOYMENT ITSELF — four things, every time (added 2026-09-20; the
+fourth added by R-2026-09-20-30, which also made it a READING):**
 
 1. **Which artifact** was deployed — the Pages project and the deployment id or URL
    wrangler printed.
 2. **From which commit** — the SHA of the working tree it was uploaded from, read
    back from `git rev-parse HEAD`, never composed or abbreviated by hand.
 3. **By which command** — the verbatim invocation, including `--branch`.
+4. **That the commit is on `main` — READ, not asserted.** Fetch `/version.json` from
+   the site you just deployed and paste what it returns. The build stamps it
+   (`scripts/stamp_build.mjs`), so this is the deployed artifact naming its own
+   source rather than anyone remembering which tree was uploaded.
+   - `"dirty": true` means the artifact was built from uncommitted changes and **its
+     commit does not identify it**. Report that as a failed deployment and deploy
+     again from a clean tree.
+   - The deploy wrapper below refuses both cases before they can happen.
 
 **Why this is required rather than tidy.** Before 2026-09-20 these steps assumed a
 deployment had happened by some mechanism that was never named, and this runbook
@@ -388,3 +397,11 @@ step below it inherits that. Naming the artifact, the commit and the command is 
 makes the report checkable by someone who was not there. It also makes visible the
 case where what is running was never reviewed, because the commit will not be an
 ancestor of `main`.
+
+**USE THE WRAPPER, and what it does not do.** `bash scripts/deploy_pages.sh --branch
+<production branch>` refuses a dirty tree, refuses a `HEAD` that is not an ancestor
+of `origin/main`, builds (which stamps the artifact), uploads, and then prints all
+four clauses for this report. **It is local and defeatable** — running wrangler by
+hand bypasses it entirely — so it removes the accident, not the deliberate act, and
+it still cannot see what Cloudflare serves afterwards. That is what clause 4's
+reading is for.

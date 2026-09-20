@@ -31,8 +31,41 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+# PHASE 1 RUNS THE DIRECTORY, NOT A NAME (R-2026-09-20-30 C2).
+#
+# Until 2026-09-20 this line named `tests/e2e/golden-path.test.ts` and phase 2 named
+# `tests/e2e/ratchet.test.ts`. Any OTHER file in tests/e2e/ was therefore never
+# executed -- by CI or by anyone -- while the required `golden-path` check reported
+# success. A test that does not run reports exactly what a test that ran and passed
+# reports, and this harness was the thing deciding which ones ran. It is the
+# green-light-examining-nothing shape inside the runner itself.
+#
+# So the corpus is now DISCOVERED: every tests/e2e/*.test.ts except the ratchet,
+# which is phase 2 and must not also be phase 1's input. Adding a file to that
+# directory is enough to make it run.
+E2E_FILES=()
+while IFS= read -r _f; do E2E_FILES+=("$_f"); done < <(
+    find "$ROOT/tests/e2e" -maxdepth 1 -type f -name '*.test.ts' ! -name 'ratchet.test.ts' 2>/dev/null | sort
+)
+
+# THE TWO LOAD-BEARING FILES ARE ASSERTED TO EXIST. This also subsumes an
+# empty-corpus check: golden-path.test.ts is itself a phase-1 file, so a corpus of
+# zero is impossible once this passes. A separate empty-corpus branch would be a leg
+# no plant could ever reach, which is its own defect (test-conventions section 2b). Discovery alone would turn a
+# deleted golden path into a smaller, greener run: the ratchet would gate over a
+# corpus that no longer contains the steps it ratchets. Missing is fatal and named.
+for _required in tests/e2e/golden-path.test.ts tests/e2e/ratchet.test.ts; do
+    if [ ! -f "$ROOT/$_required" ]; then
+        echo "ERROR: $_required is missing — the golden path and the ratchet are named in the frontier and in this runner." >&2
+        echo "       A run without it is smaller and greener, not passing. Restore it or change the frontier deliberately." >&2
+        exit 2
+    fi
+done
+
 echo "=== phase 1/2: golden path (corpus generation — expected to be partially red) ==="
-npx vitest run --project e2e tests/e2e/golden-path.test.ts \
+echo "    phase 1 corpus (${#E2E_FILES[@]} file(s)):"
+printf '      %s\n' "${E2E_FILES[@]}"
+npx vitest run --project e2e "${E2E_FILES[@]}" \
     --reporter=default --reporter=junit --outputFile=junit-e2e.xml || true
 
 if [ ! -f "$ROOT/junit-e2e.xml" ]; then

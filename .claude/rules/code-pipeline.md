@@ -241,6 +241,18 @@ only because the commit still existed locally.
 - **Branch deletion is never part of a merge step.** It is a separate action, taken
   after merged status has been read back.
 
+Added 2026-09-20 by R-2026-09-20-30 E, after two pull requests in flight landed out of
+order: branch protection requires an up-to-date branch, so the second merge left the
+first BEHIND and unmergeable, and the record briefly cited a change that was not yet
+on `main`.
+
+- **When two pull requests must land in a stated order, the second is not opened until
+  the first has merged.** An order that exists only in a ruling is not an order the
+  forge enforces.
+- **If both are already open, the later one is merged up and RE-ATTESTED before the
+  first lands.** Merge `main` in rather than rebasing, and run the suite again on the
+  merged head: the attestation belongs to a commit, and a merge makes a new one.
+
 ---
 
 ## AI Agent Self-Check Protocol

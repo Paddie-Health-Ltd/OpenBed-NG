@@ -1709,6 +1709,39 @@ _Issued as R-PROVISIONAL-2026-09-20-M. Number assigned from the record's last as
 - **A scope item inside it, reported now:** asserting at the rendered surface needs a DOM, and this repository has none — no `jsdom`, no `happy-dom`, no Playwright, and no UI test. The proposal is one registry-checked `jsdom` devDependency and a per-file environment docblock inside the **existing** `e2e` project, so **no CI job and no new required check** are added; the required-check list is branch protection the founder owns.
 - **Then:** the founder deploys from the merged `main` and reports which artifact, from which commit, by which command — and only then does D3's hold lift. Then the regex-readers change, the `public-relations.json` split, the proxy review including the stray `openbedng` Worker, Finding D, and Bundle 2 with 018.
 
+### R-2026-09-20-30 — deployment becomes READABLE; the runner stops omitting; the review becomes an inventory
+
+_Issued as R-PROVISIONAL-2026-09-20-P (the letter O was skipped, confusable with zero). Number assigned from the record's last as read on merged `main` (`9932955`): R-2026-09-20-29._
+
+**A — THE D1 RULING: deployment becomes readable, not attested.**
+- **The root, named.** Merging proves review, uploading proves deployment, **and nothing binds the two**. The implementer's proposed fourth clause — that the deployed commit is an ancestor of `main` — bound them **by attestation**. Every other identifier in this build has moved from attested to read (method note 16); deployment was the last one running on someone's word.
+- **A2 — the report's four clauses are the minimum:** which artifact, from which commit, by which command, and that the commit is on `main`.
+- **A3 — the commit is stamped into the artifact and exposed.** `scripts/stamp_build.mjs` writes `/version.json` at build time, so "what is deployed" is FETCHED and the report's fourth clause is a reading.
+  - **`/version.json` beside the document rather than a field inside it**, and the reason is recorded: `/beds.json`'s envelope is frozen, asserted by set-equality against `packages/fixtures/snapshot-shape.json`, and generated in the database by `app.regenerate_snapshot()`. A build detail is not worth changing a frozen shape, its fixture and a generator.
+  - **A commit SHA is published deliberately:** this repository is public, read from the repository API on 2026-09-20, so the SHA discloses nothing `git log` does not. In a private repository this would be a short build id mapped to the commit here. Stated rather than assumed, as A3 required.
+  - **It refuses rather than guessing.** Where git cannot answer, it exits non-zero instead of writing `"unknown"`: the report READS this file, so a stamp that cannot identify the build is worse than none. `dirty: true` is recorded rather than refused — a build on a dirty tree is legitimate, but its commit does not identify it, and the reader must see that.
+- **A4 — `scripts/deploy_pages.sh` refuses the accident:** a dirty tree, a `HEAD` that is not an ancestor of `origin/main`, an unfetchable origin (a stale ref makes the check quietly weaker), an empty `--branch`, and a directory that is not a work tree. **Its header states that it is LOCAL AND DEFEATABLE** — running wrangler by hand bypasses it — so it removes the accident case, which is the case that has already happened, and not the deliberate one. It cannot see what Cloudflare then serves.
+- **A5 — GIT INTEGRATION IS THE CANDIDATE ROOT FIX, and is NOT taken now.** What it would cost, recorded so it becomes a decision when someone has the facts: a build configuration that Pages itself runs; a change in who holds the deploy credential, against R-2026-09-17-11 B4's deliberate refusal to issue one to the implementer; and a change to the deployment mechanism this runbook now records. **A3 and A4 are sufficient meanwhile and are not wasted if it is later adopted** — a stamped artifact and a refusal of unmerged code are wanted either way.
+- **A6:** these landed in their own change, after #49 and before any deploy.
+
+**B — #49 merged** at `9932955`, SHA read from the API, branch deleted after `MERGED` was read back. **The review is accepted as a review record rather than a file list:** the publish screen's three self-check properties confirmed present, no credential surface added, guard reclassifications accurate and citing the commits that made the old ones stale, and `supabase-proxy/` landed marked with the founder's addendum kept verbatim and marked UNVERIFIED. 804/804 against a prediction of 804, four neuters red with restores verified.
+
+**C — `run_e2e.sh` executed two NAMED files, and now discovers its corpus.**
+- **The finding:** a new file in `tests/e2e/` would never have run, while the required `golden-path` check reported success. **A test that does not run reports exactly what a test that ran and passed reports**, and the thing deciding which ran was the harness itself. Same class as the leg-register defect #38 fixed.
+- **The fix:** phase 1 runs every `tests/e2e/*.test.ts` except the ratchet, and the two load-bearing files are asserted to EXIST, so deleting one fails loudly by name rather than running smaller and greener. The separate empty-corpus branch was removed rather than registered: with the golden path asserted present, a corpus of zero is impossible, and an unreachable branch is its own defect.
+- **Plants both ways** in `tests/compliance/deploy_guards.test.ts`: a new file IS executed; a missing golden path is refused by name; the ratchet is never fed as its own phase-1 input.
+- **C4 — the placement decision is recorded with the trap that forced it.** The rendered-surface test went into `compliance` precisely BECAUSE of this: `compliance` runs wholesale under a required check. That answers R-2026-09-19-23's question about required checks — **no branch-protection change is needed** — and `.claude/rules/test-conventions.md` section 1 now carries both the decision and the trap, so the next person does not rediscover it.
+
+**D — the two raised findings, given homes.**
+- **D1 — raw server text echoed to a ward user** on an unrecognised status. **Not a blocker for #49**, because blocking that merge would not change what is in production. **It IS a blocker for facility-one onboarding**, which is when a real ward user could first see it. **Fix shape:** map known statuses to human text; on an unrecognised one show a generic message plus a reference code, and log the raw text server-side. A clinical user mid-emergency should never be reading a database error, and server text can carry internals.
+- **D2 — `openbed-ward-console`**, a second Pages project declared in `apps/ward-console/wrangler.toml`, deployment status unknown. That is the **third** piece of unaccounted infrastructure, with the stray `openbedng` Worker and `supabase-proxy/`.
+- **D3 — THE REVIEW IS RENAMED: the proxy review becomes the INFRASTRUCTURE INVENTORY AND REVIEW.** It covers everything deployed on the Cloudflare account — each item named, its purpose stated, **its deployment status established by reading**, and keep-or-remove against the criterion stated first (R-2026-09-19-23 D0). The proxy is one item in it. **Earlier blocks in this record that say "proxy review" mean this**, and they are not rewritten: a record is not edited to match a later name (method note 11's discipline). The new name is used from here on.
+
+**E — the merge-order mishap was Cowork's, and the rule is recorded.**
+- Cowork specified "#47 first, then #48" without accounting for branch protection requiring up-to-date branches with two pull requests in flight. #48 merged, #47 was left BEHIND, and the record briefly cited a runbook hold that was not yet on `main`.
+- **The recovery is accepted:** merge `main` into #47 rather than rebase, re-attest on the merged head (796/796, gate PASS), then merge.
+- **The rule, now in `.claude/rules/code-pipeline.md` beside the other merge rules:** when two pull requests must land in a stated order, the second is not opened until the first has merged — or, if both are open, the later one is merged up and **re-attested** before the first lands.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -1728,6 +1761,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | K | R-2026-09-20-27 | 2026-09-20 | |
 | L | R-2026-09-20-28 | 2026-09-20 | |
 | M | R-2026-09-20-29 | 2026-09-20 | Supplied the H and J texts, which are filled in under -25 and -26. |
+| N | — | 2026-09-20 | Its substance is recorded inside -30 (the #49 review, the one-unit ordering, the marking of `supabase-proxy/`, and `jsdom`'s conditions), which was the change that executed it. |
+| P | R-2026-09-20-30 | 2026-09-20 | The letter O was skipped: confusable with zero in a ruling id. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -1900,6 +1935,16 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-20, R-2026-09-20-30 (issued as R-PROVISIONAL-2026-09-20-P): the
+  deployment report's fourth clause turned from an attestation into a READING, by
+  stamping the commit into the artifact as `/version.json` and adding a deploy
+  wrapper that refuses a dirty tree or unmerged code; git integration recorded as the
+  candidate root fix with its costs; `run_e2e.sh` made to discover its corpus after
+  it was found to run two named files while a required check reported success; the
+  proxy review renamed the infrastructure inventory and review, now covering three
+  unaccounted items; the publish screen's raw-error echo gated on facility-one
+  onboarding; and a merge-order rule after two pull requests in flight left one
+  behind;
 - on 2026-09-20, R-2026-09-20-29 (issued as R-PROVISIONAL-2026-09-20-M): the H and J
   texts supplied and filled in; the custom-domain cutover HELD, recorded in the
   runbook's own step, because the cutover would publish the empty-city page to a real
