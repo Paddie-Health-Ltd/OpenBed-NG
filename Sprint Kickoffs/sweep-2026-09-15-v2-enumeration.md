@@ -145,7 +145,7 @@ Total 96. Every item below ends with its verdict in bold; the last bold verdict 
     - `scripts/lint_no_updated_at_filter.sh:36`
     - `packages/gate/src/gate.ts:10,73,156`
     - **HOLDS**.
-44. **v2:233** "`stale-while-revalidate=300` keeps the CDN serving" – CDN behaviour. **NOT CHECKABLE**.
+44. **v2:233** "`stale-while-revalidate=300` keeps the CDN serving" – CDN behaviour. **NOT CHECKABLE**. **[NOW CHECKABLE, AND FALSE — 2026-09-21 (R-2026-09-21-43). Cloudflare's Cache API reference states `stale-while-revalidate` and `stale-if-error` are not supported by `cache.put`/`cache.match`, and `/beds.json` is answered `cf-cache-status: DYNAMIC` by the zone, so the zone does not cache it at all. The verdict moves from NOT CHECKABLE to **CHECKED AND FALSE**. A vendor fact became repo-checkable once the mechanism was named.]**
 45. **v2:235** "`014` adds one index and no column, so nothing shipped changes shape" – **known failure, confirmed**
     - Superseded in the document at v2:235 and v2:467.
     - In the repo, M/014 adds a function and an index, and M/016:141 and :147 add `last_snapshot_at` and `public.snapshot_current`.

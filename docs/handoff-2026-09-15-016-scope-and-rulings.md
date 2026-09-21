@@ -180,7 +180,7 @@ zero and the check passes exactly when the system is broken. Claude Code caught 
 and proposed better — and the replacement is not a test at all. With
 `row_security = off`, Postgres raises rather than applying a policy, so a
 non-bypass role fails at the read instead of writing an empty snapshot the edge
-would serve for 300 seconds. It also beats a `rolbypassrls`/`rolsuper` assertion,
+would serve for 300 seconds. **[SUPERSEDED BY NOTE 2026-09-21 (R-2026-09-21-43), method note 8 -- the sentence is left as written. The DECISION is unaffected and still right; the SEVERITY is overstated by about ten times. `stale-while-revalidate` is documented as unsupported by `cache.put`/`cache.match` and the zone does not cache `/beds.json` at all, so the window an empty snapshot could be served for is the cache's **30-second TTL**, not 300 seconds.]** It also beats a `rolbypassrls`/`rolsuper` assertion,
 which checks a proxy and would fail a generator that a later legitimate policy
 made work.
 
