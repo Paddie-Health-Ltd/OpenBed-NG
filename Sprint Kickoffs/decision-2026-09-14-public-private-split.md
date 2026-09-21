@@ -2195,7 +2195,7 @@ Gate 2's *"the tile reflects it within 60 seconds with no page refresh"* became 
 
 **C1 — step 4 gating step 6 now rests on the gate's wording alone.** The technical reason is gone. If the EVIDENCE gate is ever reworded or discharged, **nothing requires the cache observation to be taken on the custom domain at all** — Pages Functions have a functional Cache API on `*.pages.dev`. Flagged rather than kept or dropped, exactly as Cowork required. **Trigger: any rewording or discharge of the EVIDENCE gate.**
 
-**C2 — the FAILURE MODE changed, and it is worse.** Every corrected bound got *smaller*, so nothing safe becomes unsafe — but with SWR believed working, a dead origin meant five minutes of stale-but-real data. In fact, **30 seconds after the origin dies** the Function returns a `no-store` 5xx and `apps/public-dashboard/src/main.ts` renders *"Live data is temporarily unavailable — showing example data."* **Example data on a bed-availability board is the empty-city hazard family.** Pre-existing, but reachable ten times sooner than believed. **Trigger: Bundle 4, alongside the publish-screen raw-error item.**
+**C2 — the FAILURE MODE changed, and it is worse.** Every corrected bound got *smaller*, so nothing safe becomes unsafe — but with SWR believed working, a dead origin meant five minutes of stale-but-real data. In fact, **30 seconds after the origin dies** the Function returns a `no-store` 5xx and `apps/public-dashboard/src/main.ts` renders *"Live data is temporarily unavailable — showing example data."* **Example data on a bed-availability board is the empty-city hazard family.** Pre-existing, but reachable ten times sooner than believed. **Trigger: Bundle 4, alongside the publish-screen raw-error item.** **[DISCHARGED 2026-09-21 by R-2026-09-21-44, which deleted the example data outright rather than waiting for Bundle 4. Left as written per method note 8. Two things this block got wrong, both in the safe direction: the window is not 30 seconds in a cold data centre, it is immediate; and the example rows rendered as OPEN AND ACCEPTING, which this block did not say.]**
 
 **C3 — Gate 2 could be revisited.** The bound is ~120s, not ~300s. Still not 60s, so nothing changes today, and it is the founder's call either way. **Trigger: Bundle 4's freshness work.**
 
@@ -2204,6 +2204,54 @@ Gate 2's *"the tile reflects it within 60 seconds with no page refresh"* became 
 `cf-ray` ends in the colo code, and it agrees with the log's own `request.cf.colo` — MEASURED both sides: `cf-ray: a3ea1b758c5bd081-CDG` against `request.cf.colo = CDG`. So step 6 now prints `cf-ray` and **requires both blocks to show the same code before the marker is read at all.** Different codes is a RE-RUN, not a result. `tests/compliance/runbook_cache_probe.test.ts` enforces both the header and the instruction to compare it — a printed header nobody is told to compare would be decoration.
 
 **E — the queue:** unchanged from -42 F. This change; then the founder's deploy and the corrected steps 5 and 6 on `openbed.ng`, quoted; then the EVIDENCE gate recorded lifted on that output; then 018.
+
+
+---
+
+### R-2026-09-21-44 — invented bed counts were reaching real visitors; the example data is deleted, not guarded
+
+_Issued as R-PROVISIONAL-2026-09-21-AA. A patient-safety exception to T, taken ahead of 018 and ahead of the step-6 run._
+
+**A — THE FOUNDER'S DECISION, AND ONE OF ITS TWO CITED AUTHORITIES DOES NOT HOLD.**
+
+AA cites R-2026-09-20-29 E and "the product bible's first principle".
+
+- **-29 E HOLDS, and says more than the paraphrase.** E2 verbatim: *"the distinction is preserved at EVERY layer, and the assertion is made AT THE RENDERED SURFACE, not at the payload. A test that asserts the payload's honesty passes while the page lies."* E3: never *"a bare zero"*. **Precision worth keeping:** E is literally about *empty vs absent*. This is a third thing — an outage rendered as data. **E2 covers the CONTROL GAP exactly; the product rule here is an EXTENSION of E3** from "never a bare zero" to "never an invented number". Recorded as an extension, not as something E says.
+- **The product bible is NOT AVAILABLE AS AUTHORITY, and this record already ruled so.** It is not in this repository — one `git grep -i "product bible"` hit, this record's own line; `find -iname '*product*bible*'` matches nothing, against a `docs/` listing as the known-present control. R-2026-09-21-40 G: *"THE PRODUCT BIBLE IS NOT IN THIS REPOSITORY … Read as context, never as authority."* **The instruction survives on -29 E alone**, which is sufficient. Reported rather than worked around (method note 20).
+
+**B — WHAT WAS REACHING VISITORS, established rather than asserted.** `apps/public-dashboard/src/main.ts` rendered a hard-coded list whenever `/beds.json` could not be fetched, decoded or parsed:
+
+```
+Live data is temporarily unavailable — showing example data.
+A_AND_E: 4 beds
+THEATRE: 2 beds
+```
+
+DERIVED from source and **corroborated by `packages/fixtures/truth-table.json`**: with all three duty flags `UNKNOWN`, both categories carry `expected_gated_by: null` and `expected_accepting_effective: true`. **Both invented wards therefore rendered as OPEN AND ACCEPTING — the invented state was the most inviting one available.** MEASURED in the shipped bundle; no `import.meta.env.DEV` guard, and `vite.config.ts` sets `minify: false`, so nothing was eliminating it.
+
+**Deleted, not flag-guarded** (AA B1): a flag leaves the rows in the bundle one runtime condition away from a visitor. The failure path now renders one paragraph and no list — an outage, a denial that it is an availability report, and 112 / 767. **`@openbed/gate` went with it**: it was imported only to derive the deleted rows' reason, and `apps/public-dashboard/package.json` no longer depends on a package the app does not use.
+
+**C — A SECOND FINDING ON THE PUBLIC PATH, WHICH THE SWEEP FOUND AND NOBODY WAS LOOKING FOR.** `packages/fixtures/snapshot-shape.json` carried a `golden` payload — an invented facility name, an LGA, a state, **a latitude and longitude in central Lagos, an E.164 phone number**, two ward categories and two bed counts. `packages/snapshot/src/codec.ts` imports that file, the public dashboard bundles `codec.ts`, **and a JSON import is inlined WHOLE**. So every key was served to every visitor of `openbed.ng`.
+
+**MEASURED by the implementer, in the built artifact, before and after:** `E2E General Hospital`, `+2348000000001` and `6.5244` each appeared once in `apps/public-dashboard/dist/assets/*.js`, and zero times in the ward-console bundle. Nothing rendered it — **and nothing needed to.** It was readable by anyone opening the page source, and it sat in exactly the positional shape `decodeFacility`/`decodeWard` accept, one line from being decodable.
+
+**Root fix, not a scrub:** `golden` and its prose key moved to `packages/fixtures/snapshot-golden.json`, whose header states that shipping code must not import it. Its only consumer is `tests/compliance/snapshot_shape_matches_migration.test.ts`. **After the change all four tokens read 0 in the artifact**, with the empty-state and outage wording as the known-present controls so the check is not vacuous.
+
+**D — THE OTHER TWO SWEEP FINDINGS ARE EXCLUDED FROM THIS PR ONLY BECAUSE THEY ARE UNREACHABLE TODAY, AND THAT WAS MEASURED, NOT ASSUMED** (AA's condition). Read from the hosted project on 2026-09-21: `app.facility` **0**, `app.ward_status` **0**, `public.facility_public` **0**, `public.ward_public` **0**, `app.ward_account` **0**; the newest snapshot (`v=6352`) carries `wards: 0` and `facilities: 0`.
+
+- **A3 is unreachable:** with zero ward rows in the payload, `renderReal` returns at the empty-state branch and never reaches the facility lookup.
+- **B2 is unreachable, and on the stronger condition:** `app.ward_account` is **0**, so **no session can exist**. That settles it without needing the ward console's deployment status, which remains unknown and sits in the infrastructure-review item.
+
+**E — BOTH ARE MUST-FIX BEFORE FACILITY ONE. Not Bundle 4, not post-facility-one.** They join R-2026-09-20-30 D1 (the publish-screen raw-error echo) as onboarding blockers.
+
+- **A3 — `'(unknown facility)'` beside a REAL bed count** (`apps/public-dashboard/src/main.ts`). **Severity: a count with no callable identity rendered as if actionable.** A row reading `(unknown facility) — ICU_ADULT: 6 beds` tells someone routing an ambulance that six beds exist somewhere they cannot ring. **Not decided here.** The options, with their consequences, for whoever takes it: suppress the row with an operator-visible signal — loses a real count and needs somewhere for the operator to see the gap; or render the gap in words pointing to 112 / 767 — keeps the reader informed but occupies a row. Cowork's lean is recorded: **a count with no callable identity must not render as if actionable.**
+- **B2 — `wardRowFrom`'s defaults** (`apps/ward-console/src/main.ts`). **Severity: a defaulted clinical claim and a guessed concurrency token.** `offering: r.offering ?? 'NOT_OFFERED'` asserts to a ward that it does not offer a ward the server said nothing about; `version: r.version ?? 0` flows straight into `p_expected_version`, turning optimistic concurrency into a guess. **Ruled shape: refuse the malformed row — never default a clinical claim or a concurrency token.** Bundled with D1: same screen, same refusal-handling design.
+
+**F — ONE MORE SWEEP FINDING, REPORTED AND NOT NEW SCOPE.** `packages/snapshot/src/freshness.ts` implements the GREEN/YELLOW/GREY/SUPPRESSED bands and `packages/snapshot/src/index.ts` does not export it; `main.ts` never imports it, and `renderReal` renders `bed_count` with no age check. **A three-day-old count renders identically to a 30-second-old one** — the exact string the shape fixture calls out as the thing not to do. This is Bundle 4's subject matter, already scoped there, and is recorded here because the sweep found it rather than because it is new.
+
+**G — THE SEQUENCE (AA C):** this change; founder merge; **one** deploy of that merge commit through `scripts/deploy_pages.sh --branch main`, quoting `/version.json`; the outage state read back where it can be reproduced; **then** step 6 on that same deployment. **018 stays behind the EVIDENCE gate throughout.**
+
+**H — R-2026-09-21-43 C2 is discharged by this change**, and its block is left as written with a note (method note 8).
 
 
 ## The provisional ledger
@@ -2240,6 +2288,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | Z (D1) | R-2026-09-21-41 | 2026-09-21 | The same block's design constraint, recorded separately because it is a verification result rather than a direction. |
 | — (none issued) | R-2026-09-21-42 | 2026-09-21 | **No provisional letter.** Arrived as the founder's EVIDENCE-gate read-back plus Cowork's seven constraints on the fix. Recorded so the ledger does not imply the 09-21 run ended at Z. |
 | — (none issued) | R-2026-09-21-43 | 2026-09-21 | **No provisional letter.** Cowork's confirmation of -42 §C with one condition, plus two consequence checks. The condition — follow every corrected reason to what it justified — is discharged in A. |
+| AA | R-2026-09-21-44 | 2026-09-21 | The founder's patient-safety exception to T. First ruling this run to carry a provisional letter since Z. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -2364,6 +2413,11 @@ _Standing rules, 2026-09-15. This record is their home._
     - **The tell is a reading taken from the wrong layer.** The step named a cache; the header described a different cache one layer out. Wherever a probe reads a value that some *other* component emits, ask what that component would say in each of the two states before asking what it says now.
     - **-40 had already written the limitation down** — *"`cf-cache-status: HIT` does not say which cache answered"* — and left it as the stop condition anyway. **Naming a limitation is not acting on it.** When a step's own prose admits it cannot distinguish the thing it is for, that is the finding, not a caveat.
     - **How to apply:** for each stop condition, write the value it takes when the system is BROKEN. If that is the same string, or if you cannot say, the observable is wrong and no rewording of the step fixes it — something has to start emitting the difference. Here that was a response header the Function sets from what it actually did, pinned by `tests/compliance/runbook_cache_probe.test.ts`, which executes the step's own grep against both blocks and asserts they cannot be confused.
+
+25. **A control for a hazard class must cover every path that can render in that class** (R-2026-09-21-44). Note 24 asks whether an observable can take two values. This one asks something else: **the control was correct, ran on every PR, and pointed at one of the two renderers.**
+    - **The instance.** R-2026-09-20-29 E2 relocated the empty-city assertion to the RENDERED SURFACE — the right move, and `tests/compliance/dashboard_empty_state.test.ts` implemented it faithfully. It rendered `renderReal` and asserted the text a visitor reads. **It never rendered `renderStub`.** So the path that fabricated bed counts, on the same page, in the same module, behind one `if`, was the one path in the hazard's own control file that no test ever executed. It shipped to a live public domain and was found by a sweep, not by the suite.
+    - **Why a green suite said nothing.** Every leg passed, and each was about the renderer it named. A reader checking "is the empty-city hazard covered?" sees a file called `dashboard_empty_state` with four green legs and stops. **Coverage of a class is not the union of the legs anyone happened to write.**
+    - **How to apply:** when a control is written for a HAZARD rather than for a function, enumerate the paths that can produce that hazard and name each one in the control's header — covered, or NOT ASSERTED and why (test-conventions section 4). For a renderer: every branch that can call `replaceChildren`. **The question is not "does the control pass", it is "which paths has it never run".**
 
 ---
 

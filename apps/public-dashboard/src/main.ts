@@ -1,4 +1,3 @@
-import { gate, acceptingEffectiveForWard, type WardCategory, type TriState } from '@openbed/gate';
 import { decodeWard, decodeFacility, type EncodedRow, type DecodedRow } from '@openbed/snapshot';
 
 /**
@@ -6,20 +5,33 @@ import { decodeWard, decodeFacility, type EncodedRow, type DecodedRow } from '@o
  *
  * Fetches /beds.json (the Bundle 1 Pages Function -- see
  * apps/public-dashboard/functions/beds.json.ts) and renders the real
- * snapshot. Falls back to a small stub only when the fetch fails, so the page
- * still shows something rather than a blank screen.
+ * snapshot. When that fetch fails it renders an OUTAGE STATE: one sentence,
+ * and nothing a reader could mistake for a bed count.
  *
- * WHY THE REAL PATH NEVER CALLS gate(). The served snapshot deliberately never
+ * NOTHING RENDERS HERE THAT DID NOT COME FROM THE SERVER, and the rule is
+ * written down because this module broke it. Until 2026-09-21 the failure path
+ * rendered a hard-coded list of two invented wards, with invented bed counts,
+ * under the words "showing example data". Both rendered as OPEN AND ACCEPTING,
+ * because their duty flags were all UNKNOWN and an unknown flag gates nothing:
+ * the invented state was the most inviting one available. That reached real
+ * visitors on openbed.ng whenever the snapshot could not be fetched, decoded or
+ * parsed -- the moment a reader is most likely to act on what they see.
+ *
+ * R-2026-09-20-29 E3 forbids rendering absence as "a bare zero". This is the
+ * same rule in the other direction, and the harder one to see: AN OUTAGE MUST
+ * NEVER BE RENDERED AS AN AVAILABILITY REPORT (R-2026-09-21-44).
+ *
+ * THE EXAMPLE DATA IS DELETED, NOT FLAG-GUARDED. A DEV flag leaves the rows in
+ * the bundle, one runtime condition away from a visitor, on a handset nobody is
+ * watching. There is no example data in this module to guard.
+ *
+ * WHY NOTHING HERE COMPUTES A GATE. The served snapshot deliberately never
  * carries duty flags -- see decisions.the_snapshot_never_carries_duty_flags in
  * packages/fixtures/snapshot-shape.json. The server has already computed
- * accepting_effective and gated_by per ward; the real path reads them
- * straight off the decoded row. gate() survives only in renderStub(), which
- * still needs it to derive the stub's own reason from stubFlags -- unchanged
- * from the original Bundle 1 stub.
- *
- * THREE STATES, in the stub only. Note there is no boolean anywhere in that
- * path: `'UNKNOWN'` is the day-one value for every facility, and any code
- * that treats it as falsy renders every hospital in Lagos as closed.
+ * accepting_effective and gated_by per ward; this module reads them straight
+ * off the decoded row. The gate package was imported ONLY to derive the deleted
+ * rows' reason, so the import went with them -- and with it this app's last use
+ * of that package.
  *
  * CLASSIFICATION under Clause 5 of .claude/rules/code-pipeline.md:
  *   - scripts/lint_no_service_role_in_bundle.sh's CLIENT corpus: unaffected by
@@ -33,49 +45,6 @@ import { decodeWard, decodeFacility, type EncodedRow, type DecodedRow } from '@o
  *     this change is fetch, decode and render only, and never reads
  *     updated_at at all.
  */
-
-interface StubWard {
-  readonly category: WardCategory;
-  readonly bedCount: number | null;
-  readonly accepting: boolean;
-}
-
-const stubFlags: { anaesthetist: TriState; obstetrician: TriState; paediatrician: TriState } = {
-  anaesthetist: 'UNKNOWN',
-  obstetrician: 'UNKNOWN',
-  paediatrician: 'UNKNOWN',
-};
-
-const stubWards: StubWard[] = [
-  { category: 'A_AND_E', bedCount: 4, accepting: true },
-  { category: 'THEATRE', bedCount: 2, accepting: true },
-];
-
-function renderStub(root: HTMLElement): void {
-  const notice = document.createElement('p');
-  notice.textContent = 'Live data is temporarily unavailable — showing example data.';
-
-  const list = document.createElement('ul');
-  for (const ward of stubWards) {
-    const reason = gate(
-      ward.category,
-      stubFlags.anaesthetist,
-      stubFlags.obstetrician,
-      stubFlags.paediatrician,
-    );
-    const open = acceptingEffectiveForWard('OFFERED', ward.accepting, reason);
-
-    const item = document.createElement('li');
-    // `bedCount === null` means never reported, and is rendered as such rather
-    // than as zero. Publishing "0 beds" for a ward nobody has updated states a
-    // claim the facility never made.
-    const beds = ward.bedCount === null ? 'not yet reporting' : `${ward.bedCount} beds`;
-    item.textContent = `${ward.category}: ${beds}${open ? '' : ' — not accepting'}${reason ? ` (${reason})` : ''}`;
-    list.appendChild(item);
-  }
-
-  root.replaceChildren(notice, list);
-}
 
 interface SnapshotEnvelope {
   readonly v: number;
@@ -143,6 +112,31 @@ export function emptyStateMessage(facilities: DecodedRow[], wards: DecodedRow[])
   return 'Facilities have joined, but none has reported a ward yet. This is NOT a report that beds are unavailable — nothing has been told to us either way. Call the facility directly, or 112 / 767 in an emergency.';
 }
 
+/**
+ * THE OUTAGE STATE. Same register as emptyStateMessage above, and exported for
+ * the same reason -- but the test asserts the RENDERED TEXT, never this return
+ * value, because a page can return the right string and render nothing.
+ *
+ * Three things it must do, each for a reason rather than for tone: say plainly
+ * that this is an outage; DENY being an availability report, because a blank bed
+ * board reads as "no beds" to someone in a hurry; and give the number to call
+ * instead. It renders ONE PARAGRAPH and no list -- there is no row here to be
+ * misread, which is the whole point.
+ */
+export function outageMessage(): string {
+  return (
+    "Live bed information can't be loaded right now. This is NOT a report that beds are unavailable — " +
+    'we cannot see anything either way. Call the facility directly, or 112 / 767 in an emergency.'
+  );
+}
+
+function renderOutage(root: HTMLElement): void {
+  const notice = document.createElement('p');
+  notice.className = 'outage-state';
+  notice.textContent = outageMessage();
+  root.replaceChildren(notice);
+}
+
 function renderReal(root: HTMLElement, facilities: DecodedRow[], wards: DecodedRow[]): void {
   const nameOf = new Map(facilities.map((f) => [f['facility_id'], f['name']]));
 
@@ -185,7 +179,7 @@ export async function render(): Promise<void> {
   if (snapshot) {
     renderReal(root, snapshot.facilities, snapshot.wards);
   } else {
-    renderStub(root);
+    renderOutage(root);
   }
 }
 
