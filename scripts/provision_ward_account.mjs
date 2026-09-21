@@ -5,6 +5,47 @@
 // Provisions ONE ward account: invites a role address through the GoTrue admin
 // API, then writes the app.ward_account row whose id EQUALS that auth user's id.
 //
+// STOP -- READ THIS BEFORE YOU RUN THIS SCRIPT AGAINST THE HOSTED PROJECT.
+//
+// THREE DEFECTS MUST BE FIXED BEFORE THE FIRST app.ward_account ROW -- OR THE
+// FIRST app.facility ROW -- EXISTS ON THE HOSTED PROJECT (R-2026-09-21-45).
+// Whatever the reason for creating it: a test, a staging trial, a signed
+// agreement or no agreement at all. The trigger is THE ROW, not the occasion,
+// because onboarding can be staged and an account created "just to try it"
+// puts all three live before anyone intends it.
+//
+// They are unreachable ONLY while those two tables are empty, and that is the
+// whole of their safety. Read on the hosted project 2026-09-21 16:58 UTC:
+// app.facility 0, app.ward_account 0.
+//
+//   1. The public dashboard renders "(unknown facility)" beside a REAL bed
+//      count when a ward references a facility absent from the payload -- a
+//      count with no callable identity, rendered as if it were actionable.
+//      apps/public-dashboard/src/main.ts
+//   2. The ward console's wardRowFrom DEFAULTS a clinical claim
+//      (offering ?? 'NOT_OFFERED') and a concurrency token (version ?? 0,
+//      which becomes p_expected_version). Refuse the malformed row instead.
+//      apps/ward-console/src/main.ts
+//   3. The publish screen echoes raw server text to a ward user on an
+//      unrecognised status (R-2026-09-20-30 D1). Same screen as 2.
+//
+// A FOURTH ITEM GATES THE SAME MOMENT AND IS SPECIFIED BUT NOT BUILT: the
+// invite gate -- no invite for a facility whose
+// app.facility_contact.agreement_accepted_at IS NULL. The column exists
+// (migration 003); nothing reads it, and there is no invite-issuing function
+// anywhere, so this is an absence rather than a defect. Named here because it
+// gates this same path and one consolidated condition is the point.
+//
+// THIS IS A NAMED HUMAN STEP. NOTHING IN THIS SCRIPT ENFORCES IT -- there is no
+// check below that reads the list above, and a reader must not infer one
+// (Clause 4 of .claude/rules/code-pipeline.md). A mechanical guard is PROPOSED
+// and deliberately not built: see R-2026-09-21-45. Note also that this script
+// has NO host check at all -- pointing it at the hosted project is one
+// environment variable -- which is exactly why the condition is stated at the
+// top rather than left to whoever sets DATABASE_URL.
+//
+// ============================================================
+//
 // THIS IS THE auth.uid() -> app.ward_account SEAM, and nothing else in the
 // repository creates it. database/migrations/003 declares
 // `id uuid PRIMARY KEY` with NO foreign key to auth.users -- deliberately, since
@@ -40,6 +81,8 @@
 //   node scripts/provision_ward_account.mjs --email <addr> --facility <uuid> \
 //        --category <ward_category> [--role WARD_STAFF]
 // Exit: 0 provisioned, 1 usage or a refusal, 2 the environment is not usable.
+//       Exit 0 does NOT mean the STOP condition at the top of this file was
+//       satisfied. Nothing here checks it.
 // ============================================================
 import postgres from 'postgres';
 
