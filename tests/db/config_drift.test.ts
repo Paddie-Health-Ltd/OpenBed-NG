@@ -113,6 +113,30 @@ describe('configuration drift', () => {
    * `clientAddressableRelations` and nothing else; NOTHING asserts the two agree.
    */
   test('the realtime publication contains exactly the members named in the shared fixture', async () => {
+    // THE ANTI-VACUITY LEG MOVED, AND THE MOVE IS THE POINT (migration 018).
+    //
+    // This assertion used to end with `expect(expected.length).toBe(3)` -- the
+    // fixture must name three members, or the comparison below proves nothing.
+    // That was the right control while three was the right number. 018 removes
+    // all three from the publication, so the expected set is now EMPTY, and a
+    // leg demanding three would have to be deleted to reach green. Deleting it
+    // would take the anti-vacuity control with it and leave `toEqual([])` --
+    // which a broken query, a renamed publication or a dropped publication all
+    // satisfy.
+    //
+    // So the control moves rather than going away: assert the PUBLICATION
+    // EXISTS, then assert its membership. Existence is what makes an empty
+    // membership a fact about the publication instead of a fact about the query.
+    // "no members" and "no publication" are different states and only one of
+    // them is the one 018 produces.
+    const [pub] = await sql()<{ pubname: string }[]>`
+      select pubname from pg_publication where pubname = 'supabase_realtime'
+    `;
+    expect(
+      pub?.pubname,
+      'the supabase_realtime publication does not exist — an empty membership below would say nothing',
+    ).toBe('supabase_realtime');
+
     const rows = await sql()<{ schemaname: string; tablename: string }[]>`
       select schemaname, tablename
         from pg_publication_tables
@@ -120,7 +144,6 @@ describe('configuration drift', () => {
        order by schemaname, tablename
     `;
     const expected = [...PUBLIC_RELATIONS.realtimePublicationMembers].sort().map((m) => `public.${m}`);
-    expect(expected.length, 'the fixture names no publication members — the assertion would be vacuous').toBe(3);
     expect(rows.map((r) => `${r.schemaname}.${r.tablename}`)).toEqual(expected);
   });
 

@@ -24,6 +24,23 @@
 # PUBLICATION ASSERTION, and must not be re-coupled to one: what a client may NAME
 # and what the database BROADCASTS are different questions (R-2026-09-21-39).
 #
+# `clientAddressableRelations` IS EMPTY SINCE MIGRATION 018, AND THAT IS THE
+# CORRECT VALUE, not a fixture someone forgot to fill. 018 revoked SELECT on all
+# three mirrors from anon and authenticated, so there is no relation client code
+# may address; the only public read path is /beds.json, and the operator path is
+# the RPCs. A `.from('ward_public')` is now rejected here AND refused by the
+# database, which is the agreement this lint is for.
+#
+# AN EMPTY RELATION LIST DOES NOT MAKE THIS LINT VACUOUS, and the distinction is
+# worth stating because "the allowlist is empty" and "the allowlist is missing"
+# would otherwise read alike. The allowlist is the UNION of
+# `clientAddressableRelations` and `rpcs`; the refusal below fires when that
+# union is empty, not when either half is. The three RPC names keep it non-empty,
+# so the empty-corpus guard still has something to be non-empty about. Emptying
+# `rpcs` as well would trip the refusal rather than pass silently -- which is the
+# behaviour wanted, and is asserted by the anti-vacuity leg in
+# tests/compliance/bundle_guards.test.ts.
+#
 # FINDING 6, fixed 2026-09-10. That paragraph was FALSE when written. The parser
 # was a fixed alternation naming all five relations inline, so the fixture was a
 # filter input rather than the source of names, and a sixth relation added to the

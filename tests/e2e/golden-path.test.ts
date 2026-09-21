@@ -105,10 +105,27 @@ describe('golden path — release gate 2', () => {
 
     // The token has to WORK, not merely exist. A session that cannot authenticate
     // a request proves nothing about the seam this step is here for.
-    const res = await fetch(`${apiUrl()}/rest/v1/ward_public?limit=1`, {
-      headers: { apikey: anonKey(), Authorization: `Bearer ${accessToken as string}` },
+    //
+    // RE-POINTED BY MIGRATION 018 (R-2026-09-19-24 B4, inside that change rather
+    // than after it). This read `ward_public?limit=1`, which 018 revokes from
+    // both client roles. The replacement is also the stronger probe: anon held
+    // SELECT on ward_public before 018, so the old assertion was satisfied by a
+    // request carrying no bearer token at all. EXECUTE on my_facility_wards is
+    // granted to `authenticated` and revoked from `anon` by name, so reaching its
+    // body at all is the authentication this step claims to be testing.
+    const res = await fetch(`${apiUrl()}/rest/v1/rpc/my_facility_wards`, {
+      method: 'POST',
+      headers: {
+        apikey: anonKey(),
+        Authorization: `Bearer ${accessToken as string}`,
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
     });
-    expect(res.status, 'a GoTrue-issued token did not authenticate a PostgREST request').toBe(200);
+    expect(
+      res.status,
+      `a GoTrue-issued token did not authenticate a PostgREST request: ${await res.text()}`,
+    ).toBe(200);
   });
 
   test(name('magic-link-replay-refused'), async () => {

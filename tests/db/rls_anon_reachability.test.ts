@@ -78,3 +78,76 @@ describe('anon reachability of the app schema', () => {
     expect(row?.authenticated).toBe(false);
   });
 });
+
+/**
+ * RELEASE GATE 1, LEG 1b -- the PUBLIC MIRRORS are unreachable too, since
+ * migration 018.
+ *
+ * Until 018 this was the one surface anon was SUPPOSED to reach: `app` was
+ * unreachable by schema, and the three mirrors were the designed public read
+ * path. 018 closed that path — the only public read is now /beds.json, served by
+ * the Pages Function as service_role — so the property flips, and a suite that
+ * said nothing about it would be silent on the boundary this sprint exists to
+ * draw.
+ *
+ * WHY THE DENIAL IS ASSERTED AND NOT LEFT IMPLIED. "anon reaches nothing" makes
+ * every containment and column check downstream pass for free. A suite in that
+ * state reports exactly what a working one does, which is the failure mode this
+ * repository has now hit five times: a check that reports success for a reason
+ * unrelated to what it guards. Naming the denial is what keeps the green
+ * meaningful.
+ *
+ * TWO LAYERS, because they fail independently — the GRANT (below) and what
+ * PostgREST actually answers over HTTP. A grant restored by hand on the hosted
+ * project would not touch the first; a PostgREST or policy change would not
+ * touch the second.
+ */
+describe('anon and authenticated reachability of the public mirrors', () => {
+  const MIRRORS = ['facility_public', 'ward_public', 'lga_rollup'] as const;
+  const CLIENT_ROLES = ['anon', 'authenticated'] as const;
+
+  test('the probe can return TRUE — a role that holds SELECT is reported as holding it', async () => {
+    // THE POSITIVE CONTROL, and it is not a formality. `has_table_privilege`
+    // returns false for a misspelled privilege string on some inputs and throws
+    // on an unknown relation; a typo in the assertions below would otherwise read
+    // as a boundary that holds. The table owner necessarily holds SELECT, so this
+    // is the one row whose expected value cannot drift with a migration.
+    const rows = await sql()<{ relname: string; owner_can_select: boolean }[]>`
+      select c.relname,
+             has_table_privilege(pg_get_userbyid(c.relowner), 'public.' || c.relname, 'SELECT') as owner_can_select
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+       where n.nspname = 'public'
+         and c.relname in ('facility_public', 'ward_public', 'lga_rollup')
+       order by c.relname
+    `;
+    expect(rows.length, 'the three mirrors were not found — the assertions below would be vacuous').toBe(3);
+    for (const row of rows) {
+      expect(row.owner_can_select, `the probe reported the OWNER of ${row.relname} cannot SELECT it`).toBe(true);
+    }
+  });
+
+  test.each(CLIENT_ROLES)('%s holds no SELECT on any mirror at the grant level', async (role) => {
+    const rows = await sql()<{ relname: string; can_select: boolean }[]>`
+      select c.relname,
+             has_table_privilege(${role}, 'public.' || c.relname, 'SELECT') as can_select
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+       where n.nspname = 'public'
+         and c.relname in ('facility_public', 'ward_public', 'lga_rollup')
+       order by c.relname
+    `;
+    expect(rows.length, 'the three mirrors were not found — this assertion would be vacuous').toBe(3);
+    const readable = rows.filter((r) => r.can_select).map((r) => r.relname);
+    expect(readable, `${role} can still SELECT these mirrors; migration 018 did not take effect`).toEqual([]);
+  });
+
+  test.each(MIRRORS)('anon SELECT on public.%s is refused over HTTP', async (table) => {
+    // The grant assertions above are the catalogue's account of it. This is
+    // PostgREST's, which is the one a visitor's browser actually gets.
+    const res = await anonRest(`${table}?select=facility_id&limit=1`);
+    expect(res.status, `anon read of ${table} succeeded: ${JSON.stringify(res.body)}`).not.toBe(200);
+    expect(res.status, `anon read of ${table} was refused with an unexpected status`).toBeGreaterThanOrEqual(400);
+  });
+
+});

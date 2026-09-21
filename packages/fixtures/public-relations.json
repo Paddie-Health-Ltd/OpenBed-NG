@@ -1,19 +1,11 @@
 {
-  "comment": "TWO LISTS THAT ARE IDENTICAL TODAY AND MEAN DIFFERENT THINGS. clientAddressableRelations is the set of relation names client code may name in .from(), enforced by scripts/lint_from_allowlist.sh. realtimePublicationMembers is the expected membership of the supabase_realtime publication, asserted against pg_publication_tables by tests/db/config_drift.test.ts. Each consumer reads ONLY its own key. Until 2026-09-21 both were served by one key named `mirrors`, and their contents coincide only because migration 013 published three tables and granted SELECT on the same three in one migration; migration 018 removes the mirrors from the publication and revokes SELECT, at which point the two lists stop agreeing. NOTHING ASSERTS THAT THEY AGREE, deliberately -- an assertion that they do is the coincidence this split exists to remove. `exposedSchemas` is the PostgREST-exposed schema list, read by tests/db/rls_anon_column_containment.test.ts and asserted against supabase/config.toml by tests/db/config_drift.test.ts. `rpcs` is read by the lint alongside clientAddressableRelations and constrains what may be NAMED, not how an RPC is invoked.",
+  "comment": "TWO LISTS THAT MEAN DIFFERENT THINGS, AND SINCE MIGRATION 018 THEY NO LONGER COINCIDE -- which is why they were split. clientAddressableRelations is the set of relation names client code may name in .from(), enforced by scripts/lint_from_allowlist.sh. realtimePublicationMembers is the expected membership of the supabase_realtime publication, asserted against pg_publication_tables by tests/db/config_drift.test.ts. Each consumer reads ONLY its own key. Until 2026-09-21 both were served by one key named `mirrors`, and their contents coincided only because migration 013 published three tables and granted SELECT on the same three in one migration. Migration 018 removed the mirrors from the publication AND revoked SELECT from anon and authenticated, so BOTH lists are now empty -- and they are empty for two unrelated reasons, which is exactly the distinction the split exists to keep. NOTHING ASSERTS THAT THEY AGREE, deliberately: an assertion that they do is the coincidence this split exists to remove, and two empty lists are the easiest place to reintroduce it by accident. AN EMPTY clientAddressableRelations DOES NOT MAKE THE LINT VACUOUS: the lint reads clientAddressableRelations AND rpcs, refuses when the union parses to nothing, and the three rpcs keep it non-empty. So a `.from('ward_public')` added to client code is REJECTED, which is what the database now does too. `exposedSchemas` is the PostgREST-exposed schema list, read by tests/db/rls_anon_column_containment.test.ts and asserted against supabase/config.toml by tests/db/config_drift.test.ts. `rpcs` is read by the lint alongside clientAddressableRelations and constrains what may be NAMED, not how an RPC is invoked.",
   "exposedSchemas": [
     "public",
     "graphql_public"
   ],
-  "clientAddressableRelations": [
-    "facility_public",
-    "ward_public",
-    "lga_rollup"
-  ],
-  "realtimePublicationMembers": [
-    "facility_public",
-    "ward_public",
-    "lga_rollup"
-  ],
+  "clientAddressableRelations": [],
+  "realtimePublicationMembers": [],
   "rpcs": [
     "my_facility_wards",
     "ward_status_history",
