@@ -143,10 +143,41 @@ describe('refresh against live GoTrue', () => {
   });
 
   test('authedFetch reaches PostgREST with a real session', async () => {
+    // RE-POINTED BY MIGRATION 018, and the replacement is STRONGER than what it
+    // replaces. This read `ward_public?select=facility_id&limit=1` and asserted
+    // 200. 018 revokes that grant, so the old form would now fail -- but the more
+    // interesting fact is that it was WEAK BEFORE 018 TOO: anon also held SELECT
+    // on ward_public, so a request carrying only the apikey and no bearer token
+    // returned 200 as well. The assertion could not tell an authenticated session
+    // from no session at all; it only ruled out a MALFORMED token, which
+    // PostgREST refuses with 401.
+    //
+    // public.my_facility_wards() has EXECUTE granted to `authenticated` and
+    // revoked from `anon` BY NAME (011), and it resolves the caller from
+    // auth.uid(). So the signal below is reachable only by a request that
+    // actually authenticated.
+    //
+    // THE EXACT SIGNAL IS `NOT_A_MEMBER`, NOT A STATUS ALONE. This probe address
+    // is deleted in afterAll and never has an app.ward_account row, so
+    // app.assert_member raises NOT_A_MEMBER with SQLSTATE 42501 -> HTTP 403.
+    // That error is raised AFTER auth.uid() returned non-null, which is precisely
+    // the thing being proven. The neighbouring error, NOT_AUTHENTICATED, is what
+    // the same function raises when auth.uid() IS NULL -- same 42501, same 403 --
+    // so the status on its own would not discriminate and the message is the
+    // assertion.
     const session = await ward();
     const holder = realHolder(session);
-    const res = await holder.authedFetch('ward_public?select=facility_id&limit=1');
-    expect(res.status, `an authenticated read of the public mirror failed: ${await res.text()}`).toBe(200);
+    const res = await holder.authedFetch('rpc/my_facility_wards', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    const body = await res.text();
+    expect(res.status, `an authenticated RPC call was refused at the wrong layer: ${body}`).toBe(403);
+    expect(
+      body,
+      'the refusal was NOT_AUTHENTICATED — auth.uid() was null, so the token did not authenticate the request',
+    ).toContain('NOT_A_MEMBER');
   });
 
   test('a 401 from the server ends the session whatever the device clock believed', async () => {
@@ -236,12 +267,29 @@ describe('session bounds — access follows physical control of the handset', ()
     const session = await signInWard(`outlives-${Date.now()}@ward.invalid`);
     await forceSessionAge(session.sessionId, { createdAgo: '30 hours' });
 
-    const res = await fetch(`${apiUrl()}/rest/v1/ward_public?select=facility_id&limit=1`, {
-      headers: { apikey: anonKey(), Authorization: `Bearer ${session.accessToken}` },
+    // RE-POINTED BY MIGRATION 018, for the reason given on the authedFetch probe
+    // above. The property under test is unchanged: an access token issued before
+    // the session bound still AUTHENTICATES after it. `NOT_A_MEMBER` is reached
+    // only once auth.uid() has resolved from the token, so it is the signal that
+    // the token was still honoured; a token GoTrue had stopped accepting would
+    // come back 401 from PostgREST, before any function body ran.
+    const res = await fetch(`${apiUrl()}/rest/v1/rpc/my_facility_wards`, {
+      method: 'POST',
+      headers: {
+        apikey: anonKey(),
+        Authorization: `Bearer ${session.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
     });
+    const body = await res.text();
     expect(
       res.status,
-      'an already-issued token stopped working at the session bound — the 25-hour note in the runbook is now wrong and must be corrected',
-    ).toBe(200);
+      `an already-issued token stopped working at the session bound — the 25-hour note in the runbook is now wrong and must be corrected. Body: ${body}`,
+    ).toBe(403);
+    expect(
+      body,
+      'the token was no longer authenticating: auth.uid() came back null after the session bound',
+    ).toContain('NOT_A_MEMBER');
   });
 });

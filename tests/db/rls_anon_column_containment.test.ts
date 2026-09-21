@@ -4,7 +4,16 @@ import PUBLIC_RELATIONS from '../../packages/fixtures/public-relations.json';
 import FORBIDDEN from '../../packages/fixtures/forbidden-columns.json';
 
 /**
- * RELEASE GATE 1, LEG 2 -- the anonymous read surface exposes no private column.
+ * RELEASE GATE 1, LEG 2 -- the relations the PUBLIC SNAPSHOT IS BUILT FROM expose
+ * no private column.
+ *
+ * THE TITLE OF THIS FILE USED TO READ "the anonymous read surface", and that went
+ * false with migration 018: there is no anonymous read surface in the database any
+ * more. The hazard did not move with it. These relations feed
+ * app.regenerate_snapshot(), the snapshot becomes /beds.json, and /beds.json is
+ * what every visitor reads -- so a private column arriving on one of them is
+ * published just as surely as it was when anon could SELECT it directly, and with
+ * one fewer place for anyone to notice.
  *
  * WHY A COLUMN TEST AND NOT A ROW TEST. Every requirement that matters here is a
  * column requirement: `reason_code` hidden while `bed_count` on the same row is
@@ -13,8 +22,8 @@ import FORBIDDEN from '../../packages/fixtures/forbidden-columns.json';
  * assertion over the actual catalogue.
  *
  * TWO ASSERTIONS, AND THE SECOND IS THE STRONGER ONE.
- *   1. No anon-readable relation exposes any FORBIDDEN column. Catches a private
- *      column arriving on a public table.
+ *   1. No generator source relation exposes any FORBIDDEN column. Catches a
+ *      private column arriving on a public table.
  *   2. public.ward_public's column list equals a FROZEN list EXACTLY -- equality,
  *      not containment. Catches the case assertion 1 cannot: a NEW private
  *      column, with a name nobody thought to forbid, added to the most-read
@@ -81,7 +90,10 @@ const FORBIDDEN_COLUMNS_THAT_MUST_EXIST = [
  *
  * THE LIVE CHECK IS THE POINT. Asserting the fixture against itself would be
  * self-consistent and prove nothing; what is asserted below is
- * information_schema, which is what anon actually reads.
+ * information_schema -- the shape the generator will actually read next time it
+ * runs. (This sentence read "which is what anon actually reads" until migration
+ * 018 revoked that access. The check is unchanged; only the reason it matters
+ * is.)
  */
 import WARD_PUBLIC_FROZEN_COLUMNS_SOURCE from '../../packages/fixtures/snapshot-shape.json';
 const WARD_PUBLIC_FROZEN_COLUMNS = WARD_PUBLIC_FROZEN_COLUMNS_SOURCE.wardColumns;
@@ -90,11 +102,11 @@ const WARD_PUBLIC_FROZEN_COLUMNS = WARD_PUBLIC_FROZEN_COLUMNS_SOURCE.wardColumns
  * THE FROZEN COLUMN LIST for public.facility_public. Eight columns, in ordinal
  * order.
  *
- * public.facility_public is an anon-readable surface exactly as ward_public is,
- * and until now it had no exact column list at all -- only the forbidden-name
+ * public.facility_public feeds the snapshot exactly as ward_public does, and
+ * until 2026-09-18 it had no exact column list at all -- only the forbidden-name
  * check, which is keyed to seven literal names and is therefore blind to a
  * private column nobody thought to forbid. A facility-level column added here
- * would have reached every anonymous reader with no test going red.
+ * would have reached every reader of /beds.json with no test going red.
  *
  * Asserted for EQUALITY, not containment, for the same reason ward_public is: a
  * subset check passes while a new column sits on the public surface.
@@ -133,30 +145,70 @@ const FACILITY_PUBLIC_FROZEN_COLUMNS = [
  */
 const EXPOSED_SCHEMAS = PUBLIC_RELATIONS.exposedSchemas;
 
-/** Relations an anonymous caller can SELECT from, within the exposed schemas. */
-async function anonReadableRelations(): Promise<string[]> {
+/**
+ * THE SUBJECT OF THIS FILE CHANGED WITH MIGRATION 018, AND THE OLD ONE IS NAMED
+ * RATHER THAN QUIETLY REPLACED.
+ *
+ * Until 018 the corpus below was derived from `information_schema` as *the
+ * relations anon holds SELECT on*, and the file's own docstring called that
+ * "what anon actually reads". That was true and it is now FALSE: 018 revoked
+ * SELECT on all three mirrors from anon and authenticated, so the old derivation
+ * returns an EMPTY SET — and every containment assertion underneath it would
+ * pass, over nothing, reporting exactly what a working suite reports.
+ *
+ * THE PROPERTY DID NOT GO AWAY; ITS SURFACE MOVED. What must not carry a private
+ * column is now the SERVED DOCUMENT, and that is asserted in
+ * tests/db/beds_json_served.test.ts against the real payload (Bundle 1).
+ *
+ * WHAT THIS FILE ASSERTS NOW is the catalogue BEHIND that document: the three
+ * relations app.regenerate_snapshot() reads to build it. A private column
+ * arriving on one of them reaches the snapshot, and the snapshot reaches every
+ * visitor — so the hazard is unchanged even though nobody can read these tables
+ * directly any more.
+ *
+ * WHY A CHECKED-IN LIST AND NOT A DERIVED ONE. There is no grant, policy or
+ * publication membership left that picks out these three, because 018 removed
+ * all of them; deriving the corpus from any surviving catalogue predicate would
+ * be choosing a proxy and hoping it keeps agreeing. The literal list is the
+ * test-conventions section 3 pattern — it decays LOUDLY, because the identity
+ * assertion below reddens the moment a public table is added, renamed or
+ * dropped. That is the failure this file exists to catch: a new public table
+ * carrying a column nobody thought to forbid.
+ */
+const GENERATOR_SOURCE_RELATIONS = [
+  'public.facility_public',
+  'public.lga_rollup',
+  'public.ward_public',
+];
+
+/** Every base table in the exposed schemas, from the live catalogue. */
+async function publicBaseRelations(): Promise<string[]> {
   const rows = await sql()<{ table_schema: string; table_name: string }[]>`
-    select distinct table_schema, table_name
-      from information_schema.table_privileges
-     where grantee = 'anon'
-       and privilege_type = 'SELECT'
-       and table_schema = any(${EXPOSED_SCHEMAS})
-     order by table_schema, table_name
+    select c.relnamespace::regnamespace::text as table_schema, c.relname as table_name
+      from pg_class c
+      join pg_namespace n on n.oid = c.relnamespace
+     where c.relkind = 'r'
+       and n.nspname = any(${EXPOSED_SCHEMAS})
+     order by 1, 2
   `;
   return rows.map((r) => `${r.table_schema}.${r.table_name}`);
 }
 
 describe('anon column containment', () => {
-  test('the anon-readable set is exactly the three public mirrors', async () => {
-    // Anti-vacuity AND the assertion at once. If this returned an empty set, every
-    // containment check below would pass while proving nothing.
-    const relations = await anonReadableRelations();
-    expect(relations.sort()).toEqual([
-      'public.facility_public',
-      'public.lga_rollup',
-      'public.ward_public',
-    ]);
+  test('the generator source set is exactly the three public mirrors', async () => {
+    // Anti-vacuity AND the assertion at once, by IDENTITY rather than by count.
+    // public.snapshot_current is the fourth table in the schema and is excluded
+    // deliberately: it holds the already-encoded payload, is service_role-only,
+    // and its contents are asserted in tests/db/snapshot.test.ts and
+    // tests/db/beds_json_served.test.ts. Naming it here keeps its absence a
+    // decision rather than an oversight.
+    const relations = await publicBaseRelations();
+    expect(
+      relations.sort(),
+      'the set of public base tables changed — a new one must be classified before this suite can pass',
+    ).toEqual([...GENERATOR_SOURCE_RELATIONS, 'public.snapshot_current'].sort());
   });
+
 
   /**
    * The privilege SET, not merely its membership.
@@ -174,37 +226,62 @@ describe('anon column containment', () => {
    * `REVOKE ALL` then `GRANT SELECT` rather than a longer enumerated list: the
    * next privilege type Postgres adds is covered without anyone noticing it was
    * added.
+   *
+   * MIGRATION 018 INVERTS THE EXPECTED VALUE AND KEEPS THE HAZARD. The assertion
+   * was `rows.length === 3` and `privs === 'SELECT'` for each. 018 revokes that
+   * SELECT, so the correct expectation is now the EMPTY SET — for `authenticated`
+   * as well as `anon`, since 018 revoked from both.
+   *
+   * This is a TIGHTENING, not a relaxation, and the direction matters because a
+   * removed assertion is the thing Standard O calls a cardinal sin. The old form
+   * permitted exactly one privilege on exactly three tables and said nothing
+   * about any other public table; the new form permits NOTHING to either client
+   * role anywhere in the schema. The default-privileges hazard the docstring
+   * above describes is therefore covered MORE widely than before: a new public
+   * table arriving with the full default set is caught here, where previously it
+   * would have had to be one of the three named mirrors.
+   *
+   * The anti-vacuity problem this creates is real and is handled by the identity
+   * assertion at the top of this describe: an empty result here means something
+   * only because the corpus of public tables is separately pinned by name.
    */
-  test('anon holds exactly SELECT on each mirror — no TRIGGER, no REFERENCES, no writes', async () => {
-    const rows = await sql()<{ table_name: string; privs: string }[]>`
-      select table_name, string_agg(privilege_type, ',' order by privilege_type) as privs
+  test('no client role holds ANY privilege on any public table — no SELECT, no TRIGGER, no REFERENCES', async () => {
+    const rows = await sql()<{ grantee: string; table_name: string; privs: string }[]>`
+      select grantee, table_name, string_agg(privilege_type, ',' order by privilege_type) as privs
         from information_schema.table_privileges
-       where grantee = 'anon' and table_schema = 'public'
-       group by table_name
-       order by table_name
+       where grantee in ('anon', 'authenticated') and table_schema = 'public'
+       group by grantee, table_name
+       order by grantee, table_name
     `;
 
-    expect(rows.length, 'no mirror grants found — the assertion would be vacuous').toBe(3);
-    for (const row of rows) {
-      expect(row.privs, `anon holds more than SELECT on public.${row.table_name}`).toBe('SELECT');
-    }
+    expect(
+      rows.map((r) => `${r.grantee} holds ${r.privs} on public.${r.table_name}`),
+      'a client role still holds a privilege on a public table',
+    ).toEqual([]);
   });
 
-  test('no anon-readable relation exposes a forbidden column', async () => {
+  test('no generator source relation exposes a forbidden column', async () => {
+    // THE CORPUS CHANGED WITH 018 AND THE ASSERTION DID NOT.
+    //
+    // This subquery used to select the relations anon holds SELECT on. After 018
+    // that set is EMPTY, so `leaks` would be empty for a reason that has nothing
+    // to do with private columns, and this leg would have gone green forever over
+    // a corpus of zero relations. That is the exact shape test-conventions calls
+    // a guard that silently scanned nothing.
+    //
+    // The corpus is now the generator's sources, named at the top of this file
+    // and pinned by the identity assertion there. The hazard is unchanged: a
+    // forbidden column on one of these reaches the snapshot, and the snapshot
+    // reaches every visitor.
     const rows = await sql()<{ table_schema: string; table_name: string; column_name: string }[]>`
       select c.table_schema, c.table_name, c.column_name
         from information_schema.columns c
-       where (c.table_schema, c.table_name) in (
-             select distinct p.table_schema, p.table_name
-               from information_schema.table_privileges p
-              where p.grantee = 'anon' and p.privilege_type = 'SELECT'
-                and p.table_schema = any(${EXPOSED_SCHEMAS})
-       )
+       where (c.table_schema || '.' || c.table_name) = any(${GENERATOR_SOURCE_RELATIONS})
          and c.column_name = any(${[...FORBIDDEN_COLUMNS]})
     `;
 
     const leaks = rows.map((r) => `${r.table_schema}.${r.table_name}.${r.column_name}`);
-    expect(leaks, 'private columns are readable by anon').toEqual([]);
+    expect(leaks, 'private columns are present on a relation the snapshot is built from').toEqual([]);
   });
 
   test('ward_public column list regression — the frozen list is unchanged', async () => {

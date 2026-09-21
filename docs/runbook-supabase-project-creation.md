@@ -973,6 +973,34 @@ direct read path is closed is reading the wrong artefact.
 
 Apply it through this step like any other, then record the boundary below.
 
+#### STOP — `018_close_mirror_read_and_push_surfaces.down.sql` is never applied here on anyone's own authority
+
+**018 ships a full symmetric reversal, and applying it to the HOSTED project
+re-opens the boundary this step closes.** It restores `SELECT` on
+`public.facility_public`, `public.ward_public` and `public.lga_rollup` to `anon`
+and `authenticated`, and puts all three back into the `supabase_realtime`
+publication. The published key is in the browser bundle, so that is every visitor.
+
+`ward_public` carries per-ward bed counts and their update times. A caller who can
+poll it can accumulate the history this project does not publish, which is the
+whole reason Sprint A1 exists.
+
+- **The condition:** the hosted reversal is applied only under a founder ruling
+  that names the reason. Not to unblock a deploy, not to make a test pass, not
+  because a later migration failed and this looked like the way back.
+- **While it is applied, no facility agreement may carry a history-is-private
+  commitment.** If one already has been signed, the reversal is not available at
+  all until that is resolved — the commitment is about the hosted database, and
+  this makes it false.
+- **Locally it is ordinary.** `tests/db/migration_018_round_trip.test.ts` applies
+  it and puts it back on every run. The rule above is about the hosted project and
+  nothing else.
+
+**Nothing enforces this and nothing can** — a reversal is applied by a person with
+a database URL, and no check inside this repository sits between them and `psql`.
+The same paragraph is in the down file's own header, so it is met whether someone
+arrives here or opens that file first.
+
 **For the next apply (018) the count is 18**, with the apply's date and the
 ruling that records it written in before pasting. As printed below the date and
 ruling are placeholders, and the recorder refuses a malformed date, so an unedited

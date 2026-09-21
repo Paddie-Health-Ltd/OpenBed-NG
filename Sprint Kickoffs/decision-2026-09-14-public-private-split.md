@@ -2302,6 +2302,121 @@ The three are unchanged — A3 (`'(unknown facility)'` beside a real bed count),
 
 **I — the queue:** unchanged. The founder deploys the merge commit **once**, then runs read-back 5b and step 6 on that one deployment; the EVIDENCE gate is recorded lifted on that output; then 018.
 
+---
+
+### R-2026-09-21-46 — the pull requests batch again; the drift is recorded as the implementer's
+
+_No provisional letter; a direct founder instruction issued on merging #60._
+
+**A — THE FREEZE, IN THE FOUNDER'S FOUR CLAUSES.**
+
+1. **No new pull request** until the founder has deployed and quoted read-back 5b and step 6.
+2. **The next pull request is 018**, once the EVIDENCE gate lifts on that step-6 output.
+3. **Everything record-only batches into the 018 pull request** — rulings, open items, method notes, runbook wording, findings from the read-backs. **None of it gets a pull request of its own.** The only exception is a safety defect reachable by a real visitor today, **and it must be named as that exception when it is proposed**.
+4. **Cowork stops phrasing asks as "own PR"** unless it is that exception.
+
+**B — THIS IS T A4, AND IT IS BEING RESTATED BECAUSE IT WAS NOT FOLLOWED.** Method note 21 has said since 2026-09-20 that rulings batch. **Seven pull requests merged on 2026-09-21** — #54 `4803d20`, #55 `cf8bcd9`, #56 `b137dd1`, #57 `66829eb`, #58 `86c9125`, #59 `12e670b`, #60 `76fe917` — of which **one**, #59, changed anything a visitor could see. The rest were record and guard work that could have ridden together.
+
+**C — THE CAUSE IS RECORDED AS THE IMPLEMENTER'S, not the founder's.** The phrase *"its own PR"* appeared in the implementer's proposals, and the founder then ruled on the shape handed to them. **A ruling that arrives as a question about one pull request is answered as one pull request.** This is note 5 read in the other direction: the implementer proposes the mechanism, so a mechanism that multiplies pull requests is the implementer's to stop proposing.
+
+**D — THE COST, STATED SO THE RULE HAS A REASON AND NOT ONLY AN AUTHORITY.** Each pull request carries a full Standard O fresh-database attestation and a Standard P behavioural ledger. That is right for a change and is pure overhead for a paragraph. **And the stream hides the signal:** #59 deleted fabricated bed counts from a live public domain, and it arrived sixth of seven, indistinguishable in the list from a runbook wording fix.
+
+**E — the queue:** the founder's deploy and the two read-backs; then the EVIDENCE gate recorded lifted on that output; then 018, carrying this ruling and everything else pending.
+
+---
+
+### R-2026-09-21-47 — the EVIDENCE gate is LIFTED on the founder's quoted output; AA is closed in production
+
+_No provisional letter; the founder's read-back of 2026-09-21 evening, against deployment `76fe917`._
+
+**A — ALL FOUR OBSERVATIONS PASS.** The gate of R-2026-09-20-28 B, restated as four observations by Z part B (R-2026-09-21-40) and given its corrected observable by R-2026-09-21-42 E:
+
+| # | Observation | Verdict |
+|---|---|---|
+| 1 | The apex resolves to Cloudflare, not a TEST-NET-1 placeholder | **PASS** — CNAME to `openbed-public-dashboard.pages.dev`, proxied; the `A 192.0.2.1` row is gone |
+| 2 | `https://openbed.ng/beds.json` reaches the Function | **PASS** |
+| 3 | The edge headers on that URL | **PASS** |
+| 4 | A cache hit on that URL, second request inside 30s | **PASS** — `x-openbed-edge-cache: hit`, `HTTP/2 200`, `application/json; charset=utf-8`, both `cf-ray` codes `-CDG` |
+
+**The failing half was demonstrated in the same sitting:** the request after `sleep 40` reads `x-openbed-edge-cache: miss`, same URL, same artifact, opposite verdict (method note 23). `cf-cache-status: DYNAMIC` was quoted alongside and is neither a pass nor a fail — it is the zone CDN's verdict on a route the zone does not cache.
+
+**018 IS UNBLOCKED.** It is written in the same pull request that carries this ruling.
+
+**B — THE DEPLOYMENT, READ BACK.** `bash scripts/deploy_pages.sh --branch main`, deployment `99e56bc0`, `/version.json` reporting commit `76fe917933df113626dffacac585ed0e3f7bf3b4`, `dirty: false`, built `2026-09-21T17:31:36.867Z`. **MEASURED independently by the implementer** by fetching `openbed.ng/version.json` directly, not taken from the report.
+
+**C — AA IS CLOSED IN PRODUCTION, AND THAT IS A DIFFERENT CLAIM FROM #59 MERGING.** Under direct upload a merge changes nothing a visitor receives; `openbed.ng` served the pre-#57 bundle until this deploy. **MEASURED on the live artifact:** the served bundle is `/assets/index-Dm-dJTYN.js`, 15 204 bytes. Every string and number literal in `packages/fixtures/snapshot-golden.json` was extracted and searched for in it; the only survivors are six structural key names the codec needs — `facilities`, `wards`, `WARD`, `generated_at`, `server_now`, `comment`. **No invented facility name, no coordinates, no `+234` number, no `A_AND_E`, no `stubWards`, no `renderStub`.** Both the outage sentence and the distinct empty-state sentence are present.
+
+**D — READ-BACK 5b PASSES**, with the rendered text quoted by the founder: the outage notice, no bed count, no ward category, no facility name, no list item. With the block removed the empty state renders and is DIFFERENT TEXT — *"No facility has joined OpenBed yet"* against *"Live bed information can't be loaded right now"* — which is the distinction R-2026-09-20-29 E2 exists to enforce.
+
+**E — ORIGIN OFFLOAD IS MEASURED; PER-REQUEST ATTRIBUTION IS NOT. The difference is stated because the second is what a reader will assume from the first.**
+
+Cowork's corroboration was five origin reads in 17:30–17:50Z, all colo CDG, smallest gap 80s against a 30s TTL — consistent with offload, with request-to-log-line mapping NOT CONFIRMED because no request timestamps were captured.
+
+The implementer then ran a **timestamped triple** to close exactly that gap: `A` MISS at 17:48:57.3Z, `B` HIT at 17:48:58.3Z, `C` HIT at 17:48:59.3Z, all CDG. `edge_logs` for that window holds **one** origin read, at 17:48:58.439Z. **Three edge requests inside three seconds produced one origin read.**
+
+- **What that establishes independently of the marker:** the COUNT. Three requests, one read; two were served without the origin being touched. No interpretation of `x-openbed-edge-cache` is needed to say so.
+- **What it does NOT establish:** which request caused the read. It sits 1.1s after `A` and 0.14s after `B`, so the clock alone cannot separate them, and choosing `A` relies on `B`'s own `hit` marker. **Attribution stays NOT CONFIRMED**, exactly as Cowork had it.
+
+**A measurement of the instrument, taken by accident and worth keeping:** the 17:48:58.439Z line was ABSENT from `edge_logs` when queried at 17:51Z and PRESENT at 17:53Z. **Supabase `edge_logs` ingestion lags by minutes**, so a missing line is not evidence of a missing read, and any future probe reading that table must allow for it or it will manufacture a finding.
+
+**F — the queue:** 018 (this pull request); then the founder's hosted apply of 018, **where the boundary actually closes**; then the change that records that apply; then the infrastructure review; then Bundle 3.
+
+---
+
+### R-2026-09-21-48 — 018's two deferred decisions, answered; the reversal is exact and is guarded by prose
+
+_No provisional letter; founder decisions taken in the 018 planning turn._
+
+**A — `clientAddressableRelations` BECOMES EMPTY.** The kickoff's Bundle 2 blast radius and R-2026-09-21-39 C both deferred this to 018, calling it *"a decision, not a deletion"*. The founder's decision: **`[]`**. After 018 no relation is client-addressable; the public read path is `/beds.json` and the operator path is the RPCs.
+
+- **The lint does not become vacuous, and this is asserted rather than asserted-in-prose.** `scripts/lint_from_allowlist.sh` refuses when the UNION of `clientAddressableRelations` and `rpcs` is empty; the three RPC names keep it non-empty. **MEASURED:** `lint_from_allowlist.sh: PASS (5 files, 3 allowed relations)`.
+- **A new leg was added because 018 made the state reachable:** a positive control that the post-018 fixture shape is ACCEPTED, paired with a plant that `.from('ward_public')` is now REJECTED. That plant is the one leg whose verdict the migration flips.
+- **A citation error, caught by the behavioural pass and recorded as the implementer's.** While writing that leg the implementer added a sentence to the lint's header claiming the empty-union refusal *"was asserted by nothing"*, and added a duplicate leg for it. **It was already asserted** — `tests/compliance/bundle_guards.test.ts`, *"anti-vacuity — an allowlist that parses cleanly to NOTHING refuses to pass"*. The absence had been concluded after reading only the FIRST anti-vacuity leg. The duplicate was removed. **This is the confirm-absence-by-reading rule failing on its own terms**, and it is recorded because the original citation was correct and was "corrected" into a falsehood.
+
+**A2 — AN OPEN ITEM WITH A TRIGGER (method note 22).** Extend the lint to `.rpc(` call sites, which its own header names as NOT ASSERTED. **Trigger: the first `.from(` or `.rpc(` call site added under `apps/`.** **MEASURED today: there are none** — the guard is GUARD-AHEAD-OF-SUBJECT on both halves.
+
+**B — `018_close_mirror_read_and_push_surfaces.down.sql` IS A FULL SYMMETRIC REVERSAL** to the exact 017 state: the three mirrors back into `supabase_realtime`, and `SELECT` back to exactly `anon` and `authenticated`. Nothing broader.
+
+**B1 — WHY THIS DOES NOT CONTRADICT 013, whose down file withholds its reversal.** 013's forward migration ran a SWEEP and removed an **unenumerated default set**, so reversing it would have to GRANT `anon` access to the `app` schema that 013 never took away — a reversal that overshoots. **018 revokes an ENUMERATED set** — `SELECT`, three named relations, two named roles — so restoring precisely that cannot overshoot. The rule underneath both is one rule: *a reversal restores what its forward removed, and may not restore more.* 013 could not satisfy it and said so; 018 can. The distinction is written into the down file's header, because two files that appear to disagree about the same hazard teach the next reader to trust neither.
+
+**B2 — THE CONSEQUENCE IS STATED WHERE IT WILL BE MET, TWICE.** Applying the reversal on hosted re-opens `anon`/`authenticated` read of the mirrors, history included. **While it is applied, no facility agreement may carry a history-is-private commitment.** That sentence is in the down file's own header and again as a STOP block beside the hosted-apply step in `docs/runbook-supabase-project-creation.md`.
+
+**B3 — THE USE RULE, AND ITS HONEST LIMIT (Clause 4).** The reversal is never applied to the hosted project without a founder ruling naming the reason. **Nothing enforces this and nothing in this repository can:** a reversal is applied by a person with a database URL, and no check sits between them and `psql`. It is recorded in the weaker form the repository can execute — a named human step, in the two places that person will be reading.
+
+**B4 — THE ROUND TRIP IS TESTED WITH EXACT SETS IN BOTH DIRECTIONS**, in `tests/db/migration_018_round_trip.test.ts`: publication membership and the `anon`/`authenticated`/`service_role` grant sets equal 017 exactly after `down`, and 018 exactly after the second `up`, with the ledger row asserted in both directions. `service_role` is in the snapshot deliberately, because neither direction mentions it and it must be byte-identical throughout.
+
+**B5 — A PLANT WAS WRITTEN, DID NOT DISCRIMINATE, AND THE REASON IS RECORDED RATHER THAN THE LEG BEING QUIETLY DROPPED.** Three overshoot shapes were tried against the exact-set assertions:
+
+- **`GRANT ALL` where the forward revoked `SELECT`** — caught.
+- **The reversal handing back a FOURTH relation, `public.snapshot_current`** — caught. That table is `service_role`-only and holds the entire encoded payload, and it sits one comma from the three mirrors.
+- **`TO anon, authenticated, service_role`, the three-role form Supabase's own defaults use** — **NOT caught, and it is not a defect.** `service_role` already holds `ALL` on the mirrors, so granting it `SELECT` is a true no-op and the database is not one privilege wider. **The plant was wrong, not the guard** — the same finding this repository has now recorded four times — and the shape is named in the test file so nobody rediscovers it as a hole.
+
+**C — THE PRE-CONDITION THE FOUNDER SET WAS DISCHARGED BEFORE THE MIGRATION WAS WRITTEN.** *Confirm no production read path depends on `anon` or `authenticated` SELECT on the mirrors; name every reader and its role; if any does, stop and report.* Every reader, enumerated from the source:
+
+| Reader | Reads | Runs as |
+|---|---|---|
+| `app.regenerate_snapshot()` (016) | `facility_public`, `ward_public` | SECURITY DEFINER |
+| `app.publish_ward_status()` (014) | `ward_public` | SECURITY DEFINER |
+| `app.refresh_lga_rollup()` (017) | writes `lga_rollup` | SECURITY DEFINER, `row_security = off` |
+| `app.project_facility()` (008) | writes all three | SECURITY DEFINER |
+| The Pages Function (`packages/snapshot/src/serve.ts`) | `public.snapshot_current` only | `service_role` |
+| `public.my_facility_wards()` (011) | `app.*` base tables only | SECURITY DEFINER, EXECUTE to `authenticated` |
+| Client code under `apps/` | nothing | **no `.from(` or `.rpc(` call site exists** |
+
+**Nothing to stop and report.** The only call sites reading a mirror as `authenticated` over HTTP are three TESTS, and they are re-pointed inside this change (R-2026-09-19-24 B4).
+
+**C2 — RE-POINTING THOSE THREE PRODUCED A FINDING ABOUT THE PROBES THEMSELVES.** All three proved *"a GoTrue-issued token authenticates a PostgREST request"* by reading `ward_public` and asserting 200. **Before 018, `anon` also held `SELECT` on `ward_public`** — so a request carrying only the `apikey` and no bearer token returned 200 too. **The assertion could not tell an authenticated session from no session at all;** it ruled out only a malformed token, which PostgREST refuses with 401. Re-pointed to `rpc/my_facility_wards`, whose EXECUTE is granted to `authenticated` and revoked from `anon` by name, the probes are **strictly stronger than what they replace**. Two of them name the exact signal `NOT_A_MEMBER` rather than a status, because `my_facility_wards` raises the neighbouring `NOT_AUTHENTICATED` with the same SQLSTATE and the same HTTP 403 — so the status alone would not discriminate, and the message is the assertion.
+
+**D — WHAT 018 DELIBERATELY DOES NOT DO**, so the boundary is not overclaimed: the three `*_anon_select` RLS policies from 007 are left in place. A policy only runs for a role that has already passed the privilege check, so they are unreachable, not wrong; dropping them would be a second change wearing this one's clothes, and `tests/db/rls_anon_writes_rejected.test.ts` asserts all four public policies by name.
+
+**E — AN OPEN ITEM FOUND WHILE RUNNING THE GATE, NOT CREATED BY THIS CHANGE (method note 22).** `npm run lint` reports **67 errors, all of them inside `apps/public-dashboard/.wrangler/tmp/…/functionsWorker-*.js`** — a wrangler build artifact. It is gitignored (`.gitignore:42`) and is in no diff, but ESLint's own ignore list does not exclude `.wrangler/`, so **anyone who builds before linting sees 67 errors in code nobody wrote.** CI does not see it because `repo-lint` and the build run in different jobs with different workspaces, which is why it has survived.
+
+**It is noise, and noise in a gate is how a real error gets scrolled past.** Not fixed here: it touches the lint config, which is the trigger of an existing open item (the F3 ESLint Date guard), and both should move together. **Trigger: the next change that touches the ESLint configuration.**
+
+**E2 — the honest form of the self-check line.** The pipeline's self-check asks for *no new lint errors*. The accurate statement for this change is: **no new lint errors in any tracked file; 67 pre-existing errors in a gitignored build artifact, unchanged by this diff and reproducible on `main` by building first.** Writing "no new lint errors" without that clause would be true and would read as "the lint is clean", which it is not.
+
+**F — the queue:** unchanged from `-47 F`.
+
 
 ## The provisional ledger
 
@@ -2339,6 +2454,9 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | — (none issued) | R-2026-09-21-43 | 2026-09-21 | **No provisional letter.** Cowork's confirmation of -42 §C with one condition, plus two consequence checks. The condition — follow every corrected reason to what it justified — is discharged in A. |
 | AA | R-2026-09-21-44 | 2026-09-21 | The founder's patient-safety exception to T. First ruling this run to carry a provisional letter since Z. |
 | — (none issued) | R-2026-09-21-45 | 2026-09-21 | A direct founder instruction following AA: the go-live trigger becomes a row, and moves onto the path that creates it. |
+| — (none issued) | R-2026-09-21-46 | 2026-09-21 | **No provisional letter.** The founder's PR freeze, issued on merging #60: T A4 restated after seven pull requests in one day. The drift's cause is recorded as the implementer's. |
+| — (none issued) | R-2026-09-21-47 | 2026-09-21 | **No provisional letter.** The founder's EVIDENCE-gate read-back on deployment `76fe917`. All four observations pass; 018 unblocked; AA closed in production rather than only on `main`. |
+| — (none issued) | R-2026-09-21-48 | 2026-09-21 | **No provisional letter.** The two decisions 018 was carrying unanswered — the empty allowlist and the exact reversal — plus the pre-condition the founder set before the migration could be written. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -2535,6 +2653,42 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-21, R-2026-09-21-48: 018's two deferred decisions answered —
+  `clientAddressableRelations` becomes empty, and the reversal is exact rather than
+  withheld as 013's was — with the pre-condition discharged by enumerating every
+  reader of the mirrors and its role, and with two findings recorded against the
+  implementer's own work: a correct citation "corrected" into a falsehood after a
+  partial read, and a plant that did not discriminate because the grant it planted
+  was a no-op;
+- on 2026-09-21, R-2026-09-21-47: the EVIDENCE gate on 018 LIFTED on the founder's
+  quoted read-back against deployment `76fe917`, all four observations passing with
+  the failing half demonstrated in the same sitting; AA recorded closed in
+  PRODUCTION as distinct from merged, measured on the live bundle; origin offload
+  measured as three edge requests to one origin read, with per-request attribution
+  left NOT CONFIRMED and `edge_logs` ingestion lag measured at minutes;
+- on 2026-09-21, R-2026-09-21-46: the pull-request freeze — T A4 restated after
+  seven pull requests in one day, of which one changed anything a visitor could
+  see, with the cause recorded as the implementer's own framing rather than the
+  founder's rulings;
+- on 2026-09-21, R-2026-09-21-45: the go-live trigger becomes a row rather than an
+  occasion — before the FIRST hosted `app.facility` or `app.ward_account` row —
+  placed on the provisioning script and in the hosted runbook as section 4b, with
+  the facility-creation premise found false on checking and recorded as an open
+  item, and the mechanical guard proposed rather than built;
+- on 2026-09-21, R-2026-09-21-44 (issued as R-PROVISIONAL-2026-09-21-AA): invented
+  bed counts were reaching real visitors on the live public domain, and the example
+  data is deleted rather than guarded; the `golden` fixture moved out of the module
+  the browser bundle inlines; scope held to what can reach a person today, with the
+  rest becoming hard pre-facility-one gates;
+- on 2026-09-21, R-2026-09-21-43: every corrected reason followed to the instruction
+  it justified, with any instruction left without a reason flagged rather than
+  silently kept or deleted; the stale-while-revalidate consequence sweep across the
+  named sites; and the same-data-centre `cf-ray` precondition added to step 6 after
+  six colos were observed in one day;
+- on 2026-09-21, R-2026-09-21-42: the cache step had no observable that could take
+  two values — `cf-cache-status` reads DYNAMIC on a route with no Function at all —
+  so the Function now marks every response with `x-openbed-edge-cache` and the gate
+  is lifted on the property rather than reinterpreted;
 - on 2026-09-21, R-2026-09-21-41 (issued inside R-PROVISIONAL-2026-09-21-Z, part
   D1): the design constraint that roles stay table lookups enforced in definer
   functions and the custom access token hook stays off, **verified against the code

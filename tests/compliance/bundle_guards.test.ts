@@ -442,6 +442,52 @@ describe('from() allowlist guard', () => {
     });
   });
 
+  // MIGRATION 018 MAKES ONE HALF OF THE ALLOWLIST EMPTY, and the pair below is
+  // what keeps that from being mistaken for a broken fixture in either
+  // direction. Until 018 `clientAddressableRelations` always named three
+  // relations, so "the relation half is empty" was not a state this guard had
+  // ever been shown in.
+  //
+  // WHAT IS ALREADY COVERED AND IS NOT REPEATED HERE: an allowlist whose two
+  // halves are BOTH empty is asserted further down — "an allowlist that parses
+  // cleanly to NOTHING refuses to pass". That leg is the union being empty. The
+  // pair below is about the union being NON-empty while one half is empty, which
+  // is a different branch and the one 018 actually produces.
+  test('positive control — the post-018 shape, an empty relation half with RPCs, is accepted', () => {
+    withScratch((root) => {
+      // THE MOST ORDINARY VALID INPUT after 018, which test-conventions requires
+      // every input-parsing guard to carry. Without it, a lint that refused ANY
+      // empty array would satisfy the both-empty leg below AND reject the real
+      // fixture — and a guard that refuses legitimate input is the one the next
+      // person disables.
+      place(root, 'packages/fixtures/public-relations.json', JSON.stringify({
+        clientAddressableRelations: [],
+        rpcs: ['my_facility_wards', 'ward_status_history', 'publish_ward_status'],
+      }));
+      place(root, 'apps/x/src/query.ts', "const q = await fetchJson('/beds.json');");
+      const res = runLint(LINT, root);
+      expect(res.status, `the real post-018 allowlist shape was refused:\n${res.stdout}`).toBe(0);
+    });
+  });
+
+  test('plant — with the relation half empty, a mirror in client code is rejected', () => {
+    withScratch((root) => {
+      // The post-018 agreement, asserted rather than assumed: what the database
+      // refuses, the lint refuses. This exact query is ACCEPTED by the
+      // positive-control leg above that scaffolds the three mirrors, so this is
+      // the leg whose verdict the migration flips — and the only one that shows
+      // emptying the relation half did anything at all.
+      place(root, 'packages/fixtures/public-relations.json', JSON.stringify({
+        clientAddressableRelations: [],
+        rpcs: ['my_facility_wards', 'ward_status_history', 'publish_ward_status'],
+      }));
+      place(root, 'apps/x/src/query.ts', "const q = db.from('ward_public').select('facility_id,category,bed_count');");
+      const res = runLint(LINT, root);
+      expect(res.status, `a revoked mirror was still accepted in client code:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'a DIFFERENT rule fired than the one this plant targets').toContain('is not on the public allowlist');
+    });
+  });
+
   test('anti-vacuity — a missing allowlist FAILS rather than allowing everything', () => {
     withScratch((root) => {
       place(root, 'apps/x/src/query.ts', "const q = db.from('anything').select('x');");
