@@ -10,6 +10,17 @@
  * 2026-09-18 (200 with the expected headers at /beds.json; /beds fell through to
  * the SPA), not inferred from the documentation.
  *
+ * THAT PROOF WAS GET-ONLY, AND THE GAP IT LEFT WAS MEASURED, NOT INFERRED. On
+ * 2026-09-21, against the deployed artifact, `HEAD /beds.json` returned 200 with
+ * `content-type: text/html` -- the SPA's index, served as a fallback because the
+ * only export here matched GET. It therefore carried NEITHER of the headers this
+ * route exists to set: no `cache-control: public, s-maxage=30`, and only the
+ * site-wide `x-robots-tag: noindex` instead of this module's `noindex, nofollow`.
+ * The route answered differently by method, and some crawlers and monitors issue
+ * HEAD. A control path confirmed the mechanism: an invented path with no Function
+ * at all answered HEAD identically, so the fallback -- not a method-specific
+ * refusal by the Functions router -- is what was replying.
+ *
  * THE CACHE IS EXPLICIT. A Function's response is not cached by the CDN from its
  * Cache-Control header alone; `caches.default` is how it gets there. See
  * serveBedsCached in serve.ts for what that covers and what it does not -- in
@@ -32,3 +43,20 @@ export const onRequestGet = (context: PagesContext): Promise<Response> => {
   const edge = (globalThis as { caches?: { default?: EdgeCache } }).caches?.default;
   return serveBedsCached(context, edge);
 };
+
+/**
+ * HEAD IS THE SAME READ, AND IT IS AN EXPORT RATHER THAN A ROUTER DEFAULT.
+ *
+ * Pages matches handlers by method, so without this line a HEAD does not reach
+ * this module at all and the SPA fallback answers it untagged (see above).
+ *
+ * This alias is SAFE ONLY BECAUSE serveBedsCached NORMALISES ITS CACHE KEY TO A
+ * GET. Cloudflare's Cache API reference states `cache.put` throws for any non-GET
+ * request, so aliasing HEAD onto a handler that keyed the cache on the incoming
+ * request would throw on every HEAD. Read serveBedsCached before changing either
+ * half; they are one mechanism in two files (R-2026-09-21-W A2).
+ *
+ * The runtime omits the body for a HEAD; tests/db/beds_json_served.test.ts asserts
+ * that rather than assuming it (W A4).
+ */
+export const onRequestHead = onRequestGet;

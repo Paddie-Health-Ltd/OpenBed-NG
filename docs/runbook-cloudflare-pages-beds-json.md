@@ -390,7 +390,8 @@ fourth added by R-2026-09-20-30, which also made it a READING):**
      matches no commit. Report it as a failed deployment, say how the deploy was run,
      and deploy again from a clean tree through the wrapper.
 
-**AND READ BACK THREE THINGS FROM THE DEPLOYED SITE (R-2026-09-20-31 C).** This
+**AND READ BACK FOUR THINGS FROM THE DEPLOYED SITE (R-2026-09-20-31 C; a fourth
+added by R-2026-09-21-W A6).** This
 deploy is what closes the empty-city hazard, and the only evidence so far that the
 empty state reads correctly is a CI assertion over what the CODE produces. **That
 proves the code, not the artifact** — the same reason the cache headers are observed
@@ -400,12 +401,47 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    and copy the sentence on the page. It must say that no facility has joined and
    that this is **not** a report that beds are unavailable. **An empty list, a bare
    zero, or a blank panel is a FAILED deployment**, whatever the build said.
-6. **`X-Robots-Tag` on `/beds.json`** — `curl -sSI <url>/beds.json` and paste the
-   header lines.
+6. **`X-Robots-Tag` and `Content-Type` on `/beds.json`, READ WITH A GET.** Paste the
+   header lines. They must read `application/json; charset=utf-8` and
+   `noindex, nofollow`.
+
+   The first line waits for you to paste the DEPLOYMENT URL — this step runs on the
+   `*.pages.dev` alias, so it does not reuse the custom-domain variable set in the
+   edge-headers step above.
+
+   ```bash
+   read -r DEPLOY_URL
+   curl -sS -o /dev/null -D - "$DEPLOY_URL/beds.json" | grep -i -E '^HTTP|^content-type|^x-robots-tag'
+   ```
+
+   **This step said `curl -sSI` until 2026-09-21, and `-I` sends a HEAD.** At that
+   moment `/beds.json` had no HEAD handler, so the HEAD was answered by the SPA
+   fallback: the step read `content-type: text/html` and the site-wide
+   `x-robots-tag: noindex` off the wrong response entirely, and a reader ticking the
+   box would have certified a header the Function never sent. A probe that reports
+   success for a reason unrelated to what it guards — the shape this project keeps
+   finding. Fixed here, and step 8 is what stops it recurring silently.
+
 7. **`/robots.txt` returning ROBOTS CONTENT, not the SPA fallback.** Fetch it and
    paste the body. Before 2026-09-20 that path returned the site's `index.html` with
    a 200, which tells a crawler nothing, so this is fetched and read rather than
    inferred from the file being in `dist`.
+8. **GET AND HEAD MUST AGREE ON `/beds.json`.** Run both and paste both. The two must
+   return the SAME `content-type` and the SAME `x-robots-tag`; only the body differs,
+   because a HEAD has none.
+
+   ```bash
+   read -r DEPLOY_URL
+   for M in GET HEAD; do
+     echo "--- $M ---"
+     curl -sS -o /dev/null -X "$M" -D - "$DEPLOY_URL/beds.json" | grep -i -E '^HTTP|^content-type|^x-robots-tag|^cache-control'
+   done
+   ```
+
+   **`text/html` on either is a FAILED deployment**, and specifically means that
+   method fell through to the SPA fallback. Some crawlers and monitors issue HEAD, so
+   a route that answers differently by method hands them an untagged HTML document
+   where a `noindex, nofollow` JSON one was intended.
 
 > **These read-backs are on the `*.pages.dev` deployment URL or alias, because the
 > custom-domain cutover is HELD. They do NOT discharge the edge-headers step**, which

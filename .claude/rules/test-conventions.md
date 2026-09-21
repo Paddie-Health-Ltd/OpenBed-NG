@@ -626,6 +626,35 @@ behaviour by `tests/compliance/runner_aggregation.test.ts`. Neither can check
 HOW a script is invoked: `zsh scripts/x.sh` ignores the shebang, and nothing in
 a file can stop it.
 
+### Invented here: confirm the plant mutated THE PATH UNDER TEST, not just the file (2026-09-21)
+
+The 2026-09-09 entry above requires confirming a plant actually mutated the
+artefact before concluding the guard missed it. **That is necessary and it is not
+sufficient.** A plant can change the file, pass a byte-level `cmp`, and still
+leave the executed path untouched — at which point the guard correctly reports
+nothing wrong, and the evidence looks exactly like a hole.
+
+Observed 2026-09-21, planting R-2026-09-20-33 B4's widened `try` against
+`serveBedsCached`. The plant inserted the origin read inside the `try` but
+**after an early `return`**, on a branch the planted cache exception skips
+entirely. The file differed; the exercised path did not. The leg passed, and the
+first reading was *the load-bearing plant does not discriminate* — a conclusion
+about the test, drawn from a defect in the plant.
+
+**The rule:** a PLANT leg names the line it expects to execute differently, and
+the confirmation is that the behaviour changed, not that the bytes did. Where the
+plant targets a branch, assert the branch was reached — a call count, a logged
+message, a recorded key — rather than inferring it from the diff.
+
+**What it cost to get right, and what it bought.** Re-planted correctly, in two
+realistic shapes, the leg reds as designed. It also produced a finding the
+behavioural plant could never have produced on its own: **`serveBeds` is total** —
+it catches its own exceptions and always returns a `Response` — so a widened
+`catch` that merely re-runs it is invisible to every behavioural assertion in the
+block, and is named as NOT ASSERTED rather than papered over. **Three widened
+shapes, two caught and one uncatchable, is a more honest report than one plant
+and a green.**
+
 Conventions deliberately **not** ported, so nobody re-derives them by accident:
 
 - The `requires_real_db` fixture gating: here, a `db` test that cannot reach the

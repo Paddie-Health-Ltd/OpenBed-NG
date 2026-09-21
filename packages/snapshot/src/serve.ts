@@ -31,14 +31,37 @@
  * A failure is never cached, so the next request retries the origin rather than
  * serving the failure for the life of `s-maxage`.
  *
+ * THE FIFTH OUTCOME, AND WHY THE LIST NO LONGER NEEDS IT. An exception raised by
+ * the edge cache itself was neither served nor refused: serveBedsCached's cache
+ * calls sat outside any try, so it escaped failure() and reached the client as an
+ * unhandled Function exception carrying none of the headers above -- no
+ * X-Robots-Tag, no no-store. That is the defect R-2026-09-20-32 B3-bis reported
+ * and R-2026-09-20-33 ruled. It is closed below: a cache read that throws is a
+ * miss, a cache write that throws is skipped, and either way the response served
+ * is the one this module built. The outcome stops existing rather than joining
+ * the list.
+ *
  * WHAT THIS DOES NOT DO, by ruling. It does not rate-limit. The Cloudflare Rate
  * Limiting binding is a Workers feature and is absent from the Pages Functions
  * binding list (R-2026-09-17-12); the limit is a founder-configured zone WAF
  * rule, recorded OWED in docs/runbook-cloudflare-pages-beds-json.md.
  *
- * NO WALL CLOCK. packages/snapshot/src/** is inside the ESLint Date ban (finding
- * F3). Freshness comes from the payload's own `server_now`; this module reads no
- * clock, and its timeout is an AbortSignal, not a timestamp comparison.
+ * NO WALL CLOCK -- BY CONSTRUCTION, NOT BY ENFORCEMENT. Freshness comes from the
+ * payload's own `server_now`; this module reads no clock, and its timeout is an
+ * AbortSignal, not a timestamp comparison.
+ *
+ * THIS PARAGRAPH USED TO CLAIM THIS DIRECTORY WAS "inside the ESLint Date ban
+ * (finding F3)". THERE IS NO SUCH RULE, and the claim is corrected here rather
+ * than left standing (Clause 4, discharge route 2 -- the weaker form the repo can
+ * actually execute). eslint.config.mjs carries only the F2 duty-flag block; the
+ * one F3 control that is a Date ban lives in tests/compliance/freshness_bands.test.ts
+ * and is a regex over freshness.ts ALONE -- that file also reads anchor.ts, but for
+ * an annotation count, which is not a clock check -- so nothing reaches this file;
+ * and the rule itself
+ * is specified-and-unbuilt in
+ * Sprint Kickoffs/sprint-kickoff-bedspace-v2-2026-09-10.md. A `Date.now()` added
+ * to this file today would pass lint, CI and every compliance test. Building the
+ * guard is an open item with a trigger, not this change.
  */
 import { decodeFacility, decodeWard } from './codec.js';
 import shape from '../../fixtures/snapshot-shape.json';
@@ -276,7 +299,7 @@ export async function fetchNewestSnapshot(
  * cache, so the next request retries the origin.
  */
 export interface EdgeCache {
-  match(request: Request): Promise<Response | undefined>;
+  match(request: Request, options?: { ignoreMethod?: boolean }): Promise<Response | undefined>;
   put(request: Request, response: Response): Promise<void>;
 }
 
@@ -285,17 +308,84 @@ export async function serveBedsCached(
   cache: EdgeCache | undefined,
   fetchImpl: FetchLike = fetch,
 ): Promise<Response> {
+  /*
+   * THE KEY IS ALWAYS A GET, WHATEVER METHOD ARRIVED ON THE WIRE.
+   *
+   * Cloudflare's Cache API reference states that `cache.put` THROWS for a request
+   * whose method is anything other than GET. Keying on `ctx.request` therefore
+   * made a HEAD throw on every single request once HEAD started reaching this
+   * function -- routinely, into the catch below, which exists for the rare case.
+   * An exception log that fires on ordinary traffic is how the genuinely unusual
+   * ones get ignored (R-2026-09-21-W A3).
+   *
+   * Normalising the key also gives GET and HEAD ONE shared entry, which is what
+   * the HTTP semantics want: a HEAD is a GET without the body.
+   */
+  const key = new Request(ctx.request.url, { method: 'GET' });
+
+  /*
+   * A HEAD RESPONSE CARRIES HEADERS ONLY, AND THIS MODULE STRIPS THE BODY ITSELF.
+   *
+   * The runtime is expected to drop a body on a HEAD, but "expected to" is not an
+   * assertion, and the stripping is exactly the sort of thing that is true on one
+   * platform and quietly not on another. Doing it here makes it a property of this
+   * code, which tests/db/beds_json_served.test.ts can hold it to (R-2026-09-21-W
+   * A4). The headers -- content-type, cache-control, x-robots-tag -- are preserved
+   * exactly, which is the whole point of routing HEAD here in the first place.
+   *
+   * Note this is applied to what is RETURNED, never to what is STORED: the cache
+   * always receives the full-bodied response under the GET key, so a HEAD can
+   * populate an entry that a later GET reads with its body intact.
+   */
+  const asRequested = (r: Response): Response =>
+    ctx.request.method === 'HEAD'
+      ? new Response(null, { status: r.status, statusText: r.statusText, headers: r.headers })
+      : r;
+
   if (cache) {
-    const hit = await cache.match(ctx.request);
-    if (hit) return hit;
+    /*
+     * ONLY THE CACHE CALL IS INSIDE THIS TRY, AND IT MUST STAY THAT WAY.
+     *
+     * Do not widen it to cover `serveBeds` below. A catch spanning the origin
+     * read would convert a real failure into a cache miss and suppress exactly
+     * what failure() exists to tag -- a worse version of the defect this try
+     * closes (R-2026-09-20-33 B4). A cache is an optimisation; its failure must
+     * never become the visitor's failure, and it must never hide the origin's.
+     */
+    try {
+      const hit = await cache.match(key, { ignoreMethod: true });
+      if (hit) return asRequested(hit);
+    } catch (e) {
+      // Invisible to the client BY DESIGN (R-2026-09-20-33 B5): a read that
+      // throws is simply a miss, and a miss goes to the origin.
+      console.error('beds.json: the edge cache read failed; treating it as a miss', e);
+    }
   }
+
   const res = await serveBeds(ctx.env, fetchImpl);
+
   if (cache && res.status === 200) {
-    const stored = cache.put(ctx.request, res.clone());
-    if (ctx.waitUntil) ctx.waitUntil(stored);
-    else await stored;
+    /*
+     * A write that throws costs the cache hit and nothing else -- the response is
+     * already built and is returned either way.
+     *
+     * The rejection is handled on the PROMISE rather than only by the try, because
+     * on the waitUntil path nothing awaits it here: an async rejection would then
+     * escape this try entirely and become an unhandled rejection. The try still
+     * wraps the call for a SYNCHRONOUS throw. Both shapes are covered because the
+     * reference does not say which one `put` uses.
+     */
+    try {
+      const stored = cache.put(key, res.clone()).catch((e: unknown) => {
+        console.error('beds.json: the edge cache write failed; serving the response uncached', e);
+      });
+      if (ctx.waitUntil) ctx.waitUntil(stored);
+      else await stored;
+    } catch (e) {
+      console.error('beds.json: the edge cache write threw; serving the response uncached', e);
+    }
   }
-  return res;
+  return asRequested(res);
 }
 
 /** The whole request: environment checked, row read, response built. */
