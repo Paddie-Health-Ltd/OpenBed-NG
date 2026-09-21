@@ -1925,6 +1925,30 @@ _Issued as R-PROVISIONAL-2026-09-21-W. Number assigned from the record's last as
 
 **C — the queue:** as -36 C, with this change now carrying -34, -35, -36 and this block.
 
+> **DEPLOYED 2026-09-21, by note rather than by rewriting (method note 8).** The
+> founder deployed the merge commit `4803d20a3e6c74ae434a464e65575a50f44bdb63`
+> through `bash scripts/deploy_pages.sh --branch main` to the artifact
+> `https://50a0ea4d.openbed-public-dashboard.pages.dev`, and reported all five
+> clauses. **Independently re-measured against that artifact before this note was
+> written** (method note 2, as widened by R-2026-09-19-23): `/version.json` reads
+> that commit with `dirty: false`; GET and HEAD on `/beds.json` BOTH return
+> `HTTP/2 200`, `application/json; charset=utf-8`,
+> `public, s-maxage=30, stale-while-revalidate=300` and `noindex, nofollow`;
+> `/robots.txt` returns `text/plain` robots content. **The pre-fix control no longer
+> reproduces** — on the earlier artifact `d9b7669e` a HEAD still returns
+> `text/html`, which is what makes the agreement above mean something.
+>
+> The empty state reads, verbatim as rendered: *"No facility has joined OpenBed yet,
+> so there is nothing to show. This is NOT a report that beds are unavailable — no
+> hospital has told us anything either way. Call the facility directly, or 112 / 767
+> in an emergency."* It states both required facts and is not an empty list, a bare
+> zero or a blank panel.
+>
+> **SCOPE, because this is the distinction the report itself insists on: this is
+> `*.pages.dev` evidence ONLY.** It discharges neither the custom-domain
+> edge-headers step nor the EVIDENCE gate on 018 (R-2026-09-21-40 B). **`main`
+> moving past `4803d20` does not reopen this** — the report names its own commit.
+
 
 ### R-2026-09-21-38 — #54 merged and read back; the post-merge checks discharged; three open items given triggers
 
@@ -1985,6 +2009,78 @@ _Issued as R-PROVISIONAL-2026-09-21-Y. Number assigned from the record's last as
 **C — the queue:** as -38 C.
 
 
+### R-2026-09-21-40 — the EVIDENCE gate restated as four observations; a probe that belonged to the category it was written to catch
+
+_Issued as R-PROVISIONAL-2026-09-21-Z, with its addendum and an amendment to part B. Number assigned from the record's last as read on merged `main` (`cf8bcd9`): R-2026-09-21-39._
+
+**A1 — COWORK'S PART B WAS WITHDRAWN BY COWORK, AND THE ERROR IS RECORDED AS IT WAS STATED.** Z B first sequenced 018 directly after the split, on the handoff's statement that Bundle 2's gate was discharged. **That covered the deployment report only.** The EVIDENCE gate of R-2026-09-20-28 B is a different gate, it is unmet, and it **stands as worded** — it is not reinterpreted, and R-2026-09-20-36 A3 does not discharge it.
+
+**A2 — BOTH TEXTS WERE READ BY THE IMPLEMENTER BEFORE THIS WAS RECORDED**, rather than paraphrased from memory, because the whole failure above was a gate paraphrased from a handoff. R-2026-09-20-28 B names **three** conditions, not the two the kickoff's summary carries: *"the cache criterion is OWED, the custom-domain cutover has not happened, **and the one DNS reading taken showed the apex on a TEST-NET-1 placeholder**."*
+
+**B — THE EVIDENCE GATE, AS FOUR OBSERVATIONS. All four are on `openbed.ng`; none can be taken on a `*.pages.dev` host.**
+
+1. **The apex resolves to Cloudflare** — not to a `192.0.2.x` TEST-NET-1 placeholder.
+2. **The custom-domain cutover is done:** `https://openbed.ng/beds.json` reaches the Function.
+3. **The edge headers on that URL:** `HTTP/2 200`, `content-type: application/json; charset=utf-8`, `cache-control: public, s-maxage=30, stale-while-revalidate=300`, and a body that does **not** begin `{"error":`.
+4. **A cache hit on that URL:** two requests inside 30 seconds, the **second** reading `cf-cache-status: HIT`, **together with `HTTP/2 200` and the JSON content-type**.
+
+**018 is not written until those are quoted back.** The 2026-09-21 deployment report is `*.pages.dev` evidence and discharges none of them.
+
+**B2 — WHY THE PROBE FIX HAD TO COME FIRST, and this is the substance rather than the ordering.** Observation 4 is taken with runbook step 6, and **step 6 was the most defective probe in the file**. It grepped `cf-cache-status` alone. A lone `HIT` is satisfied by the SPA fallback (a missing Function is answered by `index.html` as a static asset, which the ordinary CDN caches and marks `HIT`), by a cached 404, and by a failure response. **The gate would have been discharged by a probe that cannot see what it claims to check.**
+
+**C — A PROBE WRITTEN TO CATCH A CATEGORY BELONGED TO THAT CATEGORY. The finding is accepted as MEASURED and the numbers are the implementer's own.**
+
+- `curl -X HEAD` **failed 8 of 8 runs** against a correct server, with `curl: (18) transfer closed with 135 bytes remaining to read`; `curl -I` passed 8 of 8. `-X` overrides the method string but leaves curl expecting the body that `content-length` promises and a correct HEAD never sends.
+- **The direction of the failure is the finding.** `-X HEAD` returned **exit 0 against the PRE-FIX artifact**, because the SPA fallback sent a real body for curl to consume. **The probe worked only while the defect it guards existed, and broke the moment the fix was correct.**
+- **It shipped inside the change whose commit message named this exact shape**, three paragraphs from the narration of the `-I` bug it was replacing.
+
+**C2 — AND THE CRITERION WAS WRONG, not only the flag.** Step 8 said the stop condition was that GET and HEAD **agree**. Measured 2026-09-21: `/nonexistent-path`, which has no Function at all, returns `text/html` for **both** methods. **A parity test passes on a route that lost its Function entirely**, because a fallback is perfectly consistent across methods. Two `500`s agree on every header `failure()` sets. The step also grepped `^cache-control` while naming **no expected value**, so `no-store` — the failure header — passed. **The stop condition is now the exact absolute values under both headings**, which is this record's own standing rule: name the pass by its values, never by a negation or a relation.
+
+**D — THE SWEEP OF THE REST OF THE FILE, ordered by how likely each is to report success while the thing it guards is broken.** All are fixed in this change, because all are in the same file.
+
+1. **Step 6, cache hit** — see B2. Now requires `HTTP 200` and the JSON content-type alongside `HIT`, and **states what `cf-cache-status` can never distinguish: the Function's own Cache API from the zone's ordinary CDN cache.**
+2. **Read-back 6 — the implementer's own, written the same day.** Its stated PASS was `application/json; charset=utf-8` plus `noindex, nofollow`, and **`failure()` emits exactly those two headers**, so a 500, 502 or 503 satisfied it verbatim. The status line was printed and the prose never said what it must read. Now requires `HTTP 200` and a body read rejecting `{"error":`.
+3. **Reporting clause 4** — it named the property *"the commit will not be an ancestor of `main`"* and **supplied no operation that decides it**; `merge-base` appeared nowhere in the document. It had no command at all, so a missing `/version.json` answered by the SPA's `index.html` with a 200 passed, exactly as `/robots.txt` did before 2026-09-20 — same directory, same fallback. Its only stated signal was a **negation** (`"dirty": true` means bypassed). Now: a command, an ancestor check that names all three exit outcomes, HTML rejected, and PASS stated positively.
+4. **Step 7, the rate limit** — a 429 does not say **which** rule fired; the scope claim *"nothing else"* has **no negative control**; and *"then restore the real threshold"* has **no read-back**, so a forgotten low threshold is a live outage nothing in the document would catch. Named as a human step, not given a fabricated command.
+5. **Step 5, edge headers — the strongest probe in the file**, and it is worth saying why: three exact values, an explicit ban on negations, and a body read. Its one gap was that **empty output had no stated meaning**, and grep's exit 1 and exit 2 are indistinguishable on screen. Now named.
+
+**E — THREE STALE STATEMENTS IN THE SAME FILE, fixed because they misdirect the next action.**
+
+- **Step 4 still read `HELD — DO NOT PERFORM THIS STEP YET`** although R-2026-09-20-36 A2 lifted that hold. **It forbade the founder's very next action.** The hold text is kept and marked lifted, with what lifted it, because a reader who finds only "go ahead" cannot tell whether the hazard was closed or forgotten.
+- The read-back blockquote still justified using `*.pages.dev` *"because the custom-domain cutover is HELD"*.
+- **A KNOWN GAP that had closed and could not say so.** The `serveBedsCached` cache-`try` caveat bound *"every artifact built before the cache fix lands"* and **deliberately named no commit** — correct then, and precisely what made its expiry invisible. The fix landed in #54 and is in the deployed `4803d20`. **A caveat with no expiry condition needs a closing note or it outlives its subject.** Superseded by note, never rewritten.
+
+**F — CONTRADICTIONS BETWEEN Z AND THE KICKOFF, LISTED AND NOT SILENTLY RESOLVED, as the amendment requires.**
+
+- **The kickoff's 018 bullet states two different conditions in one breath:** *"the cache criterion is OWED and the custom-domain cutover has not happened"* **and** *"018 is not written until the founder's deployment report lands."* **Those came apart** — the report landed; the other two did not. The amendment rules the EVIDENCE gate stands, so the bullet is **left as written** and this block records which half governs.
+- **The kickoff's `public-relations.json` task is unchecked and done**, shipped at `54c66a8` under R-2026-09-21-39. **Left unticked**, per the 2026-09-14 tick-reconciliation ruling: *tick nothing, run nothing*.
+
+**G — THE PRODUCT BIBLE IS NOT IN THIS REPOSITORY.** The draft, at docs/product-bible.md without backticks because **it does not exist here and a backticked path would be a Clause 4 phantom** — the guard `tests/compliance/no_phantom_paths.test.ts` caught exactly that in the first draft of this very clause — was an untracked Cowork draft and was removed, because **any untracked file makes `scripts/deploy_pages.sh` refuse** — `git status --porcelain` non-empty. It is committed only when the founder approves it, under its own ruling. Read as context, never as authority. Nothing to do.
+
+**H — Z's other parts are recorded as SCOPE, not as work.** T is amended narrowly to admit Bundle 3 (the operator path to facility one) once the infrastructure review has run; the review now gates Bundle 3, not only facility one. Bundle 3's own kickoff is Cowork's, written after that review. **Nothing in C, D, E or F of Z is started here.** Z D1 was verified against the code before being recorded — see the next block's clause.
+
+**C — the queue:** this change; then the founder's cutover and the corrected steps 5 and 6 on `openbed.ng`, quoted; then the EVIDENCE gate recorded lifted on that output; then 018; then the founder's hosted apply of 018; then the infrastructure review; then Bundle 3; then facility one; then Bundle 4.
+
+### R-2026-09-21-41 — Z D1 verified against the code rather than recorded on its face
+
+_Issued as part of R-PROVISIONAL-2026-09-21-Z (part D1). Recorded separately because it is a verification result, not a direction._
+
+**A — THE CLAIM HOLDS IN FULL.** *"Roles stay table lookups in `app.ward_account`, enforced in definer functions (`assert_member`). The custom access token hook stays off."*
+
+- `app.assert_member` (`database/migrations/011_read_rpcs_capped.sql`) is `SECURITY DEFINER` with `SET search_path = ''`, reads `app.ward_account`, and derives identity from `auth.uid()`. **`p_facility_id` is only ever an equality check against the row's own `facility_id`, never the source of scope** — the function's own comment says *"It is what the caller WANTS to act on; `auth.uid()` is who they ARE."*
+- `is_active` is enforced, and **the ruling's reason is already written into the migration**: *"Deactivation blocks immediately. A facility admin's deactivate action must take effect on the next request, not at the next token expiry."*
+- The custom access token hook is **entirely commented out** in `supabase/config.toml` — stock CLI scaffold, never activated. No `pg-functions://` hook exists in any migration.
+- The revocation window the reason invokes is real and measured: `jwt_expiry = 3600`, and `tests/setup/auth.ts` records a **25-hour** worst case (timebox plus jwt_expiry) observed rather than reasoned.
+- **Nothing carries an app role in a token today.** The only `role` claim anywhere is the Postgres role.
+
+**B — TWO QUALIFIERS RECORDED RATHER THAN SMOOTHED, because each narrows what the evidence proves.**
+
+- **The immediate-deactivation tests inject a forged claims blob**, not a GoTrue-issued token. They prove the SQL function refuses on the **next statement**; they do not measure token behaviour, and the counterfactual in one test's name ("not at token expiry") is a design claim rather than a measured one.
+- **`tests/db/config_drift.test.ts` guards four config keys and NOT the hook block.** "The hook stays off" is therefore a **convention, not a ratcheted invariant** — nothing reddens if someone enables it. Recorded as an open item with a named trigger (method note 22): **the next change that touches `supabase/config.toml`'s auth section.**
+
+**C — the queue:** as -40 C.
+
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -2015,6 +2111,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | W | R-2026-09-21-37 | 2026-09-21 | Cowork's own mechanism claim failed verification. First letter of the 09-21 run. |
 | X | R-2026-09-21-38 | 2026-09-21 | #54 merged and read back; the post-merge checks discharged; three open items given triggers. Corrected the implementer's own Standard O grade from proven to INFERRED. |
 | Y | R-2026-09-21-39 | 2026-09-21 | Named the two keys of the public-relations.json split and recorded the reason with them. |
+| Z | R-2026-09-21-40 | 2026-09-21 | Part B withdrawn and reissued by Cowork; the EVIDENCE gate restated as four observations on `openbed.ng`. Carries the runbook probe sweep. |
+| Z (D1) | R-2026-09-21-41 | 2026-09-21 | The same block's design constraint, recorded separately because it is a verification result rather than a direction. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -2128,6 +2226,11 @@ _Standing rules, 2026-09-15. This record is their home._
     - **An item with a trigger is not work until its trigger fires, and a quiet queue is not a trigger.** A queue with nothing urgent in it is the condition under which scope creeps, not a licence to start.
     - **It binds Cowork as well as the implementer.** Several late-session additions were a hold being extended when it was one command from closing.
     - **How to apply:** write the trigger next to the finding. A finding with no named trigger is either work now or is not recorded at all — those are the only two honest states.
+23. **A probe written to catch a category can itself belong to that category. Every probe gets a demonstrated failing case** (R-2026-09-21-40 C). A verification step is only evidence once it has been shown to give **opposite verdicts on a defective artefact and a correct one**. Where the failing half cannot be produced, **the step says so** rather than implying it was checked.
+    - **Instance, 2026-09-21, and it is the sharpest one this record has:** runbook step 8 used `curl -X HEAD`, which **returned exit 0 against the PRE-FIX artifact** — the SPA fallback sent a body for curl to consume — and **failed 8 of 8 against the correct one**. *The probe worked only while the defect it guards existed.* It shipped inside the change whose commit message named this very shape.
+    - **Instance, same day:** the step's stop condition was that GET and HEAD **agree**. A path with no Function returns `text/html` for both, so **parity passes on a route that lost its Function entirely**. A relation is not a value; the fix was to name the absolute values.
+    - **Instance, same day:** a read-back whose stated PASS was two header values that `failure()` emits verbatim, so every 500, 502 and 503 satisfied it.
+    - **How to apply:** before recording a probe as evidence, run it against something known-broken and paste what it said. **A green from a probe with no demonstrated failing case is the same artefact as a green from a probe that examined nothing.** This is note 18 (*a negative result is evidence only once the method has produced a positive one*) turned on the instrument instead of the corpus.
 
 ---
 
@@ -2195,6 +2298,24 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-21, R-2026-09-21-41 (issued inside R-PROVISIONAL-2026-09-21-Z, part
+  D1): the design constraint that roles stay table lookups enforced in definer
+  functions and the custom access token hook stays off, **verified against the code
+  before being recorded** — `assert_member` is SECURITY DEFINER and derives identity
+  from `auth.uid()`, the hook is entirely commented out, and the 25-hour revocation
+  window the reason invokes is measured rather than reasoned; with two qualifiers
+  kept rather than smoothed, that the deactivation tests use a forged claims blob and
+  that nothing reddens if the hook is switched on;
+- on 2026-09-21, R-2026-09-21-40 (issued as R-PROVISIONAL-2026-09-21-Z, with its
+  addendum and an amendment to part B): Cowork withdrew its own part B, which had
+  sequenced 018 on a gate paraphrased from a handoff; the EVIDENCE gate of -28 B
+  restated as **four observations, all on `openbed.ng`**, none of which a
+  `*.pages.dev` report can discharge; and a sweep of the Pages runbook after its
+  GET/HEAD probe was found to **belong to the category it was written to catch** —
+  `-X HEAD` passing only against the broken artifact, a parity stop condition that a
+  whole-route fallback satisfies, and a read-back whose stated PASS every failure
+  response met verbatim; with three stale statements fixed in the same file,
+  including a step that still forbade the founder's next action;
 - on 2026-09-21, R-2026-09-21-39 (issued as R-PROVISIONAL-2026-09-21-Y): the
   `packages/fixtures/public-relations.json` split — `mirrors` retired and replaced
   by `clientAddressableRelations` and `realtimePublicationMembers`, identical in
