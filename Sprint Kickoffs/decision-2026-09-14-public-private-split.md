@@ -1926,6 +1926,65 @@ _Issued as R-PROVISIONAL-2026-09-21-W. Number assigned from the record's last as
 **C — the queue:** as -36 C, with this change now carrying -34, -35, -36 and this block.
 
 
+### R-2026-09-21-38 — #54 merged and read back; the post-merge checks discharged; three open items given triggers
+
+_Issued as R-PROVISIONAL-2026-09-21-X. Number assigned from the record's last as read on merged `main` (`4803d20`): R-2026-09-21-37._
+
+**A1 — #54 MERGED** at `4803d20a3e6c74ae434a464e65575a50f44bdb63`. The head SHA was read from the API into a variable and passed verbatim to `--match-head-commit`; `MERGED` was read back from the API before anything else; **the branch deletion was a separate action taken after that read**, and `state` was re-read as `MERGED` *after* the deletion, because deleting an open pull request's head branch closes it and nothing catches that.
+
+**A2 — the new `main` is `4803d20a3e6c74ae434a464e65575a50f44bdb63`**, agreeing with `origin/main` and with the API's `mergeCommit.oid`.
+
+**B — THE THREE POST-MERGE CHECKS, each against the MERGED TREE rather than the branch, and each with its evidence kind.** The branch is not the merged tree, and treating one as evidence for the other is the substitution this record keeps catching.
+
+- **B1 MEASURED.** `docs/handoff-2026-09-21-deployed-and-reported.md` is tracked on `main`, added by `9086364`.
+- **B2 MEASURED.** None of the five zero-byte strays is tracked or present. **Positive control:** `package.json` resolves by the same method, so the check reaches the repository root — an absence finding without that control is not evidence here (method note 18).
+- **B3 MEASURED.** The corrected read-backs depend on no variable from a later or domain-gated step: `BEDS_URL` is confined to the custom-domain edge-headers step, `DEPLOY_URL` to the read-backs, each `read -r` immediately before its use. Both blocks were extracted **from the merged file** and pasted into `zsh -f -i`.
+
+  - **A defect in the verification harness, not in the artefact, recorded because it is the same family as everything else here.** The first paste run filtered the shell's output through `grep -v '^%'`, and the interactive prompt prefixes the first line of output — so `--- GET ---` and an `HTTP` status line were silently removed from what was read back. **The instrument was hiding part of the very output it existed to show.** Re-run unfiltered, both blocks are correct and complete. An instrument that quietly drops evidence is indistinguishable from an artefact that never produced it.
+
+**C — W IS NOT DISCHARGED BY THIS MERGE, and is recorded as ruled-and-not-yet-deployed.** R-2026-09-21-37 is discharged by the founder's deploy of **this merge commit** through `scripts/deploy_pages.sh` and by the quoted read-backs: `/version.json` naming `4803d20a3e6c74ae434a464e65575a50f44bdb63` with `dirty: false`, and GET and HEAD on `/beds.json` returning the SAME `content-type` and the SAME `x-robots-tag`. **Until that output is in hand, the fix is merged and not proven at the edge.**
+
+- **The pre-deploy reading is the positive control, and it was taken:** against the still-deployed pre-fix artifact, GET returns `application/json; charset=utf-8` with `noindex, nofollow` and HEAD returns `text/html; charset=utf-8` with the site-wide `noindex`. **The probe reports the defect before the fix is deployed**, which is what makes a later agreement mean something.
+
+**D — THREE OPEN ITEMS WITH TRIGGERS** (method note 22 — not work until the trigger fires):
+
+1. **Build the F3 ESLint Date guard.** Trigger: the next change touching the build or lint config. The false citation is already corrected in `packages/snapshot/src/serve.ts`; the guard itself is specified and unbuilt.
+2. **The unguarded `s-maxage` ↔ `pollCadenceSeconds` coupling.** Trigger: the next change touching either value. **The fix is an ASSERTION tying them together, not a comment** — a comment is exactly what is there now, and it is what failed: planting `pollCadenceSeconds: 45` reddened nothing across 518 compliance tests.
+3. **`npx supabase start` hitting the Docker Hub pull rate limit in stack jobs.** Trigger: the next stack-job failure of that shape. **Fixed in that same pull request** — authenticated pulls or cached images — with the root cause shown from the failing log. **Never cleared by a re-run alone.**
+
+   - **A GRADE CORRECTED, and it is the implementer's own.** The `db-tests` red on #54 was reported as Standard O branch (ii), a **proven** harness-or-infrastructure defect. **It was not proven.** The proximate mechanism was named from the log — the bind failure on port 54322 and the Docker Hub pull limit — but branch (ii) requires all three of a fresh-database reproduction, a named mechanism, and **an independently verifiable repro**, and the third was absent. A clean re-run on the same SHA establishes that the failure is intermittent, not what causes it. **INFERRED is the grade.** The distinction matters because branch (ii) closes an item and INFERRED leaves it open with a trigger, which is the difference between a defect handled and a defect deferred.
+
+**C — the queue:** this change (the `packages/fixtures/public-relations.json` split, carrying this block and -39); then migration 018 and the rest of Bundle 2; the founder's deploy of `4803d20` discharging -37; the infrastructure inventory before facility one onboards; the two regex readers and the publish-screen echo after it; Finding D with the next build-config change.
+
+### R-2026-09-21-39 — the public-relations.json split: two keys, and the coupling deliberately NOT re-asserted
+
+_Issued as R-PROVISIONAL-2026-09-21-Y. Number assigned from the record's last as read on merged `main` (`4803d20`): R-2026-09-21-37._
+
+**A — THE TWO KEYS ARE `clientAddressableRelations` AND `realtimePublicationMembers`.** The first is the set of relation names client code may address in `.from()`, read by `scripts/lint_from_allowlist.sh`. The second is the expected membership of the `supabase_realtime` publication, read by `tests/db/config_drift.test.ts`. **`mirrors` is retired as a key name; no key keeps it.**
+
+**B — THE REASON IS RECORDED WITH THE NAMES, because the next reader will reuse the reason.** Each name states what its list contains, so the two cannot be merged again by accident. **Neither says "allowlist", deliberately: the lint is a STATIC CHECK, not an access grant.** The access boundary is RLS plus 018's REVOKE, and a key named "allowlist" invites a reader to believe the lint is holding a door shut that it has never touched.
+
+**B2 — WHY THIS IS THE FIRST TASK OF BUNDLE 2 rather than part of 018.** The two meanings coincide **by accident**: migration 013 added three tables to the publication and granted `SELECT` on the same three, in one migration. 018 destroys the coincidence on both axes at once. Splitting the key **before** the change that exposes it means 018 edits two lists that already mean what they say. Doing it inside 018 would mean deciding, under pressure, which consumer the one key was serving.
+
+**C — SCOPE: IDENTICAL CONTENT, A NO-OP REFACTOR.** Both lists hold `facility_public`, `ward_public`, `lga_rollup`. **The lint's correct post-018 content is NOT decided here** — the kickoff calls it *"a decision, not a deletion"*, and it belongs to 018.
+
+- **Ten key sites across four files**, all updated in this change: the fixture; `scripts/lint_from_allowlist.sh` (the `Array.isArray` guard and the spread); `tests/db/config_drift.test.ts`; and the six scratch-fixture sites in `tests/compliance/bundle_guards.test.ts`, the guard over the lint — **skipping that last file would leave a guard asserting a schema that no longer exists.**
+- **The proof is an identifier search over three key forms**, reported with its command and result, and **with a positive control**, because this repository's interactive `grep` is a ugrep wrapper that can silently return zero for patterns holding `$`, `{` or `?`.
+- **One hit is excluded BY READING, not by narrowing the pattern:** `database/migrations/016_snapshot.sql:37` matches `mirrors:` and is the English word before a colon — *"two mirrors: app.project_facility is…"*. Narrowing the regex until it disappeared would have been the same defect as the search that finds nothing because it looked nowhere.
+
+**D — WHAT IS DELIBERATELY NOT ASSERTED, AND IT IS THE POINT OF THE CHANGE.** **NOTHING asserts that the two keys agree.** An assertion that they hold the same names is exactly the coincidence this split removes, and it would go red the moment 018 is correct. Each consumer reads only its own key.
+
+**E — THREE PROSE SITES REWRITTEN, because they describe the keys and would otherwise be false statements sitting on top of the code that disproves them.**
+
+- The fixture's own `comment`, which said the one key was *"Shared by"* both consumers. `packages/fixtures/public-relations.json` is **one of the three files named in `.claude/rules/test-conventions.md`** for claiming a cross-file link that no assertion made, so its new comment states only what is enforced, and names what is not.
+- The lint's header, which said `tests/db/config_drift.test.ts` imports **the same key** and asserts it equals the publication membership. It did, and that is precisely what stops being true here.
+- `config_drift`'s docstring, which said the lint's allowlist and the database's published surface *"cannot drift apart, because doing so requires editing the one file both of them read."* **After this change they can, and under 018 they will.** A docstring promising a coupling that the code beneath it has just removed is worse than no docstring.
+
+**F — PROSE ELSEWHERE IS LEFT ALONE.** Where the record, the kickoff or a sweep says "mirrors", it stays: those sentences describe the public mirror tables, which still exist and are still called that. **Only key names changed.**
+
+**C — the queue:** as -38 C.
+
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -1954,6 +2013,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | U | R-2026-09-20-35 | 2026-09-20 | A ruling against ceremony that reprinted the queue inside itself; the path named end to end. |
 | V | R-2026-09-20-36 | 2026-09-20 | The deployment report accepted and three gates discharged. Its account of the `curl -I` is corrected by -37 B1. |
 | W | R-2026-09-21-37 | 2026-09-21 | Cowork's own mechanism claim failed verification. First letter of the 09-21 run. |
+| X | R-2026-09-21-38 | 2026-09-21 | #54 merged and read back; the post-merge checks discharged; three open items given triggers. Corrected the implementer's own Standard O grade from proven to INFERRED. |
+| Y | R-2026-09-21-39 | 2026-09-21 | Named the two keys of the public-relations.json split and recorded the reason with them. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -2134,6 +2195,22 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-21, R-2026-09-21-39 (issued as R-PROVISIONAL-2026-09-21-Y): the
+  `packages/fixtures/public-relations.json` split — `mirrors` retired and replaced
+  by `clientAddressableRelations` and `realtimePublicationMembers`, identical in
+  content and different in meaning, so that 018 edits two lists that already say
+  what they are; the reason recorded with the names, including why neither is
+  called an allowlist; and **nothing asserting that the two agree**, because that
+  assertion is the coincidence the split exists to remove;
+- on 2026-09-21, R-2026-09-21-38 (issued as R-PROVISIONAL-2026-09-21-X): #54
+  merged at `4803d20`, with the head SHA read from the API, `MERGED` read back
+  before and after the branch deletion, and the deletion kept a separate action;
+  the three post-merge checks discharged against the merged tree with their
+  evidence kinds and a positive control; W recorded as ruled-and-not-yet-deployed,
+  because the merge is not the deploy; three open items given triggers; and the
+  implementer's own Standard O grade on the #54 `db-tests` red corrected from
+  **proven** branch (ii) to **INFERRED**, a clean re-run being evidence of
+  intermittency and not of cause;
 - on 2026-09-21, R-2026-09-21-37 (issued as R-PROVISIONAL-2026-09-21-W): Cowork's
   own mechanism claim for the HEAD fix failed verification against Cloudflare's
   Cache API reference — `cache.put` throws for a non-GET request, so the proposed

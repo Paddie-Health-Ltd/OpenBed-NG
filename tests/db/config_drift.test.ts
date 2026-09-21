@@ -99,19 +99,28 @@ describe('configuration drift', () => {
    * drift the shared-fixture pattern exists to prevent, sitting in the repository
    * claiming to prevent itself.
    *
-   * The fixture is now imported. The lint's allowlist and the database's
-   * published surface cannot drift apart, because doing so requires editing the
-   * one file both of them read.
+   * The fixture is now imported.
+   *
+   * WHAT THIS TEST READS, AND WHAT IT DELIBERATELY DOES NOT (R-2026-09-21-39).
+   * It reads `realtimePublicationMembers`. Until 2026-09-21 it read a key called
+   * `mirrors` that the lint read too, and this docstring said the lint's allowlist
+   * and the database's published surface "cannot drift apart, because doing so
+   * requires editing the one file both of them read". THAT IS NO LONGER TRUE, AND
+   * IT MUST NOT BE: what client code may NAME in .from() and what the database
+   * BROADCASTS over Realtime are different properties. They coincide only because
+   * migration 013 did both to the same three tables, and migration 018 separates
+   * them. This test asserts the publication and nothing else; the lint asserts
+   * `clientAddressableRelations` and nothing else; NOTHING asserts the two agree.
    */
-  test('the realtime publication contains exactly the mirrors named in the shared fixture', async () => {
+  test('the realtime publication contains exactly the members named in the shared fixture', async () => {
     const rows = await sql()<{ schemaname: string; tablename: string }[]>`
       select schemaname, tablename
         from pg_publication_tables
        where pubname = 'supabase_realtime'
        order by schemaname, tablename
     `;
-    const expected = [...PUBLIC_RELATIONS.mirrors].sort().map((m) => `public.${m}`);
-    expect(expected.length, 'the fixture names no mirrors — the assertion would be vacuous').toBe(3);
+    const expected = [...PUBLIC_RELATIONS.realtimePublicationMembers].sort().map((m) => `public.${m}`);
+    expect(expected.length, 'the fixture names no publication members — the assertion would be vacuous').toBe(3);
     expect(rows.map((r) => `${r.schemaname}.${r.tablename}`)).toEqual(expected);
   });
 
