@@ -691,8 +691,21 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions. Until
 that wrong.
 
 - **The hosted project today** holds 001 through 017 (see step 7). Every file
-  must read `already applied`, there must be **no `WOULD APPLY` line at all**,
-  and the dry run must end `0 migration(s) pending.`
+  up to and including `017_snapshot_schedule.sql` must read `already applied`;
+  there must be **exactly one `WOULD APPLY` line**, naming
+  `018_close_mirror_read_and_push_surfaces.sql`; and the dry run must end
+  `1 migration(s) pending.`
+- **Restated 2026-09-21 (R-2026-09-21-50), in the change that PRECEDES 018's
+  hosted apply — and it should have been restated in the change that ADDED 018.**
+  Until then this expected no `WOULD APPLY` line and `0 migration(s) pending.`,
+  which was right while the repository ended at 017. **#61 merged migration 018
+  and left this list alone**, so between that merge and this change the document
+  said a correct dry run must print nothing pending, while a correct dry run
+  printed 018. That is the failure the last bullet of this list exists to
+  prevent, and it happened anyway — which is why
+  `tests/compliance/runbook_migration_expectation.test.ts` now derives this
+  expectation from the migrations directory instead of trusting anyone to
+  remember.
 - **Restated 2026-09-17 (R-2026-09-17-01), in the change that records 017's
   apply.** Until then this expected exactly one `WOULD APPLY` line,
   `017_snapshot_schedule.sql`, and `1 migration(s) pending.` The founder's run
@@ -706,11 +719,56 @@ that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line at all, or any count other than zero: stop and
-  report.** A pending file means either a migration reached the repository after
-  this list was last restated, or hosted is not where this document says it is.
+- **Any `WOULD APPLY` line OTHER than the one named above, or any count other
+  than `1 migration(s) pending.`: stop and report.** A file pending that this list
+  does not name means either a migration reached the repository after the list was
+  last restated, or hosted is not where this document says it is.
+  - *Restated 2026-09-21 (R-2026-09-21-51). Until then this bullet read "Any
+    `WOULD APPLY` line at all, or any count other than zero", which was right while
+    the repository ended at 017 and **contradicted the first bullet of this list
+    from the moment 018 was named there.** It was missed by the change that
+    restated the rest of the list — the same defect, in the change written to fix
+    it. The count is spelled out here rather than deferred to "the one stated" so
+    this bullet reads alone, and so
+    `tests/compliance/runbook_migration_expectation.test.ts` can parse it and
+    assert all three statements of the expectation agree.*
 - **When a migration is added,** this list is restated in the same change that
   adds it, never in a follow-up: in between, the document would be wrong.
+
+#### THE RESTATE RULE, AND IT GOVERNS MORE THAN THIS LIST (R-2026-09-21-50)
+
+**Every section of either runbook that states an expected HOSTED state a migration
+can change is restated in the change that ADDS the migration, never in a
+follow-up.** Both runbooks: this one and `docs/runbook-cloudflare-pages-beds-json.md`.
+
+The sections that carry it today are marked with a pointer back here:
+
+| Section | What it expects that a migration can falsify |
+|---|---|
+| §5, the list above | which files are pending, and the pending count |
+| §6 | whether the publishable key can read the three mirrors |
+| §10 | which tables are in `supabase_realtime` |
+| §7 | which migrations hosted holds |
+
+**Why it is being widened now.** The rule above already existed and was scoped to
+"this list". §6 and §10 had no such rule — and migration 018, merged in #61,
+falsified both of them while §5 was the only section anyone thought to check.
+**A rule that covers one instance of a class teaches everyone that the rest of the
+class is fine.**
+
+**NOT ASSERTED BY ANY SCRIPT, and it cannot be** (Clause 4 route 2 — a named human
+step, no cited artefact). §6's and §10's expectations are readings taken against the
+hosted project; nothing inside this repository can derive them, and a test claiming
+to check them would be the phantom enforcement Clause 4 forbids. §5's expectation
+IS derivable, and is now derived —
+`tests/compliance/runbook_migration_expectation.test.ts`. **One of the four is
+mechanical and three are human. Do not read the guard as covering the table.**
+
+**The mechanical half that does reach all four** is the pull-request template:
+`.github/PULL_REQUEST_TEMPLATE.md` asks every change touching
+`database/migrations/` which runbook expectations it changes, and "none" has to
+carry a reason. A template cannot force an answer; it puts the question where it
+will be read.
 
 ### Before applying 017: pg_cron must be available to the database
 
@@ -960,7 +1018,8 @@ recorder refuses if that count and the repository's forward migrations disagree.
 
 ### The next apply is 018, and THE BOUNDARY CLOSES HERE — not at merge
 
-**OWED, founder-side (method note 13; R-2026-09-19-24 B5).** Hosted holds 001-017.
+**OWED, founder-side (method note 13; R-2026-09-19-24 B5).** Hosted holds 001-017;
+018 is merged and NOT applied.
 Migration 018 removes the three public mirrors from the `supabase_realtime`
 publication and revokes `SELECT` on them from `anon` and `authenticated` — the
 founder's decision of 2026-09-19, answering R-2026-09-17-09 D.
@@ -970,6 +1029,60 @@ whatever any pull request's state.** A merged migration changes this repository;
 does not change the hosted database that a facility's data actually sits in, and the
 commitment is about the database. Anyone reading a green CI badge and concluding the
 direct read path is closed is reading the wrong artefact.
+
+#### B. BEFORE THE APPLY — take the reading 018 is about to change
+
+**This is the failing half of everything in the post-apply block, and it is only
+available now.** Method note 23: a probe nobody has seen give the other answer is
+not evidence. After the apply, §6 expects a refusal and §10 expects an empty
+publication; run both NOW, while the correct answer is still the opposite one, and
+paste the output. The same two probes, opposite verdicts, minutes apart, on one
+project.
+
+**Do not skip this because the answer is already known.** Knowing it is not the
+same as having recorded it, and after the apply it cannot be taken again.
+
+**This block takes the key itself.** It is the same guard step 6 uses, and it is
+here rather than pointed at, because this document's own rule is that *each block
+that needs a credential reads it itself rather than inheriting it from an earlier
+step*. The `case` arm is what makes the refusals below mean something: a script
+that fails inside `$( )` leaves `KEY` empty and the shell carries on, and every
+probe then returns 401 — which reads as "the boundary held".
+
+```bash
+KEY="$(bash scripts/get_publishable_key.sh)" || KEY=
+case "$KEY" in
+  sb_publishable_?*) echo "key obtained" ;;
+  *) echo "STOP: no usable publishable key. Do not run the probe -- a 200 or a 401 now means nothing."; KEY= ;;
+esac
+SUPABASE_URL="https://klrlpxysjsjpdkeqdhvl.supabase.co"
+for t in facility_public ward_public lga_rollup; do
+  printf '== %s READ  ' "$t"
+  curl -s -o /dev/null -w 'HTTP %{http_code}\n' "$SUPABASE_URL/rest/v1/$t?select=*&limit=1" \
+    -H "apikey: ${KEY:?no key -- refusing to probe}"
+done
+unset KEY SUPABASE_URL
+```
+
+The publication half. The first line waits silently for the connection string; the
+last removes it from the shell.
+
+```bash
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -c "select coalesce(string_agg(tablename, ', ' order by tablename), '(empty)') as published from pg_publication_tables where pubname = 'supabase_realtime';"
+unset DATABASE_URL
+```
+
+**Expected BEFORE the apply** — MEASURED on `klrlpxysjsjpdkeqdhvl`, 2026-09-21:
+
+- all three reads `HTTP 200`;
+- `published` reads `facility_public, lga_rollup, ward_public`.
+
+**If either already shows the post-018 answer, STOP.** It means 018 has been applied
+already, or something else revoked those grants, and the apply below is not the
+change you think it is.
+
+- [ ] Pre-apply reading taken and pasted: three × `HTTP 200`, publication = the three mirrors
 
 Apply it through this step like any other, then record the boundary below.
 
@@ -1000,6 +1113,109 @@ whole reason Sprint A1 exists.
 a database URL, and no check inside this repository sits between them and `psql`.
 The same paragraph is in the down file's own header, so it is met whether someone
 arrives here or opens that file first.
+
+#### E. AFTER THE APPLY — the 018 read-back
+
+**Four items. Each states its PASS, its stop condition, and its failing half.**
+Items 1 and 2 have theirs from block B above, taken minutes earlier on this same
+project; items 3 and 4 carry their own.
+
+**The first line asks for the apply time** — the timestamp of the run you just
+did, UTC, e.g. `2026-09-21 21:05:00+00`. Item 3 needs it, and it is read in this
+block rather than assumed from an earlier one.
+
+```bash
+printf 'apply time (UTC, e.g. 2026-09-21 21:05:00+00): '; read -r APPLY_TS
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -v apply_ts="$APPLY_TS" <<'SQL'
+select r.rolname, c.relname,
+       has_table_privilege(r.rolname, 'public.' || c.relname, 'SELECT') as can_select
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+  cross join (values ('anon'), ('authenticated')) as r(rolname)
+ where n.nspname = 'public'
+   and c.relname in ('facility_public', 'ward_public', 'lga_rollup')
+ order by r.rolname, c.relname;
+
+select count(*) as snapshot_rows_visible_to_service_role
+  from public.snapshot_current;
+
+select j.jobname,
+       count(*) filter (where d.status = 'succeeded')                      as succeeded_after_apply,
+       count(*) filter (where d.status = 'failed')                         as failed_after_apply,
+       count(*) filter (where d.status not in ('succeeded', 'failed'))     as in_flight,
+       max(d.start_time)                                                   as last_start
+  from cron.job j
+  left join cron.job_run_details d
+    on d.jobid = j.jobid
+   and d.start_time > :'apply_ts'::timestamptz
+ where j.jobname in ('openbed_refresh_lga_rollup', 'openbed_regenerate_snapshot')
+ group by j.jobname order by j.jobname;
+
+begin;
+set local role anon;
+select count(*) as anon_can_read_snapshot from public.snapshot_current;
+rollback;
+SQL
+unset DATABASE_URL APPLY_TS
+```
+
+**1. Neither client role can read a mirror.** PASS: `can_select` is `f` on all
+**six** rows. **Stop condition:** any `t`. *Failing half: block B, where all three
+reads returned 200 — the grant was there and is now gone.*
+
+**2. The served path still works, and `anon` still cannot reach it.** PASS:
+`snapshot_rows_visible_to_service_role` is greater than 0, **and the last statement
+fails with `ERROR: permission denied for table snapshot_current`.** **Stop
+condition:** 0 rows, or that last statement RETURNING A COUNT instead of erroring.
+
+*The failing half is in the block, not claimed for it.* The error is the
+demonstration: `snapshot_current` is service-role-only, so the same query that
+succeeds for the connecting role must fail for `anon`. **The connecting role is
+`postgres`, which is a member of `anon`** — `pg_has_role('postgres','anon','MEMBER')`
+is `t` locally and on hosted — so `set local role anon` is available to it, and
+verified locally before this block was written. The `rollback` still runs after the
+aborted transaction, which is why the probe is last.
+
+**3. The SECURITY DEFINER premise holds LIVE — this is the item that would catch a
+real mistake.** 018 was written on the reasoning that every writer of the mirrors is
+a `SECURITY DEFINER` function and so is unaffected by a revoke on `anon` and
+`authenticated`. That is an argument until a job runs.
+
+PASS: for **both** jobs, `succeeded_after_apply` is 1 or more and
+`failed_after_apply` is 0. **Stop condition:** any `failed_after_apply` above 0, or
+a `succeeded_after_apply` of 0 for either job six minutes after the apply — the
+rollup runs every five minutes and the snapshot every minute.
+
+- **`in_flight` is NOT a failure and is why it has its own column.** pg_cron writes
+  six status values — `starting`, `running`, `sending`, `connecting`, `succeeded`,
+  `failed` (`GetCronStatus` in `src/job_metadata.c`, pg_cron **v1.6.4**, the version
+  this project runs). **Four of the six are non-terminal**, so at a one-minute
+  cadence a run in flight at the moment you read is ordinary. An earlier draft of
+  this step counted `status <> 'succeeded'` as failure and would have stopped the
+  founder on a healthy system.
+- **One `failed` on `openbed_refresh_lga_rollup` alone, beside succeeded runs, may
+  be the documented lost race** — two overlapping refreshes make the second fail on
+  the primary key and leave correct rows (recorded in 017's header, and in the jobs
+  step above). Read again after the next tick; **a second `failed` is stopped and
+  reported.** Any `failed` on `openbed_regenerate_snapshot` stops at the first.
+- **Only runs AFTER the apply count.** The filter is on `start_time`, so the
+  thousands of healthy runs before it neither mask a new failure nor supply a pass.
+
+**4. The public path is unchanged, end to end.**
+
+```bash
+curl -sS -o /dev/null -D - https://openbed.ng/beds.json | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-ray'
+curl -sS https://openbed.ng/version.json
+```
+
+PASS: `HTTP/2 200`, `content-type: application/json; charset=utf-8`, and
+`/version.json` quoted in the report. **Stop condition:** anything else — in
+particular a body beginning `{"error":`. **018 must be invisible from the outside;
+that is the claim.** *Failing half: step 6 of the Pages runbook carries its own, and
+the `x-openbed-edge-cache` marker gives a second value on demand.*
+
+- [ ] 018 read-back taken and pasted: six × `f`, snapshot rows > 0, `anon` refused on `snapshot_current`, both jobs succeeded after the apply with 0 failures, `/beds.json` 200
 
 **For the next apply (018) the count is 18**, with the apply's date and the
 ruling that records it written in before pasting. As printed below the date and
@@ -1033,12 +1249,19 @@ node scripts/freeze_applied_migrations.mjs 18 YYYY-MM-DD R-YYYY-MM-DD-NN
 
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 017 already applied), the dry run
-prints seventeen `already applied` lines, no `WOULD APPLY` line, and:
+**On the hosted project today** (001 through 017 already applied, 018 merged and
+not yet applied), the dry run prints seventeen `already applied` lines, one
+`WOULD APPLY` line, and:
 
 ```
-0 migration(s) pending.
+WOULD APPLY     : 018_close_mirror_read_and_push_surfaces.sql
+1 migration(s) pending.
 ```
+
+**AFTER the apply, the same command prints eighteen `already applied` lines, no
+`WOULD APPLY` line, and `0 migration(s) pending.`** — and that second dry run is
+part of the apply, not an optional extra. It is the reading recorded in the
+checkbox at the end of this section.
 
 **On 2026-09-17, when 017 was pending,** the same two commands printed this, and
 the apply's echo mapped one-for-one to 017's statements in order, with the two
@@ -1067,24 +1290,27 @@ Migrations complete (3 applied this run).   <- apply
 second is lower:
 
 ```
-17 migration(s) pending.          <- dry run
-Migrations complete (16 applied this run).   <- apply
+18 migration(s) pending.          <- dry run
+Migrations complete (17 applied this run).   <- apply
 ```
 
-**Sixteen is correct there. Nothing was skipped.** Migration 001 creates the `app`
+**Seventeen is correct there. Nothing was skipped.** Migration 001 creates the `app`
 schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
 recorded by a ledger that does not exist yet. The runner applies and ledgers it
 in a separate **bootstrap** step, and the apply loop then counts only what it
-applied itself -- 002 through 017, which is sixteen. The dry run has no bootstrap
+applied itself -- 002 through 018, which is seventeen. The dry run has no bootstrap
 branch: `is_applied` returns 0 while the ledger is absent, so it counts all
-seventeen as pending. The two numbers are measuring different things.
+eighteen as pending. The two numbers are measuring different things.
 
 **Confirm it by the ledger, which is the artefact that matters, not by the
 count:**
 
-Expect the ledger query to return one row per forward migration file -- `17`
-since `017_snapshot_schedule.sql` -- and `0 migration(s) pending.` from the dry
-run.
+Expect the ledger query to return one row per forward migration file APPLIED TO
+THAT PROJECT. On hosted before 018's apply that is `17`, with
+`1 migration(s) pending.` from the dry run; immediately after it, `18` and
+`0 migration(s) pending.` **The ledger count and the pending count move together
+and in opposite directions** — if one changes and the other does not, stop: the
+apply did not do what the dry run said it would.
 The first line waits silently for the connection string; the last removes it.
 
 ```bash
@@ -1144,10 +1370,22 @@ ones.
 
 ## 6. Verify the boundary by hand, against the hosted project  *(was §4)*
 
-Run these against the hosted project with the **publishable** key. The schema
-probe and every write must be **refused**; the three mirror reads must
-**succeed**. *(This line previously said "Every one must fail", which was false
-for the reads.)*
+> **GOVERNED BY THE RESTATE RULE** (step 5, R-2026-09-21-50): this step states an
+> expected HOSTED state that a migration can falsify, so it is restated in the change
+> that ADDS the migration. It was not restated for 018, and that is the finding that
+> widened the rule. No script can check this one — the expectation is a hosted reading.
+
+Run these against the hosted project with the **publishable** key. **Since
+migration 018, EVERY probe in this step must be refused — the schema probe, the
+three mirror reads and the three writes alike.**
+
+*Restated 2026-09-21 (R-2026-09-21-50), and it should have been restated in the
+change that ADDED 018 — see the restate rule in step 5.* Until then this line read
+*"the three mirror reads must **succeed**"*, which was true from 007 until 018
+revoked `SELECT` on all three mirrors from `anon` and `authenticated`. Before that
+it read *"Every one must fail"*, which was false for the reads. **The line has now
+been wrong in both directions, eleven days apart**, which is the argument for the
+rule rather than for a better memory.
 
 **THE KEY MUST BE THE `sb_publishable_` ONE, NOT THE LEGACY `anon` JWT.**
 Disabling legacy API keys on 2026-09-09 killed the legacy `anon` key as well as
@@ -1190,9 +1428,26 @@ curl -s -w '\nHTTP %{http_code}\n' \
 ```
 
 All three mirrors, read and write. The checkboxes below claim all three, so the
-probe covers all three -- `ward_public` alone did not reach what they claim. Each
-read must return HTTP 200. **Each write passes only on body code `42501`** -- read
-the body, as the next paragraph explains.
+probe covers all three -- `ward_public` alone did not reach what they claim.
+**Since 018, the READ and the WRITE pass on the same condition: body code
+`42501`** -- read the body, as the next paragraph explains.
+
+**THE READ AND THE WRITE NOW RETURN THE SAME ANSWER, AND THAT IS WORTH KNOWING
+BEFORE YOU READ THE OUTPUT.** MEASURED locally against a database with 018 applied:
+
+```
+HTTP 401
+{"code":"42501","details":null,
+ "hint":"Grant the required privileges to the current role with: GRANT SELECT ON public.ward_public TO anon;",
+ "message":"permission denied for table ward_public"}
+```
+
+That is byte-for-byte the shape the WRITE has returned since 007. **So the write
+probe no longer tells you anything the read probe has not already told you.** It is
+kept, and its job has changed: it is now a regression check that would catch a
+future `INSERT` grant, not independent evidence about today. Stated here because a
+probe whose value has quietly changed is one people keep running for the old
+reason.
 
 ```bash
 for t in facility_public ward_public lga_rollup; do
@@ -1206,7 +1461,8 @@ for t in facility_public ward_public lga_rollup; do
 done
 ```
 
-**"ANON WRITE REFUSED" IS READ OFF THE BODY, NEVER THE STATUS.** PostgREST maps a
+**"ANON REFUSED" IS READ OFF THE BODY, NEVER THE STATUS — reads as well as
+writes since 018.** PostgREST maps a
 Postgres privilege failure (SQLSTATE `42501`) on an anonymous request to **HTTP
 401** — the same status a dead or wrong key produces. So a 401 here is compatible
 with *the grant refused the write* and with *the key was never accepted*, and only
@@ -1216,7 +1472,27 @@ legacy key, one layer lower. *Recorded as a correction:* the stated read of this
 check on 2026-09-13 was "not 401", which is wrong — 401 is exactly what the
 passing result looks like.
 
-**Results, 2026-09-13, project `klrlpxysjsjpdkeqdhvl`** (founder's run):
+**AND A LOCAL-VS-HOSTED ASYMMETRY, because the value above was derived locally and
+this step runs on hosted** (`.claude/rules/test-conventions.md` section 4). MEASURED
+2026-09-21, both sides:
+
+| | a real key, table revoked | a GARBAGE key | no key at all |
+|---|---|---|---|
+| **local stack** | 401, body `42501` | 401, body `42501` | 401, body `42501` |
+| **hosted** | 401, body `42501` | 401, `{"message":"Invalid API key"}` | 401, `{"message":"No API key found in request"}` |
+
+**Locally the body rule does NOT discriminate a dead key from a revoked table; on
+hosted it does.** Neither hosted refusal carries `42501`. So the pass condition
+here is sound where this step runs, and anyone reproducing it against the local
+stack is not reproducing the discrimination. **This is the `$ANON_KEY` family
+again** — a probe that passes because authentication failed rather than because the
+boundary held — and the body code is what keeps it out.
+
+**Results, 2026-09-13, project `klrlpxysjsjpdkeqdhvl`** (founder's run). **The
+READ column is SUPERSEDED by migration 018 and is kept, not overwritten** — it is
+what a correct project returned before the revoke, and step 5's pre-apply block
+re-takes exactly this reading so the two can be compared. The WRITE column is
+unchanged and still current: `anon` never held `INSERT`.
 
 | Mirror | Read | Write |
 |---|---|---|
@@ -1225,7 +1501,13 @@ passing result looks like.
 | `lga_rollup` | HTTP 200 | HTTP 401, body code `42501` |
 
 - [x] `app` schema unreachable with the publishable key — check (a) 1 below, 406 / `PGRST106`
-- [x] The three mirrors readable — 200 on all three, 2026-09-13
+- [x] The three mirrors readable — 200 on all three, 2026-09-13. **SUPERSEDED by
+      migration 018 (R-2026-09-21-50): after the hosted apply the correct reading
+      is a REFUSAL, body code `42501`, on all three.** Left ticked as the dated
+      record it is; the post-018 reading is a new box below.
+- [ ] **The three mirrors REFUSED — body code `42501` on all three, after 018's
+      hosted apply.** Untickable until that apply happens; the pre-apply half is
+      recorded in step 5.
 - [x] Anon write refused — body code `42501` on all three, 2026-09-13
 
 ### Check (a), HTTP half — run immediately after the apply
@@ -1310,12 +1592,18 @@ rather than implied by step 8:
 | **Client** used for the hosted apply of 017 | `psql` **18.6** | observed by the founder for the 2026-09-17 run (R-2026-09-17-01), not carried forward |
 
 **The client is newer than the server: psql 18.6 against server 17.6.1.166.**
-All thirteen migrations were applied to project `klrlpxysjsjpdkeqdhvl` through
-that client, and steps 6, 8 and 10 were run through it on 2026-09-13. This table
+The migrations applied on 2026-09-16 and 2026-09-17 went to project
+`klrlpxysjsjpdkeqdhvl` through that client, and steps 6, 8 and 10 were run through
+it on 2026-09-13. *(This read "All thirteen migrations" until 2026-09-21, four lines
+above a sentence saying hosted holds 001 through 017. It was already wrong at 014
+and nobody was counting; found in the 018 sweep, corrected to name the runs rather
+than a number that has to be maintained.)* This table
 previously recorded server versions only, which left the one tool every SQL
 result above passed through unrecorded.
 
-**Hosted now holds 001 through 017.** Migrations 014, 015 and 016 were applied on
+**Hosted now holds 001 through 017. Migration 018 is merged and NOT applied** —
+see step 5's "next apply is 018" block, which is where that closes. Migrations 014,
+015 and 016 were applied on
 2026-09-16 (R-2026-09-16-02), and 017 on 2026-09-17 (R-2026-09-17-01); step 5
 carries each run's output, its post-apply probe, the owners read, the
 reader-policy read, 017's jobs read and the frozen-boundary record.
@@ -1789,12 +2077,35 @@ is a finding in its own right.
 
 ## 10. Realtime publication  *(was §6)*
 
-**EXACTLY those three, not "those three are present".** A presence check passes
-with a fourth table published, and a fourth published table is a fourth stream
-of DELETE payloads nobody reviewed. So assert set equality, with no schema filter
-— a table from any schema reddens it. The first line waits silently for the
-connection string; the last line removes it from the shell. In the output, the
-middle query's `exactly_three` column is the assertion: **PASS is `t`**.
+> **GOVERNED BY THE RESTATE RULE** (step 5, R-2026-09-21-50): this step states an
+> expected HOSTED state that a migration can falsify, so it is restated in the change
+> that ADDS the migration. It was not restated for 018, and its stop condition would
+> have returned `f` on a correct project. No script can check this one — the
+> expectation is a hosted reading.
+
+**EXACTLY the expected set, not "the expected ones are present".** A presence
+check passes with a fourth table published, and a fourth published table is a
+fourth stream of DELETE payloads nobody reviewed. So assert set equality, with no
+schema filter — a table from any schema reddens it. The first line waits silently
+for the connection string; the last line removes it from the shell. In the output,
+the middle query's `publication_empty` column is the assertion: **PASS is `t`**.
+
+**SINCE MIGRATION 018 THE EXPECTED SET IS EMPTY.** 018 removes all three mirrors
+from `supabase_realtime`; this repository publishes nothing to Realtime after it.
+
+*Restated 2026-09-21 (R-2026-09-21-50), and it should have been restated in the
+change that ADDED 018 — see the restate rule in step 5.* Until then the query
+compared against `array['facility_public','lga_rollup','ward_public']` and PASS was
+`exactly_three = t`. **After 018's hosted apply that query returns `f` on a
+correct project** — a stop condition that fails on success, which is precisely what
+step 5 says teaches people to ignore stop conditions. It was left behind by #61 and
+found by a sweep.
+
+**The discipline is unchanged and is the whole point: set equality, not a presence
+check.** An empty expectation is the easiest of all to satisfy by accident — a
+query against the wrong publication name returns no rows too — so the FIRST query
+below now establishes that the publication EXISTS before the second asserts it is
+empty.
 
 ```bash
 read -rs DATABASE_URL && export DATABASE_URL
@@ -1802,8 +2113,11 @@ psql "$DATABASE_URL" <<'SQL'
 select schemaname, tablename from pg_publication_tables
  where pubname = 'supabase_realtime' order by tablename;
 
+select exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+       as publication_exists;
+
 select coalesce(array_agg(tablename::text order by tablename), '{}')
-       = array['facility_public','lga_rollup','ward_public'] as exactly_three
+       = '{}'::text[] as publication_empty
   from pg_publication_tables where pubname = 'supabase_realtime';
 
 select relname, relreplident from pg_class c
@@ -1815,15 +2129,25 @@ unset DATABASE_URL
 
 - [x] The publication contains **exactly** `facility_public`, `lga_rollup`,
       `ward_public` — 2026-09-13, project `klrlpxysjsjpdkeqdhvl`: those three,
-      exactly 3 rows
-- [x] `relreplident` is `d` for all three —
+      exactly 3 rows. **SUPERSEDED by migration 018 (R-2026-09-21-50).** Left
+      ticked as the dated record it is.
+- [ ] **`publication_exists` is `t` AND `publication_empty` is `t` — after 018's
+      hosted apply.** Both, in that order: the first is what stops an empty result
+      from meaning "wrong publication name". Untickable until that apply happens;
+      the pre-apply reading is recorded in step 5.
+- [x] `relreplident` is `d` for all three — **MOOT since 018, not false.** These
+      tables are no longer published, so no DELETE payload leaves them at all; the
+      check is kept as a tripwire for the day one is published again, and the
+      observed values below are still correct. —
       **never `f`.** `FULL` ships the whole old row in a DELETE payload, Realtime
       DELETE events are not RLS-filtered, and quiet mode removes rows by DELETE.
       2026-09-13: `facility_public` d, `ward_public` d, `lga_rollup` d
 
-The local half — the publication holds exactly these three and none has
-`relreplident = 'f'` — is asserted by `tests/db/config_drift.test.ts`, per 013's
-header. These checkboxes are the hosted half.
+The local half is asserted by `tests/db/config_drift.test.ts`, per 013's header —
+**and since 018 it asserts that the publication EXISTS and that its membership
+equals the (now empty) list in `packages/fixtures/public-relations.json`**, which
+is the same exists-then-compare shape as the two queries above. The
+`relreplident` half is unchanged. These checkboxes are the hosted half.
 
 ---
 

@@ -2417,6 +2417,139 @@ _No provisional letter; founder decisions taken in the 018 planning turn._
 
 **F — the queue:** unchanged from `-47 F`.
 
+---
+
+### R-2026-09-21-49 — the ESLint ignore gap, assigned to a named change rather than a trigger
+
+_Issued as R-PROVISIONAL-2026-09-21-AB. Number assigned on landing from the record's last as read on merged `main` (`3b232b6`): R-2026-09-21-48._
+
+**A — THE FINDING, AND EVERY PREMISE IN IT VERIFIED ON `3b232b6` BEFORE THIS WAS WRITTEN** (method note 17).
+
+`npm run lint` reports **67 errors, all inside the wrangler build output under apps/public-dashboard/.wrangler/tmp/** (cited without backticks deliberately: it is gitignored, and Clause 4's scope rule is that a gitignored path must not be written as though it were a repo path). Reproduced on merged `main` after `npm run build`: `✖ 67 problems (67 errors, 0 warnings)`. CI has never seen it because `.github/workflows/ci.yml`'s `repo-lint` job runs `npm ci`, `npm run typecheck` and `npx eslint .` and **performs no build**, so the artefact does not exist in that job's workspace.
+
+**A2 — THE MECHANISM IS NARROWER AND MORE EMBARRASSING THAN "ESLINT DOES NOT READ `.gitignore`".** It is one missing sibling entry.
+
+- `.gitignore` lines 42–43 list `.wrangler/` and `.functions-build/` adjacently, under one comment ending *"Both generated, never committed."*
+- `eslint.config.mjs`'s `ignores` array lists `'**/.functions-build/**'` and **not** `'**/.wrangler/**'`, under a comment explaining that generated output is ignored because *"linting it lints esbuild, not this repository."*
+
+**The reason for ignoring `.wrangler` is already written in the config, for its sibling.** One of the two was carried across and the other was not. That is what makes A3's *derive, do not hand-write* instruction the right shape rather than an over-engineering of a one-line fix.
+
+**B — THE RULING.** Fixed **at the root, in the change that records the hosted apply of 018** — the one that runs `node scripts/freeze_applied_migrations.mjs 18 <date> <ruling>` and moves the `frozen_migrations` placeholder to 019. **Not a separate pull request.**
+
+1. **Add the wrangler build output path(s) to ESLint's ignore configuration, derived from `.gitignore` and the wrangler config rather than hand-written.**
+2. **Add a check that runs the build and then the lint in the same job, or an equivalent guard**, so a build-then-lint regression cannot hide between jobs again.
+3. **Demonstrate the failing half** (method note 23): with the ignore entry removed, the new check goes red; with it restored, the lint reports 0 errors after a build.
+4. **The successor to #61's self-check clause is ticked only when 3 is shown**, not when the lint happens to be quiet.
+
+**C — TWO MECHANISM NOTES, PROPOSED NOT PRESCRIBED (method note 5), because B1 names a mechanism whose cost is not visible from the instruction.**
+
+- **"Derive from `.gitignore`" has a standard implementation and it is a NEW DEPENDENCY.** ESLint's flat config does not read `.gitignore`; the supported route is `includeIgnoreFile` from `@eslint/compat`, which is not in `package.json` (`eslint 10.10.0` and `typescript-eslint 8.70.0` are the only ESLint packages present). Adding it invokes Pre-Merge Gate 4 — registry existence, download history, typosquat check — for a one-line ignore. **The alternative that derives without a dependency** is a compliance test asserting that every directory `.gitignore` marks as generated build output also appears in the config's `ignores`, which puts the derivation in a GUARD rather than in the config and needs no new package. **Recommended, not decided.**
+- **B2's "same job" has a cheaper equivalent that is also stronger.** Making `repo-lint` build first adds the whole build to a 28-second job. A compliance test over `ci.yml` and `eslint.config.mjs` asserting the agreement above is instant, runs in a job that already exists, and catches the gap even on a machine where nobody builds. Either satisfies B2 as worded; the second is what the repository's other cross-file agreements already look like.
+
+**D — WHY THIS WAS NOT IN #61, and the freeze is recorded as having worked.** It is not a visitor-reachable safety defect, so R-2026-09-21-46 clause 3's only exception did not apply and it stayed out. **The freeze was applied correctly by both parties**, which is worth recording because the previous seven-pull-request run is what the freeze was written about.
+
+**E — `-48 E`'s TRIGGER IS SUPERSEDED BY THIS RULING, and the block is left as written (method note 8).** It also carries the same backticked citation of the gitignored wrangler path that A above corrects in itself; left as written for the same reason, and named here so the slip is recorded rather than only fixed going forward. **The phantom-path guard does not catch it** — the path holds an ellipsis and a glob, so the extractor does not recognise it as a citation at all. A rule enforced by a guard that cannot see the shape in question is enforced by reading. `-48 E` recorded this as an open item triggered by *"the next change that touches the ESLint configuration"* — an event nobody had scheduled. It is now assigned to a NAMED change that is already owed. **An open item with a trigger nobody will reach is an item that will not be done**, and this is the founder converting one into work with an owner.
+
+**F — ALSO BATCHED INTO THAT CHANGE: the four handoff discrepancies from #61 are corrected in the NEXT handoff document.** The committed `docs/handoff-2026-09-21-gate-lifted-018-in-flight.md` is **left unedited** — it is a dated record of what was believed on 2026-09-21, and method note 8 makes a dated record superseded rather than amended. The corrections:
+
+1. **The demonstrated-failing-half rule is method note 23**, with note 24 as its cheaper prior question. **Notes 21 and 22 are batching and open items** and have nothing to do with probes.
+2. The `edge_logs` figures *"5 reads … minimum gap 80 s"* were true when taken and are stale for their own stated window; it now holds at least 7 reads with a minimum gap of 34s, because the implementer's probes landed inside it afterwards. **The inference survives** — 34s still exceeds the 30s TTL.
+3. `-46` was named for the freeze before the number was assigned; it is correct only because the rulings were ordered to make it so.
+4. *"No PR number seen yet"* was stale the moment #61 opened.
+
+**G — the queue:** unchanged. **The founder's hosted apply of 018 comes first and nothing starts before it** — not this, not the apply record. The boundary closes there, not at #61's merge.
+
+---
+
+### R-2026-09-21-50 — the runbook was not restated for 018; the rule is widened and one quarter of it is mechanised
+
+_Issued as R-PROVISIONAL-2026-09-21-AC. Number assigned on landing from the record's last as read on this branch: R-2026-09-21-49._
+
+**A — THE FINDING, AND IT IS THE RULE FAILING ON ITSELF.** Step 5 of the hosted runbook has carried this since 2026-09-14: *"When a migration is added, this list is restated in the same change that adds it, never in a follow-up: in between, the document would be wrong."* It was honoured three times — at 014-016, at 017's add, at 017's apply. **#61 added migration 018 and restated nothing.**
+
+**Every premise the founder stated was verified on `3b232b6` before any of this was written** (method note 17), and all of them hold:
+
+| claim | verdict |
+|---|---|
+| §5 still expects `001-017`, no `WOULD APPLY`, `0 migration(s) pending.` | **holds** |
+| §6 asserts the three mirror READS return 200 | **holds** — preamble, probe, results table and a ticked checkbox |
+| §10 asserts the publication holds exactly the three mirrors | **holds** — and its `exactly_three` SQL returns `f` on a correct post-018 project |
+| no 018-specific read-back exists | **holds** |
+
+**A2 — THE WORST ITEM IS §10's STOP CONDITION, because it fails on success.** After the apply, `array_agg(...) = array['facility_public','lga_rollup','ward_public']` reads `f` on a project where everything is right. §5 names that exact hazard two hundred lines earlier — *a stop condition that reads wrong on a correct run teaches whoever runs it to ignore stop conditions* — and the document did it to itself.
+
+**A3 — §5 STATES ITS EXPECTATION IN FOUR PLACES, not one.** **[CORRECTED 2026-09-21 by R-2026-09-21-51: it is FIVE, and the fifth — the stop bullet — is the one this ruling left contradicting the other four. The sentence is kept as written, per method note 8, because the error is the finding.]** The prose bullet, the fenced expected-output block, the ledger expectation, and step 7's *"Hosted now holds 001 through 017."* **A restatement reaching one of four is how this finding was produced**, so the guard in D reads two of them and asserts they agree with each other as well as with the directory.
+
+**B — TWO PREMISES CAME BACK DIFFERENT, and both are reported rather than worked around.**
+
+- **The Pages runbook's `public.ward_public` line is UNAFFECTED.** The founder asked for it to be checked first. It sits inside a dated row-count observation from 2026-09-20; 018 changes who may READ the table, not whether it has rows. Checked, unaffected, and the reason is recorded rather than the line being edited to look considered.
+- **There is no pull-request template.** `.github/` holds only `workflows`. The instruction says the template "gains a line"; it had to be **created**. The instruction survives; the mechanism it named did not exist.
+
+**C — WHAT THE POST-018 REFUSAL ACTUALLY IS, MEASURED rather than assumed**, as the ruling required. Against a local database with 018 applied, a mirror read returns **`HTTP 401`** with body `{"code":"42501", … "message":"permission denied for table ward_public"}`.
+
+**C1 — THE READ AND THE WRITE BECOME INDISTINGUISHABLE.** That is byte-for-byte what §6's WRITE probe has returned since 007. The write probes are kept as the ruling directs, and **their job has changed**: post-018 a write probe is a regression check against a future `INSERT` grant, not independent evidence about today. Recorded in §6, because a probe whose value quietly changed is one people keep running for the old reason.
+
+**C2 — A LOCAL-VS-HOSTED ASYMMETRY THAT THE "DERIVE IT LOCALLY" INSTRUCTION COULD NOT HAVE SURFACED, and it is the reason §6's body rule matters.** MEASURED on both sides, 2026-09-21:
+
+| | real key, table revoked | GARBAGE key | no key at all |
+|---|---|---|---|
+| local stack | 401, body `42501` | 401, body `42501` | 401, body `42501` |
+| hosted | 401, body `42501` | 401, `{"message":"Invalid API key"}` | 401, `{"message":"No API key found in request"}` |
+
+**Locally the body code does not discriminate a dead key from a revoked table. On hosted it does.** §6 runs on hosted, so its existing pass-on-the-body rule is sound where it is used — and anyone reproducing this locally is not reproducing the discrimination. **This is the `$ANON_KEY` family a fourth time**: a probe that passes because authentication failed rather than because the boundary held. Recorded in §6 as a test-conventions §4 asymmetry.
+
+**D — THE ROOT-CAUSE GUARD.** `tests/compliance/runbook_migration_expectation.test.ts` derives §5's expectation from `database/migrations/` and `applied-hosted.json` and reds when they disagree: an unapplied migration §5 does not name, a named migration already frozen, a stale pending count, and **a half-restatement where the prose and the fenced block disagree**. Nine legs. **Demonstrated against the real artefact:** reverting both §5 sites to the text #61 left behind reds the real-runbook leg with *"018_close_mirror_read_and_push_surfaces.sql is in the repository and not applied to hosted, and step 5 does not name it as a WOULD APPLY line."*
+
+**D1 — ONE QUARTER OF THE RULE IS MECHANICAL AND THREE QUARTERS ARE NOT, and the guard's header says so.** §5's expectation is derivable from the repository. **§6's and §10's are hosted READINGS and cannot be derived from here at all** (Clause 4). A guard claiming to cover them would be the phantom enforcement the clause exists to prevent.
+
+**E — THE RULE IS WIDENED, on the founder's instruction, past §6 and §10.** It now governs **every section of either runbook that states an expected hosted state a migration can change**, stated once near §5 with a table of the sections it governs and a pointer in each. Prose, a named human step, no cited artefact — Clause 4 route 2. Each governed section records the 018 miss in §5's existing restatement-history form.
+
+**E2 — THE MECHANICAL HALF THAT REACHES ALL FOUR is the pull-request template**, created here, asking every change touching `database/migrations/` which runbook expectations it changes, with "none" requiring a reason. **A template cannot force an answer** — it is prefilled text, and saying otherwise would be a Clause 5 claim that does not reach. **OPEN ITEM, with a trigger (method note 22):** a CI job reading `github.event.pull_request.body` and failing when that line is blank on a migration-touching PR. **Trigger: the next change to `.github/workflows/ci.yml`.** Recommended; not built here.
+
+**F — THE SWEEP, because the founder widened it past §6 and §10.** Both runbooks, every expectation 018 makes stale, each restated or recorded as unaffected with its reason. The full list is in the pull request. Two items found that 018 did not cause and that were corrected in passing: *"All thirteen migrations were applied"*, four lines above a sentence saying hosted holds 001 through 017 — **already wrong at 014, and nobody was counting** — and the Pages runbook's *"018 is not written until those are quoted back"*, false since the merge.
+
+**G — `-49`'s FIX LANDS HERE**, per the founder's instruction, on the mechanism they specified. Derived from **all** `.gitignore` directory entries rather than the two that were wrong. **MEASURED: four of the eight were uncovered, not one** — `.wrangler/`, `coverage/`, and the two Supabase CLI state directories supabase/.branches/ and supabase/.temp/ (**cited without backticks deliberately, and this time the guard is what said so**: Clause 4's scope rule is that a gitignored path must not read as a repo path, and `tests/compliance/no_phantom_paths.test.ts` flagged both). **It failed in CI and passed locally, which is the signature test-conventions names** — both directories exist on a machine that has run `supabase start` and in no fresh checkout, so the guard's `exists()` check answered differently in the two places. Diagnosed rather than presumed: the local green was reproduced on the identical commit, and the cause is the corpus, not the commit.) All four added; the exemption map ships empty and **its emptiness is asserted**, so adding one is a visible, reviewable act (the `.ci/ci-gate-exceptions.yml` shape). No `@eslint/compat`, no build step in `repo-lint`. Failing half demonstrated both ways: removing the wrangler entry reds the guard, and `npx eslint .` after a build now reports **0 errors** against 67 before.
+
+**H — THIS PULL REQUEST IS AN EXCEPTION TO `-46`, NAMED AS ONE.** It is **not** a visitor-reachable safety defect. It is admitted because **the hosted apply cannot proceed by the runbook without it**: the document's own stop conditions would fire on a correct run, and the founder would be reading a stop condition that means nothing. The freeze's exception clause is for safety defects, so this one is granted by the founder explicitly rather than claimed under that clause.
+
+**I — the queue:** merge this on the founder's word; then the founder runs the pre-apply block, the apply, and the 018 read-back, and pastes all three; then a separate small change runs `freeze_applied_migrations.mjs 18` with the apply date and moves the `frozen_migrations` placeholder to 019. **Nothing in this change records the apply.**
+
+---
+
+### R-2026-09-21-51 — the restatement repeated the defect it was fixing; five review findings, all upheld
+
+_Issued as R-PROVISIONAL-2026-09-21-AD, the founder's review of #62 at `33ad8ce`. Number assigned on landing from the record's last as read on this branch: R-2026-09-21-50._
+
+**A — ALL FIVE UPHELD, verified on `33ad8ce` before any of them was acted on** (method note 17). Two are blocking.
+
+| # | finding | verdict |
+|---|---|---|
+| 1 | §5's stop bullet was not restated and contradicts the first bullet | **CONFIRMED, blocking** |
+| 2 | block B cannot run as pasted — `$KEY` and `$SUPABASE_URL` are never set | **CONFIRMED, blocking** |
+| 3 | E item 3 can false-stop: `status <> 'succeeded'` counts non-terminal runs as failures | **CONFIRMED** |
+| 4 | E is in the wrong place and splits the frozen-boundary checkboxes | **CONFIRMED, worse than stated** |
+| 5 | E item 2 claims a failing half nobody runs | **CONFIRMED** |
+
+**A2 — THE SHAPE OF FINDING 1 IS THE POINT, AND IT IS MINE.** `-50` claimed *"§5 states its expectation in FOUR places"* and restated four. **There are five, and the fifth is the stop condition itself** — which went on reading *"any count other than zero: stop and report"* four lines below a bullet naming `1 migration(s) pending.` **A founder running a correct dry run would have stopped.** That is the precise hazard `-50` was written about, reproduced inside the change written to fix it, and it is a count asserted rather than derived — **#61's error one level up**. The guard now parses all three statements of the expectation and asserts they agree with each other as well as with the migrations directory.
+
+**B — FINDING 2 IS WORSE THAN THE REVIEW STATED, and the extra consequence is recorded because it disarms a control.** Block B reads `$SUPABASE_URL`, which is assigned **once in the whole document, 316 lines later in §6**, and `$KEY`, which `unset KEY BODY` destroys at :855. **And E item 1's failing half is sourced from block B.** So a block that cannot run silently takes one of E's four items with it: item 1 would have had no demonstrated failing half either.
+
+B now carries §6's guard verbatim — the `case sb_publishable_?*` arm and `SUPABASE_URL=` — and unsets both afterwards, satisfying the document's own rule that *each block that needs a credential reads it itself rather than inheriting it from an earlier step*.
+
+**B2 — THE SWEEP THE FOUNDER ORDERED: 23 fenced blocks across §5, §6 and §10, and exactly ONE could not run as pasted.** The cross-block reads in §6 (the schema probe, the mirror loop, both check-(a) probes) take `KEY`/`SUPABASE_URL`/`REF` from a guard block sixteen and five lines above, bound by prose that names it. **That is deliberate and is left alone**; naming the difference between deliberate and broken is the point of having swept. Full table in the pull request.
+
+**C — FINDING 3, AND THE STATUS VALUES ARE CITED RATHER THAN REMEMBERED.** pg_cron writes **six** status values — `starting`, `running`, `sending`, `connecting`, `succeeded`, `failed` — from `GetCronStatus()` in `src/job_metadata.c` at tag **v1.6.4**, which is the version this project runs (`pg_extension.extversion`, read on hosted). **Four of the six are non-terminal.** At a one-minute cadence a run in flight at read time is ordinary, and `<> 'succeeded'` would have stopped the founder on a healthy system.
+
+The query now takes the apply time as an input **read in the same block** — finding 2's lesson applied immediately — counts only runs with `start_time` after it, counts failures as `status = 'failed'` only, and reports the other four in an `in_flight` column so a live run is visible and is not a verdict. **MEASURED that the filter discriminates**, on hosted: all-history 1334 and 6670 succeeded; last three minutes 1 and 3; an hour in the future 0 and 0. The existing lost-race carve-out for `openbed_refresh_lga_rollup` is carried across in substance.
+
+**D — FINDING 5 IS FIXED BY DEMONSTRATION, NOT BY DELETION.** E item 2's block now ends with `begin; set local role anon; select … from public.snapshot_current; rollback;`. **The connecting role is `postgres`; `pg_has_role('postgres','anon','MEMBER')` is `t` locally AND on hosted**, checked before the block was written, as the ruling required. Locally it produces `ERROR: permission denied for table snapshot_current` and the `rollback` still runs — which is why the probe is last in the transaction.
+
+**E — A DEFECT FOUND WHILE FIXING FINDING 1, IN MY OWN GUARD, AND IT IS THE MOST INSTRUCTIVE THING HERE.** The parsers in `tests/compliance/runbook_migration_expectation.test.ts` ended `(?=^- \*\*|\Z)`. **`\Z` is a Perl and Python escape; in JavaScript it matches a literal "Z".** So the lookahead read *"followed by another top-level bullet, or by the letter Z"*.
+
+**Both regexes passed anyway**, because in the real runbook every bullet they match is followed by another top-level bullet — the second branch was never taken. It was exposed by the positive-control leg, whose fixture ends at the stop bullet: the lookahead failed, the parse returned nothing, and the checker correctly reported a missing count. **A guard that works only because its corpus never takes its second branch** is the shape this repository keeps finding, and here the ordinary-input control found it on the first try. Fixed to `$(?![\s\S])` and written into the file's header.
+
+**F — the queue:** unchanged from `-50 I`. Merge on the founder's word; then the founder runs block B, the apply, and block E, and pastes all three; then a separate small change records the apply. **Nothing here records it.**
+
 
 ## The provisional ledger
 
@@ -2457,6 +2590,9 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | — (none issued) | R-2026-09-21-46 | 2026-09-21 | **No provisional letter.** The founder's PR freeze, issued on merging #60: T A4 restated after seven pull requests in one day. The drift's cause is recorded as the implementer's. |
 | — (none issued) | R-2026-09-21-47 | 2026-09-21 | **No provisional letter.** The founder's EVIDENCE-gate read-back on deployment `76fe917`. All four observations pass; 018 unblocked; AA closed in production rather than only on `main`. |
 | — (none issued) | R-2026-09-21-48 | 2026-09-21 | **No provisional letter.** The two decisions 018 was carrying unanswered — the empty allowlist and the exact reversal — plus the pre-condition the founder set before the migration could be written. |
+| AB | R-2026-09-21-49 | 2026-09-21 | The ESLint ignore gap on wrangler build output, moved from an open item with an unreachable trigger to a named change. First letter after AA; I and O stay skipped. |
+| AC | R-2026-09-21-50 | 2026-09-21 | The runbook was not restated for 018 — the restate rule failing on the change that added the migration. Widened past section 5, one quarter of it mechanised, and named as an exception to the -46 freeze. |
+| AD | R-2026-09-21-51 | 2026-09-21 | The founder's review of #62: five defects, two blocking, all mine. The restatement had repeated the defect it was fixing — a fifth expectation site, the stop condition, left contradicting the other four. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -2653,6 +2789,34 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-21, R-2026-09-21-51 (issued as R-PROVISIONAL-2026-09-21-AD): the
+  founder's review of #62 found five defects and all five were upheld — the stop
+  condition left contradicting the expectation it guards, a pre-apply block that
+  could not run as pasted and silently disarmed another item's failing half, a
+  cron check that would have stopped the founder on a healthy system because four
+  of pg_cron's six statuses are non-terminal, a read-back in the wrong place, and
+  a failing half claimed rather than demonstrated; and, found while fixing the
+  first, a `\Z` in the guard's own parsers that JavaScript reads as a literal
+  letter and that passed only because the corpus never took that branch;
+- on 2026-09-21, R-2026-09-21-50 (issued as R-PROVISIONAL-2026-09-21-AC): the
+  hosted runbook was not restated when #61 added migration 018, so its own stop
+  conditions would have fired on a correct project — section 10's set-equality
+  query returning `f` when everything was right; the restate-in-the-same-change
+  rule is widened from section 5's list to every section of either runbook that
+  states a hosted expectation a migration can change, with the quarter that is
+  derivable from the repository mechanised and the three quarters that are hosted
+  readings named as unbuildable; a pre-apply reading and an 018 read-back added so
+  each half of the other is a demonstrated failing half; and the measurement that
+  a dead key and a revoked table are indistinguishable locally and distinguishable
+  on hosted, recorded where the probe that depends on it lives;
+- on 2026-09-21, R-2026-09-21-49 (issued as R-PROVISIONAL-2026-09-21-AB): the
+  ESLint ignore gap on wrangler build output — `.gitignore` marks `.wrangler/` and
+  `.functions-build/` as generated in one breath and the ESLint config ignores only
+  the second, so 67 errors sit in code nobody wrote and CI cannot see them because
+  `repo-lint` never builds; assigned to the change that records the hosted apply of
+  018 rather than left as an open item whose trigger nobody had scheduled, with the
+  derivation and the same-job check each given a cheaper alternative that needs no
+  new dependency;
 - on 2026-09-21, R-2026-09-21-48: 018's two deferred decisions answered —
   `clientAddressableRelations` becomes empty, and the reversal is exact rather than
   withheld as 013's was — with the pre-condition discharged by enumerating every
