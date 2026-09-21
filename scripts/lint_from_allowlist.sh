@@ -10,10 +10,19 @@
 # columns makes widening the surface a visible edit.
 #
 # THE ALLOWLIST IS NOT HARDCODED HERE. It is read from
-# `packages/fixtures/public-relations.json`, by key -- the `mirrors` and `rpcs`
-# arrays -- which `tests/db/config_drift.test.ts` IMPORTS and asserts equals the
-# supabase_realtime publication membership. That link is what stops the lint's
-# idea of "public" drifting away from the database's.
+# `packages/fixtures/public-relations.json`, by key -- the
+# `clientAddressableRelations` and `rpcs` arrays.
+#
+# THAT KEY WAS CALLED `mirrors` UNTIL 2026-09-21, AND IT MEANT TWO THINGS. This
+# header used to add that `tests/db/config_drift.test.ts` imports the same key and
+# asserts it equals the supabase_realtime publication membership, and called that
+# link what stops the lint's idea of "public" drifting from the database's. It was
+# true and it was load-bearing in the wrong direction: the two meanings coincided
+# only because migration 013 published three tables and granted SELECT on the same
+# three. Migration 018 separates them, so config_drift now reads its OWN key,
+# `realtimePublicationMembers`. THIS LINT NO LONGER SHARES A KEY WITH ANY
+# PUBLICATION ASSERTION, and must not be re-coupled to one: what a client may NAME
+# and what the database BROADCASTS are different questions (R-2026-09-21-39).
 #
 # FINDING 6, fixed 2026-09-10. That paragraph was FALSE when written. The parser
 # was a fixed alternation naming all five relations inline, so the fixture was a
@@ -58,11 +67,11 @@ ALLOWED=$(node -e '
   let j;
   try { j = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); }
   catch (e) { process.stderr.write("allowlist is not valid JSON: " + e.message); process.exit(3); }
-  if (!Array.isArray(j.mirrors) || !Array.isArray(j.rpcs)) {
-    process.stderr.write("allowlist must hold BOTH a mirrors array and an rpcs array");
+  if (!Array.isArray(j.clientAddressableRelations) || !Array.isArray(j.rpcs)) {
+    process.stderr.write("allowlist must hold BOTH a clientAddressableRelations array and an rpcs array");
     process.exit(4);
   }
-  const names = [...j.mirrors, ...j.rpcs].filter((n) => typeof n === "string" && n.length > 0);
+  const names = [...j.clientAddressableRelations, ...j.rpcs].filter((n) => typeof n === "string" && n.length > 0);
   process.stdout.write([...new Set(names)].sort().join("\n"));
 ' "$ALLOWLIST_JSON" 2>&1) || PARSE_ST=$?
 case "$PARSE_ST" in
