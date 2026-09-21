@@ -2417,6 +2417,48 @@ _No provisional letter; founder decisions taken in the 018 planning turn._
 
 **F — the queue:** unchanged from `-47 F`.
 
+---
+
+### R-2026-09-21-49 — the ESLint ignore gap, assigned to a named change rather than a trigger
+
+_Issued as R-PROVISIONAL-2026-09-21-AB. Number assigned on landing from the record's last as read on merged `main` (`3b232b6`): R-2026-09-21-48._
+
+**A — THE FINDING, AND EVERY PREMISE IN IT VERIFIED ON `3b232b6` BEFORE THIS WAS WRITTEN** (method note 17).
+
+`npm run lint` reports **67 errors, all inside the wrangler build output under apps/public-dashboard/.wrangler/tmp/** (cited without backticks deliberately: it is gitignored, and Clause 4's scope rule is that a gitignored path must not be written as though it were a repo path). Reproduced on merged `main` after `npm run build`: `✖ 67 problems (67 errors, 0 warnings)`. CI has never seen it because `.github/workflows/ci.yml`'s `repo-lint` job runs `npm ci`, `npm run typecheck` and `npx eslint .` and **performs no build**, so the artefact does not exist in that job's workspace.
+
+**A2 — THE MECHANISM IS NARROWER AND MORE EMBARRASSING THAN "ESLINT DOES NOT READ `.gitignore`".** It is one missing sibling entry.
+
+- `.gitignore` lines 42–43 list `.wrangler/` and `.functions-build/` adjacently, under one comment ending *"Both generated, never committed."*
+- `eslint.config.mjs`'s `ignores` array lists `'**/.functions-build/**'` and **not** `'**/.wrangler/**'`, under a comment explaining that generated output is ignored because *"linting it lints esbuild, not this repository."*
+
+**The reason for ignoring `.wrangler` is already written in the config, for its sibling.** One of the two was carried across and the other was not. That is what makes A3's *derive, do not hand-write* instruction the right shape rather than an over-engineering of a one-line fix.
+
+**B — THE RULING.** Fixed **at the root, in the change that records the hosted apply of 018** — the one that runs `node scripts/freeze_applied_migrations.mjs 18 <date> <ruling>` and moves the `frozen_migrations` placeholder to 019. **Not a separate pull request.**
+
+1. **Add the wrangler build output path(s) to ESLint's ignore configuration, derived from `.gitignore` and the wrangler config rather than hand-written.**
+2. **Add a check that runs the build and then the lint in the same job, or an equivalent guard**, so a build-then-lint regression cannot hide between jobs again.
+3. **Demonstrate the failing half** (method note 23): with the ignore entry removed, the new check goes red; with it restored, the lint reports 0 errors after a build.
+4. **The successor to #61's self-check clause is ticked only when 3 is shown**, not when the lint happens to be quiet.
+
+**C — TWO MECHANISM NOTES, PROPOSED NOT PRESCRIBED (method note 5), because B1 names a mechanism whose cost is not visible from the instruction.**
+
+- **"Derive from `.gitignore`" has a standard implementation and it is a NEW DEPENDENCY.** ESLint's flat config does not read `.gitignore`; the supported route is `includeIgnoreFile` from `@eslint/compat`, which is not in `package.json` (`eslint 10.10.0` and `typescript-eslint 8.70.0` are the only ESLint packages present). Adding it invokes Pre-Merge Gate 4 — registry existence, download history, typosquat check — for a one-line ignore. **The alternative that derives without a dependency** is a compliance test asserting that every directory `.gitignore` marks as generated build output also appears in the config's `ignores`, which puts the derivation in a GUARD rather than in the config and needs no new package. **Recommended, not decided.**
+- **B2's "same job" has a cheaper equivalent that is also stronger.** Making `repo-lint` build first adds the whole build to a 28-second job. A compliance test over `ci.yml` and `eslint.config.mjs` asserting the agreement above is instant, runs in a job that already exists, and catches the gap even on a machine where nobody builds. Either satisfies B2 as worded; the second is what the repository's other cross-file agreements already look like.
+
+**D — WHY THIS WAS NOT IN #61, and the freeze is recorded as having worked.** It is not a visitor-reachable safety defect, so R-2026-09-21-46 clause 3's only exception did not apply and it stayed out. **The freeze was applied correctly by both parties**, which is worth recording because the previous seven-pull-request run is what the freeze was written about.
+
+**E — `-48 E`'s TRIGGER IS SUPERSEDED BY THIS RULING, and the block is left as written (method note 8).** It also carries the same backticked citation of the gitignored wrangler path that A above corrects in itself; left as written for the same reason, and named here so the slip is recorded rather than only fixed going forward. **The phantom-path guard does not catch it** — the path holds an ellipsis and a glob, so the extractor does not recognise it as a citation at all. A rule enforced by a guard that cannot see the shape in question is enforced by reading. `-48 E` recorded this as an open item triggered by *"the next change that touches the ESLint configuration"* — an event nobody had scheduled. It is now assigned to a NAMED change that is already owed. **An open item with a trigger nobody will reach is an item that will not be done**, and this is the founder converting one into work with an owner.
+
+**F — ALSO BATCHED INTO THAT CHANGE: the four handoff discrepancies from #61 are corrected in the NEXT handoff document.** The committed `docs/handoff-2026-09-21-gate-lifted-018-in-flight.md` is **left unedited** — it is a dated record of what was believed on 2026-09-21, and method note 8 makes a dated record superseded rather than amended. The corrections:
+
+1. **The demonstrated-failing-half rule is method note 23**, with note 24 as its cheaper prior question. **Notes 21 and 22 are batching and open items** and have nothing to do with probes.
+2. The `edge_logs` figures *"5 reads … minimum gap 80 s"* were true when taken and are stale for their own stated window; it now holds at least 7 reads with a minimum gap of 34s, because the implementer's probes landed inside it afterwards. **The inference survives** — 34s still exceeds the 30s TTL.
+3. `-46` was named for the freeze before the number was assigned; it is correct only because the rulings were ordered to make it so.
+4. *"No PR number seen yet"* was stale the moment #61 opened.
+
+**G — the queue:** unchanged. **The founder's hosted apply of 018 comes first and nothing starts before it** — not this, not the apply record. The boundary closes there, not at #61's merge.
+
 
 ## The provisional ledger
 
@@ -2457,6 +2499,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | — (none issued) | R-2026-09-21-46 | 2026-09-21 | **No provisional letter.** The founder's PR freeze, issued on merging #60: T A4 restated after seven pull requests in one day. The drift's cause is recorded as the implementer's. |
 | — (none issued) | R-2026-09-21-47 | 2026-09-21 | **No provisional letter.** The founder's EVIDENCE-gate read-back on deployment `76fe917`. All four observations pass; 018 unblocked; AA closed in production rather than only on `main`. |
 | — (none issued) | R-2026-09-21-48 | 2026-09-21 | **No provisional letter.** The two decisions 018 was carrying unanswered — the empty allowlist and the exact reversal — plus the pre-condition the founder set before the migration could be written. |
+| AB | R-2026-09-21-49 | 2026-09-21 | The ESLint ignore gap on wrangler build output, moved from an open item with an unreachable trigger to a named change. First letter after AA; I and O stay skipped. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -2653,6 +2696,14 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-21, R-2026-09-21-49 (issued as R-PROVISIONAL-2026-09-21-AB): the
+  ESLint ignore gap on wrangler build output — `.gitignore` marks `.wrangler/` and
+  `.functions-build/` as generated in one breath and the ESLint config ignores only
+  the second, so 67 errors sit in code nobody wrote and CI cannot see them because
+  `repo-lint` never builds; assigned to the change that records the hosted apply of
+  018 rather than left as an open item whose trigger nobody had scheduled, with the
+  derivation and the same-job check each given a cheaper alternative that needs no
+  new dependency;
 - on 2026-09-21, R-2026-09-21-48: 018's two deferred decisions answered —
   `clientAddressableRelations` becomes empty, and the reversal is exact rather than
   withheld as 013's was — with the pre-condition discharged by enumerating every
