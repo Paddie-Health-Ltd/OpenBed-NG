@@ -56,9 +56,35 @@ const dutyFlagRules = [
 
 export default tseslint.config(
   {
-    // .functions-build is the generated Pages Functions bundle (npm run build:functions),
-    // generated output like dist -- linting it lints esbuild, not this repository.
-    ignores: ['**/dist/**', '**/node_modules/**', '**/.next/**', '**/.functions-build/**', 'packages/fixtures/**'],
+    // GENERATED AND TOOL-STATE DIRECTORIES. Linting them lints esbuild, wrangler or
+    // the Supabase CLI, not this repository.
+    //
+    // EVERY DIRECTORY `.gitignore` EXCLUDES BELONGS HERE, and that is asserted rather
+    // than remembered: tests/compliance/eslint_ignores_cover_gitignore.test.ts derives
+    // the list from `.gitignore` itself and reds when the two come apart.
+    //
+    // WHY THE GUARD EXISTS (R-2026-09-21-49). `.wrangler/` and `.functions-build/` sit
+    // on adjacent lines of `.gitignore` under one comment ending "Both generated, never
+    // committed." Only the second was carried across to this array. The result was 67
+    // ESLint errors inside a wrangler build artefact -- invisible in CI, because
+    // `repo-lint` never builds, and therefore surviving for as long as nobody ran a
+    // build and a lint on the same machine. Four of the eight directory entries were
+    // uncovered when it was finally measured, not one.
+    //
+    // `packages/fixtures/**` is NOT gitignored and is ignored here deliberately: it is
+    // checked-in JSON fixtures, not code. The guard runs in one direction only --
+    // gitignored directories must appear here -- so it does not object.
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/.next/**',
+      '**/.functions-build/**',
+      '**/.wrangler/**',
+      '**/coverage/**',
+      'supabase/.branches/**',
+      'supabase/.temp/**',
+      'packages/fixtures/**',
+    ],
   },
   ...tseslint.configs.recommended,
   {

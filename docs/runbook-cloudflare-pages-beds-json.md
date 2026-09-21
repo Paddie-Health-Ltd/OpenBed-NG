@@ -3,9 +3,22 @@
 **Every step here is OWED, and its owner is the founder.** The implementer has no
 Cloudflare access and is issued no deploy token (R-2026-09-17-11 B4, declined
 deliberately). Bundle 1 merges with these seven steps open. **Bundle 2 — migration
-018 — starts on your report of steps 5 and 6, not on Bundle 1's merge**
+018 — started on your report of steps 5 and 6, not on Bundle 1's merge**
 (R-2026-09-17-11 C): the ordering exists so there is never an interval with no
 public read path, and merging code does not open one.
+
+**STATUS, 2026-09-21: that gate is DISCHARGED.** Steps 5, 5b and 6 were run and
+quoted on deployment `76fe917`, all four EVIDENCE observations passed
+(R-2026-09-21-47), and **migration 018 is written and merged**. It is NOT yet
+applied to the hosted project — that is step 5 of
+`docs/runbook-supabase-project-creation.md`, and it is where the boundary actually
+closes.
+
+**THE RESTATE RULE APPLIES TO THIS FILE TOO** (R-2026-09-21-50): every section here
+that states an expected hosted state a migration can change is restated in the
+change that ADDS the migration. See the rule in step 5 of the Supabase runbook for
+why it was widened — 018 falsified two sections of that document and the change
+that added it restated neither.
 
 **Steps 6 and 7 are GATED by step 4, the custom-domain cutover** (R-2026-09-18-16
 C2, amending R-2026-09-17-12, which wrote them as independent). The WAF
@@ -232,8 +245,11 @@ directory; see the third bullet above.
 2. this cutover is done — `https://openbed.ng/beds.json` reaches the Function;
 3. step 5's values and step 6's cache hit are observed **on that URL**.
 
-018 is not written until those are quoted back. The deployment report of 2026-09-21
-is `*.pages.dev` evidence and discharges none of them.
+018 was not written until those were quoted back. **They were, on 2026-09-21
+against deployment `76fe917`: all four observations passed and 018 is now written
+and merged (R-2026-09-21-47).** The earlier deployment report of 2026-09-21 was
+`*.pages.dev` evidence and discharged none of them, which is why this gate needed
+a second, custom-domain run.
 
 Attach `openbed.ng` to the Pages project as a custom domain, and confirm the
 dashboard reports it active. **Nothing in steps 6 and 7 may be attempted, or marked
@@ -507,10 +523,17 @@ over-trusted (method note 12):**
 1. It covers **HTTP requests to `/beds.json` on the `openbed.ng` zone** — nothing
    else.
 2. It **cannot see the Supabase Realtime websocket**, which never transits this
-   zone; it is a different origin entirely.
+   zone; it is a different origin entirely. **Since migration 018 there is nothing
+   on that websocket to see for these tables** — 018 removes all three mirrors from
+   the `supabase_realtime` publication, so an anonymous subscriber receives no
+   events from them. The caveat is kept because it is true of the RULE, and
+   because a table published again later would restore the exposure silently.
 3. Its counters are **per Cloudflare location, not global**.
 4. It **does not bound accumulation**: paging within the limit still yields a
    series over time. **The boundary is Bundle 2's revoke. This is a throttle.**
+   *(018 is merged; the revoke takes effect on the HOSTED APPLY, not on the merge.
+   Until that apply is recorded in the Supabase runbook, the boundary is not in
+   force and this line still describes an unmet condition.)*
 5. **A 10-second window cannot address accumulation at all** (R-2026-09-19-22 C2). A
    client polling every 30 seconds, the cadence `pollCadenceSeconds` itself
    advertises, makes at most one request per window, so it never trips the rule at
