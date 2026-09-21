@@ -65,9 +65,21 @@ export function cacheProbeViolations(markdown: string): string[] {
   const patterns = grepPatterns(step);
   if (patterns.length === 0) return ['step 6 contains no `grep -i -E` pattern — the guard checked nothing'];
   for (const p of patterns) {
-    for (const required of [MARKER, '^HTTP', '^content-type']) {
+    for (const required of [MARKER, '^HTTP', '^content-type', '^cf-ray']) {
       if (!p.includes(required)) out.push(`a step 6 grep pattern does not select ${required}: ${p}`);
     }
+  }
+
+  /*
+   * THE SAME-DATA-CENTRE PRECONDITION. Without it the step misreads the one thing
+   * about the Cache API that is guaranteed to bite: it is per data centre, so a
+   * pair split across colos misses twice with a perfectly working cache. MEASURED
+   * 2026-09-21: six colos served this project's snapshot reads in one day.
+   * `cf-ray` is what makes that visible from the client side, so requiring the
+   * header without requiring the reader to COMPARE it would be decoration.
+   */
+  if (!/same\s+data\s+centre/i.test(step) && !/same\s+colo/i.test(step)) {
+    out.push('step 6 prints `cf-ray` but never tells the reader to compare the two colo codes — a split pair will be misread as a broken cache');
   }
 
   const bullets = stopBullets(step);
@@ -102,10 +114,25 @@ const ZONE_HIT_NO_MARKER = [
   'cf-cache-status: HIT',
 ].join('\n');
 
+const SPLIT_COLO_PAIR_FIRST = [
+  'HTTP/2 200',
+  'content-type: application/json; charset=utf-8',
+  'x-openbed-edge-cache: miss',
+  'cf-ray: a3ea1b758c5bd081-CDG',
+].join('\n');
+
+const SPLIT_COLO_PAIR_SECOND = [
+  'HTTP/2 200',
+  'content-type: application/json; charset=utf-8',
+  'x-openbed-edge-cache: miss',
+  'cf-ray: b7fc2299de4aa102-LOS',
+].join('\n');
+
 const FUNCTION_HIT_ZONE_DYNAMIC = [
   'HTTP/2 200',
   'content-type: application/json; charset=utf-8',
   'cf-cache-status: DYNAMIC',
+  'cf-ray: a3ea1b758c5bd081-CDG',
   `${MARKER}: hit`,
 ].join('\n');
 
@@ -161,6 +188,34 @@ describe('runbook cache step — the probe that discharges the EVIDENCE gate', (
     const v = cacheProbeViolations(planted).join('\n');
     expect(v).toContain('does not select ^HTTP');
     expect(v).toContain('does not select ^content-type');
+  });
+
+  test("the step's grep selects cf-ray, and a colo-split pair is distinguishable from a cache failure", () => {
+    const step = cacheStep(real) as string;
+    const pattern = grepPatterns(step)[0] as string;
+
+    const colo = (block: string): string | undefined =>
+      selectLines(pattern, block)
+        .find((l) => l.toLowerCase().startsWith('cf-ray'))
+        ?.split('-')
+        .pop();
+
+    expect(colo(SPLIT_COLO_PAIR_FIRST), 'the step grep did not select cf-ray, so the reader cannot see the colo').toBe('CDG');
+    expect(colo(SPLIT_COLO_PAIR_SECOND)).toBe('LOS');
+    expect(
+      colo(SPLIT_COLO_PAIR_FIRST) === colo(SPLIT_COLO_PAIR_SECOND),
+      'two different data centres were not distinguishable — a split pair would read as a broken cache',
+    ).toBe(false);
+    expect(colo(FUNCTION_HIT_ZONE_DYNAMIC), 'the passing block carries no colo to compare against').toBe('CDG');
+  });
+
+  test('plant — cf-ray printed but never compared is rejected', () => {
+    const planted = real
+      .replace(/BOTH BLOCKS MUST SHOW THE SAME\nDATA CENTRE/, 'BOTH BLOCKS SHOULD LOOK FINE')
+      .replace(/same\s+data\s+centre/gi, 'right place')
+      .replace(/same\s+colo/gi, 'right place');
+    expect(planted, 'the plant did not land').not.toBe(real);
+    expect(cacheProbeViolations(planted).join('\n')).toContain('never tells the reader to compare the two colo codes');
   });
 
   test('plant — the failing half removed is rejected', () => {

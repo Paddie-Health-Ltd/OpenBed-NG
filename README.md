@@ -56,10 +56,10 @@ Private base tables live in an `app` schema that is **not** exposed to PostgREST
 so they are unreachable by an anonymous client at any policy setting. `public`
 contains only publishable projection tables and a capped RPC surface. RLS is the
 second line, not the only line. The public dashboard reads a static snapshot
-regenerated every 60 seconds and served from a CDN — not a live database
-connection — so a traffic spike costs one origin read per minute regardless of
-how many people are watching, and the user's coordinates never leave their
-device. See [`docs/`](docs/) for the long version.
+regenerated every 60 seconds and cached at the edge — not a live database
+connection — so a traffic spike costs roughly one origin read every 30 seconds
+per Cloudflare data centre, rather than one per visitor, and the user's
+coordinates never leave their device. See [`docs/`](docs/) for the long version.
 
 ## Development
 

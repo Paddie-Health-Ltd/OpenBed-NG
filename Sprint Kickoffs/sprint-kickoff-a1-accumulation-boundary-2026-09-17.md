@@ -126,7 +126,7 @@ route and its scope is defined by this route's shape.
 **Specialist input incorporated:** *cto-persona* rejected the alternative of pushing
 the snapshot to R2/KV from the database: it needs egress from Postgres (`pg_net`),
 adds a writer and a bucket to the surface, and buys nothing over a cached read the
-edge already collapses to roughly one origin read per `s-maxage`. *platform-sre*
+edge already collapses to roughly one origin read per `s-maxage`. **[CORRECTED 2026-09-21 (R-2026-09-21-43): the collapse is PER DATA CENTRE, not global -- the Cache API does not use Tiered Cache. MEASURED that day: snapshot reads reached this project from SIX colos in 24 hours (LOS, CDG, PER, LIS, MRS, DUB). So it is one origin read per `s-maxage` PER LOCATION. `packages/snapshot/src/serve.ts` already said this; this line did not. **The rejection still stands** -- six reads per 30 seconds is still nothing, and R2/KV would not have been per-location anyway.]** *platform-sre*
 required the last task — the header check must observe the response, because the
 whole cost argument in A1 rests on the edge actually caching. *clco-persona* raised
 no new processor: Cloudflare already serves the dashboard and is already on the open

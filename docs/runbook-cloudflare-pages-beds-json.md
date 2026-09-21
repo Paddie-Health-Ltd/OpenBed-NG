@@ -319,14 +319,28 @@ with what it actually did** — `x-openbed-edge-cache`. That marker is the whole
 measurement here; read why below before substituting anything else for it.
 
 The Cache API is **per data centre, not global**, so make the two requests from the
-same place, within 30 seconds:
+same place, within 30 seconds. **`cf-ray` is in the grep so you can SEE which data
+centre answered** — read the part after the hyphen.
 
 ```bash
-curl -sS -o /dev/null -D - "$BEDS_URL" | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-cache-status'
-curl -sS -o /dev/null -D - "$BEDS_URL" | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-cache-status'
+curl -sS -o /dev/null -D - "$BEDS_URL" | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-cache-status|^cf-ray'
+curl -sS -o /dev/null -D - "$BEDS_URL" | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-cache-status|^cf-ray'
 ```
 
-**Stop condition — all three from the SECOND block:**
+**PRECONDITION, read this before reading the marker: BOTH BLOCKS MUST SHOW THE SAME
+DATA CENTRE.** `cf-ray` ends in the colo code — `cf-ray: a3ea1b758c5bd081-CDG` is
+Paris. **If the two blocks end in different codes the requests were answered by
+different data centres, the Cache API is per data centre, and a `miss` is exactly
+what a perfectly working cache produces.** That is a RE-RUN, not a result. Do not
+record it either way.
+
+**MEASURED 2026-09-21, which is why this precondition exists rather than being a
+footnote:** reads of the snapshot from this project in one day came from **six**
+data centres — LOS 13, CDG 12, PER 6, LIS 2, MRS 1, DUB 1 — and pairs landing in
+different colos seconds apart were observed. Without `cf-ray` this step could have
+reported "the cache is broken" on a working cache.
+
+**Stop condition — all three from the SECOND block, with the precondition above met:**
 
 - `HTTP/2 200` (or `HTTP/1.1 200`)
 - `content-type: application/json; charset=utf-8`
@@ -340,7 +354,7 @@ Wait **more than 35 seconds** — past `s-maxage=30` — and run one more:
 
 ```bash
 sleep 40
-curl -sS -o /dev/null -D - "$BEDS_URL" | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-cache-status'
+curl -sS -o /dev/null -D - "$BEDS_URL" | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-cache-status|^cf-ray'
 ```
 
 **Stop condition:** that one reads `x-openbed-edge-cache: miss`. Same URL, same
@@ -356,15 +370,20 @@ implementer on 2026-09-21, pasted into `zsh -f -i`, output unfiltered, against
 
 ```
 $ BEDS_URL=https://openbed.ng/beds.json
-$ curl -sS -o /dev/null -D - "$BEDS_URL" | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-cache-status'
+$ curl -sS -o /dev/null -D - "$BEDS_URL" | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-cache-status|^cf-ray'
 HTTP/2 200
 content-type: application/json; charset=utf-8
 cf-cache-status: DYNAMIC
+cf-ray: a3ea303ef93dff34-CDG
 ---- second request ----
 HTTP/2 200
 content-type: application/json; charset=utf-8
 cf-cache-status: DYNAMIC
+cf-ray: a3ea3051ba45a105-CDG
 ```
+
+**Both blocks end `-CDG`, so the same-data-centre precondition IS met** — this pair
+is a legitimate reading, not a colo split to be re-run.
 
 - **The FAILING half is demonstrated.** No `x-openbed-edge-cache` line at all, so
   the stop condition is **not** met — the correct verdict against an artifact whose
@@ -375,10 +394,11 @@ cf-cache-status: DYNAMIC
 **TWO CONTROLS, SAME SITTING, AND THE FIRST IS THE WHOLE ARGUMENT FOR THE REWRITE:**
 
 ```
-$ curl -sS -o /dev/null -D - https://openbed.ng/nonexistent-path | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-cache-status'
+$ curl -sS -o /dev/null -D - https://openbed.ng/nonexistent-path | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-cache-status|^cf-ray'
 HTTP/2 200
 content-type: text/html; charset=utf-8
 cf-cache-status: DYNAMIC
+cf-ray: a3ea3055cf347ad7-CDG
 ```
 
 **A path with NO FUNCTION AT ALL returns `cf-cache-status: DYNAMIC` too.** So on
@@ -387,7 +407,7 @@ let alone a cache hit from a miss. It is `content-type` that exposes the fallbac
 which is why it is in the grep and in the stop condition.
 
 ```
-$ curl -sS -o /dev/null -D - https://openbed-public-dashboard.pages.dev/beds.json | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-cache-status'
+$ curl -sS -o /dev/null -D - https://openbed-public-dashboard.pages.dev/beds.json | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-cache-status|^cf-ray'
 HTTP/2 200
 content-type: application/json; charset=utf-8
 ```
@@ -424,10 +444,10 @@ the false-green this step exists to avoid, not a workaround for it.
 
 **Symptoms:**
 
-- **The second block reads `miss`** — first, **just run the pair again.** The Cache
-  API is per data centre and two requests can land in different locations, which is
-  a miss with nothing wrong. **A single `miss` pair is neither a pass nor a finding.**
-  Try up to **five** pairs. If every pair reads `miss`, that IS a finding: report it,
+- **The second block reads `miss`** — **compare the two `cf-ray` colo codes first.**
+  Different codes: different data centres, an expected miss, re-run. Same code: a
+  real miss inside one data centre, which is informative. Either way, **a single
+  `miss` pair is neither a pass nor a finding.** Try up to **five** pairs. If every pair reads `miss`, that IS a finding: report it,
   and do not add a Cache Rule. The next diagnostic is the Function's log, which now
   prints `x-openbed-edge-cache=<state>` with its cause on every request — dashboard
   **Workers & Pages → the project → Logs → Live**, or `npx wrangler pages deployment tail`.

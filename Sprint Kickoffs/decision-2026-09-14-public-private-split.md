@@ -1058,7 +1058,7 @@ _#33 merged at its reviewed head `cc51d5d`, untouched; nothing was attached to a
 
 **Design ruling 1 — B5's external caller: CLOUDFLARE PAGES FUNCTIONS.** Founder's call, 2026-09-17. Cloudflare is already the deploy target and already an open s.29 / s.41 item, so this extends an agreement in progress rather than opening a second processor thread; the free tier covers this volume; launch cost stays ~$25/month (the kickoff's open decision 2, Supabase Pro, settled). It restores a host for `/api/*`, which is what six items failed for want of.
 - The markers on #28, #30, #87, #88, #89, #92 and #107 now read *ruled 2026-09-17, build not yet scoped*. **No verdict changed**: those sentences were false at `db528f8`, and a later decision does not make them true.
-- #28 and #107 carried no "open" clause — they were amended against the 2026-09-10 Gate 2 restatement, not against the host — so each gained one sentence saying the restatement stands regardless, because it turns on `stale-while-revalidate` rather than on where anything is hosted.
+- #28 and #107 carried no "open" clause — they were amended against the 2026-09-10 Gate 2 restatement, not against the host — so each gained one sentence saying the restatement stands regardless, because it turns on `stale-while-revalidate` rather than on where anything is hosted. **[SUPERSEDED BY NOTE 2026-09-21 (R-2026-09-21-43), left as written per method note 8. That sentence made the amendments host-proof by pinning them to `stale-while-revalidate` — **and SWR is the premise that has since failed**. The amendments survive, on the ~120-second end-to-end bound, which turns on neither the host nor SWR. Immunising a claim against one objection by tying it to a second, unverified premise moves the risk rather than removing it.]**
 - **Not built here.** A host, `/api/health`, `/status`, the digest and the sweep caller are a sprint with a kickoff. R-2026-09-16-07's constraint binds whatever gets built: the sensor reads `app.system_heartbeat` and must not share pg_cron's failure mode.
 
 **Design ruling 2 — when a tile may render GREEN (#15).** The property, mechanism left to the implementer (method note 5): *a tile renders GREEN only on an age whose elapsed term is known to be advancing. Where it cannot be, the badge degrades rather than greens.*
@@ -2151,6 +2151,61 @@ and `decodeWard` builds its keys **from `shape.wardColumns`** (`packages/snapsho
 **F — the queue:** this change; then the founder's deploy and the corrected steps 5 and 6 on `openbed.ng`, quoted; then the EVIDENCE gate recorded lifted on that output; then 018; then the founder's hosted apply of 018; then the infrastructure review; then Bundle 3; then facility one; then Bundle 4. **Unchanged from -40 C except that the deploy is now load-bearing**, because the marker is new code.
 
 
+---
+
+### R-2026-09-21-43 — every corrected reason followed to the instruction it justified; the SWR consequence sweep; the colo precondition
+
+_No provisional letter. Arrived as Cowork's confirmation of -42 §C with one condition, plus two consequence checks._
+
+**A — THE CONDITION, DISCHARGED: each corrected reason followed to what it justified.** -42 §C corrected three reasons and left every instruction and the gate wording intact. Cowork accepted that and required the follow-through, so no instruction is silently kept and none silently deleted.
+
+| Corrected reason | Instruction it justified | Reason after the correction |
+|---|---|---|
+| "the Cache API works only on a custom domain" | runbook step 6 runs on `openbed.ng` | **The EVIDENCE gate (R-2026-09-20-28 B) is worded on `openbed.ng`.** Valid — but governance, not mechanism |
+| same | step 4 GATES step 7, the rate limit | **Untouched and still technical:** a zone WAF rule is zone-level |
+| same | step 4 GATES step 6 | **⚠️ ONLY the gate's wording remains — see C1** |
+| same | the A1 DoD: "never marked met from a `*.pages.dev` preview" | The gate's wording |
+| same | R-2026-09-18-16 **C2**, "the two OWED steps share a prerequisite" | **The shared prerequisite is gone.** Both are still gated on the cutover, but now for **two different reasons**, not one. The conclusion survives; the framing does not |
+| same | R-2026-09-18-17 **B1**, the Miniflare run is not evidence for the criterion | **Unaffected.** A local simulation is not Cloudflare's edge whatever the host question |
+| "no `cf-cache-status` on `*.pages.dev` ⇒ an inert Cache API" | "no cache criterion may be recorded from that host" | **Broadened rather than lost:** `cf-cache-status` measures the wrong cache on **every** host, `openbed.ng` included |
+| "`stale-while-revalidate` is NOT VERIFIED" | "the header is still sent, for browsers and downstream caches" | **Valid, and safe** — the payload carries `server_now` and `updated_at`, so a stale copy states its own age |
+
+**B — THE SWR CONSEQUENCE SWEEP. 49 sites; most restate the header string and are left alone. Nine assert a behaviour or rest a decision on one.**
+
+**B1 — THE ONE THAT MATTERS: A RELEASE GATE WAS WEAKENED ON THIS PREMISE.** `packages/fixtures/golden-path-steps.json` recorded, as the **sole stated reason** for restating a gate the founder had signed off:
+
+> *"Public reads now come from a static snapshot at s-maxage=30, stale-while-revalidate=300, **which may legitimately serve a five-minute-old payload**, so the original clause encodes a requirement the chosen architecture cannot meet"*
+
+Gate 2's *"the tile reflects it within 60 seconds with no page refresh"* became *"a client poll at the snapshot's own cadence reflects the new count"*. The same sentence is carried in `packages/fixtures/snapshot-shape.json`, and in the v1 and v2 kickoffs at four places.
+
+**The premise is false. The conclusion stands.** DERIVED, not measured: generator cadence 60s (migration 017) + cache TTL 30s + client poll 30s ≈ **120 seconds**, not 300-plus. Still more than 60, so the restatement holds — **on roughly half the bound it claimed, and for a different reason.** Every site is corrected in place; the live rules are amended, the dated records get notes (method note 8).
+
+**B2 — AND THE IMMUNISATION CLAUSE WAS BACKWARDS.** This record said sweep items #28 and #107 *"stand regardless, because it turns on `stale-while-revalidate` rather than on where anything is hosted"* — deliberately making them host-proof by pinning them to SWR, **which is the premise that then failed.** Immunising a claim against one objection by tying it to a second, unverified premise moves the risk; it does not remove it. Left as written with a dated note.
+
+**B3 — the rest of the sweep.**
+
+- **v2's dead-generator paragraph** — *"`stale-while-revalidate=300` keeps the CDN serving a plausible file for five minutes after the origin dies"* — the strongest behavioural SWR claim in the repository, and false. The camouflage window is the **30-second TTL**, then a `no-store` 5xx. **Its conclusion — that the sensor must be `version` not incrementing, not the dashboard and not `generated_at` — SURVIVES AND STRENGTHENS**, because it now rests on less.
+- **`docs/handoff-2026-09-15-016-scope-and-rulings.md`** justified 017's `SET row_security = off` partly by "an empty snapshot the edge would serve for 300 seconds". Decision unaffected; **severity overstated about tenfold**. Dated note.
+- **The A1 kickoff rejected an R2/KV alternative** partly because "the edge already collapses to roughly one origin read per `s-maxage`". It is **per data centre** — MEASURED 2026-09-21, six colos in 24 hours. `serve.ts` already said so; the kickoff did not. **The rejection still stands.**
+- **`README.md` — public-facing — claimed the snapshot is "served from a CDN" costing "one origin read per minute regardless of how many people are watching".** Wrong three ways: not the zone CDN, per data centre, and per 30 seconds. Corrected.
+- **Three sweep verdicts move from NOT CHECKABLE to CHECKED AND FALSE.** They were parked as vendor facts; naming the mechanism made them repo-checkable.
+- **The irony, recorded because it settles the direction:** v1 and v2 both **ban** Workbox's client-side `StaleWhileRevalidate` — *"it will paint yesterday's bed counts under a full green badge."* The repository forbids at the client exactly what it assumed the edge was doing for it. **Losing edge SWR is the safer direction**, which is why none of this is urgent.
+
+**C — OPEN ITEMS WITH TRIGGERS (method note 22). None is work now.**
+
+**C1 — step 4 gating step 6 now rests on the gate's wording alone.** The technical reason is gone. If the EVIDENCE gate is ever reworded or discharged, **nothing requires the cache observation to be taken on the custom domain at all** — Pages Functions have a functional Cache API on `*.pages.dev`. Flagged rather than kept or dropped, exactly as Cowork required. **Trigger: any rewording or discharge of the EVIDENCE gate.**
+
+**C2 — the FAILURE MODE changed, and it is worse.** Every corrected bound got *smaller*, so nothing safe becomes unsafe — but with SWR believed working, a dead origin meant five minutes of stale-but-real data. In fact, **30 seconds after the origin dies** the Function returns a `no-store` 5xx and `apps/public-dashboard/src/main.ts` renders *"Live data is temporarily unavailable — showing example data."* **Example data on a bed-availability board is the empty-city hazard family.** Pre-existing, but reachable ten times sooner than believed. **Trigger: Bundle 4, alongside the publish-screen raw-error item.**
+
+**C3 — Gate 2 could be revisited.** The bound is ~120s, not ~300s. Still not 60s, so nothing changes today, and it is the founder's call either way. **Trigger: Bundle 4's freshness work.**
+
+**D — THE COLO PRECONDITION ON STEP 6, and it was one run away from producing a false finding.** The Cache API is per data centre. MEASURED 2026-09-21 from the Supabase edge log: snapshot reads reached this project from **six** colos in 24 hours — LOS 13, CDG 12, PER 6, LIS 2, MRS 1, DUB 1 — with pairs seconds apart landing in **different** ones. A pair split across colos reads `miss` twice **with a perfectly working cache.**
+
+`cf-ray` ends in the colo code, and it agrees with the log's own `request.cf.colo` — MEASURED both sides: `cf-ray: a3ea1b758c5bd081-CDG` against `request.cf.colo = CDG`. So step 6 now prints `cf-ray` and **requires both blocks to show the same code before the marker is read at all.** Different codes is a RE-RUN, not a result. `tests/compliance/runbook_cache_probe.test.ts` enforces both the header and the instruction to compare it — a printed header nobody is told to compare would be decoration.
+
+**E — the queue:** unchanged from -42 F. This change; then the founder's deploy and the corrected steps 5 and 6 on `openbed.ng`, quoted; then the EVIDENCE gate recorded lifted on that output; then 018.
+
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -2184,6 +2239,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | Z | R-2026-09-21-40 | 2026-09-21 | Part B withdrawn and reissued by Cowork; the EVIDENCE gate restated as four observations on `openbed.ng`. Carries the runbook probe sweep. |
 | Z (D1) | R-2026-09-21-41 | 2026-09-21 | The same block's design constraint, recorded separately because it is a verification result rather than a direction. |
 | — (none issued) | R-2026-09-21-42 | 2026-09-21 | **No provisional letter.** Arrived as the founder's EVIDENCE-gate read-back plus Cowork's seven constraints on the fix. Recorded so the ledger does not imply the 09-21 run ended at Z. |
+| — (none issued) | R-2026-09-21-43 | 2026-09-21 | **No provisional letter.** Cowork's confirmation of -42 §C with one condition, plus two consequence checks. The condition — follow every corrected reason to what it justified — is discharged in A. |
 
 ## Method notes — how rulings reach the implementer
 
