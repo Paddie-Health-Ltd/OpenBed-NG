@@ -659,6 +659,29 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    and copy the sentence on the page. It must say that no facility has joined and
    that this is **not** a report that beds are unavailable. **An empty list, a bare
    zero, or a blank panel is a FAILED deployment**, whatever the build said.
+5b. **THE RENDERED OUTAGE STATE — the other half of read-back 5, and it is
+   reproducible on demand rather than only during a real outage (R-2026-09-21-44).**
+   Until 2026-09-21 this path rendered invented ward rows with invented bed counts,
+   both marked accepting. It now renders one sentence and no list. **How to force it
+   on the real deployment, in a browser, in about ten seconds:**
+
+   1. Open the deployment URL with DevTools on the **Network** tab.
+   2. Right-click any request → **Block request URL** → enter `*/beds.json`.
+      (Firefox: the shield/block icon on the request. Safari: use the offline
+      throttle instead — it blocks everything, which is a coarser but valid version.)
+   3. Reload.
+
+   **Stop condition — the page must say all three:** that live bed information
+   **cannot be loaded**; that this is **NOT a report that beds are unavailable**; and
+   **112 / 767**. Copy the sentence verbatim.
+
+   **FAILED, whatever the build said, if ANY of these appear:** a bed count, a ward
+   category (`A_AND_E`, `THEATRE`, `ICU_ADULT` or any other), a facility name, or a
+   list item of any kind. **Those are the defect this read-back exists to catch, and
+   they were live on the public domain until 2026-09-21.**
+
+   Unblock the URL afterwards.
+
 6. **`X-Robots-Tag`, `Content-Type` AND THE STATUS on `/beds.json`, READ WITH A
    GET.** Paste the header lines **and the body prefix**. They must read
    **`HTTP/2 200`** (or `HTTP/1.1 200`), `application/json; charset=utf-8` and

@@ -1,0 +1,47 @@
+{
+  "comment": "THE GOLDEN PAYLOAD, MOVED OUT OF snapshot-shape.json ON 2026-09-21 (R-2026-09-21-44). It lives here because snapshot-shape.json is imported by packages/snapshot/src/codec.ts, which the public dashboard bundles -- and a JSON import is inlined WHOLE, so every key of that file was being served to every visitor of openbed.ng. MEASURED in the built bundle that day: a facility name, an LGA, a state, a latitude and longitude in central Lagos, an E.164 phone number, two ward categories and two bed counts, all invented, all in exactly the positional shape decodeFacility and decodeWard accept. Nothing rendered it -- and nothing needed to: it was readable by anyone who opened the page source, and it sat one line of code away from being decodable. SHIPPING CODE MUST NOT IMPORT THIS FILE. Its only consumer is tests/compliance/snapshot_shape_matches_migration.test.ts.",
+  "why_the_golden_payload_has_a_gated_ward": "The THEATRE row is accepting_effective=false with gated_by set and bed_count=2 -- beds exist and the gate closed the ward anyway. That is the shape a decoder gets wrong by rendering bed_count and ignoring the gate, and a golden payload of only happy rows would never catch it. Its updated_at is also two hours older than the facility's, so the freshness band under test is not always the fresh one.",
+  "golden": {
+    "v": 41,
+    "generated_at": "2026-09-10T03:12:07.000Z",
+    "server_now": "2026-09-10T03:12:07.000Z",
+    "facilities": [
+      [
+        "e2e00000-0000-4000-8000-000000000001",
+        "E2E General Hospital",
+        "E2E_LGA_ALPHA",
+        "Lagos",
+        6.5244,
+        3.3792,
+        "+2348000000001",
+        "2026-09-10T03:10:00.000Z"
+      ]
+    ],
+    "wards": [
+      [
+        "e2e00000-0000-4000-8000-000000000001",
+        "MATERNITY",
+        "OFFERED",
+        4,
+        true,
+        null,
+        "OK",
+        "WARD",
+        "ACTIVE",
+        "2026-09-10T03:10:00.000Z"
+      ],
+      [
+        "e2e00000-0000-4000-8000-000000000001",
+        "THEATRE",
+        "OFFERED",
+        2,
+        false,
+        "NO_ANAESTHETIST_ON_DUTY",
+        "OK",
+        "WARD",
+        "ACTIVE",
+        "2026-09-10T01:05:00.000Z"
+      ]
+    ]
+  }
+}

@@ -3,6 +3,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { REPO_ROOT } from './_scratch.js';
 import SHAPE from '../../packages/fixtures/snapshot-shape.json';
+// The golden payload lives in its OWN fixture so that shipping code cannot pull it
+// into a browser bundle: a JSON import is inlined whole (R-2026-09-21-44).
+import GOLDEN from '../../packages/fixtures/snapshot-golden.json';
 import { encodeWard, decodeWard, encodeFacility, decodeFacility } from '../../packages/snapshot/src/codec.js';
 
 /**
@@ -162,36 +165,36 @@ describe('snapshot shape matches migration 007', () => {
 
 describe('snapshot codec', () => {
   test('the golden ward rows round-trip through decode and encode unchanged', () => {
-    for (const row of SHAPE.golden.wards) {
+    for (const row of GOLDEN.golden.wards) {
       expect(encodeWard(decodeWard(row))).toEqual(row);
     }
   });
 
   test('the golden facility rows round-trip through decode and encode unchanged', () => {
-    for (const row of SHAPE.golden.facilities) {
+    for (const row of GOLDEN.golden.facilities) {
       expect(encodeFacility(decodeFacility(row))).toEqual(row);
     }
   });
 
   test('decode names the columns the fixture names, in order', () => {
-    const first = SHAPE.golden.wards[0];
+    const first = GOLDEN.golden.wards[0];
     expect(first, 'the golden payload has no ward rows — the round-trip legs above are vacuous').toBeDefined();
     expect(Object.keys(decodeWard(first as unknown[]))).toEqual(SHAPE.wardColumns);
   });
 
   test('plant — a row of the wrong arity is refused rather than silently shifted', () => {
-    const short = SHAPE.golden.wards[0]?.slice(0, 3) ?? [];
+    const short = GOLDEN.golden.wards[0]?.slice(0, 3) ?? [];
     expect(() => decodeWard(short)).toThrow(/expected 10 values/);
   });
 
   test('plant — encoding a row missing a column is refused rather than shifting every later column', () => {
-    const complete = decodeWard(SHAPE.golden.wards[0] as unknown[]);
+    const complete = decodeWard(GOLDEN.golden.wards[0] as unknown[]);
     delete complete['gated_by'];
     expect(() => encodeWard(complete)).toThrow(/missing gated_by/);
   });
 
   test('the gated ward in the golden payload really is gated — the fixture is not all happy rows', () => {
-    const gated = SHAPE.golden.wards.map((r) => decodeWard(r)).filter((r) => r['gated_by'] !== null);
+    const gated = GOLDEN.golden.wards.map((r) => decodeWard(r)).filter((r) => r['gated_by'] !== null);
     expect(gated.length, 'no gated row in the golden payload').toBeGreaterThan(0);
     expect(gated[0]?.['accepting_effective'], 'a gated ward is published as accepting').toBe(false);
     expect(gated[0]?.['bed_count'], 'the gated row has no beds, so it cannot catch a decoder that ignores the gate').toBeGreaterThan(0);

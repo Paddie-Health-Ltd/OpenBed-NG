@@ -7,6 +7,10 @@
 // to make one test compile would quietly remove that boundary everywhere.
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { wardColumns, facilityColumns } from '../../packages/snapshot/src/codec.js';
+// The ward-category vocabulary is DERIVED from the truth table, never restated here:
+// a category added to the fixture must redden this file rather than slip past a
+// hand-written list (test-conventions section 3).
+import TRUTH_TABLE from '../../packages/fixtures/truth-table.json';
 
 /**
  * THE EMPTY STATE IS ASSERTED AT THE RENDERED SURFACE (R-2026-09-20-29 E2).
@@ -143,5 +147,119 @@ describe('the public dashboard never renders an empty city as a bare zero', () =
     const text = await renderWith({ ...EMPTY_PAYLOAD, facilities: POPULATED_PAYLOAD.facilities });
     expect(text, `the third state was collapsed into one of the other two:\n${text}`).toMatch(/none has reported a ward/i);
     expect(text).not.toMatch(/no facility has joined/i);
+  });
+});
+
+/**
+ * THE OUTAGE STATE (R-2026-09-21-44), asserted at the same surface and for a
+ * sharper reason than the empty state above.
+ *
+ * Until 2026-09-21 a failed fetch rendered a hard-coded list of two invented wards
+ * with invented bed counts, under the words "showing example data" -- and both
+ * rendered as OPEN AND ACCEPTING, because their duty flags were all UNKNOWN and an
+ * unknown flag gates nothing. It reached real visitors on openbed.ng whenever the
+ * snapshot could not be fetched, decoded or parsed.
+ *
+ * R-2026-09-20-29 E3 forbids rendering absence as "a bare zero". This is that rule
+ * in the other direction: an outage must never render as an availability report.
+ *
+ * WHY THIS BLOCK EXISTS AT ALL, and it is the method note this change carries:
+ * E2 relocated the assertion to the rendered surface, and the file you are reading
+ * implemented it -- OVER renderReal ONLY. The path that fabricated data was never
+ * rendered in any test. A control aimed at one renderer is not a control over the
+ * hazard class.
+ *
+ * NOT ASSERTED HERE, deliberately: that the deployed artifact contains no example
+ * data. That is a property of the BUILD, not of this module, and it is checked by
+ * grepping the built bundle in the change that removed it -- named here so nobody
+ * reads these legs as covering it.
+ */
+
+/** Every ward-category identifier the system knows, from the shared fixture. */
+const WARD_CATEGORIES: readonly string[] = [
+  ...new Set((TRUTH_TABLE as readonly { category: string }[]).map((r) => r.category)),
+];
+
+type FailureMode = 'non-2xx' | 'network' | 'timeout' | 'parse' | 'codec';
+
+/**
+ * Every way fetchSnapshot() can give up, per its own docblock. The timeout is
+ * simulated by REJECTING with a TimeoutError rather than by hanging: the real path
+ * waits 8s per attempt and would cost 16s here for nothing, and the module cannot
+ * tell the two apart -- both land in the same bare `catch`.
+ */
+async function renderWithFailure(mode: FailureMode): Promise<string> {
+  document.body.innerHTML = '<main id="app"></main>';
+  const timeout = Object.assign(new Error('simulated timeout'), { name: 'TimeoutError' });
+  const shortWard = [...Array(3).keys()];
+  const responders: Record<FailureMode, () => Promise<Response>> = {
+    'non-2xx': async () => new Response('', { status: 502 }),
+    network: () => Promise.reject(new TypeError('Failed to fetch')),
+    timeout: () => Promise.reject(timeout),
+    parse: async () => new Response('this is not json', { status: 200 }),
+    codec: async () =>
+      new Response(JSON.stringify({ v: 1, generated_at: 'x', server_now: 'x', facilities: [], wards: [shortWard] }), {
+        status: 200,
+      }),
+  };
+  vi.stubGlobal('fetch', vi.fn(responders[mode]));
+  const { render } = await import('../../apps/public-dashboard/src/main.js');
+  await render();
+  return document.body.textContent ?? '';
+}
+
+describe('a failed fetch renders an outage, never invented data', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const MODES: FailureMode[] = ['non-2xx', 'network', 'timeout', 'parse', 'codec'];
+
+  test.each(MODES)('%s — the page says it is an outage and denies being an availability report', async (mode) => {
+    const text = await renderWithFailure(mode);
+    expect(text, `the outage page said nothing a reader could act on:\n${text}`).toMatch(/can.t be loaded right now/i);
+    expect(text, 'the outage page did not deny being a bed-availability report').toMatch(
+      /not a report that beds are unavailable/i,
+    );
+    expect(text, 'the outage page did not point anywhere').toMatch(/112 \/ 767/);
+  });
+
+  test.each(MODES)('%s — NO INVENTED BED COUNT reaches the page', async (mode) => {
+    const text = await renderWithFailure(mode);
+    expect(text, `a bed count rendered on an outage page:\n${text}`).not.toMatch(/\d+\s*beds/i);
+    expect(
+      document.querySelectorAll('#app li').length,
+      'the outage page rendered a list — a row is a thing to be misread',
+    ).toBe(0);
+  });
+
+  test.each(MODES)('%s — NO WARD CATEGORY reaches the page', async (mode) => {
+    const text = await renderWithFailure(mode);
+    for (const category of WARD_CATEGORIES) {
+      expect(text, `the ward category ${category} rendered on an outage page:\n${text}`).not.toContain(category);
+    }
+  });
+
+  test('the outage state is NOT the empty state — they are different facts', async () => {
+    const text = await renderWithFailure('network');
+    expect(text, 'an outage was reported as "no facility has joined", which is a claim about the world').not.toMatch(
+      /no facility has joined/i,
+    );
+  });
+
+  /**
+   * ANTI-VACUITY FOR THE TWO NEGATIVE ASSERTIONS ABOVE, and it is the leg that makes
+   * them mean anything. `not.toMatch(/\d+ beds/)` and `not.toContain(category)` pass
+   * trivially against a blank page, a thrown render, or a matcher that can never
+   * match. So the SAME two matchers are run against the populated page, where they
+   * MUST fire.
+   */
+  test('anti-vacuity — the same two matchers DO fire on a populated page', async () => {
+    const text = await renderWith(POPULATED_PAYLOAD);
+    expect(text, 'the bed-count matcher cannot match anything, so its negation proves nothing').toMatch(/\d+\s*beds/i);
+    expect(
+      WARD_CATEGORIES.some((c) => text.includes(c)),
+      'the category matcher cannot match anything, so its negation proves nothing',
+    ).toBe(true);
   });
 });
