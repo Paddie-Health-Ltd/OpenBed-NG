@@ -493,6 +493,187 @@ describe('GET /beds.json — the explicit edge cache', () => {
     ).resolves.toBeDefined();
     expect(logged.join(' ')).toContain('cache write failed');
   });
+
+  /*
+   * THE MARKER LEGS (R-2026-09-21-42).
+   *
+   * WHY THE MARKER EXISTS, in one line: until it did, NOTHING a client could read
+   * distinguished a cache hit from an origin read. `cf-cache-status` is the zone
+   * CDN's verdict about a different cache -- `DYNAMIC` for this path whether this
+   * code hit or missed, MEASURED on openbed.ng 2026-09-21 -- and the body is a
+   * stored snapshot that is byte-identical across an origin read, because
+   * migration 016 stamps `server_now` once per REGENERATION, not per request. So
+   * the runbook's cache step had no observable that could take two values, and the
+   * EVIDENCE gate's fourth observation could not be discharged by any probe.
+   *
+   * These legs give the marker BOTH HALVES before the founder runs anything, which
+   * is precisely what the `curl -X HEAD` probe never had.
+   */
+
+  /** Capture console.log for a leg. The state line is an assertion target. */
+  async function withLoggedInfo<T>(fn: () => Promise<T>): Promise<{ result: T; logged: string[] }> {
+    const logged: string[] = [];
+    const original = console.log;
+    console.log = (...args: unknown[]): void => {
+      logged.push(args.map((a) => String(a)).join(' '));
+    };
+    try {
+      return { result: await fn(), logged };
+    } finally {
+      console.log = original;
+    }
+  }
+
+  // Restated rather than imported from serve.ts, for the same reason
+  // EXPECTED_CACHE_CONTROL is: asserting the header equals the module's own
+  // constant would pass whatever the constant said.
+  const MARKER = 'x-openbed-edge-cache';
+
+  test('a hit is marked `hit`, and the origin is not read', async () => {
+    const stored = await newestRow();
+    const cache = fakeCache();
+    const origin = scripted([async () => json(200, [stored])]);
+
+    const first = await serveBedsCached({ env: serviceEnv(), request: request() }, cache, origin.fetchImpl);
+    const second = await serveBedsCached({ env: serviceEnv(), request: request() }, cache, origin.fetchImpl);
+
+    expect(first.headers.get(MARKER), 'the first request was not marked a miss').toBe('miss');
+    expect(second.headers.get(MARKER), 'a cache hit was not marked as one — the runbook step cannot pass').toBe('hit');
+    expect(origin.calls(), 'the response marked `hit` still read the origin, so the marker is a lie').toBe(1);
+  });
+
+  test('THE PLANT THAT MATTERS — with an empty cache the marker is never `hit`', async () => {
+    // The failing half. A marker that reads `hit` unconditionally would satisfy
+    // every leg above; this is the one that says it cannot.
+    const stored = await newestRow();
+    const cache = fakeCache();
+    const origin = scripted([async () => json(200, [stored]), async () => json(200, [stored])]);
+
+    const a = await serveBedsCached({ env: serviceEnv(), request: request() }, cache, origin.fetchImpl);
+    // A second, independent cold cache — the entry the first request stored is not
+    // visible to it, so this must miss too.
+    const b = await serveBedsCached({ env: serviceEnv(), request: request() }, fakeCache(), origin.fetchImpl);
+
+    expect(a.headers.get(MARKER)).toBe('miss');
+    expect(b.headers.get(MARKER)).toBe('miss');
+    expect(origin.calls(), 'a cold cache did not read the origin').toBe(2);
+  });
+
+  test('no cache in this environment is marked `unavailable`, never `hit`', async () => {
+    const res = await serveBedsCached({ env: serviceEnv(), request: request() }, undefined);
+    expect(res.status).toBe(200);
+    expect(res.headers.get(MARKER)).toBe('unavailable');
+  });
+
+  test('plant — a cache READ that throws is marked `read-error`, not `miss`', async () => {
+    // "The cache is empty" and "the cache is broken" are different facts and the
+    // runbook has to tell them apart from one header line.
+    const stored = await newestRow();
+    const cache = fakeCache();
+    cache.failRead = true;
+    const origin = scripted([async () => json(200, [stored])]);
+
+    const { result } = await withLoggedErrors(() =>
+      serveBedsCached({ env: serviceEnv(), request: request() }, cache, origin.fetchImpl),
+    );
+
+    expect(result.status).toBe(200);
+    expect(result.headers.get(MARKER), 'a throwing cache was reported as an ordinary miss').toBe('read-error');
+  });
+
+  test('a failure is marked `nostore`, and nothing reached cache.put', async () => {
+    const cache = fakeCache();
+    const origin = scripted([async () => json(200, [])]);
+    const res = await serveBedsCached({ env: serviceEnv(), request: request() }, cache, origin.fetchImpl);
+
+    expect(res.status).toBe(503);
+    expect(res.headers.get(MARKER)).toBe('nostore');
+    expect(res.headers.get('cache-control'), 'a failure became cacheable').toBe('no-store');
+    expect(cache.puts, 'a failure was stored').toBe(0);
+  });
+
+  test('THE STORED COPY CARRIES NO MARKER — a stale `miss` can never be served as a `hit`', async () => {
+    // The defect this is aimed at: mark the response BEFORE cache.put and the
+    // stored object carries `miss` forever, so every later hit serves the word
+    // "miss"; mark it the other way and a stored `hit` is served on a request that
+    // missed. Either way the marker stops describing the request it is on.
+    const stored = await newestRow();
+    const cache = fakeCache();
+    const origin = scripted([async () => json(200, [stored])]);
+
+    await serveBedsCached({ env: serviceEnv(), request: request() }, cache, origin.fetchImpl);
+    const entry = await cache.match(request(), { ignoreMethod: true });
+
+    expect(entry, 'nothing was stored, so this leg proves nothing').toBeDefined();
+    expect(
+      (entry as Response).headers.get(MARKER),
+      'the marker was written into the CACHED object, so it will be served on requests it does not describe',
+    ).toBeNull();
+  });
+
+  test('a HEAD carries the marker too — GET/HEAD parity extends to it — and still no body', async () => {
+    const stored = await newestRow();
+    const cache = fakeCache();
+    const origin = scripted([async () => json(200, [stored])]);
+
+    await serveBedsCached({ env: serviceEnv(), request: request() }, cache, origin.fetchImpl);
+    const head = await serveBedsCached({ env: serviceEnv(), request: request('HEAD') }, cache, origin.fetchImpl);
+
+    expect(head.headers.get(MARKER), 'a HEAD lost the marker, so the runbook cannot read it with -I').toBe('hit');
+    expect(await head.text(), 'a HEAD answered with a body').toBe('');
+  });
+
+  test('the marker takes ONLY the five documented values, and every one of them is reachable', async () => {
+    // Closed set, asserted by identity rather than by "is a string" — a sixth
+    // value would be a line in the runbook nobody knows how to read.
+    const stored = await newestRow();
+    const warm = fakeCache();
+    const readErr = fakeCache();
+    readErr.failRead = true;
+
+    const seen = new Set<string | null>();
+
+    const origin = scripted([
+      async () => json(200, [stored]),
+      async () => json(200, [stored]),
+      async () => json(200, [stored]),
+    ]);
+    seen.add((await serveBedsCached({ env: serviceEnv(), request: request() }, warm, origin.fetchImpl)).headers.get(MARKER));
+    seen.add((await serveBedsCached({ env: serviceEnv(), request: request() }, warm, origin.fetchImpl)).headers.get(MARKER));
+    seen.add((await serveBedsCached({ env: serviceEnv(), request: request() }, undefined, origin.fetchImpl)).headers.get(MARKER));
+    const { result: re } = await withLoggedErrors(() =>
+      serveBedsCached({ env: serviceEnv(), request: request() }, readErr, origin.fetchImpl),
+    );
+    seen.add(re.headers.get(MARKER));
+    const nostore = scripted([async () => json(200, [])]);
+    seen.add(
+      (await serveBedsCached({ env: serviceEnv(), request: request() }, fakeCache(), nostore.fetchImpl)).headers.get(MARKER),
+    );
+
+    expect([...seen].sort(), 'the marker took a value outside its documented set, or a documented value is unreachable').toEqual(
+      ['hit', 'miss', 'nostore', 'read-error', 'unavailable'],
+    );
+  });
+
+  test('every request logs the state WITH ITS CAUSE, so a `miss` at the edge is explainable', async () => {
+    const stored = await newestRow();
+    const cache = fakeCache();
+    const origin = scripted([async () => json(200, [stored])]);
+
+    const { logged: missLog } = await withLoggedInfo(() =>
+      serveBedsCached({ env: serviceEnv(), request: request() }, cache, origin.fetchImpl),
+    );
+    const { logged: hitLog } = await withLoggedInfo(() =>
+      serveBedsCached({ env: serviceEnv(), request: request() }, cache, origin.fetchImpl),
+    );
+
+    expect(missLog.join(' '), 'a miss was not logged with its state').toContain(`${MARKER}=miss`);
+    expect(missLog.join(' '), 'a miss was logged with no cause, which is what leaves the founder stuck').toContain(
+      'attempted a write',
+    );
+    expect(hitLog.join(' '), 'a hit was not logged').toContain(`${MARKER}=hit`);
+    expect(hitLog.join(' ')).toContain('the origin was not read');
+  });
 });
 
 describe('GET /beds.json — what is refused rather than served', () => {

@@ -158,7 +158,14 @@ is founder-side.**
 13; split by R-2026-09-18-16 C3).** The Cache API works only on a custom domain and
 the rate-limiting rule is zone-level, so two criteria cannot be met until `openbed.ng`
 is live on the Pages project. R-2026-09-17-12 wrote them as independent of that; they
-are not.
+are not. **[CORRECTED 2026-09-21 (R-2026-09-21-42): the ORDERING stands and the
+REASON given for half of it does not. "The Cache API works only on a custom domain"
+is a `*.workers.dev` fact about Workers; Cloudflare's Cache API reference says
+"Workers deployed to custom domains have access to functional `cache` operations. So
+do Pages functions, whether attached to custom domains or `*.pages.dev` domains."
+The cache criterion is still owed on `openbed.ng` — because R-2026-09-20-28 B's
+EVIDENCE gate is worded that way, not because the mechanism is absent elsewhere. The
+rate-limit half is unaffected: a zone WAF rule really is zone-level.]**
 
 - **Demonstrable before the domain, by the implementer:** the Function serves the
   current snapshot; the served document's column lists match the frozen fixture and
@@ -172,11 +179,20 @@ are not.
   cache hit inside `s-maxage`; configure the rate-limiting rule.
 - **The cache criterion is OWED and UNMET until it is observed on the custom domain**
   by the runbook's cache-hit step. It is never marked met from a `*.pages.dev`
-  preview, where the Cache API has no effect, and **never marked met from the local
+  preview, ~~where the Cache API has no effect~~, and **never marked met from the local
   Miniflare run either.** That run is evidence that the cache code path EXECUTES —
   the Function reads and writes the cache as written. It is NOT evidence for the
   criterion, because it simulates the very thing the criterion exists to observe:
-  a hit served by Cloudflare's edge on the real domain (R-2026-09-18-17 B1).
+  a hit served by Cloudflare's edge on the real domain (R-2026-09-18-17 B1). **[CORRECTED
+  2026-09-21 (R-2026-09-21-42): the struck clause was false — Pages Functions have
+  functional cache operations on `*.pages.dev` too. The conclusion is unchanged, and
+  now rests on the gate's wording rather than on an absent mechanism. A SECOND and
+  larger correction belongs here: until 2026-09-21 the runbook's cache-hit step read
+  `cf-cache-status`, which reports the ZONE CDN's cache and not this Function's, and
+  returns `DYNAMIC` for this URL whether the Function's cache hit or missed. **The
+  criterion had no observable that could take two values**, so it could not have been
+  observed anywhere, on any domain. It is now read from `x-openbed-edge-cache`, which
+  `packages/snapshot/src/serve.ts` sets from what it actually did.]**
 
 **Bundle 1 merges with the founder's seven OWED, and Bundle 2 starts on the
 deployment report — the edge-headers and cache-hit steps, on the custom domain —

@@ -287,17 +287,79 @@ export async function fetchNewestSnapshot(
  * the opposite of A1's cost argument: roughly one origin read per s-maxage.
  *
  * What that buys, and what it does not, stated so the runbook can check it:
- *   - It works ONLY on a custom domain. Per Cloudflare's Workers cache
- *     documentation, Cache API operations on *.workers.dev deployments have no
- *     effect, so the cache-hit step of docs/runbook-cloudflare-pages-beds-json.md runs
- *     against openbed.ng, not the pages.dev preview URL.
  *   - It is PER DATA CENTRE. The Cache API does not use Tiered Cache, so it is
- *     roughly one origin read per s-maxage per location, not globally.
- *   - Whether it honours `stale-while-revalidate` is NOT verified; the header is
- *     still sent, for browsers and any downstream cache.
+ *     roughly one origin read per s-maxage per location, not globally. Two
+ *     requests that land in different locations can both miss without anything
+ *     being wrong, which is why the runbook's step re-runs rather than failing.
+ *   - It does NOT honour `stale-while-revalidate`. Cloudflare's Cache API
+ *     reference states that `stale-while-revalidate` and `stale-if-error` "are
+ *     not supported when using the `cache.put` or `cache.match` methods". The
+ *     header is still correct to send -- browsers and any downstream cache honour
+ *     it -- but it buys nothing HERE. Until 2026-09-21 this line read "NOT
+ *     verified"; it is now answered, and answered against what we assumed.
+ *   - IT IS NOT LIMITED TO A CUSTOM DOMAIN, and the claim that it was is
+ *     CORRECTED HERE RATHER THAN QUIETLY DROPPED (R-2026-09-21-42). This comment
+ *     read "It works ONLY on a custom domain ... Cache API operations on
+ *     *.workers.dev deployments have no effect". That is a WORKERS fact, and a
+ *     Pages Function on *.pages.dev is not a Worker on *.workers.dev. The same
+ *     reference paragraph says so explicitly: "Workers deployed to custom domains
+ *     have access to functional `cache` operations. So do Pages functions,
+ *     whether attached to custom domains or `*.pages.dev` domains." The runbook's
+ *     cache step still runs on openbed.ng, because the EVIDENCE gate is worded
+ *     that way -- but NOT for the reason this comment used to give.
  * Only a 200 is ever stored. A failure is `no-store` and is never put in the
  * cache, so the next request retries the origin.
+ *
+ * AND NONE OF IT WAS OBSERVABLE UNTIL THIS HEADER EXISTED. `cf-cache-status`
+ * reports the ZONE CDN's decision, which is a different cache: the reference calls
+ * the two mechanisms "independent". For a `.json` path with no Cache Rule that
+ * decision is `DYNAMIC` on every single request -- measured on openbed.ng on
+ * 2026-09-21, twice, with the Function's cache in an unknown state. A value that is
+ * identical whether this code hit or missed cannot be a stop condition, so the
+ * runbook's cache step could never pass. `x-openbed-edge-cache` is what this
+ * function actually did, on this request.
  */
+export const EDGE_CACHE_HEADER = 'x-openbed-edge-cache';
+
+/**
+ * The CLOSED set of values `x-openbed-edge-cache` may take. Closed so the runbook
+ * can name an exact string, and so a value outside it is a test failure rather than
+ * a line nobody notices.
+ *
+ * Evaluated in a fixed precedence -- unavailable, read-error, hit, nostore, miss --
+ * so the state is a total function of what happened, never a coincidence of branch
+ * order:
+ *   - `unavailable` -- no cache object in this environment. Nothing was read or
+ *     written. Reachable in the node test process and in Cloudflare's dashboard
+ *     editor and Playground; NOT expected at the edge.
+ *   - `read-error`  -- the cache read THREW. Served from the origin. Ranked above
+ *     miss/nostore because a cache that throws is the more informative fault.
+ *   - `hit`         -- the cache returned an entry and this response IS that entry.
+ *     serveBeds was not called and the origin was not read. THIS is the criterion.
+ *   - `nostore`     -- origin read, and the response was deliberately not stored
+ *     because it is not a 200. Every failure() carries this.
+ *   - `miss`        -- origin read, a 200, and a store was ATTEMPTED.
+ *
+ * `miss` DOES NOT CLAIM THE STORE SUCCEEDED, and the distinction is the whole
+ * discipline: on the waitUntil path nothing awaits the put, so the outcome is not
+ * knowable when this response is built. Asserting it would be a Clause 5 defect
+ * inside the fix for one. The log line is what reports a write that failed.
+ */
+export type EdgeCacheState = 'hit' | 'miss' | 'nostore' | 'read-error' | 'unavailable';
+
+/**
+ * The cause that goes in the log beside the state. Each string says what was
+ * OBSERVED, never what is presumed to follow from it -- `miss` in particular says
+ * a write was attempted and stops there.
+ */
+const EDGE_CACHE_CAUSE: Readonly<Record<EdgeCacheState, string>> = {
+  hit: 'served from the edge cache, the origin was not read',
+  miss: 'not in the edge cache; read the origin and attempted a write (the write may still fail, and logs above say so if it did)',
+  nostore: 'not a 200, so deliberately not stored; the next request retries the origin',
+  'read-error': 'the edge cache read threw, so the origin was read; see the error logged above',
+  unavailable: 'no edge cache in this environment, so nothing was read or written',
+};
+
 export interface EdgeCache {
   match(request: Request, options?: { ignoreMethod?: boolean }): Promise<Response | undefined>;
   put(request: Request, response: Response): Promise<void>;
@@ -336,11 +398,30 @@ export async function serveBedsCached(
    * Note this is applied to what is RETURNED, never to what is STORED: the cache
    * always receives the full-bodied response under the GET key, so a HEAD can
    * populate an entry that a later GET reads with its body intact.
+   *
+   * THE CACHE MARKER IS SET HERE FOR THE SAME REASON, AND IT IS THE REASON THIS IS
+   * ONE FUNCTION RATHER THAN TWO. `x-openbed-edge-cache` describes what happened on
+   * THIS request. If it were set before `cache.put`, the stored object would carry
+   * `miss` forever and every later HIT would serve the word "miss" -- or, set the
+   * other way, a stored `hit` would be served on a request that missed. A marker
+   * that can be stored is a lie waiting for its second reader. Setting it on the
+   * outgoing response ONLY makes that unrepresentable rather than merely avoided,
+   * and it is why the stored copy carries no marker at all (R-2026-09-21-42).
+   *
+   * GET/HEAD parity extends to this header, and falls out of being here rather than
+   * being a rule anyone has to remember.
    */
-  const asRequested = (r: Response): Response =>
-    ctx.request.method === 'HEAD'
-      ? new Response(null, { status: r.status, statusText: r.statusText, headers: r.headers })
-      : r;
+  const asRequested = (r: Response, state: EdgeCacheState): Response => {
+    const out = new Response(ctx.request.method === 'HEAD' ? null : r.body, {
+      status: r.status,
+      statusText: r.statusText,
+      headers: r.headers,
+    });
+    out.headers.set(EDGE_CACHE_HEADER, state);
+    return out;
+  };
+
+  let readThrew = false;
 
   if (cache) {
     /*
@@ -354,11 +435,18 @@ export async function serveBedsCached(
      */
     try {
       const hit = await cache.match(key, { ignoreMethod: true });
-      if (hit) return asRequested(hit);
+      if (hit) {
+        console.log(`beds.json: ${EDGE_CACHE_HEADER}=hit; served from the edge cache, the origin was not read`);
+        return asRequested(hit, 'hit');
+      }
     } catch (e) {
-      // Invisible to the client BY DESIGN (R-2026-09-20-33 B5): a read that
-      // throws is simply a miss, and a miss goes to the origin.
+      // Still invisible to the client AS A FAILURE (R-2026-09-20-33 B5): a read
+      // that throws is a miss, and a miss goes to the origin. What is no longer
+      // invisible is THAT IT HAPPENED -- the marker says `read-error` rather than
+      // `miss`, because "the cache is empty" and "the cache is broken" are
+      // different facts and the runbook has to be able to tell them apart.
       console.error('beds.json: the edge cache read failed; treating it as a miss', e);
+      readThrew = true;
     }
   }
 
@@ -385,7 +473,24 @@ export async function serveBedsCached(
       console.error('beds.json: the edge cache write threw; serving the response uncached', e);
     }
   }
-  return asRequested(res);
+
+  /*
+   * THE STATE IS COMPUTED FROM WHAT HAPPENED, IN A FIXED PRECEDENCE, and it is a
+   * total function -- see EdgeCacheState above for what each value means and why
+   * `miss` stops short of claiming the write landed.
+   */
+  const state: EdgeCacheState =
+    cache === undefined ? 'unavailable' : readThrew ? 'read-error' : res.status === 200 ? 'miss' : 'nostore';
+
+  /*
+   * LOGGED WITH ITS CAUSE, because a marker reading `miss` at the edge otherwise
+   * leaves the founder with nothing to look at. The existing console.error lines
+   * cover a read or write that THREW; this one covers the ordinary cases, which is
+   * exactly where a cache that silently stores nothing would hide.
+   */
+  console.log(`beds.json: ${EDGE_CACHE_HEADER}=${state}; ${EDGE_CACHE_CAUSE[state]}`);
+
+  return asRequested(res, state);
 }
 
 /** The whole request: environment checked, row read, response built. */

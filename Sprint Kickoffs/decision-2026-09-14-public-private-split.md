@@ -2080,6 +2080,76 @@ _Issued as part of R-PROVISIONAL-2026-09-21-Z (part D1). Recorded separately bec
 
 **C — the queue:** as -40 C.
 
+---
+
+### R-2026-09-21-42 — the cache step had no observable that could take two values; the Function's own cache is now measurable
+
+_Issued with no provisional letter: it arrived as the founder's EVIDENCE-gate read-back of 2026-09-21 plus Cowork's seven constraints on the fix. Recorded under its own number because it changes code, a probe and three recorded facts._
+
+**A — THE FOUNDER'S READ-BACK, AND WHAT IT SETTLES.** After the custom-domain cutover, on `openbed.ng`:
+
+| # | Observation | Verdict |
+|---|---|---|
+| 1 | The apex resolves to Cloudflare, not a `192.0.2.x` placeholder | **PASSES.** `nslookup openbed.ng 1.1.1.1` → `172.67.213.114`, `104.21.37.208`. Record-level: the apex is now `CNAME openbed.ng → openbed-public-dashboard.pages.dev`, proxied; the `A 192.0.2.1` row no longer exists. The third condition of -28 B is discharged. |
+| 2 | `https://openbed.ng/beds.json` reaches the Function | **PASSES.** |
+| 3 | Edge headers and a non-error body | **PASSES.** `HTTP/2 200`, `application/json; charset=utf-8`, `public, s-maxage=30, stale-while-revalidate=300`, body `{"v":6212,"wards":[],…}`. |
+| 4 | A cache hit inside 30 seconds | **NOT MET, and the probe is why.** `cf-cache-status: DYNAMIC` on both requests. |
+
+**The EVIDENCE gate stays shut, on observation 4 alone.** 018 is not written.
+
+**A2 — `DYNAMIC` IS NOT A DEFECT, AND IT IS NOT EVIDENCE OF ONE.** This is the substance, and it is graded:
+
+- **DOCUMENTED** — Cloudflare's Cache API reference: *"The Cache API is a programmatic interface for reading from and writing to Cloudflare's cache from inside a Worker. To cache responses from your Worker so that Cloudflare returns them without executing your Worker, use Workers Caching instead. **The two mechanisms are independent.**"*
+- **DOCUMENTED** — Cloudflare cache responses: *"**DYNAMIC** — Cloudflare determined at request time that the asset is not eligible for cache, so the request went to the origin web server **without a cache lookup**"*, which happens when *"the requested asset is not one of the default cached file extensions (for example, HTML or JSON) and no rule instructs Cloudflare to cache it."*
+- **INFERRED from those two, and it is the answer to Cowork's question 2:** `cf-cache-status` reports the **zone CDN's** decision. For a `.json` path with no Cache Rule that decision is `DYNAMIC` on **every** request. The Function then runs and consults its own, independent cache. **The header returns the same value whether `serveBedsCached` hit or missed, so it can never be a stop condition.** Step 6 was a probe that could not pass — the same class as step 8's `curl -X HEAD`, found the same way.
+- **NOT CONFIRMED, in either direction: whether the Cache API is storing and serving on `openbed.ng`** (Cowork's question 1). No observation taken so far discriminates. The founder's measurement is consistent with the cache working *and* with it not working. Closed by B.
+- **MEASURED BY THE IMPLEMENTER, 2026-09-21, and it is sharper than the inference above.** Against `openbed.ng` on the pre-marker deployment, pasted into `zsh -f -i`, output unfiltered: `/beds.json` returns `HTTP/2 200`, `application/json; charset=utf-8`, `cf-cache-status: DYNAMIC` — **twice**, reproducing the founder's reading independently. And the control: **`/nonexistent-path`, a route with NO FUNCTION AT ALL, returns `cf-cache-status: DYNAMIC` as well.** So on this zone the header does not distinguish a working Function from a missing one, never mind a cache hit from a miss. Only `content-type` exposed the fallback — `text/html` against `application/json`.
+- **MEASURED, same sitting, closing the second false fact in C:** `https://openbed-public-dashboard.pages.dev/beds.json` returns **no `cf-cache-status` line at all**, because a `*.pages.dev` host is not a customer zone and nothing stamps one. That absence was once recorded as evidence of "an inert Cache API". It was never evidence about the Function's cache in either direction.
+- **The founder's refusal to add a zone Cache Rule is CORRECT and stands.** A Cache Rule would make the **other** cache answer, so the step would pass while proving nothing about this code. That is the false-green family, not a workaround for it.
+
+**A3 — WHAT THE CACHE CRITERION PROTECTS AGAINST** (Cowork's question 3), read back rather than paraphrased. The A1 kickoff's definition of done: *"a second request inside `s-maxage` is served by the cache"*; its reason, from *platform-sre*: *"the whole cost argument in A1 rests on the edge actually caching"*. `packages/snapshot/src/serve.ts` states the failure it prevents: *"Without this, every request would run the Function and read Supabase, which is the opposite of A1's cost argument."*
+
+**The property is ORIGIN OFFLOAD** — a second request inside `s-maxage` answered **without a Supabase read**. It is load-bearing for 018 precisely because 018 removes the direct read path and makes this the only public read path.
+
+`x-openbed-edge-cache: hit` is set on the branch that returns the cache entry **without calling `serveBeds`**, so it measures that property directly. `cf-cache-status` never measured it. **The gate is not reinterpreted:** observation 4 stays on `openbed.ng`, two requests inside 30 seconds. Only the observable changes — from one that cannot distinguish the two states to one that can.
+
+**B — THE FIX: `x-openbed-edge-cache`, a closed set of five values, on every response.** `hit`, `miss`, `nostore`, `read-error`, `unavailable`, evaluated in a fixed precedence so the state is a total function of what happened.
+
+- **It is set on what is RETURNED and never on what is STORED**, in the same function that strips a HEAD's body and for the same reason. A marker inside the cached object would serve `miss` on a hit, or `hit` on a miss, forever. `tests/db/beds_json_served.test.ts` asserts the stored entry carries no marker at all; planting the write on the cached copy reds that leg and only that leg.
+- **`miss` does not claim the write succeeded.** On the `waitUntil` path nothing awaits the put, so the outcome is not knowable when the response is built. Asserting it would be a Clause 5 defect inside the fix for one. The log line reports a write that failed.
+- **Both halves demonstrated before the founder runs anything** (note 23): nine legs, and three plants run against the module — the marker written into the stored copy, the state hardcoded to `hit`, and the marker dropped on HEAD — reddening 1, 7 and 1 legs respectively, with `serve.ts` restored byte-identical after each.
+- Every request now logs its state **with its cause**, so a `miss` at the edge is explainable without a code change.
+
+**C — THREE FALSE FACTS FOUND WHILE ANSWERING, REPORTED RATHER THAN WORKED AROUND** (method note 20's rule, applied to our own text).
+
+1. **`serve.ts` and `beds.json.ts` both said the Cache API works ONLY on a custom domain, citing Cloudflare. The cited paragraph says the opposite for Pages Functions:** *"Workers deployed to custom domains have access to functional `cache` operations. **So do Pages functions, whether attached to custom domains or `*.pages.dev` domains.**"* A `*.workers.dev` fact about Workers was applied to a Pages Function. The premise is load-bearing in the runbook's overview, its step 4 and its step 6, and in the A1 kickoff at its definition-of-done split, via R-2026-09-18-16 C2/C3 and R-2026-09-18-17 B1. **The instruction survives — step 6 runs on `openbed.ng` because the gate is worded that way — but its stated reason does not**, and the reason is what the next decision reuses.
+2. **A recorded inference of the implementer's own was wrong.** Step 6 recorded, of `50a0ea4d`, that no `cf-cache-status` line at all was *"consistent with an inert Cache API"*. It is equally consistent with the Cache API working: a `*.pages.dev` host is not a customer zone, so no zone-cache header is stamped there at all. Superseded by a dated note, never rewritten (note 8).
+3. **`serve.ts` recorded `stale-while-revalidate` as NOT VERIFIED. It is documented, and the answer is no:** *"The `stale-while-revalidate` and `stale-if-error` directives are not supported when using the `cache.put` or `cache.match` methods."* The header is still correct to send, for browsers and any downstream cache; it buys nothing at the Function's cache.
+
+**C2 — AND ONE ABOUT -40 ITSELF.** Step 6 already said, in the text -40 landed, *"`cf-cache-status: HIT` does not say which cache answered."* **The limitation was named and the header was left as the stop condition anyway.** Naming a limitation is not acting on it, and the distance between the two is one founder session.
+
+**D — THE PREMISE IN COWORK'S OWN CONSTRAINTS, CHECKED BEFORE ACTING ON IT** (note 20). Constraint 2 expects `*.pages.dev` to yield *"`unavailable` or whatever the inert Cache API honestly yields"*. That rests on C1, which fails. **Predicted, DOCUMENTED: `*.pages.dev` yields `hit`/`miss` like any other host**; `unavailable` is reachable only where `caches.default` is absent — the node test process, and Cloudflare's dashboard editor and Playground — and is **not expected at the edge**. The founder's run converts this to MEASURED at no extra cost: a `--branch main` deployment is reachable on `openbed-public-dashboard.pages.dev` and on `openbed.ng` with the same environment, so step 6 is run on both. A **preview** deploy would not serve: `scripts/deploy_pages.sh` records that a non-production branch reads Preview environment variables and finds them unset, so the Function would answer 500 and the marker `nostore`.
+
+**E — THE READ-BACK THAT LIFTS THE GATE.** After this merges, the founder deploys the merge commit with `bash scripts/deploy_pages.sh --branch main`, quotes `/version.json`, then runs corrected steps 5 and 6 on `https://openbed.ng/beds.json`. **Observation 4 is met when the second block, inside 30 seconds, reads `HTTP/2 200`, `content-type: application/json; charset=utf-8` and `x-openbed-edge-cache: hit`** — and the request after 40 seconds reads `x-openbed-edge-cache: miss`, which is what shows the probe can fail. `cf-cache-status: DYNAMIC` is quoted alongside and is neither a pass nor a fail.
+
+**E2 — ONE CORROBORATION, BECAUSE THE MARKER IS THE CODE REPORTING ON ITSELF.** A marker that lies would look exactly like one that does not. Once, alongside the founder's run: the Supabase API log for that window shows **one** PostgREST read of `snapshot_current` across the two requests, not two. That observes origin offload **from the origin side**, which is the property itself rather than a self-report. Not part of the gate, and not repeated.
+
+**G — A FINDING THE BEHAVIOURAL LEDGER PRODUCED, RECORDED AS AN OPEN ITEM WITH A TRIGGER (method note 22), NOT FIXED HERE.**
+
+Standard P's ledger requires each control to be re-derived against a tracked file outside the change's own diff. Re-deriving the served-document legs against `packages/fixtures/snapshot-shape.json` produced **no diff**, and it should have.
+
+**The column-NAME legs in `tests/db/beds_json_served.test.ts` are tautological.** They read:
+
+> `expect(Object.keys(decodeWard(row))).toEqual(SHAPE.wardColumns)`
+
+and `decodeWard` builds its keys **from `shape.wardColumns`** (`packages/snapshot/src/codec.ts` lines 33-34, 87-88). Both sides of the comparison are the same fixture, so it is `f(SHAPE) === SHAPE`. **MEASURED 2026-09-21:** renaming `monitoring_state` to `monitoring_stateXX` in the fixture left that file at **43/43 passing**. What the legs DO prove is arity — a served row of the wrong length still fails the codec — and that is not nothing; it is simply not what they are read as proving.
+
+**This is NOT a live hole, and the distinction matters.** The same plant reddens `tests/compliance/snapshot_shape_matches_migration.test.ts` loudly — *"migration 007 and snapshot-shape.json disagree"* — so the fixture cannot drift from the migration unnoticed. The property the A1 kickoff's definition of done names is guarded; it is guarded **one layer over from where the definition of done points**, and if that compliance guard were ever narrowed nothing else would catch it. Clause 5's shape: a mechanism present, reaching something other than what it is read as reaching.
+
+**Not fixed here** under T/U: this change did not touch those legs, and the fix is an assertion — the served document's keys compared against a list NOT derived from the fixture — not a comment. **Trigger: the next change touching `packages/snapshot/src/codec.ts` or the served-document column legs.**
+
+**F — the queue:** this change; then the founder's deploy and the corrected steps 5 and 6 on `openbed.ng`, quoted; then the EVIDENCE gate recorded lifted on that output; then 018; then the founder's hosted apply of 018; then the infrastructure review; then Bundle 3; then facility one; then Bundle 4. **Unchanged from -40 C except that the deploy is now load-bearing**, because the marker is new code.
+
 
 ## The provisional ledger
 
@@ -2113,6 +2183,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | Y | R-2026-09-21-39 | 2026-09-21 | Named the two keys of the public-relations.json split and recorded the reason with them. |
 | Z | R-2026-09-21-40 | 2026-09-21 | Part B withdrawn and reissued by Cowork; the EVIDENCE gate restated as four observations on `openbed.ng`. Carries the runbook probe sweep. |
 | Z (D1) | R-2026-09-21-41 | 2026-09-21 | The same block's design constraint, recorded separately because it is a verification result rather than a direction. |
+| — (none issued) | R-2026-09-21-42 | 2026-09-21 | **No provisional letter.** Arrived as the founder's EVIDENCE-gate read-back plus Cowork's seven constraints on the fix. Recorded so the ledger does not imply the 09-21 run ended at Z. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -2231,6 +2302,12 @@ _Standing rules, 2026-09-15. This record is their home._
     - **Instance, same day:** the step's stop condition was that GET and HEAD **agree**. A path with no Function returns `text/html` for both, so **parity passes on a route that lost its Function entirely**. A relation is not a value; the fix was to name the absolute values.
     - **Instance, same day:** a read-back whose stated PASS was two header values that `failure()` emits verbatim, so every 500, 502 and 503 satisfied it.
     - **How to apply:** before recording a probe as evidence, run it against something known-broken and paste what it said. **A green from a probe with no demonstrated failing case is the same artefact as a green from a probe that examined nothing.** This is note 18 (*a negative result is evidence only once the method has produced a positive one*) turned on the instrument instead of the corpus.
+24. **An observable that returns the same value in both states is not a probe, however exact the value is** (R-2026-09-21-42 A2). Note 23 asks whether a probe has been *seen* to fail. This one asks something prior and cheaper: **can the thing it reads even take two values here?** Where it cannot, no amount of running it will produce the failing half, and the step is not merely unproven — it is unprovable, and will sit in a runbook being ticked.
+    - **The instance that produced it:** runbook step 6 required `cf-cache-status: HIT`. `cf-cache-status` reports the **zone CDN's** decision, and Cloudflare documents the zone cache and the Function's Cache API as **independent mechanisms**. For a `.json` path with no Cache Rule the zone's decision is `DYNAMIC` on every request, hit or miss. MEASURED on `openbed.ng` 2026-09-21: DYNAMIC twice, with the Function's cache in an unknown state. **The stop condition could not have been met by a working system or a broken one.**
+    - **It is not the same finding as note 23's.** Step 8's `curl -X HEAD` gave opposite verdicts — just the wrong way round. Step 6's header gave the *same* verdict always. A probe can fail by discriminating backwards or by not discriminating at all, and the second is quieter, because nothing ever looks anomalous.
+    - **The tell is a reading taken from the wrong layer.** The step named a cache; the header described a different cache one layer out. Wherever a probe reads a value that some *other* component emits, ask what that component would say in each of the two states before asking what it says now.
+    - **-40 had already written the limitation down** — *"`cf-cache-status: HIT` does not say which cache answered"* — and left it as the stop condition anyway. **Naming a limitation is not acting on it.** When a step's own prose admits it cannot distinguish the thing it is for, that is the finding, not a caveat.
+    - **How to apply:** for each stop condition, write the value it takes when the system is BROKEN. If that is the same string, or if you cannot say, the observable is wrong and no rewording of the step fixes it — something has to start emitting the difference. Here that was a response header the Function sets from what it actually did, pinned by `tests/compliance/runbook_cache_probe.test.ts`, which executes the step's own grep against both blocks and asserts they cannot be confused.
 
 ---
 
