@@ -2242,7 +2242,7 @@ DERIVED from source and **corroborated by `packages/fixtures/truth-table.json`**
 - **A3 is unreachable:** with zero ward rows in the payload, `renderReal` returns at the empty-state branch and never reaches the facility lookup.
 - **B2 is unreachable, and on the stronger condition:** `app.ward_account` is **0**, so **no session can exist**. That settles it without needing the ward console's deployment status, which remains unknown and sits in the infrastructure-review item.
 
-**E — BOTH ARE MUST-FIX BEFORE FACILITY ONE. Not Bundle 4, not post-facility-one.** They join R-2026-09-20-30 D1 (the publish-screen raw-error echo) as onboarding blockers.
+**E — BOTH ARE MUST-FIX BEFORE FACILITY ONE. Not Bundle 4, not post-facility-one.** They join R-2026-09-20-30 D1 (the publish-screen raw-error echo) as onboarding blockers. **[AMENDED 2026-09-21 by R-2026-09-21-45, left as written per method note 8: "before facility one" is an occasion somebody decides has happened. The trigger is now THE FIRST `app.facility` OR `app.ward_account` ROW on the hosted project, whatever the reason for creating it, and it is stated on the provisioning path rather than only here.]**
 
 - **A3 — `'(unknown facility)'` beside a REAL bed count** (`apps/public-dashboard/src/main.ts`). **Severity: a count with no callable identity rendered as if actionable.** A row reading `(unknown facility) — ICU_ADULT: 6 beds` tells someone routing an ambulance that six beds exist somewhere they cannot ring. **Not decided here.** The options, with their consequences, for whoever takes it: suppress the row with an operator-visible signal — loses a real count and needs somewhere for the operator to see the gap; or render the gap in words pointing to 112 / 767 — keeps the reader informed but occupies a row. Cowork's lean is recorded: **a count with no callable identity must not render as if actionable.**
 - **B2 — `wardRowFrom`'s defaults** (`apps/ward-console/src/main.ts`). **Severity: a defaulted clinical claim and a guessed concurrency token.** `offering: r.offering ?? 'NOT_OFFERED'` asserts to a ward that it does not offer a ward the server said nothing about; `version: r.version ?? 0` flows straight into `p_expected_version`, turning optimistic concurrency into a guess. **Ruled shape: refuse the malformed row — never default a clinical claim or a concurrency token.** Bundled with D1: same screen, same refusal-handling design.
@@ -2252,6 +2252,55 @@ DERIVED from source and **corroborated by `packages/fixtures/truth-table.json`**
 **G — THE SEQUENCE (AA C):** this change; founder merge; **one** deploy of that merge commit through `scripts/deploy_pages.sh --branch main`, quoting `/version.json`; the outage state read back where it can be reproduced; **then** step 6 on that same deployment. **018 stays behind the EVIDENCE gate throughout.**
 
 **H — R-2026-09-21-43 C2 is discharged by this change**, and its block is left as written with a note (method note 8).
+
+
+---
+
+### R-2026-09-21-45 — the go-live trigger becomes a row, and moves to the path that creates it
+
+_No provisional letter; a direct founder instruction following AA._
+
+**A — THE AMENDMENT.** `-44 E` gated three items on "before facility one". That is an occasion somebody decides has happened. It becomes a fact anyone can read:
+
+> **Before the FIRST `app.facility` row or the FIRST `app.ward_account` row is created on the HOSTED project, whatever the reason for creating it** — a test, a staging trial, a signed agreement or none.
+
+**Why the row and not the occasion, in the founder's own reasoning:** onboarding can be staged, and an account created "just to try it" puts all three defects live before anyone intends it. **Read on the hosted project at landing, 2026-09-21 16:58 UTC: `app.facility` 0, `app.ward_account` 0, `app.facility_contact` 0, `app.invite` 0.**
+
+The three are unchanged — A3 (`'(unknown facility)'` beside a real bed count), B2 (`wardRowFrom` defaulting a clinical claim and a concurrency token), and R-2026-09-20-30 D1 (the publish screen's raw server text), which bundles with B2 as the same screen.
+
+**A2 — the trigger deliberately fires EARLIER than the defects become reachable.** A3 needs a row to reach the *snapshot*, not merely to exist. Gating on the first row is the safe direction and costs nothing while the tables are empty. Stated so it is not later read as imprecision.
+
+**B — PLACEMENT, AND A PREMISE THAT FAILED ON CHECKING** (method note 20). The instruction was to put it "at the top of the provisioning path (`scripts/provision_ward_account.mjs` and the facility-creation step in the runbook)".
+
+**There is no facility-creation step in any runbook.** The three runbooks are the Supabase project creation one, the Pages one and the key-rotation one; none has an onboarding or facility-creation step, `provision_ward_account` appears in **no** file under `docs/`, and no written procedure exists for creating the first facility row. **Facility-one onboarding has been called "founder-side" in six handoffs and has never been written down.** The instruction survives; the placement adjusts:
+
+1. **`scripts/provision_ward_account.mjs`** — the ward-account half, and the strong one: its own header says *"nothing else in the repository creates it … the only sanctioned way to create a ward account."* The STOP block is now the first thing in that file after the banner, and the `Exit:` line says explicitly that **exit 0 does not mean the condition was satisfied**.
+2. **The hosted runbook, new section 4b** — the facility half, placed beside section 4, *"Backups and PITR — confirm BEFORE any real data exists"*, which is that runbook's existing before-real-data gate. It states the condition and gives a `psql` check with stop condition `0|0`; it does **not** become an onboarding procedure.
+3. **Runbook step 8** — found while placing the above, and it is the reason this is not merely tidy. **That step contains the only hosted `insert into app.facility` written down anywhere**, inside a `begin;` … `rollback;`. If that `rollback;` ever becomes `commit;`, or the session dies between the two, **the probe itself creates the first facility row.** The step now says so and carries a post-run re-check with stop condition `0`.
+
+**C — THE CONSTRAINT THAT SHAPES ANY MECHANICAL VERSION, MEASURED.** *"On the hosted project"* is load-bearing, not decoration. `database/seed/001_synthetic_seed.sql` inserts into `app.facility` at three sites and the local database read **8** facility rows while this was written. **A guard keyed on "a facility row exists" fires on every `npm run db:reset`** and is disabled by the next person who hits it — test-conventions' fifth way a leg becomes unprovable, *a guard that refuses legitimate input is disabled by the next person who hits it*.
+
+**D — A FOURTH ITEM GATES THE SAME MOMENT, SPECIFIED AND NOT BUILT.** The invite gate — *"No invite may be issued for a facility whose `app.facility_contact.agreement_accepted_at IS NULL`"* — is specified in the facility-agreement document and unchecked in the v2 kickoff. **Verified with a known-present control:** the column is built (migration 003) and **nothing reads it**; there is no invite-issuing function at all, only the `app.invite` table. **So it is an absence, not a defect**, and it is named in the STOP block because consolidating everything that gates this one moment is the point of the amendment.
+
+**E — THE MECHANICAL GUARD: PROPOSED, DELIBERATELY NOT BUILT.** An open item, with its shape stated so it can be ruled on rather than rediscovered.
+
+- **What:** `provision_ward_account.mjs` refuses when its target is the hosted project **and** a checked-in blockers list is non-empty, so lifting the gate is a reviewed code change rather than a decision taken in a hurry.
+- **Hosted-only**, modelled on `scripts/seed.sh`'s host `case` inverted — the pattern is already here, already tested, and `case` forks nothing so it has no third outcome. **Do not invent a second way to answer the same question.** Note the script currently has **no host check at all**: pointing it at hosted is one environment variable.
+- **Precedent for the list itself:** `.ci/ci-gate-exceptions.yml`, whose *emptiness* is asserted by a compliance test and whose header says adding an entry must be *"a visible, reviewable act"*. Same shape, opposite polarity.
+- **It needs a root argument first.** The script takes only `--flag value` pairs and has no `$1` root, so a refusal reading a checked-in file could not be aimed at a scratch tree — `scripts/freeze_applied_migrations.mjs` is the `.mjs` precedent for an optional trailing root.
+- **Honest limits, to be stated in its own header the way `scripts/deploy_pages.sh` does:** LOCAL AND DEFEATABLE, and **it does not cover the Supabase SQL editor or dashboard**, which is how a facility row is most likely to be created by hand. It removes the accident case, not the deliberate one.
+- **The stronger option with its cost:** a `BEFORE INSERT` trigger on both tables would cover every path including the dashboard — but it is a migration, 001–017 are frozen, 018 is pending behind the EVIDENCE gate, and it must later be removed. **Not recommended now.**
+- **Co-locate it with the invite gate whenever either is built.** Two competing gates on one provisioning path is how one of them gets bypassed.
+
+**F — COWORK'S CITATION ERROR, RECORDED AS COWORK'S OWN**, on the founder's acceptance. AA cited "the product bible's first principle". **The product bible is not in this repository and R-2026-09-21-40 G had already ruled it *"Read as context, never as authority."*** AA stands on R-2026-09-20-29 E alone, **with the product rule recorded as an EXTENSION of E3** — from "never a bare zero" to "never an invented number" — **and not as something E says.**
+
+**G — TWO OPEN ITEMS THIS RULING CREATES, both with triggers.**
+- **The mechanical guard above.** Trigger: whenever the invite gate is built, or the first time someone proposes running the provisioning script against hosted.
+- **Facility one has no written procedure.** Six handoffs call it "founder-side"; nothing says what it consists of. Trigger: before the first facility row — the same condition this ruling names, which is why it is recorded here rather than filed separately.
+
+**H — `-44 E`'s "BEFORE FACILITY ONE" wording is superseded by note**, left as written (method note 8).
+
+**I — the queue:** unchanged. The founder deploys the merge commit **once**, then runs read-back 5b and step 6 on that one deployment; the EVIDENCE gate is recorded lifted on that output; then 018.
 
 
 ## The provisional ledger
@@ -2289,6 +2338,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | — (none issued) | R-2026-09-21-42 | 2026-09-21 | **No provisional letter.** Arrived as the founder's EVIDENCE-gate read-back plus Cowork's seven constraints on the fix. Recorded so the ledger does not imply the 09-21 run ended at Z. |
 | — (none issued) | R-2026-09-21-43 | 2026-09-21 | **No provisional letter.** Cowork's confirmation of -42 §C with one condition, plus two consequence checks. The condition — follow every corrected reason to what it justified — is discharged in A. |
 | AA | R-2026-09-21-44 | 2026-09-21 | The founder's patient-safety exception to T. First ruling this run to carry a provisional letter since Z. |
+| — (none issued) | R-2026-09-21-45 | 2026-09-21 | A direct founder instruction following AA: the go-live trigger becomes a row, and moves onto the path that creates it. |
 
 ## Method notes — how rulings reach the implementer
 

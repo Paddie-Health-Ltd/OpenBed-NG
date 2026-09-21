@@ -581,6 +581,69 @@ is nothing to restore. It stops being moot the moment that apply succeeds.
 ---
 
 
+## 4b. STOP — before the FIRST facility or ward-account row exists
+
+**Three defects must be fixed before the first `app.facility` row or the first
+`app.ward_account` row is created on THIS hosted project** — whatever the reason
+for creating it: a test, a staging trial, a signed agreement or no agreement at
+all (R-2026-09-21-45).
+
+**The trigger is the ROW, not the occasion.** Onboarding can be staged, and an
+account created "just to try it" puts all three live before anyone intends it.
+**They are unreachable only while those two tables are empty, and that is the
+whole of their safety.** Read on this project **2026-09-21 16:58 UTC:
+`app.facility` 0, `app.ward_account` 0.**
+
+| # | Defect | Why it matters | Where |
+|---|---|---|---|
+| 1 | `'(unknown facility)'` is rendered beside a **real** bed count when a ward references a facility absent from the payload | a count with no callable identity, rendered as if actionable — it tells someone routing an ambulance that beds exist somewhere they cannot ring | `apps/public-dashboard/src/main.ts` |
+| 2 | `wardRowFrom` **defaults** a clinical claim (`offering ?? 'NOT_OFFERED'`) and a concurrency token (`version ?? 0`, which becomes `p_expected_version`) | asserts to a ward something the server never said, and turns optimistic concurrency into a guess. Refuse the malformed row instead | `apps/ward-console/src/main.ts` |
+| 3 | the publish screen echoes **raw server text** to a ward user on an unrecognised status (R-2026-09-20-30 D1) | a clinical user mid-emergency should not be reading a database error, and server text can carry internals. Same screen as 2 | `apps/ward-console/src/main.ts` |
+
+**A fourth item gates the same moment and is SPECIFIED BUT NOT BUILT:** the invite
+gate — no invite for a facility whose `app.facility_contact.agreement_accepted_at`
+is null. The column exists (migration 003); **nothing reads it**, and there is no
+invite-issuing function anywhere, so this is an absence rather than a defect.
+Named here because it gates this same moment.
+
+**HOW TO CHECK THE CONDITION, rather than remembering it.** Connect as step P
+says, then:
+
+```bash
+psql "$DATABASE_URL" -tAc "select (select count(*) from app.facility) as facility, (select count(*) from app.ward_account) as ward_account"
+```
+
+**Stop condition:** `0|0`. **Anything else means the gate has already passed and
+the three defects above are LIVE**, not pending — report that rather than
+continuing.
+
+**BOTH READINGS OF THIS CHECK ARE DEMONSTRATED** (method note 23 — a probe nobody
+has seen fail is not evidence). Pasted into `zsh -f -i`, 2026-09-21:
+
+- **against this hosted project: `0|0`** — the passing reading;
+- **against a local development database: `8|0`** — the failing reading, because
+  `database/seed/001_synthetic_seed.sql` inserts synthetic facilities on every
+  `npm run db:reset`.
+
+**That second reading is also why this stays a human step rather than becoming a
+script that refuses.** A guard keyed on "a facility row exists" fires on every
+local reset and is removed by the next person who hits it. Any mechanical version
+must test the HOST first — see R-2026-09-21-45.
+
+> **THIS IS A NAMED HUMAN STEP. Nothing enforces it.** No script reads the list
+> above and none is cited here, because none exists (Clause 4). A mechanical
+> guard is proposed and deliberately not built — see R-2026-09-21-45. Note that
+> `scripts/provision_ward_account.mjs`, the only sanctioned way to create a ward
+> account, **has no host check at all**: pointing it at this project is one
+> environment variable. Its header carries this same block.
+
+**Why this section sits beside the backups one.** Section 4 exists because some
+things must be true *before any real data exists*, and after that it is too late.
+This is the same shape: after the first row, these three stop being theoretical.
+
+---
+
+
 ## 5. Apply migrations  *(was §3)*
 
 **Two blocks, run separately, because the dry run is a stop condition and the
@@ -1362,7 +1425,20 @@ them turns it back into a rubber stamp:**
 2. **SQLSTATE `42501` is reported separately from `APPEND_ONLY_VIOLATION`.** A
    grant-level refusal can never be recorded as the trigger firing; it reports
    `PARTIAL grant-only`.
-3. **The whole thing rolls back.** These tables are append-only, so a planted row
+3. **AND IT IS THE ONLY HOSTED `insert into app.facility` WRITTEN DOWN ANYWHERE
+   — which makes the `rollback;` load-bearing for section 4b, not just for
+   hygiene (R-2026-09-21-45).** If that line is ever changed to `commit;`, or the
+   session dies between the insert and the rollback leaving the row committed,
+   **this probe creates the first facility row** and the three defects named in
+   section 4b stop being theoretical. **After running this step, re-check:**
+
+   ```bash
+   psql "$DATABASE_URL" -tAc "select count(*) from app.facility"
+   ```
+
+   **Stop condition: `0`.** Anything else means the probe left a row behind.
+
+4. **The whole thing rolls back.** These tables are append-only, so a planted row
    that committed could never be removed.
 
 ### Result, 2026-09-13, project `klrlpxysjsjpdkeqdhvl`
