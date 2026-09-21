@@ -8,10 +8,18 @@ deliberately). Bundle 1 merges with these seven steps open. **Bundle 2 — migra
 public read path, and merging code does not open one.
 
 **Steps 6 and 7 are GATED by step 4, the custom-domain cutover** (R-2026-09-18-16
-C2, amending R-2026-09-17-12, which wrote them as independent). The Cache API works
-only on a custom domain, and the WAF rate-limiting rule is zone-level, so both need
-`openbed.ng` live on the Pages project first. Neither may be marked met from a
-`*.pages.dev` URL.
+C2, amending R-2026-09-17-12, which wrote them as independent). The WAF
+rate-limiting rule is zone-level, and step 6 is worded on `openbed.ng` by the
+EVIDENCE gate on migration 018, so both need `openbed.ng` live on the Pages project
+first. Neither may be marked met from a `*.pages.dev` URL.
+
+**The ORDER is unchanged; the REASON given for it was wrong until 2026-09-21
+(R-2026-09-21-42).** This paragraph read "The Cache API works only on a custom
+domain". That is a `*.workers.dev` fact about Workers, and a Pages Function on
+`*.pages.dev` is not that. Cloudflare's Cache API reference: *"Workers deployed to
+custom domains have access to functional `cache` operations. So do Pages functions,
+whether attached to custom domains or `*.pages.dev` domains."* The gating stands
+because the gate is worded that way, not because the mechanism is absent elsewhere.
 
 **What was proved before this runbook, and what was not.** Locally, under
 `wrangler pages dev` against the local Supabase stack (2026-09-18): the route
@@ -21,8 +29,11 @@ envelope; it works with both key families (the legacy JWT and a new `sb_secret_`
 key); and a second request inside `s-maxage` was served from the local cache
 simulation after the origin had moved on. **None of that proves the edge.** A
 header set in code can be stripped by the platform, and a local cache is a
-simulation. **The cache path cannot be exercised on Cloudflare at all before the
-custom domain exists** — on `*.pages.dev` the Cache API has no effect by design.
+simulation. ~~**The cache path cannot be exercised on Cloudflare at all before the
+custom domain exists** — on `*.pages.dev` the Cache API has no effect by design.~~
+**CORRECTED 2026-09-21 (R-2026-09-21-42): it can.** Pages Functions have functional
+cache operations on `*.pages.dev` as well as on custom domains, per the reference
+quoted in the gating note above. What remains true is the sentence after it.
 The local simulation is evidence that the cache code path EXECUTES; it is **not**
 evidence for the cache criterion, which stays OWED and UNMET until step 6 observes
 a hit on the custom domain (R-2026-09-18-17 B1). Steps 5 and 6 are the only proof
@@ -226,8 +237,10 @@ is `*.pages.dev` evidence and discharges none of them.
 
 Attach `openbed.ng` to the Pages project as a custom domain, and confirm the
 dashboard reports it active. **Nothing in steps 6 and 7 may be attempted, or marked
-met, before this step is done** — the Cache API has no effect on `*.pages.dev`, and
-the rate-limiting rule lives on the `openbed.ng` zone.
+met, before this step is done** — step 6 is worded on `openbed.ng` by the EVIDENCE
+gate on migration 018, and the rate-limiting rule lives on the `openbed.ng` zone.
+(Not because the Cache API is absent on `*.pages.dev`; it is not. See the gating note
+in the overview.)
 
 **Stop condition:** a request to `https://openbed.ng/beds.json` reaches the
 Function — step 5's checks pass on that URL.
@@ -239,8 +252,12 @@ wait.
 ## 5. Observe the headers FROM THE EDGE — on the custom domain
 
 Use the **custom domain** (`https://openbed.ng/beds.json`) once step 4 is done, not
-the `*.pages.dev` preview URL — step 6 only works on a custom domain, so observe
-both steps on the same URL. The first line waits for you to paste it.
+the `*.pages.dev` preview URL — step 6's observation is owed on `openbed.ng`, so
+observe both steps on the same URL. The first line waits for you to paste it.
+
+**A `cf-cache-status` line appears in this step's output too. It is printed, not
+judged** — `DYNAMIC` is the expected value for this URL and is not one of the three
+stop conditions below. Step 6 explains why.
 
 ```bash
 read -r BEDS_URL
@@ -295,77 +312,166 @@ minute. **An empty `wards` array is a question about onboarding, not about this
 deployment**, and the two must not be confused: the generator faithfully publishing
 an empty city is the system working.
 
-## 6. Prove a cache hit inside `s-maxage` — on the same custom domain. GATED by step 4
+## 6. Prove THE FUNCTION'S OWN CACHE served the second request — same custom domain. GATED by step 4
 
-The Function stores a 200 with Cloudflare's Cache API. **That works only on a custom
-domain, and it is per data centre, not global** — so two requests from the same
-place, within 30 seconds:
+The Function stores a 200 with Cloudflare's Cache API, and **marks every response
+with what it actually did** — `x-openbed-edge-cache`. That marker is the whole
+measurement here; read why below before substituting anything else for it.
+
+The Cache API is **per data centre, not global**, so make the two requests from the
+same place, within 30 seconds:
 
 ```bash
-curl -sS -o /dev/null -D - "$BEDS_URL" | grep -i -E '^HTTP|^content-type|^cf-cache-status'
-curl -sS -o /dev/null -D - "$BEDS_URL" | grep -i -E '^HTTP|^content-type|^cf-cache-status'
+curl -sS -o /dev/null -D - "$BEDS_URL" | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-cache-status'
+curl -sS -o /dev/null -D - "$BEDS_URL" | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-cache-status'
 ```
 
-**Stop condition — all three from the SECOND block, not `cf-cache-status` alone:**
+**Stop condition — all three from the SECOND block:**
 
 - `HTTP/2 200` (or `HTTP/1.1 200`)
 - `content-type: application/json; charset=utf-8`
-- `cf-cache-status: HIT`
+- `x-openbed-edge-cache: hit`
 
-The first block may read `MISS` or `HIT`.
+The first block normally reads `x-openbed-edge-cache: miss`. A `hit` on the first is
+fine too — someone else may have warmed that data centre.
 
-**WHY THE STATUS AND CONTENT-TYPE ARE REQUIRED HERE, and this is a correction to
-this step rather than a decoration (R-2026-09-21-40).** Until 2026-09-21 this step
-grepped `cf-cache-status` **alone**, and a lone `HIT` is satisfied by at least three
-things that are not a working Function:
+**THEN PROVE THE PROBE CAN ALSO FAIL, which is part of this step and not optional.**
+Wait **more than 35 seconds** — past `s-maxage=30` — and run one more:
 
-- **the Function missing entirely.** If `functions/` was not discovered at upload —
-  the exact failure step 1 warns about — `/beds.json` is answered by the SPA's
-  `index.html` **as a static asset**, which Cloudflare's ordinary cache serves and
-  marks `HIT`. The step passed while the thing it guards did not exist.
-- **a cached 404**, which also carries `cf-cache-status`.
-- **a failure response.** A 500, 502 or 503 from the Function is `no-store` and is
-  never put in the Cache API by `serveBedsCached` — but nothing in a lone
-  `cf-cache-status` line says which document was cached.
+```bash
+sleep 40
+curl -sS -o /dev/null -D - "$BEDS_URL" | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-cache-status'
+```
 
-**AND WHAT THIS STEP STILL CANNOT DISTINGUISH, named rather than implied:**
-`cf-cache-status: HIT` **does not say which cache answered**. The Function's own
-Cache API write and the zone's ordinary CDN cache produce the same header. This step
-is evidence that *something* cached a 200 JSON document at that URL; it is not, by
-itself, proof that `serveBedsCached`'s `cache.put` is what did it. That is also why
-step 1 forbids adding a zone Cache Rule for `/beds.json` — a rule there would
-manufacture this header and make the step unreadable.
+**Stop condition:** that one reads `x-openbed-edge-cache: miss`. Same URL, same
+artifact, opposite verdict, minutes apart. **A probe nobody has seen fail is not
+evidence** (method note 23), and this is how this one earns its pass in the same
+sitting that uses it. Quote all three blocks.
+
+### THE HALVES OF THIS PROBE, BOTH MEASURED BEFORE THE FOUNDER RUNS IT
+
+Method note 23: a probe nobody has seen fail is not evidence. Taken by the
+implementer on 2026-09-21, pasted into `zsh -f -i`, output unfiltered, against
+`openbed.ng` carrying the deployment that PREDATES the marker:
+
+```
+$ BEDS_URL=https://openbed.ng/beds.json
+$ curl -sS -o /dev/null -D - "$BEDS_URL" | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-cache-status'
+HTTP/2 200
+content-type: application/json; charset=utf-8
+cf-cache-status: DYNAMIC
+---- second request ----
+HTTP/2 200
+content-type: application/json; charset=utf-8
+cf-cache-status: DYNAMIC
+```
+
+- **The FAILING half is demonstrated.** No `x-openbed-edge-cache` line at all, so
+  the stop condition is **not** met — the correct verdict against an artifact whose
+  Function does not set it. The founder's `DYNAMIC` is reproduced independently.
+- **The PASSING half is OWED, and this step says so rather than implying it was
+  checked.** It arrives on the first run against a deployment carrying the marker.
+
+**TWO CONTROLS, SAME SITTING, AND THE FIRST IS THE WHOLE ARGUMENT FOR THE REWRITE:**
+
+```
+$ curl -sS -o /dev/null -D - https://openbed.ng/nonexistent-path | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-cache-status'
+HTTP/2 200
+content-type: text/html; charset=utf-8
+cf-cache-status: DYNAMIC
+```
+
+**A path with NO FUNCTION AT ALL returns `cf-cache-status: DYNAMIC` too.** So on
+this zone that header does not distinguish a working Function from a missing one,
+let alone a cache hit from a miss. It is `content-type` that exposes the fallback,
+which is why it is in the grep and in the stop condition.
+
+```
+$ curl -sS -o /dev/null -D - https://openbed-public-dashboard.pages.dev/beds.json | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-cache-status'
+HTTP/2 200
+content-type: application/json; charset=utf-8
+```
+
+**No `cf-cache-status` line at all on the `*.pages.dev` host** — it is not a customer
+zone, so nothing stamps one. That is what the superseded note below once read as
+"an inert Cache API". It was never evidence about the Function's cache either way.
+
+### `cf-cache-status` IS PRINTED HERE AND IS NOT A PASS OR FAIL CONDITION
+
+It is in the grep so it is on the record, not because it measures this step.
+
+**`cf-cache-status` is the ZONE CDN's verdict about the zone's own cache. It is not
+this Function's cache, and it cannot report on it.** Cloudflare's Cache API reference
+calls the two mechanisms "independent". For this URL the zone's verdict is
+**`DYNAMIC`** — documented as "Cloudflare determined at request time that the asset
+is not eligible for cache, so the request went to the origin web server **without a
+cache lookup**", which happens when "the requested asset is not one of the default
+cached file extensions (for example, HTML or JSON) and no rule instructs Cloudflare
+to cache it". `/beds.json` is JSON with no Cache Rule. **So `DYNAMIC` is the correct,
+expected value on every request — hit or miss — and seeing it is not a finding.**
+
+**MEASURED 2026-09-21, and it is why this step was rewritten.** The founder ran the
+previous version of this step on `openbed.ng` after the cutover and got
+`cf-cache-status: DYNAMIC` on both requests. The previous stop condition was
+`cf-cache-status: HIT`. **That condition could never have been met**, whatever the
+Function's cache was doing — the same defect class as the `curl -X HEAD` probe in
+step 8, found the same way (R-2026-09-21-42).
+
+**DO NOT ADD A ZONE CACHE RULE TO MAKE `cf-cache-status` READ `HIT`.** Step 1
+forbids it and this is the reason: a Cache Rule would make the **other** cache
+answer, so the step would pass while proving nothing about `serveBedsCached`. That is
+the false-green this step exists to avoid, not a workaround for it.
 
 **Symptoms:**
-- **Both `MISS`, or no `cf-cache-status` line at all** — the Cache API is not
-  storing the response. First rule out the URL: on `*.pages.dev` the Cache API has
-  no effect by design, which is why step 4 gates this one. On the custom domain, it
-  is a finding: report it rather than adding a zone Cache Rule to force it (see
-  step 1).
-- **`DYNAMIC`** — Cloudflare considered the response uncacheable; report the full
-  header block from step 5.
 
-**What this step does not prove, recorded so nobody assumes it:** whether the Cache
-API honours `stale-while-revalidate` is unverified. The header is still sent, for
-browsers and any downstream cache.
+- **The second block reads `miss`** — first, **just run the pair again.** The Cache
+  API is per data centre and two requests can land in different locations, which is
+  a miss with nothing wrong. **A single `miss` pair is neither a pass nor a finding.**
+  Try up to **five** pairs. If every pair reads `miss`, that IS a finding: report it,
+  and do not add a Cache Rule. The next diagnostic is the Function's log, which now
+  prints `x-openbed-edge-cache=<state>` with its cause on every request — dashboard
+  **Workers & Pages → the project → Logs → Live**, or `npx wrangler pages deployment tail`.
+- **`x-openbed-edge-cache: nostore`** — the Function answered with a failure, so
+  nothing was stored. Go to step 5's symptoms; the status line says which.
+- **`x-openbed-edge-cache: read-error`** — the Cache API read threw. The response is
+  still correct and the log above says what threw. Report it.
+- **`x-openbed-edge-cache: unavailable`** — there is no Cache API in that
+  environment. Not expected at the edge; report it with the URL.
+- **No `x-openbed-edge-cache` line at all** — the Function is not answering. Either
+  the deployment predates 2026-09-21, or `/beds.json` fell through to the SPA (step
+  1's failure). Check `/version.json` names the commit you deployed.
 
-**THE HALVES OF THIS PROBE, AND ONE OF THEM IS STILL OWED (R-2026-09-21-40
-addendum).** A probe nobody has seen fail is not evidence, so both directions are
-recorded here:
+**What this step does NOT prove, recorded so nobody assumes it:** that the Cache API
+honours `stale-while-revalidate`. **It does not** — Cloudflare's Cache API reference
+states `stale-while-revalidate` and `stale-if-error` "are not supported when using
+the `cache.put` or `cache.match` methods". The header is still sent, and is still
+correct, for browsers and any downstream cache. *(Until 2026-09-21 this paragraph
+said the question was unverified. It is now answered, and answered against what the
+code comment assumed.)*
 
-- **The failing half IS demonstrated.** Run against a path with no Function
-  (`/nonexistent-path`) on deployment `50a0ea4d`, the corrected grep printed
-  `HTTP/2 200` and **`content-type: text/html`** — exposing the SPA fallback. The
-  previous version of this step, which grepped `cf-cache-status` alone, printed
-  nothing at all there and would have been read as "no cache yet" rather than as
-  "there is no Function".
-- **The passing half CANNOT YET BE OBSERVED, and this step says so rather than
-  implying it was checked.** A `cf-cache-status: HIT` requires the custom domain,
-  because the Cache API is inert on `*.pages.dev` by design. **Observed on
-  `50a0ea4d`: `/beds.json` returns `HTTP/2 200` and `application/json` with NO
-  `cf-cache-status` line at all** — consistent with an inert Cache API, and exactly
-  why this step is gated on step 4. **The first real pass of this step is the
-  founder's, on `openbed.ng`, and it is what lifts the EVIDENCE gate on 018.**
+> **SUPERSEDED 2026-09-21 (R-2026-09-21-42) — kept because the inference was wrong
+> and the record should show that, not hide it.** This step previously recorded, of
+> deployment `50a0ea4d`: *"`/beds.json` returns `HTTP/2 200` and `application/json`
+> with NO `cf-cache-status` line at all — consistent with an inert Cache API."* It is
+> **equally consistent with the Cache API working perfectly**: a `*.pages.dev` host is
+> not a customer zone, so no zone-cache header is stamped there at all. The absence
+> said nothing about the Function's cache either way. Two further corrections follow
+> from the same reference paragraph:
+>
+> - **The Cache API is NOT inert on `*.pages.dev`.** *"Workers deployed to custom
+>   domains have access to functional `cache` operations. So do Pages functions,
+>   whether attached to custom domains or `*.pages.dev` domains."* The old claim took
+>   a `*.workers.dev` fact and applied it to a Pages Function. This step still runs on
+>   `openbed.ng`, because the EVIDENCE gate is worded that way — **but not for the
+>   reason previously given here.**
+> - **So run this step on the `*.pages.dev` production host too**, once, right after
+>   the `openbed.ng` run:
+>   `https://openbed-public-dashboard.pages.dev/beds.json`. Same artifact, same
+>   environment variables, no extra deploy. **Predicted: it reads `hit` exactly as the
+>   custom domain does.** That is a prediction from documentation, and the run is what
+>   turns it into a measurement. **It is not part of the EVIDENCE gate** — it settles
+>   a premise four documents repeat.
+
 
 ## 7. The rate limit — a zone WAF rule, not code. GATED by step 4
 
@@ -463,8 +569,8 @@ with their reasons recorded.
 
 For each step: done or not done, and the **observed** lines — the cutover from the
 custom-domain step, the three headers and body prefix from the edge-headers step,
-both `cf-cache-status` lines from the cache-hit step, and the 429 from the
-rate-limit step. The edge-headers and cache-hit steps together, on the custom
+**all three `x-openbed-edge-cache` lines from the cache step** (the two inside 30
+seconds and the one after 40), and the 429 from the rate-limit step. The edge-headers and cache-hit steps together, on the custom
 domain, are the deployment report Bundle 2 waits on.
 
 **NAME THE DEPLOYMENT ITSELF — four things, every time (added 2026-09-20; the

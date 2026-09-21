@@ -24,7 +24,17 @@
  * THE CACHE IS EXPLICIT. A Function's response is not cached by the CDN from its
  * Cache-Control header alone; `caches.default` is how it gets there. See
  * serveBedsCached in serve.ts for what that covers and what it does not -- in
- * short, custom domains only, and per data centre.
+ * short: per data centre, no stale-while-revalidate, and NOT custom-domain-only.
+ * This line read "custom domains only" until 2026-09-21. That was a Workers fact
+ * about *.workers.dev applied to a Pages Function; Cloudflare's Cache API
+ * reference says Pages functions have functional cache operations "whether
+ * attached to custom domains or `*.pages.dev` domains" (R-2026-09-21-42).
+ *
+ * WHAT THE RESPONSE SAYS ABOUT THAT CACHE. serveBedsCached sets
+ * `x-openbed-edge-cache` on every response here -- hit, miss, nostore, read-error
+ * or unavailable. It exists because `cf-cache-status` describes the ZONE's cache,
+ * not this one, and reads `DYNAMIC` for this path whether the Function's cache hit
+ * or missed. The runbook's cache step reads the marker, not cf-cache-status.
  *
  * The environment holds SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, set in the
  * Pages project by the founder (docs/runbook-cloudflare-pages-beds-json.md,
