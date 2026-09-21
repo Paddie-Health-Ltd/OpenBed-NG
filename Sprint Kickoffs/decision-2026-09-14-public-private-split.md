@@ -2478,7 +2478,7 @@ _Issued as R-PROVISIONAL-2026-09-21-AC. Number assigned on landing from the reco
 
 **A2 — THE WORST ITEM IS §10's STOP CONDITION, because it fails on success.** After the apply, `array_agg(...) = array['facility_public','lga_rollup','ward_public']` reads `f` on a project where everything is right. §5 names that exact hazard two hundred lines earlier — *a stop condition that reads wrong on a correct run teaches whoever runs it to ignore stop conditions* — and the document did it to itself.
 
-**A3 — §5 STATES ITS EXPECTATION IN FOUR PLACES, not one.** The prose bullet, the fenced expected-output block, the ledger expectation, and step 7's *"Hosted now holds 001 through 017."* **A restatement reaching one of four is how this finding was produced**, so the guard in D reads two of them and asserts they agree with each other as well as with the directory.
+**A3 — §5 STATES ITS EXPECTATION IN FOUR PLACES, not one.** **[CORRECTED 2026-09-21 by R-2026-09-21-51: it is FIVE, and the fifth — the stop bullet — is the one this ruling left contradicting the other four. The sentence is kept as written, per method note 8, because the error is the finding.]** The prose bullet, the fenced expected-output block, the ledger expectation, and step 7's *"Hosted now holds 001 through 017."* **A restatement reaching one of four is how this finding was produced**, so the guard in D reads two of them and asserts they agree with each other as well as with the directory.
 
 **B — TWO PREMISES CAME BACK DIFFERENT, and both are reported rather than worked around.**
 
@@ -2513,6 +2513,42 @@ _Issued as R-PROVISIONAL-2026-09-21-AC. Number assigned on landing from the reco
 **H — THIS PULL REQUEST IS AN EXCEPTION TO `-46`, NAMED AS ONE.** It is **not** a visitor-reachable safety defect. It is admitted because **the hosted apply cannot proceed by the runbook without it**: the document's own stop conditions would fire on a correct run, and the founder would be reading a stop condition that means nothing. The freeze's exception clause is for safety defects, so this one is granted by the founder explicitly rather than claimed under that clause.
 
 **I — the queue:** merge this on the founder's word; then the founder runs the pre-apply block, the apply, and the 018 read-back, and pastes all three; then a separate small change runs `freeze_applied_migrations.mjs 18` with the apply date and moves the `frozen_migrations` placeholder to 019. **Nothing in this change records the apply.**
+
+---
+
+### R-2026-09-21-51 — the restatement repeated the defect it was fixing; five review findings, all upheld
+
+_Issued as R-PROVISIONAL-2026-09-21-AD, the founder's review of #62 at `33ad8ce`. Number assigned on landing from the record's last as read on this branch: R-2026-09-21-50._
+
+**A — ALL FIVE UPHELD, verified on `33ad8ce` before any of them was acted on** (method note 17). Two are blocking.
+
+| # | finding | verdict |
+|---|---|---|
+| 1 | §5's stop bullet was not restated and contradicts the first bullet | **CONFIRMED, blocking** |
+| 2 | block B cannot run as pasted — `$KEY` and `$SUPABASE_URL` are never set | **CONFIRMED, blocking** |
+| 3 | E item 3 can false-stop: `status <> 'succeeded'` counts non-terminal runs as failures | **CONFIRMED** |
+| 4 | E is in the wrong place and splits the frozen-boundary checkboxes | **CONFIRMED, worse than stated** |
+| 5 | E item 2 claims a failing half nobody runs | **CONFIRMED** |
+
+**A2 — THE SHAPE OF FINDING 1 IS THE POINT, AND IT IS MINE.** `-50` claimed *"§5 states its expectation in FOUR places"* and restated four. **There are five, and the fifth is the stop condition itself** — which went on reading *"any count other than zero: stop and report"* four lines below a bullet naming `1 migration(s) pending.` **A founder running a correct dry run would have stopped.** That is the precise hazard `-50` was written about, reproduced inside the change written to fix it, and it is a count asserted rather than derived — **#61's error one level up**. The guard now parses all three statements of the expectation and asserts they agree with each other as well as with the migrations directory.
+
+**B — FINDING 2 IS WORSE THAN THE REVIEW STATED, and the extra consequence is recorded because it disarms a control.** Block B reads `$SUPABASE_URL`, which is assigned **once in the whole document, 316 lines later in §6**, and `$KEY`, which `unset KEY BODY` destroys at :855. **And E item 1's failing half is sourced from block B.** So a block that cannot run silently takes one of E's four items with it: item 1 would have had no demonstrated failing half either.
+
+B now carries §6's guard verbatim — the `case sb_publishable_?*` arm and `SUPABASE_URL=` — and unsets both afterwards, satisfying the document's own rule that *each block that needs a credential reads it itself rather than inheriting it from an earlier step*.
+
+**B2 — THE SWEEP THE FOUNDER ORDERED: 23 fenced blocks across §5, §6 and §10, and exactly ONE could not run as pasted.** The cross-block reads in §6 (the schema probe, the mirror loop, both check-(a) probes) take `KEY`/`SUPABASE_URL`/`REF` from a guard block sixteen and five lines above, bound by prose that names it. **That is deliberate and is left alone**; naming the difference between deliberate and broken is the point of having swept. Full table in the pull request.
+
+**C — FINDING 3, AND THE STATUS VALUES ARE CITED RATHER THAN REMEMBERED.** pg_cron writes **six** status values — `starting`, `running`, `sending`, `connecting`, `succeeded`, `failed` — from `GetCronStatus()` in `src/job_metadata.c` at tag **v1.6.4**, which is the version this project runs (`pg_extension.extversion`, read on hosted). **Four of the six are non-terminal.** At a one-minute cadence a run in flight at read time is ordinary, and `<> 'succeeded'` would have stopped the founder on a healthy system.
+
+The query now takes the apply time as an input **read in the same block** — finding 2's lesson applied immediately — counts only runs with `start_time` after it, counts failures as `status = 'failed'` only, and reports the other four in an `in_flight` column so a live run is visible and is not a verdict. **MEASURED that the filter discriminates**, on hosted: all-history 1334 and 6670 succeeded; last three minutes 1 and 3; an hour in the future 0 and 0. The existing lost-race carve-out for `openbed_refresh_lga_rollup` is carried across in substance.
+
+**D — FINDING 5 IS FIXED BY DEMONSTRATION, NOT BY DELETION.** E item 2's block now ends with `begin; set local role anon; select … from public.snapshot_current; rollback;`. **The connecting role is `postgres`; `pg_has_role('postgres','anon','MEMBER')` is `t` locally AND on hosted**, checked before the block was written, as the ruling required. Locally it produces `ERROR: permission denied for table snapshot_current` and the `rollback` still runs — which is why the probe is last in the transaction.
+
+**E — A DEFECT FOUND WHILE FIXING FINDING 1, IN MY OWN GUARD, AND IT IS THE MOST INSTRUCTIVE THING HERE.** The parsers in `tests/compliance/runbook_migration_expectation.test.ts` ended `(?=^- \*\*|\Z)`. **`\Z` is a Perl and Python escape; in JavaScript it matches a literal "Z".** So the lookahead read *"followed by another top-level bullet, or by the letter Z"*.
+
+**Both regexes passed anyway**, because in the real runbook every bullet they match is followed by another top-level bullet — the second branch was never taken. It was exposed by the positive-control leg, whose fixture ends at the stop bullet: the lookahead failed, the parse returned nothing, and the checker correctly reported a missing count. **A guard that works only because its corpus never takes its second branch** is the shape this repository keeps finding, and here the ordinary-input control found it on the first try. Fixed to `$(?![\s\S])` and written into the file's header.
+
+**F — the queue:** unchanged from `-50 I`. Merge on the founder's word; then the founder runs block B, the apply, and block E, and pastes all three; then a separate small change records the apply. **Nothing here records it.**
 
 
 ## The provisional ledger
@@ -2556,6 +2592,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | — (none issued) | R-2026-09-21-48 | 2026-09-21 | **No provisional letter.** The two decisions 018 was carrying unanswered — the empty allowlist and the exact reversal — plus the pre-condition the founder set before the migration could be written. |
 | AB | R-2026-09-21-49 | 2026-09-21 | The ESLint ignore gap on wrangler build output, moved from an open item with an unreachable trigger to a named change. First letter after AA; I and O stay skipped. |
 | AC | R-2026-09-21-50 | 2026-09-21 | The runbook was not restated for 018 — the restate rule failing on the change that added the migration. Widened past section 5, one quarter of it mechanised, and named as an exception to the -46 freeze. |
+| AD | R-2026-09-21-51 | 2026-09-21 | The founder's review of #62: five defects, two blocking, all mine. The restatement had repeated the defect it was fixing — a fifth expectation site, the stop condition, left contradicting the other four. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -2752,6 +2789,15 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-21, R-2026-09-21-51 (issued as R-PROVISIONAL-2026-09-21-AD): the
+  founder's review of #62 found five defects and all five were upheld — the stop
+  condition left contradicting the expectation it guards, a pre-apply block that
+  could not run as pasted and silently disarmed another item's failing half, a
+  cron check that would have stopped the founder on a healthy system because four
+  of pg_cron's six statuses are non-terminal, a read-back in the wrong place, and
+  a failing half claimed rather than demonstrated; and, found while fixing the
+  first, a `\Z` in the guard's own parsers that JavaScript reads as a literal
+  letter and that passed only because the corpus never took that branch;
 - on 2026-09-21, R-2026-09-21-50 (issued as R-PROVISIONAL-2026-09-21-AC): the
   hosted runbook was not restated when #61 added migration 018, so its own stop
   conditions would have fired on a correct project — section 10's set-equality

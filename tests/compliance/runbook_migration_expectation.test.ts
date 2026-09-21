@@ -21,6 +21,15 @@ import { REPO_ROOT } from './_scratch.js';
  * teaches whoever runs it to ignore stop conditions". Nothing checked it, so the
  * rule was only ever as good as whoever remembered it.
  *
+ * HOW MANY SITES STATE THIS EXPECTATION: THREE, and the first version of this
+ * guard read two. The change that introduced it said "all four sites restated" and
+ * was wrong twice over -- there are five statements of the hosted state in step 5,
+ * three of them are the pending expectation itself (the prose bullet, the fenced
+ * expected-output block, and the STOP bullet), and the STOP bullet was restated by
+ * nobody. **The claim "all four" was the same defect as #61's, one level up: a
+ * count asserted rather than derived.** All three are parsed below and asserted to
+ * agree with each other as well as with the directory.
+ *
  * WHAT IS DERIVABLE HERE AND WHAT IS NOT. This guard compares three artefacts that
  * all live in the repository:
  *   - the forward migrations in `database/migrations/`;
@@ -42,7 +51,21 @@ import { REPO_ROOT } from './_scratch.js';
 const RUNBOOK = join('docs', 'runbook-supabase-project-creation.md');
 const MIG_DIR = join('database', 'migrations');
 
-const CURRENT_BULLET = /^- \*\*The hosted project today\*\*([\s\S]*?)(?=^- \*\*Restated|\Z)/m;
+/**
+ * END-OF-INPUT IS `$(?![\s\S])`, NOT `\Z`.
+ *
+ * `\Z` is a Perl and Python escape. **In JavaScript it matches a literal "Z"**,
+ * so `(?=^- \*\*|\Z)` is "followed by another top-level bullet, or by the letter
+ * Z". Both regexes below carried it and both passed, because in the real runbook
+ * every bullet they match IS followed by another top-level bullet -- the
+ * alternative branch was never taken. The positive-control leg, whose fixture ends
+ * at the stop bullet, is what exposed it: the lookahead failed, the parse returned
+ * nothing, and the checker correctly reported a missing count.
+ *
+ * **A guard that works only because its corpus never takes the second branch is
+ * the shape this repository keeps finding.** The fixture took it on the first try.
+ */
+const CURRENT_BULLET = /^- \*\*The hosted project today\*\*([\s\S]*?)(?=^- \*\*Restated|$(?![\s\S]))/m;
 
 /**
  * The migration filenames step 5's PROSE says a correct dry run will list.
@@ -91,6 +114,27 @@ export function fencedPendingCount(runbook: string): number | null {
   const block = /\*\*On the hosted project today\*\*[\s\S]*?```([\s\S]*?)```/.exec(runbook);
   if (block === null) return null;
   const m = /(\d+) migration\(s\) pending\./.exec(block[1] ?? '');
+  return m === null ? null : Number(m[1]);
+}
+
+/**
+ * The pending count the STOP BULLET states — the THIRD site, and the one missed.
+ *
+ * WHY IT IS HERE. The change that restated this list claimed "all four sites
+ * restated" and there were five; the one it missed was the stop condition itself,
+ * which went on saying "any count other than zero: stop and report" while the
+ * bullet four lines above named 018 and `1 migration(s) pending.` **A founder
+ * running a correct dry run would have hit a stop condition** — the exact hazard
+ * this whole section is about, reproduced by the change written to fix it.
+ *
+ * Takes the FIRST backticked count in the bullet, which is the bullet's own; the
+ * indented restatement note beneath it quotes the superseded wording in prose and
+ * carries no backticked count of its own.
+ */
+export function stopBulletPendingCount(runbook: string): number | null {
+  const bullet = /^- \*\*Any `WOULD APPLY` line([\s\S]*?)(?=^- \*\*|$(?![\s\S]))/m.exec(runbook);
+  if (bullet === null) return null;
+  const m = /`(\d+) migration\(s\) pending\.`/.exec(bullet[1] ?? '');
   return m === null ? null : Number(m[1]);
 }
 
@@ -161,6 +205,18 @@ export function expectationViolations(
   } else if (fencedCount !== count) {
     out.push(
       `step 5's prose states ${count} pending and its expected-output block prints ${fencedCount}`,
+    );
+  }
+
+  // THE THIRD SITE: the stop condition. A stop condition that disagrees with the
+  // expectation it guards is worse than no stop condition, because it fires on a
+  // correct run -- and this is the site the previous restatement missed.
+  const stopCount = stopBulletPendingCount(runbook);
+  if (stopCount === null) {
+    out.push("step 5's stop bullet states no `N migration(s) pending.` count at all");
+  } else if (stopCount !== count) {
+    out.push(
+      `step 5's prose states ${count} pending but its STOP bullet stops on anything other than ${stopCount}`,
     );
   }
 
@@ -280,6 +336,51 @@ describe('runbook migration expectation', () => {
     );
   });
 
+  test('plant — the STOP bullet left at the old count is rejected', () => {
+    // THE DEFECT THIS SITE WAS ADDED FOR, reconstructed: the stop condition says
+    // stop on anything other than zero while the expectation names one pending
+    // migration. Both statements are in the same list, four lines apart, and the
+    // document shipped that way.
+    const planted = RUNBOOK_TEXT.replace(
+      'than `1 migration(s) pending.`: stop and report.**',
+      'than zero: stop and report.**',
+    );
+    expect(planted, 'the plant did not change the stop bullet').not.toBe(RUNBOOK_TEXT);
+    expect(
+      stopBulletPendingCount(planted),
+      'the plant did not reach the parsed stop bullet',
+    ).toBeNull();
+
+    const violations = expectationViolations(
+      planted,
+      forwardMigrations(REPO_ROOT),
+      frozenMigrations(REPO_ROOT),
+    );
+    expect(violations.join('\n'), 'a stop condition that fires on a correct run was accepted').toContain(
+      'stop bullet states no `N migration(s) pending.` count at all',
+    );
+  });
+
+  test('plant — a STOP bullet disagreeing with the prose is rejected', () => {
+    // The subtler half: a stop bullet that HAS a count and states the wrong one.
+    // The leg above catches a bullet with no count; this catches one that looks
+    // restated and is not.
+    const planted = RUNBOOK_TEXT.replace(
+      'than `1 migration(s) pending.`: stop and report.**',
+      'than `2 migration(s) pending.`: stop and report.**',
+    );
+    expect(stopBulletPendingCount(planted), 'the plant did not reach the parsed count').toBe(2);
+
+    const violations = expectationViolations(
+      planted,
+      forwardMigrations(REPO_ROOT),
+      frozenMigrations(REPO_ROOT),
+    );
+    expect(violations.join('\n'), 'a disagreeing stop condition was accepted').toContain(
+      'its STOP bullet stops on anything other than 2',
+    );
+  });
+
   test('anti-vacuity — a runbook with no expectation bullet FAILS rather than passing', () => {
     // The shape that would make this guard useless: someone rewords the bullet,
     // the regex stops matching, and every assertion above passes over an empty
@@ -308,6 +409,9 @@ describe('runbook migration expectation', () => {
       'WOULD APPLY     : 002_enums.sql',
       '1 migration(s) pending.',
       '```',
+      '',
+      '- **Any `WOULD APPLY` line OTHER than the one named above, or any count other',
+      '  than `1 migration(s) pending.`: stop and report.**',
     ].join('\n');
     expect(
       expectationViolations(agreeing, ['001_a.sql', '002_enums.sql'], ['001_a.sql']),

@@ -719,9 +719,19 @@ that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line at all, or any count other than zero: stop and
-  report.** A pending file means either a migration reached the repository after
-  this list was last restated, or hosted is not where this document says it is.
+- **Any `WOULD APPLY` line OTHER than the one named above, or any count other
+  than `1 migration(s) pending.`: stop and report.** A file pending that this list
+  does not name means either a migration reached the repository after the list was
+  last restated, or hosted is not where this document says it is.
+  - *Restated 2026-09-21 (R-2026-09-21-51). Until then this bullet read "Any
+    `WOULD APPLY` line at all, or any count other than zero", which was right while
+    the repository ended at 017 and **contradicted the first bullet of this list
+    from the moment 018 was named there.** It was missed by the change that
+    restated the rest of the list — the same defect, in the change written to fix
+    it. The count is spelled out here rather than deferred to "the one stated" so
+    this bullet reads alone, and so
+    `tests/compliance/runbook_migration_expectation.test.ts` can parse it and
+    assert all three statements of the expectation agree.*
 - **When a migration is added,** this list is restated in the same change that
   adds it, never in a follow-up: in between, the document would be wrong.
 
@@ -1032,13 +1042,30 @@ project.
 **Do not skip this because the answer is already known.** Knowing it is not the
 same as having recorded it, and after the apply it cannot be taken again.
 
+**This block takes the key itself.** It is the same guard step 6 uses, and it is
+here rather than pointed at, because this document's own rule is that *each block
+that needs a credential reads it itself rather than inheriting it from an earlier
+step*. The `case` arm is what makes the refusals below mean something: a script
+that fails inside `$( )` leaves `KEY` empty and the shell carries on, and every
+probe then returns 401 — which reads as "the boundary held".
+
 ```bash
+KEY="$(bash scripts/get_publishable_key.sh)" || KEY=
+case "$KEY" in
+  sb_publishable_?*) echo "key obtained" ;;
+  *) echo "STOP: no usable publishable key. Do not run the probe -- a 200 or a 401 now means nothing."; KEY= ;;
+esac
+SUPABASE_URL="https://klrlpxysjsjpdkeqdhvl.supabase.co"
 for t in facility_public ward_public lga_rollup; do
   printf '== %s READ  ' "$t"
   curl -s -o /dev/null -w 'HTTP %{http_code}\n' "$SUPABASE_URL/rest/v1/$t?select=*&limit=1" \
     -H "apikey: ${KEY:?no key -- refusing to probe}"
 done
+unset KEY SUPABASE_URL
 ```
+
+The publication half. The first line waits silently for the connection string; the
+last removes it from the shell.
 
 ```bash
 read -rs DATABASE_URL && export DATABASE_URL
@@ -1087,6 +1114,109 @@ a database URL, and no check inside this repository sits between them and `psql`
 The same paragraph is in the down file's own header, so it is met whether someone
 arrives here or opens that file first.
 
+#### E. AFTER THE APPLY — the 018 read-back
+
+**Four items. Each states its PASS, its stop condition, and its failing half.**
+Items 1 and 2 have theirs from block B above, taken minutes earlier on this same
+project; items 3 and 4 carry their own.
+
+**The first line asks for the apply time** — the timestamp of the run you just
+did, UTC, e.g. `2026-09-21 21:05:00+00`. Item 3 needs it, and it is read in this
+block rather than assumed from an earlier one.
+
+```bash
+printf 'apply time (UTC, e.g. 2026-09-21 21:05:00+00): '; read -r APPLY_TS
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -v apply_ts="$APPLY_TS" <<'SQL'
+select r.rolname, c.relname,
+       has_table_privilege(r.rolname, 'public.' || c.relname, 'SELECT') as can_select
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+  cross join (values ('anon'), ('authenticated')) as r(rolname)
+ where n.nspname = 'public'
+   and c.relname in ('facility_public', 'ward_public', 'lga_rollup')
+ order by r.rolname, c.relname;
+
+select count(*) as snapshot_rows_visible_to_service_role
+  from public.snapshot_current;
+
+select j.jobname,
+       count(*) filter (where d.status = 'succeeded')                      as succeeded_after_apply,
+       count(*) filter (where d.status = 'failed')                         as failed_after_apply,
+       count(*) filter (where d.status not in ('succeeded', 'failed'))     as in_flight,
+       max(d.start_time)                                                   as last_start
+  from cron.job j
+  left join cron.job_run_details d
+    on d.jobid = j.jobid
+   and d.start_time > :'apply_ts'::timestamptz
+ where j.jobname in ('openbed_refresh_lga_rollup', 'openbed_regenerate_snapshot')
+ group by j.jobname order by j.jobname;
+
+begin;
+set local role anon;
+select count(*) as anon_can_read_snapshot from public.snapshot_current;
+rollback;
+SQL
+unset DATABASE_URL APPLY_TS
+```
+
+**1. Neither client role can read a mirror.** PASS: `can_select` is `f` on all
+**six** rows. **Stop condition:** any `t`. *Failing half: block B, where all three
+reads returned 200 — the grant was there and is now gone.*
+
+**2. The served path still works, and `anon` still cannot reach it.** PASS:
+`snapshot_rows_visible_to_service_role` is greater than 0, **and the last statement
+fails with `ERROR: permission denied for table snapshot_current`.** **Stop
+condition:** 0 rows, or that last statement RETURNING A COUNT instead of erroring.
+
+*The failing half is in the block, not claimed for it.* The error is the
+demonstration: `snapshot_current` is service-role-only, so the same query that
+succeeds for the connecting role must fail for `anon`. **The connecting role is
+`postgres`, which is a member of `anon`** — `pg_has_role('postgres','anon','MEMBER')`
+is `t` locally and on hosted — so `set local role anon` is available to it, and
+verified locally before this block was written. The `rollback` still runs after the
+aborted transaction, which is why the probe is last.
+
+**3. The SECURITY DEFINER premise holds LIVE — this is the item that would catch a
+real mistake.** 018 was written on the reasoning that every writer of the mirrors is
+a `SECURITY DEFINER` function and so is unaffected by a revoke on `anon` and
+`authenticated`. That is an argument until a job runs.
+
+PASS: for **both** jobs, `succeeded_after_apply` is 1 or more and
+`failed_after_apply` is 0. **Stop condition:** any `failed_after_apply` above 0, or
+a `succeeded_after_apply` of 0 for either job six minutes after the apply — the
+rollup runs every five minutes and the snapshot every minute.
+
+- **`in_flight` is NOT a failure and is why it has its own column.** pg_cron writes
+  six status values — `starting`, `running`, `sending`, `connecting`, `succeeded`,
+  `failed` (`GetCronStatus` in `src/job_metadata.c`, pg_cron **v1.6.4**, the version
+  this project runs). **Four of the six are non-terminal**, so at a one-minute
+  cadence a run in flight at the moment you read is ordinary. An earlier draft of
+  this step counted `status <> 'succeeded'` as failure and would have stopped the
+  founder on a healthy system.
+- **One `failed` on `openbed_refresh_lga_rollup` alone, beside succeeded runs, may
+  be the documented lost race** — two overlapping refreshes make the second fail on
+  the primary key and leave correct rows (recorded in 017's header, and in the jobs
+  step above). Read again after the next tick; **a second `failed` is stopped and
+  reported.** Any `failed` on `openbed_regenerate_snapshot` stops at the first.
+- **Only runs AFTER the apply count.** The filter is on `start_time`, so the
+  thousands of healthy runs before it neither mask a new failure nor supply a pass.
+
+**4. The public path is unchanged, end to end.**
+
+```bash
+curl -sS -o /dev/null -D - https://openbed.ng/beds.json | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-ray'
+curl -sS https://openbed.ng/version.json
+```
+
+PASS: `HTTP/2 200`, `content-type: application/json; charset=utf-8`, and
+`/version.json` quoted in the report. **Stop condition:** anything else — in
+particular a body beginning `{"error":`. **018 must be invisible from the outside;
+that is the claim.** *Failing half: step 6 of the Pages runbook carries its own, and
+the `x-openbed-edge-cache` marker gives a second value on demand.*
+
+- [ ] 018 read-back taken and pasted: six × `f`, snapshot rows > 0, `anon` refused on `snapshot_current`, both jobs succeeded after the apply with 0 failures, `/beds.json` 200
+
 **For the next apply (018) the count is 18**, with the apply's date and the
 ruling that records it written in before pasting. As printed below the date and
 ruling are placeholders, and the recorder refuses a malformed date, so an unedited
@@ -1115,73 +1245,6 @@ node scripts/freeze_applied_migrations.mjs 18 YYYY-MM-DD R-YYYY-MM-DD-NN
   migration.
 
 - [x] Frozen boundary recorded, 2026-09-16: 16 migrations, `001_app_schema_and_migration_ledger.sql` first, `016_snapshot.sql` last
-#### E. AFTER THE APPLY — the 018 read-back
-
-**Four items. Each states its PASS, its stop condition, and where its failing half
-comes from.** Items 1 and 2 have theirs from block B above, taken minutes earlier
-on this same project; items 3 and 4 carry their own.
-
-```bash
-read -rs DATABASE_URL && export DATABASE_URL
-psql "$DATABASE_URL" <<'SQL'
-select r.rolname, c.relname,
-       has_table_privilege(r.rolname, 'public.' || c.relname, 'SELECT') as can_select
-  from pg_class c
-  join pg_namespace n on n.oid = c.relnamespace
-  cross join (values ('anon'), ('authenticated')) as r(rolname)
- where n.nspname = 'public'
-   and c.relname in ('facility_public', 'ward_public', 'lga_rollup')
- order by r.rolname, c.relname;
-
-select count(*) as snapshot_rows_visible_to_service_role
-  from public.snapshot_current;
-
-select j.jobname, max(r.end_time) as last_end,
-       count(*) filter (where r.status = 'succeeded') as succeeded,
-       count(*) filter (where r.status <> 'succeeded') as not_succeeded
-  from cron.job j
-  left join cron.job_run_details r on r.jobid = j.jobid
- where j.jobname in ('openbed_refresh_lga_rollup', 'openbed_regenerate_snapshot')
- group by j.jobname order by j.jobname;
-SQL
-unset DATABASE_URL
-```
-
-**1. Neither client role can read a mirror.** PASS: `can_select` is `f` on all
-**six** rows. **Stop condition:** any `t`. *Failing half: block B, where all three
-reads returned 200 — the grant was there and is now gone.*
-
-**2. The served path still works.** PASS:
-`snapshot_rows_visible_to_service_role` is greater than 0. **Stop condition:** 0.
-*Failing half: this query run as `anon` returns a permission error, which is the
-point — the row is visible to `service_role` and to nothing else.*
-
-**3. The SECURITY DEFINER premise holds LIVE — this is the item that would catch a
-real mistake.** 018 was written on the reasoning that every writer of the mirrors
-is a `SECURITY DEFINER` function and so is unaffected by a revoke on `anon` and
-`authenticated`. That is an argument until a job runs. PASS: **both jobs show a
-`last_end` LATER than the apply, and `not_succeeded` is 0.** **Stop condition:**
-`not_succeeded` above 0, or a `last_end` that has not moved past the apply time
-within six minutes — the rollup runs every five and the snapshot every minute.
-*Failing half: MEASURED 2026-09-21 before the apply — `openbed_refresh_lga_rollup`
-1323 succeeded / 0 failed, `openbed_regenerate_snapshot` 6617 succeeded / 0 failed.
-A number that stops moving, or a `failed` row, is the failure.*
-
-**4. The public path is unchanged, end to end.**
-
-```bash
-curl -sS -o /dev/null -D - https://openbed.ng/beds.json | grep -i -E '^HTTP|^content-type|^x-openbed-edge-cache|^cf-ray'
-curl -sS https://openbed.ng/version.json
-```
-
-PASS: `HTTP/2 200`, `content-type: application/json; charset=utf-8`, and
-`/version.json` quoted in the report. **Stop condition:** anything else — in
-particular a body beginning `{"error":`. **018 must be invisible from the outside;
-that is the claim.** *Failing half: step 6 of the Pages runbook carries its own,
-and the `x-openbed-edge-cache` marker gives a second value on demand.*
-
-- [ ] 018 read-back taken and pasted: six × `f`, snapshot rows > 0, both jobs moved with 0 failures, `/beds.json` 200
-
 - [x] Frozen boundary recorded, 2026-09-17: 17 migrations, `001_app_schema_and_migration_ledger.sql` first, `017_snapshot_schedule.sql` last (R-2026-09-17-01), with the frozen_migrations placeholder moved to 018 in the same change
 
 ### Expected output, including the one line that looks like a failure and is not
