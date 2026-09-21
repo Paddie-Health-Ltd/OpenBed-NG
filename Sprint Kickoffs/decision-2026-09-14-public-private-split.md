@@ -1838,6 +1838,94 @@ Cowork recorded that holding the fix was the right call and that **flagging rath
 
 **C — the queue:** #52 merged; the founder deploys and reports the four clauses and three read-backs; the cutover hold lifts on that report; then B4's fix; then the two-regex-readers PR carrying its second task, the `public-relations.json` split, the infrastructure inventory and review, Finding D, the publish-screen echo gated on facility one, and Bundle 2 with 018.
 
+### R-2026-09-20-34 — rulings batch instead of each taking a pull request; and the limit of prose self-consistency
+
+_Issued as R-PROVISIONAL-2026-09-20-T. Number assigned from the record's last as read on merged `main` (`50c638e`): R-2026-09-20-33._
+
+**A1 — RECORDED LATE, AND THE LATENESS IS THIS BLOCK'S OWN SUBJECT.** T and U were issued on 2026-09-20 and land here, inside the cache-fix pull request, rather than in a record-only one. That is A4 below applied to itself at the first opportunity. In the interval they lived in a transcript and in the session's carried notes — which method note 15 calls a defect, in the same words. **The cost was accepted deliberately when A4 was made, and it is named here rather than smoothed over.** Their text is recorded from the pending summary the session carried forward; the original transcript is not an artefact of this repository, which is the whole of what A4 trades away.
+
+**A2 and A3 — ACCEPTED.** A3 names what is worth carrying from that day: **the prose-self-consistency limit recorded in R-2026-09-20-33 B3 is the most important thing recorded on 2026-09-20.** An exhaustive claim and its own counter-example sat three paragraphs apart in one block, written in one sitting, and passed the gate, CI and a review together. **Nothing in this repository reads prose for consistency with itself**, and no control proposed so far would.
+
+**A4 — RULINGS BATCH. NO MORE ONE RECORD PULL REQUEST PER RULING.** They accumulate and land **weekly, or alongside the code change they govern — whichever comes first.** First weekly deadline **2026-09-27**, so "weekly" is anchored to a date rather than to a feeling.
+
+- **The count that produced it, recounted rather than repeated:** **16 pull requests since #37** — not 17, which would count #37 itself — **of which 10 are record-only. 62%.** "Roughly two thirds" is exact, and the recount is itself an instance of method note 17: the number in the instruction was checked before the instruction was acted on.
+- *"The record is a control, not a deliverable."* A process that spends two thirds of its pull requests describing itself is running on itself.
+- **The rule carries its own cost rather than hiding it:** in the interval a ruling is a transcript, which is method note 15's defect. So the batch is **bounded by a date**, and the pending text is held where a new session finds it first.
+
+**A5 — NO NEW SCOPE UNTIL FACILITY ONE IS ONBOARDED.** A finding is recorded as an **open item with a named trigger**, never converted into work. **An item with a trigger is not work until its trigger fires, and a quiet queue is not a trigger.**
+
+**C — the queue:** unchanged by this block; it is carried by -36 C below.
+
+### R-2026-09-20-35 — a ruling against ceremony that performed it; and the path named end to end
+
+_Issued as R-PROVISIONAL-2026-09-20-U. Number assigned from the record's last as read on merged `main` (`50c638e`): R-2026-09-20-33._
+
+**A1 — THE CONTRADICTION WAS COWORK'S OWN, and it is recorded rather than quietly dropped: a ruling against ceremony that reprinted the full queue inside itself.** Same shape as R-2026-09-20-33 B3, one document later — a claim and its counter-example inside one block. That it recurred immediately, in the document ruling on the first instance, is the evidence for A3 of -34: this is a limit of prose, not a lapse by one author.
+
+**A2 and A3 — THE PATH, END TO END: the cache fix, then Bundle 2, whose FIRST TASK is the `packages/fixtures/public-relations.json` split.** Nothing between them.
+
+- **The split was never an intermediate item.** This record already files it as 018 de-risking — `mirrors` serves two consumers whose meanings diverge under 018. Only its queue position was wrong, and only that is corrected here.
+
+**A4 and A5 — NO NEW SCOPE UNTIL FACILITY ONE, AND IT BINDS COWORK TOO.** Several late-session additions were a hold being extended when it was one command from closing. The rule in -34 A5 is not addressed to the implementer alone.
+
+**C — the queue:** carried by -36 C below.
+
+### R-2026-09-20-36 — the deployment report accepted, three gates discharged, and a route that answers differently by method
+
+_Issued as R-PROVISIONAL-2026-09-20-V. Number assigned from the record's last as read on merged `main` (`50c638e`): R-2026-09-20-33._
+
+**A1 — THE DEPLOYMENT REPORT IS COMPLETE AND ACCEPTED.** Four clauses: the artifact `openbed-public-dashboard` at `https://d9b7669e.openbed-public-dashboard.pages.dev`; the commit `50c638efe0daca5cad1ffd82d10fccb2eacf4d89`; the command `bash scripts/deploy_pages.sh --branch main`; and the fourth clause as **a reading rather than an assertion** — `/version.json` fetched from the deployed site reports that commit with `dirty: false`. **A quotation, not an attestation, which was the whole point of R-2026-09-20-30.**
+
+- **Re-measured independently before this block was written**, per method note 2 as widened by R-2026-09-19-23 — Cowork's claims about this repository are verified, not relayed. All three read-backs hold: the empty state names the distinction in words a dispatcher can act on; `GET /beds.json` returns `application/json; charset=utf-8` with `cache-control: public, s-maxage=30, stale-while-revalidate=300` and `x-robots-tag: noindex, nofollow`; `/robots.txt` returns robots content rather than the SPA fallback. `main` was read from `git rev-parse` and matches the deployed stamp.
+
+**A2 — THE CUTOVER HOLD LIFTS** (R-2026-09-20-27 D3 discharged).
+
+**A3 — BUNDLE 2'S GATE IS DISCHARGED.** R-2026-09-17-11 C named this report as its gate and it has landed. Bundle 2 is unblocked, with the `packages/fixtures/public-relations.json` split as its first task per -35 A3.
+
+**A4 — A FINDING, FOLDED RATHER THAN OPENED AS NEW SCOPE.** A `HEAD` request to `/beds.json` falls past the Function to the SPA fallback: `text/html`, `cache-control: public, max-age=0, must-revalidate`, and only the site-wide `x-robots-tag: noindex` rather than the Function's `noindex, nofollow`. **The route answers differently by method.** Low severity — some crawlers and monitors issue HEAD. It rides with the cache fix rather than becoming its own item, under -34 A5.
+
+- **The mis-measurement is named:** the read-back instruction used `curl -I`, which sends a HEAD, and therefore measured the fallback. The corrected GET is what A1 records. **-37 B1 below corrects this clause's account of where that `-I` came from.**
+
+**A5 — AN OPEN ITEM WITH A TRIGGER:** `robots.txt` currently disallows everything, which is correct while nothing should be discoverable. **Trigger: facility one**, with the `noindex` decision already recorded there. Not work until then.
+
+**A6 — THE PATH FROM HERE, unchanged:** the cache fix, then Bundle 2. Everything else is an open item with a trigger, and **the infrastructure inventory still runs BEFORE facility one onboards** — a gate on onboarding, not a deferral.
+
+**C — the queue:** the cache fix (this change, carrying -37); then Bundle 2 with the `packages/fixtures/public-relations.json` split and 018; the two-regex-readers pull request with its second task and the infrastructure inventory and review, both after facility one; Finding D with the next change to the build config; the publish-screen raw-error echo at facility one.
+
+### R-2026-09-21-37 — Cowork's own mechanism claim failed verification; the HEAD fix is the GET-normalised cache key
+
+_Issued as R-PROVISIONAL-2026-09-21-W. Number assigned from the record's last as read on merged `main` (`50c638e`): R-2026-09-20-33._
+
+**A1 — COWORK'S MECHANISM CLAIM FAILED VERIFICATION, AND THE STANDING RULE IS WHAT CAUGHT IT.** -36 A4 described the HEAD fix as *"same file, two lines"*, which assumes the Cache API accepts a HEAD request. **Cloudflare's Cache API reference states that `cache.put` throws for any request whose method is not GET.** Recorded under method note 2 as widened by R-2026-09-19-23: Cowork's platform claims are provisional and are verified before they land. **The rule caught it before the code did** — and note what the failure was worth: a bare alias would have thrown on every HEAD, into the very `catch` this same change adds for the rare case.
+
+**A2 — THE HEAD FIX IS THE GET-NORMALISED CACHE KEY.** `serveBedsCached` in `packages/snapshot/src/serve.ts` keys the cache on an explicit GET `Request`, matches with `{ ignoreMethod: true }`, and `apps/public-dashboard/functions/beds.json.ts` exports `onRequestHead`. HEAD and GET share one entry and nothing throws. **The two halves are one mechanism in two files**, and each carries a comment saying so.
+
+**A3 — THE TWO REJECTED OPTIONS, with reasons, because the next such call will be made from the reasoning.** The literal alias is rejected not only for the permanently degraded path but because **it would make the new `catch` fire on every HEAD: an exception log that fires routinely is how the genuinely unusual ones get ignored.** A tagged 405 is rejected because it breaks the HEAD clients that were the reason for the fix.
+
+**A4 — A HEAD RESPONSE CARRIES HEADERS ONLY, AND THIS CODE STRIPS THE BODY ITSELF** rather than relying on the runtime to do it. *"Expected to"* is not an assertion, and stripping is exactly the sort of behaviour that is true on one platform and quietly not on another. Asserted in `tests/db/beds_json_served.test.ts`.
+
+**A5 — PLANTS BOTH WAYS.** After a GET populates the cache a HEAD is served from that entry with the Function's headers; a HEAD on a cold cache neither throws nor creates a HEAD-keyed entry. **`ignoreMethod` is a reading of the reference, not a measurement, so the plant is what proves the normalisation rather than the citation alone** — and the fake cache is built to model the two documented rules, since a fake that accepted anything would make those plants vacuous.
+
+**A6 — THE RUNBOOK: line 403's `curl -sSI` becomes a GET-based header read, and a new read-back asserts GET and HEAD agree** on `content-type` and `x-robots-tag` in `docs/runbook-cloudflare-pages-beds-json.md`.
+
+**A7 — THIS IS NOT NEW SCOPE UNDER -34 A5, and the reason is recorded.** The defect was invisible because no probe could see it, **so the probe is the root fix and the code change is the symptom fix.** A fix shipped without its probe can regress as silently as it arrived. It is the guard for an item already in scope, in the same change.
+
+**B — THREE THINGS THE IMPLEMENTATION THEN FOUND. All are reported rather than worked around.**
+
+- **B1 — SCOPE CORRECTION TO -36 A4: the `curl -sSI` is CHECKED INTO THIS REPOSITORY, not only in a Cowork message.** `docs/runbook-cloudflare-pages-beds-json.md` prescribed it at line 403 for the `X-Robots-Tag` read-back. So **the repository's own read-back step measured the SPA fallback**, and a reader ticking that box would have certified a header the Function never sent. This is the recurring category — *a check reporting success for a reason unrelated to what it guards* — and it is the sixth instance, after the phantom cross-file links, the `-o /dev/null` rotation probe, the dead-`ANON_KEY` curls, the key fallback, and the grep exit-2 family.
+- **B2 — A CLAUSE 4 PHANTOM, FOUND IN THE FILE BEING EDITED AND CORRECTED HERE.** `packages/snapshot/src/serve.ts` claimed this directory was *"inside the ESLint Date ban (finding F3)"*. **There is no such rule.** `eslint.config.mjs` carries only the F2 duty-flag block; the one F3 control that is a Date ban lives in `tests/compliance/freshness_bands.test.ts` and is a regex over `packages/snapshot/src/freshness.ts` ALONE — that file also reads `packages/snapshot/src/anchor.ts`, but for an annotation count, which is not a clock check — so nothing reaches `serve.ts`; and the rule is specified-and-unbuilt in `Sprint Kickoffs/sprint-kickoff-bedspace-v2-2026-09-10.md`. A `Date.now()` added to `serve.ts` today passes lint, CI and every compliance test. **Corrected by Clause 4's discharge route 2** — rewritten in the weaker form the repository can actually execute. **Building the guard is an open item with a trigger: the next change touching the build or lint config**, alongside Finding D.
+- **B3 — R-2026-09-20-33 B6's PREMISE IS QUALIFIED BY MEASUREMENT.** B6 said that without the second plant *"the fix and the broad catch would look identical in green"*. Three widened shapes were planted against the new block on 2026-09-21. A single broad `try` whose `catch` returns an untagged response **reds that leg and four others**; a `try` widened to include the origin read, which skips the cache write, **is caught — but by the miss/store leg, not by the load-bearing one**; and a widened `catch` that merely **re-runs `serveBeds` is not caught at all, and cannot be.** The reason is that **`serveBeds` is TOTAL**: it catches its own exceptions and always returns a `Response`, so it can never throw into a widened `catch`. B6 holds for the shape it names; the third shape is invisible to behaviour and would need a structural assertion over the source, which is named as NOT ASSERTED rather than faked.
+  - **How this was found is the part worth keeping.** The first plant was malformed — the inserted origin read sat after an early `return`, on a path the planted throw skipped — so the file changed while the exercised path did not, and the leg passed. A file-level `cmp` confirmed the plant "landed" and was not enough. **`.claude/rules/test-conventions.md`'s rule is that a plant must be confirmed to have mutated the artefact; this adds that it must be confirmed to have mutated THE PATH UNDER TEST.** Without that check the conclusion would have been *the guard has a hole*, and an afternoon would have gone into hardening a control that was already correct.
+
+**B4 — A SIXTH FINDING, FROM THE BEHAVIOURAL PASS ITSELF, AND IT IS AN OPEN ITEM RATHER THAN WORK.** `packages/snapshot/src/serve.ts` warns that `CACHE_CONTROL`'s `s-maxage=30` and `packages/fixtures/snapshot-shape.json`'s `pollCadenceSeconds` are both written against 30, and that changing one without the other makes the poll cadence and the cache disagree about how stale a document may be. **Nothing enforces that coupling.** Planting `pollCadenceSeconds: 45` against the real tree on 2026-09-21 reddened NOTHING — the full compliance project passed 518/518 with the fixture and the header disagreeing.
+
+- **It is not a Clause 4 phantom**, and the distinction is kept: the comment cites no enforcement artefact and warns rather than claims. It is an **unguarded coupling**, which is a weaker defect than a false statement and is still worth a row.
+- **Recorded under method note 22 as an open item with a named trigger: the next change that touches either value.** Not converted into work, per -34 A5.
+- **Note where it was found.** Not by reading the module, which is what a behavioural pass usually is, but by planting a wrong value into a tracked off-diff file and watching nothing happen — Standard P's ledger doing the job the ledger exists for, on its first row.
+
+**C — the queue:** as -36 C, with this change now carrying -34, -35, -36 and this block.
+
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -1862,6 +1950,10 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | Q | R-2026-09-20-31 | 2026-09-20 | |
 | R | R-2026-09-20-32 | 2026-09-20 | Declined the preview probe and replaced it with a question answerable by reading. |
 | S | R-2026-09-20-33 | 2026-09-20 | Ruled the cache hole: merge, deploy, then fix. Two premises failed on checking; both reported. |
+| T | R-2026-09-20-34 | 2026-09-20 | The batching rule itself, and the no-new-scope rule. Landed late, inside the change it governs — which is the rule applied to itself. |
+| U | R-2026-09-20-35 | 2026-09-20 | A ruling against ceremony that reprinted the queue inside itself; the path named end to end. |
+| V | R-2026-09-20-36 | 2026-09-20 | The deployment report accepted and three gates discharged. Its account of the `curl -I` is corrected by -37 B1. |
+| W | R-2026-09-21-37 | 2026-09-21 | Cowork's own mechanism claim failed verification. First letter of the 09-21 run. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -1967,6 +2059,14 @@ _Standing rules, 2026-09-15. This record is their home._
 20. **A citation is bound to the kind of page it came from** (R-2026-09-19-22). A tutorial's recommended value states what to CHOOSE, not what is AVAILABLE. Only an availability matrix establishes what a plan permits. **Where the two are conflated, the claim is marked NOT CONFIRMED rather than DOCUMENTED.** The sibling of note 14: that note binds a citation to the platform variant, and this one binds it to the page's purpose.
     - **Instance, 2026-09-19:** "action is Block; no Log-only or Managed Challenge on Free" came from a use-case tutorial ("On Free plans, select Block") and was issued as DOCUMENTED. Checked against Cloudflare's availability table and rule-parameters page, it was not there. The parameters page implies challenge actions exist on Free. Withdrawn by Cowork.
     - **How to apply:** before recording a platform limit, name the page type it came from. If it is a guide, a tutorial or an example, the claim is DOCUMENTED-guidance at most.
+21. **Rulings BATCH; they do not each take a pull request** (R-2026-09-20-34 A4). They accumulate and land **weekly, or alongside the code change they govern — whichever comes first.** First weekly deadline 2026-09-27.
+    - **Why:** 16 pull requests since #37, 10 of them record-only — 62%. *"The record is a control, not a deliverable."* A process that spends two thirds of its pull requests describing itself is running on itself.
+    - **The cost, carried rather than hidden:** in the interval a ruling lives only in a transcript, which note 15 calls a defect. The batch is therefore bounded by a date, and the pending text is held where a new session finds it before it starts work.
+    - **Why this is minted despite R-2026-09-19-23 B3's standing preference** against a twenty-first note nobody reads: this section IS how rulings reach the implementer, and A4 changes that mechanism directly. It is not a new rule about the work; it is a new rule about this list.
+22. **A finding becomes an OPEN ITEM WITH A NAMED TRIGGER, never work** (R-2026-09-20-34 A5, R-2026-09-20-35 A4-A5). Until facility one is onboarded, nothing new enters scope.
+    - **An item with a trigger is not work until its trigger fires, and a quiet queue is not a trigger.** A queue with nothing urgent in it is the condition under which scope creeps, not a licence to start.
+    - **It binds Cowork as well as the implementer.** Several late-session additions were a hold being extended when it was one command from closing.
+    - **How to apply:** write the trigger next to the finding. A finding with no named trigger is either work now or is not recorded at all — those are the only two honest states.
 
 ---
 
@@ -2034,6 +2134,34 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-21, R-2026-09-21-37 (issued as R-PROVISIONAL-2026-09-21-W): Cowork's
+  own mechanism claim for the HEAD fix failed verification against Cloudflare's
+  Cache API reference — `cache.put` throws for a non-GET request, so the proposed
+  two-line alias would have thrown on every HEAD, into the same `catch` the change
+  adds for the rare case; the fix is the GET-normalised cache key, with the body
+  stripped by this code rather than left to the runtime; and three findings from
+  the implementation — the `curl -sSI` was checked into the runbook rather than
+  only relayed, `serve.ts` cited an ESLint Date ban that does not exist, and
+  -33 B6's premise is qualified because `serveBeds` is total and cannot throw
+  into a widened catch;
+- on 2026-09-20, R-2026-09-20-36 (issued as R-PROVISIONAL-2026-09-20-V): the
+  deployment report accepted with its fourth clause as a reading rather than an
+  assertion, re-measured independently before being recorded; the cutover hold
+  lifted, Bundle 2's gate discharged, and a route found to answer differently by
+  method, folded into the cache fix rather than opened as new scope;
+- on 2026-09-20, R-2026-09-20-35 (issued as R-PROVISIONAL-2026-09-20-U): a ruling
+  against ceremony that reprinted the full queue inside itself — the same shape as
+  -33 B3, one document later, which is the evidence that prose self-inconsistency
+  is a limit rather than a lapse; and the path named end to end, cache fix then
+  Bundle 2, whose first task is the `packages/fixtures/public-relations.json`
+  split;
+- on 2026-09-20, R-2026-09-20-34 (issued as R-PROVISIONAL-2026-09-20-T): rulings
+  batch rather than each taking a pull request, bounded by a weekly deadline of
+  2026-09-27 and carrying its own cost openly — 16 pull requests since #37, 10 of
+  them record-only, recounted rather than repeated; no new scope until facility
+  one, every finding becoming an open item with a named trigger; and the
+  prose-self-consistency limit named as the most important thing recorded that
+  day;
 - on 2026-09-20, R-2026-09-20-33 (issued as R-PROVISIONAL-2026-09-20-S): the cache
   hole ruled as a control whose stated scope exceeds its coverage, and sequenced
   merge-deploy-fix on a severity comparison — the live empty-city page is

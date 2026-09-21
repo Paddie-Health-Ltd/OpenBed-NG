@@ -184,24 +184,86 @@ describe('GET /beds.json — the credential header follows the key family', () =
 describe('GET /beds.json — the explicit edge cache', () => {
   // NOT ASSERTED HERE, deliberately: that Cloudflare's cache behaves like this
   // fake. The fake proves what the Function ASKS of the cache -- store a 200,
-  // never store a failure, serve a hit without reading the origin. Whether the
-  // edge honours it is the runbook's cache-hit step, OWED, and only on a custom domain.
+  // never store a failure, serve a hit without reading the origin, and key every
+  // write on a GET. Whether the edge honours it is the runbook's cache-hit step,
+  // OWED, and only on a custom domain.
+  //
+  // NOT ASSERTED HERE EITHER, and it is the more load-bearing of the two: that
+  // Cloudflare's `put` really throws for a non-GET request, and that `match`
+  // really honours `ignoreMethod`. Both are READ from its Cache API reference,
+  // never measured -- this repository has no Cloudflare access. The fake below
+  // MODELS those two rules, so the legs that rest on them prove this module
+  // against the DOCUMENTED CONTRACT. That is the strongest thing assertable from
+  // inside this repository and it is weaker than a measurement: if the reference
+  // is wrong, these legs are green and the edge still throws.
 
-  function fakeCache(): EdgeCache & { puts: number } {
+  type Fake = EdgeCache & {
+    puts: number;
+    keys: string[];
+    failRead: boolean;
+    failWrite: boolean;
+    throwSync: boolean;
+  };
+
+  /**
+   * A FAKE THAT MODELS THE DOCUMENTED CONTRACT, not a bare Map.
+   *
+   * A Map keyed on `req.url` alone accepts a HEAD write happily, so every HEAD
+   * leg below would pass while the real edge threw -- a plant proving nothing,
+   * which is exactly what test-conventions section 2 is about. So the two
+   * documented rules are built in: `put` REJECTS a non-GET, and `match` keys on
+   * the method unless `ignoreMethod` is passed.
+   */
+  function fakeCache(): Fake {
     const store = new Map<string, Response>();
     return {
       puts: 0,
-      async match(req) {
-        const r = store.get(req.url);
-        return r ? r.clone() : undefined;
+      keys: [],
+      failRead: false,
+      failWrite: false,
+      throwSync: false,
+      async match(req: Request, options?: { ignoreMethod?: boolean }) {
+        if (this.failRead) throw new Error('planted: the edge cache read failed');
+        const method = options?.ignoreMethod ? 'GET' : req.method;
+        const hit = store.get(`${method} ${req.url}`);
+        return hit ? hit.clone() : undefined;
       },
-      async put(req, res) {
+      put(req: Request, res: Response): Promise<void> {
+        // A synchronous throw and a rejected promise are DIFFERENT SHAPES that
+        // reach the module by different paths. Both are plantable here because
+        // the reference does not say which one Cloudflare uses.
+        if (this.throwSync) throw new Error('planted: the edge cache write threw synchronously');
+        if (req.method !== 'GET') {
+          return Promise.reject(new TypeError('Cannot cache response to non-GET request.'));
+        }
+        if (this.failWrite) return Promise.reject(new Error('planted: the edge cache write failed'));
         this.puts += 1;
-        store.set(req.url, res);
+        this.keys.push(`${req.method} ${req.url}`);
+        store.set(`${req.method} ${req.url}`, res);
+        return Promise.resolve();
       },
     };
   }
-  const request = (): Request => new Request('https://openbed.example/beds.json');
+
+  const request = (method = 'GET'): Request => new Request('https://openbed.example/beds.json', { method });
+
+  /**
+   * Capture console.error for a leg. The degradation R-2026-09-20-33 B5 describes
+   * is deliberately invisible to the CLIENT and deliberately visible in the LOG,
+   * so the log is an assertion target, not noise to be silenced.
+   */
+  async function withLoggedErrors<T>(fn: () => Promise<T>): Promise<{ result: T; logged: string[] }> {
+    const logged: string[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]): void => {
+      logged.push(args.map((a) => String(a)).join(' '));
+    };
+    try {
+      return { result: await fn(), logged };
+    } finally {
+      console.error = original;
+    }
+  }
 
   test('a miss reads the origin once and stores the 200; the next request is a hit that reads nothing', async () => {
     const stored = await newestRow();
@@ -231,6 +293,205 @@ describe('GET /beds.json — the explicit edge cache', () => {
   test('with no cache available the Function still serves — a missing Cache API is not an outage', async () => {
     const res = await serveBedsCached({ env: serviceEnv(), request: request() }, undefined);
     expect(res.status).toBe(200);
+  });
+
+  /*
+   * THE METHOD LEGS (R-2026-09-21-W). Until 2026-09-21 a HEAD never reached this
+   * module at all: the Function exported onRequestGet only, so Pages answered a
+   * HEAD from the SPA fallback with text/html and none of the headers below.
+   * Measured against the deployed artifact, not inferred.
+   */
+
+  test('the cache is keyed on a GET whatever the method arrived — the documented put contract is never violated', async () => {
+    const stored = await newestRow();
+    const cache = fakeCache();
+    const origin = scripted([async () => json(200, [stored])]);
+    await serveBedsCached({ env: serviceEnv(), request: request('HEAD') }, cache, origin.fetchImpl);
+    expect(cache.keys, 'a non-GET key reached cache.put, which the Cache API refuses').toEqual([
+      'GET https://openbed.example/beds.json',
+    ]);
+  });
+
+  test('control — the fake refuses a non-GET write, so the leg above is not vacuous', async () => {
+    // Without this, a fake that accepted anything would make the GET-key leg pass
+    // whether or not the module normalised. One plant proves the instrument.
+    const cache = fakeCache();
+    await expect(cache.put(request('HEAD'), json(200, []))).rejects.toThrow(/non-GET/);
+  });
+
+  test('plant — a GET populates the cache and a HEAD is then served from that entry, carrying the Function headers', async () => {
+    const stored = await newestRow();
+    const cache = fakeCache();
+    const origin = scripted([async () => json(200, [stored])]);
+
+    await serveBedsCached({ env: serviceEnv(), request: request() }, cache, origin.fetchImpl);
+    const head = await serveBedsCached({ env: serviceEnv(), request: request('HEAD') }, cache, origin.fetchImpl);
+
+    expect(head.status).toBe(200);
+    expect(origin.calls(), 'the HEAD read the origin instead of the entry the GET populated').toBe(1);
+    expect(head.headers.get('content-type'), 'a HEAD answered as the SPA fallback').toBe('application/json; charset=utf-8');
+    expect(head.headers.get('x-robots-tag'), 'a HEAD lost the robots header and invites archiving').toBe('noindex, nofollow');
+    expect(head.headers.get('cache-control')).toBe(EXPECTED_CACHE_CONTROL);
+  });
+
+  test('a HEAD carries the headers and NO body', async () => {
+    const stored = await newestRow();
+    const cache = fakeCache();
+    const origin = scripted([async () => json(200, [stored])]);
+    const head = await serveBedsCached({ env: serviceEnv(), request: request('HEAD') }, cache, origin.fetchImpl);
+    expect(head.headers.get('content-type')).toBe('application/json; charset=utf-8');
+    expect(await head.text(), 'a HEAD answered with a body').toBe('');
+  });
+
+  test('plant — a HEAD on a COLD cache does not throw, and populates no HEAD-keyed entry', async () => {
+    const stored = await newestRow();
+    const cache = fakeCache();
+    const origin = scripted([async () => json(200, [stored])]);
+
+    const { result, logged } = await withLoggedErrors(() =>
+      serveBedsCached({ env: serviceEnv(), request: request('HEAD') }, cache, origin.fetchImpl),
+    );
+
+    expect(result.status).toBe(200);
+    expect(logged, `a HEAD on a cold cache logged an exception: ${logged.join(' | ')}`).toEqual([]);
+    expect(
+      cache.keys.some((k) => k.startsWith('HEAD ')),
+      'a HEAD-keyed entry was created, so GET and HEAD no longer share one entry',
+    ).toBe(false);
+  });
+
+  /*
+   * THE CACHE-EXCEPTION LEGS (R-2026-09-20-33 B4-B6). Before this fix the two
+   * cache awaits sat outside any try, so an exception there bypassed failure()
+   * and reached the client as an unhandled Function exception carrying none of
+   * this module's headers.
+   */
+
+  test('plant — a cache READ that throws is a miss, and the response is the normal tagged 200', async () => {
+    const stored = await newestRow();
+    const cache = fakeCache();
+    cache.failRead = true;
+    const origin = scripted([async () => json(200, [stored])]);
+
+    const { result, logged } = await withLoggedErrors(() =>
+      serveBedsCached({ env: serviceEnv(), request: request() }, cache, origin.fetchImpl),
+    );
+
+    expect(result.status).toBe(200);
+    expect(result.headers.get('cache-control')).toBe(EXPECTED_CACHE_CONTROL);
+    expect(result.headers.get('x-robots-tag')).toBe('noindex, nofollow');
+    expect(origin.calls(), 'a throwing cache read did not fall through to the origin').toBe(1);
+    expect(logged.join(' '), 'the degradation was not logged server-side').toContain('cache read failed');
+  });
+
+  /**
+   * THE LEG THAT PROVES THE TRY WAS NOT WIDENED (R-2026-09-20-33 B6), and the
+   * reason it is here rather than in a later tidy-up.
+   *
+   * With the ORIGIN failing behind a THROWING CACHE, a broad catch swallows the
+   * origin failure and returns something untagged, while the correct fix still
+   * returns the tagged, uncacheable failure that failure() built.
+   *
+   * WHAT THIS LEG DOES AND DOES NOT DISCRIMINATE -- measured by planting, on
+   * 2026-09-21, not reasoned. Three widened shapes were planted against this
+   * block:
+   *   1. ONE broad try around everything, catch returning an untagged 500
+   *      -> THIS LEG REDS (with four others). The shape B4 names.
+   *   2. the try widened to include the origin read, so the cache WRITE is
+   *      skipped -> caught, but by the miss/store leg above, NOT by this one.
+   *   3. a widened catch that merely RE-RUNS serveBeds -> NOT CAUGHT, by this
+   *      leg or any other here, and it cannot be.
+   *
+   * The reason for 3 is worth stating, because it qualifies R-2026-09-20-33 B6's
+   * premise: serveBeds is TOTAL. It catches its own exceptions and always returns
+   * a Response, so it can never throw INTO a widened catch, and a catch that
+   * re-runs it produces the same bytes by a wasteful route. B6's "the fix and the
+   * broad catch would look identical in green" is therefore true of shape 1 and
+   * is what this leg closes; shape 3 is invisible to behaviour and would need a
+   * structural assertion over the source, which is NOT ASSERTED HERE.
+   */
+  test('plant — an ORIGIN failure behind a throwing cache is still a tagged, uncacheable failure', async () => {
+    const cache = fakeCache();
+    cache.failRead = true;
+    cache.failWrite = true;
+    const origin = scripted([async () => json(503, { message: 'busy' })]);
+
+    const { result } = await withLoggedErrors(() =>
+      serveBedsCached({ env: serviceEnv(), request: request() }, cache, origin.fetchImpl),
+    );
+
+    expect(result.status, 'the origin failure was converted into something other than a refusal').toBe(502);
+    expect(result.headers.get('cache-control'), 'a failure behind a throwing cache became cacheable').toBe('no-store');
+    expect(
+      result.headers.get('x-robots-tag'),
+      'a failure behind a throwing cache lost its robots header',
+    ).toBe('noindex, nofollow');
+    const body = (await result.json()) as { error?: string };
+    expect(body.error, 'the failure did not come from failure()').toContain('origin');
+  });
+
+  test('plant — a cache WRITE that rejects still serves the response', async () => {
+    const stored = await newestRow();
+    const cache = fakeCache();
+    cache.failWrite = true;
+    const origin = scripted([async () => json(200, [stored])]);
+
+    const { result, logged } = await withLoggedErrors(() =>
+      serveBedsCached({ env: serviceEnv(), request: request() }, cache, origin.fetchImpl),
+    );
+
+    expect(result.status).toBe(200);
+    expect(result.headers.get('cache-control')).toBe(EXPECTED_CACHE_CONTROL);
+    expect(cache.puts, 'the write was counted despite rejecting').toBe(0);
+    expect(logged.join(' '), 'the degradation was not logged server-side').toContain('cache write failed');
+  });
+
+  test('plant — a cache WRITE that throws synchronously still serves the response', async () => {
+    const stored = await newestRow();
+    const cache = fakeCache();
+    cache.throwSync = true;
+    const origin = scripted([async () => json(200, [stored])]);
+
+    const { result, logged } = await withLoggedErrors(() =>
+      serveBedsCached({ env: serviceEnv(), request: request() }, cache, origin.fetchImpl),
+    );
+
+    expect(result.status).toBe(200);
+    expect(logged.join(' '), 'a synchronous throw from put was not logged').toContain('cache write threw');
+  });
+
+  test('plant — a rejecting write handed to waitUntil is handled, not left as an unhandled rejection', async () => {
+    // The waitUntil path is the one a try around the call CANNOT cover: nothing
+    // awaits the promise here, so an async rejection would escape it entirely.
+    const stored = await newestRow();
+    const cache = fakeCache();
+    cache.failWrite = true;
+    const origin = scripted([async () => json(200, [stored])]);
+    const scheduled: Array<Promise<unknown>> = [];
+
+    const { result, logged } = await withLoggedErrors(async () => {
+      const r = await serveBedsCached(
+        {
+          env: serviceEnv(),
+          request: request(),
+          waitUntil: (pr) => {
+            scheduled.push(pr);
+          },
+        },
+        cache,
+        origin.fetchImpl,
+      );
+      await Promise.all(scheduled);
+      return r;
+    });
+
+    expect(result.status).toBe(200);
+    expect(scheduled.length, 'nothing was handed to waitUntil').toBe(1);
+    await expect(
+      Promise.all(scheduled),
+      'the waitUntil promise rejected — at the edge that is an unhandled rejection',
+    ).resolves.toBeDefined();
+    expect(logged.join(' ')).toContain('cache write failed');
   });
 });
 
@@ -296,9 +557,15 @@ describe('GET /beds.json — what is refused rather than served', () => {
    * turn that into an echo.
    *
    * NOT ASSERTED HERE, deliberately (method note 12): what Cloudflare returns for an
-   * UNHANDLED Function exception. serveBedsCached's cache calls sit outside any try,
-   * so an exception there never reaches failure() at all — reported as a scope change
-   * under R-2026-09-20-32 B3-bis, and not something this repository can observe.
+   * UNHANDLED Function exception. That remains unobservable from this repository.
+   *
+   * WHAT CHANGED, AND WHY THIS SENTENCE WAS REWRITTEN RATHER THAN LEFT: until
+   * R-2026-09-20-33's fix this note read that "serveBedsCached's cache calls sit
+   * outside any try, so an exception there never reaches failure() at all". That was
+   * the defect R-2026-09-20-32 B3-bis reported, and it is now closed — the cache
+   * calls are wrapped, a throwing read is a miss and a throwing write is skipped, so
+   * no cache exception escapes this module. The sentence would otherwise have become
+   * a false fact describing code that no longer exists.
    */
   test('an unparseable upstream body is a GENERIC 502 — the text it failed to parse is never republished', async () => {
     // This is the path res.json()'s SyntaxError lands on, and that message quotes the
