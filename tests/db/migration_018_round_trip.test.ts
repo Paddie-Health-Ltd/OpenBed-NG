@@ -33,6 +33,24 @@ import { sql, psqlCommand } from '../setup/db.js';
  * forward state in a `finally`, and `afterAll` restores it once more -- because a
  * file that left the database in the 017 state would hand the next run a silent
  * false green on the boundary suites, which is the worst outcome available here.
+ *
+ * AND THE COST OF THAT `afterAll`, NAMED BECAUSE IT WAS MEASURED RATHER THAN
+ * PREDICTED. Re-applying the forward migration does not only undo what THIS file
+ * did -- it undoes any drift in the two properties 018 governs, for every db file
+ * that runs after it. Observed 2026-09-21 while planting a restored `anon` grant
+ * into `database/seed/001_synthetic_seed.sql`: the plant was live, it reddened
+ * `rls_anon_column_containment` and this file's own first leg, and by the time
+ * `rls_anon_reachability` ran, THIS FILE HAD REPAIRED IT and those legs passed.
+ * The first reading was that the reachability legs did not discriminate. They do
+ * -- re-planted and run alone, both the grant-level and the HTTP leg red -- but
+ * the repair is real and a later file cannot see drift this one has healed.
+ *
+ * NOT ASSERTED HERE, deliberately: that no OTHER file left the boundary drifted.
+ * The first leg below checks the state this file starts in, which covers drift
+ * arriving before it and not drift arriving after. Making the `afterAll` assert
+ * instead of repair would trade a silent repair for a database left open in the
+ * 017 state, which is worse. The honest control is that the boundary suites
+ * assert the property directly, on every run, rather than inheriting it.
  */
 
 const MIG_DIR = join(import.meta.dirname, '..', '..', 'database', 'migrations');
