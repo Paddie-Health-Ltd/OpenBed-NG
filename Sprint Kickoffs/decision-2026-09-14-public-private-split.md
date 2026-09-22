@@ -2904,6 +2904,78 @@ The question: RLS is off on all 16 `app` tables, which is safe **only** while `a
 
 **The cause, not the instance.** `A3` and `A7` are dashboard and hosted readings recorded the same way, **with no evidence kind marked**, and nothing here has confirmed them. They are **not** thereby doubted — `A7`'s reasoning is internally checkable and `A3` restates gaps already in Bundle 3 — but they are **relayed, and this note says so** rather than leaving `A5` corrected and its two siblings carrying the same silence. **The rule for the next block of this kind: every clause resting on a reading someone else took names that, in the clause, at the time it is written.**
 
+### R-2026-09-22-57 — Bundle 3 becomes four pull requests; the grant gaps split; the build-stamp check is redesigned rather than rebuilt around
+
+_Issued as R-PROVISIONAL-2026-09-22-AJ, inside the Bundle 3 kickoff the founder pasted on 2026-09-22. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-56. **Record-only under R-46 for the ruling itself; it lands in PR 3.1 with the kickoff it arrived in.** That kickoff is committed unedited at `Sprint Kickoffs/sprint-kickoff-bundle3-operator-path-2026-09-22.md` — **it is the source, and this block records the ruling rather than restating it.**_
+
+**EVIDENCE KINDS IN THIS BLOCK** (`-56 A10c`'s rule, applied at the time of writing rather than after). Clauses **A**–**F** are Cowork's calls and the founder's two scope answers, recorded **as given**. Clause **G** is mine: every premise those clauses rest on, read in this repository on this branch before any of it was acted on, with the verdicts. Nothing below is marked verified because it is plausible.
+
+**A — TWO OF `-56 D`'s THREE GRANT GAPS ENTER BUNDLE 3; THE THIRD DOES NOT.**
+
+- **A1.** The USAGE test in `tests/db/rls_anon_reachability.test.ts` gains a positive control: the identical `has_schema_privilege` call returning **true** for a role that does hold USAGE on `app`, with that role read from the catalogue rather than assumed. The test's name stops saying only `anon` when its body checks two roles.
+- **A2.** The hosted grant check widens from `anon` × `SELECT` to `anon`, `authenticated` and `PUBLIC` × **every** privilege type × **every** table in `app`, matching the local test's anti-vacuity pin on the 16 table names, **with a failing half run in the same sitting**. It is a runbook step because nothing in the repository can reach the hosted catalogue, and it runs **once, when Bundle 3 lands**, because PR 3.4 adds the first authenticated-executable functions since 014.
+- **A3.** The hosted exposed-schemas list **stays a hand reading**, by design, per test-conventions §4. Not in scope, and not a gap to be closed by a test that would only appear to check it.
+
+**B — THE BUILD-STAMP CHECK IS REDESIGNED, NOT REBUILT AROUND.** The defect is **where the assertion lives**, not how the check runs. The property that matters — *the artefact being uploaded names the commit being deployed* — is true only at upload time. So the readback moves into the deploy wrapper, which refuses to upload unless the stamped commit equals the verified HEAD and `dirty` is false; the compliance test stops reading a shared build directory and runs the stamp script into a scratch output instead, keeping its refusal plants; and **one stamp mechanism covers every artefact**, not one per app.
+
+**C — THE PULL-REQUEST SHAPE: FOUR, IN ORDER.** `R-2026-09-21-46` batches *record-only* work, and its D clause gives the reason — the overhead is waste **for a paragraph**. These are four changes with different risk and different reviewers: a migration adding operator write functions must not share a review with a wrapper refactor, and the clinical-screen fix must not wait behind the admin app. **All record-only material rides PR 3.1**, as `-46` requires.
+
+**D — ADMIN ARCHITECTURE PROPERTIES**, against which the implementer proposes the mechanism. Identity comes from `auth.uid()` **in the database**, never from an argument and never from a Function (D1); operator write functions are `SECURITY DEFINER` in `public`, `EXECUTE` to `authenticated` only, operator check first (D2); the authenticated-executable set becomes a **closed, named list** asserted on identity rather than count (D3); ward-login provisioning is a Pages Function holding the service key that **does not decide who the caller is** — it forwards the bearer to an authenticated operator function which answers from `auth.uid()` (D4); the `-45` invite gate is built here, enforced in the database and not the UI (D5); `app.facility_contact` is **not** edited in admin v1, being the one named human in the system (D6); categories are **add-only**, since `ward_status_event` references `ward_status` `ON DELETE RESTRICT` and there is no retired state (D7); the operator's freshness list **never uses freshness to filter, sort out, hide or suppress** a row, and computes bands from the single existing derivation site (D8); the operator's sign-in address is a **role address**, never a personal mailbox, which nothing technical can check and so goes in the runbook (D9); every operator write leaves an `app.audit_log` row in the same transaction (D10).
+
+**E — SERVER-SIDE ORIGINS FOLLOW `-55 A`**, so the allow-list is read from browser *and* server-side calls. **AMENDED THE SAME DAY by `R-2026-09-22-58 A`**, which carves out the public dashboard's snapshot Function on the founder's decision. Read E and `-58 A` together; E alone now overstates its own scope.
+
+**F — THE FOUNDER'S TWO SCOPE ANSWERS, 2026-09-22**, which bring two items into Bundle 3 under note 22. **F1: `-56 A3`'s `(unknown facility)` beside a real count is IN, in PR 3.2** — Bundle 3 ships the tool that creates the first row the `-45` gate governs, so every item on that gate belongs in the same bundle. **F2: the ward's own request for a new sign-in link is IN, in PR 3.2, as a form in the ward console** — sessions are time-boxed at 24 hours and links are single-use, so nothing let a ward sign in again the next day; the ward-side form was chosen over an operator "resend" because the ward-identity model rests on physical control of the handset, not on the operator.
+
+**G — THE PREMISES, READ HERE BEFORE ANY OF THIS WAS ACTED ON** (note 20; and `-56 A10c`'s rule that a clause resting on someone else's reading says so). Every premise below was read on this branch at `a8b28fe`.
+
+**G1 — THE ONES THAT HOLD, with what makes them true:**
+- **A1's gap is real.** The USAGE test asserts `false` for `anon` **and** `authenticated` and nothing in the file shows that same call can return `true`. A sibling test in the same file, *"the probe can return TRUE — a role that holds SELECT is reported as holding it"*, is the shape A1 asks for, so the fix has a template one screen away from the defect.
+- **A2's gap is real.** `tests/db/rls_enabled_everywhere.test.ts` closes the local side over all three grantees and every privilege type; the hosted half recorded on 2026-09-13 covers one role and one privilege.
+- **B's defect is real.** `tests/compliance/build_stamp.test.ts` asserts the built stamp names the checkout's HEAD; the stamp on disk at the time of reading named `d715b40` with `dirty: true`, which is the state the clause describes.
+- **D3 is real.** The three-RPC test filters to three names **before** asking who may execute, so a fourth authenticated-executable function is invisible to it. The anon side *is* closed; the authenticated side is not.
+- **D7 holds at the schema.** `ward_status_one_row_per_ward UNIQUE (facility_id, category)` in 004, and `ward_status_event.ward_status_id … ON DELETE RESTRICT`.
+- **`-56 C`'s lint can land.** All four `public` tables in the frozen corpus already pair their `CREATE TABLE` with both `ENABLE` and `FORCE` — 007 at lines 187–195, 016 at lines 159–160 — so the guard passes over 001–018 **unedited**, which is the one constraint that decided whether it could ship at all.
+
+**G2 — ONE INSTRUCTION WHOSE PREMISE WAS ALREADY SATISFIED.** PR 3.1's first task reads *"Rebase AE–AH and A10 onto `main`."* **There is nothing to rebase.** `git merge-base main HEAD` returns `main` itself: the holding branch is already based on `0cfab92`. The instruction survives as *continue on the holding branch and open PR 3.1 from it*; **the rebase it names is not work that exists.** Recorded because note 20 requires the mismatch be said even where the instruction survives.
+
+**G3 — ONE DEFECT IN THE KICKOFF, LISTED AND NOT FIXED**, because the instruction is to commit it unedited. It cites the built stamp path — apps/public-dashboard/dist/version.json, written here **without** backticks for the reason the rest of this clause gives — **in backticks**. That path is gitignored, and Clause 4's scope note requires gitignored paths be cited *without* backticks so they do not read as repo paths. **No guard catches it:** `tests/compliance/no_phantom_paths.test.ts` tests filesystem existence, and CI builds before the compliance suite, so the path exists whenever the guard looks. A citation that is wrong in kind and green in every run is exactly the shape Clause 4 exists for, and it is recorded rather than repaired.
+
+**G4 — AND ONE CLAIM FROM MY OWN TOOLING, REFUTED BEFORE IT REACHED THIS RECORD.** A planning pass reported that the kickoff cites its own future paths under a `claude/` prefix that `no_phantom_paths.test.ts`'s scope regex does not cover — a finding which, had it been taken on its face, would have meant editing a document ruled to land unedited. **It is false.** There is no `claude/` citation anywhere in the kickoff, and the file on disk is byte-identical to the pasted text. Recorded because the standing rule about checking a stated reason binds whatever produced it, and because the cost of not checking would have been an edit to the one artefact that was not to be edited.
+
+### R-2026-09-22-58 — the snapshot Function keeps its direct origin; both handoffs land in PR 3.1; the tracked-entry guard comes forward because the stray recurred
+
+_Issued as R-PROVISIONAL-2026-09-22-AK, by the founder on 2026-09-22, answering the two questions PR 3.1 could not settle from the kickoff. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-57. **Record-only under R-46; lands in PR 3.1.** Next provisional letter: AL._
+
+**EVIDENCE KINDS.** Clauses **A**, **B** and **C** are the founder's, recorded **as given**. Clause **D** is mine: what checking C's premise found. The H1 reading A1 depends on is **the founder's and has not been taken yet** — it is named as owed below, not assumed.
+
+**A — THE PUBLIC DASHBOARD'S SNAPSHOT FUNCTION KEEPS ITS DIRECT ORIGIN: a narrow exception to `-55 A`.**
+
+- **A1 — the property.** PR 3.1 changes **nothing** about which origin `/beds.json`'s Function calls. Its origin moves into the tracked build configuration **under its own key**, set to exactly the founder's H1 reading, recorded in the clause as the founder's reading. **A test asserts the Function's origin comes from that tracked key and not from the Pages environment**, so Finding D closes for Functions too. Only the secret stays in the Pages environment. The implementer proposes the mechanism.
+- **A2 — the reason.** `-55 A`'s three reasons — ISP blocks of `*.supabase.co`, portability, somewhere to put rate limits — **are about browser traffic**. A server-side call from Cloudflare is not exposed to an ISP block, is portable as one tracked line, and is already cached to one origin read per interval. Putting the Worker on the `/beds.json` path would add a failure point while `-23 D5` (availability) is open.
+- **A3 — the scope of the exception** is the public dashboard's snapshot Function **only**. Every browser call still goes through `api.openbed.ng`. **The admin provisioning Function of `-57 D4` is not decided here**; the implementer states its choice and reason in PR 3.4's design report.
+- **A4 — `-57 E` is amended by this clause.** "Every server-side call" now reads *every server-side call except the public dashboard's snapshot Function*. **The kickoff is committed as pasted; the record carries the amendment** — the document is not edited to match a later state.
+- **A5 — the consequence for PR 3.3.** The allow-list is derived **only from calls that go through `api.openbed.ng`**. The coverage test attributes each call site to the origin it uses, and a path called only through the direct origin is **not** listed. Plant: a direct-origin-only path added to the list turns the coverage test red.
+- **A6 — the exception ends when `-23 D5` closes.** Moving the Function onto the Worker is then its own change with its own ruling. **That is the recorded trigger.**
+
+**B — BOTH HANDOFFS LAND IN PR 3.1.**
+
+- **B1.** docs/handoff-2026-09-22-infra-review-closed.md — **written without backticks, because it does not exist yet and a backticked path would be a Clause 4 phantom**, the same reason `-56`-era drafts were cited that way — written from the founder's paste, unedited. **There was never a copy on the device; the kickoff's wording was right.**
+- **B2.** docs/handoff-2026-09-22-bundle3-kicked-off.md, without backticks for the same reason, is added in PR 3.1 as well, from the founder's paste, unedited, per its own text that it lands with the next substantive change. It joins the record carrier's list.
+- **B3.** The stray copy that appeared in the untracked working-tree directory is diffed against the pasted copy and the result quoted, empty or not. **The pasted copy is authoritative either way.** The directory is then removed from the working tree — it is untracked, so there is nothing to `git rm` — and `git status --porcelain` is quoted showing nothing outside the claimed paths.
+- **B4 — for the PR body:** a Cowork-written file appeared in that directory **a second time**, which is Cowork error (a) recurring. It was caught by named-path staging, **not by any mechanical check**, and the reading that the file was there was **the implementer's**.
+
+**C — THE TOP-LEVEL TRACKED-ENTRY GUARD COMES INTO PR 3.1 NOW.**
+
+- **C1 — the reason.** The same stray path recurred. **Named-path staging is a habit, not a check**, and the first occurrence did reach a commit. The trigger's spirit is met; it is resolved in this pass rather than left waiting for a third.
+- **C2 — the property.** The set of top-level tracked entries is a **closed, named list, checked by identity rather than count** (test-conventions §3). Failing half: a planted staged stray at the top level turns it red, quoted, then green once removed. The implementer proposes the mechanism. Guard-only, no runtime effect, so it fits PR 3.1's character.
+- **C3.** "Top-level tracked-entry guard" is removed from the open items when it lands.
+
+**D — C1's PREMISE, CHECKED HERE, AND IT IS SHARPER THAN STATED.** C1 says the first occurrence *"did reach a commit (38440e7)"*. **It holds.** `38440e7` added the boundary-closed handoff under that untracked top-level directory — a path outside the twelve tracked directories — and it was remedied two commits later, in `999dd50`, whose subject records it. So the recurrence C1 reasons from is the **second** instance of a defect that has now been committed once and staged once, and **neither was caught by anything except a person looking.** That is the case for C2 rather than against it.
+
+**E — WHAT IS OWED BEFORE THE CLAUSES ABOVE CAN BE DISCHARGED**, named rather than assumed:
+- **the two handoff pastes** (B1, B2), without which that commit cannot be written and B3's diff has nothing authoritative to run against;
+- **the H1 reading** — the `SUPABASE_URL` value on the `openbed-public-dashboard` Pages project, a URL and not a secret — without which A1's tracked key has no production value. **A placeholder is not an option here:** the whole property A1 asserts is that the tracked value equals what the Function calls today, and a guessed value would satisfy every test in the repository while being false at the edge.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -2951,6 +3023,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | AF | R-2026-09-22-54 | 2026-09-22 | Bundle 3's scope ruled by the founder and moved from a handoff line into the record; the sensors given their own bundle, sequenced before facility one; two deadlines pinned to the old meaning of "Bundle 3" re-pointed by note. Carries the remedy for a file my own `git add -A` swept into AE's commit. |
 | AG | R-2026-09-22-55 | 2026-09-22 | `api.openbed.ng` is KEPT — the proxy review's keep-or-remove answered against its own stated criterion, on portability, ISP-block resilience and a place for rate limits, with the caveat that none of the three reaches production until Bundle 3 points a tracked origin at it. Adds the allow-list, guard, stamp and four probes to Bundle 3; leaves the magic-link email host open with a trigger. One report-only read's reason refuted: six tracked files cite the `openbedng` Worker. |
 | AH | R-2026-09-22-56 | 2026-09-22 | The infrastructure review CLOSES on the founder's reads, every one of its seven scope bullets answered, and the `-40 H` gate on Bundle 3 lifts. Records that four of the review's own questions — the NDPA scope cell, the surface, attribution and availability — close with it unanswered and become open items rather than being absorbed. Adds the public-table RLS lint to Bundle 3. Two of the instruction's premises failed: no runbook step uses `dig` at all, and the resolver finding does not explain the 2026-09-19 contradiction. One of mine failed too, and is recorded. |
+| AJ | R-2026-09-22-57 | 2026-09-22 | Bundle 3 becomes **four pull requests in order** rather than one, on the ground that a migration adding operator write functions must not share a review with a wrapper refactor. Splits `-56 D`'s three grant gaps two-in one-out; redesigns the build-stamp check by moving the assertion to upload time, where its property is actually true, rather than building around a test that reds after every commit; and sets ten architecture properties for admin v1, identity from `auth.uid()` in the database first among them. Arrived inside the founder's pasted kickoff, which lands unedited alongside it. Two of its premises did not survive checking: the rebase it instructs was already done, and it carries one Clause 4 scope defect — listed, not fixed, because the document was ruled to land unedited. A planning pass's claim that the kickoff cited phantom `claude/` paths was itself false and was refuted before it could cause an edit. |
+| AK | R-2026-09-22-58 | 2026-09-22 | The founder answers PR 3.1's two open questions. The public dashboard's snapshot Function **keeps its direct origin** — a narrow, triggered exception to `-55 A`, on the ground that `-55 A`'s three reasons are about browser traffic and putting the Worker on the `/beds.json` path would add a failure point while `-23 D5` is open — while its origin still becomes tracked, so Finding D closes for Functions too. Both handoffs land in PR 3.1 from the founder's paste. And the top-level tracked-entry guard is pulled forward out of its trigger because the stray recurred: checking that premise here found the first instance reached a commit and the second reached the index, **neither caught by anything but a person looking**. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -3147,6 +3221,47 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-22, R-2026-09-22-58 (issued as R-PROVISIONAL-2026-09-22-AK): the founder
+  answers PR 3.1's two open questions. **The public dashboard's snapshot Function keeps
+  its direct origin** — a narrow exception to `-55 A`, on the ground that that ruling's
+  three reasons (ISP blocks, portability, a place for rate limits) are about **browser**
+  traffic, while a server-side call from Cloudflare is exposed to none of them and
+  putting the Worker on the `/beds.json` path would add a failure point while `-23 D5`
+  is open — **and its origin still becomes tracked**, under its own key set to the
+  founder's H1 reading, with a test that the Function takes it from there and not from
+  the Pages environment, so Finding D closes for Functions too and only the secret stays
+  on the platform; the exception is scoped to that one Function, leaves the admin
+  provisioning Function to PR 3.4's design report, amends the kickoff **in the record
+  rather than in the document**, and carries a trigger that ends it when `-23 D5` closes;
+  both handoffs land in PR 3.1 from the founder's paste; and **the top-level
+  tracked-entry guard is pulled forward out of its trigger because the stray recurred** —
+  checking that premise here found the first instance reached a commit and the second
+  reached the index, neither caught by anything but a person looking, which is the case
+  for the guard rather than against it;
+- on 2026-09-22, R-2026-09-22-57 (issued as R-PROVISIONAL-2026-09-22-AJ, inside the
+  Bundle 3 kickoff the founder pasted): **Bundle 3 becomes four pull requests in order**
+  rather than one, because a migration adding operator write functions must not share a
+  review with a wrapper refactor and a clinical-screen fix must not wait behind an admin
+  app, with all record-only material riding the first; `-56 D`'s three grant gaps split
+  two-in one-out, the hosted exposed-schemas list staying a hand reading **by design**
+  rather than being closed by a test that would only appear to check it; **the
+  build-stamp check is redesigned rather than rebuilt around**, on the finding that the
+  defect is where the assertion lives — the property *the artefact uploaded names the
+  commit deployed* is true only at upload time, so the readback moves into the deploy
+  wrapper and the compliance test stops reading a shared build directory; ten
+  architecture properties are set for admin v1, identity from `auth.uid()` **in the
+  database** first among them, with provisioning forwarding a bearer rather than deciding
+  who the caller is, the `-45` invite gate enforced in the database and not the UI, no
+  personal-data entry in v1, and a freshness list that shows stale rows rather than
+  filtering them; the founder brings the `(unknown facility)` renderer fix and a ward-side
+  new-link request into PR 3.2, choosing the ward form over an operator resend because the
+  identity model rests on physical control of the handset; **two of its premises did not
+  survive checking** — the rebase it instructs was already done, and it carries one
+  Clause 4 scope defect, a gitignored path cited in backticks that no guard can catch,
+  listed and not fixed because the document was ruled to land unedited; **and a claim
+  from my own planning tooling was refuted before it could cause harm**, having reported
+  phantom `claude/` citations in the kickoff that do not exist, which acted on would have
+  meant editing the one artefact that was not to be edited;
 - on 2026-09-22, R-2026-09-22-56 (issued as R-PROVISIONAL-2026-09-22-AH): the
   **infrastructure review closes** on the founder's reads, with all seven of its
   scope bullets answered — the proxy kept, the stray Hello World Worker deleted, the
