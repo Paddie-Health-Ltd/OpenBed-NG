@@ -2734,6 +2734,64 @@ The report given to the founder said *"the AE commit touched this record only by
 **Listed in that pull request's body and deliberately NOT fixed in the file:** the handoff's line 3, *"This file is not in the repo"*, and its line 50, *"Its scope is fixed by ruling Z"* — the claim `-53 E2` found false, repeated.
 
 **G — the queue:** the infrastructure review; Bundle 3; the sensor bundle; facility one; Bundle 4. **Bundle 3 is not started. The sensor bundle is not started.**
+---
+
+### R-2026-09-22-55 — `api.openbed.ng` is KEPT and the proxy hardened rather than removed; the magic-link host left open; three reads recorded, one of their reasons refuted
+
+_Issued as R-PROVISIONAL-2026-09-22-AG. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-54. **Record-only under R-46: committed and pushed to the same holding branch as AE and AF, no pull request; all three ride the Bundle 3 carrier.** Answers `R-2026-09-19-23 D0` and `D7`._
+
+**A — `api.openbed.ng` IS KEPT, and it is the only database address every app uses. The founder accepted the CTO verdict 2026-09-22.**
+
+`D0` set the criterion before the review ran: **the proxy must name what it buys that the direct Supabase origin does not**, with REMOVE as the default if nothing earns it. Three properties are named, as the founder gave them:
+
+1. **Resilience against ISP-level blocking of `*.supabase.co`.** A blocked vendor apex takes every client with it; a zone the operator controls does not. _The founder cites the 2025 Jio block of `supabase.co` as the precedent. **That is an external event this repository cannot read, and it is recorded as cited rather than as established** (method note 19)._
+2. **Portability.** Changing the Supabase project is **one Worker edit**, not an edit and a rebuild of every app. This is the candidate `D0` itself named — *decoupling client builds from the Supabase project ref* — and it is now confirmed rather than assumed.
+3. **A place to put Cloudflare rate limits in front of auth.** The direct origin gives the operator nowhere to stand.
+
+**A nicer hostname was never the reason.** Stated explicitly, because `D0` named exactly that as the cosmetic answer it would refuse, and a KEEP that did not dispose of it would read as the refused answer arriving by another route.
+
+**A2 — WHAT THE KEEP BUYS IS NOT LIVE TODAY, and saying otherwise would be a Clause 5 defect.**
+
+All three properties above require the apps to **actually reach Supabase through this hostname**. Two recorded facts say they may not:
+
+- **Finding D (`R-2026-09-19-21 D`):** the ward console's origin is a build-time variable that **nothing tracked sets**, so no file in this repository can say what production talks to. `supabase-proxy/README.md` already carries that sentence.
+- **`D1` is still open:** the founder's addendum says the name is deployed and a `dig` on 2026-09-19 returned **NO RECORD**. The contradiction is recorded and unresolved.
+
+So this ruling decides the proxy **on the merits of the design**, and the properties in A arrive with Bundle 3 item 1 — tracked origins for every app — not with this block. Writing *"the proxy protects the apps from an ISP block"* in the present tense today would be a claim that is present, plausible, and **does not reach** the thing it names.
+
+**B — BUNDLE 3 SCOPE ADDITION, under `-54 A` item 2 ("a deploy guard and build stamp for every app"). Four items.**
+
+1. **The Worker forwards only the path prefixes the ward console and the admin app actually call, and the list is read FROM THE CODE, not from memory.** Every other path returns **404 from the Worker, without reaching Supabase**. This is what turns A3's "a place to put rate limits" from a property of the hostname into a property of the thing deployed: today `index.js` forwards **every path and method**, to auth, storage and functions alike, which is the surface `D0` said a cosmetic reason could not justify.
+2. **A deploy guard and a build stamp for the proxy, in the same shape as the Pages apps.** Not a second mechanism: the same one, extended to the third deployed artefact.
+3. **Probes, each with a demonstrated failing half** (method note 23): no key → **401**; key → **200** on `/auth/v1/health`; a path outside the allow-list → **404 served by the Worker**; and the deployed source equals the repo source. _Each is stated as the exact signal that means pass — never "not 200" and never "4xx", which are satisfied by the probe's own precondition being absent._
+4. **`supabase-proxy/README.md` is updated:** its RECORD-NOT-DECISION banner is **superseded by A**, and the old text is **kept and marked superseded, not deleted**.
+
+**No artefact this item plans is cited here as a repo path.** None of them exists yet, and a backticked path to an unbuilt script or test is the Clause 4 phantom `tests/compliance/no_phantom_paths.test.ts` exists to red on. They are named in prose until the change that builds them.
+
+**C — OPEN, TRIGGER "before facility one": where do Supabase Auth magic-link emails point?**
+
+If the verify link's host is `*.supabase.co`, **A1's blocking protection is incomplete** — the console would survive a block and sign-in would not, which for this product is the same outage. The end state in that case is Supabase's **custom-domain add-on on `api.openbed.ng`**, and the Worker is **retired**.
+
+**That switch needs its own founder ruling on cost, and nothing about it is decided here.** Recorded as an open item with a named trigger (method note 22), not as work. **It is not a reason to defer B:** B is what the proxy needs whether it is the end state or the interim one.
+
+**D — ALSO RECORDED, REPORT-ONLY. The founder's reads of 2026-09-22.**
+
+- **D1 — the stray `openbedng` Worker is a default "Hello World" script, created 2026-09-18, with no routes and no domains. The founder will delete it in the dashboard.** This corroborates `R-2026-09-20-27 D1`, which already recorded it as created 2026-09-18 and still carrying the Hello World body, and the 2026-09-21 handoff's reading of no custom domains and no routes. **Deleting it closes `-27 D1`'s inventory item**, and it also discharges that clause's stated worry — that it might hold a route on the `openbed.ng` zone where it could intercept before the cutover.
+
+  **The reason given with that instruction does not hold, and is refuted here rather than passed over.** The read was that *nothing in the repo refers to it*. **Six tracked citations name it**: this record at lines 1658, 1710 and 1737, `docs/handoff-2026-09-20-pages-direct-upload.md`, `docs/handoff-2026-09-21-deployed-and-reported.md`, `docs/handoff-2026-09-21-gate-lifted-018-in-flight.md` and `docs/handoff-2026-09-22-boundary-closed-on-hosted.md`. **The instruction survives** — a routeless Hello World Worker is deleted either way — **and the reason is replaced**: it goes because it is unaccounted infrastructure on the account, which is `-27 D1`'s own framing. **None of the six is edited.** They are true about the day they were written, and a record is not rewritten to match a later state (method notes 8 and 11).
+- **D2 — `security@openbed.ng` is the runbook §9 magic-link test account, created 2026-09-14. It has no `ward_account`. It is NOT an orphan, and it is kept.** **Verified, not relayed:** `docs/runbook-supabase-project-creation.md` §9, *"Magic-link single-use — an INHERITED assumption, so probe it"*, carries the account under *"The commands, as run on 2026-09-14"*, and `SECURITY.md` names the same address as the private disclosure address. **This corrects the phrase "orphan auth user"** carried in `docs/handoff-2026-09-21-gate-lifted-018-in-flight.md` and `docs/handoff-2026-09-22-boundary-closed-on-hosted.md`. **Corrected by this note; neither handoff is rewritten.** The absence of a `ward_account` row was the whole basis of the orphan reading, and it is exactly what a §9 probe account is expected to look like — the tell was present and read the wrong way.
+- **D3 — `public.rls_auto_enable()` is the function behind the Supabase event trigger `ensure_rls` (`ddl_command_end`), SECURITY DEFINER, owned by `postgres`. It is declared in no migration. It is listed as HOSTED-ONLY DRIFT.** **No action is taken on it here**; Cowork's review of it follows. Two things are recorded alongside it rather than folded into it: the two handoffs that name it also record **PUBLIC EXECUTE**, an attribute **this read did not carry and which is not re-observed here**; and every attribute above is a **hosted** reading, which `.claude/rules/test-conventions.md` section 4 is explicit is not assertable from inside this repository.
+
+**E — WHAT THIS RULING DOES NOT DISCHARGE. A KEEP is not a closed review.**
+
+`D7` says that if the proxy is kept it enters the repository *"with its configuration, a guard, a runbook entry, a record entry, and the availability answer from D5"*. This block is the **record entry**; B carries the **guard** and the configuration. **Still owed:**
+
+- **the runbook entry**, which no item above creates;
+- **`D5`, the availability answer** — what breaks if the Worker, its route or its DNS is misconfigured or unavailable; how anyone would notice; whether the client fails over to the direct origin or simply fails; what the runbook says to do. `D5` is on the clinical path and `-23` calls a reliability regression there *"a worse outcome than anything in D4"*. **A2 sharpens it rather than softening it:** the decision to make this hostname the only database address for every app is the decision to put a second dependency in front of every ward console, so `D5` is now load-bearing for the KEEP and not a parallel question.
+- **`D2`'s NDPA sub-processor scope cell**, in the processor-obligations table above, which `-23 D2` said is to be completed **from the review's findings and not written ahead of them**. Keeping the proxy does not supply those findings.
+- **`D1`, `D3`, `D4` and `D6`** are unanswered.
+
+**F — the queue:** the infrastructure review; Bundle 3; the sensor bundle; facility one; Bundle 4. **Bundle 3 is not started. Nothing was deployed by this ruling.**
 
 ## The provisional ledger
 
@@ -2780,6 +2838,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | — (none issued) | R-2026-09-22-52 | 2026-09-22 | **No provisional letter.** The founder's own hosted apply of 018, quoted in full, with the instruction to write the apply record. The accumulation boundary closed at 05:40:40 UTC. First ruling dated 2026-09-22. |
 | AE | R-2026-09-22-53 | 2026-09-22 | The placeholder derives instead of being carried, on a finding from R-2026-09-22-52. **First ruling recorded on a pushed holding branch with no pull request** — record-only under R-46, rebasing onto Bundle 3. Its demonstration could not be met as specified, and the first check written for it was a tautology its own plant caught. |
 | AF | R-2026-09-22-54 | 2026-09-22 | Bundle 3's scope ruled by the founder and moved from a handoff line into the record; the sensors given their own bundle, sequenced before facility one; two deadlines pinned to the old meaning of "Bundle 3" re-pointed by note. Carries the remedy for a file my own `git add -A` swept into AE's commit. |
+| AG | R-2026-09-22-55 | 2026-09-22 | `api.openbed.ng` is KEPT — the proxy review's keep-or-remove answered against its own stated criterion, on portability, ISP-block resilience and a place for rate limits, with the caveat that none of the three reaches production until Bundle 3 points a tracked origin at it. Adds the allow-list, guard, stamp and four probes to Bundle 3; leaves the magic-link email host open with a trigger. One report-only read's reason refuted: six tracked files cite the `openbedng` Worker. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -2976,6 +3035,23 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-22, R-2026-09-22-55 (issued as R-PROVISIONAL-2026-09-22-AG): the proxy
+  review's keep-or-remove question is answered **KEEP**, against the criterion that
+  ruling stated before it ran — portability of the client builds away from the
+  Supabase project ref, resilience against an ISP-level block of the vendor apex, and
+  somewhere to put rate limits in front of auth, with a nicer hostname explicitly
+  refused as a reason; the same block records that **none of the three reaches
+  production yet**, because nothing tracked sets the apps' origin and the name's
+  liveness is still the recorded contradiction, so the decision is on the design and
+  the property arrives with Bundle 3; the hardening the proxy has always lacked — a
+  path allow-list read from the code with everything else answered 404 by the Worker,
+  a deploy guard and build stamp, and four probes each with a demonstrated failing
+  half — is added to Bundle 3 under `-54 A` item 2; where Supabase's magic-link emails
+  point is left OPEN with the trigger "before facility one", because a `*.supabase.co`
+  verify host would make the blocking protection incomplete and the answer costs
+  money; and three founder reads are recorded, one of whose reasons is refuted — the
+  stray Hello World Worker is deleted as unaccounted infrastructure rather than as
+  something nothing cites, since six tracked files cite it;
 - on 2026-09-22, R-2026-09-22-54 (issued as R-PROVISIONAL-2026-09-22-AF): Bundle 3's
   scope is ruled by the founder and **moved out of a handoff line into the record**,
   where it had been attributed to a ruling that did not carry it; the sensors, which
