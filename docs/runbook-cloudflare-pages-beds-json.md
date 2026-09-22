@@ -105,15 +105,26 @@ so `functions/` was never discovered.
 response (see the cache-hit step). A zone rule would serve a cached response before the Function
 runs, and Cloudflare warns that caching in front of Pages Functions can break them.
 
-## 2. The Function's environment — two variables, Production
+## 2. The Function's environment — ONE variable, Production
 
 In the Pages project's environment-variable settings, for the **Production** environment (the menu label is Cloudflare's and is not recorded here, because it was not observed):
 
-- `SUPABASE_URL` — the hosted API URL, `https://klrlpxysjsjpdkeqdhvl.supabase.co`.
-  Plain text.
 - `SUPABASE_SERVICE_ROLE_KEY` — **the hosted secret key, `sb_secret_…`**, added as
   an **encrypted secret**. This project's legacy JWT keys are disabled, so the new
   secret key is the only service credential.
+
+**THERE USED TO BE TWO, AND `SUPABASE_URL` IS NO LONGER ONE OF THEM**
+(R-2026-09-22-59). The origin the Function calls is now tracked configuration in
+`packages/origins/origins.json`, chosen at runtime from the request's hostname, and
+nothing on the `/beds.json` path reads that variable any more. **On an existing
+project it is still SET, and it is dead config** — step 8 is how it is removed, and
+it is gated rather than done here.
+
+**Why it moved, recorded because the reason is the useful part.** It was an
+*encrypted* secret, so its value could not be read back — which meant the address
+this Function called was not a fact anybody could establish, from the repository or
+from the dashboard. An origin is not a credential and gains nothing from being
+stored like one.
 
 **The two key families are sent differently, and getting it wrong looks like a
 permissions problem rather than an auth one.** The Function chooses by the key's
@@ -142,9 +153,6 @@ a fresh deploy to take effect (OBSERVED 2026-09-20: variables added to Productio
 while a deployment was live did not reach it; a new deploy picked them up).
 
 **Symptoms:**
-- **500, `SUPABASE_URL is not set in the Function environment`** — the same
-  diagnosis as the next line. The Function checks `SUPABASE_URL` first, so this is
-  the message you see when **both** are missing.
 - **500, `SUPABASE_SERVICE_ROLE_KEY is not set in the Function environment`** —
   the variable is missing, or set under Preview rather than Production, or set
   after the running deployment was created.
@@ -153,7 +161,10 @@ while a deployment was live did not reach it; a new deploy picked them up).
   a key that has been revoked. Supabase also returns 401 for a secret key sent from
   a browser `User-Agent`; a Function should not send one, so if 401 persists with
   the right key, that is the next thing to rule out.
-- **502, `the origin rejected the snapshot read (HTTP 4xx)`** — the URL is wrong.
+- **502, `the origin rejected the snapshot read (HTTP 4xx)`** — the tracked origin
+  is wrong, or the project it names is not the one holding the snapshot. **This is
+  no longer fixed in the dashboard**: it is a change to
+  `packages/origins/origins.json` and a redeploy.
 
 ## 3. Deploy
 
@@ -619,6 +630,83 @@ with their reasons recorded.
 
 ---
 
+## 8. Delete `SUPABASE_URL` from the Pages project — dead config. GATED by step 5
+
+**It is not needed, and it is not harmful; it is MISLEADING.** Nothing on the
+`/beds.json` path has read it since `R-2026-09-22-59`: the origin is tracked in
+`packages/origins/origins.json` and chosen from the request's hostname. A variable
+left in a project's environment reads to the next person as configuration that
+matters, and the next person may be the one debugging a 502 at 4am.
+
+**It is NOT part of step 2.** Step 2 is "set these". A deletion is a different act
+with a different precondition, and folding it in there would make it read as
+optional tidying.
+
+### The gate, and why it is this one
+
+**Do not touch the variable until you have, IN THIS SESSION, run step 5's block
+against `https://openbed.ng/beds.json` on a deployment created from a commit that
+contains `packages/origins/origins.json`, and read back in that output:**
+
+- `HTTP/2 200` (or `HTTP/1.1 200`),
+- `content-type: application/json; charset=utf-8`,
+- and a body beginning `{"v":`.
+
+**That 200 is the evidence that the Function is ALREADY taking its origin from the
+tracked file.** If it were still reading `SUPABASE_URL`, deleting the variable
+would break it — and the 200 you are about to rely on would have been the
+variable's doing rather than the code's.
+
+**The first line waits for the STATUS LINE you read in step 5** (e.g. `HTTP/2 200`).
+**The second waits for the COMMIT `/version.json` reported** for that same
+deployment. Paste each and press return; neither is echoed anywhere.
+
+**NO `exit` IN THIS BLOCK, deliberately.** Every fence in this runbook is PASTED
+into an interactive shell, and `exit` there closes the terminal rather than
+stopping a script. It prints one verdict instead, and the verdict is the gate.
+
+```bash
+read -r BEDS_STATUS
+read -r DEPLOYED_COMMIT
+OK=1
+case "$BEDS_STATUS" in *200*) ;; *) OK=0 ;; esac
+git merge-base --is-ancestor "$DEPLOYED_COMMIT" HEAD 2>/dev/null || OK=0
+git cat-file -e "$DEPLOYED_COMMIT:packages/origins/origins.json" 2>/dev/null || OK=0
+[ "$OK" = 1 ] \
+  && echo "PROCEED: $DEPLOYED_COMMIT served /beds.json with 200 and carries the tracked origin." \
+  || echo "STOP: not both of (step 5 read 200) and ($DEPLOYED_COMMIT carries packages/origins/origins.json). Delete nothing; deploy a commit that carries it, re-run step 5, then come back."
+```
+
+**The block asks you to paste values in, deliberately.** A step whose first act is
+to consume an observation cannot be performed before the observation exists.
+
+### Then delete it, and re-observe — this half is load-bearing
+
+1. In the Pages project's environment settings, **Production**, delete
+   `SUPABASE_URL`. **Leave `SUPABASE_SERVICE_ROLE_KEY` exactly as it is.**
+2. **Redeploy** through step 3, `--branch main`. This is not optional and it is not
+   caution: step 2 records, OBSERVED 2026-09-20, that variables bind when a
+   deployment is **created**. **Deleting the variable and seeing a 200 from the
+   deployment that is already running proves nothing at all** — that deployment
+   bound its environment before you touched it.
+3. **Re-run step 5's block** against `https://openbed.ng/beds.json`. It must again
+   read `HTTP/2 200`, `application/json; charset=utf-8` and a body beginning
+   `{"v":`, **from the deployment created after the deletion**.
+
+### What a failure means, by exact value
+
+- **`500, SUPABASE_SERVICE_ROLE_KEY is not set in the Function environment`** — the
+  wrong variable was deleted. Restore the secret key and redeploy.
+- **`502, the origin rejected the snapshot read (HTTP 4xx)`** — the tracked origin
+  is wrong. That is a repository change and a redeploy, **not** a reason to put the
+  variable back.
+- **Anything other than the three values in step 3 above** — stop and report the
+  output. Do not re-add the variable to make a symptom go away: if re-adding it
+  changes anything, something still reads it and `R-2026-09-22-59 B3` is not true,
+  which is a finding rather than a fix.
+
+---
+
 ## Reporting back
 
 For each step: done or not done, and the **observed** lines — the cutover from the
@@ -725,7 +813,8 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    (R-2026-09-21-40).** `failure()` in `packages/snapshot/src/serve.ts` emits
    **exactly** `content-type: application/json; charset=utf-8` and
    `x-robots-tag: noindex, nofollow` on every refusal it builds. So a **500**
-   (`SUPABASE_URL is not set`), a **502** (the origin refused the credential) and a
+   (`SUPABASE_SERVICE_ROLE_KEY is not set` — it was `SUPABASE_URL is not set` until
+   R-2026-09-22-59 removed that variable), a **502** (the origin refused the credential) and a
    **503** (no snapshot row) all satisfied the two values this step used to name,
    verbatim. The status line was printed and the prose never said what it must read,
    so a reader pasting output and ticking the box could certify a broken deployment.

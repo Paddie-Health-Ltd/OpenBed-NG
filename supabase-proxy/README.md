@@ -90,7 +90,19 @@ body, because **its central claim is contradicted by the only reading taken of i
 > change either — `openbed.ng`'s public `/beds.json` Cloudflare Pages Function
 > is unaffected.
 
-**One claim in it the repository cannot show:** that the ward console reaches
-Supabase through this hostname. The console's origin is a build-time variable that
-nothing tracked sets — Finding D (R-2026-09-19-21 D). Until that is fixed, no file
-here can say what production talks to.
+**One claim in it the repository could not show, RESOLVED 2026-09-22:** that the
+ward console reaches Supabase through this hostname. Its origin was a build-time
+variable nothing tracked set — Finding D (`R-2026-09-19-21 D`). It is now
+`packages/origins/origins.json`, read at runtime from the host, and
+`tests/compliance/tracked_origins.test.ts` asserts the built bundle carries that
+file. **So this repository can now say what production talks to**, which is the
+condition `-55 A` named before any of the KEEP's three properties reached
+production.
+
+**Two things that resolution does NOT cover**, said here so the quote above is not
+read as fully discharged. The `VITE_SUPABASE_URL` it mentions no longer exists, so
+the sentence describes a mechanism that is gone rather than one still in use. And
+**the public dashboard's `/beds.json` Function is a NAMED EXCEPTION** — it
+addresses the Supabase origin directly, not through this hostname
+(`R-2026-09-22-58 A`), so "every app" in the banner above means every BROWSER call.
+That exception ends when `R-2026-09-19-23 D5`, availability, closes.

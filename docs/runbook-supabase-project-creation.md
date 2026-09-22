@@ -2428,6 +2428,12 @@ is the same exists-then-compare shape as the two queries above. The
         tree.** The only `VITE_` names in application code are two **reads** of
         public values in `apps/ward-console/src/main.ts`
         (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`).
+        - **SUPERSEDED 2026-09-22 — it is ONE read now, not two**
+          (R-2026-09-22-59). `VITE_SUPABASE_URL` is gone: the origin is tracked
+          configuration in `packages/origins/origins.json`. The reading above is
+          left as it was taken, because a dated observation is not rewritten to
+          match a later state; **the conclusion it supports is unchanged and
+          strengthened** — one fewer public value is carried in an untracked file.
       - **Every `service_role` string in the repository is a name, never a key
         value.** It is the Postgres role name in SQL and test code, and otherwise
         the filename of `scripts/lint_no_service_role_in_bundle.sh` where other
