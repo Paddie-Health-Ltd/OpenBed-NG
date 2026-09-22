@@ -1314,32 +1314,30 @@ the boundary so far: `node scripts/freeze_applied_migrations.mjs 16 2026-09-16 R
 (001-017) and `node scripts/freeze_applied_migrations.mjs 18 2026-09-22 R-2026-09-22-52`
 (001-018).
 
-**In the same change, move the placeholder** in
-`tests/compliance/frozen_migrations.test.ts`'s unfrozen-migration test to the next
-number, so its name and its docstring keep saying something true.
-
-> **AND KNOW WHAT DOES NOT ENFORCE THAT, because this instruction claimed a
-> mechanism that stopped reaching on the day it was last carried out**
-> (R-2026-09-22-52, Clause 5). Until 2026-09-22 this paragraph read: *"A
-> placeholder named after the migration just recorded is an edit to a frozen file,
-> and the test reds (observed 2026-09-17, when 017 was recorded)."* **That was true
-> on 2026-09-17 and false from the moment it was acted on.** The red seen that day
-> was `frozen migration 017_snapshot_schedule.sql CHANGED`, and it fired because
-> the placeholder was then literally named `017_snapshot_schedule.sql` — the
-> scratch copy of a real, frozen migration, overwritten. The fix renamed it to the
-> distinct `NNN_placeholder.sql` form, which no real migration can collide with,
-> and **that same fix removed the mechanism this sentence cites.**
+> **THERE IS NO PLACEHOLDER TO MOVE, AND THERE USED TO BE — removed 2026-09-22 by
+> R-2026-09-22-53.** Until then this step said: *"In the same change, move the
+> placeholder in `tests/compliance/frozen_migrations.test.ts`'s unfrozen-migration
+> test to the next number."* **That leg now DERIVES its number from
+> `database/migrations/applied-hosted.json`**, so recording a boundary moves it by
+> definition and there is nothing left to carry.
 >
-> MEASURED 2026-09-22, three runs against the boundary at 18: a placeholder left at
-> `018_placeholder.sql` passes 7 of 7; `018_aaa_placeholder.sql` reds on the
-> contiguous-prefix leg (it sorts BEFORE the real 018 file, `a` < `c`); a
-> placeholder named `018_close_mirror_read_and_push_surfaces.sql` reds with
-> `CHANGED`, reproducing 2026-09-17 exactly. **So the move is now hygiene — it
-> keeps a docstring honest — and nothing will catch it being skipped.** Recorded
-> as an open item rather than fixed here: the root fix is for that leg to DERIVE
-> its placeholder number from `database/migrations/applied-hosted.json` instead of
-> hard-coding one, which retires this instruction altogether. **Trigger: the
-> founder's word, or the next apply, whichever comes first.**
+> **Why it went rather than being guarded, because the reason is the interesting
+> part** (R-2026-09-22-52 B2, Clause 5). The instruction used to justify itself:
+> *"A placeholder named after the migration just recorded is an edit to a frozen
+> file, and the test reds (observed 2026-09-17, when 017 was recorded)."* **True on
+> 2026-09-17 and false from the moment it was acted on** — the red that day was
+> `frozen migration 017_snapshot_schedule.sql CHANGED`, and it fired because the
+> placeholder was then literally named after a real frozen migration. The fix that
+> day renamed it to the distinct `NNN_placeholder.sql` form, **and that same rename
+> removed the mechanism the sentence cited.**
+>
+> MEASURED 2026-09-22 against the boundary at 18: a placeholder left at
+> `018_placeholder.sql` passed 7 of 7; `016_placeholder.sql` and
+> `017_placeholder.sql` red; `018_close_mirror_read_and_push_surfaces.sql` reds with
+> `CHANGED`. **Whether a stale placeholder reddened was an alphabetical accident** —
+> the prefix check only notices one that sorts BEFORE the real migration at its own
+> number, and `c` < `p` < `s`. So the hand-carried step was unenforced from
+> 2026-09-17 onward, and nothing would have reported it being skipped.
 
 ```bash
 node scripts/freeze_applied_migrations.mjs 19 YYYY-MM-DD R-YYYY-MM-DD-NN

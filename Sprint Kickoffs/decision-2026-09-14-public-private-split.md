@@ -2625,6 +2625,55 @@ MEASURED 2026-09-22, three runs against the boundary at 18, because an absence i
 
 **F — the queue.** Merge on the founder's word. **Nothing is owed founder-side** — the apply is done and recorded. The next migration is 019, whenever there is one, and step 5 now expects `0 migration(s) pending.` until there is.
 
+---
+
+### R-2026-09-22-53 — the placeholder derives; a hand-carried step removed rather than guarded
+
+_Issued as R-PROVISIONAL-2026-09-22-AE. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-52. **Record-only under R-46: committed and pushed to a holding branch, no pull request; it rebases onto the Bundle 3 change when that opens.**_
+
+**A — THE RULING, AND ITS PREMISES CHECKED FIRST** (method note 17). Two of three hold.
+
+| premise | verdict |
+|---|---|
+| the instruction cites a collision removed by the 2026-09-17 rename | **HOLDS** — measured in #63, recorded at `-52 B2` |
+| a stale `018_placeholder.sql` passes 7 of 7 | **HOLDS** |
+| *"point the derivation at a frozen number, and the leg must go red by name"* | **DID NOT HOLD against the checker as it stood** — see B |
+
+**B — THE DEMONSTRATION COULD NOT BE MET AS SPECIFIED, and the reason is the finding.** Whether a placeholder at a frozen number reds is **an alphabetical accident of the real migration's name at that number**, because the contiguous-prefix check only notices a placeholder that sorts BEFORE it. MEASURED 2026-09-22 against the boundary at 18:
+
+| pointed at | placeholder | result |
+|---|---|---|
+| 16 | `016_placeholder.sql` | **RED** — `p` < `s` in `016_snapshot.sql` |
+| 17 | `017_placeholder.sql` | **RED** — `p` < `s` in `017_snapshot_schedule.sql` |
+| **18, today's boundary** | `018_placeholder.sql` | **PASSES** — `c` < `p` in `018_close_mirror_…` |
+
+Aiming the plant at 17 would have satisfied the ruling's letter **by luck** and left its subject unguarded. So the leg gained a check of its own — `placeholderCollision` — which asks whether the number belongs to any frozen file and does not depend on spelling. That is what makes the failing half real.
+
+**B2 — AND THE FIRST VERSION OF THAT CHECK WAS A TAUTOLOGY, found by its own plant.** It asserted the derived number exceeded the frozen COUNT. The derivation returns `max(frozen) + 1`, so for any well-formed boundary that is true by construction: **a guard that cannot fail, written into the change whose whole subject is a step that could not fail.** Nothing the plant did could red it, which is the plant doing precisely its job. Replaced by the collision test, and the episode is recorded here rather than quietly fixed, because *"assert on parsed identity, never on a count"* (test-conventions §3) is the same lesson one level up.
+
+**C — FINDING 2, AND IT IS MINE.** The docstring #63 put on that leg read *"at each point a placeholder of that name became an edit to a frozen file and this leg went red."* **True for 017, false for 018** — written into the fix by the same pull request that measured it false, three files away from the correction. `-51 A2`'s shape a third time. Corrected.
+
+**D — WHAT SHIPPED.**
+- `tests/compliance/frozen_migrations.test.ts`: `nextUnfrozenNumber(root)` derives the number from the boundary **in the tree it is given** — not `REPO_ROOT`, so a plant that edits the boundary moves the derivation — and **refuses rather than defaulting** when it cannot read one.
+- `placeholderCollision(root, n)` is the check; the unfrozen-migration leg calls it before placing anything.
+- A new leg, `plant — a placeholder at a FROZEN number is rejected`, carries the failing half, confirms the plant names a genuinely frozen number first, and **asserts the contrast**: the same placeholder placed on disk produces NO finding from the prefix checker. If that assertion ever reds, the alphabetical note has stopped being true and is re-measured rather than deleted.
+- The runbook's *"In the same change, move the placeholder"* instruction is **removed**, with a history note saying what it said, that the leg derives now, and why the mechanism it cited had stopped reaching.
+
+**D2 — DEMONSTRATED BOTH WAYS, quoted in the report.** Pointing the derivation at a frozen number (`max` instead of `max + 1`) reds the leg by name: *"the derived placeholder number belongs to a frozen migration: placeholder number 018 collides with 018_close_mirror_read_and_push_surfaces.sql, which database/migrations/applied-hosted.json records as FROZEN."* Neutering `placeholderCollision` to return null reds the plant: *"a placeholder at a frozen number was accepted."* Restored, 8 of 8.
+
+**E — THE BUNDLE 3 RECONCILIATION the founder ordered, REPORT ONLY; nothing is resolved here.**
+
+**E1 — RULING Z IS AUTHORITATIVE over the A1 kickoff.** `-40 H` re-points the name: *"T is amended narrowly to admit Bundle 3 (**the operator path to facility one**) once the infrastructure review has run; the review now gates Bundle 3, not only facility one. **Bundle 3's own kickoff is Cowork's, written after that review.**"* Z is later than the kickoff, it is in the record, and `-42 F` and `-48 F` repeat its queue unchanged. **The A1 kickoff's §Bundle 3, "The sensors — `/api/health` and `/status`", is superseded as the definition and is not marked as such.**
+
+**E2 — BUT THE SCOPE ATTRIBUTED TO Z IS NOT IN Z.** `docs/handoff-2026-09-21-gate-lifted-018-in-flight.md:42` states Bundle 3's scope as four items *"fixed by Z"*. **The recorded ruling Z enumerates none of them**; `-40 H` says only *"Z's other parts are recorded as SCOPE, not as work"* and *"Nothing in C, D, E or F of Z is started here"* — the provisional letter's parts, whose text never reached the record. **So the scope binding the next bundle lives in a handoff, attributed to a ruling that does not carry it.** That is the exact shape `-40 A1` was written about: a gate paraphrased from a handoff. Three of the four items are independently traceable in the record; **`admin.openbed.ng` is not — it appears nowhere else in this repository.**
+
+**E3 — `/api/health` AND `/status` ARE UNSCHEDULED, and no ruling made them so.** They do not exist in code (`apps/public-dashboard/functions/` holds `beds.json.ts` and nothing else). They are named in the A1 kickoff, in the v1 enumeration and in three handoffs, and in **none** of the four scope items. They were displaced when the name "Bundle 3" was re-pointed, and nothing records where they went. The kickoff states the cost itself: *"seven enumeration items have been unbuildable for want of this host and they close together or not at all."* **Those seven now have no carrier.**
+
+**E4 — OPEN, FOR THE FOUNDER.** Which scope binds Bundle 3, and where the sensors go. Not decided here. **Trigger: the Bundle 3 kickoff, which is written after the infrastructure review.**
+
+**F — NOT VERIFIED BY ME.** The Cowork handoff document for 2026-09-22 — named docs/handoff-2026-09-22-boundary-closed-on-hosted.md, **cited without backticks deliberately, because it does not exist here and a backticked path would be the Clause 4 phantom `tests/compliance/no_phantom_paths.test.ts` caught in the first draft of this very clause** — is cited for the infrastructure review gating Bundle 3. **It is not in this repository and its contents were not pasted**, so its item 2 is unread. **The conclusion it is cited for holds independently**, at `-40 H`.
+
+**G — the queue:** unchanged. The infrastructure review; then Bundle 3, which carries this branch and the Cowork handoff document; then facility one; then Bundle 4. **Bundle 3 is not started.**
 
 ## The provisional ledger
 
@@ -2669,6 +2718,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | AC | R-2026-09-21-50 | 2026-09-21 | The runbook was not restated for 018 — the restate rule failing on the change that added the migration. Widened past section 5, one quarter of it mechanised, and named as an exception to the -46 freeze. |
 | AD | R-2026-09-21-51 | 2026-09-21 | The founder's review of #62: five defects, two blocking, all mine. The restatement had repeated the defect it was fixing — a fifth expectation site, the stop condition, left contradicting the other four. |
 | — (none issued) | R-2026-09-22-52 | 2026-09-22 | **No provisional letter.** The founder's own hosted apply of 018, quoted in full, with the instruction to write the apply record. The accumulation boundary closed at 05:40:40 UTC. First ruling dated 2026-09-22. |
+| AE | R-2026-09-22-53 | 2026-09-22 | The placeholder derives instead of being carried, on a finding from R-2026-09-22-52. **First ruling recorded on a pushed holding branch with no pull request** — record-only under R-46, rebasing onto Bundle 3. Its demonstration could not be met as specified, and the first check written for it was a tautology its own plant caught. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -2865,6 +2915,19 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-22, R-2026-09-22-53 (issued as R-PROVISIONAL-2026-09-22-AE): the
+  frozen-migrations placeholder derives its number from the recorded boundary
+  instead of being moved by hand, so a hand-carried step whose stated mechanism had
+  stopped reaching on the day it was last carried out is removed rather than
+  guarded; the founder's demonstration could not be met as specified, because
+  whether a stale placeholder reddened was an alphabetical accident of the real
+  migration's name, so the leg gained a collision check that does not depend on
+  spelling; **the first version of that check was a tautology — asserting that the
+  highest frozen number plus one exceeds the count — and its own plant is what
+  found it**; a false docstring written into the previous change's fix is
+  corrected; and the two definitions of "Bundle 3" are reconciled, with the scope
+  that binds it recorded as living in a handoff rather than in the ruling it is
+  attributed to;
 - on 2026-09-22, R-2026-09-22-52: **the hosted apply of 018, and with it the
   close of the accumulation boundary at 05:40:40 UTC** — the three public mirrors
   revoked from `anon` and `authenticated` and removed from the Realtime
