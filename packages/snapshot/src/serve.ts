@@ -19,7 +19,21 @@
  * environment. It is the first server-side credential in this project. It is
  * NEVER a `VITE_`-prefixed variable -- Vite inlines those into the browser bundle
  * -- and this module never echoes it, logs it or returns it: every error path
- * names the variable, never its value.
+ * names the variable, never its value. **It is now the ONLY thing this Function
+ * takes from its platform environment.**
+ *
+ * THE ORIGIN, AND WHY IT IS AN ARGUMENT RATHER THAN AN ENVIRONMENT READ
+ * (R-2026-09-22-58 A1, its value set by R-2026-09-22-59 B1). It used to be
+ * `env.SUPABASE_URL`, which meant the address this Function called was not a fact
+ * the repository held: it lived in a Pages variable that turned out to be an
+ * ENCRYPTED SECRET nobody could read back. It now comes from tracked configuration
+ * in packages/origins, selected by the request's hostname.
+ *
+ * `SUPABASE_URL` IS GONE FROM BedsEnv ENTIRELY, and that is the mechanism rather
+ * than a convention: R-2026-09-22-59 B3 requires that no code path fall back to it,
+ * and a field that does not exist cannot be read by accident. Restoring it to this
+ * interface would undo the guarantee, which is why a guard asserts this type names
+ * exactly one variable.
  *
  * WHAT IS REFUSED RATHER THAN SERVED. Each of these would otherwise reach the
  * edge as a 200 and be cached for 30 seconds:
@@ -65,10 +79,17 @@
  */
 import { decodeFacility, decodeWard } from './codec.js';
 import shape from '../../fixtures/snapshot-shape.json';
+// Relative, matching the fixtures import above: this module is bundled by
+// wrangler through apps/public-dashboard/functions/, which resolves it by path.
+import { supabaseDirectOrigin } from '../../origins/src/index.js';
 
-/** The Function's environment. Both names are read server-side only. */
+/**
+ * The Function's environment: ONE name, read server-side only.
+ *
+ * Deliberately not two. See the header -- the origin is an argument now, and this
+ * interface is where that is enforced.
+ */
 export interface BedsEnv {
-  readonly SUPABASE_URL?: string;
   readonly SUPABASE_SERVICE_ROLE_KEY?: string;
 }
 
@@ -230,13 +251,14 @@ class UpstreamError extends Error {
  * try, and retrying it only delays the loud failure.
  */
 export async function fetchNewestSnapshot(
+  origin: string,
   env: BedsEnv,
   fetchImpl: FetchLike = fetch,
   opts: { timeoutMs?: number; attempts?: number } = {},
 ): Promise<SnapshotRow | null> {
   const timeoutMs = opts.timeoutMs ?? UPSTREAM_TIMEOUT_MS;
   const attempts = opts.attempts ?? UPSTREAM_ATTEMPTS;
-  const url = `${env.SUPABASE_URL}/rest/v1/snapshot_current?select=v,payload&order=v.desc&limit=1`;
+  const url = `${origin}/rest/v1/snapshot_current?select=v,payload&order=v.desc&limit=1`;
   const key = env.SUPABASE_SERVICE_ROLE_KEY as string;
 
   const backoff = (): Promise<void> => new Promise((r) => setTimeout(r, 150 + Math.floor(Math.random() * 150)));
@@ -450,7 +472,10 @@ export async function serveBedsCached(
     }
   }
 
-  const res = await serveBeds(ctx.env, fetchImpl);
+  // THE ORIGIN IS CHOSEN FROM THE REQUEST THIS FUNCTION WAS ACTUALLY SERVED, never
+  // from ctx.env. That is the whole of R-2026-09-22-59 B3, and it is why the
+  // hostname a test builds its Request with is load-bearing rather than cosmetic.
+  const res = await serveBeds(supabaseDirectOrigin(new URL(ctx.request.url).hostname), ctx.env, fetchImpl);
 
   if (cache && res.status === 200) {
     /*
@@ -495,15 +520,21 @@ export async function serveBedsCached(
 
 /** The whole request: environment checked, row read, response built. */
 export async function serveBeds(
+  origin: string,
   env: BedsEnv,
   fetchImpl: FetchLike = fetch,
   opts: { timeoutMs?: number; attempts?: number } = {},
 ): Promise<Response> {
-  for (const name of ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const) {
+  // ONE NAME, since R-2026-09-22-59. There is deliberately no "the origin is
+  // empty" branch beside it: the origin comes from a total function over tracked
+  // constants, so nothing could plant that message, and a refusal naming the origin
+  // would read as though it were a variable again -- which is the thing this change
+  // removed.
+  for (const name of ['SUPABASE_SERVICE_ROLE_KEY'] as const) {
     if (!env[name]) return failure(500, `${name} is not set in the Function environment`);
   }
   try {
-    return buildBedsResponse(await fetchNewestSnapshot(env, fetchImpl, opts));
+    return buildBedsResponse(await fetchNewestSnapshot(origin, env, fetchImpl, opts));
   } catch (e) {
     if (e instanceof UpstreamError) return failure(e.status, e.message);
     return failure(502, 'the snapshot read failed');

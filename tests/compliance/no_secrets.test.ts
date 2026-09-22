@@ -64,7 +64,10 @@ const DENY_SAMPLE: Record<string, string> = {
 };
 
 /** What a developer's `.dev.vars` legitimately holds: the well-known local demo service-role key. */
-const DEMO_DEV_VARS = `SUPABASE_URL=http://127.0.0.1:54321\nSUPABASE_SERVICE_ROLE_KEY=${LOCAL_SERVICE_ROLE_KEY}\n`;
+// One name since R-2026-09-22-59: the origin is tracked configuration, not an
+// environment variable. Edited for honesty rather than for green -- nothing
+// asserts this constant's contents, which is exactly why it could have rotted.
+const DEMO_DEV_VARS = `SUPABASE_SERVICE_ROLE_KEY=${LOCAL_SERVICE_ROLE_KEY}\n`;
 
 describe('secret scan', () => {
   test('the real repository is clean', () => {

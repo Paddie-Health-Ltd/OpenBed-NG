@@ -36,10 +36,16 @@
  * not this one, and reads `DYNAMIC` for this path whether the Function's cache hit
  * or missed. The runbook's cache step reads the marker, not cf-cache-status.
  *
- * The environment holds SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, set in the
- * Pages project by the founder (docs/runbook-cloudflare-pages-beds-json.md,
- * its environment step). This is server-side code: it never ships to a browser, and nothing
- * here may be imported by apps/public-dashboard/src, which is what does.
+ * THE ENVIRONMENT HOLDS ONE NAME: SUPABASE_SERVICE_ROLE_KEY, set in the Pages
+ * project by the founder (docs/runbook-cloudflare-pages-beds-json.md, its
+ * environment step). It held SUPABASE_URL too until R-2026-09-22-59; the origin is
+ * now TRACKED CONFIGURATION in packages/origins, chosen by the request's hostname,
+ * and nothing on this path reads that variable any more. The variable itself is
+ * dead config on the Pages project until the founder deletes it, which is a
+ * runbook step gated on a 200 from the deployed /beds.json.
+ *
+ * This is server-side code: it never ships to a browser, and nothing here may be
+ * imported by apps/public-dashboard/src, which is what does.
  */
 import { serveBedsCached, type BedsEnv, type EdgeCache } from '../../../packages/snapshot/src/serve.js';
 

@@ -12,7 +12,7 @@
 # paging within the limit still yields a series. The boundary is Bundle 2's
 # revoke. This is a throttle.
 #
-# NO SECRETS IN THIS FILE, EVER. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are
+# NO SECRETS IN THIS FILE, EVER. SUPABASE_SERVICE_ROLE_KEY is
 # set in the Pages project's environment (the runbook's environment step), and locally in
 # .dev.vars, which is gitignored. See .dev.vars.example for the names.
 name = "openbed-public-dashboard"
