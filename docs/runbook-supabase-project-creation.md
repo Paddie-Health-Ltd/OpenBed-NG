@@ -90,6 +90,37 @@ Anything other than a version line — stop. Do not run step 5, 6, 8 or 10 until
 it prints one. The client version this project was applied through is recorded
 in step 7.
 
+### EVERY BLOCK THAT NEEDS `psql` CARRIES THE FIRST LINE ITSELF (R-2026-09-22-52)
+
+**The `export PATH` line above is repeated as the first line of every fenced block
+in this runbook that invokes `psql`, or that invokes `scripts/run_migrations.sh`,
+which invokes `psql`.** It is idempotent: running it in a shell that has already
+had step P costs nothing and changes nothing.
+
+This is the rule this document already applies to credentials — *each block that
+needs one reads it itself rather than inheriting it from an earlier step* — extended
+to the one other thing a block inherits from the shell it is pasted into. **Step P
+remains where the version check lives and where the reason is explained**; what the
+blocks carry is the one line, not the check.
+
+**WHY, and it is an observation rather than a precaution.** On 2026-09-22, applying
+migration 018, the founder pasted step 5's pre-apply block into a fresh shell and got
+`zsh: command not found: psql`, twice, before any database was read. Nothing reached
+the database and nothing was at risk — but the failure was the shell's bare message,
+not this project's. **`scripts/run_migrations.sh` has a named stop condition for
+exactly this** — `ERROR: psql not on PATH. Install postgresql-client, or set
+OPENBED_PSQL.` — and **none of the direct `psql` blocks had one**, which is why the
+block that bypasses the runner is the one that failed rawly. Sixteen blocks are
+governed; fifteen needed the line.
+
+**THE PATH IS MACHINE-SPECIFIC and this is the only place that decides it.**
+`/opt/homebrew/opt/libpq/bin` is Homebrew's prefix on **Apple silicon**; an Intel
+Mac uses `/usr/local`, and a Linux host has `psql` on PATH already or installs
+`postgresql-client`. **A different machine changes step P and the governed blocks
+together** — `tests/compliance/runbook_psql_path.test.ts` derives the expected line
+from this block, so editing it here reds every block that still carries the old one,
+rather than letting the two drift.
+
 ### Every bash block in this runbook holds commands only
 
 **No `#` comment appears inside a bash block, and none may be added.** In an
@@ -609,7 +640,10 @@ Named here because it gates this same moment.
 **HOW TO CHECK THE CONDITION, rather than remembering it.** Connect as step P
 says, then:
 
+**Step P's PATH line is carried in below**, because this block calls `psql` itself.
+
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 psql "$DATABASE_URL" -tAc "select (select count(*) from app.facility) as facility, (select count(*) from app.ward_account) as ward_account"
 ```
 
@@ -660,7 +694,10 @@ shell again.**
 The dry run. **Stop condition: the `WOULD APPLY` lines name exactly the migration
 files this project has not yet received -- no more, no fewer.**
 
+**Step P's PATH line is carried in below**, because `scripts/run_migrations.sh` calls `psql`.
+
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 read -rs DATABASE_URL && export DATABASE_URL
 bash scripts/run_migrations.sh --dry-run
 unset DATABASE_URL
@@ -690,11 +727,17 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions. Until
 2026-09-14 this read `exactly 13 migration(s) pending.`, and migration 014 made
 that wrong.
 
-- **The hosted project today** holds 001 through 017 (see step 7). Every file
-  up to and including `017_snapshot_schedule.sql` must read `already applied`;
-  there must be **exactly one `WOULD APPLY` line**, naming
-  `018_close_mirror_read_and_push_surfaces.sql`; and the dry run must end
-  `1 migration(s) pending.`
+- **The hosted project today** holds 001 through 018 (see step 7). Every file
+  up to and including `018_close_mirror_read_and_push_surfaces.sql` must read
+  `already applied`; there must be **no `WOULD APPLY` line at all**; and the dry
+  run must end `0 migration(s) pending.`
+- **Restated 2026-09-22 (R-2026-09-22-52), in the change that records 018's hosted
+  apply.** Until then this expected 001 through 017, exactly one `WOULD APPLY` line
+  naming `018_close_mirror_read_and_push_surfaces.sql`, and `1 migration(s) pending.`
+  The founder's dry run printed exactly that, and the apply that followed it at
+  **2026-09-22 05:40:40 UTC** is where the accumulation boundary closed. This is the
+  first restatement of this list made by the change the rule actually asks for --
+  the one that records the apply -- rather than by a change catching up afterwards.
 - **Restated 2026-09-21 (R-2026-09-21-50), in the change that PRECEDES 018's
   hosted apply — and it should have been restated in the change that ADDED 018.**
   Until then this expected no `WOULD APPLY` line and `0 migration(s) pending.`,
@@ -719,10 +762,16 @@ that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line OTHER than the one named above, or any count other
-  than `1 migration(s) pending.`: stop and report.** A file pending that this list
-  does not name means either a migration reached the repository after the list was
-  last restated, or hosted is not where this document says it is.
+- **Any `WOULD APPLY` line AT ALL, or any count other than
+  `0 migration(s) pending.`: stop and report.** A file pending means either a
+  migration reached the repository after the list was last restated, or hosted is
+  not where this document says it is.
+  - *Restated 2026-09-22 (R-2026-09-22-52), in the change that records 018's hosted
+    apply. Until then this bullet read "Any `WOULD APPLY` line OTHER than the one
+    named above, or any count other than `1 migration(s) pending.`", which was right
+    from #62's merge until the apply. The count is spelled out here rather than
+    deferred to "the one stated" so this bullet reads alone, and so
+    `tests/compliance/runbook_migration_expectation.test.ts` can parse it.*
   - *Restated 2026-09-21 (R-2026-09-21-51). Until then this bullet read "Any
     `WOULD APPLY` line at all, or any count other than zero", which was right while
     the repository ended at 017 and **contradicted the first bullet of this list
@@ -782,7 +831,10 @@ hosted does not offer it, the apply fails inside 017's transaction and nothing o
 This block only reads. The first line waits silently for the connection string;
 the last removes it.
 
+**Step P's PATH line is carried in below**, because this block calls `psql` itself.
+
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -Atc "select name || ' default=' || default_version || ' installed=' || coalesce(installed_version, 'none') from pg_available_extensions where name = 'pg_cron'"
 psql "$DATABASE_URL" -Atc "select 'preloaded=' || (current_setting('shared_preload_libraries') like '%pg_cron%')"
@@ -799,7 +851,10 @@ unset DATABASE_URL
 
 Only after reading those lines, the apply:
 
+**Step P's PATH line is carried in below**, because `scripts/run_migrations.sh` calls `psql`.
+
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 read -rs DATABASE_URL && export DATABASE_URL
 bash scripts/run_migrations.sh
 unset DATABASE_URL
@@ -837,7 +892,10 @@ pass**: a probe that passes once it stops understanding the answer is vacuous.
 The reload. The first line waits silently for the connection string; the last
 removes it.
 
+**Step P's PATH line is carried in below**, because this block calls `psql` itself.
+
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "notify pgrst, 'reload schema'"
 unset DATABASE_URL
@@ -891,7 +949,10 @@ every refresh raise.
 
 The first line waits silently for the connection string; the last removes it.
 
+**Step P's PATH line is carried in below**, because this block calls `psql` itself.
+
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -Atc "select proname || ' owner=' || pg_get_userbyid(proowner) from pg_proc where proname in ('project_facility', 'refresh_lga_rollup', 'regenerate_snapshot') order by proname"
 unset DATABASE_URL
@@ -922,7 +983,10 @@ policy is read directly.
 This block only reads. The first line waits silently for the connection string;
 the last removes it.
 
+**Step P's PATH line is carried in below**, because this block calls `psql` itself.
+
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -Atc "select policyname || ' | ' || cmd || ' | permissive=' || permissive || ' | roles=' || roles::text || ' | qual=' || coalesce(qual,'(null)') || ' | with_check=' || coalesce(with_check,'(null)') from pg_policies where schemaname = 'public' and tablename = 'snapshot_current' order by policyname"
 psql "$DATABASE_URL" -Atc "select relrowsecurity || ' ' || relforcerowsecurity from pg_class where oid = 'public.snapshot_current'::regclass"
@@ -965,7 +1029,10 @@ must NOT be paused**; nothing here pauses them.
 This block only reads. The first line waits silently for the connection string;
 the last removes it.
 
+**Step P's PATH line is carried in below**, because this block calls `psql` itself.
+
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -Atc "select jobname || ' | ' || schedule || ' | ' || command || ' | ' || username || ' | active=' || active from cron.job where jobname like 'openbed_%' order by jobname"
 psql "$DATABASE_URL" -Atc "select proname || ' ' || array_to_string(proconfig, ',') from pg_proc where proname = 'refresh_lga_rollup'"
@@ -983,7 +1050,10 @@ refresh_lga_rollup search_path="",row_security=off
 Then **wait at least five minutes**, so both jobs have had a tick, and read the
 runs. This block only reads.
 
+**Step P's PATH line is carried in below**, because this block calls `psql` itself.
+
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -Atc "select j.jobname || ' ' || d.status || ' ' || count(*) from cron.job_run_details d join cron.job j using (jobid) where j.jobname like 'openbed_%' group by j.jobname, d.status order by 1"
 unset DATABASE_URL
@@ -1016,19 +1086,31 @@ when a frozen file's bytes change.
 the ledger count read in the block above -- not with a number from memory. The
 recorder refuses if that count and the repository's forward migrations disagree.
 
-### The next apply is 018, and THE BOUNDARY CLOSES HERE — not at merge
+### 018's apply CLOSED the boundary — 2026-09-22 05:40:40 UTC
 
-**OWED, founder-side (method note 13; R-2026-09-19-24 B5).** Hosted holds 001-017;
-018 is merged and NOT applied.
-Migration 018 removes the three public mirrors from the `supabase_realtime`
-publication and revokes `SELECT` on them from `anon` and `authenticated` — the
-founder's decision of 2026-09-19, answering R-2026-09-17-09 D.
+**DISCHARGED, founder-side (method note 13; R-2026-09-19-24 B5), recorded by
+R-2026-09-22-52.** Hosted holds 001-018. Migration 018 removed the three public
+mirrors from the `supabase_realtime` publication and revoked `SELECT` on them from
+`anon` and `authenticated` — the founder's decision of 2026-09-19, answering
+R-2026-09-17-09 D.
 
-**Until this apply is recorded, the history-is-private commitment is NOT available,
-whatever any pull request's state.** A merged migration changes this repository; it
-does not change the hosted database that a facility's data actually sits in, and the
-commitment is about the database. Anyone reading a green CI badge and concluding the
-direct read path is closed is reading the wrong artefact.
+**THE ACCUMULATION BOUNDARY CLOSED ON HOSTED AT 2026-09-22 05:40:40 UTC**, the
+timestamp of the apply run itself, read `date -u` in the same session. Block B was
+taken minutes before it and block E minutes after it, on the same project; both
+readings are below, and each is the other's failing half.
+
+**From that moment the history-is-private commitment is available to a facility
+agreement** — subject to one condition and no others: the use rule on
+`018_close_mirror_read_and_push_surfaces.down.sql`, immediately below. While that
+reversal is applied to the hosted project the commitment is false, and no agreement
+may carry it.
+
+*Restated 2026-09-22 (R-2026-09-22-52), in the change that records the apply.* Until
+then this block read *"Hosted holds 001-017; 018 is merged and NOT applied"* and
+*"until this apply is recorded, the history-is-private commitment is NOT available,
+whatever any pull request's state"*. **The distinction it was written to hold did
+hold**: a merged migration changes this repository and not the database a facility's
+data sits in, and the commitment opened on the apply rather than on #61's merge.
 
 #### B. BEFORE THE APPLY — take the reading 018 is about to change
 
@@ -1067,7 +1149,10 @@ unset KEY SUPABASE_URL
 The publication half. The first line waits silently for the connection string; the
 last removes it from the shell.
 
+**Step P's PATH line is carried in below**, because this block calls `psql` itself.
+
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -c "select coalesce(string_agg(tablename, ', ' order by tablename), '(empty)') as published from pg_publication_tables where pubname = 'supabase_realtime';"
 unset DATABASE_URL
@@ -1082,7 +1167,7 @@ unset DATABASE_URL
 already, or something else revoked those grants, and the apply below is not the
 change you think it is.
 
-- [ ] Pre-apply reading taken and pasted: three × `HTTP 200`, publication = the three mirrors
+- [x] Pre-apply reading taken and pasted, 2026-09-22, founder's run on `klrlpxysjsjpdkeqdhvl` (R-2026-09-22-52): `facility_public`, `ward_public` and `lga_rollup` each `HTTP 200`; `published` read `facility_public, lga_rollup, ward_public`; ledger `17`; the dry run printed exactly one `WOULD APPLY` line, `018_close_mirror_read_and_push_surfaces.sql`, and `1 migration(s) pending.` **Neither half showed the post-018 answer, so the apply below was the change it was thought to be.**
 
 Apply it through this step like any other, then record the boundary below.
 
@@ -1124,7 +1209,10 @@ project; items 3 and 4 carry their own.
 did, UTC, e.g. `2026-09-21 21:05:00+00`. Item 3 needs it, and it is read in this
 block rather than assumed from an earlier one.
 
+**Step P's PATH line is carried in below**, because this block calls `psql` itself.
+
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 printf 'apply time (UTC, e.g. 2026-09-21 21:05:00+00): '; read -r APPLY_TS
 read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -v apply_ts="$APPLY_TS" <<'SQL'
@@ -1215,23 +1303,46 @@ particular a body beginning `{"error":`. **018 must be invisible from the outsid
 that is the claim.** *Failing half: step 6 of the Pages runbook carries its own, and
 the `x-openbed-edge-cache` marker gives a second value on demand.*
 
-- [ ] 018 read-back taken and pasted: six × `f`, snapshot rows > 0, `anon` refused on `snapshot_current`, both jobs succeeded after the apply with 0 failures, `/beds.json` 200
+- [x] 018 read-back taken and pasted, 2026-09-22, founder's run on `klrlpxysjsjpdkeqdhvl` (R-2026-09-22-52). **Item 1:** `can_select` is `f` on all six rows — `anon` and `authenticated` × the three mirrors. **Item 2:** `snapshot_rows_visible_to_service_role` is `1440`, and the `anon` probe failed with `ERROR: permission denied for table snapshot_current`, the `rollback` running after it as designed. **Item 3:** `openbed_refresh_lga_rollup` 3 succeeded / 0 failed / 0 in flight, last start `2026-09-22 05:55:00.038948+00`; `openbed_regenerate_snapshot` 16 succeeded / 0 failed / 0 in flight, last start `2026-09-22 05:56:00.010272+00` — **so the SECURITY DEFINER premise 018 was written on is confirmed LIVE, not argued.** **Item 4:** `/beds.json` `HTTP/2 200`, `content-type: application/json; charset=utf-8`, `x-openbed-edge-cache: miss`, `cf-ray … -CDG`; `/version.json` commit `76fe917933df113626dffacac585ed0e3f7bf3b4`, `dirty false` — **018 is invisible from the outside, which is the claim.**
 
-**For the next apply (018) the count is 18**, with the apply's date and the
+**For the next apply (019) the count is 19**, with the apply's date and the
 ruling that records it written in before pasting. As printed below the date and
 ruling are placeholders, and the recorder refuses a malformed date, so an unedited
 paste fails loudly rather than recording anything. The invocations that recorded
 the boundary so far: `node scripts/freeze_applied_migrations.mjs 16 2026-09-16 R-2026-09-16-02`
-(001-016) and `node scripts/freeze_applied_migrations.mjs 17 2026-09-17 R-2026-09-17-01`
-(001-017).
+(001-016), `node scripts/freeze_applied_migrations.mjs 17 2026-09-17 R-2026-09-17-01`
+(001-017) and `node scripts/freeze_applied_migrations.mjs 18 2026-09-22 R-2026-09-22-52`
+(001-018).
 
 **In the same change, move the placeholder** in
 `tests/compliance/frozen_migrations.test.ts`'s unfrozen-migration test to the next
-number. A placeholder named after the migration just recorded is an edit to a
-frozen file, and the test reds (observed 2026-09-17, when 017 was recorded).
+number, so its name and its docstring keep saying something true.
+
+> **AND KNOW WHAT DOES NOT ENFORCE THAT, because this instruction claimed a
+> mechanism that stopped reaching on the day it was last carried out**
+> (R-2026-09-22-52, Clause 5). Until 2026-09-22 this paragraph read: *"A
+> placeholder named after the migration just recorded is an edit to a frozen file,
+> and the test reds (observed 2026-09-17, when 017 was recorded)."* **That was true
+> on 2026-09-17 and false from the moment it was acted on.** The red seen that day
+> was `frozen migration 017_snapshot_schedule.sql CHANGED`, and it fired because
+> the placeholder was then literally named `017_snapshot_schedule.sql` — the
+> scratch copy of a real, frozen migration, overwritten. The fix renamed it to the
+> distinct `NNN_placeholder.sql` form, which no real migration can collide with,
+> and **that same fix removed the mechanism this sentence cites.**
+>
+> MEASURED 2026-09-22, three runs against the boundary at 18: a placeholder left at
+> `018_placeholder.sql` passes 7 of 7; `018_aaa_placeholder.sql` reds on the
+> contiguous-prefix leg (it sorts BEFORE the real 018 file, `a` < `c`); a
+> placeholder named `018_close_mirror_read_and_push_surfaces.sql` reds with
+> `CHANGED`, reproducing 2026-09-17 exactly. **So the move is now hygiene — it
+> keeps a docstring honest — and nothing will catch it being skipped.** Recorded
+> as an open item rather than fixed here: the root fix is for that leg to DERIVE
+> its placeholder number from `database/migrations/applied-hosted.json` instead of
+> hard-coding one, which retires this instruction altogether. **Trigger: the
+> founder's word, or the next apply, whichever comes first.**
 
 ```bash
-node scripts/freeze_applied_migrations.mjs 18 YYYY-MM-DD R-YYYY-MM-DD-NN
+node scripts/freeze_applied_migrations.mjs 19 YYYY-MM-DD R-YYYY-MM-DD-NN
 ```
 
 - **PASS:** it prints the count it recorded, and the first and last file. Commit
@@ -1246,22 +1357,37 @@ node scripts/freeze_applied_migrations.mjs 18 YYYY-MM-DD R-YYYY-MM-DD-NN
 
 - [x] Frozen boundary recorded, 2026-09-16: 16 migrations, `001_app_schema_and_migration_ledger.sql` first, `016_snapshot.sql` last
 - [x] Frozen boundary recorded, 2026-09-17: 17 migrations, `001_app_schema_and_migration_ledger.sql` first, `017_snapshot_schedule.sql` last (R-2026-09-17-01), with the frozen_migrations placeholder moved to 018 in the same change
+- [x] Frozen boundary recorded, 2026-09-22: 18 migrations, `001_app_schema_and_migration_ledger.sql` first, `018_close_mirror_read_and_push_surfaces.sql` last (R-2026-09-22-52), with the frozen_migrations placeholder moved to 019 in the same change. `ledger_rows: 18`, matching the `18` read from hosted `app.schema_migrations` in the apply session; the recorder would have refused any other number.
 
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 017 already applied, 018 merged and
-not yet applied), the dry run prints seventeen `already applied` lines, one
-`WOULD APPLY` line, and:
+**On the hosted project today** (001 through 018, all applied), the dry run prints
+eighteen `already applied` lines, no `WOULD APPLY` line, and:
 
 ```
-WOULD APPLY     : 018_close_mirror_read_and_push_surfaces.sql
+0 migration(s) pending.
+```
+
+*Restated 2026-09-22 (R-2026-09-22-52), in the change that records 018's hosted
+apply.* Until then this block described the state BEFORE that apply: seventeen
+`already applied` lines, one WOULD APPLY line naming
+`018_close_mirror_read_and_push_surfaces.sql`, and a count of one. That is exactly
+what the founder's dry run printed on 2026-09-22, and it is kept below with the
+other dated runs rather than overwritten.
+
+**The second dry run is part of an apply, not an optional extra.** It is the
+reading recorded in the checkbox at the end of this section, and it is the half
+that says the apply did what the first dry run promised.
+
+**On 2026-09-22, when 018 was pending,** the same two commands printed this -- the
+run that closed the accumulation boundary (the seventeen `already applied` lines
+are omitted):
+
+```
+  WOULD APPLY     : 018_close_mirror_read_and_push_surfaces.sql   <- dry run
 1 migration(s) pending.
+Migrations complete (1 applied this run).                         <- apply
 ```
-
-**AFTER the apply, the same command prints eighteen `already applied` lines, no
-`WOULD APPLY` line, and `0 migration(s) pending.`** — and that second dry run is
-part of the apply, not an optional extra. It is the reading recorded in the
-checkbox at the end of this section.
 
 **On 2026-09-17, when 017 was pending,** the same two commands printed this, and
 the apply's echo mapped one-for-one to 017's statements in order, with the two
@@ -1306,14 +1432,18 @@ eighteen as pending. The two numbers are measuring different things.
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. On hosted before 018's apply that is `17`, with
-`1 migration(s) pending.` from the dry run; immediately after it, `18` and
-`0 migration(s) pending.` **The ledger count and the pending count move together
+THAT PROJECT. **On hosted today that is `18`, with `0 migration(s) pending.` from
+the dry run** (restated 2026-09-22, R-2026-09-22-52; until then it read `17` and
+`1 migration(s) pending.`, which is what the founder read minutes before the
+apply). **The ledger count and the pending count move together
 and in opposite directions** — if one changes and the other does not, stop: the
 apply did not do what the dry run said it would.
 The first line waits silently for the connection string; the last removes it.
 
+**Step P's PATH line is carried in below**, because this block calls `psql` itself.
+
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -Atc "select count(*) from app.schema_migrations"
 bash scripts/run_migrations.sh --dry-run
@@ -1328,6 +1458,11 @@ Observed on hosted `klrlpxysjsjpdkeqdhvl` on 2026-09-16, after the apply of
 
 Observed on hosted `klrlpxysjsjpdkeqdhvl` on 2026-09-17, after the apply of 017:
 ledger **17 rows**, second dry run `0 migration(s) pending.`
+
+Observed on hosted `klrlpxysjsjpdkeqdhvl` on 2026-09-22, after the apply of 018:
+ledger **18 rows**, second dry run `0 migration(s) pending.` **The pre-apply
+readings were taken in the same session and are recorded in block B below**, which
+is what makes each of them the other's failing half.
 
 ### What happens if it dies partway -- documented, not discovered
 
@@ -1364,6 +1499,7 @@ ones.
 
 - [x] Every forward migration applied, `016_snapshot.sql` last, 2026-09-16: ledger 16 rows, and the second dry run reported `0 migration(s) pending.`
 - [x] 017 applied, `017_snapshot_schedule.sql` last, 2026-09-17: dry run one `WOULD APPLY 017_snapshot_schedule.sql` and `1 migration(s) pending.`; apply `Migrations complete (1 applied this run).`; ledger 17 rows, and the second dry run reported `0 migration(s) pending.`
+- [x] 018 applied, `018_close_mirror_read_and_push_surfaces.sql` last, **2026-09-22 05:40:40 UTC**: ledger 17 rows before; dry run one `WOULD APPLY     : 018_close_mirror_read_and_push_surfaces.sql` and `1 migration(s) pending.`; apply echoed `DO`, `DO`, `INSERT 0 1`, `INSERT 0 0` then `Migrations complete (1 applied this run).`; ledger 18 rows, and the second dry run reported `0 migration(s) pending.` **The two `DO` blocks are 018's idempotent publication drop and its per-role revoke; `INSERT 0 1` is the migration ledgering itself and `INSERT 0 0` the runner's belt-and-braces `ON CONFLICT DO NOTHING`, which is a no-op precisely because the file had already ledgered itself.** This is the apply that closed the accumulation boundary (R-2026-09-22-52).
 
 ---
 
@@ -1378,6 +1514,13 @@ ones.
 Run these against the hosted project with the **publishable** key. **Since
 migration 018, EVERY probe in this step must be refused — the schema probe, the
 three mirror reads and the three writes alike.**
+
+*Restated 2026-09-22 (R-2026-09-22-52), in the change that records 018's hosted
+apply.* **Until 2026-09-22 this expectation was a PREDICTION derived from a local
+database with 018 applied; it is now a hosted READING**, taken by the founder
+minutes after the apply and recorded in the table below. The wording did not have
+to change, which is the point worth noting: the change is in what stands behind it.
+Before the apply this step could only be honest by saying so, and it did.
 
 *Restated 2026-09-21 (R-2026-09-21-50), and it should have been restated in the
 change that ADDED 018 — see the restate rule in step 5.* Until then this line read
@@ -1482,7 +1625,15 @@ this step runs on hosted** (`.claude/rules/test-conventions.md` section 4). MEAS
 | **hosted** | 401, body `42501` | 401, `{"message":"Invalid API key"}` | 401, `{"message":"No API key found in request"}` |
 
 **Locally the body rule does NOT discriminate a dead key from a revoked table; on
-hosted it does.** Neither hosted refusal carries `42501`. So the pass condition
+hosted it does.** Neither hosted refusal carries `42501`.
+
+**AND THE HOSTED "real key, table revoked" CELL IS NOW MEASURED ON THE RELATIONS
+THIS STEP ACTUALLY PROBES** (R-2026-09-22-52). When that table was taken on
+2026-09-21 **no mirror was revoked on hosted** — 018 had not been applied — so
+whatever relation gave that cell its value, it was not one of the three this step
+asks about. It held, and it was standing on a neighbouring case. Since the apply of
+2026-09-22 all three mirrors are revoked on hosted and all six probes return
+`HTTP 401` with `"code":"42501"`, which is the cell measured where it is used. So the pass condition
 here is sound where this step runs, and anyone reproducing it against the local
 stack is not reproducing the discrimination. **This is the `$ANON_KEY` family
 again** — a probe that passes because authentication failed rather than because the
@@ -1505,9 +1656,21 @@ unchanged and still current: `anon` never held `INSERT`.
       migration 018 (R-2026-09-21-50): after the hosted apply the correct reading
       is a REFUSAL, body code `42501`, on all three.** Left ticked as the dated
       record it is; the post-018 reading is a new box below.
-- [ ] **The three mirrors REFUSED — body code `42501` on all three, after 018's
-      hosted apply.** Untickable until that apply happens; the pre-apply half is
-      recorded in step 5.
+- [x] **The three mirrors REFUSED — body code `42501` on all three** — 2026-09-22,
+      founder's run on `klrlpxysjsjpdkeqdhvl` after 018's hosted apply
+      (R-2026-09-22-52), key obtained under the guard (`key obtained`). READ **and**
+      WRITE, all three:
+
+      | Mirror | Read | Write |
+      |---|---|---|
+      | `facility_public` | HTTP 401, `{"code":"42501", … "permission denied for table facility_public"}` | HTTP 401, same body code |
+      | `ward_public` | HTTP 401, `{"code":"42501", … "permission denied for table ward_public"}` | HTTP 401, same body code |
+      | `lga_rollup` | HTTP 401, `{"code":"42501", … "permission denied for table lga_rollup"}` | HTTP 401, same body code |
+
+      **The failing half is step 5's block B**, run on the same project earlier in
+      the same session, before the apply: the same three reads returned `HTTP 200`. Two verdicts, one
+      probe, one project, minutes apart — which is what method note 23 asks for and
+      what this step could not supply on its own until today.
 - [x] Anon write refused — body code `42501` on all three, 2026-09-13
 
 ### Check (a), HTTP half — run immediately after the apply
@@ -1590,6 +1753,7 @@ rather than implied by step 8:
 | **Client** used for the hosted apply of 001-013 | `psql` **18.6** (Homebrew keg-only `libpq`, see step P) | `psql --version`, 2026-09-13 |
 | **Client** used for the hosted apply of 014-016 | `psql` **18.6**, the same client | confirmed by the founder for the 2026-09-16 run (R-2026-09-16-03). **Not carried forward from the row above** -- an assumed client is the thing this row exists to prevent |
 | **Client** used for the hosted apply of 017 | `psql` **18.6** | observed by the founder for the 2026-09-17 run (R-2026-09-17-01), not carried forward |
+| **Client** used for the hosted apply of 018 | `psql` **18.6** | observed by the founder for the 2026-09-22 run (R-2026-09-22-52): `psql (PostgreSQL) 18.6`, printed by step P in that same session. Not carried forward |
 
 **The client is newer than the server: psql 18.6 against server 17.6.1.166.**
 The migrations applied on 2026-09-16 and 2026-09-17 went to project
@@ -1601,12 +1765,19 @@ than a number that has to be maintained.)* This table
 previously recorded server versions only, which left the one tool every SQL
 result above passed through unrecorded.
 
-**Hosted now holds 001 through 017. Migration 018 is merged and NOT applied** —
-see step 5's "next apply is 018" block, which is where that closes. Migrations 014,
-015 and 016 were applied on
-2026-09-16 (R-2026-09-16-02), and 017 on 2026-09-17 (R-2026-09-17-01); step 5
-carries each run's output, its post-apply probe, the owners read, the
-reader-policy read, 017's jobs read and the frozen-boundary record.
+**Hosted now holds 001 through 018.** Migrations 014, 015 and 016 were applied on
+2026-09-16 (R-2026-09-16-02), 017 on 2026-09-17 (R-2026-09-17-01), and **018 on
+2026-09-22 at 05:40:40 UTC (R-2026-09-22-52)**; step 5 carries each run's output,
+its post-apply probe, the owners read, the reader-policy read, 017's jobs read,
+018's pre-apply reading and read-back, and the frozen-boundary record.
+
+*Restated 2026-09-22 (R-2026-09-22-52), in the change that records 018's hosted
+apply.* Until then this read *"Hosted now holds 001 through 017. Migration 018 is
+merged and NOT applied — see step 5's 'next apply is 018' block, which is where that
+closes."* It closed there, exactly as written. **This line is one of the five places
+step 5's state is stated** (R-2026-09-21-51 A2), and it is in this table rather than
+in step 5 because it is the one a reader checking the Postgres version arrives at
+without passing step 5 at all.
 
 **Same major and minor; the patch differs by one (166 vs 167).** No major-version
 divergence to reason about, and the earlier record of "17.6.1 both" was true at
@@ -1673,7 +1844,10 @@ Enter. **The last line removes it from the shell.** Those two lines were added o
 variable step 5 left exported for the rest of the session. **The SQL between the
 heredoc markers is unchanged from the run recorded below.**
 
+**Step P's PATH line is carried in below**, because this block calls `psql` itself.
+
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" <<'SQL'
 begin;
@@ -1748,7 +1922,10 @@ them turns it back into a rubber stamp:**
    **this probe creates the first facility row** and the three defects named in
    section 4b stop being theoretical. **After running this step, re-check:**
 
+   **Step P's PATH line is carried in below**, because this block calls `psql` itself.
+
    ```bash
+   export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
    psql "$DATABASE_URL" -tAc "select count(*) from app.facility"
    ```
 
@@ -2093,6 +2270,12 @@ the middle query's `publication_empty` column is the assertion: **PASS is `t`**.
 **SINCE MIGRATION 018 THE EXPECTED SET IS EMPTY.** 018 removes all three mirrors
 from `supabase_realtime`; this repository publishes nothing to Realtime after it.
 
+*Restated 2026-09-22 (R-2026-09-22-52), in the change that records 018's hosted
+apply.* **This was an expectation until 2026-09-22 and is now a hosted reading** —
+the founder's post-apply run returned zero rows, `publication_exists t` and
+`publication_empty t`, recorded in the checkbox below. Its failing half is step 5's
+block B, which returned all three mirrors from the same query before the apply.
+
 *Restated 2026-09-21 (R-2026-09-21-50), and it should have been restated in the
 change that ADDED 018 — see the restate rule in step 5.* Until then the query
 compared against `array['facility_public','lga_rollup','ward_public']` and PASS was
@@ -2107,7 +2290,10 @@ query against the wrong publication name returns no rows too — so the FIRST qu
 below now establishes that the publication EXISTS before the second asserts it is
 empty.
 
+**Step P's PATH line is carried in below**, because this block calls `psql` itself.
+
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" <<'SQL'
 select schemaname, tablename from pg_publication_tables
@@ -2131,10 +2317,15 @@ unset DATABASE_URL
       `ward_public` — 2026-09-13, project `klrlpxysjsjpdkeqdhvl`: those three,
       exactly 3 rows. **SUPERSEDED by migration 018 (R-2026-09-21-50).** Left
       ticked as the dated record it is.
-- [ ] **`publication_exists` is `t` AND `publication_empty` is `t` — after 018's
-      hosted apply.** Both, in that order: the first is what stops an empty result
-      from meaning "wrong publication name". Untickable until that apply happens;
-      the pre-apply reading is recorded in step 5.
+- [x] **`publication_exists` is `t` AND `publication_empty` is `t`** — 2026-09-22,
+      founder's run on `klrlpxysjsjpdkeqdhvl` after 018's hosted apply
+      (R-2026-09-22-52). Both, in that order — the first is what stops an empty
+      result from meaning "wrong publication name", and it is `t`, so the empty set
+      below is an empty publication rather than a missing one. The first query
+      returned **`(0 rows)`**, and `relreplident` is still `d` on all three.
+      **Failing half: step 5's block B**, where the same `pg_publication_tables`
+      query against the same project returned
+      `facility_public, lga_rollup, ward_public` before the apply.
 - [x] `relreplident` is `d` for all three — **MOOT since 018, not false.** These
       tables are no longer published, so no DELETE payload leaves them at all; the
       check is kept as a tripwire for the day one is published again, and the
