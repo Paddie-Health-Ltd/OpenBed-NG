@@ -1,0 +1,8 @@
+{
+  "name": "@openbed/origins",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "description": "The database addresses this project uses, keyed by the address rather than by the app. The only tracked source for an origin string outside supabase-proxy/."
+}
