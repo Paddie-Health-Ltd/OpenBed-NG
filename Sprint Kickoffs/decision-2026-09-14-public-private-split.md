@@ -2890,6 +2890,20 @@ The question: RLS is off on all 16 `app` tables, which is safe **only** while `a
 
 **F — the queue:** **Bundle 3** — its kickoff is Cowork's, and it is next; the sensor bundle; facility one; Bundle 4. **Bundle 3 is not started. Nothing was deployed.**
 
+**A10 — CONFIRMATION NOTE, appended 2026-09-22 AFTER the block above was written. No new ruling; this is `-56` gaining the evidence two of its clauses were recorded without.**
+
+**A10a — `A5` IS CONFIRMED.** The founder confirmed **in the Cloudflare dashboard, 2026-09-22, that SSL/TLS is Full (strict)**, with **apex HTTP 200 and `www` HTTP 200 after the change**. Both were re-read here after the confirmation arrived: `https://openbed.ng/` **200**, `https://www.openbed.ng/` **200**.
+
+**A10b — `A2` IS CONFIRMED, and now holds three ways.** Cowork verified independently that **the Cloudflare account lists one Worker, `supabase-proxy`; `openbedng` is absent.** Read a third time here, from the account itself: the Workers list returns **count 1**, the single Worker `supabase-proxy`, created 2026-09-19. **`openbedng` is absent.** A2's deletion claim is no longer resting on the dashboard reading of whoever performed it.
+
+**A10c — AND THE DEFECT THE NOTE EXISTS TO RECORD. `A5` WAS WRITTEN BEFORE THE FOUNDER HAD CONFIRMED IT — a fact recorded ahead of its evidence.** Recorded as **Cowork's error**, as directed.
+
+**What this record can establish about it, and what it cannot.** Who originated the SSL claim is **not readable from here**: it arrived in the instruction that produced `A5`, already attributed to *"the founder, 2026-09-22"*. So the attribution above is recorded **as given**, not as established — which is the same discipline `A4b` used on Proton's dashboard, applied to this clause.
+
+**What IS establishable is mine, and it is the half worth keeping.** `A5` as written carries **no evidence kind at all**. In the same block, `A1` says explicitly which half was re-read here and which stays the founder's, and `A4b` says explicitly that Proton's dashboard was not read. **`A5` did neither — and `A5` is the clause that turned out to be ahead of its evidence.** The discipline was present in the block and was not applied to every clause of it, and **an unmarked relayed claim is indistinguishable from a confirmed one to every later reader.** That is Clause 5's failure mode and method note 19's rule — *read state, or mark it UNVERIFIED rather than stating it* — arriving in the recording rather than in a guard, which `-54 D4` names as this repository's recurring shape.
+
+**The cause, not the instance.** `A3` and `A7` are dashboard and hosted readings recorded the same way, **with no evidence kind marked**, and nothing here has confirmed them. They are **not** thereby doubted — `A7`'s reasoning is internally checkable and `A3` restates gaps already in Bundle 3 — but they are **relayed, and this note says so** rather than leaving `A5` corrected and its two siblings carrying the same silence. **The rule for the next block of this kind: every clause resting on a reading someone else took names that, in the clause, at the time it is written.**
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
