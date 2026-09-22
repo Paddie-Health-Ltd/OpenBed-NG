@@ -2978,6 +2978,12 @@ _Issued as R-PROVISIONAL-2026-09-22-AK, by the founder on 2026-09-22, answering 
 - **C2 — the property.** The set of top-level tracked entries is a **closed, named list, checked by identity rather than count** (test-conventions §3). Failing half: a planted staged stray at the top level turns it red, quoted, then green once removed. The implementer proposes the mechanism. Guard-only, no runtime effect, so it fits PR 3.1's character.
 - **C3.** "Top-level tracked-entry guard" is removed from the open items when it lands.
 
+- **C3a — DISCHARGED 2026-09-22, and where.** The guard is `tests/compliance/top_level_tracked_entries.test.ts`: it reads the top-level components of `git ls-files` — **the INDEX, not `HEAD`**, so a stray is caught before the commit that would carry it rather than one commit too late, which is how the first instance happened — and compares them against a checked-in list of the 25 entries by identity. **The failing half was run against the real repository**, not only a scratch one: staging `Claude outputs/x.md` reds it with the stray named in the diff, and unstaging restores green.
+
+  **The open item lives in the kickoff, which is committed UNEDITED**, so it is closed here rather than struck there. The kickoff's carried-items paragraph still reads *"still an open item (trigger: next stray path found in a commit)"*; **that sentence is superseded by this clause and by `C1`**, and a reader who arrives at it from the kickoff should land here.
+
+  **Two limits are named in the guard's own header rather than left to be assumed.** It sees the index, so an **untracked** stray is invisible to it — that case is covered bluntly by `scripts/deploy_pages.sh`, which refuses any non-empty `git status --porcelain`. And it says nothing about what is committed INSIDE a recorded directory; a stray under `docs/` would not red it.
+
 **D — C1's PREMISE, CHECKED HERE, AND IT IS SHARPER THAN STATED.** C1 says the first occurrence *"did reach a commit (38440e7)"*. **It holds.** `38440e7` added the boundary-closed handoff under that untracked top-level directory — a path outside the twelve tracked directories — and it was remedied two commits later, in `999dd50`, whose subject records it. So the recurrence C1 reasons from is the **second** instance of a defect that has now been committed once and staged once, and **neither was caught by anything except a person looking.** That is the case for C2 rather than against it.
 
 **E — WHAT IS OWED BEFORE THE CLAUSES ABOVE CAN BE DISCHARGED**, named rather than assumed:
