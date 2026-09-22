@@ -3016,6 +3016,45 @@ _Issued as R-PROVISIONAL-2026-09-22-AN, by the founder on 2026-09-22, after atte
 
 **E — AND ONE HAZARD FOUND WHILE DESIGNING AGAINST `B3`, recorded because it is the kind that ships green.** Moving the origin off the environment and onto the request's hostname changes what two existing database tests address. `tests/db/beds_json_served.test.ts` has two legs that call the cached path with **no stubbed fetch**, against a helper whose request URL is a non-local host. Today their target is the local stack, because the origin came from the environment those tests construct. Under host-based selection their target becomes **the live hosted project, authenticated with the local demo service-role key**. Nothing in the suite would have said so: both legs assert a 200 and a header. **The helper is made local, and asserted local, in its own commit BEFORE the origin moves** — the ordering is the point, because the window in which this is wrong is a window in which the tests still pass.
 
+### R-2026-09-22-60 — a production build must read no untracked source; the whole-env inlining is removed at its cause
+
+_Issued as R-PROVISIONAL-2026-09-22-AP, by the founder on 2026-09-22, on a finding of mine reported with `R-2026-09-22-59`'s last commit. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-59. **Record-only under R-46; lands in PR 3.1.**_
+
+**A — THE FINDING, WHICH IS MINE AND WAS RECORDED BEFORE IT WAS RULED ON.** Vite inlines the **whole** `import.meta.env` record, not only the keys a module reads. So a stale `VITE_SUPABASE_URL` in the untracked `apps/ward-console/.env.local` ships inside the built bundle — `api.openbed.ng` appears there four times, two of them from that file rather than from tracked configuration. **The marker legs added in `-57`/`-58` prove `origins.json` is USED; they never proved untracked values are KEPT OUT.** The value happens to agree today. A developer's local file can still change what production talks to, and **that is Finding D's hazard surviving the change that was supposed to close it.**
+
+**B — THE PROPERTY, for every Pages app** — the public dashboard, the ward console, and the admin app when PR 3.4 adds it. **A production build's output contains no value sourced from any untracked file; what the bundle talks to comes from tracked files only.** Its failing half is a planted `.env.local` and, separately, a planted `.env.production.local` carrying a sentinel, shown red against the configuration as it stands and green after. The cause in the code is removed as well as guarded, and named. The mechanism is the implementer's to propose, and **a wrapper refusing to build while a developer's file exists is acceptable if that is the cleaner guarantee.** The founder's own `.env` files are NOT deleted; if the fix makes them unused they are listed, and the founder removes them.
+
+**C — THE PR 3.1 REPORT** carries `AL`'s C1–C9 together with B's plants, and the pull request opens only when those are quoted. No merge without the founder's word; Cowork reads the files before that word.
+
+**D — THE CAUSE, ESTABLISHED RATHER THAN GUESSED, and one of my own premises refuted in the process.** B asked for the code reference that makes Vite inline the whole record, if there is one. **There is: bracket notation.** `apps/ward-console/src/main.ts` reads `import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY']`, and Vite defines two different keys — a per-variable `import.meta.env.<NAME>`, which collapses to one string, and a bare `import.meta.env`, which is the entire serialized record. **A bracket access matches only the second.** Read in the pinned Vite 8.2.2's own installed source, not inferred from documentation.
+
+**I had assumed bracket notation was forced by a compiler option, and it was not.** `noPropertyAccessFromIndexSignature` is set in no tsconfig in this repository, and dot access typechecks today unchanged — verified by running this project's exact compiler options against both forms. It was habit, not constraint. **Recorded because the wrong reason would have survived the right fix:** anyone later re-reading `import.meta.env` would have reached for brackets again, believing the type system required it.
+
+**E — AND ONE THING `B`'s WORDING WOULD NOT HAVE ACHIEVED ON ITS OWN.** Disabling `.env` file loading closes the file half and **not** the shell half: Vite copies every `VITE_`-prefixed entry of `process.env` into the record afterwards, and it **outranks every file**. So "no untracked FILE" is reachable by configuration while "the output is the same whatever is set in the shell" is not, and the two must be named separately. `R-2026-09-22-61 B3` is where that second half is required.
+
+### R-2026-09-22-61 — the publishable key is TRACKED; what it supersedes is mine, not the record's
+
+_Issued as R-PROVISIONAL-2026-09-22-AQ, by the founder on 2026-09-22, answering the question `-60` left open — where a production build gets the key once it may read no untracked file. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-60. **Record-only under R-46; lands in PR 3.1.** Next provisional letter: AR._
+
+**A — THE DECISION.**
+
+- **A1 — the basis.** The key **ships in every client bundle by design**, so the repository holding it exposes nothing new. Tracking it means **the stamped commit fully determines the built bundle**, and it removes a hand-carried step from every deploy.
+- **A2 — WHAT IT SUPERSEDES, AND THE ATTRIBUTION IS CORRECTED HERE.** The ruling instructs that any line in `-57`/`-58` saying the key must not live in the repository is superseded, and asks for that line to be named — noting that Cowork had not read those blocks' landed text and that the attribution was mine. **The attribution is mine, and the location is narrower than the instruction assumed: THERE IS NO SUCH LINE IN EITHER BLOCK.** Both were read here, in full, before this clause was written. What is superseded is **code and a template I wrote in the same session**: `apps/ward-console/.env.example` in its entirety, and the paragraph in `apps/ward-console/src/main.ts` beginning *"THE KEY IS DELIBERATELY STILL AN ENVIRONMENT VARIABLE"*. Both are rewritten rather than deleted, with A1 as the reason.
+
+  **The objection that paragraph raised is answered rather than ignored**, which is why A3 exists: it argued that a tracked key makes the repository the place a **stale** key lives, and a dead key fails at authentication in a way that reads exactly like the boundary holding. A3 is what stops that.
+- **A3 — the rotation runbook is restated**, so a rotation updates this **one tracked line in the same change**, and the restated step is quoted in the report.
+
+**B — THE GUARDS, each with a failing half shown red then green.**
+
+- **B1.** The tracked value is a **publishable or legacy anon** key and never a secret or service-role key, recognised **by kind and never by length**: an `sb_secret_` prefix refused and `sb_publishable_` accepted, and a JWT **decoded** so its payload `role` is asserted to be `anon` rather than `service_role`. Plant: a service-role-shaped value in the tracked slot turns it red.
+- **B2.** `scripts/lint_no_secrets.sh` is **not widened in general**. Its exemption is **by named file and named key**, with A1 written into the script as the stated basis. The list is pinned by identity, so a third entry is a visible act.
+- **B3 — `-60 B` extended to the process environment:** a production build's output is the same **whatever is set in the shell**. Plant: export a `VITE_` sentinel before building and assert it is absent from the output. A wrapper refusing while any `VITE_*` is set is acceptable if Vite cannot be made to ignore it cleanly; **the mechanism chosen must be stated with its reason.**
+- **B4.** Disabling `.env`-file loading on production builds **stays**, and `-60 B`'s two file plants stand alongside it.
+
+**C — THE REPORT** carries `AL`'s C1–C9 (C9 as amended by `AM` B6), `-60 B`'s plants and B1–B3 above. The pull request opens when those are quoted.
+
+**D — THE TWO LETTERS THAT NEVER ARRIVED, and the ledger's own rule applied.** `AL` and `AM` were issued by Cowork **before** `AN` and were never pasted into this session. The ledger states that *a letter with no row either never arrived or has not landed yet, and Cowork can be told which* — and Cowork was told: no text for either has ever reached the implementer, and nothing in this repository mentions them. **They are therefore numbered from the record's last when their text lands, which will be AFTER `-60` and `-61` rather than before**, and their ledger rows record that they were issued earlier than the numbers they carry. **`C` cannot be discharged until `AL`'s text exists**, which is the one thing still holding the pull request shut.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -3066,6 +3105,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | AJ | R-2026-09-22-57 | 2026-09-22 | Bundle 3 becomes **four pull requests in order** rather than one, on the ground that a migration adding operator write functions must not share a review with a wrapper refactor. Splits `-56 D`'s three grant gaps two-in one-out; redesigns the build-stamp check by moving the assertion to upload time, where its property is actually true, rather than building around a test that reds after every commit; and sets ten architecture properties for admin v1, identity from `auth.uid()` in the database first among them. Arrived inside the founder's pasted kickoff, which lands unedited alongside it. Two of its premises did not survive checking: the rebase it instructs was already done, and it carries one Clause 4 scope defect — listed, not fixed, because the document was ruled to land unedited. A planning pass's claim that the kickoff cited phantom `claude/` paths was itself false and was refuted before it could cause an edit. |
 | AK | R-2026-09-22-58 | 2026-09-22 | The founder answers PR 3.1's two open questions. The public dashboard's snapshot Function **keeps its direct origin** — a narrow, triggered exception to `-55 A`, on the ground that `-55 A`'s three reasons are about browser traffic and putting the Worker on the `/beds.json` path would add a failure point while `-23 D5` is open — while its origin still becomes tracked, so Finding D closes for Functions too. Both handoffs land in PR 3.1 from the founder's paste. And the top-level tracked-entry guard is pulled forward out of its trigger because the stray recurred: checking that premise here found the first instance reached a commit and the second reached the index, **neither caught by anything but a person looking**. |
 | AN | R-2026-09-22-59 | 2026-09-22 | **H1 could not be performed**: `SUPABASE_URL` on the Pages project is an encrypted secret and cannot be read back, so the step `-58 A1` depended on asked for something that does not exist — recorded as Cowork's defect rather than restated more carefully. The tracked origin is set from Supabase's own project URL instead, re-read here before it was written into anything, and found to agree with the project id `supabase-proxy/index.js` already tracks — which is itself the finding, because it makes the origin a **two-derivation-site** value that §7 governs. `-58 A1`'s "PR 3.1 changes nothing about which origin the Function calls" is replaced by a **weaker and truthful** claim: the end state is the direct origin, and whether that is a *change* is **unknown**, because the prior value was never readable. The leftover secret becomes dead config, deleted only after a 200 from `/beds.json` on a deployment built from the tracked value. Carries one hazard found while designing against B3: two database legs would have begun addressing the live project with a demo key, asserting 200 throughout. |
+| AP | R-2026-09-22-60 | 2026-09-22 | **A production build must read no untracked source.** Ruled on a finding of mine: Vite inlines the WHOLE `import.meta.env` record, so a stale `VITE_SUPABASE_URL` in an untracked `.env.local` ships inside the bundle — the marker legs of `-57`/`-58` proved `origins.json` is USED and never that untracked values are KEPT OUT, which is Finding D's hazard surviving its own fix. Requires the cause in the code be removed as well as guarded. The cause was established rather than guessed: **bracket notation**, which misses Vite's per-key define and hits the bare one. One of my premises fell with it — bracket notation was not forced by any compiler option, and dot access typechecks today. |
+| AQ | R-2026-09-22-61 | 2026-09-22 | **The publishable key becomes TRACKED**, on the ground that it ships in every client bundle by design, so the stamped commit fully determines the built bundle and no hand-carried step is left in a deploy. Asks which line of `-57`/`-58` it supersedes — and the answer, read here before the clause was written, is **none**: the claim was mine, in a template and a code comment I wrote the same session, and it is narrower than the instruction assumed. The objection that comment raised — that a tracked key makes the repository the place a STALE key lives — is answered by restating the rotation runbook rather than dropped. Also extends `-60` to the PROCESS ENVIRONMENT, which disabling `.env` files does not reach, because Vite's process-env copy outranks every file. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -3262,6 +3303,40 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-22, R-2026-09-22-61 (issued as R-PROVISIONAL-2026-09-22-AQ): **the
+  publishable key becomes TRACKED**, because it ships in every client bundle by
+  design and tracking it makes the stamped commit fully determine the built bundle;
+  it asks which line of `-57`/`-58` it supersedes, and **the answer is none** — both
+  blocks were read here in full and neither says it, the claim being mine in a
+  template and a code comment written the same session, so the supersession is
+  recorded against my text rather than against the record's; the objection that
+  comment raised, that a tracked key makes the repository the place a **stale** key
+  lives and a dead key fails in the direction that reads like the boundary holding,
+  is answered by restating the rotation runbook so a rotation moves one tracked line
+  in the same change, rather than being dropped as inconvenient; the tracked value is
+  guarded by KIND and never by length — an `sb_secret_` prefix refused, a JWT decoded
+  and its `role` required to be `anon` — and the secret scan is not widened in
+  general but exempted by named file and named key; **and `-60` is extended to the
+  process environment**, which disabling `.env` files does not reach at all, since
+  Vite copies every prefixed `process.env` entry in afterwards and it outranks every
+  file; it also records that **AL and AM never arrived**, applying the ledger's own
+  rule that Cowork can be told which, so they will be numbered from the record's last
+  when their text lands — after `-60` and `-61`, not before;
+- on 2026-09-22, R-2026-09-22-60 (issued as R-PROVISIONAL-2026-09-22-AP): **a
+  production build's output must contain no value sourced from any untracked file**,
+  ruled on a finding of mine reported with `-59`'s last commit: Vite inlines the
+  **whole** `import.meta.env` record rather than the keys a module reads, so a stale
+  `VITE_SUPABASE_URL` in an untracked `.env.local` ships inside the built bundle —
+  **the marker legs added by `-57` and `-58` prove `origins.json` is USED and never
+  proved untracked values are KEPT OUT**, which is Finding D's hazard surviving the
+  change written to close it; it requires the cause in the code be removed as well as
+  guarded, and the cause was then **established rather than guessed** by reading the
+  pinned Vite's installed source: bracket notation on `import.meta.env` misses the
+  per-key define and hits the bare one, whose value is the entire serialized record;
+  **one of my own premises fell in the process** — I had assumed bracket notation was
+  forced by a compiler option, and it is not, `noPropertyAccessFromIndexSignature`
+  being set nowhere here and dot access typechecking today unchanged, which is worth
+  recording because the wrong reason would have outlived the right fix;
 - on 2026-09-22, R-2026-09-22-59 (issued as R-PROVISIONAL-2026-09-22-AN): **the H1
   reading could not be taken at all.** `SUPABASE_URL` on the Pages project is an
   encrypted secret whose value the dashboard will not show, so the step `-58 A1`
