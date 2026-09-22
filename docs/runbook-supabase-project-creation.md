@@ -1739,6 +1739,77 @@ rather than implied by step 8:
   `notification_outbox`, `referral`, `schema_migrations`, `system_heartbeat`,
   `ward_account`, `ward_alert_state`, `ward_status`, `ward_status_event`. 16 rows.
 
+### The WIDENED grant sweep — run once when Bundle 3 lands (R-2026-09-22-57 A2)
+
+**Why it widens.** The 2026-09-13 reading above covers **one role and one
+privilege**: `anon` × `SELECT`. The local test it is the hosted counterpart of —
+*"no client role holds any grant on any table in app"* in
+`tests/db/rls_enabled_everywhere.test.ts` — covers **three grantees × every
+privilege type × every table**. The hosted half has been the narrower of the two
+since it was written, and **PR 3.4 adds the first functions executable by
+`authenticated` since migration 014**, which is the change that makes the gap
+matter rather than merely exist.
+
+**Run it once, after Bundle 3's last pull request has merged and been applied.**
+It is a hand check because nothing in the repository can reach the hosted
+catalogue; that is a design constraint and not a defect (test-conventions §4).
+
+**BOTH HALVES ARE RUN IN THE SAME SITTING, and the failing half FIRST.** A sweep
+that can only ever return zero rows proves nothing, and "zero rows" is exactly what
+a broken query returns. Do not record the result of the second block without the
+output of the first.
+
+**Half 1 — the failing half. It must return a row.**
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+BEGIN;
+GRANT SELECT ON app.facility TO anon;
+SELECT grantee, table_name, privilege_type
+  FROM information_schema.table_privileges
+ WHERE table_schema = 'app'
+   AND grantee IN ('anon', 'authenticated', 'PUBLIC')
+ ORDER BY grantee, table_name, privilege_type;
+ROLLBACK;
+SQL
+```
+
+Expect **exactly one row**: `anon | facility | SELECT`. The `ROLLBACK` is what
+removes the grant — the transaction never commits, so nothing is left behind even
+if the block is interrupted. **If this returns no rows, the query is broken and
+half 2 means nothing.**
+
+**Half 2 — the real sweep. It must return no rows, and must count 16 tables.**
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+SELECT grantee, table_name, privilege_type
+  FROM information_schema.table_privileges
+ WHERE table_schema = 'app'
+   AND grantee IN ('anon', 'authenticated', 'PUBLIC')
+ ORDER BY grantee, table_name, privilege_type;
+
+SELECT count(*) AS app_tables_enumerated
+  FROM information_schema.tables
+ WHERE table_schema = 'app' AND table_type = 'BASE TABLE';
+SQL
+```
+
+**The second query is the anti-vacuity half and it is not optional.** An empty
+grant result is the same output whether the schema holds 16 tables with no grants
+or holds none at all — a schema that had been renamed would report a clean
+boundary. It must print **16**, matching the enumeration recorded above and the
+count the local test pins.
+
+**The tables are enumerated FROM THE CATALOGUE, never from the list above.** A
+literal list here would go stale the moment a migration adds a table, and would go
+stale silently, in the direction that reports clean.
+
+**Record the result under this heading with the date and the project ref**, in the
+same shape as the 2026-09-13 reading: both halves' output, not a summary of them.
+
 ---
 
 

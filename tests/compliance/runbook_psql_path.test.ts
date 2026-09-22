@@ -56,7 +56,7 @@ const RUNBOOKS = [
 ];
 
 /** The total governed-fence count today. Asserted by identity -- see `anti-vacuity`. */
-const GOVERNED_TODAY = 16;
+const GOVERNED_TODAY = 18;
 
 export interface Fence {
   /** Which runbook it came from. */
