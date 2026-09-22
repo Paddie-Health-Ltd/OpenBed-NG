@@ -2792,6 +2792,103 @@ If the verify link's host is `*.supabase.co`, **A1's blocking protection is inco
 - **`D1`, `D3`, `D4` and `D6`** are unanswered.
 
 **F — the queue:** the infrastructure review; Bundle 3; the sensor bundle; facility one; Bundle 4. **Bundle 3 is not started. Nothing was deployed by this ruling.**
+---
+
+### R-2026-09-22-56 — the infrastructure review CLOSES; the Bundle 3 gate lifts; four of the review's own questions close with it unanswered and are named
+
+_Issued as R-PROVISIONAL-2026-09-22-AH. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-55. **Record-only under R-46: committed and pushed to the same holding branch as AE, AF and AG, no pull request; all four ride the Bundle 3 carrier.**_
+
+**A — THE INFRASTRUCTURE REVIEW IS CLOSED.** The founder ran it on 2026-09-22 and supplied the reads. Its scope is the seven bullets at `docs/handoff-2026-09-22-boundary-closed-on-hosted.md:40-47`; **every one is answered below**, and the mapping is written out so a reader can see that rather than take it on trust.
+
+**A1 — `supabase-proxy` / `api.openbed.ng`** (bullet 1, and bullet 7's GET check): **KEEP**, hardened in Bundle 3 — `R-2026-09-22-55`. Probes: **no key → 401**; with a key, **`/auth/v1/health` → 200**.
+
+**The no-key half was re-read here rather than relayed** (method note 2 as widened by `-23`). `GET https://api.openbed.ng/rest/v1/` → **401**, and `GET https://api.openbed.ng/auth/v1/health` → **401** with the body `{"message":"No API key found in request","hint":"No 'apikey' request header or url param was found."}`. **The body is the thing worth recording, not the status.** It is PostgREST's refusal, not Cloudflare's — so the read proves the Worker **reached the Supabase origin and forwarded**, where a bare 401 from the edge would have been satisfied by the Worker being broken in a way that happens to deny. That is note 23's "name the exact signal that means pass, never a negation" applied to this probe. **The keyed half is the founder's and was NOT re-run**: no publishable key was in hand, and `-23 D4` forbids exercising the hosted auth limits.
+
+**A2 — the stray `openbedng` Worker** (bullet 2): a default **"Hello World"**, created 2026-09-18, no routes. **DELETED by the founder, 2026-09-22.** **This closes `R-2026-09-20-27 D1`**, and it discharges that clause's stated worry directly — that the Worker might hold a route on the `openbed.ng` zone where it could intercept before the cutover. It cannot now hold one.
+
+**A3 — `openbed-ward-console`** (bullet 3): it has **no custom domain** (the founder, from the dashboard), and it **cannot be deployed through the wrapper**. Neither is new work: both are already `-54 A` item 2, the deploy guard and build stamp for every app.
+
+**A3b — one half of that bullet is NOT REPORTED, and is named rather than absorbed.** The 2026-09-21 handoff, which `docs/handoff-2026-09-22-boundary-closed-on-hosted.md:39` says the scope "carries over unchanged" from, asks for `openbed-ward-console`'s Pages status **and commit**. The status is answered above. **Which commit is deployed is not**, and it is the same question Finding D and Bundle 3 item 1 exist to answer. It rides Bundle 3; it is not closed here.
+
+**A4 — DNS** (bullets 4 and 5, DNS half):
+- **`mail.` and `ftp.` are gone** — no record.
+- **`app.` and `admin.` have no record, which is expected.** Bundle 3 creates them.
+- **`www.openbed.ng` was HTTP 522** — a proxied CNAME, not a Pages custom domain. The founder **added it as a custom domain on the public dashboard: now HTTP 200.**
+- **The apex control was HTTP 200 throughout**, which is what makes the `www` reading a finding about `www` rather than about the zone.
+- **A single `v=spf1` TXT on the apex.** The duplicate is no longer present.
+
+**All of A4 was re-read here and holds:** `mail.`, `ftp.`, `app.` and `admin.` return no record; `www.openbed.ng` and `openbed.ng` both return **HTTP 200**; the apex carries exactly one `v=spf1` record.
+
+**A4b — this discharges an open item the instruction did not claim.** `docs/handoff-2026-09-22-boundary-closed-on-hosted.md:121` carries *"SPF: two `v=spf1` records on the apex. Confirm the `+a +mx +include:re…` one is unused, delete it, and recheck DKIM in Proton."* **The first half is done**: the surviving record is Proton's, `v=spf1 include:_spf.protonmail.ch ~all`. **The second half is corroborated from DNS and NOT from Proton** — MX resolves to Proton, all three `protonmail*._domainkey` CNAMEs resolve, and `_dmarc` reads `v=DMARC1; p=quarantine`. Proton's own dashboard was not read, **so the item is recorded as discharged on the delete and corroborated on the recheck, not ticked on both.**
+
+**A5 — SSL/TLS** (bullet 5, SSL half): mode moved **Full → Full (strict)**, the founder, 2026-09-22. **Apex HTTP 200 after the change**, which is the half that matters: Full (strict) is the mode that starts failing closed if the origin certificate is not what it should be, so a 200 afterwards is the demonstration and not a formality.
+
+**A6 — `security@openbed.ng`** (bullet 6): the runbook §9 test account, **no `ward_account`**. **Kept.** Already recorded at `-55 D2`, where the "orphan auth user" reading the handoffs carry was corrected against `docs/runbook-supabase-project-creation.md` §9.
+
+**A7 — `public.rls_auto_enable()` and the event trigger `ensure_rls`** (bullet 5 of the list, the undeclared hosted pair). Recorded as the founder gave it, reasoning included:
+- **Its definition, read on hosted, enables RLS ONLY for tables created in schema `public`.** The scope is the finding; "an event trigger that enables RLS" without it would be a much larger claim.
+- **Hosted state:** the **4** `public` tables have RLS **on and forced**, **1 policy each, all from migrations**; the **16** `app` tables have RLS **off**, the same as local.
+- **THERE IS NO HOSTED/LOCAL RLS DRIFT TODAY.**
+- **`EXECUTE` granted to `PUBLIC` is INERT**: an `event_trigger` function cannot be called directly. **This retires the "PUBLIC EXECUTE" alarm** the two handoffs raised and `-55 D3` repeated as recorded-but-not-re-observed. It was a true reading of the grant and a wrong reading of its consequence.
+- **Recorded as undeclared hosted platform configuration. It is NOT dropped.**
+
+**A8 — a method finding, not in the review's scope but produced by it.** **The founder's Mac cannot run `dig`: port 53 is unreachable from it, even to `1.1.1.1`, so every lookup times out.** DNS was read by Cowork over **DNS-over-HTTPS** instead. **See `E1` and `E2`** — the remediation this finding asks for has no target in the runbook, and the claim is narrower than its wording.
+
+**A9 — WHAT CLOSES WITH THE REVIEW STILL UNANSWERED. Named, because a closure that absorbs its own open questions is the defect this record keeps finding one layer up.**
+
+Closing the review is the founder's to declare and is not in question. What it does **not** do is discharge `R-2026-09-19-23`'s remaining lettered items, which `-55 E` had already recorded as owed:
+
+- **`D2` — the NDPA sub-processor scope cell** in the processor-obligations table above. `-23 D2` said it is completed **from the review's findings and not written ahead of them**. The findings now exist, so it is completable — **and it is not completed here.**
+- **`D3` — the surface**: methods, the services reached, websocket upgrades, what `redirect: "manual"` exposes in `Location`, and CORS. A1's two probes are a liveness proof, not a surface inventory.
+- **`D4` — attribution**, which client address Supabase sees. `-23` calls it the sharpest item in the review.
+- **`D5` — availability**, which `-23` calls *"a worse outcome than anything in D4"* because it sits on the clinical path, and which **`-55 A2` made load-bearing**: making this hostname the only database address for every app is the decision to put a second dependency in front of every ward console.
+
+**Answered: `D1`** by A1 — the name is live — **and `D7`** by `-55`. **Split: `D6`** — the console route is Bundle 3 item 1, the rate-limit scope is `-55 B` item 1, the plan-cost question is `-55 C`.
+
+**The four above become open items with the trigger "before facility one"** (method note 22), not work, and not silently closed.
+
+**B — THE `R-2026-09-21-40 H` GATE IS LIFTED.** `-40 H` made the infrastructure review a gate on **Bundle 3**, not only on facility one, and said **Bundle 3's own kickoff is Cowork's, written after that review**. The review has run. **Bundle 3 may be kicked off, and its kickoff is Cowork's.** Nothing in Bundle 3 is started by this ruling.
+
+**C — BUNDLE 3 SCOPE ADDITION: the residual risk from A7, as the founder scoped it.**
+
+A compliance guard that **every `CREATE TABLE` in schema `public`, across `database/migrations`, is followed in the same file by both `ENABLE` and `FORCE ROW LEVEL SECURITY`.** Demonstrated failing half (method note 23): **a planted public table without them turns the guard red.**
+
+**The reason, recorded as given, because it is the whole point:** on hosted, `ensure_rls` would **silently enable RLS that local lacks**. The tests would then run against **a database looser than production**, and the omission would never surface. A7 says there is no drift today; this guard is what keeps that true, and it is aimed at the one direction A7's reading cannot cover — the next migration, not the current corpus.
+
+**Four constraints go in with it, because in this repository a guard that is not registered is a guard that does not run:**
+- it joins `scripts/lint_migrations_all.sh`'s `LINTS` array, or records a `RUN_ELSEWHERE` exemption naming where it does run — `tests/compliance/lint_migrations_all_complete.test.ts` enforces this;
+- its failure sites get entries in `packages/fixtures/leg-coverage.json`;
+- its test file needs a delta entry in the predict/attest pair;
+- and it carries a **NOT ASSERTED HERE** header line pointing at `tests/db/rls_enabled_everywhere.test.ts`, the live-catalogue check that is its **complement, not its duplicate** — the lint catches the statement in review, before it is ever applied, and the catalogue check only sees it afterwards.
+
+**One constraint that decides whether it can land at all: migrations 001-018 are FROZEN.** The guard must pass over the corpus exactly as it stands, because no file in it may be edited to satisfy a new rule.
+
+**D — THE ANSWER TO THE FOUNDER'S QUESTION C. The proof exists, and it is quoted rather than asserted.**
+
+The question: RLS is off on all 16 `app` tables, which is safe **only** while `anon` and `authenticated` cannot reach the `app` schema at all. Three claims, three answers:
+
+1. **No `USAGE` on schema `app`.** `tests/db/rls_anon_reachability.test.ts`, test *"anon holds no USAGE on the app schema at the grant level"*, asserts `has_schema_privilege(…, 'app', 'USAGE')` is **false for both `anon` and `authenticated`** — the test's name says only `anon`, its body covers both. Hosted equivalent: `docs/runbook-supabase-project-creation.md` step 6's catalogue half, recorded 2026-09-13, `anon` **f**, `authenticated` **f**, `service_role` **f**.
+2. **No privileges on `app`'s tables.** `tests/db/rls_enabled_everywhere.test.ts`, test *"no client role holds any grant on any table in app"*, enumerates `information_schema.table_privileges` for `anon`, `authenticated` **and `PUBLIC`**, **all** privilege types, and expects the empty list. Its anti-vacuity partner in the same file pins the 16 table names by identity, so it cannot pass by scanning an empty schema.
+3. **`app` is not in the exposed schemas.** `tests/db/config_drift.test.ts`, test *"the app schema is NOT in the PostgREST exposed-schemas list"*, over `supabase/config.toml`; and the behavioural half in `tests/db/rls_anon_reachability.test.ts`, *"the app schema is not exposed — asking for it is refused with PGRST106"*.
+
+**And the three gaps, because a quoted green that hides its own edges is exactly the shape this record keeps catching:**
+- **the USAGE test has no positive control.** Its sibling mirror-grant test in the same file has one; this one does not. **A misspelled privilege string would read as the boundary holding** — note 18's failure mode sitting inside the boundary suite.
+- **the hosted grant check is `anon` x `SELECT` only**, 16 tables, recorded 2026-09-13, against the local test's 16 tables x 3 grantees x every privilege type. Step 8's hosted probe says so itself: *"What this does NOT prove: the grant leg on hosted."*
+- **the hosted exposed-schemas list has no in-database representation** and is a runbook hand-reading **by design** — `.claude/rules/test-conventions.md` section 4, and `tests/db/config_drift.test.ts`'s own header.
+
+**Verdict: proved locally; partial on hosted.** Whether any of the three gaps joins Bundle 3 is Cowork's, as the question asked.
+
+**E — PREMISE CHECKS. Two of the instruction's failed, and one of mine did.**
+
+- **E1 — A8's remediation has no target, and this is the answer to what was asked.** The instruction says *"Any runbook step that uses `dig` must say this, or offer a DoH alternative. Report which steps use dig."* **No runbook step uses `dig`. None does.** `docs/runbook-supabase-project-creation.md` contains the string nowhere at all. Repo-wide, **measured before this ruling was written and stated as of that moment rather than as a live total** — this block and the README note it supersedes both add more — there were **nine** occurrences, **every one prose** referring back to the same 2026-09-19 lookup: `supabase-proxy/README.md`; `docs/handoff-2026-09-20-pages-direct-upload.md`; `docs/handoff-2026-09-21-deployed-and-reported.md`; and six in this record. **There is no executable `dig` anywhere in `scripts/`, `tests/`, CI or any runbook.**
+
+  **Where the assumption DOES bite, named instead of the runbook, and not edited** (the instruction says report, not fix): **this record's own line 2093**, which records `nslookup openbed.ng 1.1.1.1` as a passing check — a lookup **pinned to an explicit external resolver**, which is the exact form A8 describes failing; and `docs/handoff-2026-09-21-gate-lifted-018-in-flight.md:61`, *"the Mac now also uses 1.1.1.1"*.
+- **E2 — "every dig times out" is narrower than its wording, measured.** On the machine this ruling was written on: `dig` against the **system resolver works**; `dig … @1.1.1.1` **times out**; `dig … @8.8.8.8` **works**. That is a different machine from the founder's and **neither confirms nor refutes their read of theirs**. What it changes is the rule worth writing down: not *`dig` is unusable*, but **a lookup pinned to an explicit external resolver can fail closed on a network that blocks port 53 to that resolver** — which is precisely why E1's `nslookup … 1.1.1.1` is the live instance and the runbook is not.
+- **E3 — `-55`'s statement that `D1` is still open is SUPERSEDED by A1.** Read it with this note attached. `-55` is not rewritten (method note 8).
+- **E4 — A8 does NOT retroactively explain the 2026-09-19 contradiction, and it would have been tidy to let it.** Two recorded facts refuse it. `-20 B1` records that lookup as **the implementer's**, on a different machine from the founder's Mac. `-20 B3` records that **the same lookup returned results** — `openbed.ng`'s nameservers at Cloudflare and an apex `A` of `192.0.2.1`. **A lookup that returned records was not timing out.** The contradiction is settled by the name being live now, which is A1, and not by a broken resolver.
+- **E5 — MINE, and it belongs here for the same reason the others do.** Writing A4b I first read the `protonmail*._domainkey` selectors as **absent**, and was one step from recording a DKIM finding that does not exist. The cause: I asked for the **default record type** instead of `CNAME`, so a CNAME that resolves to no address returned empty — **a query that could not have returned the thing I concluded was missing.** A known-present control caught it. **This is note 18 and the standing confirm-absence-by-reading rule catching their own author**, on the same day E1 used the identical discipline on someone else's claim.
+
+**F — the queue:** **Bundle 3** — its kickoff is Cowork's, and it is next; the sensor bundle; facility one; Bundle 4. **Bundle 3 is not started. Nothing was deployed.**
 
 ## The provisional ledger
 
@@ -2839,6 +2936,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | AE | R-2026-09-22-53 | 2026-09-22 | The placeholder derives instead of being carried, on a finding from R-2026-09-22-52. **First ruling recorded on a pushed holding branch with no pull request** — record-only under R-46, rebasing onto Bundle 3. Its demonstration could not be met as specified, and the first check written for it was a tautology its own plant caught. |
 | AF | R-2026-09-22-54 | 2026-09-22 | Bundle 3's scope ruled by the founder and moved from a handoff line into the record; the sensors given their own bundle, sequenced before facility one; two deadlines pinned to the old meaning of "Bundle 3" re-pointed by note. Carries the remedy for a file my own `git add -A` swept into AE's commit. |
 | AG | R-2026-09-22-55 | 2026-09-22 | `api.openbed.ng` is KEPT — the proxy review's keep-or-remove answered against its own stated criterion, on portability, ISP-block resilience and a place for rate limits, with the caveat that none of the three reaches production until Bundle 3 points a tracked origin at it. Adds the allow-list, guard, stamp and four probes to Bundle 3; leaves the magic-link email host open with a trigger. One report-only read's reason refuted: six tracked files cite the `openbedng` Worker. |
+| AH | R-2026-09-22-56 | 2026-09-22 | The infrastructure review CLOSES on the founder's reads, every one of its seven scope bullets answered, and the `-40 H` gate on Bundle 3 lifts. Records that four of the review's own questions — the NDPA scope cell, the surface, attribution and availability — close with it unanswered and become open items rather than being absorbed. Adds the public-table RLS lint to Bundle 3. Two of the instruction's premises failed: no runbook step uses `dig` at all, and the resolver finding does not explain the 2026-09-19 contradiction. One of mine failed too, and is recorded. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -3035,6 +3133,29 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-22, R-2026-09-22-56 (issued as R-PROVISIONAL-2026-09-22-AH): the
+  **infrastructure review closes** on the founder's reads, with all seven of its
+  scope bullets answered — the proxy kept, the stray Hello World Worker deleted, the
+  ward-console Pages gaps folded into Bundle 3, `mail.` and `ftp.` gone and `www`
+  turned from a 522 into a Pages custom domain returning 200, SSL moved to Full
+  (strict), the §9 test account kept, and the undeclared hosted `ensure_rls` trigger
+  established as **no drift today** with its PUBLIC EXECUTE shown to be inert because
+  an event-trigger function cannot be called directly; **the `-40 H` gate on Bundle 3
+  lifts** and its kickoff is Cowork's; **four of the review's own questions close with
+  it unanswered** — the NDPA sub-processor scope, the surface, attribution and
+  availability — and are recorded as open items with a trigger rather than absorbed
+  into the closure; a lint requiring every `CREATE TABLE` in `public` to carry ENABLE
+  and FORCE RLS in the same file joins Bundle 3, because on hosted the event trigger
+  would otherwise enable silently what local lacks and the suite would run against a
+  database looser than production; the question whether anything proves `anon` and
+  `authenticated` cannot reach schema `app` is answered by quoting three existing
+  tests **and naming their three edges** — a missing positive control, a hosted grant
+  check covering one role and one privilege, and an exposed-schemas setting with no
+  in-database representation; and three premises are refuted, two from the instruction
+  and one my own — **no runbook step uses `dig` anywhere**, the resolver finding does
+  not explain the 2026-09-19 contradiction because that lookup returned records and
+  was run on another machine, and a DKIM absence I nearly recorded was a query that
+  could not have returned what I concluded was missing;
 - on 2026-09-22, R-2026-09-22-55 (issued as R-PROVISIONAL-2026-09-22-AG): the proxy
   review's keep-or-remove question is answered **KEEP**, against the criterion that
   ruling stated before it ran — portability of the client builds away from the

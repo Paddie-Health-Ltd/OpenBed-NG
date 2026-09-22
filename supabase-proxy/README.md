@@ -23,8 +23,8 @@ forwards every path and method, until that allow-list lands.
 
 **One thing the KEEP does not buy yet**, recorded so this file does not overclaim
 it: none of the three properties above reaches production until a tracked origin
-points the apps at this hostname. See `-55 A2`, and the UNVERIFIED note at the
-foot of this file, which is still open.
+points the apps at this hostname. See `-55 A2`. **The separate question of whether
+the name is live at all is now ANSWERED** — see the note at the foot of this file.
 
 ---
 
@@ -53,7 +53,22 @@ Supabase project origin. It holds no credential: it passes through whatever the
 caller sends. It grants no new authorization — and it changes both the surface and
 the attribution, which is what the review exists to examine.
 
-## The founder's note, recorded verbatim and UNVERIFIED
+## The founder's note, recorded verbatim — its UNVERIFIED half is now ANSWERED
+
+**SUPERSEDED 2026-09-22 by `R-2026-09-22-56 A1`, on the infrastructure review's
+reads.** `api.openbed.ng` **is live**: with no key a `GET` returns **401**, and
+with a key `/auth/v1/health` returns **200**. The 401 body is PostgREST's *"No API
+key found in request"*, not Cloudflare's, which is what shows the Worker reached
+the Supabase origin and forwarded rather than denying at the edge. **The recorded
+contradiction between the note below and the 2026-09-19 `dig` is settled, on the
+name being live now** — and `-56 E4` records that it is NOT explained by the
+resolver failure found the same day, because that lookup ran on another machine
+and returned records.
+
+**The block below is kept as the state before that read, not deleted.** One thing
+in it is still true and still open: **Finding D**, that nothing tracked sets the
+console's origin, so no file here can say what production talks to. That is Bundle
+3 item 1.
 
 This text was written by the founder on 2026-09-19 and appended to the decision
 record. It is kept here, beside the thing it describes, rather than in the record's
