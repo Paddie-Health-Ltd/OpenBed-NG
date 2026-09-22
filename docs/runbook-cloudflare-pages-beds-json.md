@@ -883,9 +883,18 @@ case where what is running was never reviewed, because the commit will not be an
 ancestor of `main`.
 
 **USE THE WRAPPER, and what it does not do.** `bash scripts/deploy_pages.sh --branch
-<production branch>` refuses a dirty tree, refuses a `HEAD` that is not an ancestor
-of `origin/main`, builds (which stamps the artifact), uploads, and then prints all
-four clauses for this report. **It is local and defeatable** — running wrangler by
+<production branch> <app>` refuses a dirty tree, refuses a `HEAD` that is not an
+ancestor of `origin/main`, builds (which stamps the artifact), **reads the stamp back
+and refuses to upload unless it names the commit just verified, clean**, uploads, and
+then prints all four clauses for this report.
+
+**THE APP ARGUMENT IS REQUIRED and is never defaulted** (R-2026-09-22-57 B). For the
+public dashboard the invocation is `bash scripts/deploy_pages.sh --branch main
+public-dashboard`. A name the wrapper does not recognise is refused rather than
+falling back to another app — a typo that deployed a different site would be the
+accident this wrapper exists to remove. The deployable apps are the directories under
+`apps/` carrying a `wrangler.toml`, and the Pages project name comes from that file,
+so the wrapper and Cloudflare read the same source. **It is local and defeatable** — running wrangler by
 hand bypasses it entirely — so it removes the accident, not the deliberate act, and
 it still cannot see what Cloudflare serves afterwards. That is what clause 4's
 reading is for.
