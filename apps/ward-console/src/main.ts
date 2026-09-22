@@ -1,5 +1,6 @@
 import { SessionExpiredError, SessionHolder, sessionFromUrlFragment } from '@openbed/auth';
 import { apiOrigin } from '@openbed/origins';
+import { publishableKeyFor } from '@openbed/origins/keys';
 
 /**
  * THE WARD CONSOLE. Sign in with a magic link, see the wards at this account's
@@ -63,16 +64,24 @@ import { apiOrigin } from '@openbed/origins';
  * the console is being served on -- so a build carries every environment's origin
  * and none of them depends on who ran the build or what they had set.
  *
- * THE KEY IS DELIBERATELY STILL AN ENVIRONMENT VARIABLE, and the asymmetry is the
- * point rather than an inconsistency. An origin has no lifecycle independent of
- * this repository; a credential does. `docs/runbook-key-rotation.md` makes
- * `scripts/get_publishable_key.sh` the one sanctioned way to obtain this key, after
- * a 2026-09-09 incident, and tracking it would make the repository the place a
- * STALE key lives -- a dead key that authenticates nothing while every probe reads
- * as though the boundary held. `.env.example` names it; it never holds its value.
+ * THE KEY IS TRACKED TOO, SINCE R-2026-09-22-61, AND THIS PARAGRAPH USED TO SAY THE
+ * OPPOSITE. It argued the key must stay an environment variable because a credential
+ * has a lifecycle the repository does not, and that tracking it would make this
+ * repository the place a STALE key lives -- a dead key authenticating nothing while
+ * every probe reads as though the boundary held. **That objection was answered, not
+ * overruled:** `docs/runbook-key-rotation.md` now moves this one tracked line in the
+ * same change as a rotation, which is what keeps a tracked key from going stale.
+ * What tracking buys is that THE STAMPED COMMIT FULLY DETERMINES THE BUNDLE.
+ *
+ * SO THIS FILE READS NO ENVIRONMENT AT ALL, and that is the whole point rather than
+ * a tidy side effect (R-2026-09-22-60). Vite inlines the WHOLE `import.meta.env`
+ * record for a bracket access, so the single read that used to be here dragged every
+ * VITE_ name from an untracked .env.local into the shipped bundle -- including one
+ * that nothing read any more. With no read at all, Vite's define never fires and the
+ * output cannot vary with a file or with a shell.
  */
 const API_URL = apiOrigin(window.location.hostname);
-const PUBLISHABLE_KEY = import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY'] as string | undefined;
+const PUBLISHABLE_KEY = publishableKeyFor(window.location.hostname);
 
 const root = document.querySelector<HTMLDivElement>('#app');
 
@@ -314,18 +323,13 @@ function renderHandover(holder: SessionHolder, email: string | null, wards: Ward
 }
 
 async function main(): Promise<void> {
-  // A MISSING KEY IS A STOP CONDITION, NOT A VALUE TO WORK AROUND. Vite replaces
-  // an unset import.meta.env read with `undefined` at build time, so a console
-  // built without these would otherwise send `Bearer undefined` and report an
-  // auth failure that has nothing to do with auth. `scripts/get_publishable_key.sh`
-  // learned the same lesson the hard way with a fallback to a dead key.
-  if (PUBLISHABLE_KEY === undefined) {
-    show(
-      'Not configured',
-      'This build has no VITE_SUPABASE_PUBLISHABLE_KEY. It was built without it and cannot sign anyone in.',
-    );
-    return;
-  }
+  // THE 'NOT CONFIGURED' SCREEN IS GONE, and its absence is the improvement rather
+  // than a loss. It existed because Vite replaces an unset import.meta.env read with
+  // `undefined`, so a console built without the variable would have sent
+  // `Bearer undefined` and reported an auth failure that had nothing to do with
+  // auth. Both values are now compiled in from tracked files, so a build CANNOT
+  // lack them -- the stop condition has no state left to detect.
+
 
   let session;
   try {

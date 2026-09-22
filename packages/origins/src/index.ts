@@ -24,6 +24,11 @@ import ORIGINS from '../origins.json';
  * NOT ASSERTED HERE, deliberately (method note 12):
  *   - that the origins are REACHABLE. Nothing in a pure function can establish that
  *     a hostname resolves or that a project is up; the runbook's probes do that.
+ *   - THE PUBLISHABLE KEY. It lives in the sibling module ./keys.js, and this file
+ *     deliberately does not import it. packages/snapshot/src/serve.ts imports THIS
+ *     module, and a Pages Function has no business carrying a browser's key: when
+ *     the two shared one file, the built Function bundle inlined the key and the
+ *     secret scan said so. Observed, not predicted.
  *   - that supabase-proxy/ forwards to the same project. It builds its origin from
  *     its own tracked project id, which is a second derivation site; the two are
  *     bound by an assertion in the tracked-origins guard, not by this file.
