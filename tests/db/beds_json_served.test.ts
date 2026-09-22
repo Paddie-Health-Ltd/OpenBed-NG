@@ -245,7 +245,26 @@ describe('GET /beds.json — the explicit edge cache', () => {
     };
   }
 
-  const request = (method = 'GET'): Request => new Request('https://openbed.example/beds.json', { method });
+  /**
+   * THE REQUEST THESE LEGS ARE SERVED, AND ITS HOST IS LOAD-BEARING (R-2026-09-22-59 E).
+   *
+   * It used to be `https://openbed.example/beds.json`, an unroutable example host,
+   * which was harmless while the Function's upstream origin came from the `env`
+   * object these tests construct. **It stops being harmless the moment the origin
+   * is selected from this URL's hostname.** Two legs below —
+   * *"with no cache available the Function still serves"* and *"no cache in this
+   * environment is marked `unavailable`"* — pass no stubbed fetch, so they use the
+   * real global one. With a non-local host they would address the LIVE hosted
+   * project, authenticating with the local demo service-role key, and both would
+   * still assert a 200 and a header. **Nothing in the suite would have said so.**
+   *
+   * So the host is local, and `tests/compliance/tracked_origins.test.ts` asserts
+   * that by reading THIS line rather than restating it. Changed here, in its own
+   * commit, BEFORE the origin moved — the window in which this is wrong is a window
+   * in which the tests still pass.
+   */
+  const REQUEST_URL = 'http://127.0.0.1:8788/beds.json';
+  const request = (method = 'GET'): Request => new Request(REQUEST_URL, { method });
 
   /**
    * Capture console.error for a leg. The degradation R-2026-09-20-33 B5 describes
@@ -308,7 +327,7 @@ describe('GET /beds.json — the explicit edge cache', () => {
     const origin = scripted([async () => json(200, [stored])]);
     await serveBedsCached({ env: serviceEnv(), request: request('HEAD') }, cache, origin.fetchImpl);
     expect(cache.keys, 'a non-GET key reached cache.put, which the Cache API refuses').toEqual([
-      'GET https://openbed.example/beds.json',
+      `GET ${REQUEST_URL}`,
     ]);
   });
 
