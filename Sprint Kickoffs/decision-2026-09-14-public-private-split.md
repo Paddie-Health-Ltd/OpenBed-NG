@@ -2674,6 +2674,66 @@ Aiming the plant at 17 would have satisfied the ruling's letter **by luck** and 
 **F — NOT VERIFIED BY ME.** The Cowork handoff document for 2026-09-22 — named docs/handoff-2026-09-22-boundary-closed-on-hosted.md, **cited without backticks deliberately, because it does not exist here and a backticked path would be the Clause 4 phantom `tests/compliance/no_phantom_paths.test.ts` caught in the first draft of this very clause** — is cited for the infrastructure review gating Bundle 3. **It is not in this repository and its contents were not pasted**, so its item 2 is unread. **The conclusion it is cited for holds independently**, at `-40 H`.
 
 **G — the queue:** unchanged. The infrastructure review; then Bundle 3, which carries this branch and the Cowork handoff document; then facility one; then Bundle 4. **Bundle 3 is not started.**
+---
+
+### R-2026-09-22-54 — Bundle 3's scope ruled; the sensors given a carrier; a stray commit remedied
+
+_Issued as R-PROVISIONAL-2026-09-22-AF. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-53. **Record-only under R-46: committed and pushed to the same holding branch as AE, no pull request; both ride the Bundle 3 carrier.** Resolves `-53 E4`._
+
+**A — BUNDLE 3'S SCOPE, RULED BY THE FOUNDER 2026-09-22.** It is the operator path to facility one (`-40 H`):
+
+1. **Tracked origins for every app** (Finding D).
+2. **A deploy guard and build stamp for every app.**
+3. **`admin.openbed.ng` v1:** operator sign-in; create and edit facilities and categories; ward logins provisioned **server-side** for each category; a facility list showing each category's freshness, **shown to operators only and never used as a filter**.
+4. **The publish-screen fixes.**
+
+**A2 — AND THIS RULING IS NOW THE SOURCE, which is the half that matters.** Until today that scope was sourced **only** from `docs/handoff-2026-09-21-gate-lifted-018-in-flight.md:42`, which attributed it to ruling Z; `-53 E2` established that **the recorded Z enumerates none of it**. A scope living in a handoff and credited to a ruling that does not carry it is the shape `-40 A1` was written about — a gate paraphrased from a handoff. **From now on the source is this block.** The handoff is **not edited**: handoffs stay as committed (method note 8), and the line is superseded as a SOURCE rather than corrected in place.
+
+**B — THE SENSORS GET THEIR OWN BUNDLE, "the sensor bundle", sequenced AFTER Bundle 3 and BEFORE facility one.**
+
+Scope: the A1 kickoff's `### Bundle 3: The sensors` section, lines 341-397, **carried over as written** — `/api/health`; `/status`, token-gated; the external sensor that does not share pg_cron's failure mode; and the seven enumeration items **#28, #30, #87, #88, #89, #92, #107**.
+
+**The founder's reason, recorded as given:** *once a facility is live, a dead scheduler means stale beds shown to ambulances. That failure must raise an alarm before any facility depends on it.*
+
+**This closes the orphaning `-53 E3` reported.** The sensors were never descoped by any ruling; they were displaced when the name "Bundle 3" was re-pointed by `-40 H`, and the seven items the kickoff says *"close together or not at all"* had no carrier. They have one.
+
+**Queue, replacing every earlier statement of it:** the infrastructure review; **Bundle 3**; **the sensor bundle**; facility one; Bundle 4.
+
+**C — THE TWO ORPHANED DEADLINES, RE-POINTED BY NOTE. Neither source is rewritten.**
+
+- **`R-2026-09-17-12 G`** made the Pages scheduled-handler / cron-trigger check due *"before Bundle 3 is scoped"*. It was written when Bundle 3 meant the sensors. **It is now due before THE SENSOR BUNDLE is scoped.** `-12` stands as written.
+- **Method note 14** cites *"Bundle 3's cron triggers"* as a worked instance of proposed-not-verified. **That phrase means the A1 kickoff's Bundle 3, i.e. the sensor bundle.** The note stands as written.
+
+**D — THE STRAY FILE IN `38440e7`, AND THE THREE FINDINGS IN IT. Recorded without softening.**
+
+**D1 — MINE. The AE commit added a file, and its report said it had not.** `38440e7` carries four paths; three were intended and one was not:
+
+```
+A  Claude outputs/handoff-2026-09-22-boundary-closed-on-hosted.md   <- UNINTENDED
+M  Sprint Kickoffs/decision-2026-09-14-public-private-split.md
+M  docs/runbook-supabase-project-creation.md
+M  tests/compliance/frozen_migrations.test.ts
+```
+
+The report given to the founder said *"the AE commit touched this record only by appending its own ruling, ledger row and changelog entry"*. **126 lines of a document I had never read went in with it**, unmentioned in the commit message. **The cause was `git add -A`**, used twice — once to create `c386802` and again in the `--amend` that produced `38440e7`. `-A` stages the working tree, and **the working tree is not the set of paths a report describes.**
+
+**D2 — MINE, AND WORSE, because it is a false fact inside the record.** `-53 F` states the handoff *"is not in this repository and its contents were not pasted"*. **The same commit that recorded that sentence committed the document.** The path `-53 F` names — `docs/…` — was genuinely absent, so the sentence is narrowly true and its plain meaning is false. **See E below.**
+
+**D3 — COWORK'S.** The file was written into the working tree at **12:16:44** by a Cowork session, at `Claude outputs/`, after its own line 3 says *"This file is not in the repo. … **Don't leave it untracked in the repo:** any untracked file makes `scripts/deploy_pages.sh` refuse to deploy."* **It wrote into the repository the file it had just said it was keeping out**, and the warning it gave is the mechanism its own action would have tripped. Recorded as Cowork's error, as the founder directed.
+
+**D4 — WHAT THE CHECKS ACTUALLY SAID, because the clean one is the interesting one.** `git status --porcelain --untracked-files=all` was **empty** — not because the file was absent but because it was committed. `git check-ignore -v` exited 1: matched by no ignore rule. `core.excludesfile` is unset. **`scripts/deploy_pages.sh` would NOT have refused** (line 72 reads `git status --porcelain`, which was clean). **A clean status concealed the defect rather than reporting it**, which is this repository's recurring shape — a check reporting success for a reason unrelated to what it guards — arriving in the reporting rather than in a guard.
+
+**D5 — THE REMEDY, the founder's choice.** `git mv` into `docs/`, content **byte for byte unedited** (sha256 `50a6e0a4…` before and after, staged as `R100`), the empty directory removed. **No amend and no force-push: `38440e72…` stays valid**, and history keeps one commit that carried the file, named here.
+
+**D6 — THE FIX FOR THE CAUSE, not the instance.** Staging is by **named paths only** from here, and `git diff --cached --name-status` is read and compared against the paths the report will claim **before** each commit. **A mechanical check is feasible and narrow:** a guard asserting the set of tracked TOP-LEVEL entries by identity, in the `tests/db/config_drift.test.ts` idiom, would have reddened on `Claude outputs/`. Its limits belong in its header — it catches a new top-level directory and **not** a stray file inside an existing one, and an allowlist at finer grain would refuse every legitimate new file, which is test-conventions' fifth way a leg goes wrong. **Reported, not built**, on the founder's instruction.
+
+**E — `-53 F` IS CORRECTED HERE AND NOT REWRITTEN** (method note 8). Read `-53 F` with this note attached: **the document WAS in the repository when that clause was written** — at `Claude outputs/handoff-2026-09-22-boundary-closed-on-hosted.md`, committed by the same commit — and it is now at `docs/handoff-2026-09-22-boundary-closed-on-hosted.md`. What remains true of `-53 F` is the part that mattered to it: **its contents were not read, so its item 2 was unverified**, and the conclusion it was cited for holds independently at `-40 H`.
+
+**F — THE CARRIER SCOPE, UPDATED.** The Bundle 3 pull request carries: the **AE and AF rebase**; and the **supersession mark** on the A1 kickoff's `### Bundle 3: The sensors`, pointing at this ruling and naming the sensor bundle as where that section now lives. **The handoff is no longer owed to it** — it is in `docs/` on this branch already.
+
+**Listed in that pull request's body and deliberately NOT fixed in the file:** the handoff's line 3, *"This file is not in the repo"*, and its line 50, *"Its scope is fixed by ruling Z"* — the claim `-53 E2` found false, repeated.
+
+**G — the queue:** the infrastructure review; Bundle 3; the sensor bundle; facility one; Bundle 4. **Bundle 3 is not started. The sensor bundle is not started.**
 
 ## The provisional ledger
 
@@ -2719,6 +2779,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | AD | R-2026-09-21-51 | 2026-09-21 | The founder's review of #62: five defects, two blocking, all mine. The restatement had repeated the defect it was fixing — a fifth expectation site, the stop condition, left contradicting the other four. |
 | — (none issued) | R-2026-09-22-52 | 2026-09-22 | **No provisional letter.** The founder's own hosted apply of 018, quoted in full, with the instruction to write the apply record. The accumulation boundary closed at 05:40:40 UTC. First ruling dated 2026-09-22. |
 | AE | R-2026-09-22-53 | 2026-09-22 | The placeholder derives instead of being carried, on a finding from R-2026-09-22-52. **First ruling recorded on a pushed holding branch with no pull request** — record-only under R-46, rebasing onto Bundle 3. Its demonstration could not be met as specified, and the first check written for it was a tautology its own plant caught. |
+| AF | R-2026-09-22-54 | 2026-09-22 | Bundle 3's scope ruled by the founder and moved from a handoff line into the record; the sensors given their own bundle, sequenced before facility one; two deadlines pinned to the old meaning of "Bundle 3" re-pointed by note. Carries the remedy for a file my own `git add -A` swept into AE's commit. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -2915,6 +2976,20 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-22, R-2026-09-22-54 (issued as R-PROVISIONAL-2026-09-22-AF): Bundle 3's
+  scope is ruled by the founder and **moved out of a handoff line into the record**,
+  where it had been attributed to a ruling that did not carry it; the sensors, which
+  no ruling had ever descoped and which lost their carrier when the name "Bundle 3"
+  was re-pointed, are given their own bundle sequenced **before facility one**,
+  because a dead scheduler after onboarding means stale beds shown to ambulances;
+  the Pages cron-trigger check and method note 14, both pinned to the old meaning of
+  the name, are re-pointed by note rather than by rewriting their sources; and a
+  Cowork handoff document that my own `git add -A` swept into the AE commit
+  unnoticed and unread is moved into `docs/` byte for byte, with the three findings
+  recorded unsoftened — a commit whose report said it touched only the record, a
+  clause in that same commit stating the document was not in the repository while
+  the commit carried it, and a Cowork session writing into the tree the file its own
+  text said it was keeping out;
 - on 2026-09-22, R-2026-09-22-53 (issued as R-PROVISIONAL-2026-09-22-AE): the
   frozen-migrations placeholder derives its number from the recorded boundary
   instead of being moved by hand, so a hand-carried step whose stated mechanism had
