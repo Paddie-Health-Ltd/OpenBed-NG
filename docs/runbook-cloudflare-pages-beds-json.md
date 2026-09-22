@@ -7,12 +7,17 @@ deliberately). Bundle 1 merges with these seven steps open. **Bundle 2 — migra
 (R-2026-09-17-11 C): the ordering exists so there is never an interval with no
 public read path, and merging code does not open one.
 
-**STATUS, 2026-09-21: that gate is DISCHARGED.** Steps 5, 5b and 6 were run and
-quoted on deployment `76fe917`, all four EVIDENCE observations passed
-(R-2026-09-21-47), and **migration 018 is written and merged**. It is NOT yet
-applied to the hosted project — that is step 5 of
-`docs/runbook-supabase-project-creation.md`, and it is where the boundary actually
-closes.
+**STATUS, 2026-09-22: the gate is DISCHARGED AND THE BOUNDARY IS CLOSED.** Steps 5,
+5b and 6 were run and quoted on deployment `76fe917`, all four EVIDENCE observations
+passed (R-2026-09-21-47), migration 018 was written and merged, and **it was applied
+to the hosted project on 2026-09-22 at 05:40:40 UTC** (R-2026-09-22-52). Step 5 of
+`docs/runbook-supabase-project-creation.md` carries the pre-apply reading, the apply
+and the read-back.
+
+*Restated 2026-09-22 (R-2026-09-22-52), under the restate rule below.* Until then
+this paragraph read *"**migration 018 is written and merged**. It is NOT yet applied
+to the hosted project — that is step 5 of the Supabase runbook, and it is where the
+boundary actually closes."* It closed exactly there.
 
 **THE RESTATE RULE APPLIES TO THIS FILE TOO** (R-2026-09-21-50): every section here
 that states an expected hosted state a migration can change is restated in the
@@ -526,14 +531,20 @@ over-trusted (method note 12):**
    zone; it is a different origin entirely. **Since migration 018 there is nothing
    on that websocket to see for these tables** — 018 removes all three mirrors from
    the `supabase_realtime` publication, so an anonymous subscriber receives no
-   events from them. The caveat is kept because it is true of the RULE, and
-   because a table published again later would restore the exposure silently.
+   events from them. **MEASURED on hosted 2026-09-22 after the apply**
+   (R-2026-09-22-52): the publication exists and is empty, `(0 rows)`. Until that
+   apply this sentence was true of the repository and not of the database. The
+   caveat is kept because it is true of the RULE, and because a table published
+   again later would restore the exposure silently.
 3. Its counters are **per Cloudflare location, not global**.
 4. It **does not bound accumulation**: paging within the limit still yields a
    series over time. **The boundary is Bundle 2's revoke. This is a throttle.**
-   *(018 is merged; the revoke takes effect on the HOSTED APPLY, not on the merge.
-   Until that apply is recorded in the Supabase runbook, the boundary is not in
-   force and this line still describes an unmet condition.)*
+   *(Restated 2026-09-22, R-2026-09-22-52: **that revoke is now in force on
+   hosted**, applied 2026-09-22 05:40:40 UTC. Until then this note read "018 is
+   merged; the revoke takes effect on the HOSTED APPLY, not on the merge. Until
+   that apply is recorded in the Supabase runbook, the boundary is not in force and
+   this line still describes an unmet condition." The condition is met. **The rule
+   is still a throttle and still bounds nothing** — that half was never about 018.)*
 5. **A 10-second window cannot address accumulation at all** (R-2026-09-19-22 C2). A
    client polling every 30 seconds, the cadence `pollCadenceSeconds` itself
    advertises, makes at most one request per window, so it never trips the rule at

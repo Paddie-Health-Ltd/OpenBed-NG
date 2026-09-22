@@ -2550,6 +2550,81 @@ The query now takes the apply time as an input **read in the same block** — fi
 
 **F — the queue:** unchanged from `-50 I`. Merge on the founder's word; then the founder runs block B, the apply, and block E, and pastes all three; then a separate small change records the apply. **Nothing here records it.**
 
+---
+
+### R-2026-09-22-52 — 018 is applied; the accumulation boundary CLOSED on hosted at 2026-09-22 05:40:40 UTC
+
+_A direct founder instruction with no provisional letter, issued on the founder's own hosted apply of migration 018 and quoting the full terminal output of it. Number assigned on landing from the record's last as read on this branch: R-2026-09-21-51._
+
+**A — WHAT HAPPENED, AND IT IS THE POINT OF SPRINT A1.** The founder applied `018_close_mirror_read_and_push_surfaces.sql` to `klrlpxysjsjpdkeqdhvl` on **2026-09-22 at 05:40:40 UTC**, having taken step 5's block B first and block E after. **The accumulation boundary closed at that timestamp** — not at #61's merge, which added the migration, and not at #62's, which made the runbook able to describe it.
+
+**From that moment the history-is-private commitment is available to a facility agreement**, subject to exactly one condition: the use rule on `018_close_mirror_read_and_push_surfaces.down.sql`. That reversal is applied to hosted only under a founder ruling naming the reason, and **while it is applied the commitment is false and no agreement may carry it.** Nothing enforces that and nothing can — the rule is in the down file's own header and in step 5, so it is met from either direction.
+
+**A2 — THE READINGS, all the founder's, all pasted, none paraphrased into this record.**
+
+| | before, block B | after, block E / sections 6 and 10 |
+|---|---|---|
+| mirror reads, publishable key | `HTTP 200` × 3 | `HTTP 401`, body `"code":"42501"`, × 3 — and the writes the same |
+| `supabase_realtime` | `facility_public, lga_rollup, ward_public` | `(0 rows)`; `publication_exists t`, `publication_empty t` |
+| `anon`/`authenticated` SELECT on the mirrors | held | `can_select f` on all six rows |
+| ledger / pending | `17` / `1 migration(s) pending.` | `18` / `0 migration(s) pending.` |
+
+**Each half is the other's demonstrated failing half** (method note 23), taken on one project minutes apart. That is what block B was added for in #62, and this is the first apply where it existed to be taken.
+
+**A3 — THE ITEM THAT WOULD HAVE CAUGHT A REAL MISTAKE DID ITS JOB.** 018 was written on the reasoning that every writer of the mirrors is a `SECURITY DEFINER` function and so is untouched by a revoke on `anon` and `authenticated`. **That was an argument until a job ran.** After the apply: `openbed_refresh_lga_rollup` 3 succeeded / 0 failed / 0 in flight, `openbed_regenerate_snapshot` 16 succeeded / 0 failed / 0 in flight, and `snapshot_current` holding 1440 rows. The premise is confirmed live. **And `/beds.json` returned `HTTP/2 200` with `76fe917` unchanged** — 018 is invisible from outside, which was the claim.
+
+**B — THE FROZEN BOUNDARY.** `node scripts/freeze_applied_migrations.mjs 18 2026-09-22 R-2026-09-22-52`, run with the ledger count read hosted in that session. 18 migrations, `001_app_schema_and_migration_ledger.sql` first, `018_close_mirror_read_and_push_surfaces.sql` last. The placeholder in `tests/compliance/frozen_migrations.test.ts` moved from 018 to 019 in the same change.
+
+**B2 — AND THE INSTRUCTION TO MOVE IT CITED A MECHANISM THAT STOPPED REACHING ON THE DAY IT WAS LAST CARRIED OUT.** Step 5 said: *"A placeholder named after the migration just recorded is an edit to a frozen file, and the test reds (observed 2026-09-17, when 017 was recorded)."* **True on 2026-09-17, false from the moment it was acted on.** The 2026-09-17 red was `frozen migration 017_snapshot_schedule.sql CHANGED`, and it fired because the placeholder was then literally named after a real frozen migration and overwrote the scratch copy of it. **The fix that day renamed it to the distinct `NNN_placeholder.sql` form — and that same fix removed the mechanism the sentence cites.**
+
+MEASURED 2026-09-22, three runs against the boundary at 18, because an absence is confirmed by reading and not by assuming:
+
+| placeholder name | result |
+|---|---|
+| `018_placeholder.sql` (the stale one) | **7 of 7 pass** — no red at all |
+| `018_aaa_placeholder.sql` | reds on the contiguous-prefix leg; it sorts BEFORE the real 018 file |
+| `018_close_mirror_read_and_push_surfaces.sql` | reds with `CHANGED`, reproducing 2026-09-17 exactly |
+
+**So the move is now hygiene — it keeps a test's name and docstring honest — and nothing would have caught it being skipped.** Clause 5: a mechanism present and not reaching. Corrected in step 5 rather than deleted, with the measurement beside it. **OPEN ITEM:** the root fix is for that leg to DERIVE its placeholder number from `database/migrations/applied-hosted.json`, which retires the manual move altogether. **Trigger: the founder's word, or the next apply, whichever comes first.** Not done here — the founder's instruction was to move it, and replacing an instruction with a better one is the founder's call, not the implementer's.
+
+**C — THE RESTATE RULE APPLIED TO THIS CHANGE, which is the first time it has been applied by the change the rule actually asks for** rather than by a change catching up afterwards. Nine sites across both runbooks, each restated in its own section's history form:
+
+| section | what changed |
+|---|---|
+| §5 prose bullet | 001–017 + one `WOULD APPLY` → 001–018, none, `0 migration(s) pending.` |
+| §5 STOP bullet | stop on any count ≠ 1 → stop on ANY `WOULD APPLY` line, or any count ≠ 0 |
+| §5 fenced expected output | the pre-apply fence → the post-apply fence, with 2026-09-22's kept below as a dated run |
+| §5 ledger expectation | 17/1 → 18/0, with the 2026-09-22 observation added |
+| §5 "next apply is 018" | OWED → **CLOSED at 05:40:40 UTC**, with the commitment's availability stated |
+| §5 freeze invocation | count 18 → 19, and the 18 invocation recorded |
+| §6 | an expectation derived LOCALLY → a hosted reading, with the results table |
+| §7 | "Hosted holds 001 through 017. 018 is merged and NOT applied" → 001 through 018 |
+| §10 | an expectation → a hosted reading, `(0 rows)` |
+
+**Plus three in `docs/runbook-cloudflare-pages-beds-json.md`:** the status paragraph, the rate-limit rule's scope item 4 (*"the boundary is not in force and this line still describes an unmet condition"* — it is now met), and scope item 2's websocket claim, which was true of the repository and is now true of the database. **Swept for others; there are none.**
+
+**C2 — THE GUARD GETS WEAKER AT ZERO PENDING, AND IS TOLD SO RATHER THAN LEFT TO DRIFT.** With hosted and the repository both at 018, `expectedWouldApply` and `fencedWouldApply` correctly return `[]` — **and an empty return because nothing is pending is byte-identical to an empty return because the regex died.** The three COUNTS must now parse to `0` and never `null` (a zero is proof of a parse; an empty list is not), and a new leg plants a migration name into the real runbook text and asserts both filename parsers find it. A second new leg guards a hazard this change's own history form creates: the 2026-09-22 dry run is kept as a DATED fence directly below the current one and holds exactly the strings a slipped regex would read as live.
+
+**C3 — AND THE GUARD'S OWN STOP-BULLET PARSER WAS WRONG IN THE SAME FAMILY AS `-51 E`'s `\Z`.** It read to the next TOP-LEVEL bullet and took the first backticked count anywhere inside, with a header comment asserting that the indented restatement notes beneath *"carry no backticked count of their own"*. **That was a property of the corpus on the day it was written, not of the parser.** The very next restatement — this one — quoted the superseded count in backticks, as every other restatement note in the document does, and the parser silently read the HISTORY as the live stop condition: a plant that emptied the bullet came back with `1` instead of `null`. **The leg asserting the plant landed is what caught it**, on the first run. The span now stops at the first indented sub-bullet.
+
+**D — THE FOUNDER-PATH FINDING: step P was omitted from Cowork's walkthrough of this apply.** The founder hit `zsh: command not found: psql` **twice** before any database was read. **Nothing reached the database** — psql never ran — so this is friction, not a safety event, and it is recorded as friction.
+
+**D2 — THE PREMISES THE FOUNDER STATED WITH IT, CHECKED BEFORE ACTING** (method note 17):
+
+- *"the key block already carries its own guard"* — **HOLDS.** Block B carries §6's `case sb_publishable_?*` arm verbatim, since `-51 B`.
+- *"B is now the first step that uses psql"* — **PARTLY.** First in the EXECUTED order of the 018 sequence, because the "next apply is 018" block puts B ahead of §5's dry run. **Not in document order**: §4b's condition check and §5's pg_cron block both come earlier.
+- *"I expect more than 15"* — **16 governed blocks**, of which step P already carried the line, so **15 gained it**.
+
+**D3 — THE FINDING IS WIDER THAN BLOCK B, AND THAT IS WHY THE FIX IS.** `scripts/run_migrations.sh` carries a named stop condition for a missing `psql` — `ERROR: psql not on PATH. Install postgresql-client, or set OPENBED_PSQL.`, exit 2. **None of the direct `psql` blocks had one.** The block that failed rawly is precisely the one that bypasses the runner. A pointer on block B would have fixed one of sixteen.
+
+**D4 — THE FOUNDER'S RULING, and it is better than what was proposed.** Not a prose pointer: **each governed block carries step P's `export PATH` line as its own first line**, which is the rule this document already applies to credentials — *each block reads what it needs itself rather than inheriting it from an earlier step* — extended to the other thing a pasted block inherits from its shell. Step P keeps the version check and the reason. `tests/compliance/runbook_psql_path.test.ts` (8 legs) **derives the expected line FROM step P** rather than restating it, so a machine change edits one place and reds every block still carrying the old one.
+
+**D5 — AND THE MEASUREMENT CORRECTED ITSELF BEFORE IT WAS RECORDED, which is the part worth keeping.** The first count matched ````^```bash```` anchored at column zero: 32 fences, 15 governed. **Five fences in the hosted runbook are INDENTED**, sitting inside numbered lists, and one of them — §8's post-probe re-check — invokes `psql`. Corrected to an indent-tolerant matcher: **37 fences, 16 governed** (45 and 16 across both documents). *A description broader than its filter*, test-conventions §2(d), caught while measuring rather than after the guard shipped. A leg now removes the line from that indented fence specifically, and the governed count is asserted by identity so a matcher that stops seeing them reds instead of passing over a smaller corpus.
+
+**E — `-49 F` IS DISCHARGED HERE.** The four #61 handoff discrepancies are corrected in `docs/handoff-2026-09-22-018-applied-hosted.md`, the next handoff document. `docs/handoff-2026-09-21-gate-lifted-018-in-flight.md` is left unedited: it is a dated record of what was believed on 2026-09-21 (method note 8).
+
+**F — the queue.** Merge on the founder's word. **Nothing is owed founder-side** — the apply is done and recorded. The next migration is 019, whenever there is one, and step 5 now expects `0 migration(s) pending.` until there is.
+
 
 ## The provisional ledger
 
@@ -2593,6 +2668,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | AB | R-2026-09-21-49 | 2026-09-21 | The ESLint ignore gap on wrangler build output, moved from an open item with an unreachable trigger to a named change. First letter after AA; I and O stay skipped. |
 | AC | R-2026-09-21-50 | 2026-09-21 | The runbook was not restated for 018 — the restate rule failing on the change that added the migration. Widened past section 5, one quarter of it mechanised, and named as an exception to the -46 freeze. |
 | AD | R-2026-09-21-51 | 2026-09-21 | The founder's review of #62: five defects, two blocking, all mine. The restatement had repeated the defect it was fixing — a fifth expectation site, the stop condition, left contradicting the other four. |
+| — (none issued) | R-2026-09-22-52 | 2026-09-22 | **No provisional letter.** The founder's own hosted apply of 018, quoted in full, with the instruction to write the apply record. The accumulation boundary closed at 05:40:40 UTC. First ruling dated 2026-09-22. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -2789,6 +2865,20 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-22, R-2026-09-22-52: **the hosted apply of 018, and with it the
+  close of the accumulation boundary at 05:40:40 UTC** — the three public mirrors
+  revoked from `anon` and `authenticated` and removed from the Realtime
+  publication on the database a facility's data actually sits in, each reading
+  paired with the opposite one taken minutes earlier on the same project, and the
+  SECURITY DEFINER premise 018 was written on confirmed live by both cron jobs
+  succeeding after the revoke; the frozen boundary recorded at 18; nine runbook
+  sections restated by the change the restate rule actually asks for rather than by
+  one catching up afterwards; the founder's path recorded as having failed twice on
+  a missing `psql`, with every block that needs it now carrying step P's line
+  itself and a guard deriving that line from step P; and two corrections to this
+  project's own controls — an instruction that cited a mechanism which stopped
+  reaching on the day it was last carried out, and a parser that read a
+  restatement's quoted history as the live stop condition;
 - on 2026-09-21, R-2026-09-21-51 (issued as R-PROVISIONAL-2026-09-21-AD): the
   founder's review of #62 found five defects and all five were upheld — the stop
   condition left contradicting the expectation it guards, a pre-apply block that

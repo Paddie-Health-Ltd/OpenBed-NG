@@ -11,9 +11,9 @@
     "to green a failing build is the one thing it must never be used for."
   ],
   "project_ref": "klrlpxysjsjpdkeqdhvl",
-  "observed": "2026-09-17",
-  "ruling": "R-2026-09-17-01",
-  "ledger_rows": 17,
+  "observed": "2026-09-22",
+  "ruling": "R-2026-09-22-52",
+  "ledger_rows": 18,
   "frozen": [
     {
       "file": "001_app_schema_and_migration_ledger.sql",
@@ -82,6 +82,10 @@
     {
       "file": "017_snapshot_schedule.sql",
       "sha256": "37b9c0afd2785bb3058dfe78eb2a150bb502708af6cc57c3a7e9c690e483214e"
+    },
+    {
+      "file": "018_close_mirror_read_and_push_surfaces.sql",
+      "sha256": "b1240fe9ac7268cbb0f68e1a02340f55cb1cd57e51031faeb2a625187ea1502d"
     }
   ]
 }
