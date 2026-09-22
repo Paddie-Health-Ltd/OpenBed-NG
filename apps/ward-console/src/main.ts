@@ -1,4 +1,5 @@
 import { SessionExpiredError, SessionHolder, sessionFromUrlFragment } from '@openbed/auth';
+import { apiOrigin } from '@openbed/origins';
 
 /**
  * THE WARD CONSOLE. Sign in with a magic link, see the wards at this account's
@@ -37,6 +38,13 @@ import { SessionExpiredError, SessionHolder, sessionFromUrlFragment } from '@ope
  * in practice means only the row for this handset's own ward will ever accept
  * a publish.
  *
+ * NOT ASSERTED HERE, deliberately (method note 12): the RENDERED text of the
+ * "Not configured" screen. Nothing in this repository renders this console -- the
+ * only jsdom test is the public dashboard's -- so its wording is checked by reading
+ * and not by a test. Said plainly rather than left for a reader to assume covered;
+ * R-2026-09-22-57 F2's ward-side sign-in form arrives in PR 3.2 and is the change
+ * that gives this file a rendered surface worth asserting.
+ *
  * CLASSIFICATION (Clause 5): the sign-in and handover path is LIVE -- it runs
  * against the local stack and golden-path steps 0-5 pass against it. The
  * publish RPC is LIVE, proved by tests/db/publish_ward_status.test.ts and the
@@ -45,7 +53,25 @@ import { SessionExpiredError, SessionHolder, sessionFromUrlFragment } from '@ope
  * the handover read already used.
  */
 
-const API_URL = import.meta.env['VITE_SUPABASE_URL'] as string | undefined;
+/**
+ * WHERE THIS CONSOLE'S DATABASE ADDRESS COMES FROM (R-2026-09-22-57 item 1).
+ *
+ * It was `import.meta.env['VITE_SUPABASE_URL']`, read from an untracked .env.local.
+ * That was Finding D exactly: the address this app used in production was a fact
+ * that lived on one laptop, and no build, test or reader of this repository could
+ * say what it was. It is now TRACKED CONFIGURATION, chosen at RUNTIME from the host
+ * the console is being served on -- so a build carries every environment's origin
+ * and none of them depends on who ran the build or what they had set.
+ *
+ * THE KEY IS DELIBERATELY STILL AN ENVIRONMENT VARIABLE, and the asymmetry is the
+ * point rather than an inconsistency. An origin has no lifecycle independent of
+ * this repository; a credential does. `docs/runbook-key-rotation.md` makes
+ * `scripts/get_publishable_key.sh` the one sanctioned way to obtain this key, after
+ * a 2026-09-09 incident, and tracking it would make the repository the place a
+ * STALE key lives -- a dead key that authenticates nothing while every probe reads
+ * as though the boundary held. `.env.example` names it; it never holds its value.
+ */
+const API_URL = apiOrigin(window.location.hostname);
 const PUBLISHABLE_KEY = import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY'] as string | undefined;
 
 const root = document.querySelector<HTMLDivElement>('#app');
@@ -293,10 +319,10 @@ async function main(): Promise<void> {
   // built without these would otherwise send `Bearer undefined` and report an
   // auth failure that has nothing to do with auth. `scripts/get_publishable_key.sh`
   // learned the same lesson the hard way with a fallback to a dead key.
-  if (API_URL === undefined || PUBLISHABLE_KEY === undefined) {
+  if (PUBLISHABLE_KEY === undefined) {
     show(
       'Not configured',
-      'This build has no VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY. It was built without them and cannot sign anyone in.',
+      'This build has no VITE_SUPABASE_PUBLISHABLE_KEY. It was built without it and cannot sign anyone in.',
     );
     return;
   }
