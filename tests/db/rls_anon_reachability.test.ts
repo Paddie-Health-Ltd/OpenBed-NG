@@ -66,16 +66,75 @@ describe('anon reachability of the app schema', () => {
     }
   });
 
-  test('anon holds no USAGE on the app schema at the grant level', async () => {
+  test('neither anon nor authenticated holds USAGE on the app schema at the grant level', async () => {
     // Defence in depth behind the exposed-schemas list. If someone ever exposes
     // `app` by mistake, the grants are the next thing standing.
-    const [row] = await sql()<{ anon: boolean; authenticated: boolean }[]>`
+    //
+    // THE NAME SAID ONLY `anon` UNTIL 2026-09-22 while the body checked two roles
+    // (R-2026-09-22-57 A1). A test name is the failure message someone reads at 2am
+    // with no context, and one that understates what it covers sends them looking in
+    // the wrong place.
+    //
+    // AND IT CARRIES A POSITIVE CONTROL NOW (R-2026-09-22-57 A1). Every assertion
+    // here expected FALSE, and nothing showed the same call could return TRUE.
+    //
+    // THE REASON -56 D GAVE FOR THIS DOES NOT HOLD, AND THE CORRECTED ONE IS
+    // NARROWER. That ruling said "a misspelled privilege string would read as the
+    // boundary holding". Measured here against PostgreSQL 17.6 on 2026-09-22, it
+    // would not: has_schema_privilege RAISES on an unrecognised privilege type
+    // (`unrecognized privilege type: "USAGEE"`), on a schema that does not exist,
+    // and on a role that does not exist. Leading and trailing whitespace and
+    // lower case are all tolerated and return the correct answer. So the specific
+    // defect named is caught loudly by Postgres itself, with or without a control.
+    //
+    // WHAT THE CONTROL DOES ESTABLISH, which is why it is still here: that this
+    // call is CAPABLE of returning true at all. Without it the two assertions below
+    // are consistent with a probe that can only ever answer false — and that is a
+    // property of the probe, not a prediction about one way of breaking it.
+    //
+    // NOT ASSERTED HERE, deliberately (method note 12): that the privilege being
+    // probed is USAGE rather than some other valid one. Substituting CREATE leaves
+    // the control TRUE (postgres holds CREATE on app) and both subjects FALSE, so
+    // nothing here would red. Measured, not assumed. Closing that needs a probe
+    // asserting the privilege graph by identity, which is a different control.
+    //
+    // THE CONTROL ROLE IS READ FROM THE CATALOGUE, not assumed. Naming a role here
+    // would make this leg assert a fixture rather than the privilege graph, and the
+    // obvious guess is wrong: service_role holds NO usage on `app` either, so a
+    // hand-picked control would have reddened for a reason unrelated to the defect.
+    // It is required to be neither subject role, or the control and the subject
+    // would be the same call.
+    const [row] = await sql()<
+      { anon: boolean; authenticated: boolean; control_role: string | null; control_holds: boolean | null }[]
+    >`
+      with control as (
+        select r.rolname
+          from pg_roles r
+         where r.rolname not in ('anon', 'authenticated')
+           and has_schema_privilege(r.rolname, 'app', 'USAGE')
+         order by r.rolname
+         limit 1
+      )
       select
         has_schema_privilege('anon', 'app', 'USAGE')          as anon,
-        has_schema_privilege('authenticated', 'app', 'USAGE') as authenticated
+        has_schema_privilege('authenticated', 'app', 'USAGE') as authenticated,
+        (select rolname from control)                         as control_role,
+        has_schema_privilege((select rolname from control), 'app', 'USAGE') as control_holds
     `;
-    expect(row?.anon).toBe(false);
-    expect(row?.authenticated).toBe(false);
+
+    // THE CONTROL FIRST. If it cannot return true, the two assertions below are
+    // satisfied by a call that can only ever answer false, and they prove nothing.
+    expect(
+      row?.control_role,
+      'no role anywhere holds USAGE on app — this probe can only answer false, so the assertions below are vacuous',
+    ).not.toBeNull();
+    expect(
+      row?.control_holds,
+      `the identical call returned ${String(row?.control_holds)} for ${String(row?.control_role)}, which the catalogue says DOES hold USAGE — the probe is broken, not the boundary`,
+    ).toBe(true);
+
+    expect(row?.anon, 'anon holds USAGE on the app schema').toBe(false);
+    expect(row?.authenticated, 'authenticated holds USAGE on the app schema').toBe(false);
   });
 });
 
