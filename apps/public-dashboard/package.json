@@ -6,7 +6,7 @@
   "description": "The public bed-availability dashboard. Deploys to Cloudflare Pages as a static site.",
   "scripts": {
     "dev": "vite",
-    "build": "node ../../scripts/stamp_build.mjs && vite build",
+    "build": "node ../../scripts/stamp_build.mjs ./public/version.json && vite build",
     "preview": "vite preview"
   },
   "dependencies": {

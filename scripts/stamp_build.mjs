@@ -46,7 +46,15 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+// THE ROOT SEAM (R-2026-09-22-57 B). The repository whose HEAD and working-tree
+// state this stamp records. It is overridable for exactly one reason: a guard has to
+// be able to stamp a SCRATCH repository, commit into it, and assert that the stamp
+// still names the commit it was written from. That property cannot be asserted
+// against this repository without committing into it from a test.
+//
+// It introduces no new failure site: a root that is not a git work tree falls into
+// the "git could not name HEAD" refusal below, which already has its own plant.
+const ROOT = process.env.OPENBED_STAMP_ROOT ?? join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = process.argv[2] ?? join(ROOT, 'apps', 'public-dashboard', 'public', 'version.json');
 
 function git(...args) {
