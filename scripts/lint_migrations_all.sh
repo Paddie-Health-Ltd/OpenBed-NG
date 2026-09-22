@@ -23,6 +23,7 @@ LINTS=(
     lint_migration_header.sh
     lint_no_replica_identity_full.sh
     lint_sql_no_bare_not_duty_flag.sh
+    lint_public_table_rls.sh
 )
 
 FAILED=()
