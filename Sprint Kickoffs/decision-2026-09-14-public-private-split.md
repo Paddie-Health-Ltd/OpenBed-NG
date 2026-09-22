@@ -2990,6 +2990,32 @@ _Issued as R-PROVISIONAL-2026-09-22-AK, by the founder on 2026-09-22, answering 
 - **the two handoff pastes** (B1, B2), without which that commit cannot be written and B3's diff has nothing authoritative to run against;
 - **the H1 reading** — the `SUPABASE_URL` value on the `openbed-public-dashboard` Pages project, a URL and not a secret — without which A1's tracked key has no production value. **A placeholder is not an option here:** the whole property A1 asserts is that the tracked value equals what the Function calls today, and a guessed value would satisfy every test in the repository while being false at the edge.
 
+### R-2026-09-22-59 — H1 could not be performed; the Function's origin is set from Supabase's own project URL, and the Pages secret becomes dead config
+
+_Issued as R-PROVISIONAL-2026-09-22-AN, by the founder on 2026-09-22, after attempting the H1 reading `-58 A1` depends on. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-58. **Record-only under R-46; lands in PR 3.1.** Next provisional letter: AP — O stays skipped._
+
+**EVIDENCE KINDS.** `A` is the founder's reading, recorded as given. `B1`'s value arrived as **Cowork's** reading through the Supabase connector and **was re-read here before it was written into any file** — see `D`. `C` is the founder's instruction. `D` is mine.
+
+**A — WHAT WAS FOUND.** `SUPABASE_URL` on `openbed-public-dashboard` is an **encrypted secret**, and its value **cannot be read back in the Cloudflare dashboard**. **H1 as written in the kickoff was not performable**, and it is recorded as **Cowork's defect: H1 assumed a readable variable.** The step is not restated more carefully; the thing it asked for does not exist.
+
+**B — `-58 A1` IS AMENDED.**
+
+- **B1.** The tracked key for the snapshot Function's origin is **`https://klrlpxysjsjpdkeqdhvl.supabase.co`**, on Cowork's reading of the project URL through the Supabase connector, 2026-09-22.
+- **B2 — AND THE CLAIM THAT REPLACES IT IS WEAKER, DELIBERATELY.** `-58 A1` said *"PR 3.1 changes nothing about which origin `/beds.json`'s Function calls."* **That sentence cannot be made true or false, because the prior value was never read.** What replaces it: **the END STATE is that the Function calls the direct Supabase origin, as `-58` decided.** Whether that is a *change* from today is **unknown**. If the secret held `https://api.openbed.ng`, this pull request takes the Worker **off** the `/beds.json` path — which is `-58`'s intent, arrived at without anyone being able to confirm it was needed. **It goes in the PR body in those words**, rather than as a claim about what the Function used to do.
+- **B3.** `-58 A1`'s test still holds: the Function takes its origin from the tracked key and **never** from the Pages environment. **No code path may fall back to `env.SUPABASE_URL`.**
+
+**C — THE LEFTOVER SECRET.**
+
+- **C1.** Every reader of `SUPABASE_URL` across the apps, the Functions and the wrangler configuration is reported. **If nothing reads it after this pull request, it is dead config.**
+- **C2 — OWED to the founder after the PR 3.1 deploy, in this order:** `/beds.json` returns **200 with a valid payload** and `/version.json` quotes the deployed commit; **only then** is `SUPABASE_URL` deleted from the Pages project. Written as a runbook step **with the `/beds.json` read as its precondition**.
+- **C3.** PR 3.1 no longer waits on anything from the founder.
+
+**D — B1's VALUE WAS RE-READ HERE BEFORE IT WAS WRITTEN INTO ANYTHING, and it holds.** `-56 A10c` requires a clause resting on someone else's reading to say so; the stronger move, where the reading is cheap and the value is about to be compiled into every artefact this project ships, is to take it again. `get_project_url` for `klrlpxysjsjpdkeqdhvl` returns **`https://klrlpxysjsjpdkeqdhvl.supabase.co`**, read here on 2026-09-22.
+
+**And it agrees with a value this repository already tracks.** `supabase-proxy/index.js` carries `SUPABASE_PROJECT_ID = "klrlpxysjsjpdkeqdhvl"` and builds the same origin from it. **That agreement is the finding worth recording, because it also names a hazard `B1` does not:** the origin now has **two derivation sites in tracked code** — the proxy's project id and the new tracked configuration — and §7 of `.claude/rules/test-conventions.md` governs exactly that. They are bound by an assertion in one block rather than left to agree by coincidence. The proxy is **not** made to import the package: it sits outside the npm workspaces and is deployed by `wrangler deploy`, so binding it by import would be a far larger change than this one wants.
+
+**E — AND ONE HAZARD FOUND WHILE DESIGNING AGAINST `B3`, recorded because it is the kind that ships green.** Moving the origin off the environment and onto the request's hostname changes what two existing database tests address. `tests/db/beds_json_served.test.ts` has two legs that call the cached path with **no stubbed fetch**, against a helper whose request URL is a non-local host. Today their target is the local stack, because the origin came from the environment those tests construct. Under host-based selection their target becomes **the live hosted project, authenticated with the local demo service-role key**. Nothing in the suite would have said so: both legs assert a 200 and a header. **The helper is made local, and asserted local, in its own commit BEFORE the origin moves** — the ordering is the point, because the window in which this is wrong is a window in which the tests still pass.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -3039,6 +3065,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | AH | R-2026-09-22-56 | 2026-09-22 | The infrastructure review CLOSES on the founder's reads, every one of its seven scope bullets answered, and the `-40 H` gate on Bundle 3 lifts. Records that four of the review's own questions — the NDPA scope cell, the surface, attribution and availability — close with it unanswered and become open items rather than being absorbed. Adds the public-table RLS lint to Bundle 3. Two of the instruction's premises failed: no runbook step uses `dig` at all, and the resolver finding does not explain the 2026-09-19 contradiction. One of mine failed too, and is recorded. |
 | AJ | R-2026-09-22-57 | 2026-09-22 | Bundle 3 becomes **four pull requests in order** rather than one, on the ground that a migration adding operator write functions must not share a review with a wrapper refactor. Splits `-56 D`'s three grant gaps two-in one-out; redesigns the build-stamp check by moving the assertion to upload time, where its property is actually true, rather than building around a test that reds after every commit; and sets ten architecture properties for admin v1, identity from `auth.uid()` in the database first among them. Arrived inside the founder's pasted kickoff, which lands unedited alongside it. Two of its premises did not survive checking: the rebase it instructs was already done, and it carries one Clause 4 scope defect — listed, not fixed, because the document was ruled to land unedited. A planning pass's claim that the kickoff cited phantom `claude/` paths was itself false and was refuted before it could cause an edit. |
 | AK | R-2026-09-22-58 | 2026-09-22 | The founder answers PR 3.1's two open questions. The public dashboard's snapshot Function **keeps its direct origin** — a narrow, triggered exception to `-55 A`, on the ground that `-55 A`'s three reasons are about browser traffic and putting the Worker on the `/beds.json` path would add a failure point while `-23 D5` is open — while its origin still becomes tracked, so Finding D closes for Functions too. Both handoffs land in PR 3.1 from the founder's paste. And the top-level tracked-entry guard is pulled forward out of its trigger because the stray recurred: checking that premise here found the first instance reached a commit and the second reached the index, **neither caught by anything but a person looking**. |
+| AN | R-2026-09-22-59 | 2026-09-22 | **H1 could not be performed**: `SUPABASE_URL` on the Pages project is an encrypted secret and cannot be read back, so the step `-58 A1` depended on asked for something that does not exist — recorded as Cowork's defect rather than restated more carefully. The tracked origin is set from Supabase's own project URL instead, re-read here before it was written into anything, and found to agree with the project id `supabase-proxy/index.js` already tracks — which is itself the finding, because it makes the origin a **two-derivation-site** value that §7 governs. `-58 A1`'s "PR 3.1 changes nothing about which origin the Function calls" is replaced by a **weaker and truthful** claim: the end state is the direct origin, and whether that is a *change* is **unknown**, because the prior value was never readable. The leftover secret becomes dead config, deleted only after a 200 from `/beds.json` on a deployment built from the tracked value. Carries one hazard found while designing against B3: two database legs would have begun addressing the live project with a demo key, asserting 200 throughout. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -3235,6 +3262,30 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-22, R-2026-09-22-59 (issued as R-PROVISIONAL-2026-09-22-AN): **the H1
+  reading could not be taken at all.** `SUPABASE_URL` on the Pages project is an
+  encrypted secret whose value the dashboard will not show, so the step `-58 A1`
+  rested on asked for something that does not exist — **recorded as Cowork's defect,
+  and not reissued in a more careful form**, because the defect is the assumption of
+  a readable variable rather than the wording. The tracked key is set from Supabase's
+  own project URL, **re-read here before it was written into anything** rather than
+  relayed, and found to agree with the project id `supabase-proxy/index.js` already
+  carries — **which is the finding, not the confirmation**: the origin now has two
+  derivation sites in tracked code, and they are bound by an assertion in one block
+  rather than left to agree by coincidence, the proxy deliberately not being made to
+  import the package since it lives outside the workspaces. `-58 A1`'s claim that the
+  change alters nothing about which origin the Function calls is **replaced by a
+  weaker one that can be true**: the end state is the direct origin, and whether that
+  is a change is **unknown**, because nobody could read what it was — if the secret
+  held `api.openbed.ng`, this pull request takes the Worker off the `/beds.json` path,
+  which is `-58`'s intent reached without confirmation that it was needed. The
+  leftover secret becomes **dead config**, deleted only after a 200 from `/beds.json`
+  on a deployment created from the tracked value, and re-observed after the deletion
+  because a variable binds when a deployment is created. And one hazard is recorded
+  from designing against B3: moving the origin onto the request's hostname would have
+  turned two database legs into calls against **the live project with the local demo
+  service-role key**, both asserting 200 throughout — closed by making the test
+  helper local, and asserting it, in a commit that lands **before** the origin moves;
 - on 2026-09-22, R-2026-09-22-58 (issued as R-PROVISIONAL-2026-09-22-AK): the founder
   answers PR 3.1's two open questions. **The public dashboard's snapshot Function keeps
   its direct origin** — a narrow exception to `-55 A`, on the ground that that ruling's
