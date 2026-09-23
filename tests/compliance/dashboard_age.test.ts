@@ -142,12 +142,25 @@ describe('the snapshot banner, and the clock it is measured by', () => {
     expect(text()).not.toMatch(/less than a minute|just now/);
   });
 
-  test('FAILING HALF — a fresh page left open past the threshold shows the banner after its own re-render, and not before', async () => {
-    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
-    await renderAt({ wards: [ward('A_AND_E', 0)], servedAfterGenMinutes: 0 });
+  // RESTATED by R-2026-09-23-68 A. This leg read "a fresh page left open past the
+  // threshold shows the banner after its own re-render": the page did not poll, so
+  // only monotonic time could age it. The page now polls, and the case that ages an
+  // open tab is a STALLED GENERATOR -- every poll is answered, with a serve time that
+  // advances, over a generated_at that does not. Same assertion, the real mechanism.
+  test('FAILING HALF — a page left open while the generator stalls shows the banner after a poll, and not before', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'] });
+    document.body.innerHTML = '<main id="app"></main>';
+    const payload = { v: 1, generated_at: iso(GEN), server_now: iso(GEN), facilities: [FACILITY], wards: [ward('A_AND_E', 0)] };
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { 'content-type': 'application/json', 'x-openbed-served-at': iso(GEN + (perfNow - 1_000)) },
+    })));
+    const { render } = await import('../../apps/public-dashboard/src/main.js');
+    await render();
     expect(banner(), 'a fresh snapshot opened a banner').toBeNull();
-    perfNow += (B.snapshotBannerAfterMinutes + 1) * MIN;
-    vi.advanceTimersByTime(30_000);
+    const stall = (B.snapshotBannerAfterMinutes + 1) * MIN;
+    perfNow += stall;
+    await vi.advanceTimersByTimeAsync(stall);
     expect(banner(), 'the open page never aged').not.toBeNull();
     expect(lines()[0]).toBe(`A_AND_E: 3 beds — updated ${B.snapshotBannerAfterMinutes + 1} min ago`);
   });

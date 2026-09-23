@@ -3,6 +3,7 @@ import {
   decodeFacility,
   elapsedSince,
   markFetch,
+  POLL_CADENCE_SECONDS,
   SERVED_AT_HEADER,
   type EncodedRow,
   type DecodedRow,
@@ -79,9 +80,19 @@ import { snapshotBanner, wardLine, type ServeClock } from './age-view.js';
  * EVERY COUNT CARRIES ITS AGE (R-2026-09-23-67 A). The fetch keeps the
  * snapshot's generated_at, the x-openbed-served-at header the Pages Function
  * stamps on each response, and a monotonic mark; ./age-view.ts turns those
- * into words. The page re-renders every AGE_REFRESH_MS from the same payload,
- * so a tab left open ages, and the stale-snapshot banner can appear on it. It
- * does not refetch: polling is Bundle 4's.
+ * into words.
+ *
+ * THE PAGE POLLS (R-2026-09-23-68 A; release gate 2 as restated 2026-09-10: "a
+ * client poll at the snapshot's own cadence reflects the new count"). Every
+ * POLL_CADENCE_SECONDS it fetches /beds.json again. Until -68 it only re-rendered
+ * the payload it already had, so a tab left open raised the stale banner after
+ * three minutes on data that was fresh at the server.
+ *   - A successful poll REPLACES the held snapshot, and with it the serve-time
+ *     anchor the ages are measured from.
+ *   - A failed poll KEEPS the held snapshot on screen and re-renders it, so its
+ *     ages keep growing and the banner arrives when it should. It never blanks the
+ *     page and never shows the outage state while good data is held. Only a first
+ *     load with nothing held renders the outage.
  */
 
 interface SnapshotEnvelope {
@@ -99,9 +110,10 @@ const FETCH_TIMEOUT_MS = 8000;
 const FETCH_ATTEMPTS = 2;
 
 /**
- * Fetches and decodes the snapshot, or returns null on any failure so the
- * caller can fall back to the stub. A failure is: a non-2xx status (500/502/
- * 503/504 are all real states the Function itself produces, per
+ * Fetches and decodes the snapshot, or returns null on any failure: the caller
+ * renders the outage on a first load, and keeps what it holds on a poll. A
+ * failure is: a non-2xx status (500/502/503/504 are all real states the
+ * Function itself produces, per
  * tests/db/beds_json_served.test.ts), a network exception, a timeout, a JSON
  * parse failure, or the codec throwing on a decode-arity mismatch. All of
  * these get one retry with jittered backoff, then give up.
@@ -114,13 +126,17 @@ interface Snapshot {
   readonly mark: FetchMark;
 }
 
-/** How often an open page re-states every age from the same payload. */
-const AGE_REFRESH_MS = 30_000;
+/** How often the page polls, and re-states every age. One source: the fixture. */
+const POLL_MS = POLL_CADENCE_SECONDS * 1000;
 
 async function fetchSnapshot(): Promise<Snapshot | null> {
   for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt += 1) {
     try {
-      const res = await fetch('/beds.json', { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+      // no-store, on every fetch: a copy from the browser's HTTP cache carries the
+      // x-openbed-served-at of the response it was stored from, and every age here
+      // is measured from that header. A stored copy would therefore make old data
+      // read younger than it is -- the one direction this page must never err in.
+      const res = await fetch('/beds.json', { cache: 'no-store', signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
       if (res.ok) {
         const mark = markFetch();
         const servedAt = res.headers.get(SERVED_AT_HEADER);
@@ -134,7 +150,7 @@ async function fetchSnapshot(): Promise<Snapshot | null> {
         };
       }
     } catch {
-      // fall through to retry, then to the stub
+      // fall through to retry, then to null
     }
     if (attempt < FETCH_ATTEMPTS) {
       await new Promise((resolve) => setTimeout(resolve, 150 + Math.random() * 150));
@@ -290,7 +306,9 @@ function renderReal(root: HTMLElement, snapshot: Snapshot): void {
   }
 }
 
-let ageing: ReturnType<typeof setInterval> | null = null;
+let polling: ReturnType<typeof setInterval> | null = null;
+/** Bumped by every render(), so a poll answered after a newer render() is dropped. */
+let generation = 0;
 
 /**
  * Exported so a test can call it and then read the DOM, rather than re-importing
@@ -301,16 +319,36 @@ export async function render(): Promise<void> {
   const root = document.getElementById('app');
   if (!root) return;
 
-  if (ageing !== null) clearInterval(ageing);
-  ageing = null;
+  if (polling !== null) clearInterval(polling);
+  polling = null;
+  generation += 1;
+  const mine = generation;
 
-  const snapshot = await fetchSnapshot();
-  if (snapshot) {
-    renderReal(root, snapshot);
-    ageing = setInterval(() => renderReal(root, snapshot), AGE_REFRESH_MS);
-  } else {
+  const first = await fetchSnapshot();
+  if (mine !== generation) return;
+  if (first === null) {
     renderOutage(root);
+    return;
   }
+
+  let held: Snapshot = first;
+  let inFlight = false;
+  renderReal(root, held);
+  polling = setInterval(() => {
+    // One poll at a time. A tick that finds one still in flight re-states the
+    // ages of what is held rather than starting a second request.
+    if (inFlight) {
+      renderReal(root, held);
+      return;
+    }
+    inFlight = true;
+    void fetchSnapshot().then((next) => {
+      inFlight = false;
+      if (mine !== generation) return;
+      if (next !== null) held = next;
+      renderReal(root, held);
+    });
+  }, POLL_MS);
 }
 
 void render();
