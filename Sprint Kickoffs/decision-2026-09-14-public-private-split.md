@@ -3080,6 +3080,17 @@ _Issued as R-PROVISIONAL-2026-09-22-AL, by Cowork on 2026-09-22, **before `AN`**
 
 **D — C3's PREMISE, READ BEFORE THE CLAUSE WAS WRITTEN.** `scripts/commit.sh` is **not new**: it entered in `c843745` on 2026-09-11 and is already on `main`. The "if new, its basis" branch does not apply, and the report says so rather than inventing a basis for something that needed none.
 
+**E — WHAT BUILDING A FOUND, both by planting rather than by reading, and neither predicted.**
+
+**E1 — `-57 G5`'s gap was real, but for a narrower reason than it gave.** `G5` said a CREATE swap would go undetected *"because `postgres` holds CREATE on `app`"*. **The control at that time was not `postgres`.** It was the first role alphabetically holding USAGE — `pg_read_all_data`, which sorts before `postgres` and holds USAGE but **not** CREATE. Measured, against the old test itself (`702f061`) rather than a spot query:
+
+- a swap of the **probe calls alone** would have reddened it — the control answers false for CREATE;
+- a swap that **also rewrites the control's selection criterion** (all four `'app', 'USAGE'` sites) makes selection pick a role that does hold CREATE, and **the old test stayed green, 10 of 10.** That was the gap.
+
+**The new test reds under both shapes**: the constant alone turns the control false; the constant plus the selection leaves no subject that holds USAGE without CREATE, and the test says so by name. **The lesson is `-57 G5`'s own, applied to itself:** it measured a failure mode with a psql spot-check against a role it assumed was the control, and the conclusion survived only because a second shape happened to produce it.
+
+**E2 — THE ACL READ WAS BLIND TO PUBLIC ON ITS FIRST VERSION**, which is the one grantee A2 asked it for. It labelled grantees with `coalesce(nullif(pg_get_userbyid(grantee), ''), 'PUBLIC')`, on the assumption that the lookup returns an empty string for OID 0. **It returns `'unknown (OID=0)'`.** So PUBLIC was never labelled, the filter could never match it, and **a real `GRANT USAGE ON SCHEMA app TO PUBLIC` passed the guard, twelve of twelve green.** It is now mapped by OID; the in-test plant grants to PUBLIC as well as `anon` and reads through the **same SQL text** as the leg, so a defect in the read reds its own plant. Re-planted: PUBLIC reds it, and so does a CREATE granted to `authenticated` — a non-USAGE privilege the per-role probe would never have asked about.
+
 ### R-2026-09-22-63 — Cowork handoffs no longer enter the repository
 
 _Issued as R-PROVISIONAL-2026-09-22-AM, by the founder on 2026-09-22, **before `AN`**, and not pasted until 2026-09-23. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-62. Its ledger row records the out-of-order landing. **Record-only under R-46; lands in PR 3.1.**_
