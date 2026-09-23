@@ -727,10 +727,16 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions. Until
 2026-09-14 this read `exactly 13 migration(s) pending.`, and migration 014 made
 that wrong.
 
-- **The hosted project today** holds 001 through 018 (see step 7). Every file
-  up to and including `018_close_mirror_read_and_push_surfaces.sql` must read
-  `already applied`; there must be **no `WOULD APPLY` line at all**; and the dry
-  run must end `0 migration(s) pending.`
+- **The hosted project today** holds 001 through 018 (see step 7), and the
+  repository holds 019. Every file up to and including
+  `018_close_mirror_read_and_push_surfaces.sql` must read `already applied`;
+  there must be exactly one `WOULD APPLY` line, naming
+  `019_snapshot_single_read_and_mirror_integrity.sql`; and the dry run must end
+  `1 migration(s) pending.`
+- **Restated 2026-09-23 (R-2026-09-23-66), in the change that ADDS 019** -- the
+  change the rule at the top of this list asks for. Until then this expected no
+  `WOULD APPLY` line and `0 migration(s) pending.`, which was right while the
+  repository and hosted both ended at 018.
 - **Restated 2026-09-22 (R-2026-09-22-52), in the change that records 018's hosted
   apply.** Until then this expected 001 through 017, exactly one `WOULD APPLY` line
   naming `018_close_mirror_read_and_push_surfaces.sql`, and `1 migration(s) pending.`
@@ -762,10 +768,13 @@ that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line AT ALL, or any count other than
-  `0 migration(s) pending.`: stop and report.** A file pending means either a
-  migration reached the repository after the list was last restated, or hosted is
-  not where this document says it is.
+- **Any `WOULD APPLY` line OTHER than the one named above, or any count other
+  than `1 migration(s) pending.`: stop and report.** Another file pending means
+  either a migration reached the repository after the list was last restated, or
+  hosted is not where this document says it is.
+  - *Restated 2026-09-23 (R-2026-09-23-66), in the change that adds 019. Until then
+    this bullet read "Any `WOULD APPLY` line AT ALL, or any count other than
+    `0 migration(s) pending.`", which was right while the repository ended at 018.*
   - *Restated 2026-09-22 (R-2026-09-22-52), in the change that records 018's hosted
     apply. Until then this bullet read "Any `WOULD APPLY` line OTHER than the one
     named above, or any count other than `1 migration(s) pending.`", which was right
@@ -1359,12 +1368,17 @@ node scripts/freeze_applied_migrations.mjs 19 YYYY-MM-DD R-YYYY-MM-DD-NN
 
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 018, all applied), the dry run prints
-eighteen `already applied` lines, no `WOULD APPLY` line, and:
+**On the hosted project today** (001 through 018 applied, 019 in the repository and
+not yet applied), the dry run prints eighteen `already applied` lines and:
 
 ```
-0 migration(s) pending.
+  WOULD APPLY     : 019_snapshot_single_read_and_mirror_integrity.sql   <- dry run
+1 migration(s) pending.
 ```
+
+*Restated 2026-09-23 (R-2026-09-23-66), in the change that adds 019.* Until then
+this block showed eighteen `already applied` lines, no WOULD APPLY line, and a
+count of zero -- right while the repository ended at 018.
 
 *Restated 2026-09-22 (R-2026-09-22-52), in the change that records 018's hosted
 apply.* Until then this block described the state BEFORE that apply: seventeen
@@ -2275,10 +2289,13 @@ deciding whether these boxes are still needed will decide from them:
   `auth.one_time_tokens.created_at` instead has no effect at all. So what is
   proved is that GoTrue refuses a token whose sent-at is outside the window, not
   that it expires one on its own after an hour of real time.
-- Only the email TRANSPORT is bypassed. `[local_smtp]` is disabled, so the link
-  is minted through the admin API; the consumption leg runs for real over HTTP
-  with the anon key. Nothing in the suite mints a session without consuming a
-  link.
+- Only the email TRANSPORT is bypassed: the link is minted through the admin API,
+  and the consumption leg runs for real over HTTP with the anon key. Nothing in the
+  suite mints a session without consuming a link. *Restated 2026-09-23
+  (R-2026-09-23-66): this read "`[local_smtp]` is disabled", which stopped being
+  true when the mail catcher was turned on for
+  `tests/db/ward_signin_request_live.test.ts` -- the one test where delivery is the
+  property. The harness above still bypasses the transport, by choice.*
 
 ### How step 9 closes, so nobody re-derives it
 
