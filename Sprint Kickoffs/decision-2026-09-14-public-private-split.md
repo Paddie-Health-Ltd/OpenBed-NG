@@ -3454,6 +3454,31 @@ _Issued as R-PROVISIONAL-2026-09-23-AX, by Cowork on 2026-09-23 as its verdict o
 - **AN OPEN ITEM WITH A TRIGGER (method note 22), not work and not a stop:** `/favicon.ico` is answered by the SPA fallback with `200 text/html`. This is the same mechanism as -69 2a's `/nonexistent-path` control. **Trigger: the next PR that changes `apps/public-dashboard/`.**
 - **Next:** the founder runs H5, step (b).
 
+**FOUNDER STEP (b), H5, READ BACK, 2026-09-23: THE `api.openbed.ng` WORKER AT `2e62579` PASSES** (Cowork's reading; a dated note under this ruling; record-only, rides PR 3.4).
+
+- **The founder's run:** `bash scripts/deploy_worker.sh supabase-proxy` from the deploy checkout at `2e62579f31d4b43bd3e36d7d3cf93c178b14c3a5`. Wrangler Current Version ID `19274dcf-f593-47ee-9059-d130f97bca1f`, custom domain `api.openbed.ng`. The wrapper printed "DONE. https://api.openbed.ng/__openbed/version names 2e62579… (attempt 1 of 12)."
+- **Probe 1:** `HTTP/2 401`, `sb-project-ref: klrlpxysjsjpdkeqdhvl`, `x-openbed-proxy: forwarded`.
+- **Probe 2:** GET `HTTP/2 200`, forwarded. HEAD `HTTP/2 405`, forwarded — see the runbook defect below.
+- **Probe 3:** `HTTP/2 404`, `x-openbed-proxy: refused`, `{"message":"not forwarded by the OpenBed proxy"}`.
+- **The stamp:** commit `2e62579f31d4b43bd3e36d7d3cf93c178b14c3a5`, `"dirty": false`, `built_at 2026-09-23T20:08:30.740Z`. HEAD answers `200` with `x-openbed-proxy: stamp`.
+- **Probe 4, Cowork through the Cloudflare connector:**
+  - the deployed bundle is `handler.ts`, `allow-list.json`, `version.json` and `index.js`, the repository's logic byte for byte;
+  - it contains `not forwarded by the OpenBed proxy`, `/__openbed/version` and the query `grant_type=refresh_token`;
+  - it forwards exactly POST `otp`, `token`, `my_facility_wards` and `publish_ward_status`, GET `settings`, and the four OPTIONS preflights;
+  - its origin is `klrlpxysjsjpdkeqdhvl.supabase.co`.
+- **Cowork from outside, 20:10 UTC:**
+  - the four browser-path preflights from Origin `https://app.openbed.ng` answer 200 with `access-control-allow-origin: *`, forwarded;
+  - refused with 404, `x-openbed-proxy: refused` and `access-control-expose-headers`: `token?grant_type=password`, POST `signup`, GET `health`, GET `snapshot_current`, DELETE `publish_ward_status`, OPTIONS `signup`;
+  - POST `token?grant_type=refresh_token` with a bogus token answers 401, `sb-project-ref: klrlpxysjsjpdkeqdhvl`, forwarded.
+  - So C4's single forwarded query (the password grant refused, the refresh grant forwarded) and C3's refusal headers hold on hosted, on that reading.
+- **The Worker is no longer a passthrough.** Every ward call now depends on it as well as on Supabase, which raises -23 D5's stakes, as the Worker runbook already says.
+- **A RUNBOOK DEFECT, fixed on this branch.** Probe 2's HEAD leg said `HTTP/2 200`, a value stated without being observed on hosted. **The implementer wrote it in PR 3.3 and repeated it in the step (b) hand-over.** Hosted answers `405`, forwarded; Cowork also observed HEAD with no key: `401`, forwarded.
+  - "Supabase does not serve HEAD on this path" is **inferred** from the 405 carrying `forwarded`. The status and the header are what was observed.
+  - The property the probe guards, that the tracked key is forwarded and accepted, is shown by the GET half and is unchanged.
+  - `docs/runbook-cloudflare-worker-proxy.md` section 2, probe 2, now states the observed signal. No test carried the wrong value: `tests/compliance/proxy_allow_list.test.ts` asserts only that HEAD on a GET entry is forwarded, never its status.
+  - It is the same class as the earlier defects: an expected value written down before anyone observed it. Name the observed signal, not a presumed one.
+- **Next:** the founder runs H4, step (c).
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._

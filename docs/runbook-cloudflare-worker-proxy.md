@@ -74,9 +74,13 @@ curl -sS -o /dev/null -D - -H "apikey: $KEY" https://api.openbed.ng/auth/v1/sett
 curl -sS -I -H "apikey: $KEY" https://api.openbed.ng/auth/v1/settings | grep -i -E '^HTTP|^x-openbed-proxy'
 ```
 
-**Pass:** both reads show `HTTP/2 200` and `x-openbed-proxy: forwarded` (the second is
-HEAD, sent with `curl -I` — never `-X HEAD`, which waits for a body that never comes).
-This is the path the ward console's live-key probe uses (docs/runbook-ward-console-deploy.md
+**Pass:** the GET read shows `HTTP/2 200` and `x-openbed-proxy: forwarded`. The HEAD
+read (sent with `curl -I` — never `-X HEAD`, which waits for a body that never comes)
+shows `HTTP/2 405` and `x-openbed-proxy: forwarded`: Supabase does not serve HEAD on
+this path (observed on hosted 2026-09-23, Cowork's reading and the founder's H5 output),
+so the header is what proves the Worker forwarded it, and the GET half is what proves
+the tracked key is accepted. **Until 2026-09-23 this read "both … `HTTP/2 200`" — a
+value stated without being observed** (R-2026-09-23-70, the H5 note). This is the path the ward console's live-key probe uses (docs/runbook-ward-console-deploy.md
 step 3), which is why it stays forwarded (R-2026-09-23-65 B1).
 
 **Probe 3 — off the list: refused HERE, and Supabase is never asked.**
