@@ -1,0 +1,47 @@
+{
+  "status": "PROVISIONAL -- the founder's clinicians confirm this wording, as they confirm the freshness thresholds (R-2026-09-23-67 A7, extended by R-2026-09-23-68 C3). Only a founder ruling on their answer removes this label.",
+  "comment": "THE ONE TABLE of words the public page shows in place of a code (R-2026-09-23-68 C1). The page never prints a raw code: every value of every enum the page receives is either given words here under `labels`, or named under `not_yet_displayed` with the reason it is not shown. tests/compliance/public_labels.test.ts derives those enums and their values from the migrations, and tests/db/public_labels_enum.test.ts from the database catalogue, so a value added to an enum turns both red until it is decided here. An empty string is a deliberate decision that the value adds no words to the line (OFFERED, ACTIVE). A code the page receives that is not in this table renders the fallback and is logged, never shown.",
+  "labels": {
+    "ward_category": {
+      "A_AND_E": "Emergency (A&E)",
+      "ICU_ADULT": "Adult ICU",
+      "ICU_PAEDIATRIC": "Children's ICU (PICU)",
+      "MEDICAL_ADULT": "Adult medical ward",
+      "PAEDIATRIC": "Children's ward",
+      "THEATRE": "Operating theatre",
+      "SURGICAL": "Surgical ward",
+      "MATERNITY": "Maternity",
+      "NICU": "Newborn ICU (NICU)",
+      "SCBU": "Special care baby unit (SCBU)"
+    },
+    "gate_reason": {
+      "NO_ANAESTHETIST_ON_DUTY": "no anaesthetist on duty",
+      "NO_PAEDIATRICIAN_ON_DUTY": "no paediatrician on duty",
+      "NO_OBSTETRICIAN_ON_DUTY": "no obstetrician on duty"
+    },
+    "ward_offering": {
+      "OFFERED": "",
+      "NOT_OFFERED": "not offered at this facility"
+    },
+    "monitoring_state": {
+      "PENDING": "not currently reporting",
+      "ACTIVE": "",
+      "PAUSED": "not currently reporting"
+    }
+  },
+  "not_yet_displayed": {
+    "status_state": {
+      "values": ["OK", "UNDER_REVIEW"],
+      "why": "Nothing writes UNDER_REVIEW today: it is set by an admin challenge (002 section 6, 004), and the admin surface is PR 3.4. When it can be set, the page must say so beside the count; that is PR 3.4's to build, before any admin write can reach this page."
+    },
+    "status_source": {
+      "values": ["WARD", "ADMIN"],
+      "why": "Nothing writes ADMIN today. 002 section 6 requires an ADMIN count to render as 'set by admin, not ward-confirmed'; the admin surface that can write one is PR 3.4, which must build that rendering before any admin write can reach this page."
+    }
+  },
+  "fallbacks": {
+    "ward_category": "Other ward",
+    "gate_reason": "reason not listed",
+    "status": "Status unknown — call to confirm"
+  }
+}

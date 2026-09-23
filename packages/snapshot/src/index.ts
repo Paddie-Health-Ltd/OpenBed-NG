@@ -10,3 +10,6 @@ export {
   type DecodedRow,
   type RowCodec,
 } from './codec.js';
+export { freshnessBand, freshnessBucket, snapshotAge, type Freshness, type FreshnessBand, type SnapshotAge } from './freshness.js';
+export { markFetch, elapsedSince, type FetchMark } from './anchor.js';
+export { SERVED_AT_HEADER } from './headers.js';

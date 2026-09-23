@@ -565,6 +565,49 @@ describe('GET /beds.json — the explicit edge cache', () => {
   // constant would pass whatever the constant said.
   const MARKER = 'x-openbed-edge-cache';
 
+  // The serve-time clock (R-2026-09-23-67 A3). Restated, not imported, for the
+  // same reason MARKER is.
+  const SERVED_AT = 'x-openbed-served-at';
+
+  test('every response carries a serve-time clock, a HIT included, and it is THIS serve\'s time', async () => {
+    const stored = await newestRow();
+    const cache = fakeCache();
+    const origin = scripted([async () => json(200, [stored])]);
+    const before = Date.now();
+    const miss = await serveBedsCached({ env: serviceEnv(), request: request() }, cache, origin.fetchImpl);
+    await new Promise((r) => setTimeout(r, 20));
+    const hit = await serveBedsCached({ env: serviceEnv(), request: request() }, cache, origin.fetchImpl);
+    const head = await serveBedsCached({ env: serviceEnv(), request: request('HEAD') }, cache, origin.fetchImpl);
+    const after = Date.now();
+
+    expect(hit.headers.get(MARKER), 'the second request did not hit, so this leg tests a miss twice').toBe('hit');
+    for (const [label, res] of [['miss', miss], ['hit', hit], ['HEAD', head]] as const) {
+      const at = Date.parse(res.headers.get(SERVED_AT) ?? '');
+      expect(Number.isNaN(at), `the ${label} response carries no readable ${SERVED_AT}`).toBe(false);
+      expect(at, `the ${label} response's serve time is outside this request`).toBeGreaterThanOrEqual(before);
+      expect(at).toBeLessThanOrEqual(after);
+    }
+    expect(Date.parse(hit.headers.get(SERVED_AT) ?? ''), 'the hit replayed the miss\'s serve time, so a cached snapshot could never age').toBeGreaterThan(
+      Date.parse(miss.headers.get(SERVED_AT) ?? ''),
+    );
+  });
+
+  test('THE STORED COPY CARRIES NO SERVE TIME — a stored one would freeze every later hit at the first serve', async () => {
+    const stored = await newestRow();
+    const cache = fakeCache();
+    const origin = scripted([async () => json(200, [stored])]);
+    await serveBedsCached({ env: serviceEnv(), request: request() }, cache, origin.fetchImpl);
+    const entry = await cache.match(request(), { ignoreMethod: true });
+    expect(entry, 'nothing was stored, so this leg proves nothing').toBeDefined();
+    expect((entry as Response).headers.get(SERVED_AT), 'the serve time was written into the CACHED object').toBeNull();
+  });
+
+  test('a failure carries the serve-time clock too, so an outage page can say when it was told', async () => {
+    const res = await serveBedsCached({ env: serviceEnv(), request: request() }, fakeCache(), scripted([async () => json(200, [])]).fetchImpl);
+    expect(res.status).toBe(503);
+    expect(Number.isNaN(Date.parse(res.headers.get(SERVED_AT) ?? ''))).toBe(false);
+  });
+
   test('a hit is marked `hit`, and the origin is not read', async () => {
     const stored = await newestRow();
     const cache = fakeCache();

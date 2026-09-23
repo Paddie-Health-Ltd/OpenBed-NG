@@ -115,8 +115,9 @@ describe('a count renders only beside a callable facility', () => {
     const text = await renderWith(payload(second === null ? [GOOD] : [GOOD, second], [GOOD_WARD, ward('f2', 'ICU_ADULT', SECRET_COUNT)]));
 
     expect(text, 'the identified facility vanished too').toContain('Synthetic General Hospital');
-    expect(text).toMatch(/A_AND_E: 3 beds/);
-    expect(text, 'the dropped ward rendered').not.toContain('ICU_ADULT');
+    expect(text).toMatch(/Emergency \(A&E\): 3 beds/);
+    expect(text, 'the dropped ward rendered').not.toContain('Adult ICU');
+    expect(text, 'the dropped ward rendered, as a code').not.toContain('ICU_ADULT');
     expect(text, "the dropped ward's count rendered").not.toMatch(new RegExp(`\\b${SECRET_COUNT}\\b`));
     expect(document.querySelectorAll('#app li').length, 'the dropped ward still has a list item').toBe(1);
 
@@ -146,7 +147,7 @@ describe('a count renders only beside a callable facility', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const text = await renderWith(payload([GOOD], [GOOD_WARD]));
     expect(text).toContain('Synthetic General Hospital');
-    expect(text).toMatch(/A_AND_E: 3 beds/);
+    expect(text).toMatch(/Emergency \(A&E\): 3 beds/);
     expect(error, 'an ordinary ward was reported as dropped').not.toHaveBeenCalled();
   });
 });

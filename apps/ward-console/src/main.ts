@@ -1,6 +1,7 @@
 import { SessionExpiredError, SessionHolder, requestSignInLink, sessionFromUrlFragment } from '@openbed/auth';
 import { apiOrigin } from '@openbed/origins';
 import { publishableKeyFor } from '@openbed/origins/keys';
+import { WARD_SUPPORT_EMAIL } from '@openbed/origins/support';
 
 /**
  * THE WARD CONSOLE. Sign in with a magic link, see the wards at this account's
@@ -110,10 +111,17 @@ const TAP_AGAIN = 'Your session has ended. Tap the link on the ward handset agai
  * CHECK violation a count outside 0-500 would raise (004). Anything else gets
  * UNRECOGNISED. The raw text goes to the console log for whoever debugs it.
  *
- * "Phone the OpenBed operator" names no number, because none exists in this
- * repository to name (recorded in R-2026-09-23-66).
+ * WHERE A WARD IS SENT FOR HELP (R-2026-09-23-67 B1). These said "phone the OpenBed
+ * operator" and named no number, because none existed (R-2026-09-23-66). They now
+ * name the ward support address from packages/origins/ward-support.json, and point
+ * first at the facility's own OpenBed administrator -- conditionally, because nothing
+ * this console can read says whether the facility has one.
+ * tests/compliance/ward_support_contact.test.ts refuses any message that sends a ward
+ * to the operator without the address.
  */
-const CALL_OPERATOR = 'If it keeps happening, phone the OpenBed operator.';
+const GET_HELP = `ask your facility's OpenBed administrator if you have one, or email ${WARD_SUPPORT_EMAIL}.`;
+const CALL_OPERATOR = `If it keeps happening, ${GET_HELP}`;
+const ASK_FOR_HELP = `To fix this, ${GET_HELP}`;
 export const UNRECOGNISED = `Something went wrong. Reload the page and try again. ${CALL_OPERATOR}`;
 export const ROW_REFUSED = `This ward's record could not be read, so it cannot be updated from here. Reload the page. ${CALL_OPERATOR}`;
 export const LOAD_REFUSED = `The ward list could not be read. Reload the page. ${CALL_OPERATOR}`;
@@ -127,21 +135,21 @@ export const BAD_LINK = 'That sign-in link cannot be used. It may have been used
  */
 export const SIGNIN_ANSWERED =
   'If this address belongs to a ward, a sign-in link is on its way to it. Open it on this handset. ' +
-  'If nothing arrives within 5 minutes, ask again once; if it still does not arrive, phone the OpenBed operator.';
+  `If nothing arrives within 5 minutes, ask again once; if it still does not arrive, ${GET_HELP}`;
 /** The only other outcome: no answer came back at all, which says nothing about the address. */
 export const SIGNIN_UNREACHABLE = 'The request could not be sent. Check this handset is online, then try again.';
 
 export const WARD_MESSAGES: Readonly<Record<string, string>> = {
   NOT_AUTHENTICATED: TAP_AGAIN,
-  NOT_A_MEMBER: 'This sign-in is not linked to a ward. Phone the OpenBed operator.',
-  ACCOUNT_DEACTIVATED: "This ward's account has been switched off. Phone the OpenBed operator.",
-  CROSS_FACILITY_DENIED: 'This sign-in cannot act for that facility. Phone the OpenBed operator.',
-  INSUFFICIENT_ROLE: 'This sign-in cannot publish bed counts. Phone the OpenBed operator.',
+  NOT_A_MEMBER: `This sign-in is not linked to a ward. ${ASK_FOR_HELP}`,
+  ACCOUNT_DEACTIVATED: `This ward's account has been switched off. ${ASK_FOR_HELP}`,
+  CROSS_FACILITY_DENIED: `This sign-in cannot act for that facility. ${ASK_FOR_HELP}`,
+  INSUFFICIENT_ROLE: `This sign-in cannot publish bed counts. ${ASK_FOR_HELP}`,
   WARD_SCOPE_DENIED: 'This handset can only publish for its own ward, not this one.',
   INVALID_ARGUMENT: `The update could not be read. Reload the page and try again. ${CALL_OPERATOR}`,
   SESSION_ID_IS_ACCOUNT_ID: 'This sign-in cannot be used for an update. Sign in again with a new link.',
   MISSING_MUTATION_CONTEXT: `The update was incomplete. Reload the page and try again. ${CALL_OPERATOR}`,
-  NO_SUCH_WARD: 'This ward is not set up yet. Phone the OpenBed operator.',
+  NO_SUCH_WARD: `This ward is not set up yet. ${ASK_FOR_HELP}`,
   FUTURE_MUTATION: "This handset's clock is ahead. Check its date and time, then try again.",
   STALE_MUTATION: 'The update took too long to send. Try again.',
   ZERO_REQUIRES_REASON: 'Publishing zero beds as offered needs a reason.',

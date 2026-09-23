@@ -20,6 +20,11 @@ import shape from '../../fixtures/snapshot-shape.json';
  * spelled out here: that lint scans this directory, and a guard that fires on
  * its own documentation is a guard someone switches off.
  *
+ * LIVE SINCE R-2026-09-23-67: the public dashboard renders every ward's age through
+ * this module, and its thresholds are the PROVISIONAL ones in
+ * packages/fixtures/snapshot-shape.json. Until then it was GUARD-AHEAD-OF-SUBJECT --
+ * correct, tested, and reaching no production caller (R-2026-09-17-05).
+ *
  * FRESHNESS MAY REORDER RESULTS. IT MAY NEVER FILTER THEM. At 4am every ward in
  * the system is stale, so a freshness filter empties the entire result set at
  * exactly the hour the tool matters most. `SUPPRESSED` removes the COUNT from a
@@ -33,13 +38,14 @@ export type FreshnessBand = 'GREEN' | 'YELLOW' | 'GREY' | 'SUPPRESSED';
 export interface Freshness {
   readonly band: FreshnessBand;
   readonly ageMinutes: number;
-  /** GREY prefixes the count with "last known"; SUPPRESSED replaces it entirely. */
+  /** GREY still shows the count, with its reported time; SUPPRESSED shows no count at all. */
   readonly showsCount: boolean;
 }
 
 /**
  * @param updatedAtIso  server-stamped, from the ward row
- * @param serverNowIso  server-stamped, from the snapshot envelope
+ * @param serverNowIso  a SERVER clock at serve time -- the x-openbed-served-at header,
+ *                      not the envelope's server_now, which is generation time
  * @param elapsedSinceFetchMs  monotonic, from anchor.elapsedSince()
  */
 export function freshnessBand(
@@ -68,6 +74,38 @@ export function freshnessBand(
   if (ageMinutes < BANDS.greenUnderMinutes) return { band: 'GREEN', ageMinutes, showsCount: true };
   if (ageMinutes < BANDS.yellowUnderMinutes) return { band: 'YELLOW', ageMinutes, showsCount: true };
   return { band: 'GREY', ageMinutes, showsCount: true };
+}
+
+/** How old the SNAPSHOT is, as the page measures it. */
+export interface SnapshotAge {
+  /** False when the serve-time clock was missing or unreadable. */
+  readonly known: boolean;
+  /** True from snapshotBannerAfterMinutes, AND whenever the age is unknown. */
+  readonly stale: boolean;
+  readonly ageMinutes: number;
+}
+
+/**
+ * THE SNAPSHOT'S OWN AGE (R-2026-09-23-67 A3): served_at - generated_at + elapsed.
+ *
+ * WHY THIS CANNOT READ FRESH WHILE THE SNAPSHOT IS STALE. `servedAtIso` is minted by
+ * the Pages Function on each response, so it advances whether or not the generator
+ * runs; `generatedAtIso` stops advancing the moment the job stalls. Their difference
+ * therefore grows with the stall. The elapsed term grows with the time the page has
+ * been open. Neither term is the device clock.
+ *
+ * AN UNKNOWN AGE IS STALE. A missing or unparseable serve-time header means the page
+ * cannot measure the snapshot at all, and "we cannot tell" must read as a warning,
+ * never as fresh.
+ */
+export function snapshotAge(generatedAtIso: string, servedAtIso: string | null, elapsedSinceFetchMs: number): SnapshotAge {
+  const generated = Date.parse(generatedAtIso);
+  const served = servedAtIso === null ? Number.NaN : Date.parse(servedAtIso);
+  if (Number.isNaN(generated) || Number.isNaN(served)) {
+    return { known: false, stale: true, ageMinutes: Number.NaN };
+  }
+  const ageMinutes = (Math.max(0, served - generated) + Math.max(0, elapsedSinceFetchMs)) / 60_000;
+  return { known: true, stale: ageMinutes >= BANDS.snapshotBannerAfterMinutes, ageMinutes };
 }
 
 /**

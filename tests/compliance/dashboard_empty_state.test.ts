@@ -11,6 +11,7 @@ import { wardColumns, facilityColumns } from '../../packages/snapshot/src/codec.
 // a category added to the fixture must redden this file rather than slip past a
 // hand-written list (test-conventions section 3).
 import TRUTH_TABLE from '../../packages/fixtures/truth-table.json';
+import LABEL_TABLE from '../../apps/public-dashboard/src/public-labels.json';
 
 /**
  * THE EMPTY STATE IS ASSERTED AT THE RENDERED SURFACE (R-2026-09-20-29 E2).
@@ -180,6 +181,16 @@ const WARD_CATEGORIES: readonly string[] = [
   ...new Set((TRUTH_TABLE as readonly { category: string }[]).map((r) => r.category)),
 ];
 
+/**
+ * Every way a ward category can appear on the page: its code AND its public words.
+ * WIDENED by R-2026-09-23-68 C. The page now shows words, never codes, so a check for
+ * codes alone would pass an outage page that named a ward in words.
+ */
+const CATEGORY_WORDS: readonly string[] = WARD_CATEGORIES.flatMap((c) => [
+  c,
+  (LABEL_TABLE.labels.ward_category as Record<string, string>)[c] ?? `(no label for ${c})`,
+]);
+
 type FailureMode = 'non-2xx' | 'network' | 'timeout' | 'parse' | 'codec';
 
 /**
@@ -235,7 +246,7 @@ describe('a failed fetch renders an outage, never invented data', () => {
 
   test.each(MODES)('%s — NO WARD CATEGORY reaches the page', async (mode) => {
     const text = await renderWithFailure(mode);
-    for (const category of WARD_CATEGORIES) {
+    for (const category of CATEGORY_WORDS) {
       expect(text, `the ward category ${category} rendered on an outage page:\n${text}`).not.toContain(category);
     }
   });
@@ -258,7 +269,7 @@ describe('a failed fetch renders an outage, never invented data', () => {
     const text = await renderWith(POPULATED_PAYLOAD);
     expect(text, 'the bed-count matcher cannot match anything, so its negation proves nothing').toMatch(/\d+\s*beds/i);
     expect(
-      WARD_CATEGORIES.some((c) => text.includes(c)),
+      CATEGORY_WORDS.some((c) => text.includes(c)),
       'the category matcher cannot match anything, so its negation proves nothing',
     ).toBe(true);
   });
