@@ -132,8 +132,29 @@ PATTERNS=(
 )
 
 VIOLATIONS=0
+
+# ONE COMBINED GREP PER FILE FIRST, and the per-pattern loop only for a file it
+# matches (2026-09-23). The loop below forks one grep per file PER PATTERN --
+# 289 files x 6 patterns = 1,734 processes -- and a file matching NONE of the six
+# is exactly the case where every one of those greps exits 1 with no output. So
+# skipping it changes no verdict: the loop's own logic still runs, unchanged, on
+# every file that matches anything. Measured before this: about 10 s alone, and
+# 19.6 s then 32.8 s inside the full suite, against vitest's 30 s default, so
+# tests/compliance/no_secrets.test.ts's accept leg went red on a timeout and not
+# on a finding. The prefilter's exit 2 is as fatal as the loop's: a file it could
+# not read is never treated as clean.
+ALL_PATTERNS=()
+for entry in "${PATTERNS[@]}"; do ALL_PATTERNS+=(-e "${entry#*|}"); done
+
 for f in "${FILES[@]}"; do
     rel="${f#"$ROOT"/}"
+    pst=0
+    grep -qE "${ALL_PATTERNS[@]}" "$f" 2>/dev/null || pst=$?
+    case "$pst" in
+        0) ;;
+        1) continue ;;
+        *) echo "ERROR: grep exited $pst prefiltering $f against every pattern -- no file it cannot read is ever reported clean" >&2; exit 2 ;;
+    esac
     for entry in "${PATTERNS[@]}"; do
         name="${entry%%|*}"
         regex="${entry#*|}"
