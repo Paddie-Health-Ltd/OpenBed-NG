@@ -1517,6 +1517,11 @@ ledger **18 rows**, second dry run `0 migration(s) pending.` **The pre-apply
 readings were taken in the same session and are recorded in block B below**, which
 is what makes each of them the other's failing half.
 
+Observed on hosted `klrlpxysjsjpdkeqdhvl` on 2026-09-23, after the apply of 019
+(the founder's terminal output, R-2026-09-23-69): ledger **19 rows**, second dry run
+`0 migration(s) pending.` *Added 2026-09-23 (R-2026-09-23-70): R-2026-09-23-69's
+restatement did not reach this list or the checkbox list at the end of this step.*
+
 ### What happens if it dies partway -- documented, not discovered
 
 Each migration is applied with **both** `--single-transaction` and
@@ -1553,6 +1558,7 @@ ones.
 - [x] Every forward migration applied, `016_snapshot.sql` last, 2026-09-16: ledger 16 rows, and the second dry run reported `0 migration(s) pending.`
 - [x] 017 applied, `017_snapshot_schedule.sql` last, 2026-09-17: dry run one `WOULD APPLY 017_snapshot_schedule.sql` and `1 migration(s) pending.`; apply `Migrations complete (1 applied this run).`; ledger 17 rows, and the second dry run reported `0 migration(s) pending.`
 - [x] 018 applied, `018_close_mirror_read_and_push_surfaces.sql` last, **2026-09-22 05:40:40 UTC**: ledger 17 rows before; dry run one `WOULD APPLY     : 018_close_mirror_read_and_push_surfaces.sql` and `1 migration(s) pending.`; apply echoed `DO`, `DO`, `INSERT 0 1`, `INSERT 0 0` then `Migrations complete (1 applied this run).`; ledger 18 rows, and the second dry run reported `0 migration(s) pending.` **The two `DO` blocks are 018's idempotent publication drop and its per-role revoke; `INSERT 0 1` is the migration ledgering itself and `INSERT 0 0` the runner's belt-and-braces `ON CONFLICT DO NOTHING`, which is a no-op precisely because the file had already ledgered itself.** This is the apply that closed the accumulation boundary (R-2026-09-22-52).
+- [x] 019 applied, `019_snapshot_single_read_and_mirror_integrity.sql` last, 2026-09-23 (the founder's terminal output, R-2026-09-23-69): ledger 18 rows before; dry run one `WOULD APPLY     : 019_snapshot_single_read_and_mirror_integrity.sql` and `1 migration(s) pending.`; apply echoed `DO`, `DO`, `DO`, `ALTER TABLE`, `CREATE FUNCTION`, `COMMENT`, `REVOKE`, `DO`, `INSERT 0 1`, `INSERT 0 0` then `Migrations complete (1 applied this run).`; ledger 19 rows, and the second dry run reported `0 migration(s) pending.` No `MIRROR_ORPHANS` and no `FACILITY_NAME_BLANK`. Read independently by Cowork the same day, read-only: 19 ledger rows, both constraints validated, the snapshot job succeeding every minute across the apply.
 
 ---
 

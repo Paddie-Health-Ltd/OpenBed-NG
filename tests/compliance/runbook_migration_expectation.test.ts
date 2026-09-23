@@ -186,6 +186,135 @@ export function ledgerSiteCounts(runbook: string): { ledger: number; pending: nu
   return m === null ? null : { ledger: Number(m[1]), pending: Number(m[2]) };
 }
 
+/**
+ * THE VIRGIN-DATABASE BLOCK -- the FIFTH statement of a migration count in step 5,
+ * and the one the fourth site's addition still missed (R-2026-09-23-69 found it
+ * reading 18/17 after 019). Its counts are derived from the directory: a virgin dry
+ * run lists every forward file, and the apply counts one fewer because 001 is
+ * ledgered by the runner's bootstrap. Null when the block or either number is absent.
+ */
+export function virginCounts(runbook: string): { pending: number; applied: number } | null {
+  const block = /\*\*On a virgin database\*\*[\s\S]*?```([\s\S]*?)```/.exec(runbook);
+  if (block === null) return null;
+  const pending = /(\d+) migration\(s\) pending\./.exec(block[1] ?? '');
+  const applied = /Migrations complete \((\d+) applied this run\)/.exec(block[1] ?? '');
+  return pending === null || applied === null ? null : { pending: Number(pending[1]), applied: Number(applied[1]) };
+}
+
+/**
+ * [start, end) of each statement a guarded parser actually reads. Absent ones are
+ * left out.
+ *
+ * THE TWO BULLETS ARE NARROWED TO THEIR OWN LIST ITEM, and that is a finding, not
+ * tidiness. CURRENT_BULLET runs from "The hosted project today" to the next
+ * "Restated" bullet, so a bullet planted between them sits inside its match -- and
+ * the prose parser reads only the FIRST count there. Taking the whole match as
+ * "guarded" let an unchecked count pass; this scan's own plant is what found it.
+ */
+function guardedRegions(runbook: string): [number, number][] {
+  const units = dateUnits(runbook);
+  const itemAt = (at: number): [number, number] | null => {
+    const u = units.find((x) => at >= x.start && at < x.end);
+    return u === undefined ? null : [u.start, u.end];
+  };
+  const out: [number, number][] = [];
+  for (const re of [CURRENT_BULLET, /^- \*\*Any `WOULD APPLY` line/m]) {
+    const m = re.exec(runbook);
+    const item = m === null ? null : itemAt(m.index);
+    if (item !== null) out.push(item);
+  }
+  for (const re of [
+    /\*\*On the hosted project today\*\*[\s\S]*?```[\s\S]*?```/,
+    /On\s+hosted\s+today\s+that\s+is\s+`\d+`,\s+with\s+`\d+\s+migration\(s\)\s+pending\.`\s+from\s+the\s+dry\s+run/,
+    /\*\*On a virgin database\*\*[\s\S]*?```[\s\S]*?```/,
+  ]) {
+    const m = re.exec(runbook);
+    if (m !== null) out.push([m.index, m.index + m[0].length]);
+  }
+  return out;
+}
+
+const ISO_DATE = /\b\d{4}-\d{2}-\d{2}\b/;
+
+/**
+ * The runbook cut into the units a date can vouch for: each LIST ITEM (a bullet and
+ * its continuation lines, a sub-bullet on its own), each plain paragraph, and each
+ * fence -- a fence is dated by the paragraph that introduces it ("**On 2026-09-22,
+ * when 018 was pending,**"), never by its own lines.
+ *
+ * WHY LIST ITEMS AND NOT PARAGRAPHS. Step 5's expectation list has no blank lines
+ * between its bullets, so as one paragraph it is dated by any restatement in it, and
+ * an UNDATED bullet planted into that list would inherit a neighbour's date and pass.
+ */
+function dateUnits(runbook: string): { start: number; end: number; dated: boolean }[] {
+  const units: { start: number; end: number; dated: boolean }[] = [];
+  const lines = runbook.split('\n');
+  let offset = 0;
+  let cur: { start: number; end: number; text: string } | null = null;
+  let fence: { start: number; intro: boolean } | null = null;
+  let lastIntroDated = false;
+  const close = (): void => {
+    if (cur === null) return;
+    const dated = ISO_DATE.test(cur.text);
+    units.push({ start: cur.start, end: cur.end, dated });
+    lastIntroDated = dated;
+    cur = null;
+  };
+  for (const line of lines) {
+    const end = offset + line.length + 1;
+    if (/^\s*```/.test(line)) {
+      if (fence === null) {
+        close();
+        fence = { start: offset, intro: lastIntroDated };
+      } else {
+        units.push({ start: fence.start, end, dated: fence.intro });
+        fence = null;
+      }
+    } else if (fence === null) {
+      if (line.trim() === '') close();
+      else if (/^\s*(- |\d+\. )/.test(line) || cur === null) {
+        close();
+        cur = { start: offset, end, text: line };
+      } else {
+        cur.end = end;
+        cur.text += `\n${line}`;
+      }
+    }
+    offset = end;
+  }
+  close();
+  return units;
+}
+
+/**
+ * EVERY `N migration(s) pending.` in the runbook that is neither read by a guarded
+ * parser nor inside a dated historical unit (R-2026-09-23-70 D). Empty means each
+ * statement of a count is either checked against the directory or is history.
+ *
+ * WHY A SCAN AND NOT A FIFTH NAMED SITE: this is the third miss of one class -- #61
+ * (the prose alone), the "all four" claim (the stop bullet), and the virgin block --
+ * and each fix enumerated one more site. Enumeration is what keeps missing; a scan
+ * over the whole document cannot.
+ *
+ * NOT ASSERTED HERE, deliberately: that a count inside a DATED unit is right. It is
+ * history -- what a run printed on that day -- and nothing in the repository can
+ * re-derive it. A date is what exempts it, so an undated statement is the violation.
+ */
+export function unguardedPendingStatements(runbook: string): string[] {
+  const regions = guardedRegions(runbook);
+  const units = dateUnits(runbook);
+  const out: string[] = [];
+  for (const m of runbook.matchAll(/(\d+) migration\(s\) pending\./g)) {
+    const at = m.index;
+    if (regions.some(([a, b]) => at >= a && at < b)) continue;
+    const unit = units.find((u) => at >= u.start && at < u.end);
+    if (unit?.dated) continue;
+    const line = runbook.slice(0, at).split('\n').length;
+    out.push(`line ${line}: \`${m[0]}\` is stated outside every guarded site and outside any dated historical block`);
+  }
+  return out;
+}
+
 /** Forward migrations present in the repository. */
 function forwardMigrations(root: string): string[] {
   return readdirSync(join(root, MIG_DIR))
@@ -280,6 +409,22 @@ export function expectationViolations(
       out.push(`step 5's prose states ${count} pending but its ledger sentence says ${ledgerSite.pending}`);
     }
   }
+
+  // THE FIFTH SITE, derived from the directory (R-2026-09-23-69 / -70 D).
+  const virgin = virginCounts(runbook);
+  if (virgin === null) {
+    out.push("step 5's virgin-database block states no pending count and no applied count");
+  } else {
+    if (virgin.pending !== forwards.length) {
+      out.push(`step 5's virgin-database block says ${virgin.pending} pending, but a virgin dry run lists all ${forwards.length} forward migrations`);
+    }
+    if (virgin.applied !== forwards.length - 1) {
+      out.push(`step 5's virgin-database block says ${virgin.applied} applied, but the runner applies ${forwards.length - 1} after its bootstrap ledgers 001`);
+    }
+  }
+
+  // AND EVERY OTHER STATEMENT OF A COUNT: guarded above, or dated history (-70 D).
+  out.push(...unguardedPendingStatements(runbook));
 
   return out.sort();
 }
@@ -503,6 +648,49 @@ describe('runbook migration expectation', () => {
     );
   });
 
+  test('every pending count in the runbook is found and classified — the scan reads the whole document', () => {
+    const all = [...RUNBOOK_TEXT.matchAll(/(\d+) migration\(s\) pending\./g)];
+    expect(all.length, 'the scan found no pending counts at all, so it checked nothing').toBeGreaterThan(20);
+    expect(unguardedPendingStatements(RUNBOOK_TEXT)).toEqual([]);
+    expect(virginCounts(RUNBOOK_TEXT), 'the virgin-database block was not parsed').toEqual({
+      pending: forwardMigrations(REPO_ROOT).length,
+      applied: forwardMigrations(REPO_ROOT).length - 1,
+    });
+  });
+
+  test('plant — an UNDATED restatement of a count is rejected, even inside the dated expectation list', () => {
+    // The class this scan closes (R-2026-09-23-70 D): a new statement of the count
+    // that no parser was told about. Planted as a bullet INTO step 5's list, whose
+    // neighbours are dated -- a paragraph-level date would have let it through.
+    const planted = RUNBOOK_TEXT.replace(
+      '- **Restated 2026-09-23 (R-2026-09-23-69), in the change that records 019\'s hosted',
+      '- **Also:** a correct run then ends `3 migration(s) pending.`\n- **Restated 2026-09-23 (R-2026-09-23-69), in the change that records 019\'s hosted',
+    );
+    expect(planted, 'the plant did not land').not.toBe(RUNBOOK_TEXT);
+    const found = unguardedPendingStatements(planted);
+    expect(found, 'an undated restatement of the count was accepted').toHaveLength(1);
+    expect(found[0]).toContain('`3 migration(s) pending.`');
+  });
+
+  test('plant — the virgin-database block left at its pre-019 counts is rejected', () => {
+    // The miss that made this a class: 18 / 17 after 019 was added.
+    const planted = RUNBOOK_TEXT.replace('19 migration(s) pending.          <- dry run', '18 migration(s) pending.          <- dry run')
+      .replace('Migrations complete (18 applied this run).   <- apply', 'Migrations complete (17 applied this run).   <- apply');
+    expect(virginCounts(planted), 'the plant did not reach the virgin block').toEqual({ pending: 18, applied: 17 });
+    const v = expectationViolations(planted, forwardMigrations(REPO_ROOT), frozenMigrations(REPO_ROOT)).join('\n');
+    expect(v).toContain('says 18 pending, but a virgin dry run lists all 19 forward migrations');
+    expect(v).toContain('says 17 applied, but the runner applies 18');
+  });
+
+  test('a DATED historical statement is accepted, and the same line undated is not', () => {
+    // The positive control for the exemption, and its failing half in one leg: the
+    // date is the whole of what makes a stated count history.
+    expect(unguardedPendingStatements('- [x] On 2026-09-16 the dry run printed `3 migration(s) pending.`')).toEqual([]);
+    expect(unguardedPendingStatements('- [x] The dry run printed `3 migration(s) pending.`')).toHaveLength(1);
+    expect(unguardedPendingStatements('**On 2026-09-22, when 018 was pending,** it printed:\n\n```\n1 migration(s) pending.\n```')).toEqual([]);
+    expect(unguardedPendingStatements('**Earlier,** it printed:\n\n```\n1 migration(s) pending.\n```'), 'a fence was dated by nothing').toHaveLength(1);
+  });
+
   test('anti-vacuity — a runbook with no expectation bullet FAILS rather than passing', () => {
     // The shape that would make this guard useless: someone rewords the bullet,
     // the regex stops matching, and every assertion above passes over an empty
@@ -538,6 +726,16 @@ describe('runbook migration expectation', () => {
       // The fourth site (R-2026-09-23-67): one frozen file, so one ledger row.
       'THAT PROJECT. **On hosted today that is `1`, with `1 migration(s) pending.` from',
       'the dry run**.',
+      '',
+      // The fifth site (R-2026-09-23-70 D): two forward files, so two pending and one applied.
+      '**On a virgin database** the two commands report different numbers:',
+      '',
+      '```',
+      '2 migration(s) pending.          <- dry run',
+      'Migrations complete (1 applied this run).   <- apply',
+      '```',
+      '',
+      '- [x] Once, on 2020-01-01, the dry run printed `9 migration(s) pending.`',
     ].join('\n');
     expect(
       expectationViolations(agreeing, ['001_a.sql', '002_enums.sql'], ['001_a.sql']),
