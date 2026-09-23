@@ -2946,6 +2946,8 @@ _Issued as R-PROVISIONAL-2026-09-22-AJ, inside the Bundle 3 kickoff the founder 
 
 **And the honest limit is named in the test as NOT ASSERTED, because it is the case a reader would assume is covered.** Substituting a different VALID privilege — `CREATE` for `USAGE` — leaves the control **true** (`postgres` holds `CREATE` on `app`) and both subjects **false**, so nothing reds and the suite would be asserting the wrong privilege. Measured, not assumed. Closing it needs a probe asserting the privilege graph by identity, which is a different control and is not built here.
 
+**CLOSED BY `R-2026-09-22-62` (AL), 2026-09-23, not carried as an open item.** The USAGE test now probes one named privilege constant against a control subject that holds USAGE and **not** CREATE on `app`, so swapping the constant to CREATE turns the control false and the test red; and a catalogue read of the schema's ACL covers every privilege type for `anon`, `authenticated` and `PUBLIC` at once. The limit named in the paragraph above is therefore no longer a limit.
+
 **Why this is worth a clause.** `-56 D` is the ruling that named three gaps in the boundary suite, and it is exactly the kind of finding that gets reused: the next person to reach for a positive control will reuse the REASON, not the instruction. A right instruction resting on a false premise stops being lucky the moment the premise becomes load-bearing.
 
 **G4 — AND ONE CLAIM FROM MY OWN TOOLING, REFUTED BEFORE IT REACHED THIS RECORD.** A planning pass reported that the kickoff cites its own future paths under a `claude/` prefix that `no_phantom_paths.test.ts`'s scope regex does not cover — a finding which, had it been taken on its face, would have meant editing a document ruled to land unedited. **It is false.** There is no `claude/` citation anywhere in the kickoff, and the file on disk is byte-identical to the pasted text. Recorded because the standing rule about checking a stated reason binds whatever produced it, and because the cost of not checking would have been an edit to the one artefact that was not to be edited.
@@ -3057,6 +3059,84 @@ _Issued as R-PROVISIONAL-2026-09-22-AQ, by the founder on 2026-09-22, answering 
 
 **D — THE TWO LETTERS THAT NEVER ARRIVED, and the ledger's own rule applied.** `AL` and `AM` were issued by Cowork **before** `AN` and were never pasted into this session. The ledger states that *a letter with no row either never arrived or has not landed yet, and Cowork can be told which* — and Cowork was told: no text for either has ever reached the implementer, and nothing in this repository mentions them. **They are therefore numbered from the record's last when their text lands, which will be AFTER `-60` and `-61` rather than before**, and their ledger rows record that they were issued earlier than the numbers they carry. **`C` cannot be discharged until `AL`'s text exists**, which is the one thing still holding the pull request shut.
 
+### R-2026-09-22-62 — the USAGE control's remaining gap is closed here, and the PR 3.1 report must quote rather than state
+
+_Issued as R-PROVISIONAL-2026-09-22-AL, by Cowork on 2026-09-22, **before `AN`**, and not pasted into this session until 2026-09-23 — `-61 D` records that it had not arrived. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-61. **It therefore carries a number later than rulings issued after it**, and its ledger row says so. **Record-only under R-46; lands in PR 3.1.**_
+
+**EVIDENCE KINDS.** A, B and C are Cowork's, recorded as given. D is mine.
+
+**A — `-57 G5`'s GAP IS CLOSED IN THIS PULL REQUEST, not carried as an open item.**
+
+- **A1.** The USAGE test must turn **red** if the privilege it checks is changed to any other valid schema privilege — `CREATE` being the case measured in `-57 G5`. A control that stays true under that swap does not prove the test is about USAGE. The mechanism is the implementer's; one shape that meets it is a control subject that holds USAGE and **not** CREATE on `app`. The swap is shown as the failing half, quoted, then green restored.
+- **A2.** If a catalogue read of the schema's ACL — every privilege type at once, for `anon`, `authenticated` and `PUBLIC` — closes the property more directly, use it. **Keep `has_schema_privilege` where it adds the membership-inheritance case the ACL read cannot see.**
+- **A3.** `-57 G5` records this as closed by this ruling.
+
+**B — COWORK'S ERRORS, for the pull-request body; listed, not fixed in the record text.**
+
+- **B1.** The claim that a misspelled privilege string *"would read as the boundary holding"* came from Cowork and was never tested. Measured here (`-57 G5`): `has_schema_privilege` **raises** on it. The same class as Cowork error (c): check that a stated failure mode actually happens before citing it.
+- **B2.** The kickoff's Clause 4 scope defect — a gitignored path in backticks (`-57 G3`) — is Cowork's, and the path is named in the pull-request body.
+
+**C — THE PR 3.1 REPORT QUOTES, IT DOES NOT STATE.** C1 branch, HEAD, push state and `git log --oneline main..HEAD`. C2 `git diff -M --name-status main...HEAD` against the claimed paths, plus the per-commit staged-path comparisons. C3 whether `scripts/commit.sh` is new; if new, its basis in the record. C4 every plant red then green — the RLS lint without ENABLE and separately without FORCE, the top-level set's planted stray, the credential scan once per app, the wrapper refusing an unknown app, a stale stamp refused by name at upload, and the USAGE swap. C5 `build_stamp` green across a commit made after a build, as a sequence with output. C6 the wrapper deploying both apps against the stub, every pre-existing `deploy_guards.test.ts` leg named, each stamped app's `version.json` ignored with its untracked leg. C7 the Cloudflare runbook's deploy command restated. C8 Standard O on a freshly provisioned database with its prediction. **C9 as amended by `-63 B6`:** `git status --porcelain` with the untracked Cowork directory gone.
+
+**D — C3's PREMISE, READ BEFORE THE CLAUSE WAS WRITTEN.** `scripts/commit.sh` is **not new**: it entered in `c843745` on 2026-09-11 and is already on `main`. The "if new, its basis" branch does not apply, and the report says so rather than inventing a basis for something that needed none.
+
+### R-2026-09-22-63 — Cowork handoffs no longer enter the repository
+
+_Issued as R-PROVISIONAL-2026-09-22-AM, by the founder on 2026-09-22, **before `AN`**, and not pasted until 2026-09-23. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-62. Its ledger row records the out-of-order landing. **Record-only under R-46; lands in PR 3.1.**_
+
+**A — THE RULE (the founder's decision).**
+
+- **A1.** Cowork handoff documents are Cowork-to-Cowork continuity documents. They live in the Cowork project only and are **not** committed to `docs/`. The repository's record is this decision record and the committed kickoffs; a handoff is a second-hand summary of them.
+- **A2 — the reason.** Committing them produced the same stray path twice, needed a founder paste and a byte-identity check per pull request, and put Cowork's session-state claims into the record, where they then needed correcting.
+- **A3.** Handoffs already under `docs/` stay as history and are not edited or removed. The implementer's own handoffs are not covered by this ruling.
+
+**B — WHAT CHANGES IN PR 3.1.**
+
+- **B1.** `-58 B1` and `B2` are **withdrawn**: neither Cowork handoff enters `docs/`, and nothing is pasted for that purpose.
+- **B2.** `-58 B3` is **replaced**: the untracked Cowork directory is removed from the working tree with **no diff owed**, since the authoritative copy is in the Cowork project. `git status --porcelain` is quoted before and after.
+- **B3.** The committed kickoff still says PR 3.1 carries the infra-review-closed handoff. **The kickoff stays byte-identical; this clause is what supersedes that line**, and the pull-request body says so.
+- **B4.** `-58 C`, the top-level closed set, **stands** — it guards against any stray path, not only handoffs.
+- **B5.** Before relying on A1, the two Cowork handoffs' facts were checked against the record — see D.
+- **B6.** `-62 C9` now reads: `git status --porcelain` with the untracked Cowork directory gone; no diff is owed.
+
+**C — WHAT IS WITHDRAWN, SO IT IS FINDABLE.** `-58 B1`, `B2` and `B3`, and the kickoff's carried-items clause naming the infra-review handoff. `-61 D`'s statement that `AL` and `AM` had not arrived is **discharged** by their landing here, not contradicted by it.
+
+**D — B5, DONE, AND IT FOUND TWO FACTS WITH NO HOME.**
+
+**`handoff-2026-09-22-bundle3-kicked-off`** was read on disk before removal. Every fact a later reader would need already has a home: the ward's missing new-link path in `-57 F2`; `enable_signup` and H2 in the committed kickoff; the top-level guard's discharge in `-58 C3a`. What has no home is Cowork's own process notes — a near-miss about `facility_ops` and a relabelling of hosted steps — which never reached this repository and are expected to have none.
+
+**`handoff-2026-09-22-infra-review-closed`** was pasted for comparison only and is not committed. **The paste arrived TRUNCATED**, ending mid-sentence in its "Fundamental" section; **this check covers what arrived and nothing after that point.** Its facts were compared against `-53` to `-56`, and each absence below was **confirmed by reading `-56 A3` and `A3b` in full, with a known-present phrase found as a control** — not inferred from a failed search.
+
+**Two facts had no home, and they are given one here, each as what it is: a founder reading relayed through a Cowork handoff, NOT re-read by the implementer.**
+
+- **D1 — "`openbed-ward-console` is built against `https://api.openbed.ng`."** `-56 A3` records only that the project has no custom domain and cannot be deployed through the wrapper; **`A3b` says outright that which commit is deployed was not reported.** So this is the **only statement anywhere of what the CURRENTLY DEPLOYED ward console talks to** — the question Finding D existed to answer. **It matters beyond bookkeeping:** the tracked origin of `-57`/`-59` governs builds made from now on; it says nothing about a deployment made before it. The first deploy through the wrapper (H4), read back per `-64`, replaces this relayed claim with a reading.
+- **D2 — "Hosted counts: 0 `ward_account`s; 1 auth user."** The record has the `ward_account` count and has `security@openbed.ng` as the §9 test account, but **no total of auth users**. That total is **H2's baseline**: if hosted sign-up is enabled, it is the number that shows nobody has self-registered, and a later reading above one is the signal to look.
+
+Everything else in what arrived has a home: the Worker's deployed source matching the repository (`-55`/`-56`), `openbedng` deleted (`-56 A2`, `A10b`), DNS (`A4`), SSL (`A5`, `A10a`), the test account (`A6`), `ensure_rls` and its inert PUBLIC EXECUTE (`A7`), the magic-link host and its custom-domain end state (`-55 C`), Cowork's on-device verification of `999dd50` (`-54`), and the widened grant check, which the handoff says was "not yet in a ruling" and is now `-57 A2`.
+
+### R-2026-09-23-64 — the live-key probe runs on every ward-console deploy, not only on rotation
+
+_Issued as R-PROVISIONAL-2026-09-23-AR, by Cowork on 2026-09-23, on a finding of mine in `-61`'s rotation step. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-63. First ruling dated 2026-09-23. **Record-only under R-46; lands in PR 3.1.** Next provisional letter: AS._
+
+**A — THE RULE.**
+
+- **A1.** The finding stands: **no test in this repository can tell a live key from a dead one.** So the edge probe is the only check, and it belongs in the ward console's **deploy read-back** — H4's first deploy included — not only in the rotation step.
+- **A2 — the property.** After a ward-console deploy, **the key in the deployed bundle is accepted at the edge.** Failing half, in the same sitting: the same request with a deliberately wrong key is refused. Both pass signals are written exactly, and the rotation step points at this read-back rather than carrying its own copy.
+- **A3.** If the probe as written already met A2, say so and quote it; do not duplicate it.
+
+**B — A3 ANSWERED: IT DID NOT.** The rotation step said *"the signal is the ward console signing in"* — which names no exact signal and has no failing half. The read-back is written fresh, and the rotation step now points at it.
+
+**C — THE SIGNALS WERE OBSERVED BEFORE THEY WERE WRITTEN, and the observation changed the endpoint.** Read against `https://api.openbed.ng` on 2026-09-23, with the tracked key, a deliberately wrong key, and none:
+
+| Endpoint | tracked key | wrong key | no key |
+|---|---|---|---|
+| `/rest/v1/` | **401** `"Secret API key required"` | **401** `"Invalid API key"` | 401 `"No API key found in request"` |
+| `/auth/v1/settings` | **200**, body begins `{"external":` | **401** `"Invalid API key"` | 401 `"No API key found in request"` |
+
+**At the PostgREST root a live key and a dead key both return 401.** A status-only probe there would certify a dead key as live — the body is the only thing that tells them apart. `/auth/v1/settings` separates them by status **and** body, so it is the probe. It is a settings read, **not a sign-in**: it sends no email and does not exercise the per-IP auth limits `R-2026-09-19-23 D4` forbids touching.
+
+**D — one trap met while taking that reading, recorded because it looks like a network failure.** The first attempt used a loop variable named `path`, which in zsh is tied to `$PATH`; assigning it emptied the search path, and every `curl` reported *command not found*. **No request was sent.** The runbook fence avoids the name.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -3109,6 +3189,9 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | AN | R-2026-09-22-59 | 2026-09-22 | **H1 could not be performed**: `SUPABASE_URL` on the Pages project is an encrypted secret and cannot be read back, so the step `-58 A1` depended on asked for something that does not exist — recorded as Cowork's defect rather than restated more carefully. The tracked origin is set from Supabase's own project URL instead, re-read here before it was written into anything, and found to agree with the project id `supabase-proxy/index.js` already tracks — which is itself the finding, because it makes the origin a **two-derivation-site** value that §7 governs. `-58 A1`'s "PR 3.1 changes nothing about which origin the Function calls" is replaced by a **weaker and truthful** claim: the end state is the direct origin, and whether that is a *change* is **unknown**, because the prior value was never readable. The leftover secret becomes dead config, deleted only after a 200 from `/beds.json` on a deployment built from the tracked value. Carries one hazard found while designing against B3: two database legs would have begun addressing the live project with a demo key, asserting 200 throughout. |
 | AP | R-2026-09-22-60 | 2026-09-22 | **A production build must read no untracked source.** Ruled on a finding of mine: Vite inlines the WHOLE `import.meta.env` record, so a stale `VITE_SUPABASE_URL` in an untracked `.env.local` ships inside the bundle — the marker legs of `-57`/`-58` proved `origins.json` is USED and never that untracked values are KEPT OUT, which is Finding D's hazard surviving its own fix. Requires the cause in the code be removed as well as guarded. The cause was established rather than guessed: **bracket notation**, which misses Vite's per-key define and hits the bare one. One of my premises fell with it — bracket notation was not forced by any compiler option, and dot access typechecks today. |
 | AQ | R-2026-09-22-61 | 2026-09-22 | **The publishable key becomes TRACKED**, on the ground that it ships in every client bundle by design, so the stamped commit fully determines the built bundle and no hand-carried step is left in a deploy. Asks which line of `-57`/`-58` it supersedes — and the answer, read here before the clause was written, is **none**: the claim was mine, in a template and a code comment I wrote the same session, and it is narrower than the instruction assumed. The objection that comment raised — that a tracked key makes the repository the place a STALE key lives — is answered by restating the rotation runbook rather than dropped. Also extends `-60` to the PROCESS ENVIRONMENT, which disabling `.env` files does not reach, because Vite's process-env copy outranks every file. |
+| AL | R-2026-09-22-62 | 2026-09-23 | **Issued before AN, landed after AQ** — never pasted until 2026-09-23, which `-61 D` recorded. Closes `-57 G5` in this pull request: the USAGE test must red when the probed privilege is swapped. Lists two Cowork errors for the PR body, and specifies nine things the report must QUOTE rather than state. One of its premises did not apply: `scripts/commit.sh` is not new, having been on `main` since 2026-09-11. |
+| AM | R-2026-09-22-63 | 2026-09-23 | **Issued before AN, landed after AL.** Cowork handoffs no longer enter the repository; `-58 B1`–`B3` withdrawn; the untracked Cowork directory removed with no diff owed. Its B5 check found **two facts with no home** in the record — what the currently deployed ward console is built against, and the hosted auth-user total — and gives them one, marked as relayed readings. The infra-review handoff was pasted truncated, and the check says so. |
+| AR | R-2026-09-23-64 | 2026-09-23 | The live-key probe moves into every ward-console deploy read-back, with a failing half, because no test here can tell a live key from a dead one. **Its signals were observed before they were written, and the observation moved the probe off `/rest/v1/`**: there a live key and a dead key both return 401. First ruling dated 2026-09-23. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -3305,6 +3388,28 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-23, R-2026-09-23-64 (issued as R-PROVISIONAL-2026-09-23-AR): **the live-key
+  probe runs on every ward-console deploy**, because no test in the repository can tell
+  a live key from a dead one and the edge is therefore the only check; its signals were
+  **observed before they were written**, and the observation moved the probe off the
+  PostgREST root, where a live key and a dead key both answer 401 and only the body
+  separates them, onto `/auth/v1/settings`, which separates them by status and body and
+  is a settings read rather than a sign-in, so it stays inside `-23 D4`;
+- on 2026-09-23, R-2026-09-22-63 (issued as R-PROVISIONAL-2026-09-22-AM, before AN):
+  **Cowork handoffs no longer enter the repository**, `-58 B1`–`B3` are withdrawn and the
+  committed kickoff's line naming a handoff is superseded without editing the kickoff;
+  its check of both handoffs against the record found **two facts with no home** — the
+  only statement anywhere of what the currently deployed ward console is built against,
+  and the hosted auth-user total that is H2's baseline — which are given one, marked as
+  relayed readings rather than readings taken here; and it records that one handoff was
+  pasted truncated, so the check covers what arrived and no more;
+- on 2026-09-23, R-2026-09-22-62 (issued as R-PROVISIONAL-2026-09-22-AL, before AN):
+  **`-57 G5`'s gap is closed rather than carried** — the USAGE test must red when the
+  privilege it probes is swapped, which a control holding both USAGE and CREATE could
+  never show; it lists Cowork's untested "misspelled privilege" claim and the kickoff's
+  backticked gitignored path as Cowork's errors, and specifies the nine things the PR 3.1
+  report must quote rather than state, one of whose premises did not apply because
+  `scripts/commit.sh` had been on `main` since 2026-09-11;
 - on 2026-09-22, R-2026-09-22-61 (issued as R-PROVISIONAL-2026-09-22-AQ): **the
   publishable key becomes TRACKED**, because it ships in every client bundle by
   design and tracking it makes the stamped commit fully determine the built bundle;
