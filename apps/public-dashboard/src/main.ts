@@ -1,4 +1,14 @@
-import { decodeWard, decodeFacility, type EncodedRow, type DecodedRow } from '@openbed/snapshot';
+import {
+  decodeWard,
+  decodeFacility,
+  elapsedSince,
+  markFetch,
+  SERVED_AT_HEADER,
+  type EncodedRow,
+  type DecodedRow,
+  type FetchMark,
+} from '@openbed/snapshot';
+import { snapshotBanner, wardLine, type ServeClock } from './age-view.js';
 
 /**
  * The public dashboard.
@@ -60,10 +70,18 @@ import { decodeWard, decodeFacility, type EncodedRow, type DecodedRow } from '@o
  *     any kind (an unauthenticated GET), so it does not meet that guard's
  *     stated trigger ("a real authenticated client fetch") regardless.
  *   - scripts/lint_no_updated_at_filter.sh: still GUARD-AHEAD-OF-SUBJECT --
- *     see that script's own header, updated alongside this file. Its true
- *     subject, distance-based public search and filtering, is not built here;
- *     this change is fetch, decode and render only, and never reads
- *     updated_at at all.
+ *     see that script's own header. Its true subject, distance-based public
+ *     search and filtering, is not built here. SINCE R-2026-09-23-67 THIS
+ *     MODULE READS EACH WARD'S AGE, for display only, through ./age-view.ts:
+ *     every ward is still rendered, in the order served. An age is shown,
+ *     never used to choose which rows appear.
+ *
+ * EVERY COUNT CARRIES ITS AGE (R-2026-09-23-67 A). The fetch keeps the
+ * snapshot's generated_at, the x-openbed-served-at header the Pages Function
+ * stamps on each response, and a monotonic mark; ./age-view.ts turns those
+ * into words. The page re-renders every AGE_REFRESH_MS from the same payload,
+ * so a tab left open ages, and the stale-snapshot banner can appear on it. It
+ * does not refetch: polling is Bundle 4's.
  */
 
 interface SnapshotEnvelope {
@@ -88,15 +106,31 @@ const FETCH_ATTEMPTS = 2;
  * parse failure, or the codec throwing on a decode-arity mismatch. All of
  * these get one retry with jittered backoff, then give up.
  */
-async function fetchSnapshot(): Promise<{ facilities: DecodedRow[]; wards: DecodedRow[] } | null> {
+interface Snapshot {
+  readonly facilities: DecodedRow[];
+  readonly wards: DecodedRow[];
+  readonly generatedAt: string;
+  readonly servedAt: string | null;
+  readonly mark: FetchMark;
+}
+
+/** How often an open page re-states every age from the same payload. */
+const AGE_REFRESH_MS = 30_000;
+
+async function fetchSnapshot(): Promise<Snapshot | null> {
   for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt += 1) {
     try {
       const res = await fetch('/beds.json', { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
       if (res.ok) {
+        const mark = markFetch();
+        const servedAt = res.headers.get(SERVED_AT_HEADER);
         const payload = (await res.json()) as SnapshotEnvelope;
         return {
           facilities: payload.facilities.map(decodeFacility),
           wards: payload.wards.map(decodeWard),
+          generatedAt: typeof payload.generated_at === 'string' ? payload.generated_at : '',
+          servedAt,
+          mark,
         };
       }
     } catch {
@@ -177,15 +211,9 @@ export function callableIdentity(facility: DecodedRow | undefined): CallableIden
   return { name: name.trim(), phone: phone.trim() };
 }
 
-function wardLine(ward: DecodedRow): string {
-  const bedCount = ward['bed_count'];
-  const beds = bedCount === null ? 'not yet reporting' : `${String(bedCount)} beds`;
-  const open = ward['accepting_effective'] === true;
-  const reason = ward['gated_by'] as string | null;
-  return `${String(ward['category'])}: ${beds}${open ? '' : ' — not accepting'}${reason ? ` (${reason})` : ''}`;
-}
-
-function renderReal(root: HTMLElement, facilities: DecodedRow[], wards: DecodedRow[]): void {
+function renderReal(root: HTMLElement, snapshot: Snapshot): void {
+  const { facilities, wards } = snapshot;
+  const clock: ServeClock = { servedAt: snapshot.servedAt, elapsedMs: elapsedSince(snapshot.mark) };
   const empty = emptyStateMessage(facilities, wards);
   if (empty !== null) {
     const notice = document.createElement('p');
@@ -234,8 +262,15 @@ function renderReal(root: HTMLElement, facilities: DecodedRow[], wards: DecodedR
 
     const list = document.createElement('ul');
     for (const ward of facilityWards) {
+      const line = wardLine(ward, clock);
       const item = document.createElement('li');
-      item.textContent = wardLine(ward);
+      item.className = `age-${line.tone}`;
+      item.textContent = line.text;
+      if (line.smallPrint !== null) {
+        const small = document.createElement('small');
+        small.textContent = ` (${line.smallPrint})`;
+        item.appendChild(small);
+      }
       list.appendChild(item);
     }
 
@@ -243,8 +278,19 @@ function renderReal(root: HTMLElement, facilities: DecodedRow[], wards: DecodedR
     sections.push(section);
   }
 
-  root.replaceChildren(...sections);
+  const banner = snapshotBanner(snapshot.generatedAt, clock);
+  if (banner !== null) {
+    const notice = document.createElement('p');
+    notice.className = 'snapshot-banner';
+    notice.setAttribute('role', 'status');
+    notice.textContent = banner;
+    root.replaceChildren(notice, ...sections);
+  } else {
+    root.replaceChildren(...sections);
+  }
 }
+
+let ageing: ReturnType<typeof setInterval> | null = null;
 
 /**
  * Exported so a test can call it and then read the DOM, rather than re-importing
@@ -255,9 +301,13 @@ export async function render(): Promise<void> {
   const root = document.getElementById('app');
   if (!root) return;
 
+  if (ageing !== null) clearInterval(ageing);
+  ageing = null;
+
   const snapshot = await fetchSnapshot();
   if (snapshot) {
-    renderReal(root, snapshot.facilities, snapshot.wards);
+    renderReal(root, snapshot);
+    ageing = setInterval(() => renderReal(root, snapshot), AGE_REFRESH_MS);
   } else {
     renderOutage(root);
   }
