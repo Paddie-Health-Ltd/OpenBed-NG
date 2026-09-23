@@ -3227,6 +3227,49 @@ _Issued as R-PROVISIONAL-2026-09-23-AT, by Cowork on 2026-09-23: founder decisio
 - **`-54 B` (line 2700) orders the queue:** *"the infrastructure review; Bundle 3; the sensor bundle; facility one; Bundle 4."* **Bundle 4 comes after facility one.** The `-45` gate lists no freshness item.
 - **The tension, stated for Cowork to put to the founder:** decision D3 (line 192) reads *"A count is shown with its visible freshness and a per-facility call-to-confirm"* with no timing clause, and v1 records the 24-hour ceiling as the one change to insist on before launch. As things stand, between facility one and Bundle 4 the public page would show counts with no age. The sensor bundle covers the operator's side (snapshot and heartbeat age); nothing covers the public's.
 
+### R-2026-09-23-67 — count age ships before facility one; wards write to support@openbed.ng; enumeration an accepted risk
+
+_Issued as R-PROVISIONAL-2026-09-23-AU, by Cowork on 2026-09-23 with the founder's merge word for #65: founder decisions on count age and ward contact. The support address followed in a second block the same day. Number assigned on landing from the record's last as read on this branch: R-2026-09-23-66. **Record-only under R-46; lands in PR 3.2b.** Next provisional letter: AV._
+
+**THE MERGE THAT CAME WITH IT.** #65 merged at `1d084a4`, a merge commit, head `7778bac` read from the API with seven checks green. **The record cites none of the six SHAs in that PR's range**, found by scanning it; all six read `--is-ancestor` exit 0 against `origin/main` anyway.
+
+**A — COUNT AGE SHIPS BEFORE FACILITY ONE (founder decision), in a new PR 3.2b before 3.3.** Basis, Cowork's clinical-safety review: a count shown without its age is false confidence; a crew acting on yesterday's "6 beds" loses the window to divert (graded S1). D3 (line 192) already promises "visible freshness"; nothing scheduled it before facility one (`-66 H`).
+- A1: per ward, its age from `updated_at`, in words ("updated 4 min ago"); an absolute time past about two hours.
+- A2: aged counts stay visible with their number, de-emphasised, with "last reported <age> — call to confirm"; past the ceiling "no recent report — call", the old number allowed as small text; PENDING/PAUSED wards "not currently reporting", no count.
+- A3: a page-level banner when the snapshot itself is older than a threshold, measured against a serve-time clock that is not the cached payload's own `server_now`, plus elapsed time since load, never the device clock; the implementer proposes the mechanism and says why it cannot read fresh while the snapshot is stale.
+- A4: the thresholds in ONE tracked setting labelled PROVISIONAL — clinician confirmation pending — with Cowork's proposed defaults: fresh ≤ 30 min; ageing 30 min–2 h; stale > 2 h; no recent report > 12 h; snapshot banner > 3 min.
+- A5: must NOT hide, filter or re-sort by age; show a stale or PENDING ward as 0 beds or not accepting; carry freshness by colour alone; show "just now" while the snapshot is stale.
+- A6: rendered-page tests for each band, the banner and the clock source, each with a failing half.
+- **A7 — OPEN, FOUNDER-SIDE, BEFORE FACILITY ONE:** the founder's clinicians confirm or replace A4's thresholds, ideally with ambulance-service input; only that ruling removes the PROVISIONAL label.
+
+**B — WARD CONTACT: EMAIL FOR NOW (founder decision).** B1: every "phone the OpenBed operator" message names a support address from ONE tracked setting; where a facility admin exists, the message says to contact them first; a guard with a planted bare "phone the operator". B2: the address is the founder's to create. **B3 — OPEN, BEFORE FACILITY ONE:** a staffed phone or WhatsApp line for wards, with honest hours, in the facility agreement and onboarding pack (Cowork's operations review recommends a Nigerian WhatsApp Business number).
+
+**B2 SATISFIED — THE ADDRESS IS `support@openbed.ng`.** Two readings, recorded as given:
+- **The founder's reading, 2026-09-23:** created in Proton on the openbed.ng account, and a test email from an outside address was received.
+- **Cowork's reading, 2026-09-23, over DNS-over-HTTPS:** openbed.ng MX is `mail.protonmail.ch` (10) and `mailsec.protonmail.ch` (20); SPF includes `_spf.protonmail.ch`; the DKIM CNAMEs `protonmail`, `protonmail2` and `protonmail3._domainkey` resolve to Proton; DMARC `p=quarantine`.
+
+It is the ward-facing support contact ONLY. `hello@openbed.ng` (general enquiries) and `security@openbed.ng` (disclosure) are never used where a ward is told to get help.
+
+**CLOSED: the founder-side "recheck DKIM in Proton" item** (the 2026-09-21 and 2026-09-22 handoffs), on Cowork's DNS reading above. **Proton's own dashboard status was not read.** `-56 A4b` had already recorded the SPF half done and the DKIM half corroborated from DNS; this closes it on that same kind of evidence, and says so.
+
+**C — ACCEPTED RISK, RECORDED:** GoTrue's answers reveal whether an address has an account (`-66 G`). Low harm, because ward logins are role addresses, not personal ones. PR 3.3 makes `/auth/v1/otp` answer uniformly through `api.openbed.ng` if feasible; the direct `*.supabase.co` route closes only with `-55 C` (custom domain), already due before facility one. Revisit if personal addresses are ever used as logins.
+
+**D — FIND, DON'T BUILD: human-readable public labels.** See F.
+
+**E — THE PREMISES, READ BEFORE ACTING (method note 20).**
+- **A1's relative age conflicts with recorded text, and AU supersedes it.** `packages/fixtures/golden-path-steps.json` (step `tile-shows-absolute-timestamp`) and v1:239 say the tile shows an absolute timestamp, "never a relative age", because a relative age was a wall-clock subtraction on the handset. The reason does not hold here — this relative age is server-anchored and reads no device clock — so the page shows a relative age under two hours and an absolute Lagos time beyond, as A1 asks. The golden-path step asserts only the payload and is unaffected.
+- **A3's serve-time clock did not exist.** No header carried serve time; what Cloudflare's Cache API does to `Date` on a hit is not observed in this repository; the payload's `server_now` equals `generated_at` — generation time. The mechanism is below.
+- **B1's "where a facility admin exists" cannot be known by the console**: no RPC it calls returns roles or contacts. The message says it conditionally — "ask your facility's OpenBed administrator if you have one, or email support@openbed.ng".
+- **A fourth statement of 019's pending count was missed, by me.** Runbook step 5's ledger sentence went on saying hosted reads `18` with `0 migration(s) pending.` after `78d7b31` restated the other three sites; the guard read three. Restated in `1f3e3d0` and the guard now parses it — found while preparing the founder's hosted-apply steps.
+
+**F — WHAT LANDED IN PR 3.2b.**
+- **A3, the mechanism, and why it cannot read fresh while the snapshot is stale.** The Pages Function stamps `x-openbed-served-at` on every response it RETURNS — hit, miss or HEAD — from its own clock, in the function that already rebuilds each outgoing response; never on what it stores, for the reason the edge-cache marker is never stored. The page measures the snapshot as `served_at − generated_at + monotonic elapsed`, and each ward as `served_at − updated_at + elapsed`. `served_at` advances on every serve; `generated_at` stops when the job stalls; so the difference grows with the stall, and the elapsed term grows while the page is open. The device clock is in none of it. **An unknown serve clock is a banner, never fresh.** Two clocks meet — Postgres's and the Function's — and both are server clocks. **Named limit:** a shared cache honouring `s-maxage=30, stale-while-revalidate=300` could replay a served-at up to about five and a half minutes old, understating the age by at most that much; the zone does not cache this path, and the Function's own Cache-API hits get a fresh stamp.
+- **A4:** `packages/fixtures/snapshot-shape.json`'s `freshnessBands` is the one setting — 30 min, 2 h, 12 h, a 3-minute banner — with a `status` beginning `PROVISIONAL`, which a test requires until a ruling removes it. **An age exactly on a boundary falls into the OLDER band**, the conservative direction, carried over from the existing bands. The absolute-time switch is the stale band itself, not a second number that could disagree. `freshness.ts` and `anchor.ts` are LIVE (`R-2026-09-17-05` had them GUARD-AHEAD-OF-SUBJECT until Bundle 4).
+- **A5, one reading stated:** age never CHANGES a claim — a stale ward is not turned into 0 beds or "not accepting" because it is stale; whatever it last said is shown with its age.
+- **A6:** `tests/compliance/dashboard_age.test.ts`, 15 legs, 11 red against the page before; planted to take its serve time from the device clock, the stale-snapshot-on-a-fresh-device leg and the source guard red. `tests/db/beds_json_served.test.ts` requires the stamp on miss, hit and HEAD and never on the stored copy — red without it, and red with it set before `cache.put`.
+- **B1:** `packages/origins/ward-support.json` → `@openbed/origins/support`; `tests/compliance/ward_support_contact.test.ts` pins the value, refuses a help message without it and a bare "phone the operator" in source — red against the previous console on nine messages.
+- **D — FOUND: NOTHING SCOPES HUMAN-READABLE PUBLIC LABELS.** v1:144 required `gated_by` and `zero_reason.NO_ANAESTHETIST` to be "different types with different UI strings"; it was met by enum separation only (`002_enums.sql` lines 163–169) and swept HOLDS on that basis — no display string was ever defined. v1:404's "single strings module" for a Yoruba / Pidgin pass is recorded FAILED (#115, "no strings module"). So the public page prints `ICU_ADULT` and `NO_ANAESTHETIST_ON_DUTY` because nothing decided it should print anything else. For Cowork to put to the founder. The Pages runbook's read-back 5b treats a category code on the outage page as a failure, and any label change must keep that check meaningful.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -3284,6 +3327,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | AR | R-2026-09-23-64 | 2026-09-23 | The live-key probe moves into every ward-console deploy read-back, with a failing half, because no test here can tell a live key from a dead one. **Its signals were observed before they were written, and the observation moved the probe off `/rest/v1/`**: there a live key and a dead key both return 401. First ruling dated 2026-09-23. |
 | AS | R-2026-09-23-65 | 2026-09-23 | Cowork's own file review of PR 3.1 at `fbb0655`: one wrong test citation, a RLS lint that read only the plain form, and a runbook whose "step N" named two things. Each premise held, and two were wider than stated: **18 of 19 planted forms passed the old lint**, and every number 1–8 collided in the runbook. The C1 question was answered by planting, not argued: the bundle leg missed three of four package env reads, so the source scan now follows the import graph. Records the PR 3.3 hazard that the ward-console probe path is on no code-derived allow-list. |
 | AT | R-2026-09-23-66 | 2026-09-23 | **A3 decided and built: the orphan fixed at source (one read statement, an FK, a blank-name CHECK) and dropped on the page, never explained; one number to call per facility.** Three of its premises needed more than it said: `btrim` alone lets a tab-only name through (observed), the ward console had no rendered test at all, and D1 had a third raw-text site. Its D question found that nothing decides what the public sees about a count's age before facility one. PR 3.4's migration becomes 020. Also carries the ward's own sign-in request, and the finding that GoTrue's answers reveal whether an address exists. |
+| AU | R-2026-09-23-67 | 2026-09-23 | **Count age ships before facility one, in PR 3.2b; wards write to support@openbed.ng.** Its A3 clock did not exist and is built: the Pages Function stamps each response with its serve time, which advances while a stalled snapshot does not. Its A1 relative age supersedes the golden-path fixture's and v1's "absolute only" text, whose reason (a wall-clock subtraction) does not apply. The address arrived in a second block with the founder's and Cowork's readings, both recorded; the DKIM recheck closes on the DNS reading. Enumeration is an accepted risk. Its D find: nothing scopes human-readable public labels. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -3480,6 +3524,15 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-23, R-2026-09-23-67 (issued as R-PROVISIONAL-2026-09-23-AU): **every public
+  count says how old it is, and a stale page says so**, measured against a serve-time
+  stamp the Pages Function sets on each response -- so a stalled snapshot ages on the
+  page rather than reading fresh for as long as it is served -- with the thresholds in
+  one setting labelled PROVISIONAL until the founder's clinicians rule; **a ward sent
+  for help is told to write to support@openbed.ng**, from one tracked setting, recorded
+  with the founder's receipt reading and Cowork's DNS reading; the DKIM recheck is
+  closed on that DNS reading, Proton's dashboard unread; GoTrue's enumeration is an
+  accepted risk; and nothing scopes human-readable public labels;
 - on 2026-09-23, R-2026-09-23-66 (issued as R-PROVISIONAL-2026-09-23-AT): **A3 decided
   and built in PR 3.2** -- the generator reads both mirrors in one statement, proved by
   a forced race that is red on 016's body and green on 019's; a ward row cannot name an
