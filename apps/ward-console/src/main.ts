@@ -39,12 +39,10 @@ import { publishableKeyFor } from '@openbed/origins/keys';
  * in practice means only the row for this handset's own ward will ever accept
  * a publish.
  *
- * NOT ASSERTED HERE, deliberately (method note 12): the RENDERED text of the
- * "Not configured" screen. Nothing in this repository renders this console -- the
- * only jsdom test is the public dashboard's -- so its wording is checked by reading
- * and not by a test. Said plainly rather than left for a reader to assume covered;
- * R-2026-09-22-57 F2's ward-side sign-in form arrives in PR 3.2 and is the change
- * that gives this file a rendered surface worth asserting.
+ * RENDERED AND ASSERTED SINCE R-2026-09-23-66: tests/compliance/ward_console_render.test.ts
+ * imports this module under jsdom and reads the page -- the refused rows, the fixed
+ * messages at every site that used to print server text, and the publish form's
+ * body. Until then nothing rendered this console at all.
  *
  * CLASSIFICATION (Clause 5): the sign-in and handover path is LIVE -- it runs
  * against the local stack and golden-path steps 0-5 pass against it. The
@@ -83,9 +81,13 @@ import { publishableKeyFor } from '@openbed/origins/keys';
 const API_URL = apiOrigin(window.location.hostname);
 const PUBLISHABLE_KEY = publishableKeyFor(window.location.hostname);
 
-const root = document.querySelector<HTMLDivElement>('#app');
+/** Looked up per render, not once at load, so a page that rebuilds #app is still written into. */
+function appRoot(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('#app');
+}
 
 function show(heading: string, detail: string): void {
+  const root = appRoot();
   if (root === null) return;
   const h = document.createElement('h1');
   h.textContent = heading;
@@ -97,37 +99,127 @@ function show(heading: string, detail: string): void {
 /** The one message an expired or unrenewable session produces. There is no other. */
 const TAP_AGAIN = 'Your session has ended. Tap the link on the ward handset again to sign back in.';
 
-interface WardRow {
+/**
+ * WHAT A WARD IS TOLD, FOR EVERY ANSWER THE SERVER CAN GIVE (R-2026-09-23-66, the
+ * kickoff's D1). Raw server text NEVER reaches the screen: it named internals, and
+ * on the bad-link screen it carried GoTrue's own error text. Each rejection the
+ * three functions this console calls can raise -- app.assert_member() and
+ * public.my_facility_wards() in 011, public.publish_ward_status() in 014 -- has a
+ * fixed sentence here, and tests/compliance/ward_console_render.test.ts asserts
+ * this table covers exactly the codes parsed from those functions. 23514 is the
+ * CHECK violation a count outside 0-500 would raise (004). Anything else gets
+ * UNRECOGNISED. The raw text goes to the console log for whoever debugs it.
+ *
+ * "Phone the OpenBed operator" names no number, because none exists in this
+ * repository to name (recorded in R-2026-09-23-66).
+ */
+const CALL_OPERATOR = 'If it keeps happening, phone the OpenBed operator.';
+export const UNRECOGNISED = `Something went wrong. Reload the page and try again. ${CALL_OPERATOR}`;
+export const ROW_REFUSED = `This ward's record could not be read, so it cannot be updated from here. Reload the page. ${CALL_OPERATOR}`;
+export const LOAD_REFUSED = `The ward list could not be read. Reload the page. ${CALL_OPERATOR}`;
+export const BAD_LINK = 'That sign-in link cannot be used. It may have been used already, or it has expired. Ask for a new link to be sent.';
+
+export const WARD_MESSAGES: Readonly<Record<string, string>> = {
+  NOT_AUTHENTICATED: TAP_AGAIN,
+  NOT_A_MEMBER: 'This sign-in is not linked to a ward. Phone the OpenBed operator.',
+  ACCOUNT_DEACTIVATED: "This ward's account has been switched off. Phone the OpenBed operator.",
+  CROSS_FACILITY_DENIED: 'This sign-in cannot act for that facility. Phone the OpenBed operator.',
+  INSUFFICIENT_ROLE: 'This sign-in cannot publish bed counts. Phone the OpenBed operator.',
+  WARD_SCOPE_DENIED: 'This handset can only publish for its own ward, not this one.',
+  INVALID_ARGUMENT: `The update could not be read. Reload the page and try again. ${CALL_OPERATOR}`,
+  SESSION_ID_IS_ACCOUNT_ID: 'This sign-in cannot be used for an update. Sign in again with a new link.',
+  MISSING_MUTATION_CONTEXT: `The update was incomplete. Reload the page and try again. ${CALL_OPERATOR}`,
+  NO_SUCH_WARD: 'This ward is not set up yet. Phone the OpenBed operator.',
+  FUTURE_MUTATION: "This handset's clock is ahead. Check its date and time, then try again.",
+  STALE_MUTATION: 'The update took too long to send. Try again.',
+  ZERO_REQUIRES_REASON: 'Publishing zero beds as offered needs a reason.',
+  VERSION_CONFLICT: 'Someone else already updated this ward. Reload the handover list before trying again.',
+  '23514': 'That update cannot be accepted: a count must be between 0 and 500, and a ward that is not offered has no count.',
+};
+
+/**
+ * The fixed sentence for a server's refusal. Reads the leading code of PostgREST's
+ * `message` (a RAISE's first token) or its SQLSTATE `code`, never anything else,
+ * and logs the raw body so it is not lost.
+ */
+export function wardMessageFor(status: number, body: string): string {
+  console.error('OpenBed ward console: the server refused a request', { status, body });
+  let parsed: { message?: unknown; code?: unknown } = {};
+  try {
+    parsed = JSON.parse(body) as typeof parsed;
+  } catch {
+    return UNRECOGNISED;
+  }
+  const token = typeof parsed.message === 'string' ? (/^([A-Z_]+)\b/.exec(parsed.message)?.[1] ?? '') : '';
+  if (token !== '' && Object.hasOwn(WARD_MESSAGES, token)) return WARD_MESSAGES[token] as string;
+  const code = typeof parsed.code === 'string' ? parsed.code : '';
+  if (code === '23514') return WARD_MESSAGES['23514'] as string;
+  return UNRECOGNISED;
+}
+
+/** The eight reasons a ward may give for zero offered beds -- app.zero_reason (002), with words a ward reads. */
+export const ZERO_REASONS: ReadonlyArray<readonly [string, string]> = [
+  ['ALL_BEDS_OCCUPIED', 'All beds occupied'],
+  ['NO_ANAESTHETIST', 'No anaesthetist'],
+  ['STAFF_SHORTAGE', 'Staff shortage'],
+  ['EQUIPMENT_UNAVAILABLE', 'Equipment unavailable'],
+  ['WARD_CLOSED', 'Ward closed'],
+  ['AWAITING_DISCHARGE', 'Awaiting discharge'],
+  ['INFECTION_CONTROL', 'Infection control'],
+  ['OTHER', 'Other'],
+];
+
+export interface WardRow {
   readonly category: string;
-  readonly offering: string;
+  readonly offering: 'OFFERED' | 'NOT_OFFERED';
   readonly bedCount: number | null;
   readonly accepting: boolean;
   readonly version: number;
   readonly gatedBy: string | null;
 }
 
-function wardRowFrom(r: {
-  category?: string;
-  offering?: string;
-  bed_count?: number | null;
-  accepting?: boolean;
-  version?: number;
-  gated_by?: string | null;
-}): WardRow {
-  return {
-    category: r.category ?? '(unnamed ward)',
-    offering: r.offering ?? 'NOT_OFFERED',
-    bedCount: r.bed_count ?? null,
-    accepting: r.accepting === true,
-    version: r.version ?? 0,
-    gatedBy: r.gated_by ?? null,
-  };
+export interface RowRefusal {
+  readonly refused: true;
+  /** The category, only when it is a well-formed enum label -- never arbitrary server text. */
+  readonly category: string | null;
+  readonly why: string;
+}
+
+/**
+ * A ROW THE SERVER SENT, OR A REFUSAL -- NEVER A GUESS (R-2026-09-21-44 E, B2).
+ *
+ * This used to default a missing `offering` to 'NOT_OFFERED' -- a clinical claim
+ * the server never made -- and a missing `version` to 0, which becomes
+ * p_expected_version and turns optimistic concurrency into a guess. A missing
+ * `accepting` read as false and a missing category as '(unnamed ward)'. Every one
+ * of those is now a refusal: the row renders as unreadable, with no publish form.
+ */
+export function wardRowFrom(r: unknown): WardRow | RowRefusal {
+  const row = (typeof r === 'object' && r !== null ? r : {}) as Record<string, unknown>;
+  const category = typeof row['category'] === 'string' && /^[A-Z_]+$/.test(row['category']) ? row['category'] : null;
+  const refuse = (why: string): RowRefusal => ({ refused: true, category, why });
+  if (category === null) return refuse('category is missing or not a ward category');
+  const offering = row['offering'];
+  if (offering !== 'OFFERED' && offering !== 'NOT_OFFERED') return refuse('offering is neither OFFERED nor NOT_OFFERED');
+  const version = row['version'];
+  if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) return refuse('version is not a positive integer');
+  const beds = row['bed_count'];
+  if (!(beds === null || (typeof beds === 'number' && Number.isInteger(beds) && beds >= 0))) return refuse('bed_count is neither null nor a whole number');
+  const accepting = row['accepting'];
+  if (typeof accepting !== 'boolean') return refuse('accepting is not true or false');
+  const gatedBy = row['gated_by'];
+  if (!(gatedBy === null || gatedBy === undefined || typeof gatedBy === 'string')) return refuse('gated_by is not text');
+  return { category, offering, bedCount: beds, accepting, version, gatedBy: gatedBy ?? null };
+}
+
+function isRefusal(w: WardRow | RowRefusal): w is RowRefusal {
+  return 'refused' in w;
 }
 
 interface PublishResult {
   readonly version: number;
   readonly replayed: boolean;
-  readonly claim_offering: string;
+  readonly claim_offering: 'OFFERED' | 'NOT_OFFERED';
   readonly claim_bed_count: number | null;
   readonly claim_accepting: boolean;
   readonly public_gated_by: string | null;
@@ -142,12 +234,15 @@ function newMutationId(): string {
   return crypto.randomUUID();
 }
 
-async function submitPublish(
-  holder: SessionHolder,
-  ward: WardRow,
-  form: { offering: string; bedCount: number; accepting: boolean; reason: string | null },
-  mutationId: string,
-): Promise<PublishOutcome> {
+/** What the form sends. A ward that is NOT offered sends no count and does not claim to be accepting. */
+export interface PublishForm {
+  readonly offering: 'OFFERED' | 'NOT_OFFERED';
+  readonly bedCount: number | null;
+  readonly accepting: boolean;
+  readonly reason: string | null;
+}
+
+async function submitPublish(holder: SessionHolder, ward: WardRow, form: PublishForm, mutationId: string): Promise<PublishOutcome> {
   const res = await holder.authedFetch('rpc/publish_ward_status', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -164,23 +259,13 @@ async function submitPublish(
   });
 
   if (!res.ok) {
-    // NAME THE STATUS, same convention as the handover read below. PostgREST's
-    // error body already carries the exact rejection code in its `message`
-    // field, so even the generic fallback below never swallows which one fired.
-    const text = await res.text();
-    if (text.includes('VERSION_CONFLICT')) {
-      return { ok: false, message: 'Someone else already updated this ward. Reload the handover list before trying again.' };
-    }
-    if (text.includes('ZERO_REQUIRES_REASON')) {
-      return { ok: false, message: 'Publishing zero beds as OFFERED needs a reason.' };
-    }
-    return { ok: false, message: `The server answered ${res.status}. ${text}` };
+    return { ok: false, message: wardMessageFor(res.status, await res.text()) };
   }
 
   const rows = (await res.json()) as PublishResult[];
-  const result = rows[0];
+  const result = Array.isArray(rows) ? rows[0] : undefined;
   if (result === undefined) {
-    return { ok: false, message: 'The server accepted the update but returned no row.' };
+    return { ok: false, message: UNRECOGNISED };
   }
   return { ok: true, result };
 }
@@ -189,71 +274,99 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onUpdated: (update
   const form = document.createElement('form');
 
   const offeringSelect = document.createElement('select');
-  for (const opt of ['OFFERED', 'NOT_OFFERED']) {
+  offeringSelect.name = 'offering';
+  for (const [value, label] of [['OFFERED', 'Offered'], ['NOT_OFFERED', 'Not offered']] as const) {
     const option = document.createElement('option');
-    option.value = opt;
-    option.textContent = opt;
-    if (opt === ward.offering) option.selected = true;
+    option.value = value;
+    option.textContent = label;
+    if (value === ward.offering) option.selected = true;
     offeringSelect.appendChild(option);
   }
 
   const bedCountInput = document.createElement('input');
+  bedCountInput.name = 'bed_count';
   bedCountInput.type = 'number';
   bedCountInput.min = '0';
-  bedCountInput.required = true;
+  bedCountInput.max = '500';
+  bedCountInput.step = '1';
   bedCountInput.value = ward.bedCount === null ? '' : String(ward.bedCount);
 
   const acceptingInput = document.createElement('input');
+  acceptingInput.name = 'accepting';
   acceptingInput.type = 'checkbox';
   acceptingInput.checked = ward.accepting;
   const acceptingLabel = document.createElement('label');
   acceptingLabel.append(acceptingInput, document.createTextNode('Accepting'));
 
-  // Shown/required only when offering=OFFERED and bed_count=0 -- a client-side
-  // pre-check mirroring ZERO_REQUIRES_REASON. The server check still runs
-  // regardless; this only saves a round trip on the common case.
-  const reasonInput = document.createElement('input');
-  reasonInput.type = 'text';
-  reasonInput.placeholder = 'Reason (required when publishing zero beds as offered)';
-  reasonInput.hidden = true;
-
-  function syncReasonVisibility(): void {
-    const needsReason = offeringSelect.value === 'OFFERED' && bedCountInput.value === '0';
-    reasonInput.hidden = !needsReason;
-    reasonInput.required = needsReason;
+  // THE REASON IS A CHOICE, NOT TEXT. The server casts it to app.zero_reason, so a
+  // free-text box refused everything a ward would naturally type (R-2026-09-23-66).
+  const reasonSelect = document.createElement('select');
+  reasonSelect.name = 'reason';
+  const blank = document.createElement('option');
+  blank.value = '';
+  blank.textContent = 'Why are there no beds?';
+  reasonSelect.appendChild(blank);
+  for (const [value, label] of ZERO_REASONS) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    reasonSelect.appendChild(option);
   }
-  offeringSelect.addEventListener('change', syncReasonVisibility);
-  bedCountInput.addEventListener('input', syncReasonVisibility);
-  syncReasonVisibility();
+
+  // A WARD THAT IS NOT OFFERED HAS NO COUNT. The count input used to be required
+  // and always sent, so every NOT_OFFERED publish hit 004's CHECK
+  // ward_status_not_offered_has_no_count and no ward could ever publish it
+  // (R-2026-09-23-66). The count and "Accepting" now hide, and the form sends a null
+  // count and accepting=false: a service the ward does not offer is not one it is
+  // accepting patients for.
+  function sync(): void {
+    const offered = offeringSelect.value === 'OFFERED';
+    bedCountInput.hidden = !offered;
+    bedCountInput.required = offered;
+    acceptingLabel.hidden = !offered;
+    const needsReason = offered && bedCountInput.value === '0';
+    reasonSelect.hidden = !needsReason;
+    reasonSelect.required = needsReason;
+  }
+  offeringSelect.addEventListener('change', sync);
+  bedCountInput.addEventListener('input', sync);
+  sync();
 
   const submitButton = document.createElement('button');
   submitButton.type = 'submit';
   submitButton.textContent = 'Publish';
 
   const status = document.createElement('p');
+  status.className = 'status';
 
   let mutationId = newMutationId();
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     void (async () => {
-      submitButton.disabled = true;
       status.textContent = '';
-
-      const bedCount = Number(bedCountInput.value);
-      const reason = reasonInput.value.trim() === '' ? null : reasonInput.value.trim();
-      const needsReason = offeringSelect.value === 'OFFERED' && bedCount === 0;
-      if (needsReason && reason === null) {
-        status.textContent = 'Publishing zero beds as OFFERED needs a reason.';
-        submitButton.disabled = false;
+      const offering = offeringSelect.value === 'NOT_OFFERED' ? 'NOT_OFFERED' : 'OFFERED';
+      let bedCount: number | null = null;
+      if (offering === 'OFFERED') {
+        const n = Number(bedCountInput.value);
+        if (bedCountInput.value.trim() === '' || !Number.isInteger(n) || n < 0 || n > 500) {
+          status.textContent = 'Enter the number of free beds, from 0 to 500.';
+          return;
+        }
+        bedCount = n;
+      }
+      const reason = offering === 'OFFERED' && bedCount === 0 && reasonSelect.value !== '' ? reasonSelect.value : null;
+      if (offering === 'OFFERED' && bedCount === 0 && reason === null) {
+        status.textContent = WARD_MESSAGES['ZERO_REQUIRES_REASON'] as string;
         return;
       }
 
+      submitButton.disabled = true;
       try {
         const outcome = await submitPublish(
           holder,
           ward,
-          { offering: offeringSelect.value, bedCount, accepting: acceptingInput.checked, reason },
+          { offering, bedCount, accepting: offering === 'OFFERED' ? acceptingInput.checked : false, reason },
           mutationId,
         );
         if (!outcome.ok) {
@@ -278,18 +391,20 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onUpdated: (update
           show('Signed out', TAP_AGAIN);
           return;
         }
-        throw e;
+        console.error('OpenBed ward console: the publish did not complete', e);
+        status.textContent = UNRECOGNISED;
       } finally {
         submitButton.disabled = false;
       }
     })();
   });
 
-  form.append(offeringSelect, bedCountInput, acceptingLabel, reasonInput, submitButton, status);
+  form.append(offeringSelect, bedCountInput, acceptingLabel, reasonSelect, submitButton, status);
   return form;
 }
 
-function renderHandover(holder: SessionHolder, email: string | null, wards: WardRow[]): void {
+function renderHandover(holder: SessionHolder, email: string | null, wards: (WardRow | RowRefusal)[]): void {
+  const root = appRoot();
   if (root === null) return;
   const h = document.createElement('h1');
   h.textContent = 'Handover';
@@ -299,8 +414,19 @@ function renderHandover(holder: SessionHolder, email: string | null, wards: Ward
   const list = document.createElement('ul');
   for (const ward of wards) {
     const li = document.createElement('li');
-
     const summary = document.createElement('p');
+
+    if (isRefusal(ward)) {
+      // No form: a row that cannot be read cannot be published for, and must not
+      // look like one that can.
+      console.error('OpenBed ward console: a ward row was refused', ward);
+      summary.className = 'refused';
+      summary.textContent = `${ward.category ?? 'A ward'}: ${ROW_REFUSED}`;
+      li.append(summary);
+      list.append(li);
+      continue;
+    }
+
     // `bedCount === null` means never reported, and is rendered as such rather
     // than as zero. Publishing "0 beds" for a ward nobody has updated states a
     // claim the facility never made.
@@ -310,7 +436,7 @@ function renderHandover(holder: SessionHolder, email: string | null, wards: Ward
       `${ward.accepting ? '' : ' — not accepting'}${ward.gatedBy ? ` (${ward.gatedBy})` : ''}`;
 
     const form = publishFormFor(holder, ward, (updated) => {
-      const index = wards.findIndex((w) => w.category === ward.category);
+      const index = wards.findIndex((w) => !isRefusal(w) && w.category === ward.category);
       if (index !== -1) wards[index] = updated;
       renderHandover(holder, email, wards);
     });
@@ -322,7 +448,11 @@ function renderHandover(holder: SessionHolder, email: string | null, wards: Ward
   root.replaceChildren(h, who, list);
 }
 
-async function main(): Promise<void> {
+/**
+ * Exported so a test can call it and then read the DOM, rather than re-importing
+ * the module to make it run again -- the public dashboard's pattern.
+ */
+export async function render(): Promise<void> {
   // THE 'NOT CONFIGURED' SCREEN IS GONE, and its absence is the improvement rather
   // than a loss. It existed because Vite replaces an unset import.meta.env read with
   // `undefined`, so a console built without the variable would have sent
@@ -330,14 +460,14 @@ async function main(): Promise<void> {
   // auth. Both values are now compiled in from tracked files, so a build CANNOT
   // lack them -- the stop condition has no state left to detect.
 
-
   let session;
   try {
     session = sessionFromUrlFragment(window.location.hash);
   } catch (e) {
-    // The link itself was refused -- already used, or expired. Saying "not
-    // signed in" here would leave the ward tapping a link that will never work.
-    show('That link did not work', `${String((e as Error).message)} Ask for a new link to be sent.`);
+    // The link itself was refused -- already used, or expired. GoTrue's own words
+    // for why go to the log, never to the screen (D1's third site).
+    console.error('OpenBed ward console: the sign-in link was refused', e);
+    show('That link did not work', BAD_LINK);
     return;
   }
 
@@ -360,21 +490,24 @@ async function main(): Promise<void> {
       body: '{}',
     });
     if (!res.ok) {
-      // NAME THE STATUS. "Could not load" is compatible with every hypothesis:
-      // a missing ward_account row, an unapplied migration and a network blip
-      // all look identical without it.
-      show('Could not load the handover list', `The server answered ${res.status}. ${await res.text()}`);
+      show('Could not load the handover list', wardMessageFor(res.status, await res.text()));
       return;
     }
-    const rows = (await res.json()) as Parameters<typeof wardRowFrom>[0][];
+    const rows: unknown = await res.json();
+    if (!Array.isArray(rows)) {
+      console.error('OpenBed ward console: the ward list was not a list', rows);
+      show('Could not load the handover list', LOAD_REFUSED);
+      return;
+    }
     renderHandover(holder, holder.session?.claims.email ?? null, rows.map(wardRowFrom));
   } catch (e) {
     if (e instanceof SessionExpiredError) {
       show('Signed out', TAP_AGAIN);
       return;
     }
-    throw e;
+    console.error('OpenBed ward console: the handover list did not load', e);
+    show('Could not load the handover list', UNRECOGNISED);
   }
 }
 
-void main();
+void render();
