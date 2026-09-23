@@ -1,0 +1,18 @@
+{
+  "status": "PROVISIONAL -- the same status as public-labels.json: the founder's clinicians confirm this wording.",
+  "comment": "Words ONLY the ward console shows, kept out of public-labels.json because that table must cover exactly the enums the public page receives (tests/compliance/public_labels.test.ts and tests/db/public_labels_enum.test.ts hold it to that). `zero_reason` is app.zero_reason (002) in its declared order, which tests/compliance/ward_console_render.test.ts asserts. `offering_choice` is the publish form's choice between the two values of app.ward_offering: a ward CHOOSING what it offers, which is not the public line's statement of it. Moved here from the ward console's own code by R-2026-09-23-70 E, so the console holds no word table of its own.",
+  "zero_reason": {
+    "ALL_BEDS_OCCUPIED": "All beds occupied",
+    "NO_ANAESTHETIST": "No anaesthetist",
+    "STAFF_SHORTAGE": "Staff shortage",
+    "EQUIPMENT_UNAVAILABLE": "Equipment unavailable",
+    "WARD_CLOSED": "Ward closed",
+    "AWAITING_DISCHARGE": "Awaiting discharge",
+    "INFECTION_CONTROL": "Infection control",
+    "OTHER": "Other"
+  },
+  "offering_choice": {
+    "OFFERED": "Offered",
+    "NOT_OFFERED": "Not offered"
+  }
+}

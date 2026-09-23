@@ -75,6 +75,11 @@ const DELIBERATE_ABSENCES: Record<string, string> = {
     'to fix. The assertions actually live in ci_required_checks_not_paths_filtered.test.ts. ' +
     'This file is not planned and will never be built, so it does not belong in ' +
     'PLANNED_ARTEFACTS: an entry there would be a false claim that never retires.',
+  'apps/public-dashboard/src/public-labels.json':
+    'MOVED to packages/labels/public-labels.json by PR 3.4a (R-2026-09-23-70 E), so the ' +
+    'ward console reads the same words. The decision record cites the old path in its ' +
+    '-68 and -69 entries as history, which the record keeps as written (method note 8), ' +
+    'so every remaining citation names a path whose absence is now the design.',
 };
 
 /**

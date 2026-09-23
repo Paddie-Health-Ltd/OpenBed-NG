@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { facilityColumns, wardColumns } from '../../packages/snapshot/src/codec.js';
 import SHAPE from '../../packages/fixtures/snapshot-shape.json';
-import LABEL_TABLE from '../../apps/public-dashboard/src/public-labels.json';
+import LABEL_TABLE from '../../packages/labels/public-labels.json';
 import { REPO_ROOT } from './_scratch.js';
 
 /**

@@ -11,7 +11,7 @@ import { wardColumns, facilityColumns } from '../../packages/snapshot/src/codec.
 // a category added to the fixture must redden this file rather than slip past a
 // hand-written list (test-conventions section 3).
 import TRUTH_TABLE from '../../packages/fixtures/truth-table.json';
-import LABEL_TABLE from '../../apps/public-dashboard/src/public-labels.json';
+import LABEL_TABLE from '../../packages/labels/public-labels.json';
 
 /**
  * THE EMPTY STATE IS ASSERTED AT THE RENDERED SURFACE (R-2026-09-20-29 E2).
@@ -88,7 +88,11 @@ const WARD_ROW = encode(wardColumns(), {
   bed_count: 3,
   accepting_effective: true,
   gated_by: null,
-  state: 'REPORTED',
+  // 'OK', a value app.status_state has. This read 'REPORTED' until 3.4a -- a value
+  // the enum never had, unnoticed because the page read no `state` at all. Since
+  // R-2026-09-23-69 (b) the page reads it, and an unknown state reads "Status
+  // unknown" rather than a guess, which is what exposed it.
+  state: 'OK',
   source: 'WARD',
   monitoring_state: 'ACTIVE',
   updated_at: '2026-09-20T18:44:00+00:00',

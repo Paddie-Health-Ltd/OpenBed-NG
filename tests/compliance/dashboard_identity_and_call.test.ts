@@ -45,7 +45,7 @@ function facility(id: string, name: unknown, phone: unknown = '+2348000000001'):
 function ward(facilityId: string, category: string, beds: number): unknown[] {
   return encode(wardColumns(), {
     facility_id: facilityId, category, offering: 'OFFERED', bed_count: beds, accepting_effective: true,
-    gated_by: null, state: 'REPORTED', source: 'WARD', monitoring_state: 'ACTIVE', updated_at: '2026-09-23T08:00:00+00:00',
+    gated_by: null, state: 'OK', source: 'WARD', monitoring_state: 'ACTIVE', updated_at: '2026-09-23T08:00:00+00:00',
   });
 }
 

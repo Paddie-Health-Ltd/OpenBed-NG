@@ -831,7 +831,7 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    category **in words or as a code** (`Emergency (A&E)`, `Adult ICU`, `A_AND_E`,
    `ICU_ADULT` or any other), a facility name, or a list item of any kind. The page
    shows words, not codes, since R-2026-09-23-68 C, so a ward on this page would
-   appear as its words from `apps/public-dashboard/src/public-labels.json`. **Those are the defect this read-back exists to catch, and
+   appear as its words from `packages/labels/public-labels.json`. **Those are the defect this read-back exists to catch, and
    they were live on the public domain until 2026-09-21.**
 
    Unblock the URL afterwards.

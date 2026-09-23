@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, test } from 'vitest';
 import type { TransactionSql } from 'postgres';
 import { sql, withRole } from '../setup/db.js';
-import TABLE from '../../apps/public-dashboard/src/public-labels.json';
+import TABLE from '../../packages/labels/public-labels.json';
 
 /**
  * THE PUBLIC LABEL TABLE AGAINST THE CATALOGUE (R-2026-09-23-68 C2), and the state

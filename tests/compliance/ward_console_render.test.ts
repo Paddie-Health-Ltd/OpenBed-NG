@@ -57,7 +57,28 @@ function sessionFragment(): string {
   return `#access_token=${token}&refresh_token=r1&expires_at=${now + 3600}&token_type=bearer`;
 }
 
-const GOOD_ROW = { category: 'MATERNITY', offering: 'OFFERED', bed_count: 3, accepting: true, version: 4, gated_by: null };
+// monitoring_state, state and source are what my_facility_wards has always returned
+// (011:142-154); the console read none of them until -70 E.
+const GOOD_ROW = { category: 'MATERNITY', offering: 'OFFERED', bed_count: 3, accepting: true, version: 4, gated_by: null, monitoring_state: 'ACTIVE', state: 'OK', source: 'WARD' };
+
+/** Every value of every app enum the console can receive, read from the migrations. */
+function enumCodes(): string[] {
+  const src = readFileSync(join(MIG, '002_enums.sql'), 'utf8');
+  const out: string[] = [];
+  for (const type of ['ward_category', 'ward_offering', 'monitoring_state', 'gate_reason', 'status_state', 'status_source']) {
+    const m = new RegExp(`CREATE TYPE app\\.${type} AS ENUM \\(([\\s\\S]*?)\\);`).exec(src);
+    if (m === null) throw new Error(`app.${type} was not found in 002_enums.sql`);
+    out.push(...[...(m[1] ?? '').matchAll(/'([A-Z_]+)'/g)].map((x) => x[1] ?? ''));
+  }
+  return out;
+}
+const CATEGORY_CODES = ['A_AND_E', 'ICU_ADULT', 'ICU_PAEDIATRIC', 'MEDICAL_ADULT', 'PAEDIATRIC', 'THEATRE', 'SURGICAL', 'MATERNITY', 'NICU', 'SCBU'];
+
+/** Codes appearing as whole words, except those a label itself keeps (NICU, SCBU). */
+function rawCodes(text: string, codes: string[]): string[] {
+  const keptByALabel = new Set(['NICU', 'SCBU', 'ICU', 'E']);
+  return codes.filter((c) => !keptByALabel.has(c) && new RegExp(`(^|[^A-Za-z_])${c}([^A-Za-z_]|$)`).test(text));
+}
 
 type Route = (url: string, init?: RequestInit) => Response | Promise<Response>;
 
@@ -149,6 +170,9 @@ describe('B2 — a malformed ward row is refused, never defaulted', () => {
     ['a fractional count', { ...GOOD_ROW, bed_count: 2.5 }],
     ['no accepting', { ...GOOD_ROW, accepting: undefined }],
     ['accepting sent as text', { ...GOOD_ROW, accepting: 'yes' }],
+    ['no monitoring_state', { ...GOOD_ROW, monitoring_state: undefined }],
+    ['no status source', { ...GOOD_ROW, source: undefined }],
+    ['no status state', { ...GOOD_ROW, state: undefined }],
   ])('plant — a row with %s renders as unreadable with no publish form', async (_label, bad) => {
     const second = { ...bad, category: bad.category === GOOD_ROW.category ? 'ICU_ADULT' : bad.category };
     await renderAt(sessionFragment(), handover([GOOD_ROW, second]));
@@ -158,13 +182,41 @@ describe('B2 — a malformed ward row is refused, never defaulted', () => {
     expect(text(), 'arbitrary server text reached the page as a category').not.toContain(SENTINEL);
   });
 
-  test('positive control — an ordinary row renders with its publish form', async () => {
-    await renderAt(sessionFragment(), handover([GOOD_ROW, { ...GOOD_ROW, category: 'ICU_ADULT', offering: 'NOT_OFFERED', bed_count: null }]));
+  test('positive control — ordinary rows render in WORDS, with their publish forms (R-2026-09-23-70 E)', async () => {
+    // Until -70 E these read "MATERNITY: OFFERED, 3 beds" and "ICU_ADULT: NOT_OFFERED,
+    // not yet reporting": the database's codes, and a PENDING default shown as a
+    // statement. The words and the precedence are now the public page's, from one
+    // shared table.
+    await renderAt(sessionFragment(), handover([
+      GOOD_ROW,
+      { ...GOOD_ROW, category: 'ICU_ADULT', offering: 'NOT_OFFERED', bed_count: null },
+      { ...GOOD_ROW, category: 'THEATRE', offering: 'NOT_OFFERED', bed_count: null, monitoring_state: 'PENDING' },
+      { ...GOOD_ROW, category: 'SURGICAL', accepting: false, gated_by: 'NO_ANAESTHETIST_ON_DUTY', source: 'ADMIN', state: 'UNDER_REVIEW' },
+    ]));
     await until(() => text().includes('Handover'));
-    expect(text()).toContain('MATERNITY: OFFERED, 3 beds');
-    expect(text()).toContain('ICU_ADULT: NOT_OFFERED, not yet reporting');
-    expect(document.querySelectorAll('form').length).toBe(2);
+    expect(text()).toContain('Maternity: 3 beds');
+    expect(text()).toContain('Adult ICU: not offered at this facility');
+    expect(text(), 'a PENDING ward showed its default offering as a statement').toContain('Operating theatre: not currently reporting');
+    expect(text()).toContain('Surgical ward: 3 beds — not accepting (no anaesthetist on duty) — set by admin, not ward-confirmed — under review');
+    expect(document.querySelectorAll('form').length).toBe(4);
     expect(text()).not.toContain('could not be read');
+  });
+
+  test('no enum code the migrations define reaches the console, and the plant that shows one is caught', async () => {
+    const codes = enumCodes();
+    expect(codes.length, 'no enum was parsed from the migrations').toBeGreaterThan(20);
+    const categories = codes.filter((c) => CATEGORY_CODES.includes(c));
+    await renderAt(sessionFragment(), handover([
+      ...categories.map((category) => ({ ...GOOD_ROW, category })),
+      { ...GOOD_ROW, category: 'ICU_ADULT', offering: 'NOT_OFFERED', bed_count: null, monitoring_state: 'PAUSED' },
+      { ...GOOD_ROW, category: 'THEATRE', accepting: false, gated_by: 'NO_ANAESTHETIST_ON_DUTY', source: 'ADMIN', state: 'UNDER_REVIEW' },
+    ]));
+    await until(() => text().includes('Handover'));
+    const summaries = Array.from(document.querySelectorAll('li > p')).map((p) => p.textContent ?? '').join('\n');
+    expect(summaries.length, 'no summary lines were rendered').toBeGreaterThan(0);
+    expect(rawCodes(summaries, codes), 'a raw code reached the ward console').toEqual([]);
+    // The plant: the pre-E summary line, which this check must reject.
+    expect(rawCodes('MATERNITY: OFFERED, 3 beds (NO_ANAESTHETIST_ON_DUTY)', codes)).toEqual(['MATERNITY', 'OFFERED', 'NO_ANAESTHETIST_ON_DUTY']);
   });
 
   test('plant — a ward list that is not a list is refused whole', async () => {
