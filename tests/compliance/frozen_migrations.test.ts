@@ -252,6 +252,9 @@ describe('frozen migrations — applied history is not edited', () => {
       // number reddened was an alphabetical accident of what the real migration at
       // that number happened to be called.** That is why moving it by hand was
       // unenforced hygiene, and it is what `placeholderCollision` does not depend on.
+      // RE-MEASURED 2026-09-23 against the boundary at 19: 019_placeholder.sql is
+      // RED from the prefix checker alone ("p" < "s" in 019_snapshot_...), and the
+      // derived placeholder is 020, which collides with nothing.
       expect(
         placeholderCollision(root, next),
         'the derived placeholder number belongs to a frozen migration',
@@ -295,14 +298,30 @@ describe('frozen migrations — applied history is not edited', () => {
       );
       expect(finding ?? '', 'the refusal does not name the boundary file').toContain(BOUNDARY);
 
-      // AND THE CONTRAST THAT IS THE WHOLE FINDING: place that same placeholder and
-      // the contiguous-prefix checker reports NOTHING. If this ever starts failing,
-      // the alphabetical note in the leg above has stopped being true and should be
-      // re-measured rather than deleted.
-      place(root, `database/migrations/${pad(frozenNumber)}_placeholder.sql`, '-- planted\nselect 1;\n');
+      // AND THE CONTRAST THAT IS THE WHOLE FINDING: a placeholder the contiguous-
+      // prefix checker CANNOT see, which placeholderCollision still refuses.
+      //
+      // RE-MEASURED 2026-09-23 against the boundary at 19 (R-2026-09-23-69), as the
+      // note here asked rather than deleted -- and the measurement changed what the
+      // note means. A placeholder at any frozen number BELOW the last shifts every
+      // frozen file after it, so the prefix checker always sees it. The blind spot is
+      // only ever at the LAST frozen number, and only when that file's name sorts
+      // before "placeholder": true at 18 (018_close_...), false at 19
+      // (019_snapshot_..., "p" < "s"). On today's boundary there is no blind spot.
+      // It is CONSTRUCTED here instead, with the boundary cut back to 18 in the scratch
+      // tree, so the reason placeholderCollision exists stays demonstrated rather than
+      // depending on how the newest migration happens to be named.
+      const boundaryPath = join(root, BOUNDARY);
+      const boundary = JSON.parse(readFileSync(boundaryPath, 'utf8')) as { frozen: { file: string }[]; ledger_rows: number };
+      const cut = boundary.frozen.findIndex((f) => f.file.startsWith('018_'));
+      expect(cut, '018 is not in the boundary, so the blind spot cannot be constructed').toBeGreaterThanOrEqual(0);
+      writeFileSync(boundaryPath, JSON.stringify({ ...boundary, frozen: boundary.frozen.slice(0, cut + 1), ledger_rows: cut + 1 }, null, 2));
+      expect(frozenFilesIn(root).length, 'the cut to 18 did not land').toBe(cut + 1);
+      expect(placeholderCollision(root, 18), 'the blind-spot placeholder was accepted by the collision check').not.toBeNull();
+      place(root, 'database/migrations/018_placeholder.sql', '-- planted\nselect 1;\n');
       expect(
         frozenViolations(root),
-        'the contiguous-prefix checker caught this by itself — re-measure the alphabetical note above',
+        'the contiguous-prefix checker caught 018_placeholder.sql by itself at a boundary of 18 — re-measure the note above',
       ).toEqual([]);
     });
   });
