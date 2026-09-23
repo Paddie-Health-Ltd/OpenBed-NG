@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { REPO_ROOT } from './_scratch.js';
@@ -26,7 +27,34 @@ import { REPO_ROOT } from './_scratch.js';
  * PLANNED_ARTEFACTS is for a path a planning document specifies and a named
  * stage will build -- temporary, and it must retire when the work lands.
  * Collapsing the two would let "never" and "not yet" share a bypass list.
+ *
+ * A THIRD CHECK, ADDED 2026-09-23 AFTER CI CAUGHT WHAT THIS MACHINE COULD NOT.
+ * "Exists" was tested with existsSync, so a GITIGNORED path that happens to be on
+ * the developer's disk -- a .env.local, a built dist -- passed here and failed in
+ * CI, where it is absent. The guard's verdict depended on whose machine ran it.
+ * Clause 4's scope note already says gitignored paths are cited WITHOUT backticks;
+ * this makes that mechanical: a backticked citation of a path that is ignored and
+ * untracked is refused WHATEVER THE LOCAL DISK HOLDS. Three instances before it
+ * was built -- the Bundle 3 kickoff's backticked dist/version.json (Cowork's,
+ * R-2026-09-22-62 B2) and two of the implementer's own .env.local citations, the
+ * second pair found only when PR 3.1's compliance-tests job went red.
  */
+
+/**
+ * Backticked citations of a gitignored path that are exempt BY FILE, not by path.
+ *
+ * Keyed `citedIn::path`, so the same path cited from any OTHER file is still
+ * refused. One entry, and it exists only because the document it sits in is
+ * committed byte-identical by ruling and may not be edited to repair it.
+ */
+const IGNORED_CITATION_EXEMPTIONS: Record<string, string> = {
+  'Sprint Kickoffs/sprint-kickoff-bundle3-operator-path-2026-09-22.md::apps/public-dashboard/dist/version.json':
+    'Cowork\'s Clause 4 scope defect in the Bundle 3 kickoff, listed and NOT fixed by ' +
+    'R-2026-09-22-57 G3 and R-2026-09-22-62 B2, because that kickoff is committed ' +
+    'byte-identical to what was pasted. It passes the existence check only because CI ' +
+    'builds before the compliance suite, which is exactly the machine-dependence this ' +
+    'check exists to refuse; the exemption is the record of that, not a repair.',
+};
 
 /**
  * Paths cited deliberately BECAUSE THEY DO NOT EXIST.
@@ -191,6 +219,44 @@ export function staleRegisterEntries(
 
 const realExists = (p: string): boolean => existsSync(join(REPO_ROOT, p));
 
+/**
+ * Every citation whose path is gitignored and untracked, i.e. whose presence
+ * depends on the machine. Pure, so the plants feed it constructed input.
+ */
+export function ignoredCitationViolations(
+  citations: readonly Citation[],
+  isIgnoredUntracked: (path: string) => boolean,
+  exempt: Record<string, string>,
+): string[] {
+  const out: string[] = [];
+  for (const c of citations) {
+    if (!isIgnoredUntracked(c.path)) continue;
+    if (`${c.citedIn}::${c.path}` in exempt) continue;
+    out.push(`${c.path}  (cited in ${c.citedIn}) is gitignored: it exists on some machines and not others, so it must be cited WITHOUT backticks`);
+  }
+  return [...new Set(out)];
+}
+
+/** Batch `git check-ignore` plus the tracked set, read once. */
+function realIgnoredUntracked(paths: readonly string[]): (p: string) => boolean {
+  const tracked = new Set(execFileSync('git', ['-C', REPO_ROOT, 'ls-files'], { encoding: 'utf8' }).split('\n'));
+  let ignoredOut = '';
+  try {
+    ignoredOut = execFileSync('git', ['-C', REPO_ROOT, 'check-ignore', '--stdin', '--no-index'], {
+      input: [...new Set(paths)].join('\n') + '\n',
+      encoding: 'utf8',
+    });
+  } catch (e) {
+    // check-ignore exits 1 when NOTHING is ignored -- a verdict, not a failure. Any
+    // other status means it did not run, and that must not read as "none ignored".
+    const err = e as { status?: number; stdout?: string };
+    if (err.status !== 1) throw new Error(`git check-ignore did not run (exit ${String(err.status)}) — the ignored-citation check cannot report a verdict`);
+    ignoredOut = err.stdout ?? '';
+  }
+  const ignored = new Set(ignoredOut.split('\n').filter(Boolean));
+  return (p) => ignored.has(p) && !tracked.has(p);
+}
+
 describe('Clause 4 — no phantom enforcement', () => {
   const citations = collectCitations();
   const citedPaths = new Set(citations.map((c) => c.path));
@@ -214,6 +280,39 @@ describe('Clause 4 — no phantom enforcement', () => {
       phantomViolations(citations, PLANNED_ARTEFACTS, realExists),
       'cited enforcement artefacts that do not exist',
     ).toEqual([]);
+  });
+
+  test('no citation in backticks names a gitignored path — whatever this machine\u2019s disk holds', () => {
+    const isIgnored = realIgnoredUntracked(citations.map((c) => c.path));
+    expect(
+      ignoredCitationViolations(citations, isIgnored, IGNORED_CITATION_EXEMPTIONS),
+      'a backticked citation depends on an untracked file being present',
+    ).toEqual([]);
+  });
+
+  test('anti-rot — every ignored-citation exemption still matches a real citation, of a path still ignored', () => {
+    const isIgnored = realIgnoredUntracked(Object.keys(IGNORED_CITATION_EXEMPTIONS).map((k) => k.split('::')[1] ?? ''));
+    for (const key of Object.keys(IGNORED_CITATION_EXEMPTIONS)) {
+      const [citedIn, path] = key.split('::') as [string, string];
+      expect(citations.some((c) => c.citedIn === citedIn && c.path === path), `exemption ${key} matches no citation — delete it`).toBe(true);
+      expect(isIgnored(path), `exemption ${key} names a path that is no longer gitignored — delete it`).toBe(true);
+    }
+  });
+
+  test('plant — a backticked gitignored path is rejected even though it EXISTS on this disk', () => {
+    // THE DEFECT CI CAUGHT: the file is present here, so the existence check passed.
+    const cites = [{ path: 'apps/ward-console/.env.local', citedIn: 'tests/compliance/some.test.ts' }];
+    expect(ignoredCitationViolations(cites, (p) => p.endsWith('.env.local'), {}).join('\n')).toContain('must be cited WITHOUT backticks');
+  });
+
+  test('plant — the exemption is BY FILE: the same path cited from another file is still rejected', () => {
+    const cites = [{ path: 'apps/public-dashboard/dist/version.json', citedIn: 'docs/runbook-x.md' }];
+    expect(ignoredCitationViolations(cites, () => true, IGNORED_CITATION_EXEMPTIONS).length).toBe(1);
+  });
+
+  test('positive control — a tracked path is accepted', () => {
+    const cites = [{ path: 'scripts/deploy_pages.sh', citedIn: 'docs/runbook-x.md' }];
+    expect(ignoredCitationViolations(cites, realIgnoredUntracked(['scripts/deploy_pages.sh']), {})).toEqual([]);
   });
 
   test('every deliberate absence is genuinely absent', () => {

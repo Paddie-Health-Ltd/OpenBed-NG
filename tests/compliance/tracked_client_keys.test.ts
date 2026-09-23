@@ -27,7 +27,7 @@ import { PRODUCTION_PUBLISHABLE_KEY, LOCAL_PUBLISHABLE_KEY, publishableKeyFor } 
  *
  * NOT ASSERTED HERE, deliberately (method note 12):
  *   - A BUILD WITH A PLANTED .env FILE. The plant AP B2 describes has to write into
- *     a developer's own app directory, where `apps/ward-console/.env.local` is the
+ *     a developer's own app directory, where apps/ward-console/.env.local is the
  *     founder's file — a test that wrote there could destroy it, and a crash between
  *     the write and the cleanup would leave it destroyed. It is run BY HAND and
  *     quoted in the pull request instead, red against the old configuration and
