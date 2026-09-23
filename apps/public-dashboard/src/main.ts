@@ -282,11 +282,6 @@ function renderReal(root: HTMLElement, snapshot: Snapshot): void {
       const item = document.createElement('li');
       item.className = `age-${line.tone}`;
       item.textContent = line.text;
-      if (line.smallPrint !== null) {
-        const small = document.createElement('small');
-        small.textContent = ` (${line.smallPrint})`;
-        item.appendChild(small);
-      }
       list.appendChild(item);
     }
 

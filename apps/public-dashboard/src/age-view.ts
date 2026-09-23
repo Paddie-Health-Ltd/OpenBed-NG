@@ -13,7 +13,9 @@ import { freshnessBand, snapshotAge, type DecodedRow } from '@openbed/snapshot';
  *   AGEING  "last reported 46 min ago — call to confirm"
  *   STALE   "last reported at 04:12, 23 Sept (Lagos time) — call to confirm" -- past two
  *           hours a relative age is replaced by the time it was reported
- *   NO RECENT REPORT  "no recent report — call", the old count kept only as small print
+ *   STATUS UNKNOWN  "Status unknown — call to confirm", and NO NUMBER anywhere, in any
+ *           size (R-2026-09-23-68 B1; v1:242's ceiling). Until -68 the old count
+ *           survived as small print, which is the count still on the page.
  *   PENDING / PAUSED  "not currently reporting", and no count at all
  *
  * AGE NEVER CHANGES A CLAIM. A stale ward is not shown as 0 beds or as not accepting
@@ -58,8 +60,6 @@ function relative(minutes: number): string {
 
 export interface WardLine {
   readonly text: string;
-  /** The count, withdrawn from the main line, kept as small print. Null when there is none. */
-  readonly smallPrint: string | null;
   /** For styling only; the words above carry the meaning. */
   readonly tone: 'fresh' | 'aged' | 'none' | 'not-reporting' | 'unknown';
 }
@@ -69,7 +69,7 @@ export function wardLine(ward: DecodedRow, clock: ServeClock): WardLine {
   const category = String(ward['category']);
   const monitoring = ward['monitoring_state'];
   if (monitoring === 'PENDING' || monitoring === 'PAUSED') {
-    return { text: `${category}: not currently reporting`, smallPrint: null, tone: 'not-reporting' };
+    return { text: `${category}: not currently reporting`, tone: 'not-reporting' };
   }
 
   const bedCount = ward['bed_count'];
@@ -80,23 +80,21 @@ export function wardLine(ward: DecodedRow, clock: ServeClock): WardLine {
 
   const updatedAt = typeof ward['updated_at'] === 'string' ? ward['updated_at'] : '';
   if (clock.servedAt === null || Number.isNaN(Date.parse(clock.servedAt)) || Number.isNaN(Date.parse(updatedAt))) {
-    return { text: `${claim} — age unknown — call to confirm`, smallPrint: null, tone: 'unknown' };
+    return { text: `${claim} — age unknown — call to confirm`, tone: 'unknown' };
   }
 
   const f = freshnessBand(updatedAt, clock.servedAt, clock.elapsedMs);
   switch (f.band) {
     case 'GREEN':
-      return { text: `${claim} — updated ${relative(f.ageMinutes)} ago`, smallPrint: null, tone: 'fresh' };
+      return { text: `${claim} — updated ${relative(f.ageMinutes)} ago`, tone: 'fresh' };
     case 'YELLOW':
-      return { text: `${claim} — last reported ${relative(f.ageMinutes)} ago — call to confirm`, smallPrint: null, tone: 'aged' };
+      return { text: `${claim} — last reported ${relative(f.ageMinutes)} ago — call to confirm`, tone: 'aged' };
     case 'GREY':
-      return { text: `${claim} — last reported at ${lagosTime(updatedAt)} — call to confirm`, smallPrint: null, tone: 'aged' };
+      return { text: `${claim} — last reported at ${lagosTime(updatedAt)} — call to confirm`, tone: 'aged' };
     case 'SUPPRESSED':
-      return {
-        text: `${category}: no recent report — call`,
-        smallPrint: `last known: ${beds}, reported ${lagosTime(updatedAt)}`,
-        tone: 'none',
-      };
+      // No count, no reported time, no reason: past the ceiling nothing about the
+      // old claim is shown. The facility heading and its call link stay.
+      return { text: `${category}: Status unknown — call to confirm`, tone: 'none' };
   }
 }
 

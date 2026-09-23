@@ -98,11 +98,20 @@ describe('each band, in words, on the rendered page', () => {
     expect(line, 'a stale ward was shown as closed because it is stale').not.toMatch(/not accepting|\b0 beds/);
   });
 
-  test('NO RECENT REPORT — the count leaves the main line and survives only as small print', async () => {
-    await renderAt({ wards: [ward('A_AND_E', B.suppressAfterHours * 60 + 30)], servedAfterGenMinutes: 1 });
+  // RESTATED by R-2026-09-23-68 B1 (v1:242's ceiling). This leg asserted the count
+  // "survives only as small print"; that is the count still on the page. Past the
+  // ceiling no number shows, in any size -- and the facility, the ward and the call
+  // link stay, because removing the row would be a freshness filter.
+  test('STATUS UNKNOWN — past the ceiling no number shows anywhere, in any size, and the call link stays', async () => {
+    const OLD_COUNT = 47;
+    await renderAt({ wards: [ward('A_AND_E', B.suppressAfterHours * 60 + 30, { bed_count: OLD_COUNT })], servedAfterGenMinutes: 1 });
     const li = document.querySelector('#app li');
-    expect(li?.firstChild?.textContent).toBe('A_AND_E: no recent report — call');
-    expect(li?.querySelector('small')?.textContent).toMatch(/last known: 3 beds, reported .*\(Lagos time\)/);
+    expect(li?.textContent).toBe('A_AND_E: Status unknown — call to confirm');
+    expect(li?.outerHTML ?? '', 'a number survived on the row past the ceiling').not.toMatch(/\d/);
+    expect(document.querySelectorAll('#app small').length, 'small print came back').toBe(0);
+    expect(text(), 'the old count reached the page').not.toContain(String(OLD_COUNT));
+    expect(document.querySelector('#app h2')?.textContent).toBe('Synthetic General Hospital');
+    expect(document.querySelector('#app a.call')?.textContent, 'the call link went with the count').toContain('+2348000000001');
   });
 
   test.each(['PENDING', 'PAUSED'])('%s — "not currently reporting", and no count at all', async (state) => {

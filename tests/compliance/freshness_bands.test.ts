@@ -45,15 +45,15 @@ describe('freshness bands', () => {
   });
 
   test('SUPPRESSED removes the COUNT and nothing else', () => {
-    // The 24h ceiling suppresses the number, never the row. The facility and its
-    // phone number stay: a referrer still needs someone to call, and removing
+    // The suppressAfterHours ceiling removes the number, never the row. The facility
+    // and its phone number stay: a referrer still needs someone to call, and removing
     // the tile would be a freshness FILTER, which is banned outright.
     const stale = freshnessBand(agoMinutes(B.suppressAfterHours * 60 + 1), iso(NOW), 0);
     expect(stale.band).toBe('SUPPRESSED');
     expect(stale.showsCount, 'a suppressed tile still offered a bed count').toBe(false);
 
     const grey = freshnessBand(agoMinutes(6 * 60), iso(NOW), 0);
-    expect(grey.showsCount, 'a grey tile must still show its count, prefixed "last known"').toBe(true);
+    expect(grey.showsCount, 'a grey tile must still show its count, with the time it was reported').toBe(true);
   });
 
   test('THE DEVICE CLOCK CANNOT CHANGE THE ANSWER — finding F3', () => {
@@ -137,6 +137,71 @@ describe("the snapshot's own age (R-2026-09-23-67 A3)", () => {
   test('the setting carries its PROVISIONAL label until a clinician ruling removes it (A4, A7)', () => {
     expect((B as { status?: string }).status ?? '', 'the thresholds lost their PROVISIONAL label without a ruling').toMatch(/^PROVISIONAL/);
     expect(typeof B.snapshotBannerAfterMinutes).toBe('number');
+  });
+});
+
+/**
+ * Digits left in the setting's PROSE once citations are removed -- a ruling id, an
+ * ISO date, a clause reference like A4, and a v1:239-style line citation. Empty means
+ * the prose states no value. Throws when there is no prose to read, so an empty or
+ * renamed object cannot pass as clean.
+ */
+export function numbersInProse(bands: Record<string, unknown>): string[] {
+  const prose = Object.entries(bands).filter((e): e is [string, string] => typeof e[1] === 'string');
+  if (prose.length === 0) throw new Error('the setting carries no prose fields, so this checked nothing');
+  const found: string[] = [];
+  for (const [key, text] of prose) {
+    const stripped = text
+      .replace(/R-\d{4}-\d{2}-\d{2}-\d+/g, '')
+      .replace(/\b\d{4}-\d{2}-\d{2}\b/g, '')
+      .replace(/\bv\d+:\d+\b/g, '')
+      .replace(/\b[A-Z]\d+\b/g, '');
+    for (const m of stripped.matchAll(/\S*\d\S*/g)) found.push(`${key}: "${m[0]}"`);
+  }
+  return found;
+}
+
+const IN_FORCE_KEYS = ['greenUnderMinutes', 'yellowUnderMinutes', 'suppressAfterHours'] as const;
+
+/** Keys on which the values in force are LOOSER (later) than v1's. Empty means none. */
+export function looserThanV1(inForce: Record<string, number>, v1: Record<string, number>): string[] {
+  return IN_FORCE_KEYS.filter((k) => !(inForce[k]! <= v1[k]!));
+}
+
+describe('the setting states each value once (R-2026-09-23-68 B2, B3)', () => {
+  const bands = B as unknown as Record<string, unknown>;
+  const v1 = (B as unknown as { v1SpecValues: Record<string, number> }).v1SpecValues;
+
+  test('real setting is accepted — its prose states no threshold, and the prose is there to read', () => {
+    expect(numbersInProse(bands)).toEqual([]);
+    expect(Object.values(bands).filter((v) => typeof v === 'string').length, 'no prose fields were read').toBeGreaterThanOrEqual(3);
+  });
+
+  test('plant — a threshold written in the prose is rejected, whatever value it states', () => {
+    // The exact sentence -68 B3 found: the object said 24h while holding 12.
+    expect(numbersInProse({ ...bands, why_here: 'Suppression at 24h removes the COUNT, never the row.' })).toEqual(['why_here: "24h"']);
+    expect(numbersInProse({ ...bands, comment: 'from 12 hours no number is shown' }), 'a TRUE number in prose is still a second copy').toHaveLength(1);
+    expect(numbersInProse({ ...bands, status: 'PROVISIONAL (R-2026-09-23-68 C3, v1:242, 2026-09-23)' }), 'a citation was read as a threshold').toEqual([]);
+  });
+
+  test('anti-vacuity — a setting with no prose fails rather than passing clean', () => {
+    expect(() => numbersInProse({ greenUnderMinutes: 1 })).toThrow(/checked nothing/);
+  });
+
+  test("v1's values are recorded beside the values in force, which are no looser on any key", () => {
+    expect(v1).toMatchObject({ greenUnderMinutes: 60, yellowUnderMinutes: 120, suppressAfterHours: 24 });
+    expect(looserThanV1(bands as Record<string, number>, v1)).toEqual([]);
+  });
+
+  test('plant — a value in force looser than v1 is rejected', () => {
+    expect(looserThanV1({ ...(bands as Record<string, number>), suppressAfterHours: 36 }, v1)).toEqual(['suppressAfterHours']);
+    expect(looserThanV1({ ...(bands as Record<string, number>), greenUnderMinutes: 61 }, v1)).toEqual(['greenUnderMinutes']);
+  });
+
+  test('no code reads v1SpecValues — it is a record for the clinicians, not a setting', () => {
+    for (const file of ['packages/snapshot/src/freshness.ts', 'apps/public-dashboard/src/age-view.ts', 'apps/public-dashboard/src/main.ts']) {
+      expect(readFileSync(join(REPO_ROOT, file), 'utf8'), `${file} reads the v1 values`).not.toContain('v1SpecValues');
+    }
   });
 });
 

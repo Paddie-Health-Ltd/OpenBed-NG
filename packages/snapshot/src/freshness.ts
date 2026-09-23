@@ -38,7 +38,7 @@ export type FreshnessBand = 'GREEN' | 'YELLOW' | 'GREY' | 'SUPPRESSED';
 export interface Freshness {
   readonly band: FreshnessBand;
   readonly ageMinutes: number;
-  /** GREY prefixes the count with "last known"; SUPPRESSED replaces it entirely. */
+  /** GREY still shows the count, with its reported time; SUPPRESSED shows no count at all. */
   readonly showsCount: boolean;
 }
 
