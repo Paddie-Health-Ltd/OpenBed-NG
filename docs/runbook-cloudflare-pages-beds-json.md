@@ -116,9 +116,13 @@ In the Pages project's environment-variable settings, for the **Production** env
 **THERE USED TO BE TWO, AND `SUPABASE_URL` IS NO LONGER ONE OF THEM**
 (R-2026-09-22-59). The origin the Function calls is now tracked configuration in
 `packages/origins/origins.json`, chosen at runtime from the request's hostname, and
-nothing on the `/beds.json` path reads that variable any more. **On an existing
-project it is still SET, and it is dead config** — section 8 is how it is removed, and
-it is gated rather than done here.
+nothing on the `/beds.json` path reads that variable any more. **On
+`openbed-public-dashboard` it was deleted from the Production environment on
+2026-09-23** (section 8, R-2026-09-23-69; the founder's own reading of the action).
+**The Preview environment was not read**, so whether it still carries the variable is
+not recorded. On any other project it is dead config until section 8 removes it —
+gated, never done here. *Restated 2026-09-23 (R-2026-09-23-69); until then this read
+"On an existing project it is still SET, and it is dead config".*
 
 **Why it moved, recorded because the reason is the useful part.** It was an
 *encrypted* secret, so its value could not be read back — which meant the address
@@ -631,6 +635,11 @@ with their reasons recorded.
 ---
 
 ## 8. Delete `SUPABASE_URL` from the Pages project — dead config. GATED by section 5
+
+**Performed on `openbed-public-dashboard`, Production, 2026-09-23** (R-2026-09-23-69):
+gate passed on Cowork's reading, variable deleted by the founder, redeploy
+`ac07baaa` from `1d084a4`, section 5 re-read 200 by Cowork. The procedure below stays
+as written, for any other project and for Preview.
 
 **It is not needed, and it is not harmful; it is MISLEADING.** Nothing on the
 `/beds.json` path has read it since `R-2026-09-22-59`: the origin is tracked in
