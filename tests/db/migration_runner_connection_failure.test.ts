@@ -265,10 +265,11 @@ describe('the runner refuses to report a count it did not obtain', () => {
       // 13 until 014_publish_ward_status.sql, 14 until
       // 015_ward_status_history_text_category.sql, 15 until 016_snapshot.sql,
       // 16 until 017_snapshot_schedule.sql, 17 until
-      // 018_close_mirror_read_and_push_surfaces.sql.
+      // 018_close_mirror_read_and_push_surfaces.sql, 18 until
+      // 019_snapshot_single_read_and_mirror_integrity.sql.
       // Deriving it from the directory would compare the runner's file count
       // with the test's own file count, which agrees even when both are wrong.
-      '18 migration(s) pending.',
+      '19 migration(s) pending.',
     );
   });
 
