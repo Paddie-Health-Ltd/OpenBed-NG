@@ -178,6 +178,9 @@ the ward-level identity decision. There are no individual accounts (v1:121).
   confined to `app.openbed.ng`**.
   **AMENDED by R-2026-09-23-71 D:** the redirect list is exactly
   `https://app.openbed.ng` and `https://admin.openbed.ng`.
+  **AMENDED again by R-2026-09-23-72 AZ-1:** the redirect entries carry the
+  trailing slash the apps send, `https://app.openbed.ng/` and
+  `https://admin.openbed.ng/`; the Site URL stays `https://app.openbed.ng`.
 - **`openbed.ng` is never an auth redirect target.** A zero-login domain has no
   session to land.
 - **Recorded as a hosted dashboard setting with no in-database
@@ -3538,6 +3541,7 @@ _Issued as R-PROVISIONAL-2026-09-23-AY, by Cowork on 2026-09-23 (~21:45Z), as it
 - **Recorded for the future (CTO):** if provisioning later moves into the app, the default home is a Supabase Edge Function, where Supabase injects the key and no second vendor holds a copy, not a Cloudflare Function. That move is a separate design with its own sign-off.
 
 **D — DECISION 2: the redirect list is exactly `https://app.openbed.ng` and `https://admin.openbed.ng`**, as exact entries with no wildcards. **This amends 2026-09-14 D2**, whose "confined to `app.openbed.ng`" it widens by one named host; D2 is left as written with a pointer to this clause. The H3 runbook text gives the founder both, with the exact strings.
+- **AMENDED by R-2026-09-23-72 AZ-1:** the entries are `https://app.openbed.ng/` and `https://admin.openbed.ng/`, the exact strings the apps send, still with no wildcards. This clause is left as written.
 
 **E — DECISION 4: the split is approved.** **3.4a** is 020, the `operator_*` functions, `listed_at` (B), the D3 closed list, the labels, -69 b and the ward console's words. **3.4b** is the admin app, the script changes (C) and the facility-creation runbook step. Each PR's report is sent before merge.
 
@@ -3560,7 +3564,32 @@ _Issued as R-PROVISIONAL-2026-09-23-AY, by Cowork on 2026-09-23 (~21:45Z), as it
 **PREMISES READ ON LANDING, and where they did not hold as stated:**
 - **G's line numbers.** `publish_ward_status`'s explicit `WARD_STAFF` check is at **014:189-193**, not 014:55; it refuses a `PLATFORM_ADMIN` with 42501 `INSUFFICIENT_ROLE`. **The two reads do NOT refuse a `PLATFORM_ADMIN`.** `my_facility_wards` (011:169-191) and `ward_status_history` (live at 015:97-116; the 011:258 body was dropped by 015) both pass `assert_member`, which returns early for that role, and then filter on the account's facility, which is NULL, so each returns **zero rows and no error**. The 3.4a test asserts that answer, rather than a refusal.
 - **C's "the operator RPCs".** Under C, **no operator RPC provisions in v1**: the app cannot create an Auth user without the key. So the one SQL implementation of the gates lives in `app.*` functions that only the script calls (as the owner, over the direct database URL); there is no `public` provisioning function.
-- **D's strings carry no trailing slash, and both apps send `redirect_to=<origin>/`.** Supabase Auth admits a redirect on the Site URL's own hostname whatever the path, so `app.` is admitted. `admin.` is a different host, so its allow-list entry is what gets matched, and **whether `https://admin.openbed.ng` admits `https://admin.openbed.ng/` is unverified**. The local sign-in test cannot decide it, because its Site URL and redirect share `127.0.0.1`. The H3 runbook text carries a read-back that decides it on hosted.
+- **D's strings carry no trailing slash, and both apps send `redirect_to=<origin>/`.** Supabase Auth admits a redirect on the Site URL's own hostname whatever the path, so `app.` is admitted. `admin.` is a different host, so its allow-list entry is what gets matched, and **whether `https://admin.openbed.ng` admits `https://admin.openbed.ng/` is unverified**. The local sign-in test cannot decide it, because its Site URL and redirect share `127.0.0.1`. The H3 runbook text carries a read-back that decides it on hosted. **Superseded by R-2026-09-23-72 AZ-1**, which stops relying on the matching rule and enters the slashed strings; this bullet is left as written.
+
+### R-2026-09-23-72 — #68 merged; the redirect entries are the exact strings the apps send; 3.4a's premise corrections accepted
+
+_Issued as R-PROVISIONAL-2026-09-23-AZ, by Cowork, as its review of #68 and of 3.4a at `03f7cc3`, with the founder's merge word for #68. Its readings are dated 2026-09-23; it landed on 2026-09-24. Number assigned on landing from the record's last as read on merged `main` at `ae14701`: R-2026-09-23-71. **Record-only under R-46; lands in PR 3.4a**, after `main` was merged into it. Next provisional letter: BA._
+
+**COWORK'S READINGS, 2026-09-23, recorded as Cowork's, each re-read on landing:**
+- #68: head `590cb5c`, base `2e62579`, mergeable CLEAN; all seven check runs at `590cb5c` completed with success. **Re-read on landing:** `gh pr view 68` gave that head and CLEAN before the merge, and the check-runs API at `590cb5c` listed the seven, each completed with success.
+- `590cb5c`'s prefilter builds its `-e` list from the same `PATTERNS` entries and uses the same `-E` as the per-pattern loop, so a file it skips is one every per-pattern grep would have exited 1 on; exit 2 is fatal in both. **Re-read on landing:** `scripts/lint_no_secrets.sh` builds `ALL_PATTERNS` from `PATTERNS` and runs `grep -qE`, and the loop runs `grep -nE -e`; each maps any exit other than 0 or 1 to `exit 2`.
+- 020, read directly: `listed_at` added with `DEFAULT now()` and then `DROP DEFAULT`; `operator_create_facility` inserts `listed_at` NULL explicitly; `listed_at IS NOT NULL` in `project_facility` and `refresh_lga_rollup`; `version` bumped by its own `BEFORE UPDATE` trigger; `invite_one_open_per_scope` NULLS NOT DISTINCT; `ward_account_one_active_per_ward` partial on `role = 'WARD_STAFF' AND is_active`; the listing preconditions refused by name, and a repeat on a listed facility returning without a write; `provision_begin` and `provision_complete` revoked from PUBLIC, anon, authenticated and service_role. **Re-read on landing,** in `database/migrations/020_operator_functions_and_listing.sql`: each holds as stated.
+
+**MERGE WORD — #68.** Merged as a merge commit on the founder's word, with `--match-head-commit` taken from the API read: `ae14701`, MERGED read back from the API before `record-after-67` was deleted. `main` was then merged into 3.4a, not rebased.
+
+**AZ-1 — THE REDIRECT ENTRIES ARE THE STRINGS THE APPS SEND.** Do not rely on Supabase's matching rules. Exact, no wildcards:
+- Site URL: `https://app.openbed.ng`
+- Redirect URLs: `https://app.openbed.ng/` and `https://admin.openbed.ng/`
+
+This amends -71 D and 2026-09-14 D2; both are left as written with a pointer here. The hosted read-back stays and asserts where the admin link actually lands. **If a redirect is not matched, Auth falls back to the Site URL silently**, so an operator's link would land on `app.openbed.ng`. That fallback must read as STOP, never as a working sign-in. The H3 runbook text now says so.
+
+**AZ-2 — THE PREMISE CORRECTIONS IN -71 ARE ACCEPTED AS CORRECTIONS:**
+- G: the `WARD_STAFF` check is at 014:189-193, not 014:55. `my_facility_wards` and `ward_status_history` give a `PLATFORM_ADMIN` 200 with zero rows, not a refusal. The tests assert what the code does. Zero rows discloses nothing.
+- C: in v1 the gates are `app.*` functions that only the script calls. No operator RPC provisions.
+
+**AZ-3 — 3.4b PROCEEDS AS LISTED.** For J4, the script calls `provision_begin` first and exits before any Auth admin call when begin reports the ward's account already complete. The test asserts zero Auth admin requests on that path.
+
+**FOUND ON LANDING, an open item for 3.4b.** The fallback AZ-1 names does not read as STOP today. An operator whose link falls back lands on the ward console, which calls `my_facility_wards`, gets 200 with zero rows (AZ-2), and renders an empty handover list: a sign-in that looks as if it worked. 3.4b gives that zero-ward session a stop message, and turns the H3 read-back into a script, together with the admin app that the read-back needs.
 
 ## The provisional ledger
 
@@ -3624,6 +3653,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | AW | R-2026-09-23-69 | 2026-09-23 | **#66 merged; 019 applied on hosted and the boundary frozen at 19; dashboard deploy #1 and `SUPABASE_URL` deleted from Production, each reading attributed.** The restatement found a fifth statement of the migration count that 019's own change had missed, and a guard whose premise moved at 19: its blind spot is now constructed rather than found. It binds PR 3.4's design report to state offerings explicitly and to render ADMIN and UNDER_REVIEW before any admin write reaches the public page. It records the ward console's raw codes as unassigned, because the record assigns them to neither 3.4 nor Bundle 4. PR 3.3 goes proposal-first. |
 | AX | R-2026-09-23-70 | 2026-09-23 | **PR 3.3's design signed off with four amendments.** `/otp` is not rewritten: option B works only by holding per-address state at the Worker, on the ward's only sign-in path, and closes nothing while `*.supabase.co` answers directly; it is revisited when -55 C lands. A probe proves forwarding by headers, never by body, because hosted's no-key body is the gateway's and not PostgREST's. `/auth/v1/verify` is a named direct-origin exception. `token` is forwarded only for the refresh grant. Every pending count in the Supabase runbook is now scanned, and the scan's first plant found a region that was read too wide. Cowork records its own error on AJ F2. The ward console's raw codes go to PR 3.4. |
 | AY | R-2026-09-23-71 | 2026-09-23 | **`record-after-67` becomes its own pull request, and PR 3.4 splits.** "Unlisted" is a new `listed_at`, never quiet mode, because a quiet facility still feeds the public rollup and would count toward its k-floor while it reports nothing. The secret key goes to no Cloudflare Function in v1: provisioning stays in the script, over one SQL implementation of the gates. The redirect list gains `admin.openbed.ng`, amending D2. A row version, idempotent create and add, one active account per ward, and no Auth call on a complete account. Two of its premises did not hold as stated: the reads return a `PLATFORM_ADMIN` zero rows rather than refusing it, and no operator RPC provisions in v1. |
+| AZ | R-2026-09-23-72 | 2026-09-24 | **#68 merged; the redirect entries become the exact slashed strings the apps send**, amending -71 D, so nothing rests on Supabase's matching rules. A silent fallback to the Site URL must read as STOP. -71's premise corrections are accepted, and J4's zero Auth calls bind the 3.4b script. Found on landing: the ward console renders a fallen-back operator's zero-row session as an empty list, for 3.4b. |
 
 ## Method notes — how rulings reach the implementer
 
