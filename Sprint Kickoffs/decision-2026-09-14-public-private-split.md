@@ -3479,6 +3479,27 @@ _Issued as R-PROVISIONAL-2026-09-23-AX, by Cowork on 2026-09-23 as its verdict o
   - It is the same class as the earlier defects: an expected value written down before anyone observed it. Name the observed signal, not a presumed one.
 - **Next:** the founder runs H4, step (c).
 
+**FOUNDER STEP (c), H4, READ BACK, 2026-09-23: THE WARD CONSOLE'S FIRST DEPLOY AT `2e62579` PASSES** (Cowork's reading; a dated note under this ruling; record-only, rides PR 3.4). **All three founder steps are now read back.**
+
+- **The founder's run:** the custom domain `app.openbed.ng` was added to `openbed-ward-console` in Pages first. Then `bash scripts/deploy_pages.sh --branch main ward-console` ran from the deploy checkout at `2e62579f31d4b43bd3e36d7d3cf93c178b14c3a5`, printed "DONE", and gave the deployment `https://6abd577d.openbed-ward-console.pages.dev`.
+- **A FALSE STOP, from the paste and not the deployment.** In the founder's paste of the key probe, `read -r DEPLOY_URL` consumed the next pasted line instead of the URL. Every curl then ran against an empty host ("No host part in the URL"): the bundle came back empty, the key count read 0, and the live half read 401 "No API key". zsh then garbled the retries.
+- **Cowork's re-run, 20:26 UTC:** Cowork ran the runbook's step 2 and step 3 blocks verbatim from outside, with `DEPLOY_URL` set to the deployment URL.
+  - Step 2: `version.json` commit `2e62579f31d4b43bd3e36d7d3cf93c178b14c3a5`, `"dirty": false`, `built_at 2026-09-23T20:19:26.613Z`.
+  - Step 3: bundle `assets/index-B7kFspkD.js`; "publishable keys in the deployed bundle: 1"; live half `200 {"external":{"`; dead half `401 {"message":"Invalid API key",…`; PASS.
+  - The live half went through the Worker, which forwards `GET /auth/v1/settings`.
+- **Step 5, Cowork:** `app.openbed.ng` resolves over DoH to `104.21.37.208` and `172.67.213.114`. `https://app.openbed.ng/version.json` reads commit `2e62579` with `"dirty": false` and the same `built_at`, so the custom domain serves this production deployment.
+- **Step 6, the deletion of apps/ward-console/.env.local (gitignored, so cited without backticks) from the founder's main checkout: THE FOUNDER'S OUTPUT WAS NOT RECEIVED.** Cowork's message said it was pasted below; nothing followed.
+  - **The implementer's own reading, at 20:40 UTC, of `~/Desktop/OpenBed-NG`, which is the founder's main checkout:** ls -la on that file gives `No such file or directory`. The known-present control is `ls apps/ward-console/`, which lists `index.html`, `package.json`, `src` and `wrangler.toml`.
+  - This shows the file is absent. It does not show who removed it or when, and it is not the founder's output.
+- **What H4 does not do: no ward can receive a sign-in link yet.** There is no `ward_account` on hosted, and H3 is open (the Auth Site URL and redirect URLs for `https://app.openbed.ng`, and custom SMTP with the NDPA processor agreement). The console loads and shows its signed-out screen.
+- **THE PASTE FAILURES ARE A CLASS: three on 2026-09-23.**
+  1. The PR 3.3 body went through an unquoted heredoc, and its backticks ran as commands.
+  2. `read -r` consumed a pasted line here.
+  3. zsh garbled long pastes.
+
+  **The answer is to stop pasting multi-line read-backs:** each becomes a script under `scripts/` that takes the URL as its argument and refuses an empty or non-https one before probing anything. That change rides PR 3.4 on this branch.
+- **Next:** PR 3.4's design report, for Cowork's sign-off before anything is built.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
