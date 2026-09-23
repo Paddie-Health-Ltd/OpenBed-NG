@@ -53,13 +53,17 @@ This step is what does.
 4. **Build and deploy.** A key that is tracked but not deployed is exactly the stale
    state this step exists to prevent: the repository would be right and the edge
    wrong.
-5. **Probe the edge**, per the verification section below. The signal is the ward
-   console signing in, not the build succeeding.
+5. **Run the ward-console deploy read-back, step 3 of
+   `docs/runbook-ward-console-deploy.md`** — the live-key probe with its failing half.
+   It is the same probe every ward-console deploy runs (R-2026-09-23-64); this step
+   points at it rather than carrying its own copy, so there is one probe to keep
+   right. **It is the only check that can tell the new key is live**: the build
+   succeeding says nothing about that, and neither does any test.
 
 **The failing half, so this step is not merely a list.** Put the OLD key in that
 line and the suite stays green — it is still a well-formed publishable key, and no
 test in this repository can tell a live key from a dead one. **Only the probe in
-step 5 can.** That is stated here rather than left for someone to discover, because
+step 5 can**, and its live half then reads **`401`** with **`"Invalid API key"`**. That is stated here rather than left for someone to discover, because
 it is precisely the gap that makes step 5 non-optional.
 
 ---
