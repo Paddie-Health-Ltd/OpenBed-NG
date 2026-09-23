@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /// <reference lib="dom" />
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { facilityColumns, wardColumns } from '../../packages/snapshot/src/codec.js';
@@ -195,7 +195,15 @@ export function deviceClockReads(source: string): string[] {
 }
 
 describe('the page reads no device clock', () => {
-  const FILES = ['apps/public-dashboard/src/main.ts', 'apps/public-dashboard/src/age-view.ts'];
+  // EVERY module of the page, discovered -- not a list. This named two files until
+  // R-2026-09-23-68 C added labels.ts beside them, which the header's "the page's
+  // modules" then did not cover (test-conventions section 2(d)).
+  const SRC = 'apps/public-dashboard/src';
+  const FILES = readdirSync(join(REPO_ROOT, SRC)).filter((n) => n.endsWith('.ts')).sort().map((n) => `${SRC}/${n}`);
+
+  test('the corpus is every page module, and includes the three it must', () => {
+    expect(FILES).toEqual(expect.arrayContaining([`${SRC}/main.ts`, `${SRC}/age-view.ts`, `${SRC}/labels.ts`]));
+  });
 
   test.each(FILES)('%s makes no Date.now(), no-argument Date or performance.now() call', (file) => {
     const src = readFileSync(join(REPO_ROOT, file), 'utf8');
