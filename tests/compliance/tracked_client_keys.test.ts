@@ -2,7 +2,7 @@ import ts from 'typescript';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { REPO_ROOT } from './_scratch.js';
+import { REPO_ROOT, withScratch, place } from './_scratch.js';
 import { PLANT_SERVICE_ROLE_JWT, PLANT_SB_SECRET, PLANT_JWT } from './_plants.js';
 import { deployableApps, outputDirOf } from './_apps.js';
 import KEYS from '../../packages/origins/publishable-keys.json';
@@ -95,6 +95,108 @@ function sourceFiles(dir: string): string[] {
   return out;
 }
 
+/**
+ * EVERY MODULE AN APP'S BUILD CAN REACH THROUGH THE WORKSPACE (R-2026-09-23-65 C1).
+ *
+ * WHY THE CORPUS IS A FILE-LEVEL IMPORT GRAPH AND NOT A LIST OF PACKAGES. Vite
+ * replaces `import.meta.env` in every module it bundles, not only in apps/. And the
+ * packages here declare no dependencies, and reach each other BY RELATIVE PATH —
+ * packages/snapshot/src/serve.ts imports ../../origins/src/index.js — so neither a
+ * package.json walk nor a scan of `@openbed/*` specifiers would see that edge. (No
+ * Vite build reaches serve.ts TODAY — only the Pages Function does — which is exactly
+ * why a scan that would miss the edge must not be trusted to notice when one does.)
+ * The graph is followed by parsing each module's import, export-from and dynamic
+ * import() specifiers:
+ *   - a relative specifier resolves `.js` to `.ts`, then a bare path, then index.ts;
+ *   - `@openbed/<name>[/sub]` resolves through that package's `exports` map;
+ *   - a `.json` import is recorded and not scanned — JSON cannot read the env;
+ *   - any other bare specifier is third-party and is NOT followed (see below);
+ *   - a relative or `@openbed/` specifier that resolves to nothing is UNRESOLVED and
+ *     is returned, so the caller fails on it. Skipping it would shrink the corpus
+ *     silently, which is the exact shape this helper exists to close.
+ *
+ * WHY THE BUNDLE LEG IS NOT ENOUGH, OBSERVED 2026-09-23 rather than predicted. Four
+ * reads planted in packages/origins/src/index.ts on the ward console's live path,
+ * built, and run against '%s’s built bundle carries no env record at all': only
+ * `import.meta.env['X']` inlined the record and went red. `.VITE_X`, `.MODE` and
+ * `.DEV` compiled to `""`, `"production"` and `false` and it passed all three.
+ *
+ * NOT FOLLOWED, deliberately: third-party code under node_modules. It is not this
+ * project's source, and the bundle leg below is its only backstop, with the limit
+ * just described.
+ */
+export function envReadClosure(root: string, app: string): { files: string[]; packages: string[]; unresolved: string[] } {
+  const packagesDir = join(root, 'packages');
+  const byName = new Map<string, string>();
+  if (existsSync(packagesDir)) {
+    for (const dir of readdirSync(packagesDir)) {
+      const manifest = join(packagesDir, dir, 'package.json');
+      if (!existsSync(manifest)) continue;
+      const { name } = JSON.parse(readFileSync(manifest, 'utf8')) as { name?: string };
+      if (name !== undefined) byName.set(name, join(packagesDir, dir));
+    }
+  }
+  const isFile = (p: string): boolean => existsSync(p) && statSync(p).isFile();
+  const resolveRelative = (from: string, spec: string): string | null => {
+    const base = join(from, '..', spec);
+    const candidates = spec.endsWith('.js') ? [base.replace(/\.js$/, '.ts'), base] : [base, `${base}.ts`, join(base, 'index.ts')];
+    return candidates.find(isFile) ?? null;
+  };
+  const resolveWorkspace = (spec: string): string | null => {
+    const [scope, name, ...rest] = spec.split('/');
+    const pkgDir = byName.get(`${scope}/${name}`);
+    if (pkgDir === undefined) return null;
+    const { exports } = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8')) as { exports?: Record<string, string> };
+    const target = exports?.[rest.length === 0 ? '.' : `./${rest.join('/')}`];
+    return target !== undefined && isFile(join(pkgDir, target)) ? join(pkgDir, target) : null;
+  };
+  const specifiers = (file: string): string[] => {
+    const sf = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true);
+    const out: string[] = [];
+    const visit = (node: ts.Node): void => {
+      if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+        out.push(node.moduleSpecifier.text);
+      } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node.arguments[0] && ts.isStringLiteral(node.arguments[0])) {
+        out.push(node.arguments[0].text);
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(sf);
+    return out;
+  };
+
+  const seen = new Set<string>();
+  const unresolved: string[] = [];
+  const queue = sourceFiles(join(root, 'apps', app, 'src'));
+  while (queue.length > 0) {
+    const file = queue.pop() as string;
+    if (seen.has(file)) continue;
+    seen.add(file);
+    for (const spec of specifiers(file)) {
+      const workspace = spec.startsWith('@openbed/');
+      if (!workspace && !spec.startsWith('.')) continue;
+      const target = workspace ? resolveWorkspace(spec) : resolveRelative(file, spec);
+      if (target === null) unresolved.push(`${file.replace(`${root}/`, '')} -> ${spec}`);
+      else if (target.endsWith('.ts')) queue.push(target);
+    }
+  }
+  const files = [...seen].sort();
+  const packages = [...new Set(files.filter((f) => f.startsWith(`${packagesDir}/`)).map((f) => f.slice(packagesDir.length + 1).split('/')[0] as string))].sort();
+  return { files, packages, unresolved };
+}
+
+/**
+ * The workspace packages each app's build reaches, BY IDENTITY (test-conventions
+ * section 3). It decays loudly: a new edge reddens this until someone looks at it.
+ */
+const EXPECTED_CLOSURE_PACKAGES: Record<string, string[]> = {
+  // NOT origins: @openbed/snapshot's index re-exports only codec.ts, so serve.ts and its
+  // relative edge into origins are reached by the Pages Function alone, which wrangler
+  // builds and Vite never sees. Read 2026-09-23, not presumed.
+  'public-dashboard': ['snapshot'],
+  'ward-console': ['auth', 'origins'],
+};
+
 const APPS = deployableApps();
 
 describe('the tracked client key', () => {
@@ -147,16 +249,66 @@ describe('no environment reaches a build', () => {
     expect(APPS.length, 'no deployable apps discovered').toBeGreaterThan(0);
   });
 
-  test.each(APPS)('%s reads import.meta.env NOWHERE in its source', (app) => {
+  test.each(APPS)('%s reads import.meta.env NOWHERE in its source or in any workspace module it imports', (app) => {
     // THE LOAD-BEARING ONE. With no read, Vite emits no env record at all, so
     // neither a file nor the shell can reach the output. Scanned for READS via the
     // TypeScript parser, so both apps can keep EXPLAINING in their comments why the
     // read is gone without the guard counting the explanation as the defect.
-    const files = sourceFiles(join(REPO_ROOT, 'apps', app, 'src'));
-    expect(files.length, `apps/${app}/src has no TypeScript to scan`).toBeGreaterThan(0);
+    //
+    // The corpus is the app's source AND everything it reaches in packages/
+    // (R-2026-09-23-65 C1): a scalar read there compiles to a literal that the
+    // bundle leg below cannot see.
+    const { files, unresolved } = envReadClosure(REPO_ROOT, app);
+    expect(unresolved, `apps/${app} imports workspace modules that resolve to nothing, so the scan cannot follow them`).toEqual([]);
+    expect(files.filter((f) => f.includes(`/apps/${app}/src/`)).length, `apps/${app}/src has no TypeScript to scan`).toBeGreaterThan(0);
     for (const file of files) {
       expect(importMetaEnvReads(file), `${file.replace(`${REPO_ROOT}/`, '')} reads import.meta.env`).toEqual([]);
     }
+  });
+
+  test('the import closure reaches exactly the expected workspace packages, per app', () => {
+    // ANTI-VACUITY for the closure, and stronger than non-empty: a resolver that
+    // stopped following an edge would drop a package from this list by name.
+    expect(Object.keys(EXPECTED_CLOSURE_PACKAGES).sort(), 'the expected table and the deployable apps disagree').toEqual([...APPS].sort());
+    for (const app of APPS) {
+      expect(envReadClosure(REPO_ROOT, app).packages, `apps/${app}'s build reaches a different set of workspace packages`).toEqual(EXPECTED_CLOSURE_PACKAGES[app]);
+    }
+  });
+
+  const PKG = (name: string, exportsMap: Record<string, string>): string => JSON.stringify({ name, exports: exportsMap });
+  test.each([
+    ['across packages by RELATIVE path — the shape serve.ts uses', "import { m } from '@openbed/p1';\nexport const x = m;\n", "export { m } from '../../p2/src/index.js';\n"],
+    ['through an exports-map SUBPATH', "import { m } from '@openbed/p1/sub';\nexport const x = m;\n", "export const unused = 1;\n"],
+    ['through a DYNAMIC import()', "export const x = import('@openbed/p1/sub');\n", "export const unused = 1;\n"],
+  ])('plant — a scalar env read reached %s is found', (_label, appMain, p1Index) => {
+    withScratch((root) => {
+      place(root, 'apps/app1/src/main.ts', appMain);
+      place(root, 'packages/p1/package.json', PKG('@openbed/p1', { '.': './src/index.ts', './sub': './src/sub.ts' }));
+      place(root, 'packages/p1/src/index.ts', p1Index);
+      place(root, 'packages/p1/src/sub.ts', "export { m } from '../../p2/src/index.js';\n");
+      place(root, 'packages/p2/package.json', PKG('@openbed/p2', { '.': './src/index.ts' }));
+      place(root, 'packages/p2/src/index.ts', 'export const m = import.meta.env.MODE;\n');
+      const { files, unresolved } = envReadClosure(root, 'app1');
+      const reads = files.flatMap((f) => importMetaEnvReads(f).map((r) => `${f.replace(`${root}/`, '')}: ${r}`));
+      expect(unresolved, 'the plant tree itself did not resolve').toEqual([]);
+      expect(reads.join('\n'), `the planted read in packages/p2 was not found; closure was:\n${files.join('\n')}`).toContain('packages/p2/src/index.ts');
+    });
+  });
+
+  test('plant — a workspace import that resolves to nothing is reported, not skipped', () => {
+    withScratch((root) => {
+      place(root, 'apps/app1/src/main.ts', "import { m } from '@openbed/missing';\nimport { n } from './gone.js';\nexport const x = [m, n];\n");
+      const { unresolved } = envReadClosure(root, 'app1');
+      expect(unresolved.join('\n')).toContain('@openbed/missing');
+      expect(unresolved.join('\n')).toContain('./gone.js');
+    });
+  });
+
+  test('anti-vacuity — the closure of an app with no source is empty, and the real leg would refuse it', () => {
+    withScratch((root) => {
+      place(root, 'apps/app1/index.html', '<!doctype html>\n');
+      expect(envReadClosure(root, 'app1').files).toEqual([]);
+    });
   });
 
   test.each(APPS)('%s closes BOTH env routes in its vite config', (app) => {

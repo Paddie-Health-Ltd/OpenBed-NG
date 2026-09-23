@@ -17,7 +17,7 @@ export default defineConfig({
   //
   // NEITHER IS THE LOAD-BEARING GUARANTEE. That is the absence of any
   // `import.meta.env` READ in this app's source, asserted in
-  // tests/compliance/tracked_origins.test.ts: with no read, Vite's define never
+  // tests/compliance/tracked_client_keys.test.ts: with no read, Vite's define never
   // fires and no env record is emitted at all. These two are the belt, kept so a
   // future read cannot quietly reopen the route.
   envDir: false,

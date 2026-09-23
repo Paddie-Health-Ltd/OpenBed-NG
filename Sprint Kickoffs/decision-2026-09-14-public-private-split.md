@@ -3152,6 +3152,36 @@ _Issued as R-PROVISIONAL-2026-09-23-AR, by Cowork on 2026-09-23, on a finding of
 
 **D — one trap met while taking that reading, recorded because it looks like a network failure.** The first attempt used a loop variable named `path`, which in zsh is tied to `$PATH`; assigning it emptied the search path, and every `curl` reported *command not found*. **No request was sent.** The runbook fence avoids the name.
 
+### R-2026-09-23-65 — Cowork's file review of PR 3.1: three fixes in one commit, one probe path recorded for PR 3.3
+
+_Issued as R-PROVISIONAL-2026-09-23-AS, by Cowork on 2026-09-23, on its own reading of the files at `fbb0655`. Number assigned on landing from the record's last as read on this branch: R-2026-09-23-64. **Record-only under R-46; lands in PR 3.1, in the one fix commit it asks for.** Next provisional letter: AT._
+
+**BASIS — Cowork's reading, not taken here.** Cowork cloned the public repository at `fbb0655` and read the files. It confirmed independently: the 51 paths in `main...HEAD`; no stray top-level entry; the production value in `packages/origins/publishable-keys.json` equal to Supabase's live default publishable key (the legacy anon JWT is disabled there); `origins.json`'s `supabaseDirect` equal to the project URL and to the deployed proxy's project id; `BedsEnv` carrying only the service-role key; the wrapper refusing an unknown app and reading the stamp back; the USAGE test meeting `-62 A1`; production `/beds.json` answering 200 on 2026-09-23. **Not independently read by Cowork: the seven CI results**, which remain the implementer's reading.
+
+**A — FIX IN PR 3.1, ONE COMMIT, BEFORE THE FOUNDER'S MERGE WORD.**
+
+- **A1.** Both `vite.config.ts` files say the no-`import.meta.env`-read property is asserted in `tracked_origins.test.ts`. It is asserted in `tests/compliance/tracked_client_keys.test.ts`. Correct both; say whether a guard could catch a comment naming a test file that does not hold the claimed assertion; do not build it here.
+- **A2.** `scripts/lint_public_table_rls.sh` reads only the plain form. It does not see `CREATE UNLOGGED TABLE`, quoted identifiers, `ALTER TABLE … SET SCHEMA public`, or an unqualified `CREATE TABLE x AS`. For up migrations the catalogue test catches them; for down migrations nothing does. **The property: every form that can create or move a table into `public` is either paired and checked, or refused by name as unreadable.** Plant each form, red then green, quoted; pass over 001–018 unedited.
+- **A3.** In `docs/runbook-cloudflare-pages-beds-json.md`, "step 8" names both section 8 and read-back 8; read-back 6's *"step 8 is what stops it recurring silently"* means read-back 8. Make every such reference unambiguous, and remove the duplicated `"dirty": true` paragraph. The restate rule applies to any guard that pins the text.
+- **A4.** Report the commit's staged-path comparison, the A2 plants, the full gate, and CI on the new head.
+
+**B — RECORDED FOR PR 3.3, NOT BUILT HERE.**
+
+- **B1.** Step 3 of `docs/runbook-ward-console-deploy.md` probes `https://api.openbed.ng/auth/v1/settings`. Today the Worker forwards every path (Cowork read the deployed source). PR 3.3's allow-list is derived from code, and no code calls `/auth/v1/settings`, **so once 3.3 deploys the probe gets the Worker's 404 and every ward-console deploy reads STOP.**
+- **B2 — the property for PR 3.3.** Every path a runbook probe calls through `api.openbed.ng` is either on the allow-list with its stated reason — the probe — or the probe moves. The coverage test sees runbook probe paths as well as code call sites, and a probe path missing from the list turns it red. **The implementer proposes the mechanism.**
+
+**C — ONE QUESTION.** The AP B2 / AQ B3 sentinel plants were demonstrated once; the standing guards are structural, and the source scan covers `apps/`, not the packages an app imports. Does the bundle-level leg alone catch a future `import.meta.env` read in `packages/*`? If not, extend the scan in this commit.
+
+**D — THE PREMISES, READ BEFORE ACTING (method note 20).**
+
+- **A1 holds.** Line 20 of both configs; the assertion is `tracked_client_keys.test.ts`'s `'%s reads import.meta.env NOWHERE in its source'`, and `tracked_origins.test.ts` holds no such test.
+- **A2 holds, and the gap was wider than listed.** The lint was a line-by-line grep. It also missed a `CREATE TABLE` split across lines, `SELECT … INTO public.x`, a top-level unqualified `SELECT INTO`, `CREATE FOREIGN TABLE`, `IMPORT FOREIGN SCHEMA … INTO public`, `CREATE`/`ALTER EXTENSION` into `public`, a `CREATE TABLE` inside `EXECUTE '…'`, and a `DISABLE` after the pairing. It also **refused a legitimate form**: `ENABLE ROW LEVEL SECURITY, FORCE ROW LEVEL SECURITY` in one `ALTER TABLE`, valid SQL that sets both flags (observed locally before it was relied on). **Of 19 forms planted, 18 passed the `fbb0655` lint**; the nineteenth, `NO FORCE`, it already caught. The lint now lexes each file with an embedded perl lexer and classifies every form; all 19 are red as planted and green once corrected.
+- **A2's "unedited" held, and it cost one named exemption.** The first run of the widened lint refused `017`'s `CREATE EXTENSION IF NOT EXISTS pg_cron`, which names no schema: **the guard refusing legitimate input**, and a line my corpus survey had missed. The local catalogue says pg_cron sits in `pg_catalog`, is not relocatable, and puts its four relations in schema `cron`. It is exempted **by name**, and only when no schema clause is given. Every other extension with no schema clause is refused.
+- **A3 holds, and every number collided, not only 8.** Sections run 1–8 and read-backs 1–8 plus 5b, and the runbook called both "step N". Sections are now "section N", read-backs "read-back N", and a list item inside section 8 is "item 3 above". **"Steps 5, 5b and 6" in the status paragraph was resolved against `-47 D`**, which names 5b a read-back. A new guard, `tests/compliance/runbook_step_references.test.ts`, refuses any bare "step N" in that runbook, along with any paragraph that appears twice. **On its first run it found a reference the hand sweep had missed**, wrapped across a line break (*"(step⏎1's failure)"*), which a line-based search cannot see.
+- **C — the bundle leg does NOT catch it, OBSERVED.** Four reads were planted in `packages/origins/src/index.ts` on the ward console's live path, built, and run against the bundle leg: `import.meta.env['X']` inlined the whole record and went red; **`.VITE_X`, `.MODE` and `.DEV` compiled to `""`, `"production"` and `false` and passed.** My own prediction was that `.VITE_X` would be caught, and it was wrong. The source scan now follows each app's import graph file by file into `packages/`, and the same `.MODE` plant reds it. **One more claim of mine fell while building it:** I had written that the public dashboard's Vite build reaches `packages/origins` through `serve.ts`'s relative import. It does not: `@openbed/snapshot`'s index re-exports only `codec.ts`, and `serve.ts` is reached by the Pages Function alone, which wrangler builds. The expected table records what was read.
+
+**E — A1's QUESTION, ANSWERED; NOTHING BUILT.** The *existence* half of a test citation is already Clause 4's guard, `tests/compliance/no_phantom_paths.test.ts`. The *"holds the claimed assertion"* half is buildable **only with a convention**: cite the test by title — `asserted in <file> ("<test name>")` — and a guard checks the title is a `test(` or `test.each(` name in that file. Without the convention it needs a judgement about what a sentence means, and a guard claiming to make that judgement would be the phantom Clause 4 forbids. **One verb-led pattern finds at least 14 such citations in 11 tracked files outside the record and the handoffs, and that is a lower bound**: A1's own citation is not among them, because a comment marker splits it across lines. Adopting the convention is a separate change.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -3207,6 +3237,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | AL | R-2026-09-22-62 | 2026-09-23 | **Issued before AN, landed after AQ** — never pasted until 2026-09-23, which `-61 D` recorded. Closes `-57 G5` in this pull request: the USAGE test must red when the probed privilege is swapped. Lists two Cowork errors for the PR body, and specifies nine things the report must QUOTE rather than state. One of its premises did not apply: `scripts/commit.sh` is not new, having been on `main` since 2026-09-11. |
 | AM | R-2026-09-22-63 | 2026-09-23 | **Issued before AN, landed after AL.** Cowork handoffs no longer enter the repository; `-58 B1`–`B3` withdrawn; the untracked Cowork directory removed with no diff owed. Its B5 check found **two facts with no home** in the record — what the currently deployed ward console is built against, and the hosted auth-user total — and gives them one, marked as relayed readings. The infra-review handoff was pasted truncated, and the check says so. |
 | AR | R-2026-09-23-64 | 2026-09-23 | The live-key probe moves into every ward-console deploy read-back, with a failing half, because no test here can tell a live key from a dead one. **Its signals were observed before they were written, and the observation moved the probe off `/rest/v1/`**: there a live key and a dead key both return 401. First ruling dated 2026-09-23. |
+| AS | R-2026-09-23-65 | 2026-09-23 | Cowork's own file review of PR 3.1 at `fbb0655`: one wrong test citation, a RLS lint that read only the plain form, and a runbook whose "step N" named two things. Each premise held, and two were wider than stated: **18 of 19 planted forms passed the old lint**, and every number 1–8 collided in the runbook. The C1 question was answered by planting, not argued: the bundle leg missed three of four package env reads, so the source scan now follows the import graph. Records the PR 3.3 hazard that the ward-console probe path is on no code-derived allow-list. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -3403,6 +3434,15 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-23, R-2026-09-23-65 (issued as R-PROVISIONAL-2026-09-23-AS): **Cowork's file
+  review of PR 3.1**, three fixes in one commit. The RLS lint now lexes each migration
+  and pairs or refuses by name every form that can create or move a table into `public`
+  — 18 of 19 planted forms had passed it — with pg_cron exempted by name on an observed
+  catalogue reading. The Pages runbook names a section "section N" and a read-back
+  "read-back N", under a guard that found one reference the hand sweep missed. The
+  env-read scan follows each app's import graph into `packages/`, because the bundle
+  leg was shown to miss three of four planted reads. It also records, for PR 3.3, that
+  the ward-console probe path would 404 behind a code-derived allow-list;
 - on 2026-09-23, R-2026-09-23-64 (issued as R-PROVISIONAL-2026-09-23-AR): **the live-key
   probe runs on every ward-console deploy**, because no test in the repository can tell
   a live key from a dead one and the edge is therefore the only check; its signals were

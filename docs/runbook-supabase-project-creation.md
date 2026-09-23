@@ -1300,7 +1300,7 @@ curl -sS https://openbed.ng/version.json
 PASS: `HTTP/2 200`, `content-type: application/json; charset=utf-8`, and
 `/version.json` quoted in the report. **Stop condition:** anything else — in
 particular a body beginning `{"error":`. **018 must be invisible from the outside;
-that is the claim.** *Failing half: step 6 of the Pages runbook carries its own, and
+that is the claim.** *Failing half: section 6 of the Pages runbook carries its own, and
 the `x-openbed-edge-cache` marker gives a second value on demand.*
 
 - [x] 018 read-back taken and pasted, 2026-09-22, founder's run on `klrlpxysjsjpdkeqdhvl` (R-2026-09-22-52). **Item 1:** `can_select` is `f` on all six rows — `anon` and `authenticated` × the three mirrors. **Item 2:** `snapshot_rows_visible_to_service_role` is `1440`, and the `anon` probe failed with `ERROR: permission denied for table snapshot_current`, the `rollback` running after it as designed. **Item 3:** `openbed_refresh_lga_rollup` 3 succeeded / 0 failed / 0 in flight, last start `2026-09-22 05:55:00.038948+00`; `openbed_regenerate_snapshot` 16 succeeded / 0 failed / 0 in flight, last start `2026-09-22 05:56:00.010272+00` — **so the SECURITY DEFINER premise 018 was written on is confirmed LIVE, not argued.** **Item 4:** `/beds.json` `HTTP/2 200`, `content-type: application/json; charset=utf-8`, `x-openbed-edge-cache: miss`, `cf-ray … -CDG`; `/version.json` commit `76fe917933df113626dffacac585ed0e3f7bf3b4`, `dirty false` — **018 is invisible from the outside, which is the claim.**
