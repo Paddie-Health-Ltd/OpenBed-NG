@@ -11,14 +11,21 @@
  * SO THE ONLY TIME THIS MODULE READS IS MONOTONIC. `performance.now()` measures
  * elapsed milliseconds since page load. It is not a wall clock, it cannot be
  * wrong by three hours, and it does not move when the user or the network
- * changes the system time. Everything absolute comes from the SERVER: the
- * snapshot carries `server_now`, and each ward carries `updated_at`.
+ * changes the system time. Everything absolute comes from the SERVER: the Pages
+ * Function stamps `x-openbed-served-at` on each response, the snapshot carries
+ * `generated_at`, and each ward carries `updated_at`.
  *
- *   age = (server_now - updated_at) + (monotonic elapsed since the fetch)
+ *   ward age     = (served_at - updated_at)   + (monotonic elapsed since the fetch)
+ *   snapshot age = (served_at - generated_at) + (monotonic elapsed since the fetch)
  *
  * The first term is server-computed and cannot be skewed. The second is
  * device-local but monotonic. There is no third term, and adding one -- a
  * `Date.now()` anywhere in the display path -- reintroduces F3 in full.
+ *
+ * RESTATED 2026-09-23 (R-2026-09-23-67 A3): the first term used the envelope's
+ * `server_now`. That is GENERATION time, so a stalled job served from cache would
+ * never have aged against it. LIVE since the same ruling: the public dashboard
+ * takes its mark here.
  *
  * OPENBED-CLOCK-ANCHOR
  *

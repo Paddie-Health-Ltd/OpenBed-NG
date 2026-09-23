@@ -60,9 +60,17 @@
  * binding list (R-2026-09-17-12); the limit is a founder-configured zone WAF
  * rule, recorded OWED in docs/runbook-cloudflare-pages-beds-json.md.
  *
- * NO WALL CLOCK -- BY CONSTRUCTION, NOT BY ENFORCEMENT. Freshness comes from the
- * payload's own `server_now`; this module reads no clock, and its timeout is an
- * AbortSignal, not a timestamp comparison.
+ * ONE WALL-CLOCK READ, AND ONLY ONE (R-2026-09-23-67 A3). Until 2026-09-23 this read
+ * "NO WALL CLOCK": freshness came from the payload's own `server_now`, and this module
+ * read no clock. That anchor cannot see a stalled job -- `server_now` is generation
+ * time, as old as the data it describes -- so `asRequested` below now stamps
+ * `x-openbed-served-at` (packages/snapshot/src/headers.ts) on every response it
+ * returns, from this runtime's clock, at the moment it returns it. It is the page's
+ * serve-time clock, and it is set on the OUTGOING response only, never on what is
+ * stored, for the same reason the edge-cache marker is. Two clocks now meet in the
+ * page's arithmetic -- Postgres's (`generated_at`, `updated_at`) and this runtime's --
+ * and both are server clocks; the device clock is still in none of it. The timeout is
+ * still an AbortSignal, not a timestamp comparison.
  *
  * THIS PARAGRAPH USED TO CLAIM THIS DIRECTORY WAS "inside the ESLint Date ban
  * (finding F3)". THERE IS NO SUCH RULE, and the claim is corrected here rather
@@ -78,6 +86,7 @@
  * guard is an open item with a trigger, not this change.
  */
 import { decodeFacility, decodeWard } from './codec.js';
+import { SERVED_AT_HEADER } from './headers.js';
 import shape from '../../fixtures/snapshot-shape.json';
 // Relative, matching the fixtures import above: this module is bundled by
 // wrangler through apps/public-dashboard/functions/, which resolves it by path.
@@ -440,6 +449,9 @@ export async function serveBedsCached(
       headers: r.headers,
     });
     out.headers.set(EDGE_CACHE_HEADER, state);
+    // The serve-time clock (see the header): minted here, per response, so a hit
+    // carries THIS serve's time and the stored copy carries none.
+    out.headers.set(SERVED_AT_HEADER, new Date().toISOString());
     return out;
   };
 

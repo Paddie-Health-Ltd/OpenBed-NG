@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { REPO_ROOT } from './_scratch.js';
 import SHAPE from '../../packages/fixtures/snapshot-shape.json';
-import { freshnessBand, freshnessBucket } from '../../packages/snapshot/src/freshness.js';
+import { freshnessBand, freshnessBucket, snapshotAge } from '../../packages/snapshot/src/freshness.js';
 import { markFetch, elapsedSince } from '../../packages/snapshot/src/anchor.js';
 
 /**
@@ -60,12 +60,15 @@ describe('freshness bands', () => {
     // The whole point. Both timestamps come from the server; a device three
     // hours out in either direction contributes NOTHING to this computation,
     // because no wall clock is read.
-    const truth = freshnessBand(agoMinutes(30), iso(NOW), 0);
+    // RESTATED 2026-09-23 (R-2026-09-23-67): this read agoMinutes(30), a literal that
+    // assumed the old 60-minute green band -- the file's own rule against numbers in
+    // prose, broken once. The fixture's constant now drives it.
+    const truth = freshnessBand(agoMinutes(B.greenUnderMinutes - 1), iso(NOW), 0);
     expect(truth.band).toBe('GREEN');
     // Same server inputs, computed on a device whose clock is three hours out in
     // either direction: identical, because the device clock is not an input.
     for (const skewHours of [-3, 3]) {
-      const skewed = freshnessBand(agoMinutes(30), iso(NOW), 0);
+      const skewed = freshnessBand(agoMinutes(B.greenUnderMinutes - 1), iso(NOW), 0);
       expect(skewed.band, `a device clock ${skewHours}h out changed the band`).toBe(truth.band);
     }
   });
@@ -101,6 +104,39 @@ describe('freshness bands', () => {
     const order = (['GREEN', 'YELLOW', 'GREY', 'SUPPRESSED'] as const).map(freshnessBucket);
     expect(order, 'the sort bucket does not order fresher-first').toEqual([...order].sort((a, b) => a - b));
     expect(new Set(order).size, 'two bands share a bucket — the sort would be unstable between them').toBe(4);
+  });
+});
+
+describe("the snapshot's own age (R-2026-09-23-67 A3)", () => {
+  const GEN = iso(NOW);
+  const servedAfter = (m: number): string => iso(NOW + m * 60_000);
+
+  test('a snapshot served a minute after generation is not stale', () => {
+    expect(snapshotAge(GEN, servedAfter(1), 0)).toMatchObject({ known: true, stale: false });
+  });
+
+  test('THE STALLED JOB — served at the banner threshold after generation, it is stale', () => {
+    // The failing half of the one above: same generation time, a later serve.
+    expect(snapshotAge(GEN, servedAfter(B.snapshotBannerAfterMinutes), 0)).toMatchObject({ known: true, stale: true });
+  });
+
+  test('a page left open ages: a fresh serve plus enough monotonic elapsed time is stale', () => {
+    expect(snapshotAge(GEN, servedAfter(0), (B.snapshotBannerAfterMinutes + 1) * 60_000).stale).toBe(true);
+  });
+
+  test('no serve-time clock, or an unreadable one, is UNKNOWN and therefore stale — never fresh', () => {
+    expect(snapshotAge(GEN, null, 0)).toMatchObject({ known: false, stale: true });
+    expect(snapshotAge(GEN, 'not a time', 0)).toMatchObject({ known: false, stale: true });
+    expect(snapshotAge('not a time', servedAfter(0), 0)).toMatchObject({ known: false, stale: true });
+  });
+
+  test('a serve clock BEHIND generation is clamped to zero, never a negative age', () => {
+    expect(snapshotAge(GEN, iso(NOW - 60_000), 0)).toMatchObject({ known: true, stale: false, ageMinutes: 0 });
+  });
+
+  test('the setting carries its PROVISIONAL label until a clinician ruling removes it (A4, A7)', () => {
+    expect((B as { status?: string }).status ?? '', 'the thresholds lost their PROVISIONAL label without a ruling').toMatch(/^PROVISIONAL/);
+    expect(typeof B.snapshotBannerAfterMinutes).toBe('number');
   });
 });
 
