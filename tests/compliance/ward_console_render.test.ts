@@ -80,8 +80,20 @@ function text(): string {
   return document.body.textContent ?? '';
 }
 
-async function until(cond: () => boolean): Promise<void> {
-  for (let i = 0; i < 100; i += 1) {
+/**
+ * Waits for the page to reach a state, up to a DEADLINE rather than a count of polls.
+ *
+ * FIVE SECONDS, AND WHY. This was 100 polls of 5ms -- about half a second -- and the
+ * sign-in request retries once after a jittered 300-600ms sleep when no answer came
+ * back (packages/auth/src/request.ts). So the wait was SHORTER than the code's own
+ * documented backoff: green locally when the jitter happened to fit, red on CI when it
+ * did not (run 35850012069, a4d28bc). Reproduced deterministically by pinning the
+ * jitter to its maximum. The deadline now exceeds the worst case with room, and the
+ * leg that depends on it pins the jitter so every run exercises that worst case.
+ */
+async function until(cond: () => boolean, deadlineMs = 5000): Promise<void> {
+  const end = Date.now() + deadlineMs;
+  while (Date.now() < end) {
     if (cond()) return;
     await new Promise((r) => setTimeout(r, 5));
   }
@@ -325,6 +337,8 @@ describe('the ward asks for a new sign-in link, and cannot learn whether an addr
   });
 
   test('no answer at all is the one other outcome, and it says nothing about the address', async () => {
+    // The WORST-CASE jitter, every run: the retry sleeps its maximum ~600ms.
+    vi.spyOn(Math, 'random').mockReturnValue(0.999);
     const { status } = await requestWith(() => {
       throw new TypeError(`network down ${SENTINEL}`);
     });
