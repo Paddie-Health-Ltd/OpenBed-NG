@@ -12,8 +12,10 @@ not a fact.
 body this repository does not control, so a probe keyed to a body would STOP on a
 correct deploy — or pass on the wrong one.
 
-**Paste each block into an interactive shell.** No `exit`, and no variable called
-`path` or `status` (both break zsh).
+**Nothing below is pasted except one-line commands.** The probes and the stamp read
+are `scripts/readback_worker.sh`, run with bash (R-2026-09-23-70, the H4 note: three
+paste failures in one day, one of them a false STOP). The rules a pasted block needed
+(no `exit`, no variable called `path` or `status`) therefore no longer apply.
 
 **-23 D5 (availability) is still open, and this Worker raises its stakes:** every ward
 call now depends on it as well as on Supabase. Nothing here answers that.
@@ -51,66 +53,55 @@ it never passes on the previous Worker.
 <HEAD> (attempt N of 12).` **Anything ending `STOP:` — do not report the deploy as
 done;** the old Worker may still be serving.
 
-## 2. The four probes — each with its failing half built in
+## 2. The read-back — probes 1 to 3 and the stamp, in one run
 
-**Probe 1 — no key: forwarded, and refused by Supabase's gateway.**
-
-```bash
-curl -sS -o /dev/null -D - -X POST https://api.openbed.ng/rest/v1/rpc/my_facility_wards -H 'Content-Type: application/json' -d '{}' | grep -i -E '^HTTP|^sb-project-ref|^x-openbed-proxy'
-```
-
-**Pass — all three:** `HTTP/2 401`, `sb-project-ref: klrlpxysjsjpdkeqdhvl`,
-`x-openbed-proxy: forwarded`. A 401 without the proxy header came from somewhere that
-is not this Worker; a 404 with `x-openbed-proxy: refused` means the list lost this path
-and the ward console cannot load.
-
-**Probe 2 — the tracked key: forwarded, and accepted.** The key is read from the
-checkout, where it is tracked (R-2026-09-22-61); it is the publishable key, public by
-design.
+From the same deploy checkout, straight after the wrapper's `DONE`:
 
 ```bash
-KEY="$(node -e 'process.stdout.write(require("./packages/origins/publishable-keys.json").production)')"
-curl -sS -o /dev/null -D - -H "apikey: $KEY" https://api.openbed.ng/auth/v1/settings | grep -i -E '^HTTP|^x-openbed-proxy'
-curl -sS -I -H "apikey: $KEY" https://api.openbed.ng/auth/v1/settings | grep -i -E '^HTTP|^x-openbed-proxy'
+bash scripts/readback_worker.sh https://api.openbed.ng
 ```
 
-**Pass:** the GET read shows `HTTP/2 200` and `x-openbed-proxy: forwarded`. The HEAD
-read (sent with `curl -I` — never `-X HEAD`, which waits for a body that never comes)
-shows `HTTP/2 405` and `x-openbed-proxy: forwarded`: Supabase does not serve HEAD on
-this path (observed on hosted 2026-09-23, Cowork's reading and the founder's H5 output),
-so the header is what proves the Worker forwarded it, and the GET half is what proves
-the tracked key is accepted. **Until 2026-09-23 this read "both … `HTTP/2 200`" — a
-value stated without being observed** (R-2026-09-23-70, the H5 note). This is the path the ward console's live-key probe uses (docs/runbook-ward-console-deploy.md
-step 3), which is why it stays forwarded (R-2026-09-23-65 B1).
+It prints one line per check, each `ok` or `WRONG` with the value it must have, and
+ends with exactly one verdict: **`PASS:` (exit 0)** or **`STOP:` (exit 1)**. **Paste
+the whole output back.** Exit 2 with `ERROR:` means a check could not run (no
+network, or not run from a checkout), which is neither a pass nor a failure of the
+deploy. Run with no URL, or a non-https one, it STOPs before sending anything.
 
-**Probe 3 — off the list: refused HERE, and Supabase is never asked.**
+**What it checks, and the value each must read** (observed on hosted 2026-09-23, the
+-70 H5 note):
 
-```bash
-curl -sS -D - https://api.openbed.ng/rest/v1/ | grep -i -E '^HTTP|^x-openbed-proxy|not forwarded'
-```
+| Check | Request | Must read |
+|---|---|---|
+| probe 1 — no key: forwarded, refused by Supabase's gateway | `POST /rest/v1/rpc/my_facility_wards`, no key | `401`, `sb-project-ref: klrlpxysjsjpdkeqdhvl` (read from `packages/origins/origins.json`), `x-openbed-proxy: forwarded` |
+| probe 2 — the tracked key: forwarded, accepted | `GET /auth/v1/settings` with the key from `packages/origins/publishable-keys.json` | `200`, `x-openbed-proxy: forwarded` |
+| probe 2, HEAD half | the same, as HEAD (`curl -I`, never `-X HEAD`) | `405`, `x-openbed-proxy: forwarded` |
+| probe 3 — off the list: refused HERE, Supabase never asked | `GET /rest/v1/` | `404`, `x-openbed-proxy: refused`, body `{"message":"not forwarded by the OpenBed proxy"}` |
+| the stamp | `GET` and `HEAD /__openbed/version` | `"commit"` = this checkout's HEAD, `"dirty": false`; HEAD `200` with `x-openbed-proxy: stamp` |
 
-**Pass — all three:** `HTTP/2 404`, `x-openbed-proxy: refused`, and the body line
-`{"message":"not forwarded by the OpenBed proxy"}`. **Supabase's own 404 at an unknown
-path reads `{"error":"requested path is invalid"}` with no proxy header** — observed by
-Cowork on 2026-09-23 against the old passthrough Worker (-70) — and it is exactly the
-answer a Worker that forwards everything would give.
+**What the WRONG lines mean:**
 
-**Probe 4 — the deployed source equals the repository's.** Read by Cowork through the
-Cloudflare connector: the deployed `supabase-proxy` script contains
-`not forwarded by the OpenBed proxy`, `/__openbed/version`, `grant_type=refresh_token`
-and exactly the four `POST` paths and one `GET` path of `supabase-proxy/allow-list.json`'s
-`forward` list at the deployed commit. **Pass:** all present, and no other forwarded
-path.
+- **probe 1, a 401 with no proxy header** — it came from somewhere that is not this
+  Worker. **A 404 with `refused`** means the list lost this path, and the ward
+  console cannot load.
+- **probe 2, HEAD `200`** — this runbook said 200 until 2026-09-23, a value written
+  without being observed. Hosted answers `405`: Supabase does not serve HEAD on this
+  path, so the `forwarded` header is what proves the Worker forwarded it, and the GET
+  half is what proves the tracked key is accepted. This path stays forwarded because
+  the ward console's live-key read-back uses it (docs/runbook-ward-console-deploy.md
+  step 3; R-2026-09-23-65 B1).
+- **probe 3, `{"error":"requested path is invalid"}` with no proxy header** — that is
+  Supabase's own 404 at an unknown path, observed by Cowork on 2026-09-23 against the
+  old passthrough Worker. It is exactly what a Worker that forwards everything gives.
+- **the stamp naming another commit** — the previous Worker is still serving.
 
-## 3. The stamp
+## 3. Probe 4 — the deployed source equals the repository's
 
-```bash
-curl -sS https://api.openbed.ng/__openbed/version
-curl -sS -I https://api.openbed.ng/__openbed/version | grep -i -E '^HTTP|^x-openbed-proxy'
-```
-
-**Pass:** the first prints `"commit"` equal to the wrapper's HEAD and `"dirty": false`;
-the second shows `HTTP/2 200` and `x-openbed-proxy: stamp`.
+Read by Cowork through the Cloudflare connector: the deployed `supabase-proxy` script
+contains `not forwarded by the OpenBed proxy`, `/__openbed/version`,
+`grant_type=refresh_token` and exactly the four `POST` paths and one `GET` path of
+`supabase-proxy/allow-list.json`'s `forward` list at the deployed commit. **Pass:** all
+present, and no other forwarded path. Nothing in the read-back script can stand in for
+this.
 
 ## What stays true after this deploy, and what does not
 
