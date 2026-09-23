@@ -33,6 +33,26 @@ import { decodeWard, decodeFacility, type EncodedRow, type DecodedRow } from '@o
  * rows' reason, so the import went with them -- and with it this app's last use
  * of that package.
  *
+ * A COUNT IS SHOWN ONLY BESIDE A FACILITY SOMEONE CAN CALL (R-2026-09-23-66 B, C).
+ * Until 2026-09-23 a ward whose facility was missing from the payload rendered as
+ * "(unknown facility) — ICU_ADULT: 6 beds": six beds somewhere nobody could ring.
+ * The founder ruled it DROPPED, not explained -- a crew cannot act on an
+ * unidentified ward, and 019 makes the case unreachable at source. So:
+ *   - callableIdentity() is the ONE place that decides whether a ward has a
+ *     facility to show it under: the facility is in the payload, its name is not
+ *     blank, and it carries a number to call. The last condition is this module's
+ *     reading of C1 -- the call link cannot render without it -- and 007 makes the
+ *     column NOT NULL, so it is expected never to fire.
+ *   - a dropped ward renders NOTHING, and is logged with its facility id and
+ *     category only. Never its count: a log line is not a place a number should
+ *     survive the decision not to show it.
+ *   - DROPPING MUST NEVER READ AS "NO BEDS". If every ward is dropped, the page
+ *     renders the outage state -- live information cannot be shown -- not the
+ *     empty-city message and not an empty list.
+ *   - each facility carries ONE tap-to-call link, beside its name, with the
+ *     number visible: "Call to confirm beds". One per facility, not per ward. The
+ *     tile, and anything that suggests a call reserves a bed, are Bundle 4's.
+ *
  * CLASSIFICATION under Clause 5 of .claude/rules/code-pipeline.md:
  *   - scripts/lint_no_service_role_in_bundle.sh's CLIENT corpus: unaffected by
  *     this file either way -- see that script's own header for its
@@ -137,9 +157,35 @@ function renderOutage(root: HTMLElement): void {
   root.replaceChildren(notice);
 }
 
-function renderReal(root: HTMLElement, facilities: DecodedRow[], wards: DecodedRow[]): void {
-  const nameOf = new Map(facilities.map((f) => [f['facility_id'], f['name']]));
+/** What a count needs beside it before it may render: a name, and a number to call. */
+export interface CallableIdentity {
+  readonly name: string;
+  readonly phone: string;
+}
 
+/**
+ * THE ONE DECISION about whether a ward can be shown. Null when its facility is
+ * absent from the payload, its name is blank or only whitespace, or it carries no
+ * number to call. Every renderer asks this; none decides it for itself.
+ */
+export function callableIdentity(facility: DecodedRow | undefined): CallableIdentity | null {
+  if (facility === undefined) return null;
+  const name = facility['name'];
+  const phone = facility['public_phone_e164'];
+  if (typeof name !== 'string' || name.trim() === '') return null;
+  if (typeof phone !== 'string' || phone.trim() === '') return null;
+  return { name: name.trim(), phone: phone.trim() };
+}
+
+function wardLine(ward: DecodedRow): string {
+  const bedCount = ward['bed_count'];
+  const beds = bedCount === null ? 'not yet reporting' : `${String(bedCount)} beds`;
+  const open = ward['accepting_effective'] === true;
+  const reason = ward['gated_by'] as string | null;
+  return `${String(ward['category'])}: ${beds}${open ? '' : ' — not accepting'}${reason ? ` (${reason})` : ''}`;
+}
+
+function renderReal(root: HTMLElement, facilities: DecodedRow[], wards: DecodedRow[]): void {
   const empty = emptyStateMessage(facilities, wards);
   if (empty !== null) {
     const notice = document.createElement('p');
@@ -149,21 +195,55 @@ function renderReal(root: HTMLElement, facilities: DecodedRow[], wards: DecodedR
     return;
   }
 
-  const list = document.createElement('ul');
+  const byId = new Map(facilities.map((f) => [f['facility_id'], f]));
+  const shown = new Map<unknown, { identity: CallableIdentity; wards: DecodedRow[] }>();
   for (const ward of wards) {
-    const bedCount = ward['bed_count'];
-    const beds = bedCount === null ? 'not yet reporting' : `${bedCount} beds`;
-    const open = ward['accepting_effective'] === true;
-    const reason = ward['gated_by'] as string | null;
-    const facilityName = nameOf.get(ward['facility_id']) ?? '(unknown facility)';
-
-    const item = document.createElement('li');
-    item.textContent =
-      `${facilityName} — ${ward['category']}: ${beds}${open ? '' : ' — not accepting'}${reason ? ` (${reason})` : ''}`;
-    list.appendChild(item);
+    const id = ward['facility_id'];
+    const identity = callableIdentity(byId.get(id));
+    if (identity === null) {
+      // No count, deliberately: see the header.
+      console.error('OpenBed: a ward was not shown because its facility has no callable identity in the snapshot', {
+        facility_id: id,
+        category: ward['category'],
+      });
+      continue;
+    }
+    const group = shown.get(id) ?? { identity, wards: [] };
+    group.wards.push(ward);
+    shown.set(id, group);
   }
 
-  root.replaceChildren(list);
+  // Every ward dropped is not an empty city. It is information we cannot show.
+  if (shown.size === 0) {
+    renderOutage(root);
+    return;
+  }
+
+  const sections: HTMLElement[] = [];
+  for (const { identity, wards: facilityWards } of shown.values()) {
+    const section = document.createElement('section');
+    section.className = 'facility';
+
+    const heading = document.createElement('h2');
+    heading.textContent = identity.name;
+
+    const call = document.createElement('a');
+    call.className = 'call';
+    call.href = `tel:${identity.phone}`;
+    call.textContent = `Call to confirm beds: ${identity.phone}`;
+
+    const list = document.createElement('ul');
+    for (const ward of facilityWards) {
+      const item = document.createElement('li');
+      item.textContent = wardLine(ward);
+      list.appendChild(item);
+    }
+
+    section.append(heading, call, list);
+    sections.push(section);
+  }
+
+  root.replaceChildren(...sections);
 }
 
 /**
