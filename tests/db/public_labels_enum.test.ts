@@ -66,8 +66,8 @@ const U_ICU = '99999999-0000-4000-8000-0000000000c1';
 
 async function seedDefaultWard(tx: TransactionSql): Promise<void> {
   await tx.unsafe(`
-    insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164)
-    values ('${FAC}', 'Labels Synthetic', 'Ikeja', 'Lagos', 6.6, 3.35, '+2348000000068')`);
+    insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, listed_at)
+    values ('${FAC}', 'Labels Synthetic', 'Ikeja', 'Lagos', 6.6, 3.35, '+2348000000068', now())`);
   // Only the key columns: offering, bed_count, accepting and monitoring_state take
   // their DEFAULTS -- the state a provisioned ward is in before anyone has spoken.
   await tx.unsafe(`insert into app.ward_status (facility_id, category) values ('${FAC}', 'ICU_ADULT')`);

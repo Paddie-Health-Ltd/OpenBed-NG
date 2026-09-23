@@ -82,8 +82,8 @@ const CASES: Case[] = [
 async function seedCell(tx: TransactionSql, lga: string, beds: number[]): Promise<void> {
   for (const [i, count] of beds.entries()) {
     const rows = await tx.unsafe<{ id: string }[]>(`
-      insert into app.facility (name, lga, state, lat, lng, public_phone_e164, quiet_mode)
-      values ('K ${lga} ${i}', '${lga}', 'Lagos', 6.6, 3.35, '+2348000000095', true)
+      insert into app.facility (name, lga, state, lat, lng, public_phone_e164, quiet_mode, listed_at)
+      values ('K ${lga} ${i}', '${lga}', 'Lagos', 6.6, 3.35, '+2348000000095', true, now())
       returning id
     `);
     await tx.unsafe(`
@@ -145,8 +145,8 @@ describe('lga_rollup k-floor', () => {
     }, async (tx) => {
       await seedCell(tx, 'MixedCell', [3, 3, 3, 3, 3]);
       const vis = await tx.unsafe<{ id: string }[]>(`
-        insert into app.facility (name, lga, state, lat, lng, public_phone_e164, quiet_mode)
-        values ('Visible In Mixed', 'MixedCell', 'Lagos', 6.6, 3.35, '+2348000000094', false)
+        insert into app.facility (name, lga, state, lat, lng, public_phone_e164, quiet_mode, listed_at)
+        values ('Visible In Mixed', 'MixedCell', 'Lagos', 6.6, 3.35, '+2348000000094', false, now())
         returning id
       `);
       await tx.unsafe(`

@@ -221,7 +221,7 @@ async function pushCellBelowFloor(tx: TransactionSql): Promise<Cell> {
   const updated = await tx.unsafe(
     `update app.facility set is_active = false
       where id = (select f.id from app.facility f join app.ward_status ws on ws.facility_id = f.id
-                   where f.quiet_mode and f.is_active and ws.offering = 'OFFERED'
+                   where f.quiet_mode and f.is_active and f.listed_at is not null and ws.offering = 'OFFERED'
                      and f.state = $1 and f.lga = $2 and ws.category::text = $3
                    order by f.id limit 1)`,
     [cell.state, cell.lga, cell.category] as never[],

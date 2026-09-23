@@ -106,8 +106,8 @@ async function race(plantedSql: string): Promise<Payload> {
   try {
     await waitUntilAWaits();
     await B.begin(async (t) => {
-      await t.unsafe(`insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164)
-                      values ('${FAC}', '${FAC_NAME}', 'Ikeja', 'Lagos', 6.6, 3.35, '+2348000000019')`);
+      await t.unsafe(`insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, listed_at)
+                      values ('${FAC}', '${FAC_NAME}', 'Ikeja', 'Lagos', 6.6, 3.35, '+2348000000019', now())`);
       await t.unsafe(`insert into app.facility_ops (facility_id) values ('${FAC}')`);
       await t.unsafe(`insert into app.ward_status (facility_id, category, offering, bed_count, accepting, monitoring_state)
                       values ('${FAC}', 'ICU_ADULT', 'OFFERED', 5, true, 'ACTIVE')`);

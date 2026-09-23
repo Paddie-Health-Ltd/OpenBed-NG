@@ -728,10 +728,14 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions. Until
 that wrong.
 
 - **The hosted project today** holds 001 through 019 (see step 7), and the
-  repository holds nothing newer. Every file up to and including
+  repository holds 020. Every file up to and including
   `019_snapshot_single_read_and_mirror_integrity.sql` must read `already applied`;
-  there must be no `WOULD APPLY` line; and the dry run must end
-  `0 migration(s) pending.`
+  there must be exactly one `WOULD APPLY` line, naming
+  `020_operator_functions_and_listing.sql`; and the dry run must end
+  `1 migration(s) pending.`
+- **Restated 2026-09-23 (R-2026-09-23-71), in the change that ADDS 020.** Until
+  then this expected no `WOULD APPLY` line and `0 migration(s) pending.`, which was
+  right while the repository and hosted both ended at 019.
 - **Restated 2026-09-23 (R-2026-09-23-69), in the change that records 019's hosted
   apply.** Until then this expected 001 through 018, exactly one `WOULD APPLY` line
   naming `019_snapshot_single_read_and_mirror_integrity.sql`, and
@@ -772,10 +776,13 @@ that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line AT ALL, or any count other than
-  `0 migration(s) pending.`: stop and report.** A file pending means either a
-  migration reached the repository after the list was last restated, or hosted is
-  not where this document says it is.
+- **Any `WOULD APPLY` line OTHER than the one named above, or any count other
+  than `1 migration(s) pending.`: stop and report.** Another file pending means
+  either a migration reached the repository after the list was last restated, or
+  hosted is not where this document says it is.
+  - *Restated 2026-09-23 (R-2026-09-23-71), in the change that adds 020. Until then
+    this bullet read "Any `WOULD APPLY` line AT ALL, or any count other than
+    `0 migration(s) pending.`", which was right while the repository ended at 019.*
   - *Restated 2026-09-23 (R-2026-09-23-69), in the change that records 019's hosted
     apply. Until then this bullet read "Any `WOULD APPLY` line OTHER than the one
     named above, or any count other than `1 migration(s) pending.`", which was right
@@ -1377,12 +1384,17 @@ node scripts/freeze_applied_migrations.mjs 19 YYYY-MM-DD R-YYYY-MM-DD-NN
 
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 019 applied, nothing newer in the
-repository), the dry run prints nineteen `already applied` lines and:
+**On the hosted project today** (001 through 019 applied, 020 in the repository and
+not yet applied), the dry run prints nineteen `already applied` lines and:
 
 ```
-0 migration(s) pending.
+  WOULD APPLY     : 020_operator_functions_and_listing.sql   <- dry run
+1 migration(s) pending.
 ```
+
+*Restated 2026-09-23 (R-2026-09-23-71), in the change that adds 020.* Until then
+this block showed nineteen `already applied` lines, no WOULD APPLY line, and a
+count of zero -- right while the repository ended at 019.
 
 *Restated 2026-09-23 (R-2026-09-23-69), in the change that records 019's hosted
 apply.* Until then this block described the state BEFORE that apply: eighteen
@@ -1455,9 +1467,14 @@ Migrations complete (3 applied this run).   <- apply
 second is lower:
 
 ```
-19 migration(s) pending.          <- dry run
-Migrations complete (18 applied this run).   <- apply
+20 migration(s) pending.          <- dry run
+Migrations complete (19 applied this run).   <- apply
 ```
+
+*Restated 2026-09-23 (R-2026-09-23-71), in the change that adds 020. This block
+read `19` and `18` -- right while the repository ended at 019. Observed on the
+local stack in this change: a fresh `db:reset` printed `Migrations complete (19
+applied this run).`*
 
 *Restated 2026-09-23 (R-2026-09-23-69). This block read `18` and `17` -- right while
 the repository ended at 018 -- and the change that added 019 did not restate it,
@@ -1465,21 +1482,23 @@ so from that merge it named a count one lower than a correct virgin run prints. 
 not one of the hosted expectations the guard parses; it was found by reading the
 section for this restatement.*
 
-**Eighteen is correct there. Nothing was skipped.** Migration 001 creates the `app`
+**Nineteen is correct there. Nothing was skipped.** Migration 001 creates the `app`
 schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
 recorded by a ledger that does not exist yet. The runner applies and ledgers it
 in a separate **bootstrap** step, and the apply loop then counts only what it
-applied itself -- 002 through 019, which is eighteen. The dry run has no bootstrap
+applied itself -- 002 through 020, which is nineteen. The dry run has no bootstrap
 branch: `is_applied` returns 0 while the ledger is absent, so it counts all
-nineteen as pending. The two numbers are measuring different things.
+twenty as pending. The two numbers are measuring different things.
 
 **Confirm it by the ledger, which is the artefact that matters, not by the
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `19`, with `0 migration(s) pending.` from the
-dry run** -- the founder read `19` after 019's apply on 2026-09-23, and the second
-dry run printed `0 migration(s) pending.` *Restated 2026-09-23 (R-2026-09-23-69),
+THAT PROJECT. **On hosted today that is `19`, with `1 migration(s) pending.` from the
+dry run**, the one being `020_operator_functions_and_listing.sql` -- the founder read
+`19` after 019's apply on 2026-09-23. *Restated 2026-09-23 (R-2026-09-23-71), in the
+change that adds 020; until then it read `19` with `0 migration(s) pending.`, which
+was right while the repository ended at 019.* *Restated 2026-09-23 (R-2026-09-23-69),
 in the change that records that apply; until then it read `18` with
 `1 migration(s) pending.`* *Restated 2026-09-23 (R-2026-09-23-67): this is the
 FOURTH statement of the pending expectation in this section, and the change that added

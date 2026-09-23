@@ -61,8 +61,8 @@ async function seed(tx: TransactionSql): Promise<void> {
     [FAC_QUIET, 'Publish Quiet', true],
   ] as const) {
     await tx.unsafe(`
-      insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, quiet_mode)
-      values ('${id}', '${name}', 'Ikeja', 'Lagos', 6.6, 3.35, '+2348000000091', ${quiet})
+      insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, quiet_mode, listed_at)
+      values ('${id}', '${name}', 'Ikeja', 'Lagos', 6.6, 3.35, '+2348000000091', ${quiet}, now())
     `);
   }
   // The gate's input. Only the gated facility records an absent anaesthetist;
