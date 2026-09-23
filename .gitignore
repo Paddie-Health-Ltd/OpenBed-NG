@@ -54,5 +54,8 @@ supabase/.temp/
 # would silently demand an ESLint ignore that nothing adds.
 apps/public-dashboard/public/version.json
 apps/ward-console/public/version.json
+# The Worker's stamp (R-2026-09-23-70): written by scripts/deploy_worker.sh, imported by
+# supabase-proxy/index.js, served at /__openbed/version. One exact path, as above.
+supabase-proxy/version.json
 
 .DS_Store

@@ -15,11 +15,14 @@ that, and it is still refused.
 not deleted**, because it records what this directory meant for the three days it
 sat here undecided, and a record is not rewritten to match a later state.
 
-**Two things it says are still true.** Nothing here has a guard, a runbook entry
-or a test — `R-2026-09-22-55 B` adds the guard, a build stamp, a path allow-list
-read from the code, and four probes to Bundle 3, and `-55 E` records that the
-runbook entry and the availability answer are still owed. And the Worker still
-forwards every path and method, until that allow-list lands.
+**Two things it said were still true, and PR 3.3 ended both** (R-2026-09-23-70).
+It read: *"Nothing here has a guard, a runbook entry or a test … And the Worker still
+forwards every path and method, until that allow-list lands."* The Worker now forwards
+only `allow-list.json`, held equal to the code by
+`tests/compliance/proxy_allow_list.test.ts`; it answers `/__openbed/version` itself;
+it deploys through `scripts/deploy_worker.sh`; and its probes are
+`docs/runbook-cloudflare-worker-proxy.md`. **The availability answer (`-23 D5`) is
+still owed**, and this Worker raises its stakes.
 
 **One thing the KEEP does not buy yet**, recorded so this file does not overclaim
 it: none of the three properties above reaches production until a tracked origin
