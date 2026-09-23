@@ -3434,6 +3434,26 @@ _Issued as R-PROVISIONAL-2026-09-23-AX, by Cowork on 2026-09-23 as its verdict o
   - **`deploy_worker.sh`** passed the same and stamped `2e62579…`, clean. Its upload and read-back were both stubs, so it ended in its designed STOP.
   - **The one-line refresh** is written into all three deploy runbooks. Cowork asked for "both"; there are three (the Pages dashboard, the ward console, the Worker), and all three deploy from a checkout.
 
+**FOUNDER STEP (a) READ BACK, 2026-09-23: PUBLIC DASHBOARD DEPLOY #3 AT `2e62579` PASSES** (Cowork's reading; a dated note under this ruling; record-only, rides PR 3.4).
+
+- **The founder's run:** `bash scripts/deploy_pages.sh --branch main public-dashboard` from the deploy checkout at `2e62579f31d4b43bd3e36d7d3cf93c178b14c3a5`.
+  - The first upload attempt failed with "The request to Cloudflare's API timed out". **Whether that attempt created a deployment was not read.**
+  - The retry succeeded: `https://cc2b76f9.openbed-public-dashboard.pages.dev`, "DONE".
+- **Read-back 4:** commit `2e62579f31d4b43bd3e36d7d3cf93c178b14c3a5`, `"dirty": false`, `built_at 2026-09-23T18:46:32.411Z`, ancestor check exit 0.
+- **Read-back 5, the empty state (the founder's copy):** "No facility has joined OpenBed yet, so there is nothing to show. This is NOT a report that beds are unavailable — no hospital has told us anything either way. Call the facility directly, or 112 / 767 in an emergency."
+- **Read-back 5b, the outage** (`beds.json` blocked in DevTools): "Live bed information can't be loaded right now. This is NOT a report that beds are unavailable — we cannot see anything either way. Call the facility directly, or 112 / 767 in an emergency." No count, ward, facility or list item appeared. Two requests were blocked and nothing else was: the first load and its one retry, which is what `apps/public-dashboard/src/main.ts` prescribes ("one retry with jittered backoff").
+- **Read-back 6:** `HTTP/2 200`, `application/json; charset=utf-8`, `noindex, nofollow`, body beginning `{"v":9371,"wards":[],"facilities":[]…`.
+- **Read-back 8:** GET and HEAD identical and exact: `HTTP/2 200`, `application/json; charset=utf-8`, `public, s-maxage=30, stale-while-revalidate=300`, `noindex, nofollow`.
+- **The serve-time stamp:** `18:48:50.582Z`, then `18:48:56.068Z`.
+- **Polling (the founder's screenshot):** `openbed.ng` with the cache enabled and no reload for 2 minutes showed five `beds.json` fetches about 30 s apart, all 200, none from disk or memory cache. That is the first load plus four polls.
+- **Cowork from outside, 19:40 UTC:**
+  - `openbed.ng/version.json` reads commit `2e62579`;
+  - the bundle `assets/index-C_0rUhXk.js` contains `no-store` once;
+  - `x-openbed-served-at` advances (`19:40:04.445Z`, `19:40:08.168Z`).
+- **Production moved `1d084a4` → `2e62579`, so -68 A (polling) is live** on that reading.
+- **AN OPEN ITEM WITH A TRIGGER (method note 22), not work and not a stop:** `/favicon.ico` is answered by the SPA fallback with `200 text/html`. This is the same mechanism as -69 2a's `/nonexistent-path` control. **Trigger: the next PR that changes `apps/public-dashboard/`.**
+- **Next:** the founder runs H5, step (b).
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
