@@ -1444,10 +1444,16 @@ eighteen as pending. The two numbers are measuring different things.
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `18`, with `0 migration(s) pending.` from
-the dry run** (restated 2026-09-22, R-2026-09-22-52; until then it read `17` and
+THAT PROJECT. **On hosted today that is `18`, with `1 migration(s) pending.` from the
+dry run** -- 019 is in the repository and not yet applied; after its apply this reads
+`19` and `0 migration(s) pending.` *Restated 2026-09-23 (R-2026-09-23-67): this is the
+FOURTH statement of the pending expectation in this section, and the change that added
+019 restated the other three and missed it, so from that merge until this change it
+read `18` with `0 migration(s) pending.` while a correct dry run printed one.
+`tests/compliance/runbook_migration_expectation.test.ts` now reads this site too.*
+(Restated 2026-09-22, R-2026-09-22-52; until then it read `17` and
 `1 migration(s) pending.`, which is what the founder read minutes before the
-apply). **The ledger count and the pending count move together
+apply.) **The ledger count and the pending count move together
 and in opposite directions** — if one changes and the other does not, stop: the
 apply did not do what the dry run said it would.
 The first line waits silently for the connection string; the last removes it.

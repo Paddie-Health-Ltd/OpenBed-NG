@@ -169,6 +169,23 @@ export function stopBulletPendingCount(runbook: string): number | null {
   return m === null ? null : Number(m[1]);
 }
 
+/**
+ * THE FOURTH SITE: the ledger-count sentence after the apply fence -- "On hosted
+ * today that is `N`, with `M migration(s) pending.` from the dry run".
+ *
+ * WHY IT IS HERE (R-2026-09-23-67). The change that added 019 restated the three
+ * sites above and not this one, so for one merge the section told the founder a
+ * correct dry run on hosted prints nothing pending while it printed 019. The same
+ * miss as #61's and as the stop bullet's, one site further on: the guard read three
+ * statements of the expectation and the section carries four. Whitespace is
+ * collapsed first, because the sentence wraps.
+ */
+export function ledgerSiteCounts(runbook: string): { ledger: number; pending: number } | null {
+  const flat = runbook.replace(/\s+/g, ' ');
+  const m = /On hosted today that is `(\d+)`, with `(\d+) migration\(s\) pending\.` from the dry run/.exec(flat);
+  return m === null ? null : { ledger: Number(m[1]), pending: Number(m[2]) };
+}
+
 /** Forward migrations present in the repository. */
 function forwardMigrations(root: string): string[] {
   return readdirSync(join(root, MIG_DIR))
@@ -251,6 +268,19 @@ export function expectationViolations(
     );
   }
 
+  // THE FOURTH SITE, which the first three restatements of 019 missed.
+  const ledgerSite = ledgerSiteCounts(runbook);
+  if (ledgerSite === null) {
+    out.push("step 5's ledger sentence states no `N` rows with `M migration(s) pending.` at all");
+  } else {
+    if (ledgerSite.ledger !== frozen.length) {
+      out.push(`step 5's ledger sentence says hosted holds ${ledgerSite.ledger} rows, but applied-hosted.json records ${frozen.length}`);
+    }
+    if (ledgerSite.pending !== count) {
+      out.push(`step 5's prose states ${count} pending but its ledger sentence says ${ledgerSite.pending}`);
+    }
+  }
+
   return out.sort();
 }
 
@@ -289,6 +319,28 @@ describe('runbook migration expectation', () => {
 
     expect(expectedWouldApply(RUNBOOK_TEXT), 'step 5 does not name the pending migration').toEqual(['019_snapshot_single_read_and_mirror_integrity.sql']);
     expect(fencedWouldApply(RUNBOOK_TEXT), "step 5's fence does not print the pending migration").toEqual(['019_snapshot_single_read_and_mirror_integrity.sql']);
+  });
+
+  test('the FOURTH site is parsed — the ledger sentence reads 18 rows and one pending', () => {
+    expect(ledgerSiteCounts(RUNBOOK_TEXT), 'the ledger sentence was not found — its parser matched nothing').toEqual({ ledger: 18, pending: 1 });
+  });
+
+  test('plant — the ledger sentence left at its pre-019 count is rejected', () => {
+    // The exact miss this site was added for: three sites restated, this one not.
+    const planted = RUNBOOK_TEXT.replace('with `1 migration(s) pending.` from the\ndry run', 'with `0 migration(s) pending.` from the\ndry run');
+    expect(planted, 'the plant did not change the ledger sentence').not.toBe(RUNBOOK_TEXT);
+    expect(ledgerSiteCounts(planted)?.pending, 'the plant did not reach the parsed sentence').toBe(0);
+    expect(expectationViolations(planted, forwardMigrations(REPO_ROOT), frozenMigrations(REPO_ROOT)).join('\n')).toContain(
+      "step 5's prose states 1 pending but its ledger sentence says 0",
+    );
+  });
+
+  test('plant — a ledger sentence naming the wrong hosted row count is rejected', () => {
+    const planted = RUNBOOK_TEXT.replace('On hosted today that is `18`, with', 'On hosted today that is `19`, with');
+    expect(planted, 'the plant did not change the ledger sentence').not.toBe(RUNBOOK_TEXT);
+    expect(expectationViolations(planted, forwardMigrations(REPO_ROOT), frozenMigrations(REPO_ROOT)).join('\n')).toContain(
+      "step 5's ledger sentence says hosted holds 19 rows, but applied-hosted.json records 18",
+    );
   });
 
   test('the filename parsers still discriminate — a name planted into the real text is found', () => {
@@ -483,6 +535,10 @@ describe('runbook migration expectation', () => {
       '',
       '- **Any `WOULD APPLY` line OTHER than the one named above, or any count other',
       '  than `1 migration(s) pending.`: stop and report.**',
+      '',
+      // The fourth site (R-2026-09-23-67): one frozen file, so one ledger row.
+      'THAT PROJECT. **On hosted today that is `1`, with `1 migration(s) pending.` from',
+      'the dry run**.',
     ].join('\n');
     expect(
       expectationViolations(agreeing, ['001_a.sql', '002_enums.sql'], ['001_a.sql']),
