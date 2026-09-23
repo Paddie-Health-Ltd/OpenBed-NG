@@ -3420,6 +3420,20 @@ _Issued as R-PROVISIONAL-2026-09-23-AX, by Cowork on 2026-09-23 as its verdict o
 
 **-23 D5 (availability) stays open, and PR 3.3 raises its stakes.** The PR body says so.
 
+**AFTER THE MERGE, 2026-09-23** (a dated note under this ruling; record-only, rides PR 3.4).
+
+- **#67 merged at `2e62579`** with a merge commit, on the founder's word, after Cowork re-read head `9ae554a`. CI on `main` at `2e62579` succeeded (run 35900411029). Of the six SHAs in `fca9856..9ae554a`, the record cites two (`ac46270`, `51b5d1b`), and both read `--is-ancestor` exit 0.
+- **Cowork's re-read, ~17:35 UTC, recorded as Cowork's readings:**
+  - 61/61 tests pass locally across the four touched guard files;
+  - `handler.ts` was driven through 14 cases with a stub origin. A dot-segment path normalises to the listed path before forwarding. It refuses: a trailing slash, an extra or missing token query, `GET /auth/v1/verify`, `GET /rest/v1/`, signup by POST and OPTIONS, `DELETE` on a listed path, and `GET snapshot_current`;
+  - the heredoc incident reached nothing live: `api.openbed.ng/__openbed/version` still returned Supabase's own 404 (the old passthrough), `openbed.ng` still served `1d084a4`, and hosted `app.schema_migrations` read 19 rows.
+- **C3 IS OPEN, AND NOT A MERGE BLOCKER (Cowork's reading).** The real-browser check (a refused `/otp` renders `SIGNIN_UNREACHABLE`, and does not once the fix or the expose header is removed) was demonstrated in a scratch Playwright run. **It is not asserted in CI**: Playwright is not a dependency of this repository, and adding it and a browser job is a decision for Cowork and the founder. **What CI does hold** is the two unit legs in `tests/compliance/proxy_allow_list.test.ts`: the refusal carries `access-control-allow-origin` and `access-control-expose-headers`, and `requestSignInLink` reads `x-openbed-proxy: refused` as unreachable.
+- **THE DEPLOY CHECKOUT.** `~/Desktop/OpenBed-NG` is both the implementer's working tree and the founder's checkout, and the founder's `git checkout main` for the #66 deploy was refused there over work in progress (Cowork's reading of the founder's account; nothing was lost). Deploys now run from a separate worktree, `~/Desktop/OpenBed-NG-deploy`, detached at `origin/main`, created at `2e62579` with `npm ci`.
+  - **Both wrappers accepted it,** checks only. The upload was made impossible three ways at once: a stub `npx` first on PATH, an empty `HOME` so no wrangler login was reachable, and no Cloudflare token.
+  - **`deploy_pages.sh`** passed clean-and-on-main, built, and read its stamp back as `2e62579…`, clean. Its upload was recorded by the stub, not run.
+  - **`deploy_worker.sh`** passed the same and stamped `2e62579…`, clean. Its upload and read-back were both stubs, so it ended in its designed STOP.
+  - **The one-line refresh** is written into all three deploy runbooks. Cowork asked for "both"; there are three (the Pages dashboard, the ward console, the Worker), and all three deploy from a checkout.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._

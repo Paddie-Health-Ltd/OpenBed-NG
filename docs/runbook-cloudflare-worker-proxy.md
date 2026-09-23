@@ -22,6 +22,20 @@ call now depends on it as well as on Supabase. Nothing here answers that.
 
 ## 1. Deploy through the wrapper
 
+**Deploy from the deploy checkout, never from a working tree (R-2026-09-23-70, after
+#67).** `~/Desktop/OpenBed-NG` is also the implementer's working tree, and a
+`git checkout main` there was refused on 2026-09-23 over uncommitted work in progress.
+The deploy checkout is a separate `git worktree`, detached at `origin/main`, that
+nothing else writes to. Before every deploy, refresh it and read its HEAD:
+
+```bash
+git -C ~/Desktop/OpenBed-NG-deploy fetch origin && git -C ~/Desktop/OpenBed-NG-deploy checkout --detach origin/main && (cd ~/Desktop/OpenBed-NG-deploy && npm ci)
+cd ~/Desktop/OpenBed-NG-deploy && git rev-parse HEAD
+```
+
+The last line must print the commit you mean to deploy. Every command below runs from
+that directory.
+
 From a clean checkout of `main`:
 
 ```bash
