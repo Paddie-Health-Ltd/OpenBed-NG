@@ -1,0 +1,36 @@
+{
+  "//": [
+    "WHAT api.openbed.ng FORWARDS (R-2026-09-23-70, PR 3.3). Everything not listed under",
+    "`forward` gets the Worker's own 404 and never reaches Supabase.",
+    "This file is not maintained by hand against the code: tests/compliance/proxy_allow_list.test.ts",
+    "derives every call site from the apps and packages with the TypeScript parser, and every",
+    "probe path from the runbooks' fenced blocks, and requires this list to equal what they",
+    "call. An unlisted call, an entry nothing calls, and a probe path missing from here each",
+    "turn it red.",
+    "`query`, where present, is the ONE query string that entry forwards (R-2026-09-23-70 C4).",
+    "An entry without it forwards any query on that method and path.",
+    "`preflight_for` marks an OPTIONS entry, forwarded so the browser's CORS preflight reaches",
+    "the gateway; it is listed only for a path the browser itself calls.",
+    "`direct_origin_exceptions` are calls that never pass through this Worker, named so the",
+    "coverage test does not require them here. Each carries the ruling that makes it an exception.",
+    "`refusal_probes` are runbook probes that must be REFUSED -- the off-list probe."
+  ],
+  "forward": [
+    { "method": "POST", "path": "/auth/v1/otp", "reason": "packages/auth/src/request.ts: a ward asks for its own sign-in link" },
+    { "method": "POST", "path": "/auth/v1/token", "query": "grant_type=refresh_token", "reason": "packages/auth/src/holder.ts: session refresh, the only grant the code sends" },
+    { "method": "POST", "path": "/rest/v1/rpc/my_facility_wards", "reason": "apps/ward-console: the handover load" },
+    { "method": "POST", "path": "/rest/v1/rpc/publish_ward_status", "reason": "apps/ward-console: a ward publishes" },
+    { "method": "GET", "path": "/auth/v1/settings", "reason": "runbook probe: docs/runbook-ward-console-deploy.md step 3, the live-key probe (R-2026-09-23-65 B2), and the key probe in docs/runbook-cloudflare-worker-proxy.md" },
+    { "method": "OPTIONS", "path": "/auth/v1/otp", "preflight_for": "POST /auth/v1/otp" },
+    { "method": "OPTIONS", "path": "/auth/v1/token", "preflight_for": "POST /auth/v1/token" },
+    { "method": "OPTIONS", "path": "/rest/v1/rpc/my_facility_wards", "preflight_for": "POST /rest/v1/rpc/my_facility_wards" },
+    { "method": "OPTIONS", "path": "/rest/v1/rpc/publish_ward_status", "preflight_for": "POST /rest/v1/rpc/publish_ward_status" }
+  ],
+  "direct_origin_exceptions": [
+    { "method": "GET", "path": "/rest/v1/snapshot_current", "file": "packages/snapshot/src/serve.ts", "reason": "R-2026-09-22-58 A5: the /beds.json Function reads the Supabase origin directly, until -23 D5 closes" },
+    { "method": "GET", "path": "/auth/v1/verify", "file": null, "reason": "R-2026-09-23-70 C2: the emailed sign-in link is consumed here, on the direct *.supabase.co origin, until -55 C. It lives in the email, not in code, so no parser can see it. IF -55 C's custom domain is routed through this Worker, GET /auth/v1/verify must move to `forward`, or every sign-in link breaks." }
+  ],
+  "refusal_probes": [
+    { "method": "GET", "path": "/rest/v1/", "reason": "docs/runbook-cloudflare-worker-proxy.md: the off-list probe, which must read the Worker's own 404" }
+  ]
+}

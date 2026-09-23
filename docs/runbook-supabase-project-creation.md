@@ -727,12 +727,16 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions. Until
 2026-09-14 this read `exactly 13 migration(s) pending.`, and migration 014 made
 that wrong.
 
-- **The hosted project today** holds 001 through 018 (see step 7), and the
-  repository holds 019. Every file up to and including
-  `018_close_mirror_read_and_push_surfaces.sql` must read `already applied`;
-  there must be exactly one `WOULD APPLY` line, naming
-  `019_snapshot_single_read_and_mirror_integrity.sql`; and the dry run must end
-  `1 migration(s) pending.`
+- **The hosted project today** holds 001 through 019 (see step 7), and the
+  repository holds nothing newer. Every file up to and including
+  `019_snapshot_single_read_and_mirror_integrity.sql` must read `already applied`;
+  there must be no `WOULD APPLY` line; and the dry run must end
+  `0 migration(s) pending.`
+- **Restated 2026-09-23 (R-2026-09-23-69), in the change that records 019's hosted
+  apply.** Until then this expected 001 through 018, exactly one `WOULD APPLY` line
+  naming `019_snapshot_single_read_and_mirror_integrity.sql`, and
+  `1 migration(s) pending.` The founder's dry run printed exactly that on
+  2026-09-23, and the apply that followed took the ledger to 19.
 - **Restated 2026-09-23 (R-2026-09-23-66), in the change that ADDS 019** -- the
   change the rule at the top of this list asks for. Until then this expected no
   `WOULD APPLY` line and `0 migration(s) pending.`, which was right while the
@@ -768,10 +772,14 @@ that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line OTHER than the one named above, or any count other
-  than `1 migration(s) pending.`: stop and report.** Another file pending means
-  either a migration reached the repository after the list was last restated, or
-  hosted is not where this document says it is.
+- **Any `WOULD APPLY` line AT ALL, or any count other than
+  `0 migration(s) pending.`: stop and report.** A file pending means either a
+  migration reached the repository after the list was last restated, or hosted is
+  not where this document says it is.
+  - *Restated 2026-09-23 (R-2026-09-23-69), in the change that records 019's hosted
+    apply. Until then this bullet read "Any `WOULD APPLY` line OTHER than the one
+    named above, or any count other than `1 migration(s) pending.`", which was right
+    from 019's merge until the apply.*
   - *Restated 2026-09-23 (R-2026-09-23-66), in the change that adds 019. Until then
     this bullet read "Any `WOULD APPLY` line AT ALL, or any count other than
     `0 migration(s) pending.`", which was right while the repository ended at 018.*
@@ -1365,16 +1373,23 @@ node scripts/freeze_applied_migrations.mjs 19 YYYY-MM-DD R-YYYY-MM-DD-NN
 - [x] Frozen boundary recorded, 2026-09-16: 16 migrations, `001_app_schema_and_migration_ledger.sql` first, `016_snapshot.sql` last
 - [x] Frozen boundary recorded, 2026-09-17: 17 migrations, `001_app_schema_and_migration_ledger.sql` first, `017_snapshot_schedule.sql` last (R-2026-09-17-01), with the frozen_migrations placeholder moved to 018 in the same change
 - [x] Frozen boundary recorded, 2026-09-22: 18 migrations, `001_app_schema_and_migration_ledger.sql` first, `018_close_mirror_read_and_push_surfaces.sql` last (R-2026-09-22-52), with the frozen_migrations placeholder moved to 019 in the same change. `ledger_rows: 18`, matching the `18` read from hosted `app.schema_migrations` in the apply session; the recorder would have refused any other number.
+- [x] Frozen boundary recorded, 2026-09-23: 19 migrations, `001_app_schema_and_migration_ledger.sql` first, `019_snapshot_single_read_and_mirror_integrity.sql` last (R-2026-09-23-69). `ledger_rows: 19`, matching the `19` the founder read from hosted `app.schema_migrations` after the apply. No placeholder was moved by hand: since R-2026-09-22-53 `tests/compliance/frozen_migrations.test.ts` derives it from this boundary, so it is now 020.
 
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 018 applied, 019 in the repository and
-not yet applied), the dry run prints eighteen `already applied` lines and:
+**On the hosted project today** (001 through 019 applied, nothing newer in the
+repository), the dry run prints nineteen `already applied` lines and:
 
 ```
-  WOULD APPLY     : 019_snapshot_single_read_and_mirror_integrity.sql   <- dry run
-1 migration(s) pending.
+0 migration(s) pending.
 ```
+
+*Restated 2026-09-23 (R-2026-09-23-69), in the change that records 019's hosted
+apply.* Until then this block described the state BEFORE that apply: eighteen
+`already applied` lines, one WOULD APPLY line naming
+`019_snapshot_single_read_and_mirror_integrity.sql`, and a count of one. That is
+exactly what the founder's dry run printed on 2026-09-23, and it is kept below with
+the other dated runs rather than overwritten.
 
 *Restated 2026-09-23 (R-2026-09-23-66), in the change that adds 019.* Until then
 this block showed eighteen `already applied` lines, no WOULD APPLY line, and a
@@ -1390,6 +1405,18 @@ other dated runs rather than overwritten.
 **The second dry run is part of an apply, not an optional extra.** It is the
 reading recorded in the checkbox at the end of this section, and it is the half
 that says the apply did what the first dry run promised.
+
+**On 2026-09-23, when 019 was pending,** the same two commands printed this (the
+founder's terminal output; the eighteen `already applied` lines are omitted, and the
+apply's echo was `DO`, `DO`, `DO`, `ALTER TABLE`, `CREATE FUNCTION`, `COMMENT`,
+`REVOKE`, `DO`, `INSERT 0 1`, `INSERT 0 0` -- the last two are 019's own ledger row,
+then the runner's `ON CONFLICT` no-op):
+
+```
+  WOULD APPLY     : 019_snapshot_single_read_and_mirror_integrity.sql   <- dry run
+1 migration(s) pending.
+Migrations complete (1 applied this run).                               <- apply
+```
 
 **On 2026-09-22, when 018 was pending,** the same two commands printed this -- the
 run that closed the accumulation boundary (the seventeen `already applied` lines
@@ -1428,25 +1455,33 @@ Migrations complete (3 applied this run).   <- apply
 second is lower:
 
 ```
-18 migration(s) pending.          <- dry run
-Migrations complete (17 applied this run).   <- apply
+19 migration(s) pending.          <- dry run
+Migrations complete (18 applied this run).   <- apply
 ```
 
-**Seventeen is correct there. Nothing was skipped.** Migration 001 creates the `app`
+*Restated 2026-09-23 (R-2026-09-23-69). This block read `18` and `17` -- right while
+the repository ended at 018 -- and the change that added 019 did not restate it,
+so from that merge it named a count one lower than a correct virgin run prints. It is
+not one of the hosted expectations the guard parses; it was found by reading the
+section for this restatement.*
+
+**Eighteen is correct there. Nothing was skipped.** Migration 001 creates the `app`
 schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
 recorded by a ledger that does not exist yet. The runner applies and ledgers it
 in a separate **bootstrap** step, and the apply loop then counts only what it
-applied itself -- 002 through 018, which is seventeen. The dry run has no bootstrap
+applied itself -- 002 through 019, which is eighteen. The dry run has no bootstrap
 branch: `is_applied` returns 0 while the ledger is absent, so it counts all
-eighteen as pending. The two numbers are measuring different things.
+nineteen as pending. The two numbers are measuring different things.
 
 **Confirm it by the ledger, which is the artefact that matters, not by the
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `18`, with `1 migration(s) pending.` from the
-dry run** -- 019 is in the repository and not yet applied; after its apply this reads
-`19` and `0 migration(s) pending.` *Restated 2026-09-23 (R-2026-09-23-67): this is the
+THAT PROJECT. **On hosted today that is `19`, with `0 migration(s) pending.` from the
+dry run** -- the founder read `19` after 019's apply on 2026-09-23, and the second
+dry run printed `0 migration(s) pending.` *Restated 2026-09-23 (R-2026-09-23-69),
+in the change that records that apply; until then it read `18` with
+`1 migration(s) pending.`* *Restated 2026-09-23 (R-2026-09-23-67): this is the
 FOURTH statement of the pending expectation in this section, and the change that added
 019 restated the other three and missed it, so from that merge until this change it
 read `18` with `0 migration(s) pending.` while a correct dry run printed one.
@@ -1481,6 +1516,11 @@ Observed on hosted `klrlpxysjsjpdkeqdhvl` on 2026-09-22, after the apply of 018:
 ledger **18 rows**, second dry run `0 migration(s) pending.` **The pre-apply
 readings were taken in the same session and are recorded in block B below**, which
 is what makes each of them the other's failing half.
+
+Observed on hosted `klrlpxysjsjpdkeqdhvl` on 2026-09-23, after the apply of 019
+(the founder's terminal output, R-2026-09-23-69): ledger **19 rows**, second dry run
+`0 migration(s) pending.` *Added 2026-09-23 (R-2026-09-23-70): R-2026-09-23-69's
+restatement did not reach this list or the checkbox list at the end of this step.*
 
 ### What happens if it dies partway -- documented, not discovered
 
@@ -1518,6 +1558,7 @@ ones.
 - [x] Every forward migration applied, `016_snapshot.sql` last, 2026-09-16: ledger 16 rows, and the second dry run reported `0 migration(s) pending.`
 - [x] 017 applied, `017_snapshot_schedule.sql` last, 2026-09-17: dry run one `WOULD APPLY 017_snapshot_schedule.sql` and `1 migration(s) pending.`; apply `Migrations complete (1 applied this run).`; ledger 17 rows, and the second dry run reported `0 migration(s) pending.`
 - [x] 018 applied, `018_close_mirror_read_and_push_surfaces.sql` last, **2026-09-22 05:40:40 UTC**: ledger 17 rows before; dry run one `WOULD APPLY     : 018_close_mirror_read_and_push_surfaces.sql` and `1 migration(s) pending.`; apply echoed `DO`, `DO`, `INSERT 0 1`, `INSERT 0 0` then `Migrations complete (1 applied this run).`; ledger 18 rows, and the second dry run reported `0 migration(s) pending.` **The two `DO` blocks are 018's idempotent publication drop and its per-role revoke; `INSERT 0 1` is the migration ledgering itself and `INSERT 0 0` the runner's belt-and-braces `ON CONFLICT DO NOTHING`, which is a no-op precisely because the file had already ledgered itself.** This is the apply that closed the accumulation boundary (R-2026-09-22-52).
+- [x] 019 applied, `019_snapshot_single_read_and_mirror_integrity.sql` last, 2026-09-23 (the founder's terminal output, R-2026-09-23-69): ledger 18 rows before; dry run one `WOULD APPLY     : 019_snapshot_single_read_and_mirror_integrity.sql` and `1 migration(s) pending.`; apply echoed `DO`, `DO`, `DO`, `ALTER TABLE`, `CREATE FUNCTION`, `COMMENT`, `REVOKE`, `DO`, `INSERT 0 1`, `INSERT 0 0` then `Migrations complete (1 applied this run).`; ledger 19 rows, and the second dry run reported `0 migration(s) pending.` No `MIRROR_ORPHANS` and no `FACILITY_NAME_BLANK`. Read independently by Cowork the same day, read-only: 19 ledger rows, both constraints validated, the snapshot job succeeding every minute across the apply.
 
 ---
 
@@ -1843,6 +1884,7 @@ same shape as the 2026-09-13 reading: both halves' output, not a summary of them
 | **Client** used for the hosted apply of 014-016 | `psql` **18.6**, the same client | confirmed by the founder for the 2026-09-16 run (R-2026-09-16-03). **Not carried forward from the row above** -- an assumed client is the thing this row exists to prevent |
 | **Client** used for the hosted apply of 017 | `psql` **18.6** | observed by the founder for the 2026-09-17 run (R-2026-09-17-01), not carried forward |
 | **Client** used for the hosted apply of 018 | `psql` **18.6** | observed by the founder for the 2026-09-22 run (R-2026-09-22-52): `psql (PostgreSQL) 18.6`, printed by step P in that same session. Not carried forward |
+| **Client** used for the hosted apply of 019 | **not reported** | the founder's 2026-09-23 output (R-2026-09-23-69) shows step P's PATH line and the Session pooler, and no `psql --version` line. Not carried forward from the row above |
 
 **The client is newer than the server: psql 18.6 against server 17.6.1.166.**
 The migrations applied on 2026-09-16 and 2026-09-17 went to project
@@ -1854,11 +1896,15 @@ than a number that has to be maintained.)* This table
 previously recorded server versions only, which left the one tool every SQL
 result above passed through unrecorded.
 
-**Hosted now holds 001 through 018.** Migrations 014, 015 and 016 were applied on
-2026-09-16 (R-2026-09-16-02), 017 on 2026-09-17 (R-2026-09-17-01), and **018 on
-2026-09-22 at 05:40:40 UTC (R-2026-09-22-52)**; step 5 carries each run's output,
-its post-apply probe, the owners read, the reader-policy read, 017's jobs read,
-018's pre-apply reading and read-back, and the frozen-boundary record.
+**Hosted now holds 001 through 019.** Migrations 014, 015 and 016 were applied on
+2026-09-16 (R-2026-09-16-02), 017 on 2026-09-17 (R-2026-09-17-01), **018 on
+2026-09-22 at 05:40:40 UTC (R-2026-09-22-52)**, and **019 on 2026-09-23
+(R-2026-09-23-69)**; step 5 carries each run's output, its post-apply probe, the
+owners read, the reader-policy read, 017's jobs read, 018's pre-apply reading and
+read-back, and the frozen-boundary record.
+
+*Restated 2026-09-23 (R-2026-09-23-69), in the change that records 019's hosted
+apply.* Until then this read *"Hosted now holds 001 through 018."*
 
 *Restated 2026-09-22 (R-2026-09-22-52), in the change that records 018's hosted
 apply.* Until then this read *"Hosted now holds 001 through 017. Migration 018 is

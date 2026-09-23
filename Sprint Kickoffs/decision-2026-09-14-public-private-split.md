@@ -3304,6 +3304,122 @@ _Issued as R-PROVISIONAL-2026-09-23-AV, by Cowork on 2026-09-23 after reading #6
 
 **HELD FOR THE CHANGE AFTER #66 MERGES, not in this PR:** Cowork's records of dashboard deploy #1, Pages runbook section 8 performed, the stray files in the founder's checkout, and 019 applied on hosted, with the frozen boundary at 19 — they touch runbook step 5, which this PR also restates. **Asked in that block and answered here: "INSERT 0 1" then "INSERT 0 0" is the expected pair.** 019 inserts its own ledger row inside its transaction (`019:260-262`, `ON CONFLICT DO NOTHING`); `scripts/run_migrations.sh` then inserts the same filename with `ON CONFLICT (filename) DO NOTHING`, which is a no-op. All 19 up-migrations carry exactly one self-insert, counted per file, so every apply prints that pair.
 
+### R-2026-09-23-69 — #66 merged; 019 on hosted and the boundary frozen at 19; the dashboard deployed and `SUPABASE_URL` deleted from Production; two obligations bind PR 3.4
+
+_Issued as R-PROVISIONAL-2026-09-23-AW: Cowork's comprehensive update of 2026-09-23 ~15:00 Lagos (its sections 2 and 3, held until #66 merged because they touch runbook step 5), and the founder's merge word for #66 after Cowork re-read `abcea44` (its items 3, 4 and 7). Number assigned on landing from the record's last as read on this branch: R-2026-09-23-68. **Record-only under R-46: no pull request of its own.** These are the first commits on `pr-3.3-proxy-hardening` and ride PR 3.3, as -52's freeze at 18 rode PR 3.1. Next provisional letter: AX._
+
+**THE MERGE.** #66 merged at `fca9856` with a merge commit. The head was `abcea44`, read from the API with all seven checks green. **The record cites five of the ten SHAs in that PR's range** (`1f3e3d0`, `7f4e966`, `d6bc60f`, `98a3ff2`, `4dbb065`), found by scanning it, and all five read `--is-ancestor` exit 0 against `origin/main`.
+
+**2a — PUBLIC DASHBOARD DEPLOY #1, 2026-09-23.**
+- **The founder's terminal output:** `bash scripts/deploy_pages.sh --branch main public-dashboard` verified HEAD on `origin/main` and a clean tree, and read the stamp back as `1d084a4`, clean. Deployment `https://1151e291.openbed-public-dashboard.pages.dev`, commit `1d084a4beaf1bc258a307d48c7eae86d005398e9`.
+- **Cowork's reading, ~13:22 UTC, on the deployment URL and `https://openbed.ng`:**
+  - `/version.json` reads commit `1d084a4…`, `"dirty": false`, `built_at 2026-09-23T13:19:35.064Z`, and the ancestor check of `origin/main` exits 0;
+  - `/beds.json` answers GET and HEAD with `HTTP/2 200`, `application/json; charset=utf-8`, `noindex, nofollow` and `public, s-maxage=30, stale-while-revalidate=300`, body `{"v":9045,…`;
+  - the control `/nonexistent-path` answers 200 `text/html`.
+- Production moved `76fe917` → `1d084a4`.
+
+**2b — PAGES RUNBOOK SECTION 8 PERFORMED: `SUPABASE_URL` deleted.**
+- **The gate passed on Cowork's reading:** `openbed.ng/beds.json` 200, and `1d084a4` carries `packages/origins/origins.json`.
+- **The founder's action, by the founder's own reading:** `SUPABASE_URL` deleted from `openbed-public-dashboard`, **Production only**, with `SUPABASE_SERVICE_ROLE_KEY` unchanged. **Preview was not read.**
+- **Redeploy #2, the founder's output:** through the wrapper, `https://ac07baaa.openbed-public-dashboard.pages.dev`, from `1d084a4`, clean.
+- **Cowork's re-read, ~13:27 UTC, on the deployment created AFTER the deletion and on `openbed.ng`:** `/version.json` `built_at 2026-09-23T13:25:20.773Z`; `/beds.json` `HTTP/2 200`, JSON, `noindex, nofollow`, `{"v":9050,…`.
+- **`R-2026-09-22-59 B3` holds on production, resting on that reading:** nothing reads `SUPABASE_URL`.
+- **The Pages runbook, restated here:** section 2 no longer says the variable is "still SET" on an existing project; it says deleted from Production on 2026-09-23 and Preview not read. Section 8 gains a "performed" line, and its procedure stays for any other project and for Preview.
+
+**2c — THE STRAY FILES, an incident note.**
+- **What happened:** after deploy #2 the founder pasted terminal output back into zsh, and lines beginning `>` created the empty untracked files `node`, `npm`, `wrangler` and `openbed-ng@0.0.0` in the founder's checkout. The founder removed exactly those four with `git clean` after a dry run (the founder's reading). No tracked file was touched.
+- **My checkout never had them** (read, with `package.json` as the known-present control), so it is a different copy.
+- **What would have caught them:** `tests/compliance/top_level_tracked_entries.test.ts` would refuse them if staged, since it reads the index and none is in its set. `scripts/deploy_pages.sh` refuses any untracked file, which is the likely cause if a wrapper run ever refuses on untracked files.
+
+**3 — MIGRATION 019 APPLIED ON HOSTED, 2026-09-23** (the founder ran runbook step 5).
+- **The founder's terminal output** (Session pooler, step P's PATH line first):
+  - the dry run shows 001–018 `already applied`, `WOULD APPLY : 019_snapshot_single_read_and_mirror_integrity.sql` and `1 migration(s) pending.`;
+  - the apply skipped 001–018, then `Applying 019…`, then `DO`, `DO`, `DO`, `ALTER TABLE`, `CREATE FUNCTION`, `COMMENT`, `REVOKE`, `DO`, `INSERT 0 1`, `INSERT 0 0` and `Migrations complete (1 applied this run).`;
+  - the ledger reads `19`;
+  - the second dry run shows 001–019 `already applied` and `0 migration(s) pending.`;
+  - there was no `MIRROR_ORPHANS` and no `FACILITY_NAME_BLANK`.
+- **Cowork's independent reading**, through the Supabase connector with read-only SELECTs, ~13:58 UTC:
+  - `app.schema_migrations` has 19 rows, the last being 019;
+  - in `pg_constraint`, `ward_public_facility_id_fkey` is present (f, validated, not deferrable) and so is `facility_name_not_blank` (c, validated);
+  - `app.regenerate_snapshot`'s body is the single-statement read;
+  - cron job 1 `openbed_regenerate_snapshot` (`* * * * *`) succeeded every minute 13:52–13:58 across the apply, and job 2 `openbed_refresh_lga_rollup` (`*/5`) succeeded at 13:55;
+  - `app.facility` and `public.ward_public` both have 0 rows;
+  - `https://openbed.ng/beds.json` returned `{"v":9081,…,"generated_at":"2026-09-23T13:58:00.063794+00:00"}`.
+- **The client version is not in the founder's output**, so step 7's client row for 019 says "not reported" rather than carrying 18.6 forward.
+- The `INSERT 0 1` / `INSERT 0 0` pair was answered in `-68`.
+
+**THE FROZEN BOUNDARY AT 19**, in this change.
+- **The script:** `node scripts/freeze_applied_migrations.mjs 19 2026-09-23 R-2026-09-23-69` printed `frozen boundary recorded: 19 migrations, observed 2026-09-23 (R-2026-09-23-69)`, first `001_app_schema_and_migration_ledger.sql`, last `019_snapshot_single_read_and_mirror_integrity.sql`. The recorded sha256 matches the file, and the next placeholder is derived as 020.
+- **Runbook step 5** is restated at the four guarded sites to hosted `19`, no `WOULD APPLY` and `0 migration(s) pending.`, with the 019 dry run kept as a dated fence. Step 7's hosted line is restated too.
+- **A fifth statement, found by reading, and mine to own:** the virgin-database block said `18 migration(s) pending.` and `17 applied` after 019 was added in `-66`. The guard does not parse it, because it is not a hosted expectation. It now says 19 and 18.
+- **A guard whose premise moved.** `frozen_migrations`' contrast leg showed a placeholder the prefix checker cannot see. Re-measured at 19, as its own note asked, the blind spot exists only at the LAST frozen number, and only when that file sorts before "placeholder". That was true at 18 and is false at 19. It is now constructed on a boundary cut back to 18 in the scratch tree, so the reason `placeholderCollision` exists stays demonstrated.
+
+**4 — TWO OBLIGATIONS BINDING ON PR 3.4's DESIGN REPORT, which Cowork signs off before it is built** (Cowork's reading of `-68`'s findings):
+- **(a)** provisioning sets `ward_offering` explicitly for every category it creates, and any admin path that moves a ward out of PENDING states the offering. This is the premise under "not offered at this facility" (`-68`). `tests/compliance/public_labels.test.ts` holds `publish_ward_status` as the only writer of ACTIVE, and goes red on a second writer until this is designed in.
+- **(b)** before any admin write can reach the public page, the page renders `status_source = ADMIN` as "set by admin, not ward-confirmed" and shows `status_state = UNDER_REVIEW` beside the count (002 section 6). Both are listed `not_yet_displayed` in `apps/public-dashboard/src/public-labels.json` today, with PR 3.4 as the reason.
+
+**7 — OPEN, AND UNASSIGNED BY THE RECORD: the ward console prints raw codes** (e.g. "ICU_ADULT: NOT_OFFERED, not yet reporting"). The founder's word says to list it for PR 3.4 or Bundle 4, "whichever the record assigns". **The record assigns it to neither**, found by reading: `-68` records it as outside AV's scope, and v1:404's strings module (#115) is "fixed by a later change" with no bundle named. For Cowork to assign. Not built.
+
+**PR 3.3 GOES PROPOSAL-FIRST (Cowork's verdict, 2026-09-23).** The design goes to Cowork before any of it is built. It covers:
+- the allow-list derivation and CORS preflight;
+- `-65 B2`'s probe path;
+- `-67 C`'s uniform `/otp`;
+- the Worker's stamp path;
+- its deploy wrapper;
+- the blast radius.
+
+**One premise in that verdict is corrected, and the conflict it names still stands.**
+- **The verdict's reading:** AJ F2 requires rate limits to reach the ward as "a fixed 'wait and try again' message".
+- **The kickoff's text:** AJ F2 (kickoff line 131) says both rate limits "surface as a fixed ward message".
+- **What merged in #65:** the console deliberately folds a 429 into the same conditional message as a 200 (`SIGNIN_ANSWERED`), because locally only a known address ever reaches a 429 (`packages/auth/src/request.ts`). A 429 the console can tell apart is itself evidence that the address exists.
+- The proposal answers this directly.
+
+### R-2026-09-23-70 — PR 3.3 signed off with four amendments; `/otp` stays unrewritten; every pending count is scanned; the ward console's raw codes go to PR 3.4
+
+_Issued as R-PROVISIONAL-2026-09-23-AX, by Cowork on 2026-09-23 as its verdict on the PR 3.3 design proposal sent with `-69`. Number assigned on landing from the record's last as read on this branch: R-2026-09-23-69. **Record-only under R-46; lands in PR 3.3.** Next provisional letter: AY._
+
+**VERIFIED BY COWORK, ~15:45 UTC. Cowork's readings, recorded as given.**
+- `fca9856` is the merge of #66 (parents `1d084a4`, `abcea44`), and `1f3e3d0` `7f4e966` `d6bc60f` `98a3ff2` `4dbb065` `abcea44` are all ancestors.
+- `pr-3.3-proxy-hardening` was at `51b5d1b`: two AW commits, six files. `applied-hosted.json` has `ledger_rows` 19 and ruling `R-2026-09-23-69`, and 019's sha256 `9e79b233…` matches the file. The `frozen_migrations` re-measure is accepted.
+- **H4 step 1 is discharged:** `app.openbed.ng` is NXDOMAIN over DoH (Status 3).
+- **Live baseline:** `openbed.ng/version.json` reports commit `1d084a4`, with no `x-openbed-served-at`, which is expected because #66 is not deployed. **`api.openbed.ng` is a full passthrough today:** `GET /__openbed/version` returns Supabase's own 404, `{"error":"requested path is invalid"}`.
+- **Hosted CORS preflight through `api.openbed.ng`, for all four browser paths:** 200, `access-control-allow-origin *`, allow-headers `apikey,authorization,content-type`, `max-age 3600`. My proposal said "not observed"; this is the observation.
+- **Hosted no-key answer** on `POST /rest/v1/rpc/my_facility_wards` and `GET /auth/v1/settings`: 401, body `{"message":"No API key found in request",…}`, with headers `sb-error-code: UNAUTHORIZED_MISSING_API_KEY` and `sb-project-ref: klrlpxysjsjpdkeqdhvl`. **This comes from Supabase's gateway, not from PostgREST.** The local stack answered with PostgREST's `42501` body instead, one more instance of "local is not hosted".
+
+**COWORK'S ERROR, recorded as Cowork wrote it:** "my previous verdict said AJ F2 requires a 'wait and try again' message and called a flattened 429 unacceptable. The kickoff says 'a fixed ward message', and SIGNIN_ANSWERED already covers the rate-limited ward ('If nothing arrives within 5 minutes, ask again once...'). Your correction stands."
+
+**THE DECISIONS.**
+- **A — `-67 C`: option C, no rewrite, on the founder's choice.**
+  - Why: `-67 C` accepted the risk as low (role addresses) and asked for uniformity only "if feasible".
+  - Option A does not achieve uniformity.
+  - Option B does, but only by keeping per-address state at the Worker. That is new processing of personal data, and a new dependency on the ward's only sign-in path, which raises `-23 D5`. None of it closes anything while `*.supabase.co` answers directly.
+  - **Trigger to revisit B: `-55 C` landing.** No Durable Objects work in PR 3.3.
+- **B — signed off as proposed:**
+  - the parser-derived allow-list and its plants;
+  - the runbook-probe rule;
+  - `x-openbed-proxy: forwarded` / `refused`;
+  - `/__openbed/version` and its collision test;
+  - `deploy_worker.sh`, with an unknown target refused;
+  - the blast-radius list;
+  - `/auth/v1/signup` not forwarded;
+  - `request.ts` treating a Worker refusal as unreachable;
+  - `/auth/v1/settings` in place of `/auth/v1/health` in the kickoff's probes.
+- **C — four amendments, before build:**
+  1. **The no-key probe's pass signal** is `401` AND `sb-project-ref: klrlpxysjsjpdkeqdhvl` AND `x-openbed-proxy: forwarded`. It is never a body shape, because hosted's body is the gateway's. The same header rule applies to every probe that must prove forwarding.
+  2. **`/auth/v1/verify` (`-66 G`):** the emailed link is consumed there, and the parser cannot see it. It gets an explicit exception, "consumed on the direct `*.supabase.co` origin until -55 C", and a test that fails if the exception is removed while verify is not listed. **Trigger: if `-55 C`'s custom domain is routed through the Worker, `GET /auth/v1/verify` must be listed, or every sign-in link breaks.**
+  3. **A refusal in a real browser.** The Node demonstration ignored CORS. The refusal carries `access-control-allow-origin *` and `access-control-expose-headers: x-openbed-proxy`. A Playwright run against `wrangler dev` shows a refused `/otp` rendering `SIGNIN_UNREACHABLE`, and failing with the fix removed. It asserts on the POST, never on OPTIONS, because preflights are cached for up to an hour.
+  4. **`/auth/v1/token` is forwarded only with `grant_type=refresh_token`**, the only grant the code sends. The parser derives the query literal, and a planted `grant_type=password` is refused.
+
+  And the wrapper's read-back retries for a bounded window and then STOPs. It never passes on a previous version.
+- **D — the fifth unguarded count is a class, not a site:** #61, the "all four" claim, and now the virgin-database block. It lands on this branch, red first, as `ac46270`.
+  - **The scan.** Every `N migration(s) pending.` in the Supabase runbook must be read by a guarded parser, or sit in a dated list item, paragraph or fence intro. The virgin block is a fifth guarded site, derived from the directory.
+  - **What the scan's own plant found:** the prose parser's match ran to the next "Restated" bullet, so a bullet planted between them sat inside the region it read, and its count went unread. The guarded region is now each bullet's own list item.
+  - **Also added:** 019's lines in two dated lists that `-69` missed.
+- **E — the ward console's raw codes are assigned to PR 3.4**, which first puts a ward in front of the console. This replaces "unassigned" in `-69`. The 3.4 design report proposes a single labels source shared with the public page, so the two cannot disagree.
+- **F — the founder's steps (i) and (ii) stand.** One wording fix in (i): "leave Disable cache unticked". H4 step 1 is discharged above.
+
+**-23 D5 (availability) stays open, and PR 3.3 raises its stakes.** The PR body says so.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -3363,6 +3479,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | AT | R-2026-09-23-66 | 2026-09-23 | **A3 decided and built: the orphan fixed at source (one read statement, an FK, a blank-name CHECK) and dropped on the page, never explained; one number to call per facility.** Three of its premises needed more than it said: `btrim` alone lets a tab-only name through (observed), the ward console had no rendered test at all, and D1 had a third raw-text site. Its D question found that nothing decides what the public sees about a count's age before facility one. PR 3.4's migration becomes 020. Also carries the ward's own sign-in request, and the finding that GoTrue's answers reveal whether an address exists. |
 | AU | R-2026-09-23-67 | 2026-09-23 | **Count age ships before facility one, in PR 3.2b; wards write to support@openbed.ng.** Its A3 clock did not exist and is built: the Pages Function stamps each response with its serve time, which advances while a stalled snapshot does not. Its A1 relative age supersedes the golden-path fixture's and v1's "absolute only" text, whose reason (a wall-clock subtraction) does not apply. The address arrived in a second block with the founder's and Cowork's readings, both recorded; the DKIM recheck closes on the DNS reading. Enumeration is an accepted risk. Its D find: nothing scopes human-readable public labels. |
 | AV | R-2026-09-23-68 | 2026-09-23 | **#66 not approved: the page polls, the count goes entirely past the ceiling, and the public page shows words for every code.** Two premises needed more than stated: the "Release Gate 3" values are v1's Bundle 4 checklist (v1:239, v1:242), not gate 3's own text; and the page had never read `offering`, so a ward whose staff said it is not offered read as "not yet reporting". The schema cannot tell a stated NOT_OFFERED from the default; the state machine can, only while `publish_ward_status` is the one way out of PENDING, and a guard now holds that — a PR 3.4 obligation. Cowork records its own error, B4. |
+| AW | R-2026-09-23-69 | 2026-09-23 | **#66 merged; 019 applied on hosted and the boundary frozen at 19; dashboard deploy #1 and `SUPABASE_URL` deleted from Production, each reading attributed.** The restatement found a fifth statement of the migration count that 019's own change had missed, and a guard whose premise moved at 19: its blind spot is now constructed rather than found. It binds PR 3.4's design report to state offerings explicitly and to render ADMIN and UNDER_REVIEW before any admin write reaches the public page. It records the ward console's raw codes as unassigned, because the record assigns them to neither 3.4 nor Bundle 4. PR 3.3 goes proposal-first. |
+| AX | R-2026-09-23-70 | 2026-09-23 | **PR 3.3's design signed off with four amendments.** `/otp` is not rewritten: option B works only by holding per-address state at the Worker, on the ward's only sign-in path, and closes nothing while `*.supabase.co` answers directly; it is revisited when -55 C lands. A probe proves forwarding by headers, never by body, because hosted's no-key body is the gateway's and not PostgREST's. `/auth/v1/verify` is a named direct-origin exception. `token` is forwarded only for the refresh grant. Every pending count in the Supabase runbook is now scanned, and the scan's first plant found a region that was read too wide. Cowork records its own error on AJ F2. The ward console's raw codes go to PR 3.4. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -3559,6 +3677,17 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-23, R-2026-09-23-70 (issued as R-PROVISIONAL-2026-09-23-AX): **PR 3.3's
+  design signed off** with four amendments (probes by header, `/auth/v1/verify` a named
+  exception, a real-browser refusal test, the refresh grant only); `/otp` left
+  unrewritten until -55 C; **every pending count in the Supabase runbook scanned**
+  rather than enumerated; and the ward console's raw codes assigned to PR 3.4;
+- on 2026-09-23, R-2026-09-23-69 (issued as R-PROVISIONAL-2026-09-23-AW): **#66
+  merged**; **019 applied on hosted** by the founder, read independently by Cowork,
+  and **the frozen boundary moved to 19** with runbook step 5 restated; **the public
+  dashboard deployed at `1d084a4` and `SUPABASE_URL` deleted from Production**, Preview
+  unread; two obligations bind PR 3.4's design report; the ward console's raw codes
+  recorded as unassigned; and PR 3.3 goes proposal-first;
 - on 2026-09-23, R-2026-09-23-68 (issued as R-PROVISIONAL-2026-09-23-AV): **the public
   page polls at the snapshot cadence**, bypassing the browser cache and holding good
   data through a failed poll; **past the ceiling no number shows at all**, with v1's

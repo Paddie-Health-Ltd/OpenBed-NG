@@ -47,6 +47,13 @@ export interface SignInRequest {
 }
 
 const REQUEST_TIMEOUT_MS = 12_000;
+/**
+ * The header supabase-proxy/handler.ts sets on every answer, naming who gave it. A
+ * second copy of that file's constant, because the ward console's import closure is
+ * [auth, origins] and must not reach the Worker; tests/compliance/proxy_allow_list.test.ts
+ * asserts the two are equal.
+ */
+export const PROXY_HEADER = 'x-openbed-proxy';
 const ATTEMPTS = 2;
 
 export async function requestSignInLink(req: SignInRequest): Promise<SignInRequestOutcome> {
@@ -62,6 +69,15 @@ export async function requestSignInLink(req: SignInRequest): Promise<SignInReque
         body: JSON.stringify({ email: req.email.trim(), create_user: false }),
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
+      // A REFUSAL BY OUR OWN PROXY IS NOT AN ANSWER (R-2026-09-23-70 B, C3). If
+      // api.openbed.ng's allow-list ever stops forwarding this path, the Worker's own
+      // 404 would otherwise read as GoTrue having answered, and the ward would be told
+      // a link is on its way when none was sent. The Worker marks its refusals, and
+      // exposes the header to the page, so this can tell. It says nothing about the
+      // address, so it is safe to show.
+      if (res.headers.get(PROXY_HEADER) === 'refused') {
+        return { kind: 'unreachable', error: `the OpenBed proxy did not forward /auth/v1/otp (HTTP ${res.status})` };
+      }
       return { kind: 'answered', status: res.status };
     } catch (e) {
       last = String((e as Error).message ?? e);
