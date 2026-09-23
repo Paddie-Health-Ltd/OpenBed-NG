@@ -7,6 +7,7 @@
   "description": "The database addresses this project uses, keyed by the address rather than by the app. The only tracked source for an origin string outside supabase-proxy/.",
   "exports": {
     ".": "./src/index.ts",
-    "./keys": "./src/keys.ts"
+    "./keys": "./src/keys.ts",
+    "./support": "./src/support.ts"
   }
 }
