@@ -1,4 +1,4 @@
-import { SessionExpiredError, SessionHolder, sessionFromUrlFragment } from '@openbed/auth';
+import { SessionExpiredError, SessionHolder, requestSignInLink, sessionFromUrlFragment } from '@openbed/auth';
 import { apiOrigin } from '@openbed/origins';
 import { publishableKeyFor } from '@openbed/origins/keys';
 
@@ -117,7 +117,19 @@ const CALL_OPERATOR = 'If it keeps happening, phone the OpenBed operator.';
 export const UNRECOGNISED = `Something went wrong. Reload the page and try again. ${CALL_OPERATOR}`;
 export const ROW_REFUSED = `This ward's record could not be read, so it cannot be updated from here. Reload the page. ${CALL_OPERATOR}`;
 export const LOAD_REFUSED = `The ward list could not be read. Reload the page. ${CALL_OPERATOR}`;
-export const BAD_LINK = 'That sign-in link cannot be used. It may have been used already, or it has expired. Ask for a new link to be sent.';
+export const BAD_LINK = 'That sign-in link cannot be used. It may have been used already, or it has expired. Ask for a new one below.';
+
+/**
+ * THE ONE THING A SIGN-IN REQUEST CAN BE TOLD, whatever GoTrue answered (see
+ * packages/auth/src/request.ts for why a 200, a 422 and a 429 must all read the same:
+ * each of them is otherwise evidence about whether the address exists). It is
+ * conditional on purpose -- it cannot know whether a link was sent, and says so.
+ */
+export const SIGNIN_ANSWERED =
+  'If this address belongs to a ward, a sign-in link is on its way to it. Open it on this handset. ' +
+  'If nothing arrives within 5 minutes, ask again once; if it still does not arrive, phone the OpenBed operator.';
+/** The only other outcome: no answer came back at all, which says nothing about the address. */
+export const SIGNIN_UNREACHABLE = 'The request could not be sent. Check this handset is online, then try again.';
 
 export const WARD_MESSAGES: Readonly<Record<string, string>> = {
   NOT_AUTHENTICATED: TAP_AGAIN,
@@ -449,6 +461,63 @@ function renderHandover(holder: SessionHolder, email: string | null, wards: (War
 }
 
 /**
+ * The ward's own request for a new link: an address, one button, one status line.
+ * Shown on the signed-out screen and under a refused link.
+ */
+function signInRequestForm(): HTMLFormElement {
+  const form = document.createElement('form');
+  form.className = 'signin-request';
+  const label = document.createElement('label');
+  label.textContent = "This ward's email address ";
+  const email = document.createElement('input');
+  email.type = 'email';
+  email.name = 'email';
+  email.required = true;
+  email.autocomplete = 'email';
+  label.append(email);
+  const button = document.createElement('button');
+  button.type = 'submit';
+  button.textContent = 'Send a new sign-in link';
+  const status = document.createElement('p');
+  status.className = 'status';
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    void (async () => {
+      button.disabled = true;
+      status.textContent = '';
+      try {
+        const outcome = await requestSignInLink({
+          apiUrl: API_URL,
+          anonKey: PUBLISHABLE_KEY,
+          email: email.value,
+          redirectTo: `${window.location.origin}/`,
+        });
+        // The status goes to the log for whoever debugs it; the page says one thing.
+        if (outcome.kind === 'answered') {
+          if (outcome.status !== 200) console.error('OpenBed ward console: the sign-in request was answered', outcome.status);
+          status.textContent = SIGNIN_ANSWERED;
+        } else {
+          console.error('OpenBed ward console: the sign-in request got no answer', outcome.error);
+          status.textContent = SIGNIN_UNREACHABLE;
+        }
+      } finally {
+        button.disabled = false;
+      }
+    })();
+  });
+
+  form.append(label, button, status);
+  return form;
+}
+
+/** A screen that also offers the ward a new link. */
+function showWithRequest(heading: string, detail: string): void {
+  show(heading, detail);
+  appRoot()?.append(signInRequestForm());
+}
+
+/**
  * Exported so a test can call it and then read the DOM, rather than re-importing
  * the module to make it run again -- the public dashboard's pattern.
  */
@@ -467,12 +536,12 @@ export async function render(): Promise<void> {
     // The link itself was refused -- already used, or expired. GoTrue's own words
     // for why go to the log, never to the screen (D1's third site).
     console.error('OpenBed ward console: the sign-in link was refused', e);
-    show('That link did not work', BAD_LINK);
+    showWithRequest('That link did not work', BAD_LINK);
     return;
   }
 
   if (session === null) {
-    show('Ward console', 'Open the sign-in link sent to this ward’s address on this handset.');
+    showWithRequest('Ward console', 'Open the sign-in link sent to this ward’s address on this handset, or ask for a new one below.');
     return;
   }
 

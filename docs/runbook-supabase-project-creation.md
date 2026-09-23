@@ -2289,10 +2289,13 @@ deciding whether these boxes are still needed will decide from them:
   `auth.one_time_tokens.created_at` instead has no effect at all. So what is
   proved is that GoTrue refuses a token whose sent-at is outside the window, not
   that it expires one on its own after an hour of real time.
-- Only the email TRANSPORT is bypassed. `[local_smtp]` is disabled, so the link
-  is minted through the admin API; the consumption leg runs for real over HTTP
-  with the anon key. Nothing in the suite mints a session without consuming a
-  link.
+- Only the email TRANSPORT is bypassed: the link is minted through the admin API,
+  and the consumption leg runs for real over HTTP with the anon key. Nothing in the
+  suite mints a session without consuming a link. *Restated 2026-09-23
+  (R-2026-09-23-66): this read "`[local_smtp]` is disabled", which stopped being
+  true when the mail catcher was turned on for
+  `tests/db/ward_signin_request_live.test.ts` -- the one test where delivery is the
+  property. The harness above still bypasses the transport, by choice.*
 
 ### How step 9 closes, so nobody re-derives it
 

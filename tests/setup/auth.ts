@@ -15,14 +15,19 @@ import { sql } from './db.js';
  *
  * THE ROUTE, AND THE ONE THAT WOULD BE A LIE.
  *
- * supabase/config.toml has [local_smtp] enabled = false. There is no Inbucket and
- * no SMTP, so signInWithOtp cannot deliver anything. Three routes exist and the
- * dividing line is WHICH LEG GETS BYPASSED:
+ * THIS HARNESS STILL MINTS THROUGH THE ADMIN API, and the mail catcher is now on.
+ * Until 2026-09-23 supabase/config.toml had [local_smtp] enabled = false and this
+ * paragraph argued against turning it on. R-2026-09-23-66 turned it on for ONE
+ * test -- tests/db/ward_signin_request_live.test.ts, the ward asking for its own
+ * link, where delivery IS the property -- and raised the LOCAL email_sent to 100
+ * so that test can run every time. Nothing below changed: for everything else this
+ * harness proves, the transport is still not the property, and bypassing it is
+ * still the right call. Three routes exist and the dividing line is WHICH LEG GETS
+ * BYPASSED:
  *
- *   - Enabling local SMTP buys fidelity over the email TEMPLATE and TRANSPORT,
- *     which is not the property Gate 2 claims, at the cost of a container on every
- *     cold start. [auth.rate_limit] email_sent = 2 per hour would also bite
- *     immediately.
+ *   - Local SMTP buys fidelity over the email TEMPLATE and TRANSPORT, which is not
+ *     the property Gate 2 claims. It costs a container on every cold start, now
+ *     paid for the sign-in request's own test.
  *   - admin/generate_link then the public POST /auth/v1/verify -- THIS ONE.
  *     Only the transport is bypassed. Single use lives entirely in the CONSUMPTION
  *     leg, and that leg runs for real, over HTTP, against real GoTrue, with the

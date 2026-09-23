@@ -24,6 +24,11 @@ import { REPO_ROOT } from './_scratch.js';
  *   THE TWO FORM DEFECTS -- a NOT_OFFERED publish sends no count (004's CHECK
  *         refused every one before), and the zero-beds reason is a choice of the
  *         eight app.zero_reason values (the server refused free text).
+ *   THE SIGN-IN REQUEST (AJ F2) -- the request carries create_user:false, and the
+ *         page says the SAME words for 200, 422, 429 and 500, because GoTrue's own
+ *         statuses tell a known address from an unknown one (observed 2026-09-23).
+ *         The end-to-end route, mail included, is
+ *         tests/db/ward_signin_request_live.test.ts.
  *
  * NOT ASSERTED HERE, deliberately:
  *   - the live round trip against PostgREST. The request bodies are asserted here;
@@ -280,5 +285,71 @@ describe('the publish form sends what the server accepts', () => {
     expect(labels.length, 'app.zero_reason was not parsed').toBe(8);
     const { ZERO_REASONS } = await import('../../apps/ward-console/src/main.js');
     expect(ZERO_REASONS.map(([v]) => v)).toEqual(labels);
+  });
+});
+
+describe('the ward asks for a new sign-in link, and cannot learn whether an address exists', () => {
+  async function requestWith(route: Route, fragment = '') {
+    const stub = await renderAt(fragment, route);
+    const form = document.querySelector('form.signin-request') as HTMLFormElement | null;
+    expect(form, 'the screen offers no way to ask for a new link').not.toBeNull();
+    (form?.querySelector('input[name="email"]') as HTMLInputElement).value = ' ward@example.invalid ';
+    form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await until(() => (form?.querySelector('p.status')?.textContent ?? '') !== '');
+    return { stub, status: form?.querySelector('p.status')?.textContent ?? '' };
+  }
+
+  test('the request carries create_user:false, the trimmed address, and returns to this origin', async () => {
+    const { stub } = await requestWith(() => json(200, {}));
+    const [url, init] = stub.mock.calls.find(([u]) => String(u).includes('/auth/v1/otp')) ?? [];
+    expect(String(url)).toContain(`/auth/v1/otp?redirect_to=${encodeURIComponent(`${window.location.origin}/`)}`);
+    expect(JSON.parse(String(init?.body))).toEqual({ email: 'ward@example.invalid', create_user: false });
+  });
+
+  // OBSERVED 2026-09-23 on the local stack: known -> 200 then 429; unknown -> 422
+  // every time. Each status is evidence about the address, so all read the same.
+  test('200, 422, 429 and 500 all produce the SAME words, and none of the server text', async () => {
+    const seen: string[] = [];
+    for (const [status, body] of [
+      [200, {}],
+      [422, { code: 422, error_code: 'otp_disabled', msg: `Signups not allowed for otp ${SENTINEL}` }],
+      [429, { code: 429, error_code: 'over_email_send_rate_limit', msg: `after 0 seconds ${SENTINEL}` }],
+      [500, { code: 500, msg: `Error sending magic link ${SENTINEL}` }],
+    ] as const) {
+      const { status: said } = await requestWith(() => json(status, body));
+      expect(text(), `HTTP ${status}'s text reached the page`).not.toContain(SENTINEL);
+      seen.push(said);
+    }
+    expect(new Set(seen).size, `the page told a ${seen.length}-way story: ${JSON.stringify(seen)}`).toBe(1);
+    expect(seen[0]).toContain('If this address belongs to a ward');
+  });
+
+  test('no answer at all is the one other outcome, and it says nothing about the address', async () => {
+    const { status } = await requestWith(() => {
+      throw new TypeError(`network down ${SENTINEL}`);
+    });
+    expect(status).toContain('The request could not be sent.');
+    expect(status, 'the unreachable message is the answered one — the comparison above could not see a difference').not.toContain('If this address belongs to a ward');
+    expect(text()).not.toContain(SENTINEL);
+  });
+
+  test('the bad-link screen offers the same request', async () => {
+    const { status } = await requestWith(() => json(200, {}), '#error=access_denied&error_code=otp_expired');
+    expect(text()).toContain('That link did not work');
+    expect(status).toContain('If this address belongs to a ward');
+  });
+
+  test('an HTTP answer is never retried; only a missing answer is, once', async () => {
+    const { requestSignInLink } = await import('../../packages/auth/src/request.js');
+    const answered = vi.fn(async () => json(429, {}));
+    const a = await requestSignInLink({ apiUrl: 'http://x', anonKey: 'k', email: 'e', redirectTo: 'http://y/', fetch: answered as never, sleep: async () => undefined });
+    expect(a).toEqual({ kind: 'answered', status: 429 });
+    expect(answered, 'a 429 was retried — exactly the traffic the limit exists to stop').toHaveBeenCalledTimes(1);
+    const down = vi.fn(async () => {
+      throw new TypeError('down');
+    });
+    const b = await requestSignInLink({ apiUrl: 'http://x', anonKey: 'k', email: 'e', redirectTo: 'http://y/', fetch: down as never, sleep: async () => undefined });
+    expect(b.kind).toBe('unreachable');
+    expect(down, 'a missing answer was not retried, or was retried without bound').toHaveBeenCalledTimes(2);
   });
 });

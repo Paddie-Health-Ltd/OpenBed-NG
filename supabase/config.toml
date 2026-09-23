@@ -19,9 +19,15 @@
 # It resets to empty. Use `npm run db:reset`, which is reset + run_migrations.sh + seed.sh.
 #
 # Services not used by this project are disabled so `supabase start` pulls fewer containers and
-# CI is faster: studio, local_smtp, storage, edge_runtime, analytics. api, db, auth and realtime
-# stay on -- auth because the RLS negative suite needs a real `anon` JWT issued by GoTrue rather
-# than a hand-forged one, and realtime because three public projection tables are published to it.
+# CI is faster: studio, storage, edge_runtime, analytics. api, db, auth and realtime stay on --
+# auth because the RLS negative suite needs a real `anon` JWT issued by GoTrue rather than a
+# hand-forged one, and realtime because three public projection tables are published to it.
+#
+# local_smtp (the mail catcher) IS ON SINCE R-2026-09-23-66, and it was off deliberately until
+# then: an extra container on every cold start, for a transport this suite did not need, because
+# tests/setup/auth.ts mints links with the admin API instead. The ward console now ASKS FOR ITS
+# OWN LINK (the Bundle 3 kickoff, AJ F2), and the only honest test of that is the whole route --
+# request, delivery, consumption, handover -- so the founder chose to pay the container.
 #
 # Settings that MATCH THE CLOUD DEFAULT ON PURPOSE, so tests are not optimistic:
 #   [api] max_rows = 1000            -- the 200-row cap is enforced in SQL inside the read RPCs.
@@ -149,7 +155,8 @@ openai_api_key = "env(OPENAI_API_KEY)"
 # Email testing server. Emails sent with the local dev setup are not actually sent - rather, they
 # are monitored, and you can view the emails that would have been sent from the web interface.
 [local_smtp]
-enabled = false
+# On for tests/db/ward_signin_request_live.test.ts, which reads the requested link from here.
+enabled = true
 # Port to use for the email testing server web interface.
 port = 54324
 # Uncomment to expose additional ports for testing user applications that send emails.
@@ -206,7 +213,7 @@ site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+additional_redirect_urls = ["https://127.0.0.1:3000", "http://127.0.0.1:5173", "http://127.0.0.1:4173"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -242,7 +249,9 @@ password_requirements = ""
 
 [auth.rate_limit]
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
-email_sent = 2
+# LOCAL ONLY, raised from 2 by R-2026-09-23-66: the sign-in request test sends real mail through
+# the catcher on every run. The HOSTED limit is a dashboard setting and is not this file.
+email_sent = 100
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
 # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
