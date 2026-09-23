@@ -6,10 +6,11 @@
   "description": "The ward console. One screen: sign in with a magic link sent to a ward ROLE address, and see the wards this account may report for.",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node ../../scripts/stamp_build.mjs ./public/version.json && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@openbed/auth": "*"
+    "@openbed/auth": "*",
+    "@openbed/origins": "*"
   }
 }

@@ -64,7 +64,10 @@ const DENY_SAMPLE: Record<string, string> = {
 };
 
 /** What a developer's `.dev.vars` legitimately holds: the well-known local demo service-role key. */
-const DEMO_DEV_VARS = `SUPABASE_URL=http://127.0.0.1:54321\nSUPABASE_SERVICE_ROLE_KEY=${LOCAL_SERVICE_ROLE_KEY}\n`;
+// One name since R-2026-09-22-59: the origin is tracked configuration, not an
+// environment variable. Edited for honesty rather than for green -- nothing
+// asserts this constant's contents, which is exactly why it could have rotted.
+const DEMO_DEV_VARS = `SUPABASE_SERVICE_ROLE_KEY=${LOCAL_SERVICE_ROLE_KEY}\n`;
 
 describe('secret scan', () => {
   test('the real repository is clean', () => {
@@ -110,18 +113,57 @@ describe('secret scan', () => {
     });
   });
 
-  test('the allowlisted local-keys file is exempt BY PATH and only there', () => {
+  test('the allowlist is EXACTLY these two files and these patterns — parsed, not assumed', () => {
+    // R-2026-09-22-61 B2: the exemption is by NAMED FILE AND NAMED KEY, and it is not
+    // a general widening. Pinned by identity so a third entry, or a widened pattern
+    // set on an existing one, is a visible act with someone's name on it.
+    const src = readFileSync(join(REPO_ROOT, 'scripts', LINT), 'utf8');
+    const block = /ALLOWED=\(([\s\S]*?)\n\)/.exec(src);
+    expect(block, 'the ALLOWED array was restructured — this guard stopped watching it').not.toBeNull();
+    const entries = (block?.[1] ?? '')
+      .split('\n')
+      .map((l) => l.trim().replace(/^'|'$/g, ''))
+      .filter((l) => l !== '' && !l.startsWith('#'));
+    expect(entries.sort(), 'the secret-scan exemption list changed').toEqual(
+      [
+        'packages/origins/publishable-keys.json|JWT',
+        'tests/setup/local-keys.ts|JWT,Supabase secret key,Postgres URL with password',
+      ].sort(),
+    );
+  });
+
+  test.each([
+    ['tests/setup/local-keys.ts'],
+    ['packages/origins/publishable-keys.json'],
+  ])('%s is exempt for the JWT pattern', (path) => {
     withScratch((root) => {
-      place(root, 'tests/setup/local-keys.ts', `export const K = '${PLANT_JWT}';`);
+      place(root, path, `export const K = '${PLANT_JWT}';`);
       track(root);
       const res = runLint(LINT, root);
       expect(res.status, `the allowlisted path was flagged:\n${res.stdout}`).toBe(0);
     });
+  });
+
+  test('plant — the exemption does not leak to a neighbouring file', () => {
     withScratch((root) => {
       place(root, 'tests/setup/other-keys.ts', `export const K = '${PLANT_JWT}';`);
       track(root);
       const res = runLint(LINT, root);
       expect(res.status, `the exemption leaked to another file:\n${res.stdout}`).toBe(1);
+    });
+  });
+
+  test('plant — the publishable-keys file is NOT exempt for a SECRET shape', () => {
+    // THE HALF THAT MAKES THE EXEMPTION NARROW RATHER THAN A HOLE. That file is
+    // imported by browser code, so it may hold the anon JWT and must never hold a
+    // secret. local-keys.ts is the only entry permitted the service-role shapes,
+    // because it is the only one no bundle imports.
+    withScratch((root) => {
+      place(root, 'packages/origins/publishable-keys.json', `{ "production": "${PLANT_SB_SECRET}" }`);
+      track(root);
+      const res = runLint(LINT, root);
+      expect(res.status, `a secret key in the client-key file was exempted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the refusal did not name the pattern that fired').toContain('Supabase secret key');
     });
   });
 

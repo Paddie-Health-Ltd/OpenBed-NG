@@ -113,6 +113,72 @@ export function frozenViolations(root: string): string[] {
   return out;
 }
 
+/**
+ * THE NEXT UNFROZEN MIGRATION NUMBER, DERIVED FROM THE BOUNDARY IN THE TREE IT IS
+ * GIVEN (R-2026-09-22-53).
+ *
+ * WHY THIS EXISTS. The leg below used to hard-code a number, and the runbook's
+ * recording step told whoever recorded a hosted apply to move it by hand. **The
+ * mechanism that instruction cited had stopped reaching on 2026-09-17** -- see the
+ * header note below -- so the move was unenforced hygiene. Deriving it removes the
+ * step rather than guarding it.
+ *
+ * IT READS THE SCRATCH ROOT, NOT `REPO_ROOT`. `copyMigrations` copies the boundary
+ * file into the scratch tree, so a plant that edits the boundary moves the
+ * derivation with it. Reading the repository here would make the helper deaf to the
+ * very input the plants vary.
+ *
+ * IT REFUSES RATHER THAN DEFAULTING. An unreadable or empty boundary throws with a
+ * message naming the file. A fallback -- "assume 1", "assume the repo's highest" --
+ * is the dead-key fallback of `scripts/get_publishable_key.sh` in another hat
+ * (test-conventions section 8): it would return a plausible number for a tree that
+ * records nothing, and the leg would then pass over an input it never understood.
+ */
+export function nextUnfrozenNumber(root: string): number {
+  const raw = readFileSync(join(root, BOUNDARY), 'utf8');
+  const parsed = JSON.parse(raw) as { frozen?: { file?: string }[] };
+  const numbers = (parsed.frozen ?? [])
+    .map((f) => Number(/^(\d{3})_/.exec(f.file ?? '')?.[1] ?? NaN))
+    .filter((n) => Number.isInteger(n));
+  if (numbers.length === 0) {
+    throw new Error(
+      `${BOUNDARY} records no numbered frozen migration, so the next unfrozen number cannot be derived. ` +
+        'Refusing to guess one: a guessed number would make the leg below assert against a tree it did not read.',
+    );
+  }
+  return Math.max(...numbers) + 1;
+}
+
+/** The filenames the boundary in THIS tree records as frozen. */
+export function frozenFilesIn(root: string): string[] {
+  const parsed = JSON.parse(readFileSync(join(root, BOUNDARY), 'utf8')) as { frozen?: { file?: string }[] };
+  return (parsed.frozen ?? []).map((f) => f.file ?? '').filter((f) => f.length > 0);
+}
+
+/**
+ * THE CHECK THE PLACEHOLDER HAS TO PASS: its number belongs to no frozen migration.
+ * Returns the finding, or null when the number is genuinely unfrozen.
+ *
+ * WHY A COLLISION TEST AND NOT ARITHMETIC. The first version of this asserted that
+ * the derived number exceeded the frozen COUNT -- and since the derivation returns
+ * `max(frozen) + 1`, that holds for every well-formed boundary. **A tautology in the
+ * shape of a guard**, and the plant below is what found it: nothing it did could
+ * make the assertion fail. A collision test can fail, and fails on exactly the input
+ * the old hand-carried step existed to avoid.
+ */
+export function placeholderCollision(root: string, n: number): string | null {
+  const hit = frozenFilesIn(root).find((f) => f.startsWith(`${pad(n)}_`));
+  if (hit === undefined) return null;
+  return (
+    `placeholder number ${pad(n)} collides with ${hit}, which ${BOUNDARY} records as FROZEN. ` +
+    'A placeholder at an applied number names applied history, and the contiguous-prefix check ' +
+    'cannot be relied on to notice — whether it does depends on how the real migration is spelled.'
+  );
+}
+
+/** `7` -> `"007"`. The migration corpus is three digits and the sort depends on it. */
+const pad = (n: number): string => String(n).padStart(3, '0');
+
 const report = (v: string[]): string => (v.length === 0 ? '(no findings)' : v.join('\n'));
 
 describe('frozen migrations — applied history is not edited', () => {
@@ -166,16 +232,78 @@ describe('frozen migrations — applied history is not edited', () => {
   test('an UNFROZEN migration is untouched by this guard — it freezes applied history, not the directory', () => {
     withScratch((root) => {
       copyMigrations(root);
-      // The placeholder is the NEXT number after the recorded boundary. It was 017
-      // until 017's hosted apply was recorded (R-2026-09-17-01), and 018 until 018's
-      // was (R-2026-09-22-52, the hosted apply of 2026-09-22) -- at each point a
-      // placeholder of that name became an edit to a frozen file and this leg went
-      // red. Move it again in the change that records 019's apply.
-      place(root, 'database/migrations/019_placeholder.sql', '-- not applied hosted, so not frozen\nselect 1;\n');
-      place(root, 'database/migrations/019_placeholder.down.sql', '-- reversal\nselect 1;\n');
+
+      // DERIVED FROM THE BOUNDARY, NOT CARRIED (R-2026-09-22-53). This number was
+      // hard-coded at 017 until 017's hosted apply, then 018, then 019 -- moved by
+      // hand each time, on an instruction in the runbook's recording step that no
+      // longer exists because this line replaced it.
+      const next = nextUnfrozenNumber(root);
+
+      // AND THE PLACEHOLDER IS CHECKED AGAINST THE FROZEN SET, which is the half
+      // that makes this leg mean anything. THE CONTIGUOUS-PREFIX CHECKER BELOW
+      // CANNOT CATCH A PLACEHOLDER AT A FROZEN NUMBER on its own: it compares the
+      // first N sorted forwards with the frozen list, so a placeholder shifts that
+      // prefix only when it sorts BEFORE the real migration at its own number.
+      //
+      // MEASURED 2026-09-22 against the boundary at 18: 016_placeholder.sql and
+      // 017_placeholder.sql RED, because "p" < "s" in 016_snapshot.sql and
+      // 017_snapshot_schedule.sql; 018_placeholder.sql PASSES, because "c" < "p" in
+      // 018_close_mirror_read_and_push_surfaces.sql. **Whether the old hand-carried
+      // number reddened was an alphabetical accident of what the real migration at
+      // that number happened to be called.** That is why moving it by hand was
+      // unenforced hygiene, and it is what `placeholderCollision` does not depend on.
+      expect(
+        placeholderCollision(root, next),
+        'the derived placeholder number belongs to a frozen migration',
+      ).toBeNull();
+
+      place(root, `database/migrations/${pad(next)}_placeholder.sql`, '-- not applied hosted, so not frozen\nselect 1;\n');
+      place(root, `database/migrations/${pad(next)}_placeholder.down.sql`, '-- reversal\nselect 1;\n');
 
       const v = frozenViolations(root);
-      expect(v, `an unapplied 019 must be free to change. Checker said:\n${report(v)}`).toEqual([]);
+      expect(v, `an unapplied ${pad(next)} must be free to change. Checker said:\n${report(v)}`).toEqual([]);
+    });
+  });
+
+  test('plant — a placeholder at a FROZEN number is rejected', () => {
+    // THE DEMONSTRATED FAILING HALF (R-2026-09-22-53). Pointed at a frozen number,
+    // the leg above goes red BY NAME.
+    //
+    // WHY THE CHECK IS A COLLISION TEST AND NOT ARITHMETIC, because the first
+    // version of it was arithmetic and this plant is what caught that. It asserted
+    // `next > frozenCount`, and since `next` IS `max(frozen) + 1` that is true for
+    // every well-formed boundary -- **a tautology wearing the shape of a guard**,
+    // written into the change that exists to remove an unenforced step. The plant
+    // could not make it fail, which is the plant doing its job.
+    withScratch((root) => {
+      copyMigrations(root);
+      const honest = nextUnfrozenNumber(root);
+      const frozenNumber = honest - 1;
+
+      // CONFIRM THE PLANT NAMES A REALLY FROZEN NUMBER, rather than one that merely
+      // looks like it (test-conventions, 2026-09-21: the plant must reach the path,
+      // not just the bytes).
+      expect(
+        frozenFilesIn(root).some((f) => f.startsWith(`${pad(frozenNumber)}_`)),
+        `${pad(frozenNumber)} is not a frozen number in this tree, so this plant proves nothing`,
+      ).toBe(true);
+
+      const finding = placeholderCollision(root, frozenNumber);
+      expect(finding, 'a placeholder at a frozen number was accepted').not.toBeNull();
+      expect(finding ?? '', 'the refusal does not name the colliding migration').toContain(
+        `${pad(frozenNumber)}_`,
+      );
+      expect(finding ?? '', 'the refusal does not name the boundary file').toContain(BOUNDARY);
+
+      // AND THE CONTRAST THAT IS THE WHOLE FINDING: place that same placeholder and
+      // the contiguous-prefix checker reports NOTHING. If this ever starts failing,
+      // the alphabetical note in the leg above has stopped being true and should be
+      // re-measured rather than deleted.
+      place(root, `database/migrations/${pad(frozenNumber)}_placeholder.sql`, '-- planted\nselect 1;\n');
+      expect(
+        frozenViolations(root),
+        'the contiguous-prefix checker caught this by itself — re-measure the alphabetical note above',
+      ).toEqual([]);
     });
   });
 

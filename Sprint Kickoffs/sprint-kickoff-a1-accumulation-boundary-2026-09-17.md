@@ -340,6 +340,18 @@ no longer serves two meanings from one key; a fresh-database run is green.
 
 ### Bundle 3: The sensors — `/api/health` and `/status`
 
+**SUPERSEDED 2026-09-22 — "Bundle 3" IN THIS SECTION IS NOT BUNDLE 3.** `R-2026-09-22-54 B`
+gives the sensors **their own bundle**, sequenced AFTER the bundle that now carries the
+name — the operator path, whose kickoff is
+`Sprint Kickoffs/sprint-kickoff-bundle3-operator-path-2026-09-22.md` — and BEFORE facility
+one. **The sensor bundle is this section's home**, and remains so until its own kickoff is
+written.
+
+**The tasks below are NOT withdrawn.** They are still the sensor bundle's scope, including
+both logged scope-downs and the unverified Cron Triggers check. What moved is the name and
+the sequence position, nothing else. **Kept as written rather than renamed**, because a
+reader arriving from a 2026-09-17 citation needs to find the text that citation meant.
+
 **Why bundled together:** both are Pages Functions on the host Bundle 1 stands up,
 both read `app.system_heartbeat`, and both exist to answer one question — is the
 scheduler alive. Seven enumeration items have been unbuildable for want of this host

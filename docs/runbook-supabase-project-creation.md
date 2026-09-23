@@ -1300,7 +1300,7 @@ curl -sS https://openbed.ng/version.json
 PASS: `HTTP/2 200`, `content-type: application/json; charset=utf-8`, and
 `/version.json` quoted in the report. **Stop condition:** anything else — in
 particular a body beginning `{"error":`. **018 must be invisible from the outside;
-that is the claim.** *Failing half: step 6 of the Pages runbook carries its own, and
+that is the claim.** *Failing half: section 6 of the Pages runbook carries its own, and
 the `x-openbed-edge-cache` marker gives a second value on demand.*
 
 - [x] 018 read-back taken and pasted, 2026-09-22, founder's run on `klrlpxysjsjpdkeqdhvl` (R-2026-09-22-52). **Item 1:** `can_select` is `f` on all six rows — `anon` and `authenticated` × the three mirrors. **Item 2:** `snapshot_rows_visible_to_service_role` is `1440`, and the `anon` probe failed with `ERROR: permission denied for table snapshot_current`, the `rollback` running after it as designed. **Item 3:** `openbed_refresh_lga_rollup` 3 succeeded / 0 failed / 0 in flight, last start `2026-09-22 05:55:00.038948+00`; `openbed_regenerate_snapshot` 16 succeeded / 0 failed / 0 in flight, last start `2026-09-22 05:56:00.010272+00` — **so the SECURITY DEFINER premise 018 was written on is confirmed LIVE, not argued.** **Item 4:** `/beds.json` `HTTP/2 200`, `content-type: application/json; charset=utf-8`, `x-openbed-edge-cache: miss`, `cf-ray … -CDG`; `/version.json` commit `76fe917933df113626dffacac585ed0e3f7bf3b4`, `dirty false` — **018 is invisible from the outside, which is the claim.**
@@ -1314,32 +1314,30 @@ the boundary so far: `node scripts/freeze_applied_migrations.mjs 16 2026-09-16 R
 (001-017) and `node scripts/freeze_applied_migrations.mjs 18 2026-09-22 R-2026-09-22-52`
 (001-018).
 
-**In the same change, move the placeholder** in
-`tests/compliance/frozen_migrations.test.ts`'s unfrozen-migration test to the next
-number, so its name and its docstring keep saying something true.
-
-> **AND KNOW WHAT DOES NOT ENFORCE THAT, because this instruction claimed a
-> mechanism that stopped reaching on the day it was last carried out**
-> (R-2026-09-22-52, Clause 5). Until 2026-09-22 this paragraph read: *"A
-> placeholder named after the migration just recorded is an edit to a frozen file,
-> and the test reds (observed 2026-09-17, when 017 was recorded)."* **That was true
-> on 2026-09-17 and false from the moment it was acted on.** The red seen that day
-> was `frozen migration 017_snapshot_schedule.sql CHANGED`, and it fired because
-> the placeholder was then literally named `017_snapshot_schedule.sql` — the
-> scratch copy of a real, frozen migration, overwritten. The fix renamed it to the
-> distinct `NNN_placeholder.sql` form, which no real migration can collide with,
-> and **that same fix removed the mechanism this sentence cites.**
+> **THERE IS NO PLACEHOLDER TO MOVE, AND THERE USED TO BE — removed 2026-09-22 by
+> R-2026-09-22-53.** Until then this step said: *"In the same change, move the
+> placeholder in `tests/compliance/frozen_migrations.test.ts`'s unfrozen-migration
+> test to the next number."* **That leg now DERIVES its number from
+> `database/migrations/applied-hosted.json`**, so recording a boundary moves it by
+> definition and there is nothing left to carry.
 >
-> MEASURED 2026-09-22, three runs against the boundary at 18: a placeholder left at
-> `018_placeholder.sql` passes 7 of 7; `018_aaa_placeholder.sql` reds on the
-> contiguous-prefix leg (it sorts BEFORE the real 018 file, `a` < `c`); a
-> placeholder named `018_close_mirror_read_and_push_surfaces.sql` reds with
-> `CHANGED`, reproducing 2026-09-17 exactly. **So the move is now hygiene — it
-> keeps a docstring honest — and nothing will catch it being skipped.** Recorded
-> as an open item rather than fixed here: the root fix is for that leg to DERIVE
-> its placeholder number from `database/migrations/applied-hosted.json` instead of
-> hard-coding one, which retires this instruction altogether. **Trigger: the
-> founder's word, or the next apply, whichever comes first.**
+> **Why it went rather than being guarded, because the reason is the interesting
+> part** (R-2026-09-22-52 B2, Clause 5). The instruction used to justify itself:
+> *"A placeholder named after the migration just recorded is an edit to a frozen
+> file, and the test reds (observed 2026-09-17, when 017 was recorded)."* **True on
+> 2026-09-17 and false from the moment it was acted on** — the red that day was
+> `frozen migration 017_snapshot_schedule.sql CHANGED`, and it fired because the
+> placeholder was then literally named after a real frozen migration. The fix that
+> day renamed it to the distinct `NNN_placeholder.sql` form, **and that same rename
+> removed the mechanism the sentence cited.**
+>
+> MEASURED 2026-09-22 against the boundary at 18: a placeholder left at
+> `018_placeholder.sql` passed 7 of 7; `016_placeholder.sql` and
+> `017_placeholder.sql` red; `018_close_mirror_read_and_push_surfaces.sql` reds with
+> `CHANGED`. **Whether a stale placeholder reddened was an alphabetical accident** —
+> the prefix check only notices one that sorts BEFORE the real migration at its own
+> number, and `c` < `p` < `s`. So the hand-carried step was unenforced from
+> 2026-09-17 onward, and nothing would have reported it being skipped.
 
 ```bash
 node scripts/freeze_applied_migrations.mjs 19 YYYY-MM-DD R-YYYY-MM-DD-NN
@@ -1740,6 +1738,77 @@ rather than implied by step 8:
   `facility`, `facility_contact`, `facility_ops`, `invite`,
   `notification_outbox`, `referral`, `schema_migrations`, `system_heartbeat`,
   `ward_account`, `ward_alert_state`, `ward_status`, `ward_status_event`. 16 rows.
+
+### The WIDENED grant sweep — run once when Bundle 3 lands (R-2026-09-22-57 A2)
+
+**Why it widens.** The 2026-09-13 reading above covers **one role and one
+privilege**: `anon` × `SELECT`. The local test it is the hosted counterpart of —
+*"no client role holds any grant on any table in app"* in
+`tests/db/rls_enabled_everywhere.test.ts` — covers **three grantees × every
+privilege type × every table**. The hosted half has been the narrower of the two
+since it was written, and **PR 3.4 adds the first functions executable by
+`authenticated` since migration 014**, which is the change that makes the gap
+matter rather than merely exist.
+
+**Run it once, after Bundle 3's last pull request has merged and been applied.**
+It is a hand check because nothing in the repository can reach the hosted
+catalogue; that is a design constraint and not a defect (test-conventions §4).
+
+**BOTH HALVES ARE RUN IN THE SAME SITTING, and the failing half FIRST.** A sweep
+that can only ever return zero rows proves nothing, and "zero rows" is exactly what
+a broken query returns. Do not record the result of the second block without the
+output of the first.
+
+**Half 1 — the failing half. It must return a row.**
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+BEGIN;
+GRANT SELECT ON app.facility TO anon;
+SELECT grantee, table_name, privilege_type
+  FROM information_schema.table_privileges
+ WHERE table_schema = 'app'
+   AND grantee IN ('anon', 'authenticated', 'PUBLIC')
+ ORDER BY grantee, table_name, privilege_type;
+ROLLBACK;
+SQL
+```
+
+Expect **exactly one row**: `anon | facility | SELECT`. The `ROLLBACK` is what
+removes the grant — the transaction never commits, so nothing is left behind even
+if the block is interrupted. **If this returns no rows, the query is broken and
+half 2 means nothing.**
+
+**Half 2 — the real sweep. It must return no rows, and must count 16 tables.**
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+SELECT grantee, table_name, privilege_type
+  FROM information_schema.table_privileges
+ WHERE table_schema = 'app'
+   AND grantee IN ('anon', 'authenticated', 'PUBLIC')
+ ORDER BY grantee, table_name, privilege_type;
+
+SELECT count(*) AS app_tables_enumerated
+  FROM information_schema.tables
+ WHERE table_schema = 'app' AND table_type = 'BASE TABLE';
+SQL
+```
+
+**The second query is the anti-vacuity half and it is not optional.** An empty
+grant result is the same output whether the schema holds 16 tables with no grants
+or holds none at all — a schema that had been renamed would report a clean
+boundary. It must print **16**, matching the enumeration recorded above and the
+count the local test pins.
+
+**The tables are enumerated FROM THE CATALOGUE, never from the list above.** A
+literal list here would go stale the moment a migration adds a table, and would go
+stale silently, in the direction that reports clean.
+
+**Record the result under this heading with the date and the project ref**, in the
+same shape as the 2026-09-13 reading: both halves' output, not a summary of them.
 
 ---
 
@@ -2359,6 +2428,12 @@ is the same exists-then-compare shape as the two queries above. The
         tree.** The only `VITE_` names in application code are two **reads** of
         public values in `apps/ward-console/src/main.ts`
         (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`).
+        - **SUPERSEDED 2026-09-22 — it is ONE read now, not two**
+          (R-2026-09-22-59). `VITE_SUPABASE_URL` is gone: the origin is tracked
+          configuration in `packages/origins/origins.json`. The reading above is
+          left as it was taken, because a dated observation is not rewritten to
+          match a later state; **the conclusion it supports is unchanged and
+          strengthened** — one fewer public value is carried in an untracked file.
       - **Every `service_role` string in the repository is a name, never a key
         value.** It is the Postgres role name in SQL and test code, and otherwise
         the filename of `scripts/lint_no_service_role_in_bundle.sh` where other

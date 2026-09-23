@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from 'vitest';
 import { sql } from '../setup/db.js';
 import { apiUrl, anonKey, serviceRoleKey } from '../setup/local-keys.js';
+import { PRODUCTION_SUPABASE_ORIGIN } from '@openbed/origins';
 import SHAPE from '../../packages/fixtures/snapshot-shape.json';
 import FORBIDDEN from '../../packages/fixtures/forbidden-columns.json';
 import { decodeFacility, decodeWard } from '../../packages/snapshot/src/codec.js';
@@ -55,7 +56,20 @@ beforeAll(async () => {
   await sql().unsafe('select app.regenerate_snapshot()');
 });
 
-const serviceEnv = (): BedsEnv => ({ SUPABASE_URL: apiUrl(), SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey() });
+/**
+ * The Function's environment: ONE name since R-2026-09-22-59 B3. The origin is no
+ * longer environment at all -- it is the first argument, and `localOrigin()` below
+ * is what these legs pass for it.
+ */
+const serviceEnv = (): BedsEnv => ({ SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey() });
+
+/**
+ * The origin these legs address, and it must stay LOCAL.
+ *
+ * Derived from apiUrl() rather than written out, so the one place this suite
+ * decides where the local stack is stays one place.
+ */
+const localOrigin = (): string => apiUrl();
 
 /** A fetch that answers from a script, recording every call. */
 function scripted(steps: Array<() => Promise<Response>>): {
@@ -95,7 +109,7 @@ async function newestRow(): Promise<{ v: number; payload: unknown }> {
 describe('GET /beds.json — the served document', () => {
   test('the Function serves the newest snapshot, as service_role, with the edge cache headers', async () => {
     const stored = await newestRow();
-    const res = await serveBeds(serviceEnv());
+    const res = await serveBeds(localOrigin(), serviceEnv());
     const body = (await res.json()) as Record<string, unknown>;
 
     expect(res.status, `the Function did not serve the snapshot: ${JSON.stringify(body)}`).toBe(200);
@@ -110,24 +124,24 @@ describe('GET /beds.json — the served document', () => {
     // politely over months, this document IS the time series the design forbids
     // (R-2026-09-20-29 F). Asserted against the literal, not against the constant:
     // asserting it equals the constant would pass whatever the constant became.
-    const res = await serveBeds(serviceEnv());
+    const res = await serveBeds(localOrigin(), serviceEnv());
     expect(res.status).toBe(200);
     expect(res.headers.get('x-robots-tag'), 'the served document invites archiving').toBe('noindex, nofollow');
   });
 
   test('a FAILURE response carries it too — an error page is still a page a crawler can keep', async () => {
-    const res = await serveBeds({ SUPABASE_URL: apiUrl(), SUPABASE_SERVICE_ROLE_KEY: anonKey() });
+    const res = await serveBeds(localOrigin(), { SUPABASE_SERVICE_ROLE_KEY: anonKey() });
     expect(res.status).toBe(502);
     expect(res.headers.get('x-robots-tag')).toBe('noindex, nofollow');
   });
 
   test('the served envelope equals the fixture envelope exactly, as a set of names', async () => {
-    const body = (await (await serveBeds(serviceEnv())).json()) as Record<string, unknown>;
+    const body = (await (await serveBeds(localOrigin(), serviceEnv())).json()) as Record<string, unknown>;
     expect(Object.keys(body).sort()).toEqual([...SHAPE.envelope].sort());
   });
 
   test('every served row decodes to exactly the fixture columns, and none of them is forbidden', async () => {
-    const body = (await (await serveBeds(serviceEnv())).json()) as { wards: unknown[][]; facilities: unknown[][] };
+    const body = (await (await serveBeds(localOrigin(), serviceEnv())).json()) as { wards: unknown[][]; facilities: unknown[][] };
     expect(body.wards.length, 'the served document carries no ward rows -- nothing was asserted').toBeGreaterThan(0);
     expect(body.facilities.length, 'the served document carries no facility rows -- nothing was asserted').toBeGreaterThan(0);
 
@@ -149,7 +163,7 @@ describe('GET /beds.json — the served document', () => {
     // The Function's credential is not decorative: snapshot_current is
     // service_role-only (migration 016). With the anon key the origin refuses,
     // and the Function says so rather than serving an empty document.
-    const res = await serveBeds({ SUPABASE_URL: apiUrl(), SUPABASE_SERVICE_ROLE_KEY: anonKey() });
+    const res = await serveBeds(localOrigin(), { SUPABASE_SERVICE_ROLE_KEY: anonKey() });
     const body = (await res.json()) as { error?: string };
     expect(res.status, `the Function served with the anon key: ${JSON.stringify(body)}`).toBe(502);
     expect(body.error).toMatch(/refused the service-role credential|rejected the snapshot read/);
@@ -245,7 +259,29 @@ describe('GET /beds.json — the explicit edge cache', () => {
     };
   }
 
-  const request = (method = 'GET'): Request => new Request('https://openbed.example/beds.json', { method });
+  /**
+   * THE REQUEST THESE LEGS ARE SERVED, AND ITS HOST IS LOAD-BEARING (R-2026-09-22-59 E).
+   *
+   * It used to be `https://openbed.example/beds.json`, an unroutable example host,
+   * which was harmless while the Function's upstream origin came from the `env`
+   * object these tests construct. **It stops being harmless the moment the origin
+   * is selected from this URL's hostname.** Two legs below —
+   * *"with no cache available the Function still serves"* and *"no cache in this
+   * environment is marked `unavailable`"* — pass no stubbed fetch, so they use the
+   * real global one. With a non-local host they would address the LIVE hosted
+   * project, authenticating with the local demo service-role key, and both would
+   * still assert a 200 and a header. **Nothing in the suite would have said so.**
+   *
+   * So the host is local, and the tracked-origins guard asserts that by reading
+   * THIS line rather than restating it. That guard is named here WITHOUT backticks
+   * because it does not exist yet: a backticked path to an unbuilt file is the
+   * Clause 4 phantom, and citing one from an executable artefact is refused even
+   * when it is registered as planned. It arrives two commits from here. Changed here, in its own
+   * commit, BEFORE the origin moved — the window in which this is wrong is a window
+   * in which the tests still pass.
+   */
+  const REQUEST_URL = 'http://127.0.0.1:8788/beds.json';
+  const request = (method = 'GET'): Request => new Request(REQUEST_URL, { method });
 
   /**
    * Capture console.error for a leg. The degradation R-2026-09-20-33 B5 describes
@@ -308,7 +344,7 @@ describe('GET /beds.json — the explicit edge cache', () => {
     const origin = scripted([async () => json(200, [stored])]);
     await serveBedsCached({ env: serviceEnv(), request: request('HEAD') }, cache, origin.fetchImpl);
     expect(cache.keys, 'a non-GET key reached cache.put, which the Cache API refuses').toEqual([
-      'GET https://openbed.example/beds.json',
+      `GET ${REQUEST_URL}`,
     ]);
   });
 
@@ -681,7 +717,7 @@ describe('GET /beds.json — what is refused rather than served', () => {
     const stored = await newestRow();
     const doctored = { ...(stored.payload as Record<string, unknown>), reason_codes: [] };
     const { fetchImpl } = scripted([async () => json(200, [{ v: stored.v, payload: doctored }])]);
-    const res = await serveBeds(serviceEnv(), fetchImpl);
+    const res = await serveBeds(localOrigin(), serviceEnv(), fetchImpl);
     const body = (await res.json()) as { error?: string };
     expect(res.status, `a malformed document was served: ${JSON.stringify(body)}`).toBe(502);
     expect(body.error).toContain('envelope');
@@ -693,7 +729,7 @@ describe('GET /beds.json — what is refused rather than served', () => {
     const payload = stored.payload as { wards: unknown[][] };
     const wards = payload.wards.map((r, i) => (i === 0 ? [...r, 'LEAKED'] : r));
     const { fetchImpl } = scripted([async () => json(200, [{ v: stored.v, payload: { ...payload, wards } }])]);
-    const res = await serveBeds(serviceEnv(), fetchImpl);
+    const res = await serveBeds(localOrigin(), serviceEnv(), fetchImpl);
     const body = (await res.json()) as { error?: string };
     expect(res.status, `a row of the wrong arity was served: ${JSON.stringify(body)}`).toBe(502);
     expect(body.error).toContain('wardColumns');
@@ -706,13 +742,13 @@ describe('GET /beds.json — what is refused rather than served', () => {
 
   test('no snapshot row yet is 503 and uncacheable, not an empty document', async () => {
     const { fetchImpl } = scripted([async () => json(200, [])]);
-    const res = await serveBeds(serviceEnv(), fetchImpl);
+    const res = await serveBeds(localOrigin(), serviceEnv(), fetchImpl);
     expect(res.status).toBe(503);
     expect(res.headers.get('cache-control')).toBe('no-store');
   });
 
   test('a missing credential is 500, names the variable, and never echoes a value', async () => {
-    const res = await serveBeds({ SUPABASE_URL: apiUrl() });
+    const res = await serveBeds(localOrigin(), {});
     const text = await res.text();
     expect(res.status).toBe(500);
     expect(text).toContain('SUPABASE_SERVICE_ROLE_KEY is not set');
@@ -721,7 +757,7 @@ describe('GET /beds.json — what is refused rather than served', () => {
   test('an error response never contains the credential it was given', async () => {
     const secret = 'plant-credential-value-that-must-not-echo';
     const { fetchImpl } = scripted([async () => json(401, { message: 'no' })]);
-    const res = await serveBeds({ SUPABASE_URL: apiUrl(), SUPABASE_SERVICE_ROLE_KEY: secret }, fetchImpl);
+    const res = await serveBeds(localOrigin(), { SUPABASE_SERVICE_ROLE_KEY: secret }, fetchImpl);
     const text = await res.text();
     expect(res.status).toBe(502);
     expect(text, 'the credential value was echoed in an error body').not.toContain(secret);
@@ -754,7 +790,7 @@ describe('GET /beds.json — what is refused rather than served', () => {
     // to every anonymous reader, which is why the catch-all is generic by design.
     const originText = 'PLANTED-UPSTREAM-TEXT-THAT-MUST-NOT-ECHO <html>not json</html>';
     const { fetchImpl } = scripted([async () => new Response(originText, { status: 200, headers: { 'content-type': 'application/json' } })]);
-    const res = await serveBeds(serviceEnv(), fetchImpl, { attempts: 1 });
+    const res = await serveBeds(localOrigin(), serviceEnv(), fetchImpl, { attempts: 1 });
     const text = await res.text();
     expect(res.status, `an unparseable upstream body was served: ${text}`).toBe(502);
     expect(text, 'the refusal quoted the upstream text it could not parse').not.toContain('PLANTED-UPSTREAM-TEXT-THAT-MUST-NOT-ECHO');
@@ -767,42 +803,79 @@ describe('GET /beds.json — what is refused rather than served', () => {
         throw new Error('connect ECONNREFUSED PLANTED-HOST-THAT-MUST-NOT-ECHO:5432');
       },
     ]);
-    const res = await serveBeds(serviceEnv(), fetchImpl, { attempts: 1 });
+    const res = await serveBeds(localOrigin(), serviceEnv(), fetchImpl, { attempts: 1 });
     const text = await res.text();
     expect(res.status, `a network failure was not refused: ${text}`).toBe(502);
     expect(text, 'the refusal echoed the thrown message, which named the unreachable host').not.toContain('PLANTED-HOST-THAT-MUST-NOT-ECHO');
     expect(text).toContain('could not reach the origin');
   });
 
-  test('no failure body contains SUPABASE_URL — the one configuration value that carries the project ref', async () => {
+  test('no failure body contains the SUPABASE ORIGIN — the one configuration value that carries the project ref', async () => {
     // The credential probe above covers the KEY and exercises ONE path. This covers
-    // the URL and sweeps every failure status the module can produce, because one
+    // the ORIGIN and sweeps every failure status the module can produce, because one
     // plant proves an instrument and never its coverage.
+    //
+    // THE PROPERTY GOT STRONGER WHEN THE ORIGIN STOPPED BEING CONFIGURATION
+    // (R-2026-09-22-59). It used to be an environment variable, so the consequence
+    // of an echo depended on someone having set one. It is now compiled into every
+    // artefact this project ships, so the consequence is unconditional -- and the
+    // real value is swept alongside the planted one in the leg below this.
     const planted = 'https://planted-project-ref-must-not-echo.supabase.co';
-    const env = { SUPABASE_URL: planted, SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_plant' };
+    const env = { SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_plant' };
     const stored = await newestRow();
     const cases: Array<[string, () => Promise<Response>]> = [
-      ['a missing credential (500)', async () => serveBeds({ SUPABASE_URL: planted })],
-      ['a refused credential (502)', async () => serveBeds(env, scripted([async () => json(401, { message: 'no' })]).fetchImpl, { attempts: 1 })],
-      ['a rejected read (502)', async () => serveBeds(env, scripted([async () => json(400, { message: 'bad' })]).fetchImpl, { attempts: 1 })],
-      ['an origin 5xx (502)', async () => serveBeds(env, scripted([async () => json(503, { message: 'busy' })]).fetchImpl, { attempts: 1 })],
-      ['no snapshot row (503)', async () => serveBeds(env, scripted([async () => json(200, [])]).fetchImpl, { attempts: 1 })],
+      ['a missing credential (500)', async () => serveBeds(planted, {})],
+      ['a refused credential (502)', async () => serveBeds(planted, env, scripted([async () => json(401, { message: 'no' })]).fetchImpl, { attempts: 1 })],
+      ['a rejected read (502)', async () => serveBeds(planted, env, scripted([async () => json(400, { message: 'bad' })]).fetchImpl, { attempts: 1 })],
+      ['an origin 5xx (502)', async () => serveBeds(planted, env, scripted([async () => json(503, { message: 'busy' })]).fetchImpl, { attempts: 1 })],
+      ['no snapshot row (503)', async () => serveBeds(planted, env, scripted([async () => json(200, [])]).fetchImpl, { attempts: 1 })],
       [
         'a wrong envelope (502)',
         async () =>
           serveBeds(
+            planted,
             env,
             scripted([async () => json(200, [{ v: stored.v, payload: { ...(stored.payload as Record<string, unknown>), reason_codes: [] } }])]).fetchImpl,
             { attempts: 1 },
           ),
       ],
-      ['an unreachable origin (502)', async () => serveBeds(env, scripted([async () => { throw new Error('down'); }]).fetchImpl, { attempts: 1 })],
+      ['an unreachable origin (502)', async () => serveBeds(planted, env, scripted([async () => { throw new Error('down'); }]).fetchImpl, { attempts: 1 })],
     ];
     for (const [label, run] of cases) {
       const res = await run();
       const text = await res.text();
       expect(res.status, `${label} was not a failure: ${text}`).toBeGreaterThanOrEqual(500);
-      expect(text, `${label} echoed SUPABASE_URL into a public error body`).not.toContain('planted-project-ref-must-not-echo');
+      expect(text, `${label} echoed the Supabase origin into a public error body`).not.toContain('planted-project-ref-must-not-echo');
+    }
+  });
+
+  test('no failure body contains the REAL project ref either — the value that actually ships', async () => {
+    // THE LEG THE OLD SWEEP COULD NOT EXPRESS, and it is not a duplicate of the one
+    // above. A PLANTED origin proves the instrument: that the module does not echo
+    // whatever origin it was handed. It cannot prove anything about the value that
+    // is compiled into the deployed artefact, because the planted one never is.
+    //
+    // Since R-2026-09-22-59 the real origin is a tracked constant rather than an
+    // environment variable, so it CAN be swept here -- and it is the one whose echo
+    // would put this project's ref in front of every anonymous reader.
+    const ref = new URL(PRODUCTION_SUPABASE_ORIGIN).hostname.split('.')[0] ?? '';
+    // ANTI-VACUITY: `.not.toContain('')` is satisfied by nothing at all, so a ref
+    // that failed to parse would make every assertion below pass for free.
+    expect(ref.length, 'the project ref did not parse out of the tracked origin — the sweep below is vacuous').toBeGreaterThan(10);
+
+    const env = { SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_plant' };
+    const cases: Array<[string, () => Promise<Response>]> = [
+      ['a missing credential (500)', async () => serveBeds(PRODUCTION_SUPABASE_ORIGIN, {})],
+      ['a refused credential (502)', async () => serveBeds(PRODUCTION_SUPABASE_ORIGIN, env, scripted([async () => json(401, { message: 'no' })]).fetchImpl, { attempts: 1 })],
+      ['a rejected read (502)', async () => serveBeds(PRODUCTION_SUPABASE_ORIGIN, env, scripted([async () => json(400, { message: 'bad' })]).fetchImpl, { attempts: 1 })],
+      ['no snapshot row (503)', async () => serveBeds(PRODUCTION_SUPABASE_ORIGIN, env, scripted([async () => json(200, [])]).fetchImpl, { attempts: 1 })],
+      ['an unreachable origin (502)', async () => serveBeds(PRODUCTION_SUPABASE_ORIGIN, env, scripted([async () => { throw new Error('down'); }]).fetchImpl, { attempts: 1 })],
+    ];
+    for (const [label, run] of cases) {
+      const res = await run();
+      const text = await res.text();
+      expect(res.status, `${label} was not a failure: ${text}`).toBeGreaterThanOrEqual(500);
+      expect(text, `${label} echoed this project's ref into a public error body`).not.toContain(ref);
     }
   });
 
@@ -812,14 +885,14 @@ describe('GET /beds.json — what is refused rather than served', () => {
       async () => json(503, { message: 'upstream busy' }),
       async () => json(200, [stored]),
     ]);
-    const res = await serveBeds(serviceEnv(), fetchImpl);
+    const res = await serveBeds(localOrigin(), serviceEnv(), fetchImpl);
     expect(res.status).toBe(200);
     expect(calls(), 'the 5xx was not retried').toBe(2);
   });
 
   test('a 4xx from the origin is NOT retried — a refused credential does not start working', async () => {
     const { fetchImpl, calls } = scripted([async () => json(400, { message: 'bad request' })]);
-    const res = await serveBeds(serviceEnv(), fetchImpl);
+    const res = await serveBeds(localOrigin(), serviceEnv(), fetchImpl);
     expect(res.status).toBe(502);
     expect(calls(), 'a 4xx was retried').toBe(1);
   });
@@ -835,7 +908,7 @@ describe('GET /beds.json — what is refused rather than served', () => {
         init?.signal?.addEventListener('abort', () => reject(init.signal?.reason));
       });
     };
-    const res = await serveBeds(serviceEnv(), neverAnswers, { timeoutMs: 50, attempts: 2 });
+    const res = await serveBeds(localOrigin(), serviceEnv(), neverAnswers, { timeoutMs: 50, attempts: 2 });
     const body = (await res.json()) as { error?: string };
     expect(res.status, `a hung origin was not timed out: ${JSON.stringify(body)}`).toBe(504);
     expect(calls, 'the timeout was retried an unbounded or zero number of times').toBe(2);

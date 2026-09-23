@@ -18,12 +18,30 @@
 # third-party version, and patterns chosen for the credentials THIS project
 # actually handles. Adding gitleaks later is complementary, not a replacement.
 #
-# THE ONE ALLOWED EXCEPTION is tests/setup/local-keys.ts, which holds the
-# well-known local Supabase demo keys. Every `supabase start` on every machine
-# mints exactly those, from a published JWT secret, and they authenticate against
-# 127.0.0.1 and nothing else. Having the real anon key checked in is what lets the
-# RLS negative suite make a genuine anonymous HTTP request rather than a
-# hand-forged one that proves less.
+# THE ALLOWED EXCEPTIONS ARE TWO FILES, EACH NAMED WITH THE KINDS IT MAY HOLD
+# (R-2026-09-22-61 B2). This is NOT a general widening: the list is by named file
+# and named pattern, and tests/compliance/no_secrets.test.ts pins it by identity so
+# a third entry is a visible act with someone's name on it.
+#
+#   tests/setup/local-keys.ts       JWT, Supabase secret key, Postgres URL
+#     The well-known local Supabase demo keys. Every `supabase start` on every
+#     machine mints exactly those, from a published JWT secret, and they
+#     authenticate against 127.0.0.1 and nothing else. Having the real anon key
+#     checked in is what lets the RLS negative suite make a genuine anonymous HTTP
+#     request rather than a hand-forged one that proves less. It is the only entry
+#     permitted the SERVICE-ROLE shapes, because it is the only one no browser
+#     bundle imports.
+#
+#   packages/origins/publishable-keys.json     JWT ONLY
+#     The publishable client key, tracked under R-2026-09-22-61 A1 on the basis
+#     that it SHIPS IN EVERY CLIENT BUNDLE BY DESIGN -- the repository holding it
+#     exposes nothing new, and tracking it is what makes the stamped commit fully
+#     determine the built bundle. Its JWT is the same local demo anon key, which
+#     lives there rather than in local-keys.ts because the ward console needs it
+#     too and one value may have only one site.
+#     **'Supabase secret key' is deliberately NOT allowed for it.** A file browser
+#     code imports must never be permitted a secret shape, so an `sb_secret_` value
+#     pasted there is refused by this scan as well as by its own guard.
 #
 # THE SURFACE THIS COVERS, AND WHAT IT DOES NOT (method note 12).
 #   COVERS: files in the tree that can reach the PUBLIC REPOSITORY, two ways.
@@ -86,7 +104,11 @@
 set -euo pipefail
 ROOT="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
 
-ALLOWED_PATH='tests/setup/local-keys.ts'
+# Each entry is PATH|PATTERN[,PATTERN...] -- see the header for the basis of each.
+ALLOWED=(
+    'tests/setup/local-keys.ts|JWT,Supabase secret key,Postgres URL with password'
+    'packages/origins/publishable-keys.json|JWT'
+)
 
 FILES=()
 while IFS= read -r _line; do FILES+=("$_line"); done < <(
@@ -156,10 +178,18 @@ for f in "${FILES[@]}"; do
 
         [ -z "$out" ] && continue
 
-        # The single allowlisted file, and only for the local-demo JWT pattern.
-        if [ "$rel" = "$ALLOWED_PATH" ] && { [ "$name" = 'JWT' ] || [ "$name" = 'Supabase secret key' ] || [ "$name" = 'Postgres URL with password' ]; }; then
-            continue
-        fi
+        # The allowlisted files, each only for the patterns named beside it. A `case`
+        # rather than a grep: it forks nothing and cannot fail to run, so an
+        # exemption can never be granted by a check that did not execute.
+        _exempt=0
+        for _entry in "${ALLOWED[@]}"; do
+            _path="${_entry%%|*}"
+            [ "$rel" = "$_path" ] || continue
+            case ",${_entry#*|}," in
+                *",$name,"*) _exempt=1 ;;
+            esac
+        done
+        [ "$_exempt" = 1 ] && continue
 
         echo "FAIL: committed secret matched in $rel — pattern: $name"
         echo "$out" | cut -c1-120 | sed 's/^/  /'

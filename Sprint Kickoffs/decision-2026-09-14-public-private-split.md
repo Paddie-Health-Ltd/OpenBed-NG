@@ -2625,6 +2625,562 @@ MEASURED 2026-09-22, three runs against the boundary at 18, because an absence i
 
 **F — the queue.** Merge on the founder's word. **Nothing is owed founder-side** — the apply is done and recorded. The next migration is 019, whenever there is one, and step 5 now expects `0 migration(s) pending.` until there is.
 
+---
+
+### R-2026-09-22-53 — the placeholder derives; a hand-carried step removed rather than guarded
+
+_Issued as R-PROVISIONAL-2026-09-22-AE. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-52. **Record-only under R-46: committed and pushed to a holding branch, no pull request; it rebases onto the Bundle 3 change when that opens.**_
+
+**A — THE RULING, AND ITS PREMISES CHECKED FIRST** (method note 17). Two of three hold.
+
+| premise | verdict |
+|---|---|
+| the instruction cites a collision removed by the 2026-09-17 rename | **HOLDS** — measured in #63, recorded at `-52 B2` |
+| a stale `018_placeholder.sql` passes 7 of 7 | **HOLDS** |
+| *"point the derivation at a frozen number, and the leg must go red by name"* | **DID NOT HOLD against the checker as it stood** — see B |
+
+**B — THE DEMONSTRATION COULD NOT BE MET AS SPECIFIED, and the reason is the finding.** Whether a placeholder at a frozen number reds is **an alphabetical accident of the real migration's name at that number**, because the contiguous-prefix check only notices a placeholder that sorts BEFORE it. MEASURED 2026-09-22 against the boundary at 18:
+
+| pointed at | placeholder | result |
+|---|---|---|
+| 16 | `016_placeholder.sql` | **RED** — `p` < `s` in `016_snapshot.sql` |
+| 17 | `017_placeholder.sql` | **RED** — `p` < `s` in `017_snapshot_schedule.sql` |
+| **18, today's boundary** | `018_placeholder.sql` | **PASSES** — `c` < `p` in `018_close_mirror_…` |
+
+Aiming the plant at 17 would have satisfied the ruling's letter **by luck** and left its subject unguarded. So the leg gained a check of its own — `placeholderCollision` — which asks whether the number belongs to any frozen file and does not depend on spelling. That is what makes the failing half real.
+
+**B2 — AND THE FIRST VERSION OF THAT CHECK WAS A TAUTOLOGY, found by its own plant.** It asserted the derived number exceeded the frozen COUNT. The derivation returns `max(frozen) + 1`, so for any well-formed boundary that is true by construction: **a guard that cannot fail, written into the change whose whole subject is a step that could not fail.** Nothing the plant did could red it, which is the plant doing precisely its job. Replaced by the collision test, and the episode is recorded here rather than quietly fixed, because *"assert on parsed identity, never on a count"* (test-conventions §3) is the same lesson one level up.
+
+**C — FINDING 2, AND IT IS MINE.** The docstring #63 put on that leg read *"at each point a placeholder of that name became an edit to a frozen file and this leg went red."* **True for 017, false for 018** — written into the fix by the same pull request that measured it false, three files away from the correction. `-51 A2`'s shape a third time. Corrected.
+
+**D — WHAT SHIPPED.**
+- `tests/compliance/frozen_migrations.test.ts`: `nextUnfrozenNumber(root)` derives the number from the boundary **in the tree it is given** — not `REPO_ROOT`, so a plant that edits the boundary moves the derivation — and **refuses rather than defaulting** when it cannot read one.
+- `placeholderCollision(root, n)` is the check; the unfrozen-migration leg calls it before placing anything.
+- A new leg, `plant — a placeholder at a FROZEN number is rejected`, carries the failing half, confirms the plant names a genuinely frozen number first, and **asserts the contrast**: the same placeholder placed on disk produces NO finding from the prefix checker. If that assertion ever reds, the alphabetical note has stopped being true and is re-measured rather than deleted.
+- The runbook's *"In the same change, move the placeholder"* instruction is **removed**, with a history note saying what it said, that the leg derives now, and why the mechanism it cited had stopped reaching.
+
+**D2 — DEMONSTRATED BOTH WAYS, quoted in the report.** Pointing the derivation at a frozen number (`max` instead of `max + 1`) reds the leg by name: *"the derived placeholder number belongs to a frozen migration: placeholder number 018 collides with 018_close_mirror_read_and_push_surfaces.sql, which database/migrations/applied-hosted.json records as FROZEN."* Neutering `placeholderCollision` to return null reds the plant: *"a placeholder at a frozen number was accepted."* Restored, 8 of 8.
+
+**E — THE BUNDLE 3 RECONCILIATION the founder ordered, REPORT ONLY; nothing is resolved here.**
+
+**E1 — RULING Z IS AUTHORITATIVE over the A1 kickoff.** `-40 H` re-points the name: *"T is amended narrowly to admit Bundle 3 (**the operator path to facility one**) once the infrastructure review has run; the review now gates Bundle 3, not only facility one. **Bundle 3's own kickoff is Cowork's, written after that review.**"* Z is later than the kickoff, it is in the record, and `-42 F` and `-48 F` repeat its queue unchanged. **The A1 kickoff's §Bundle 3, "The sensors — `/api/health` and `/status`", is superseded as the definition and is not marked as such.**
+
+**E2 — BUT THE SCOPE ATTRIBUTED TO Z IS NOT IN Z.** `docs/handoff-2026-09-21-gate-lifted-018-in-flight.md:42` states Bundle 3's scope as four items *"fixed by Z"*. **The recorded ruling Z enumerates none of them**; `-40 H` says only *"Z's other parts are recorded as SCOPE, not as work"* and *"Nothing in C, D, E or F of Z is started here"* — the provisional letter's parts, whose text never reached the record. **So the scope binding the next bundle lives in a handoff, attributed to a ruling that does not carry it.** That is the exact shape `-40 A1` was written about: a gate paraphrased from a handoff. Three of the four items are independently traceable in the record; **`admin.openbed.ng` is not — it appears nowhere else in this repository.**
+
+**E3 — `/api/health` AND `/status` ARE UNSCHEDULED, and no ruling made them so.** They do not exist in code (`apps/public-dashboard/functions/` holds `beds.json.ts` and nothing else). They are named in the A1 kickoff, in the v1 enumeration and in three handoffs, and in **none** of the four scope items. They were displaced when the name "Bundle 3" was re-pointed, and nothing records where they went. The kickoff states the cost itself: *"seven enumeration items have been unbuildable for want of this host and they close together or not at all."* **Those seven now have no carrier.**
+
+**E4 — OPEN, FOR THE FOUNDER.** Which scope binds Bundle 3, and where the sensors go. Not decided here. **Trigger: the Bundle 3 kickoff, which is written after the infrastructure review.**
+
+**F — NOT VERIFIED BY ME.** The Cowork handoff document for 2026-09-22 — named docs/handoff-2026-09-22-boundary-closed-on-hosted.md, **cited without backticks deliberately, because it does not exist here and a backticked path would be the Clause 4 phantom `tests/compliance/no_phantom_paths.test.ts` caught in the first draft of this very clause** — is cited for the infrastructure review gating Bundle 3. **It is not in this repository and its contents were not pasted**, so its item 2 is unread. **The conclusion it is cited for holds independently**, at `-40 H`.
+
+**G — the queue:** unchanged. The infrastructure review; then Bundle 3, which carries this branch and the Cowork handoff document; then facility one; then Bundle 4. **Bundle 3 is not started.**
+---
+
+### R-2026-09-22-54 — Bundle 3's scope ruled; the sensors given a carrier; a stray commit remedied
+
+_Issued as R-PROVISIONAL-2026-09-22-AF. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-53. **Record-only under R-46: committed and pushed to the same holding branch as AE, no pull request; both ride the Bundle 3 carrier.** Resolves `-53 E4`._
+
+**A — BUNDLE 3'S SCOPE, RULED BY THE FOUNDER 2026-09-22.** It is the operator path to facility one (`-40 H`):
+
+1. **Tracked origins for every app** (Finding D).
+2. **A deploy guard and build stamp for every app.**
+3. **`admin.openbed.ng` v1:** operator sign-in; create and edit facilities and categories; ward logins provisioned **server-side** for each category; a facility list showing each category's freshness, **shown to operators only and never used as a filter**.
+4. **The publish-screen fixes.**
+
+**A2 — AND THIS RULING IS NOW THE SOURCE, which is the half that matters.** Until today that scope was sourced **only** from `docs/handoff-2026-09-21-gate-lifted-018-in-flight.md:42`, which attributed it to ruling Z; `-53 E2` established that **the recorded Z enumerates none of it**. A scope living in a handoff and credited to a ruling that does not carry it is the shape `-40 A1` was written about — a gate paraphrased from a handoff. **From now on the source is this block.** The handoff is **not edited**: handoffs stay as committed (method note 8), and the line is superseded as a SOURCE rather than corrected in place.
+
+**B — THE SENSORS GET THEIR OWN BUNDLE, "the sensor bundle", sequenced AFTER Bundle 3 and BEFORE facility one.**
+
+Scope: the A1 kickoff's `### Bundle 3: The sensors` section, lines 341-397, **carried over as written** — `/api/health`; `/status`, token-gated; the external sensor that does not share pg_cron's failure mode; and the seven enumeration items **#28, #30, #87, #88, #89, #92, #107**.
+
+**The founder's reason, recorded as given:** *once a facility is live, a dead scheduler means stale beds shown to ambulances. That failure must raise an alarm before any facility depends on it.*
+
+**This closes the orphaning `-53 E3` reported.** The sensors were never descoped by any ruling; they were displaced when the name "Bundle 3" was re-pointed by `-40 H`, and the seven items the kickoff says *"close together or not at all"* had no carrier. They have one.
+
+**Queue, replacing every earlier statement of it:** the infrastructure review; **Bundle 3**; **the sensor bundle**; facility one; Bundle 4.
+
+**C — THE TWO ORPHANED DEADLINES, RE-POINTED BY NOTE. Neither source is rewritten.**
+
+- **`R-2026-09-17-12 G`** made the Pages scheduled-handler / cron-trigger check due *"before Bundle 3 is scoped"*. It was written when Bundle 3 meant the sensors. **It is now due before THE SENSOR BUNDLE is scoped.** `-12` stands as written.
+- **Method note 14** cites *"Bundle 3's cron triggers"* as a worked instance of proposed-not-verified. **That phrase means the A1 kickoff's Bundle 3, i.e. the sensor bundle.** The note stands as written.
+
+**D — THE STRAY FILE IN `38440e7`, AND THE THREE FINDINGS IN IT. Recorded without softening.**
+
+**D1 — MINE. The AE commit added a file, and its report said it had not.** `38440e7` carries four paths; three were intended and one was not:
+
+```
+A  Claude outputs/handoff-2026-09-22-boundary-closed-on-hosted.md   <- UNINTENDED
+M  Sprint Kickoffs/decision-2026-09-14-public-private-split.md
+M  docs/runbook-supabase-project-creation.md
+M  tests/compliance/frozen_migrations.test.ts
+```
+
+The report given to the founder said *"the AE commit touched this record only by appending its own ruling, ledger row and changelog entry"*. **126 lines of a document I had never read went in with it**, unmentioned in the commit message. **The cause was `git add -A`**, used twice — once to create `c386802` and again in the `--amend` that produced `38440e7`. `-A` stages the working tree, and **the working tree is not the set of paths a report describes.**
+
+**D2 — MINE, AND WORSE, because it is a false fact inside the record.** `-53 F` states the handoff *"is not in this repository and its contents were not pasted"*. **The same commit that recorded that sentence committed the document.** The path `-53 F` names — `docs/…` — was genuinely absent, so the sentence is narrowly true and its plain meaning is false. **See E below.**
+
+**D3 — COWORK'S.** The file was written into the working tree at **12:16:44** by a Cowork session, at `Claude outputs/`, after its own line 3 says *"This file is not in the repo. … **Don't leave it untracked in the repo:** any untracked file makes `scripts/deploy_pages.sh` refuse to deploy."* **It wrote into the repository the file it had just said it was keeping out**, and the warning it gave is the mechanism its own action would have tripped. Recorded as Cowork's error, as the founder directed.
+
+**D4 — WHAT THE CHECKS ACTUALLY SAID, because the clean one is the interesting one.** `git status --porcelain --untracked-files=all` was **empty** — not because the file was absent but because it was committed. `git check-ignore -v` exited 1: matched by no ignore rule. `core.excludesfile` is unset. **`scripts/deploy_pages.sh` would NOT have refused** (line 72 reads `git status --porcelain`, which was clean). **A clean status concealed the defect rather than reporting it**, which is this repository's recurring shape — a check reporting success for a reason unrelated to what it guards — arriving in the reporting rather than in a guard.
+
+**D5 — THE REMEDY, the founder's choice.** `git mv` into `docs/`, content **byte for byte unedited** (sha256 `50a6e0a4…` before and after, staged as `R100`), the empty directory removed. **No amend and no force-push: `38440e72…` stays valid**, and history keeps one commit that carried the file, named here.
+
+**D6 — THE FIX FOR THE CAUSE, not the instance.** Staging is by **named paths only** from here, and `git diff --cached --name-status` is read and compared against the paths the report will claim **before** each commit. **A mechanical check is feasible and narrow:** a guard asserting the set of tracked TOP-LEVEL entries by identity, in the `tests/db/config_drift.test.ts` idiom, would have reddened on `Claude outputs/`. Its limits belong in its header — it catches a new top-level directory and **not** a stray file inside an existing one, and an allowlist at finer grain would refuse every legitimate new file, which is test-conventions' fifth way a leg goes wrong. **Reported, not built**, on the founder's instruction.
+
+**E — `-53 F` IS CORRECTED HERE AND NOT REWRITTEN** (method note 8). Read `-53 F` with this note attached: **the document WAS in the repository when that clause was written** — at `Claude outputs/handoff-2026-09-22-boundary-closed-on-hosted.md`, committed by the same commit — and it is now at `docs/handoff-2026-09-22-boundary-closed-on-hosted.md`. What remains true of `-53 F` is the part that mattered to it: **its contents were not read, so its item 2 was unverified**, and the conclusion it was cited for holds independently at `-40 H`.
+
+**F — THE CARRIER SCOPE, UPDATED.** The Bundle 3 pull request carries: the **AE and AF rebase**; and the **supersession mark** on the A1 kickoff's `### Bundle 3: The sensors`, pointing at this ruling and naming the sensor bundle as where that section now lives. **The handoff is no longer owed to it** — it is in `docs/` on this branch already.
+
+**Listed in that pull request's body and deliberately NOT fixed in the file:** the handoff's line 3, *"This file is not in the repo"*, and its line 50, *"Its scope is fixed by ruling Z"* — the claim `-53 E2` found false, repeated.
+
+**G — the queue:** the infrastructure review; Bundle 3; the sensor bundle; facility one; Bundle 4. **Bundle 3 is not started. The sensor bundle is not started.**
+---
+
+### R-2026-09-22-55 — `api.openbed.ng` is KEPT and the proxy hardened rather than removed; the magic-link host left open; three reads recorded, one of their reasons refuted
+
+_Issued as R-PROVISIONAL-2026-09-22-AG. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-54. **Record-only under R-46: committed and pushed to the same holding branch as AE and AF, no pull request; all three ride the Bundle 3 carrier.** Answers `R-2026-09-19-23 D0` and `D7`._
+
+**A — `api.openbed.ng` IS KEPT, and it is the only database address every app uses. The founder accepted the CTO verdict 2026-09-22.**
+
+`D0` set the criterion before the review ran: **the proxy must name what it buys that the direct Supabase origin does not**, with REMOVE as the default if nothing earns it. Three properties are named, as the founder gave them:
+
+1. **Resilience against ISP-level blocking of `*.supabase.co`.** A blocked vendor apex takes every client with it; a zone the operator controls does not. _The founder cites the 2025 Jio block of `supabase.co` as the precedent. **That is an external event this repository cannot read, and it is recorded as cited rather than as established** (method note 19)._
+2. **Portability.** Changing the Supabase project is **one Worker edit**, not an edit and a rebuild of every app. This is the candidate `D0` itself named — *decoupling client builds from the Supabase project ref* — and it is now confirmed rather than assumed.
+3. **A place to put Cloudflare rate limits in front of auth.** The direct origin gives the operator nowhere to stand.
+
+**A nicer hostname was never the reason.** Stated explicitly, because `D0` named exactly that as the cosmetic answer it would refuse, and a KEEP that did not dispose of it would read as the refused answer arriving by another route.
+
+**A2 — WHAT THE KEEP BUYS IS NOT LIVE TODAY, and saying otherwise would be a Clause 5 defect.**
+
+All three properties above require the apps to **actually reach Supabase through this hostname**. Two recorded facts say they may not:
+
+- **Finding D (`R-2026-09-19-21 D`):** the ward console's origin is a build-time variable that **nothing tracked sets**, so no file in this repository can say what production talks to. `supabase-proxy/README.md` already carries that sentence.
+- **`D1` is still open:** the founder's addendum says the name is deployed and a `dig` on 2026-09-19 returned **NO RECORD**. The contradiction is recorded and unresolved.
+
+So this ruling decides the proxy **on the merits of the design**, and the properties in A arrive with Bundle 3 item 1 — tracked origins for every app — not with this block. Writing *"the proxy protects the apps from an ISP block"* in the present tense today would be a claim that is present, plausible, and **does not reach** the thing it names.
+
+**B — BUNDLE 3 SCOPE ADDITION, under `-54 A` item 2 ("a deploy guard and build stamp for every app"). Four items.**
+
+1. **The Worker forwards only the path prefixes the ward console and the admin app actually call, and the list is read FROM THE CODE, not from memory.** Every other path returns **404 from the Worker, without reaching Supabase**. This is what turns A3's "a place to put rate limits" from a property of the hostname into a property of the thing deployed: today `index.js` forwards **every path and method**, to auth, storage and functions alike, which is the surface `D0` said a cosmetic reason could not justify.
+2. **A deploy guard and a build stamp for the proxy, in the same shape as the Pages apps.** Not a second mechanism: the same one, extended to the third deployed artefact.
+3. **Probes, each with a demonstrated failing half** (method note 23): no key → **401**; key → **200** on `/auth/v1/health`; a path outside the allow-list → **404 served by the Worker**; and the deployed source equals the repo source. _Each is stated as the exact signal that means pass — never "not 200" and never "4xx", which are satisfied by the probe's own precondition being absent._
+4. **`supabase-proxy/README.md` is updated:** its RECORD-NOT-DECISION banner is **superseded by A**, and the old text is **kept and marked superseded, not deleted**.
+
+**No artefact this item plans is cited here as a repo path.** None of them exists yet, and a backticked path to an unbuilt script or test is the Clause 4 phantom `tests/compliance/no_phantom_paths.test.ts` exists to red on. They are named in prose until the change that builds them.
+
+**C — OPEN, TRIGGER "before facility one": where do Supabase Auth magic-link emails point?**
+
+If the verify link's host is `*.supabase.co`, **A1's blocking protection is incomplete** — the console would survive a block and sign-in would not, which for this product is the same outage. The end state in that case is Supabase's **custom-domain add-on on `api.openbed.ng`**, and the Worker is **retired**.
+
+**That switch needs its own founder ruling on cost, and nothing about it is decided here.** Recorded as an open item with a named trigger (method note 22), not as work. **It is not a reason to defer B:** B is what the proxy needs whether it is the end state or the interim one.
+
+**D — ALSO RECORDED, REPORT-ONLY. The founder's reads of 2026-09-22.**
+
+- **D1 — the stray `openbedng` Worker is a default "Hello World" script, created 2026-09-18, with no routes and no domains. The founder will delete it in the dashboard.** This corroborates `R-2026-09-20-27 D1`, which already recorded it as created 2026-09-18 and still carrying the Hello World body, and the 2026-09-21 handoff's reading of no custom domains and no routes. **Deleting it closes `-27 D1`'s inventory item**, and it also discharges that clause's stated worry — that it might hold a route on the `openbed.ng` zone where it could intercept before the cutover.
+
+  **The reason given with that instruction does not hold, and is refuted here rather than passed over.** The read was that *nothing in the repo refers to it*. **Six tracked citations name it**: this record at lines 1658, 1710 and 1737, `docs/handoff-2026-09-20-pages-direct-upload.md`, `docs/handoff-2026-09-21-deployed-and-reported.md`, `docs/handoff-2026-09-21-gate-lifted-018-in-flight.md` and `docs/handoff-2026-09-22-boundary-closed-on-hosted.md`. **The instruction survives** — a routeless Hello World Worker is deleted either way — **and the reason is replaced**: it goes because it is unaccounted infrastructure on the account, which is `-27 D1`'s own framing. **None of the six is edited.** They are true about the day they were written, and a record is not rewritten to match a later state (method notes 8 and 11).
+- **D2 — `security@openbed.ng` is the runbook §9 magic-link test account, created 2026-09-14. It has no `ward_account`. It is NOT an orphan, and it is kept.** **Verified, not relayed:** `docs/runbook-supabase-project-creation.md` §9, *"Magic-link single-use — an INHERITED assumption, so probe it"*, carries the account under *"The commands, as run on 2026-09-14"*, and `SECURITY.md` names the same address as the private disclosure address. **This corrects the phrase "orphan auth user"** carried in `docs/handoff-2026-09-21-gate-lifted-018-in-flight.md` and `docs/handoff-2026-09-22-boundary-closed-on-hosted.md`. **Corrected by this note; neither handoff is rewritten.** The absence of a `ward_account` row was the whole basis of the orphan reading, and it is exactly what a §9 probe account is expected to look like — the tell was present and read the wrong way.
+- **D3 — `public.rls_auto_enable()` is the function behind the Supabase event trigger `ensure_rls` (`ddl_command_end`), SECURITY DEFINER, owned by `postgres`. It is declared in no migration. It is listed as HOSTED-ONLY DRIFT.** **No action is taken on it here**; Cowork's review of it follows. Two things are recorded alongside it rather than folded into it: the two handoffs that name it also record **PUBLIC EXECUTE**, an attribute **this read did not carry and which is not re-observed here**; and every attribute above is a **hosted** reading, which `.claude/rules/test-conventions.md` section 4 is explicit is not assertable from inside this repository.
+
+**E — WHAT THIS RULING DOES NOT DISCHARGE. A KEEP is not a closed review.**
+
+`D7` says that if the proxy is kept it enters the repository *"with its configuration, a guard, a runbook entry, a record entry, and the availability answer from D5"*. This block is the **record entry**; B carries the **guard** and the configuration. **Still owed:**
+
+- **the runbook entry**, which no item above creates;
+- **`D5`, the availability answer** — what breaks if the Worker, its route or its DNS is misconfigured or unavailable; how anyone would notice; whether the client fails over to the direct origin or simply fails; what the runbook says to do. `D5` is on the clinical path and `-23` calls a reliability regression there *"a worse outcome than anything in D4"*. **A2 sharpens it rather than softening it:** the decision to make this hostname the only database address for every app is the decision to put a second dependency in front of every ward console, so `D5` is now load-bearing for the KEEP and not a parallel question.
+- **`D2`'s NDPA sub-processor scope cell**, in the processor-obligations table above, which `-23 D2` said is to be completed **from the review's findings and not written ahead of them**. Keeping the proxy does not supply those findings.
+- **`D1`, `D3`, `D4` and `D6`** are unanswered.
+
+**F — the queue:** the infrastructure review; Bundle 3; the sensor bundle; facility one; Bundle 4. **Bundle 3 is not started. Nothing was deployed by this ruling.**
+---
+
+### R-2026-09-22-56 — the infrastructure review CLOSES; the Bundle 3 gate lifts; four of the review's own questions close with it unanswered and are named
+
+_Issued as R-PROVISIONAL-2026-09-22-AH. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-55. **Record-only under R-46: committed and pushed to the same holding branch as AE, AF and AG, no pull request; all four ride the Bundle 3 carrier.**_
+
+**A — THE INFRASTRUCTURE REVIEW IS CLOSED.** The founder ran it on 2026-09-22 and supplied the reads. Its scope is the seven bullets at `docs/handoff-2026-09-22-boundary-closed-on-hosted.md:40-47`; **every one is answered below**, and the mapping is written out so a reader can see that rather than take it on trust.
+
+**A1 — `supabase-proxy` / `api.openbed.ng`** (bullet 1, and bullet 7's GET check): **KEEP**, hardened in Bundle 3 — `R-2026-09-22-55`. Probes: **no key → 401**; with a key, **`/auth/v1/health` → 200**.
+
+**The no-key half was re-read here rather than relayed** (method note 2 as widened by `-23`). `GET https://api.openbed.ng/rest/v1/` → **401**, and `GET https://api.openbed.ng/auth/v1/health` → **401** with the body `{"message":"No API key found in request","hint":"No 'apikey' request header or url param was found."}`. **The body is the thing worth recording, not the status.** It is PostgREST's refusal, not Cloudflare's — so the read proves the Worker **reached the Supabase origin and forwarded**, where a bare 401 from the edge would have been satisfied by the Worker being broken in a way that happens to deny. That is note 23's "name the exact signal that means pass, never a negation" applied to this probe. **The keyed half is the founder's and was NOT re-run**: no publishable key was in hand, and `-23 D4` forbids exercising the hosted auth limits.
+
+**A2 — the stray `openbedng` Worker** (bullet 2): a default **"Hello World"**, created 2026-09-18, no routes. **DELETED by the founder, 2026-09-22.** **This closes `R-2026-09-20-27 D1`**, and it discharges that clause's stated worry directly — that the Worker might hold a route on the `openbed.ng` zone where it could intercept before the cutover. It cannot now hold one.
+
+**A3 — `openbed-ward-console`** (bullet 3): it has **no custom domain** (the founder, from the dashboard), and it **cannot be deployed through the wrapper**. Neither is new work: both are already `-54 A` item 2, the deploy guard and build stamp for every app.
+
+**A3b — one half of that bullet is NOT REPORTED, and is named rather than absorbed.** The 2026-09-21 handoff, which `docs/handoff-2026-09-22-boundary-closed-on-hosted.md:39` says the scope "carries over unchanged" from, asks for `openbed-ward-console`'s Pages status **and commit**. The status is answered above. **Which commit is deployed is not**, and it is the same question Finding D and Bundle 3 item 1 exist to answer. It rides Bundle 3; it is not closed here.
+
+**A4 — DNS** (bullets 4 and 5, DNS half):
+- **`mail.` and `ftp.` are gone** — no record.
+- **`app.` and `admin.` have no record, which is expected.** Bundle 3 creates them.
+- **`www.openbed.ng` was HTTP 522** — a proxied CNAME, not a Pages custom domain. The founder **added it as a custom domain on the public dashboard: now HTTP 200.**
+- **The apex control was HTTP 200 throughout**, which is what makes the `www` reading a finding about `www` rather than about the zone.
+- **A single `v=spf1` TXT on the apex.** The duplicate is no longer present.
+
+**All of A4 was re-read here and holds:** `mail.`, `ftp.`, `app.` and `admin.` return no record; `www.openbed.ng` and `openbed.ng` both return **HTTP 200**; the apex carries exactly one `v=spf1` record.
+
+**A4b — this discharges an open item the instruction did not claim.** `docs/handoff-2026-09-22-boundary-closed-on-hosted.md:121` carries *"SPF: two `v=spf1` records on the apex. Confirm the `+a +mx +include:re…` one is unused, delete it, and recheck DKIM in Proton."* **The first half is done**: the surviving record is Proton's, `v=spf1 include:_spf.protonmail.ch ~all`. **The second half is corroborated from DNS and NOT from Proton** — MX resolves to Proton, all three `protonmail*._domainkey` CNAMEs resolve, and `_dmarc` reads `v=DMARC1; p=quarantine`. Proton's own dashboard was not read, **so the item is recorded as discharged on the delete and corroborated on the recheck, not ticked on both.**
+
+**A5 — SSL/TLS** (bullet 5, SSL half): mode moved **Full → Full (strict)**, the founder, 2026-09-22. **Apex HTTP 200 after the change**, which is the half that matters: Full (strict) is the mode that starts failing closed if the origin certificate is not what it should be, so a 200 afterwards is the demonstration and not a formality.
+
+**A6 — `security@openbed.ng`** (bullet 6): the runbook §9 test account, **no `ward_account`**. **Kept.** Already recorded at `-55 D2`, where the "orphan auth user" reading the handoffs carry was corrected against `docs/runbook-supabase-project-creation.md` §9.
+
+**A7 — `public.rls_auto_enable()` and the event trigger `ensure_rls`** (bullet 5 of the list, the undeclared hosted pair). Recorded as the founder gave it, reasoning included:
+- **Its definition, read on hosted, enables RLS ONLY for tables created in schema `public`.** The scope is the finding; "an event trigger that enables RLS" without it would be a much larger claim.
+- **Hosted state:** the **4** `public` tables have RLS **on and forced**, **1 policy each, all from migrations**; the **16** `app` tables have RLS **off**, the same as local.
+- **THERE IS NO HOSTED/LOCAL RLS DRIFT TODAY.**
+- **`EXECUTE` granted to `PUBLIC` is INERT**: an `event_trigger` function cannot be called directly. **This retires the "PUBLIC EXECUTE" alarm** the two handoffs raised and `-55 D3` repeated as recorded-but-not-re-observed. It was a true reading of the grant and a wrong reading of its consequence.
+- **Recorded as undeclared hosted platform configuration. It is NOT dropped.**
+
+**A8 — a method finding, not in the review's scope but produced by it.** **The founder's Mac cannot run `dig`: port 53 is unreachable from it, even to `1.1.1.1`, so every lookup times out.** DNS was read by Cowork over **DNS-over-HTTPS** instead. **See `E1` and `E2`** — the remediation this finding asks for has no target in the runbook, and the claim is narrower than its wording.
+
+**A9 — WHAT CLOSES WITH THE REVIEW STILL UNANSWERED. Named, because a closure that absorbs its own open questions is the defect this record keeps finding one layer up.**
+
+Closing the review is the founder's to declare and is not in question. What it does **not** do is discharge `R-2026-09-19-23`'s remaining lettered items, which `-55 E` had already recorded as owed:
+
+- **`D2` — the NDPA sub-processor scope cell** in the processor-obligations table above. `-23 D2` said it is completed **from the review's findings and not written ahead of them**. The findings now exist, so it is completable — **and it is not completed here.**
+- **`D3` — the surface**: methods, the services reached, websocket upgrades, what `redirect: "manual"` exposes in `Location`, and CORS. A1's two probes are a liveness proof, not a surface inventory.
+- **`D4` — attribution**, which client address Supabase sees. `-23` calls it the sharpest item in the review.
+- **`D5` — availability**, which `-23` calls *"a worse outcome than anything in D4"* because it sits on the clinical path, and which **`-55 A2` made load-bearing**: making this hostname the only database address for every app is the decision to put a second dependency in front of every ward console.
+
+**Answered: `D1`** by A1 — the name is live — **and `D7`** by `-55`. **Split: `D6`** — the console route is Bundle 3 item 1, the rate-limit scope is `-55 B` item 1, the plan-cost question is `-55 C`.
+
+**The four above become open items with the trigger "before facility one"** (method note 22), not work, and not silently closed.
+
+**B — THE `R-2026-09-21-40 H` GATE IS LIFTED.** `-40 H` made the infrastructure review a gate on **Bundle 3**, not only on facility one, and said **Bundle 3's own kickoff is Cowork's, written after that review**. The review has run. **Bundle 3 may be kicked off, and its kickoff is Cowork's.** Nothing in Bundle 3 is started by this ruling.
+
+**C — BUNDLE 3 SCOPE ADDITION: the residual risk from A7, as the founder scoped it.**
+
+A compliance guard that **every `CREATE TABLE` in schema `public`, across `database/migrations`, is followed in the same file by both `ENABLE` and `FORCE ROW LEVEL SECURITY`.** Demonstrated failing half (method note 23): **a planted public table without them turns the guard red.**
+
+**The reason, recorded as given, because it is the whole point:** on hosted, `ensure_rls` would **silently enable RLS that local lacks**. The tests would then run against **a database looser than production**, and the omission would never surface. A7 says there is no drift today; this guard is what keeps that true, and it is aimed at the one direction A7's reading cannot cover — the next migration, not the current corpus.
+
+**Four constraints go in with it, because in this repository a guard that is not registered is a guard that does not run:**
+- it joins `scripts/lint_migrations_all.sh`'s `LINTS` array, or records a `RUN_ELSEWHERE` exemption naming where it does run — `tests/compliance/lint_migrations_all_complete.test.ts` enforces this;
+- its failure sites get entries in `packages/fixtures/leg-coverage.json`;
+- its test file needs a delta entry in the predict/attest pair;
+- and it carries a **NOT ASSERTED HERE** header line pointing at `tests/db/rls_enabled_everywhere.test.ts`, the live-catalogue check that is its **complement, not its duplicate** — the lint catches the statement in review, before it is ever applied, and the catalogue check only sees it afterwards.
+
+**One constraint that decides whether it can land at all: migrations 001-018 are FROZEN.** The guard must pass over the corpus exactly as it stands, because no file in it may be edited to satisfy a new rule.
+
+**D — THE ANSWER TO THE FOUNDER'S QUESTION C. The proof exists, and it is quoted rather than asserted.**
+
+The question: RLS is off on all 16 `app` tables, which is safe **only** while `anon` and `authenticated` cannot reach the `app` schema at all. Three claims, three answers:
+
+1. **No `USAGE` on schema `app`.** `tests/db/rls_anon_reachability.test.ts`, test *"anon holds no USAGE on the app schema at the grant level"*, asserts `has_schema_privilege(…, 'app', 'USAGE')` is **false for both `anon` and `authenticated`** — the test's name says only `anon`, its body covers both. Hosted equivalent: `docs/runbook-supabase-project-creation.md` step 6's catalogue half, recorded 2026-09-13, `anon` **f**, `authenticated` **f**, `service_role` **f**.
+2. **No privileges on `app`'s tables.** `tests/db/rls_enabled_everywhere.test.ts`, test *"no client role holds any grant on any table in app"*, enumerates `information_schema.table_privileges` for `anon`, `authenticated` **and `PUBLIC`**, **all** privilege types, and expects the empty list. Its anti-vacuity partner in the same file pins the 16 table names by identity, so it cannot pass by scanning an empty schema.
+3. **`app` is not in the exposed schemas.** `tests/db/config_drift.test.ts`, test *"the app schema is NOT in the PostgREST exposed-schemas list"*, over `supabase/config.toml`; and the behavioural half in `tests/db/rls_anon_reachability.test.ts`, *"the app schema is not exposed — asking for it is refused with PGRST106"*.
+
+**And the three gaps, because a quoted green that hides its own edges is exactly the shape this record keeps catching:**
+- **the USAGE test has no positive control.** Its sibling mirror-grant test in the same file has one; this one does not. **A misspelled privilege string would read as the boundary holding** — note 18's failure mode sitting inside the boundary suite.
+- **the hosted grant check is `anon` x `SELECT` only**, 16 tables, recorded 2026-09-13, against the local test's 16 tables x 3 grantees x every privilege type. Step 8's hosted probe says so itself: *"What this does NOT prove: the grant leg on hosted."*
+- **the hosted exposed-schemas list has no in-database representation** and is a runbook hand-reading **by design** — `.claude/rules/test-conventions.md` section 4, and `tests/db/config_drift.test.ts`'s own header.
+
+**Verdict: proved locally; partial on hosted.** Whether any of the three gaps joins Bundle 3 is Cowork's, as the question asked.
+
+**E — PREMISE CHECKS. Two of the instruction's failed, and one of mine did.**
+
+- **E1 — A8's remediation has no target, and this is the answer to what was asked.** The instruction says *"Any runbook step that uses `dig` must say this, or offer a DoH alternative. Report which steps use dig."* **No runbook step uses `dig`. None does.** `docs/runbook-supabase-project-creation.md` contains the string nowhere at all. Repo-wide, **measured before this ruling was written and stated as of that moment rather than as a live total** — this block and the README note it supersedes both add more — there were **nine** occurrences, **every one prose** referring back to the same 2026-09-19 lookup: `supabase-proxy/README.md`; `docs/handoff-2026-09-20-pages-direct-upload.md`; `docs/handoff-2026-09-21-deployed-and-reported.md`; and six in this record. **There is no executable `dig` anywhere in `scripts/`, `tests/`, CI or any runbook.**
+
+  **Where the assumption DOES bite, named instead of the runbook, and not edited** (the instruction says report, not fix): **this record's own line 2093**, which records `nslookup openbed.ng 1.1.1.1` as a passing check — a lookup **pinned to an explicit external resolver**, which is the exact form A8 describes failing; and `docs/handoff-2026-09-21-gate-lifted-018-in-flight.md:61`, *"the Mac now also uses 1.1.1.1"*.
+- **E2 — "every dig times out" is narrower than its wording, measured.** On the machine this ruling was written on: `dig` against the **system resolver works**; `dig … @1.1.1.1` **times out**; `dig … @8.8.8.8` **works**. That is a different machine from the founder's and **neither confirms nor refutes their read of theirs**. What it changes is the rule worth writing down: not *`dig` is unusable*, but **a lookup pinned to an explicit external resolver can fail closed on a network that blocks port 53 to that resolver** — which is precisely why E1's `nslookup … 1.1.1.1` is the live instance and the runbook is not.
+- **E3 — `-55`'s statement that `D1` is still open is SUPERSEDED by A1.** Read it with this note attached. `-55` is not rewritten (method note 8).
+- **E4 — A8 does NOT retroactively explain the 2026-09-19 contradiction, and it would have been tidy to let it.** Two recorded facts refuse it. `-20 B1` records that lookup as **the implementer's**, on a different machine from the founder's Mac. `-20 B3` records that **the same lookup returned results** — `openbed.ng`'s nameservers at Cloudflare and an apex `A` of `192.0.2.1`. **A lookup that returned records was not timing out.** The contradiction is settled by the name being live now, which is A1, and not by a broken resolver.
+- **E5 — MINE, and it belongs here for the same reason the others do.** Writing A4b I first read the `protonmail*._domainkey` selectors as **absent**, and was one step from recording a DKIM finding that does not exist. The cause: I asked for the **default record type** instead of `CNAME`, so a CNAME that resolves to no address returned empty — **a query that could not have returned the thing I concluded was missing.** A known-present control caught it. **This is note 18 and the standing confirm-absence-by-reading rule catching their own author**, on the same day E1 used the identical discipline on someone else's claim.
+
+**F — the queue:** **Bundle 3** — its kickoff is Cowork's, and it is next; the sensor bundle; facility one; Bundle 4. **Bundle 3 is not started. Nothing was deployed.**
+
+**A10 — CONFIRMATION NOTE, appended 2026-09-22 AFTER the block above was written. No new ruling; this is `-56` gaining the evidence two of its clauses were recorded without.**
+
+**A10a — `A5` IS CONFIRMED.** The founder confirmed **in the Cloudflare dashboard, 2026-09-22, that SSL/TLS is Full (strict)**, with **apex HTTP 200 and `www` HTTP 200 after the change**. Both were re-read here after the confirmation arrived: `https://openbed.ng/` **200**, `https://www.openbed.ng/` **200**.
+
+**A10b — `A2` IS CONFIRMED, and now holds three ways.** Cowork verified independently that **the Cloudflare account lists one Worker, `supabase-proxy`; `openbedng` is absent.** Read a third time here, from the account itself: the Workers list returns **count 1**, the single Worker `supabase-proxy`, created 2026-09-19. **`openbedng` is absent.** A2's deletion claim is no longer resting on the dashboard reading of whoever performed it.
+
+**A10c — AND THE DEFECT THE NOTE EXISTS TO RECORD. `A5` WAS WRITTEN BEFORE THE FOUNDER HAD CONFIRMED IT — a fact recorded ahead of its evidence.** Recorded as **Cowork's error**, as directed.
+
+**What this record can establish about it, and what it cannot.** Who originated the SSL claim is **not readable from here**: it arrived in the instruction that produced `A5`, already attributed to *"the founder, 2026-09-22"*. So the attribution above is recorded **as given**, not as established — which is the same discipline `A4b` used on Proton's dashboard, applied to this clause.
+
+**What IS establishable is mine, and it is the half worth keeping.** `A5` as written carries **no evidence kind at all**. In the same block, `A1` says explicitly which half was re-read here and which stays the founder's, and `A4b` says explicitly that Proton's dashboard was not read. **`A5` did neither — and `A5` is the clause that turned out to be ahead of its evidence.** The discipline was present in the block and was not applied to every clause of it, and **an unmarked relayed claim is indistinguishable from a confirmed one to every later reader.** That is Clause 5's failure mode and method note 19's rule — *read state, or mark it UNVERIFIED rather than stating it* — arriving in the recording rather than in a guard, which `-54 D4` names as this repository's recurring shape.
+
+**The cause, not the instance.** `A3` and `A7` are dashboard and hosted readings recorded the same way, **with no evidence kind marked**, and nothing here has confirmed them. They are **not** thereby doubted — `A7`'s reasoning is internally checkable and `A3` restates gaps already in Bundle 3 — but they are **relayed, and this note says so** rather than leaving `A5` corrected and its two siblings carrying the same silence. **The rule for the next block of this kind: every clause resting on a reading someone else took names that, in the clause, at the time it is written.**
+
+### R-2026-09-22-57 — Bundle 3 becomes four pull requests; the grant gaps split; the build-stamp check is redesigned rather than rebuilt around
+
+_Issued as R-PROVISIONAL-2026-09-22-AJ, inside the Bundle 3 kickoff the founder pasted on 2026-09-22. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-56. **Record-only under R-46 for the ruling itself; it lands in PR 3.1 with the kickoff it arrived in.** That kickoff is committed unedited at `Sprint Kickoffs/sprint-kickoff-bundle3-operator-path-2026-09-22.md` — **it is the source, and this block records the ruling rather than restating it.**_
+
+**EVIDENCE KINDS IN THIS BLOCK** (`-56 A10c`'s rule, applied at the time of writing rather than after). Clauses **A**–**F** are Cowork's calls and the founder's two scope answers, recorded **as given**. Clause **G** is mine: every premise those clauses rest on, read in this repository on this branch before any of it was acted on, with the verdicts. Nothing below is marked verified because it is plausible.
+
+**A — TWO OF `-56 D`'s THREE GRANT GAPS ENTER BUNDLE 3; THE THIRD DOES NOT.**
+
+- **A1.** The USAGE test in `tests/db/rls_anon_reachability.test.ts` gains a positive control: the identical `has_schema_privilege` call returning **true** for a role that does hold USAGE on `app`, with that role read from the catalogue rather than assumed. The test's name stops saying only `anon` when its body checks two roles.
+- **A2.** The hosted grant check widens from `anon` × `SELECT` to `anon`, `authenticated` and `PUBLIC` × **every** privilege type × **every** table in `app`, matching the local test's anti-vacuity pin on the 16 table names, **with a failing half run in the same sitting**. It is a runbook step because nothing in the repository can reach the hosted catalogue, and it runs **once, when Bundle 3 lands**, because PR 3.4 adds the first authenticated-executable functions since 014.
+- **A3.** The hosted exposed-schemas list **stays a hand reading**, by design, per test-conventions §4. Not in scope, and not a gap to be closed by a test that would only appear to check it.
+
+**B — THE BUILD-STAMP CHECK IS REDESIGNED, NOT REBUILT AROUND.** The defect is **where the assertion lives**, not how the check runs. The property that matters — *the artefact being uploaded names the commit being deployed* — is true only at upload time. So the readback moves into the deploy wrapper, which refuses to upload unless the stamped commit equals the verified HEAD and `dirty` is false; the compliance test stops reading a shared build directory and runs the stamp script into a scratch output instead, keeping its refusal plants; and **one stamp mechanism covers every artefact**, not one per app.
+
+**C — THE PULL-REQUEST SHAPE: FOUR, IN ORDER.** `R-2026-09-21-46` batches *record-only* work, and its D clause gives the reason — the overhead is waste **for a paragraph**. These are four changes with different risk and different reviewers: a migration adding operator write functions must not share a review with a wrapper refactor, and the clinical-screen fix must not wait behind the admin app. **All record-only material rides PR 3.1**, as `-46` requires.
+
+**D — ADMIN ARCHITECTURE PROPERTIES**, against which the implementer proposes the mechanism. Identity comes from `auth.uid()` **in the database**, never from an argument and never from a Function (D1); operator write functions are `SECURITY DEFINER` in `public`, `EXECUTE` to `authenticated` only, operator check first (D2); the authenticated-executable set becomes a **closed, named list** asserted on identity rather than count (D3); ward-login provisioning is a Pages Function holding the service key that **does not decide who the caller is** — it forwards the bearer to an authenticated operator function which answers from `auth.uid()` (D4); the `-45` invite gate is built here, enforced in the database and not the UI (D5); `app.facility_contact` is **not** edited in admin v1, being the one named human in the system (D6); categories are **add-only**, since `ward_status_event` references `ward_status` `ON DELETE RESTRICT` and there is no retired state (D7); the operator's freshness list **never uses freshness to filter, sort out, hide or suppress** a row, and computes bands from the single existing derivation site (D8); the operator's sign-in address is a **role address**, never a personal mailbox, which nothing technical can check and so goes in the runbook (D9); every operator write leaves an `app.audit_log` row in the same transaction (D10).
+
+**E — SERVER-SIDE ORIGINS FOLLOW `-55 A`**, so the allow-list is read from browser *and* server-side calls. **AMENDED THE SAME DAY by `R-2026-09-22-58 A`**, which carves out the public dashboard's snapshot Function on the founder's decision. Read E and `-58 A` together; E alone now overstates its own scope.
+
+**F — THE FOUNDER'S TWO SCOPE ANSWERS, 2026-09-22**, which bring two items into Bundle 3 under note 22. **F1: `-56 A3`'s `(unknown facility)` beside a real count is IN, in PR 3.2** — Bundle 3 ships the tool that creates the first row the `-45` gate governs, so every item on that gate belongs in the same bundle. **F2: the ward's own request for a new sign-in link is IN, in PR 3.2, as a form in the ward console** — sessions are time-boxed at 24 hours and links are single-use, so nothing let a ward sign in again the next day; the ward-side form was chosen over an operator "resend" because the ward-identity model rests on physical control of the handset, not on the operator.
+
+**G — THE PREMISES, READ HERE BEFORE ANY OF THIS WAS ACTED ON** (note 20; and `-56 A10c`'s rule that a clause resting on someone else's reading says so). Every premise below was read on this branch at `a8b28fe`.
+
+**G1 — THE ONES THAT HOLD, with what makes them true:**
+- **A1's gap is real.** The USAGE test asserts `false` for `anon` **and** `authenticated` and nothing in the file shows that same call can return `true`. A sibling test in the same file, *"the probe can return TRUE — a role that holds SELECT is reported as holding it"*, is the shape A1 asks for, so the fix has a template one screen away from the defect.
+- **A2's gap is real.** `tests/db/rls_enabled_everywhere.test.ts` closes the local side over all three grantees and every privilege type; the hosted half recorded on 2026-09-13 covers one role and one privilege.
+- **B's defect is real.** `tests/compliance/build_stamp.test.ts` asserts the built stamp names the checkout's HEAD; the stamp on disk at the time of reading named `d715b40` with `dirty: true`, which is the state the clause describes.
+- **D3 is real.** The three-RPC test filters to three names **before** asking who may execute, so a fourth authenticated-executable function is invisible to it. The anon side *is* closed; the authenticated side is not.
+- **D7 holds at the schema.** `ward_status_one_row_per_ward UNIQUE (facility_id, category)` in 004, and `ward_status_event.ward_status_id … ON DELETE RESTRICT`.
+- **`-56 C`'s lint can land.** All four `public` tables in the frozen corpus already pair their `CREATE TABLE` with both `ENABLE` and `FORCE` — 007 at lines 187–195, 016 at lines 159–160 — so the guard passes over 001–018 **unedited**, which is the one constraint that decided whether it could ship at all.
+
+**G2 — ONE INSTRUCTION WHOSE PREMISE WAS ALREADY SATISFIED.** PR 3.1's first task reads *"Rebase AE–AH and A10 onto `main`."* **There is nothing to rebase.** `git merge-base main HEAD` returns `main` itself: the holding branch is already based on `0cfab92`. The instruction survives as *continue on the holding branch and open PR 3.1 from it*; **the rebase it names is not work that exists.** Recorded because note 20 requires the mismatch be said even where the instruction survives.
+
+**G3 — ONE DEFECT IN THE KICKOFF, LISTED AND NOT FIXED**, because the instruction is to commit it unedited. It cites the built stamp path — apps/public-dashboard/dist/version.json, written here **without** backticks for the reason the rest of this clause gives — **in backticks**. That path is gitignored, and Clause 4's scope note requires gitignored paths be cited *without* backticks so they do not read as repo paths. **No guard catches it:** `tests/compliance/no_phantom_paths.test.ts` tests filesystem existence, and CI builds before the compliance suite, so the path exists whenever the guard looks. A citation that is wrong in kind and green in every run is exactly the shape Clause 4 exists for, and it is recorded rather than repaired.
+
+**G5 — AND ONE MORE, FOUND WHILE BUILDING A1 RATHER THAN WHILE READING IT, added 2026-09-22.** `-56 D` justifies the USAGE positive control on the ground that *"a misspelled privilege string would read as the boundary holding"*. **Measured against the local stack (PostgreSQL 17.6) before the control was written, it would not.** `has_schema_privilege` **raises** on an unrecognised privilege type — `unrecognized privilege type: "USAGEE"` — and equally on a schema or a role that does not exist. Leading and trailing whitespace and lower case are all tolerated and return the correct answer. **The specific defect that ruling named is caught loudly by Postgres itself, with or without a control.**
+
+**The control is still built, on a narrower reason that does hold**, and the test says so in its own header rather than repeating the ruling's: it establishes that the call is **capable of returning true at all**, so the two `false` assertions are not satisfied by a probe that can only ever answer false. That is a property of the instrument, not a prediction about one way of breaking it — which is the difference between a control and a guess about a failure mode.
+
+**And the honest limit is named in the test as NOT ASSERTED, because it is the case a reader would assume is covered.** Substituting a different VALID privilege — `CREATE` for `USAGE` — leaves the control **true** (`postgres` holds `CREATE` on `app`) and both subjects **false**, so nothing reds and the suite would be asserting the wrong privilege. Measured, not assumed. Closing it needs a probe asserting the privilege graph by identity, which is a different control and is not built here.
+
+**CLOSED BY `R-2026-09-22-62` (AL), 2026-09-23, not carried as an open item.** The USAGE test now probes one named privilege constant against a control subject that holds USAGE and **not** CREATE on `app`, so swapping the constant to CREATE turns the control false and the test red; and a catalogue read of the schema's ACL covers every privilege type for `anon`, `authenticated` and `PUBLIC` at once. The limit named in the paragraph above is therefore no longer a limit.
+
+**Why this is worth a clause.** `-56 D` is the ruling that named three gaps in the boundary suite, and it is exactly the kind of finding that gets reused: the next person to reach for a positive control will reuse the REASON, not the instruction. A right instruction resting on a false premise stops being lucky the moment the premise becomes load-bearing.
+
+**G4 — AND ONE CLAIM FROM MY OWN TOOLING, REFUTED BEFORE IT REACHED THIS RECORD.** A planning pass reported that the kickoff cites its own future paths under a `claude/` prefix that `no_phantom_paths.test.ts`'s scope regex does not cover — a finding which, had it been taken on its face, would have meant editing a document ruled to land unedited. **It is false.** There is no `claude/` citation anywhere in the kickoff, and the file on disk is byte-identical to the pasted text. Recorded because the standing rule about checking a stated reason binds whatever produced it, and because the cost of not checking would have been an edit to the one artefact that was not to be edited.
+
+### R-2026-09-22-58 — the snapshot Function keeps its direct origin; both handoffs land in PR 3.1; the tracked-entry guard comes forward because the stray recurred
+
+_Issued as R-PROVISIONAL-2026-09-22-AK, by the founder on 2026-09-22, answering the two questions PR 3.1 could not settle from the kickoff. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-57. **Record-only under R-46; lands in PR 3.1.** Next provisional letter: AL._
+
+**EVIDENCE KINDS.** Clauses **A**, **B** and **C** are the founder's, recorded **as given**. Clause **D** is mine: what checking C's premise found. The H1 reading A1 depends on is **the founder's and has not been taken yet** — it is named as owed below, not assumed.
+
+**A — THE PUBLIC DASHBOARD'S SNAPSHOT FUNCTION KEEPS ITS DIRECT ORIGIN: a narrow exception to `-55 A`.**
+
+- **A1 — the property.** PR 3.1 changes **nothing** about which origin `/beds.json`'s Function calls. Its origin moves into the tracked build configuration **under its own key**, set to exactly the founder's H1 reading, recorded in the clause as the founder's reading. **A test asserts the Function's origin comes from that tracked key and not from the Pages environment**, so Finding D closes for Functions too. Only the secret stays in the Pages environment. The implementer proposes the mechanism.
+- **A2 — the reason.** `-55 A`'s three reasons — ISP blocks of `*.supabase.co`, portability, somewhere to put rate limits — **are about browser traffic**. A server-side call from Cloudflare is not exposed to an ISP block, is portable as one tracked line, and is already cached to one origin read per interval. Putting the Worker on the `/beds.json` path would add a failure point while `-23 D5` (availability) is open.
+- **A3 — the scope of the exception** is the public dashboard's snapshot Function **only**. Every browser call still goes through `api.openbed.ng`. **The admin provisioning Function of `-57 D4` is not decided here**; the implementer states its choice and reason in PR 3.4's design report.
+- **A4 — `-57 E` is amended by this clause.** "Every server-side call" now reads *every server-side call except the public dashboard's snapshot Function*. **The kickoff is committed as pasted; the record carries the amendment** — the document is not edited to match a later state.
+- **A5 — the consequence for PR 3.3.** The allow-list is derived **only from calls that go through `api.openbed.ng`**. The coverage test attributes each call site to the origin it uses, and a path called only through the direct origin is **not** listed. Plant: a direct-origin-only path added to the list turns the coverage test red.
+- **A6 — the exception ends when `-23 D5` closes.** Moving the Function onto the Worker is then its own change with its own ruling. **That is the recorded trigger.**
+
+**B — BOTH HANDOFFS LAND IN PR 3.1.**
+
+- **B1.** docs/handoff-2026-09-22-infra-review-closed.md — **written without backticks, because it does not exist yet and a backticked path would be a Clause 4 phantom**, the same reason `-56`-era drafts were cited that way — written from the founder's paste, unedited. **There was never a copy on the device; the kickoff's wording was right.**
+- **B2.** docs/handoff-2026-09-22-bundle3-kicked-off.md, without backticks for the same reason, is added in PR 3.1 as well, from the founder's paste, unedited, per its own text that it lands with the next substantive change. It joins the record carrier's list.
+- **B3.** The stray copy that appeared in the untracked working-tree directory is diffed against the pasted copy and the result quoted, empty or not. **The pasted copy is authoritative either way.** The directory is then removed from the working tree — it is untracked, so there is nothing to `git rm` — and `git status --porcelain` is quoted showing nothing outside the claimed paths.
+- **B4 — for the PR body:** a Cowork-written file appeared in that directory **a second time**, which is Cowork error (a) recurring. It was caught by named-path staging, **not by any mechanical check**, and the reading that the file was there was **the implementer's**.
+
+**C — THE TOP-LEVEL TRACKED-ENTRY GUARD COMES INTO PR 3.1 NOW.**
+
+- **C1 — the reason.** The same stray path recurred. **Named-path staging is a habit, not a check**, and the first occurrence did reach a commit. The trigger's spirit is met; it is resolved in this pass rather than left waiting for a third.
+- **C2 — the property.** The set of top-level tracked entries is a **closed, named list, checked by identity rather than count** (test-conventions §3). Failing half: a planted staged stray at the top level turns it red, quoted, then green once removed. The implementer proposes the mechanism. Guard-only, no runtime effect, so it fits PR 3.1's character.
+- **C3.** "Top-level tracked-entry guard" is removed from the open items when it lands.
+
+- **C3a — DISCHARGED 2026-09-22, and where.** The guard is `tests/compliance/top_level_tracked_entries.test.ts`: it reads the top-level components of `git ls-files` — **the INDEX, not `HEAD`**, so a stray is caught before the commit that would carry it rather than one commit too late, which is how the first instance happened — and compares them against a checked-in list of the 25 entries by identity. **The failing half was run against the real repository**, not only a scratch one: staging `Claude outputs/x.md` reds it with the stray named in the diff, and unstaging restores green.
+
+  **The open item lives in the kickoff, which is committed UNEDITED**, so it is closed here rather than struck there. The kickoff's carried-items paragraph still reads *"still an open item (trigger: next stray path found in a commit)"*; **that sentence is superseded by this clause and by `C1`**, and a reader who arrives at it from the kickoff should land here.
+
+  **Two limits are named in the guard's own header rather than left to be assumed.** It sees the index, so an **untracked** stray is invisible to it — that case is covered bluntly by `scripts/deploy_pages.sh`, which refuses any non-empty `git status --porcelain`. And it says nothing about what is committed INSIDE a recorded directory; a stray under `docs/` would not red it.
+
+**D — C1's PREMISE, CHECKED HERE, AND IT IS SHARPER THAN STATED.** C1 says the first occurrence *"did reach a commit (38440e7)"*. **It holds.** `38440e7` added the boundary-closed handoff under that untracked top-level directory — a path outside the twelve tracked directories — and it was remedied two commits later, in `999dd50`, whose subject records it. So the recurrence C1 reasons from is the **second** instance of a defect that has now been committed once and staged once, and **neither was caught by anything except a person looking.** That is the case for C2 rather than against it.
+
+**E — WHAT IS OWED BEFORE THE CLAUSES ABOVE CAN BE DISCHARGED**, named rather than assumed:
+- **the two handoff pastes** (B1, B2), without which that commit cannot be written and B3's diff has nothing authoritative to run against;
+- **the H1 reading** — the `SUPABASE_URL` value on the `openbed-public-dashboard` Pages project, a URL and not a secret — without which A1's tracked key has no production value. **A placeholder is not an option here:** the whole property A1 asserts is that the tracked value equals what the Function calls today, and a guessed value would satisfy every test in the repository while being false at the edge.
+
+### R-2026-09-22-59 — H1 could not be performed; the Function's origin is set from Supabase's own project URL, and the Pages secret becomes dead config
+
+_Issued as R-PROVISIONAL-2026-09-22-AN, by the founder on 2026-09-22, after attempting the H1 reading `-58 A1` depends on. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-58. **Record-only under R-46; lands in PR 3.1.** Next provisional letter: AP — O stays skipped._
+
+**EVIDENCE KINDS.** `A` is the founder's reading, recorded as given. `B1`'s value arrived as **Cowork's** reading through the Supabase connector and **was re-read here before it was written into any file** — see `D`. `C` is the founder's instruction. `D` is mine.
+
+**A — WHAT WAS FOUND.** `SUPABASE_URL` on `openbed-public-dashboard` is an **encrypted secret**, and its value **cannot be read back in the Cloudflare dashboard**. **H1 as written in the kickoff was not performable**, and it is recorded as **Cowork's defect: H1 assumed a readable variable.** The step is not restated more carefully; the thing it asked for does not exist.
+
+**B — `-58 A1` IS AMENDED.**
+
+- **B1.** The tracked key for the snapshot Function's origin is **`https://klrlpxysjsjpdkeqdhvl.supabase.co`**, on Cowork's reading of the project URL through the Supabase connector, 2026-09-22.
+- **B2 — AND THE CLAIM THAT REPLACES IT IS WEAKER, DELIBERATELY.** `-58 A1` said *"PR 3.1 changes nothing about which origin `/beds.json`'s Function calls."* **That sentence cannot be made true or false, because the prior value was never read.** What replaces it: **the END STATE is that the Function calls the direct Supabase origin, as `-58` decided.** Whether that is a *change* from today is **unknown**. If the secret held `https://api.openbed.ng`, this pull request takes the Worker **off** the `/beds.json` path — which is `-58`'s intent, arrived at without anyone being able to confirm it was needed. **It goes in the PR body in those words**, rather than as a claim about what the Function used to do.
+- **B3.** `-58 A1`'s test still holds: the Function takes its origin from the tracked key and **never** from the Pages environment. **No code path may fall back to `env.SUPABASE_URL`.**
+
+**C — THE LEFTOVER SECRET.**
+
+- **C1.** Every reader of `SUPABASE_URL` across the apps, the Functions and the wrangler configuration is reported. **If nothing reads it after this pull request, it is dead config.**
+- **C2 — OWED to the founder after the PR 3.1 deploy, in this order:** `/beds.json` returns **200 with a valid payload** and `/version.json` quotes the deployed commit; **only then** is `SUPABASE_URL` deleted from the Pages project. Written as a runbook step **with the `/beds.json` read as its precondition**.
+- **C3.** PR 3.1 no longer waits on anything from the founder.
+
+**D — B1's VALUE WAS RE-READ HERE BEFORE IT WAS WRITTEN INTO ANYTHING, and it holds.** `-56 A10c` requires a clause resting on someone else's reading to say so; the stronger move, where the reading is cheap and the value is about to be compiled into every artefact this project ships, is to take it again. `get_project_url` for `klrlpxysjsjpdkeqdhvl` returns **`https://klrlpxysjsjpdkeqdhvl.supabase.co`**, read here on 2026-09-22.
+
+**And it agrees with a value this repository already tracks.** `supabase-proxy/index.js` carries `SUPABASE_PROJECT_ID = "klrlpxysjsjpdkeqdhvl"` and builds the same origin from it. **That agreement is the finding worth recording, because it also names a hazard `B1` does not:** the origin now has **two derivation sites in tracked code** — the proxy's project id and the new tracked configuration — and §7 of `.claude/rules/test-conventions.md` governs exactly that. They are bound by an assertion in one block rather than left to agree by coincidence. The proxy is **not** made to import the package: it sits outside the npm workspaces and is deployed by `wrangler deploy`, so binding it by import would be a far larger change than this one wants.
+
+**E — AND ONE HAZARD FOUND WHILE DESIGNING AGAINST `B3`, recorded because it is the kind that ships green.** Moving the origin off the environment and onto the request's hostname changes what two existing database tests address. `tests/db/beds_json_served.test.ts` has two legs that call the cached path with **no stubbed fetch**, against a helper whose request URL is a non-local host. Today their target is the local stack, because the origin came from the environment those tests construct. Under host-based selection their target becomes **the live hosted project, authenticated with the local demo service-role key**. Nothing in the suite would have said so: both legs assert a 200 and a header. **The helper is made local, and asserted local, in its own commit BEFORE the origin moves** — the ordering is the point, because the window in which this is wrong is a window in which the tests still pass.
+
+### R-2026-09-22-60 — a production build must read no untracked source; the whole-env inlining is removed at its cause
+
+_Issued as R-PROVISIONAL-2026-09-22-AP, by the founder on 2026-09-22, on a finding of mine reported with `R-2026-09-22-59`'s last commit. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-59. **Record-only under R-46; lands in PR 3.1.**_
+
+**A — THE FINDING, WHICH IS MINE AND WAS RECORDED BEFORE IT WAS RULED ON.** Vite inlines the **whole** `import.meta.env` record, not only the keys a module reads. So a stale `VITE_SUPABASE_URL` in the untracked apps/ward-console/.env.local ships inside the built bundle — `api.openbed.ng` appears there four times, two of them from that file rather than from tracked configuration. **The marker legs added in `-57`/`-58` prove `origins.json` is USED; they never proved untracked values are KEPT OUT.** The value happens to agree today. A developer's local file can still change what production talks to, and **that is Finding D's hazard surviving the change that was supposed to close it.**
+
+**B — THE PROPERTY, for every Pages app** — the public dashboard, the ward console, and the admin app when PR 3.4 adds it. **A production build's output contains no value sourced from any untracked file; what the bundle talks to comes from tracked files only.** Its failing half is a planted `.env.local` and, separately, a planted `.env.production.local` carrying a sentinel, shown red against the configuration as it stands and green after. The cause in the code is removed as well as guarded, and named. The mechanism is the implementer's to propose, and **a wrapper refusing to build while a developer's file exists is acceptable if that is the cleaner guarantee.** The founder's own `.env` files are NOT deleted; if the fix makes them unused they are listed, and the founder removes them.
+
+**C — THE PR 3.1 REPORT** carries `AL`'s C1–C9 together with B's plants, and the pull request opens only when those are quoted. No merge without the founder's word; Cowork reads the files before that word.
+
+**D — THE CAUSE, ESTABLISHED RATHER THAN GUESSED, and one of my own premises refuted in the process.** B asked for the code reference that makes Vite inline the whole record, if there is one. **There is: bracket notation.** `apps/ward-console/src/main.ts` reads `import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY']`, and Vite defines two different keys — a per-variable `import.meta.env.<NAME>`, which collapses to one string, and a bare `import.meta.env`, which is the entire serialized record. **A bracket access matches only the second.** Read in the pinned Vite 8.2.2's own installed source, not inferred from documentation.
+
+**I had assumed bracket notation was forced by a compiler option, and it was not.** `noPropertyAccessFromIndexSignature` is set in no tsconfig in this repository, and dot access typechecks today unchanged — verified by running this project's exact compiler options against both forms. It was habit, not constraint. **Recorded because the wrong reason would have survived the right fix:** anyone later re-reading `import.meta.env` would have reached for brackets again, believing the type system required it.
+
+**E — AND ONE THING `B`'s WORDING WOULD NOT HAVE ACHIEVED ON ITS OWN.** Disabling `.env` file loading closes the file half and **not** the shell half: Vite copies every `VITE_`-prefixed entry of `process.env` into the record afterwards, and it **outranks every file**. So "no untracked FILE" is reachable by configuration while "the output is the same whatever is set in the shell" is not, and the two must be named separately. `R-2026-09-22-61 B3` is where that second half is required.
+
+### R-2026-09-22-61 — the publishable key is TRACKED; what it supersedes is mine, not the record's
+
+_Issued as R-PROVISIONAL-2026-09-22-AQ, by the founder on 2026-09-22, answering the question `-60` left open — where a production build gets the key once it may read no untracked file. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-60. **Record-only under R-46; lands in PR 3.1.** Next provisional letter: AR._
+
+**A — THE DECISION.**
+
+- **A1 — the basis.** The key **ships in every client bundle by design**, so the repository holding it exposes nothing new. Tracking it means **the stamped commit fully determines the built bundle**, and it removes a hand-carried step from every deploy.
+- **A2 — WHAT IT SUPERSEDES, AND THE ATTRIBUTION IS CORRECTED HERE.** The ruling instructs that any line in `-57`/`-58` saying the key must not live in the repository is superseded, and asks for that line to be named — noting that Cowork had not read those blocks' landed text and that the attribution was mine. **The attribution is mine, and the location is narrower than the instruction assumed: THERE IS NO SUCH LINE IN EITHER BLOCK.** Both were read here, in full, before this clause was written. What is superseded is **code and a template I wrote in the same session**: the ward console's `.env.example` in its entirety — written here without backticks because it no longer exists, and a backticked path to an absent file is the Clause 4 phantom — and the paragraph in `apps/ward-console/src/main.ts` beginning *"THE KEY IS DELIBERATELY STILL AN ENVIRONMENT VARIABLE"*.
+
+**The paragraph is rewritten; the template is DELETED, and the asymmetry is deliberate.** A comment that records why a decision was reversed is worth keeping. A template whose whole content was one variable name is not, once no variable exists: it would stand in the repository instructing a reader to create a file that nothing reads, which is an instruction that cannot be carried out — the phantom in its most ordinary form. **Corrected here after the fact**: this clause first said both were rewritten, which was written before the deletion and was wrong by the time it landed, and `tests/compliance/no_phantom_paths.test.ts` caught the citation.
+
+  **The objection that paragraph raised is answered rather than ignored**, which is why A3 exists: it argued that a tracked key makes the repository the place a **stale** key lives, and a dead key fails at authentication in a way that reads exactly like the boundary holding. A3 is what stops that.
+- **A3 — the rotation runbook is restated**, so a rotation updates this **one tracked line in the same change**, and the restated step is quoted in the report.
+
+**B — THE GUARDS, each with a failing half shown red then green.**
+
+- **B1.** The tracked value is a **publishable or legacy anon** key and never a secret or service-role key, recognised **by kind and never by length**: an `sb_secret_` prefix refused and `sb_publishable_` accepted, and a JWT **decoded** so its payload `role` is asserted to be `anon` rather than `service_role`. Plant: a service-role-shaped value in the tracked slot turns it red.
+- **B2.** `scripts/lint_no_secrets.sh` is **not widened in general**. Its exemption is **by named file and named key**, with A1 written into the script as the stated basis. The list is pinned by identity, so a third entry is a visible act.
+- **B3 — `-60 B` extended to the process environment:** a production build's output is the same **whatever is set in the shell**. Plant: export a `VITE_` sentinel before building and assert it is absent from the output. A wrapper refusing while any `VITE_*` is set is acceptable if Vite cannot be made to ignore it cleanly; **the mechanism chosen must be stated with its reason.**
+- **B4.** Disabling `.env`-file loading on production builds **stays**, and `-60 B`'s two file plants stand alongside it.
+
+**C — THE REPORT** carries `AL`'s C1–C9 (C9 as amended by `AM` B6), `-60 B`'s plants and B1–B3 above. The pull request opens when those are quoted.
+
+**D — THE TWO LETTERS THAT NEVER ARRIVED, and the ledger's own rule applied.** `AL` and `AM` were issued by Cowork **before** `AN` and were never pasted into this session. The ledger states that *a letter with no row either never arrived or has not landed yet, and Cowork can be told which* — and Cowork was told: no text for either has ever reached the implementer, and nothing in this repository mentions them. **They are therefore numbered from the record's last when their text lands, which will be AFTER `-60` and `-61` rather than before**, and their ledger rows record that they were issued earlier than the numbers they carry. **`C` cannot be discharged until `AL`'s text exists**, which is the one thing still holding the pull request shut.
+
+### R-2026-09-22-62 — the USAGE control's remaining gap is closed here, and the PR 3.1 report must quote rather than state
+
+_Issued as R-PROVISIONAL-2026-09-22-AL, by Cowork on 2026-09-22, **before `AN`**, and not pasted into this session until 2026-09-23 — `-61 D` records that it had not arrived. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-61. **It therefore carries a number later than rulings issued after it**, and its ledger row says so. **Record-only under R-46; lands in PR 3.1.**_
+
+**EVIDENCE KINDS.** A, B and C are Cowork's, recorded as given. D is mine.
+
+**A — `-57 G5`'s GAP IS CLOSED IN THIS PULL REQUEST, not carried as an open item.**
+
+- **A1.** The USAGE test must turn **red** if the privilege it checks is changed to any other valid schema privilege — `CREATE` being the case measured in `-57 G5`. A control that stays true under that swap does not prove the test is about USAGE. The mechanism is the implementer's; one shape that meets it is a control subject that holds USAGE and **not** CREATE on `app`. The swap is shown as the failing half, quoted, then green restored.
+- **A2.** If a catalogue read of the schema's ACL — every privilege type at once, for `anon`, `authenticated` and `PUBLIC` — closes the property more directly, use it. **Keep `has_schema_privilege` where it adds the membership-inheritance case the ACL read cannot see.**
+- **A3.** `-57 G5` records this as closed by this ruling.
+
+**B — COWORK'S ERRORS, for the pull-request body; listed, not fixed in the record text.**
+
+- **B1.** The claim that a misspelled privilege string *"would read as the boundary holding"* came from Cowork and was never tested. Measured here (`-57 G5`): `has_schema_privilege` **raises** on it. The same class as Cowork error (c): check that a stated failure mode actually happens before citing it.
+- **B2.** The kickoff's Clause 4 scope defect — a gitignored path in backticks (`-57 G3`) — is Cowork's, and the path is named in the pull-request body.
+
+**C — THE PR 3.1 REPORT QUOTES, IT DOES NOT STATE.** C1 branch, HEAD, push state and `git log --oneline main..HEAD`. C2 `git diff -M --name-status main...HEAD` against the claimed paths, plus the per-commit staged-path comparisons. C3 whether `scripts/commit.sh` is new; if new, its basis in the record. C4 every plant red then green — the RLS lint without ENABLE and separately without FORCE, the top-level set's planted stray, the credential scan once per app, the wrapper refusing an unknown app, a stale stamp refused by name at upload, and the USAGE swap. C5 `build_stamp` green across a commit made after a build, as a sequence with output. C6 the wrapper deploying both apps against the stub, every pre-existing `deploy_guards.test.ts` leg named, each stamped app's `version.json` ignored with its untracked leg. C7 the Cloudflare runbook's deploy command restated. C8 Standard O on a freshly provisioned database with its prediction. **C9 as amended by `-63 B6`:** `git status --porcelain` with the untracked Cowork directory gone.
+
+**D — C3's PREMISE, READ BEFORE THE CLAUSE WAS WRITTEN.** `scripts/commit.sh` is **not new**: it entered in `c843745` on 2026-09-11 and is already on `main`. The "if new, its basis" branch does not apply, and the report says so rather than inventing a basis for something that needed none.
+
+**E — WHAT BUILDING A FOUND, both by planting rather than by reading, and neither predicted.**
+
+**E1 — `-57 G5`'s gap was real, but for a narrower reason than it gave.** `G5` said a CREATE swap would go undetected *"because `postgres` holds CREATE on `app`"*. **The control at that time was not `postgres`.** It was the first role alphabetically holding USAGE — `pg_read_all_data`, which sorts before `postgres` and holds USAGE but **not** CREATE. Measured, against the old test itself (`702f061`) rather than a spot query:
+
+- a swap of the **probe calls alone** would have reddened it — the control answers false for CREATE;
+- a swap that **also rewrites the control's selection criterion** (all four `'app', 'USAGE'` sites) makes selection pick a role that does hold CREATE, and **the old test stayed green, 10 of 10.** That was the gap.
+
+**The new test reds under both shapes**: the constant alone turns the control false; the constant plus the selection leaves no subject that holds USAGE without CREATE, and the test says so by name. **The lesson is `-57 G5`'s own, applied to itself:** it measured a failure mode with a psql spot-check against a role it assumed was the control, and the conclusion survived only because a second shape happened to produce it.
+
+**E2 — THE ACL READ WAS BLIND TO PUBLIC ON ITS FIRST VERSION**, which is the one grantee A2 asked it for. It labelled grantees with `coalesce(nullif(pg_get_userbyid(grantee), ''), 'PUBLIC')`, on the assumption that the lookup returns an empty string for OID 0. **It returns `'unknown (OID=0)'`.** So PUBLIC was never labelled, the filter could never match it, and **a real `GRANT USAGE ON SCHEMA app TO PUBLIC` passed the guard, twelve of twelve green.** It is now mapped by OID; the in-test plant grants to PUBLIC as well as `anon` and reads through the **same SQL text** as the leg, so a defect in the read reds its own plant. Re-planted: PUBLIC reds it, and so does a CREATE granted to `authenticated` — a non-USAGE privilege the per-role probe would never have asked about.
+
+**E3 — B2's DEFECT, COMMITTED TWICE BY THE IMPLEMENTER, AND THE GUARD'S BLIND SPOT BEHIND IT, added 2026-09-23 after PR 3.1's first CI run.** `compliance-tests` went red on #64 while passing on this machine at the same commit. `tests/compliance/no_phantom_paths.test.ts` reported the ward console's .env.local — cited here without backticks for the reason that follows — as a phantom, **cited in backticks by me** in `-60 A` and in a test header. It is gitignored: present on the founder's machine, absent in CI. **The same defect as B2's, which I had listed against the kickoff while committing it myself.**
+
+**The cause is in the guard, not only in the two lines.** It tested existence with `existsSync`, so a gitignored file on the developer's disk passed here and failed in CI: **its verdict depended on whose machine ran it.** Three instances made it a class. Both citations are unquoted, and the guard now refuses a backticked citation of any gitignored, untracked path **whatever the local disk holds**, which is what Clause 4's scope note already required in prose. Shown red on this machine with the file present — the condition under which the old check passed — then green. **The kickoff's own instance is exempted by file, not by path**, because that document is committed byte-identical; the same path cited anywhere else is still refused, and removing the exemption reds it.
+
+### R-2026-09-22-63 — Cowork handoffs no longer enter the repository
+
+_Issued as R-PROVISIONAL-2026-09-22-AM, by the founder on 2026-09-22, **before `AN`**, and not pasted until 2026-09-23. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-62. Its ledger row records the out-of-order landing. **Record-only under R-46; lands in PR 3.1.**_
+
+**A — THE RULE (the founder's decision).**
+
+- **A1.** Cowork handoff documents are Cowork-to-Cowork continuity documents. They live in the Cowork project only and are **not** committed to `docs/`. The repository's record is this decision record and the committed kickoffs; a handoff is a second-hand summary of them.
+- **A2 — the reason.** Committing them produced the same stray path twice, needed a founder paste and a byte-identity check per pull request, and put Cowork's session-state claims into the record, where they then needed correcting.
+- **A3.** Handoffs already under `docs/` stay as history and are not edited or removed. The implementer's own handoffs are not covered by this ruling.
+
+**B — WHAT CHANGES IN PR 3.1.**
+
+- **B1.** `-58 B1` and `B2` are **withdrawn**: neither Cowork handoff enters `docs/`, and nothing is pasted for that purpose.
+- **B2.** `-58 B3` is **replaced**: the untracked Cowork directory is removed from the working tree with **no diff owed**, since the authoritative copy is in the Cowork project. `git status --porcelain` is quoted before and after.
+- **B3.** The committed kickoff still says PR 3.1 carries the infra-review-closed handoff. **The kickoff stays byte-identical; this clause is what supersedes that line**, and the pull-request body says so.
+- **B4.** `-58 C`, the top-level closed set, **stands** — it guards against any stray path, not only handoffs.
+- **B5.** Before relying on A1, the two Cowork handoffs' facts were checked against the record — see D.
+- **B6.** `-62 C9` now reads: `git status --porcelain` with the untracked Cowork directory gone; no diff is owed.
+
+**C — WHAT IS WITHDRAWN, SO IT IS FINDABLE.** `-58 B1`, `B2` and `B3`, and the kickoff's carried-items clause naming the infra-review handoff. `-61 D`'s statement that `AL` and `AM` had not arrived is **discharged** by their landing here, not contradicted by it.
+
+**D — B5, DONE, AND IT FOUND TWO FACTS WITH NO HOME.**
+
+**`handoff-2026-09-22-bundle3-kicked-off`** was read on disk before removal. Every fact a later reader would need already has a home: the ward's missing new-link path in `-57 F2`; `enable_signup` and H2 in the committed kickoff; the top-level guard's discharge in `-58 C3a`. What has no home is Cowork's own process notes — a near-miss about `facility_ops` and a relabelling of hosted steps — which never reached this repository and are expected to have none.
+
+**`handoff-2026-09-22-infra-review-closed`** was pasted for comparison only and is not committed. **The paste arrived TRUNCATED**, ending mid-sentence in its "Fundamental" section; **this check covers what arrived and nothing after that point.** Its facts were compared against `-53` to `-56`, and each absence below was **confirmed by reading `-56 A3` and `A3b` in full, with a known-present phrase found as a control** — not inferred from a failed search.
+
+**Two facts had no home, and they are given one here, each as what it is: a founder reading relayed through a Cowork handoff, NOT re-read by the implementer.**
+
+- **D1 — "`openbed-ward-console` is built against `https://api.openbed.ng`."** `-56 A3` records only that the project has no custom domain and cannot be deployed through the wrapper; **`A3b` says outright that which commit is deployed was not reported.** So this is the **only statement anywhere of what the CURRENTLY DEPLOYED ward console talks to** — the question Finding D existed to answer. **It matters beyond bookkeeping:** the tracked origin of `-57`/`-59` governs builds made from now on; it says nothing about a deployment made before it. The first deploy through the wrapper (H4), read back per `-64`, replaces this relayed claim with a reading.
+- **D2 — "Hosted counts: 0 `ward_account`s; 1 auth user."** The record has the `ward_account` count and has `security@openbed.ng` as the §9 test account, but **no total of auth users**. That total is **H2's baseline**: if hosted sign-up is enabled, it is the number that shows nobody has self-registered, and a later reading above one is the signal to look.
+
+Everything else in what arrived has a home: the Worker's deployed source matching the repository (`-55`/`-56`), `openbedng` deleted (`-56 A2`, `A10b`), DNS (`A4`), SSL (`A5`, `A10a`), the test account (`A6`), `ensure_rls` and its inert PUBLIC EXECUTE (`A7`), the magic-link host and its custom-domain end state (`-55 C`), Cowork's on-device verification of `999dd50` (`-54`), and the widened grant check, which the handoff says was "not yet in a ruling" and is now `-57 A2`.
+
+### R-2026-09-23-64 — the live-key probe runs on every ward-console deploy, not only on rotation
+
+_Issued as R-PROVISIONAL-2026-09-23-AR, by Cowork on 2026-09-23, on a finding of mine in `-61`'s rotation step. Number assigned on landing from the record's last as read on this branch: R-2026-09-22-63. First ruling dated 2026-09-23. **Record-only under R-46; lands in PR 3.1.** Next provisional letter: AS._
+
+**A — THE RULE.**
+
+- **A1.** The finding stands: **no test in this repository can tell a live key from a dead one.** So the edge probe is the only check, and it belongs in the ward console's **deploy read-back** — H4's first deploy included — not only in the rotation step.
+- **A2 — the property.** After a ward-console deploy, **the key in the deployed bundle is accepted at the edge.** Failing half, in the same sitting: the same request with a deliberately wrong key is refused. Both pass signals are written exactly, and the rotation step points at this read-back rather than carrying its own copy.
+- **A3.** If the probe as written already met A2, say so and quote it; do not duplicate it.
+
+**B — A3 ANSWERED: IT DID NOT.** The rotation step said *"the signal is the ward console signing in"* — which names no exact signal and has no failing half. The read-back is written fresh, and the rotation step now points at it.
+
+**C — THE SIGNALS WERE OBSERVED BEFORE THEY WERE WRITTEN, and the observation changed the endpoint.** Read against `https://api.openbed.ng` on 2026-09-23, with the tracked key, a deliberately wrong key, and none:
+
+| Endpoint | tracked key | wrong key | no key |
+|---|---|---|---|
+| `/rest/v1/` | **401** `"Secret API key required"` | **401** `"Invalid API key"` | 401 `"No API key found in request"` |
+| `/auth/v1/settings` | **200**, body begins `{"external":` | **401** `"Invalid API key"` | 401 `"No API key found in request"` |
+
+**At the PostgREST root a live key and a dead key both return 401.** A status-only probe there would certify a dead key as live — the body is the only thing that tells them apart. `/auth/v1/settings` separates them by status **and** body, so it is the probe. It is a settings read, **not a sign-in**: it sends no email and does not exercise the per-IP auth limits `R-2026-09-19-23 D4` forbids touching.
+
+**D — one trap met while taking that reading, recorded because it looks like a network failure.** The first attempt used a loop variable named `path`, which in zsh is tied to `$PATH`; assigning it emptied the search path, and every `curl` reported *command not found*. **No request was sent.** The runbook fence avoids the name.
+
+### R-2026-09-23-65 — Cowork's file review of PR 3.1: three fixes in one commit, one probe path recorded for PR 3.3
+
+_Issued as R-PROVISIONAL-2026-09-23-AS, by Cowork on 2026-09-23, on its own reading of the files at `fbb0655`. Number assigned on landing from the record's last as read on this branch: R-2026-09-23-64. **Record-only under R-46; lands in PR 3.1, in the one fix commit it asks for.** Next provisional letter: AT._
+
+**BASIS — Cowork's reading, not taken here.** Cowork cloned the public repository at `fbb0655` and read the files. It confirmed independently: the 51 paths in `main...HEAD`; no stray top-level entry; the production value in `packages/origins/publishable-keys.json` equal to Supabase's live default publishable key (the legacy anon JWT is disabled there); `origins.json`'s `supabaseDirect` equal to the project URL and to the deployed proxy's project id; `BedsEnv` carrying only the service-role key; the wrapper refusing an unknown app and reading the stamp back; the USAGE test meeting `-62 A1`; production `/beds.json` answering 200 on 2026-09-23. **Not independently read by Cowork: the seven CI results**, which remain the implementer's reading.
+
+**A — FIX IN PR 3.1, ONE COMMIT, BEFORE THE FOUNDER'S MERGE WORD.**
+
+- **A1.** Both `vite.config.ts` files say the no-`import.meta.env`-read property is asserted in `tracked_origins.test.ts`. It is asserted in `tests/compliance/tracked_client_keys.test.ts`. Correct both; say whether a guard could catch a comment naming a test file that does not hold the claimed assertion; do not build it here.
+- **A2.** `scripts/lint_public_table_rls.sh` reads only the plain form. It does not see `CREATE UNLOGGED TABLE`, quoted identifiers, `ALTER TABLE … SET SCHEMA public`, or an unqualified `CREATE TABLE x AS`. For up migrations the catalogue test catches them; for down migrations nothing does. **The property: every form that can create or move a table into `public` is either paired and checked, or refused by name as unreadable.** Plant each form, red then green, quoted; pass over 001–018 unedited.
+- **A3.** In `docs/runbook-cloudflare-pages-beds-json.md`, "step 8" names both section 8 and read-back 8; read-back 6's *"step 8 is what stops it recurring silently"* means read-back 8. Make every such reference unambiguous, and remove the duplicated `"dirty": true` paragraph. The restate rule applies to any guard that pins the text.
+- **A4.** Report the commit's staged-path comparison, the A2 plants, the full gate, and CI on the new head.
+
+**B — RECORDED FOR PR 3.3, NOT BUILT HERE.**
+
+- **B1.** Step 3 of `docs/runbook-ward-console-deploy.md` probes `https://api.openbed.ng/auth/v1/settings`. Today the Worker forwards every path (Cowork read the deployed source). PR 3.3's allow-list is derived from code, and no code calls `/auth/v1/settings`, **so once 3.3 deploys the probe gets the Worker's 404 and every ward-console deploy reads STOP.**
+- **B2 — the property for PR 3.3.** Every path a runbook probe calls through `api.openbed.ng` is either on the allow-list with its stated reason — the probe — or the probe moves. The coverage test sees runbook probe paths as well as code call sites, and a probe path missing from the list turns it red. **The implementer proposes the mechanism.**
+
+**C — ONE QUESTION.** The AP B2 / AQ B3 sentinel plants were demonstrated once; the standing guards are structural, and the source scan covers `apps/`, not the packages an app imports. Does the bundle-level leg alone catch a future `import.meta.env` read in `packages/*`? If not, extend the scan in this commit.
+
+**D — THE PREMISES, READ BEFORE ACTING (method note 20).**
+
+- **A1 holds.** Line 20 of both configs; the assertion is `tracked_client_keys.test.ts`'s `'%s reads import.meta.env NOWHERE in its source'`, and `tracked_origins.test.ts` holds no such test.
+- **A2 holds, and the gap was wider than listed.** The lint was a line-by-line grep. It also missed a `CREATE TABLE` split across lines, `SELECT … INTO public.x`, a top-level unqualified `SELECT INTO`, `CREATE FOREIGN TABLE`, `IMPORT FOREIGN SCHEMA … INTO public`, `CREATE`/`ALTER EXTENSION` into `public`, a `CREATE TABLE` inside `EXECUTE '…'`, and a `DISABLE` after the pairing. It also **refused a legitimate form**: `ENABLE ROW LEVEL SECURITY, FORCE ROW LEVEL SECURITY` in one `ALTER TABLE`, valid SQL that sets both flags (observed locally before it was relied on). **Of 19 forms planted, 18 passed the `fbb0655` lint**; the nineteenth, `NO FORCE`, it already caught. The lint now lexes each file with an embedded perl lexer and classifies every form; all 19 are red as planted and green once corrected.
+- **A2's "unedited" held, and it cost one named exemption.** The first run of the widened lint refused `017`'s `CREATE EXTENSION IF NOT EXISTS pg_cron`, which names no schema: **the guard refusing legitimate input**, and a line my corpus survey had missed. The local catalogue says pg_cron sits in `pg_catalog`, is not relocatable, and puts its four relations in schema `cron`. It is exempted **by name**, and only when no schema clause is given. Every other extension with no schema clause is refused.
+- **A3 holds, and every number collided, not only 8.** Sections run 1–8 and read-backs 1–8 plus 5b, and the runbook called both "step N". Sections are now "section N", read-backs "read-back N", and a list item inside section 8 is "item 3 above". **"Steps 5, 5b and 6" in the status paragraph was resolved against `-47 D`**, which names 5b a read-back. A new guard, `tests/compliance/runbook_step_references.test.ts`, refuses any bare "step N" in that runbook, along with any paragraph that appears twice. **On its first run it found a reference the hand sweep had missed**, wrapped across a line break (*"(step⏎1's failure)"*), which a line-based search cannot see.
+- **C — the bundle leg does NOT catch it, OBSERVED.** Four reads were planted in `packages/origins/src/index.ts` on the ward console's live path, built, and run against the bundle leg: `import.meta.env['X']` inlined the whole record and went red; **`.VITE_X`, `.MODE` and `.DEV` compiled to `""`, `"production"` and `false` and passed.** My own prediction was that `.VITE_X` would be caught, and it was wrong. The source scan now follows each app's import graph file by file into `packages/`, and the same `.MODE` plant reds it. **One more claim of mine fell while building it:** I had written that the public dashboard's Vite build reaches `packages/origins` through `serve.ts`'s relative import. It does not: `@openbed/snapshot`'s index re-exports only `codec.ts`, and `serve.ts` is reached by the Pages Function alone, which wrangler builds. The expected table records what was read.
+
+**E — A1's QUESTION, ANSWERED; NOTHING BUILT.** The *existence* half of a test citation is already Clause 4's guard, `tests/compliance/no_phantom_paths.test.ts`. The *"holds the claimed assertion"* half is buildable **only with a convention**: cite the test by title — `asserted in <file> ("<test name>")` — and a guard checks the title is a `test(` or `test.each(` name in that file. Without the convention it needs a judgement about what a sentence means, and a guard claiming to make that judgement would be the phantom Clause 4 forbids. **One verb-led pattern finds at least 14 such citations in 11 tracked files outside the record and the handoffs, and that is a lower bound**: A1's own citation is not among them, because a comment marker splits it across lines. Adopting the convention is a separate change.
 
 ## The provisional ledger
 
@@ -2669,6 +3225,19 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | AC | R-2026-09-21-50 | 2026-09-21 | The runbook was not restated for 018 — the restate rule failing on the change that added the migration. Widened past section 5, one quarter of it mechanised, and named as an exception to the -46 freeze. |
 | AD | R-2026-09-21-51 | 2026-09-21 | The founder's review of #62: five defects, two blocking, all mine. The restatement had repeated the defect it was fixing — a fifth expectation site, the stop condition, left contradicting the other four. |
 | — (none issued) | R-2026-09-22-52 | 2026-09-22 | **No provisional letter.** The founder's own hosted apply of 018, quoted in full, with the instruction to write the apply record. The accumulation boundary closed at 05:40:40 UTC. First ruling dated 2026-09-22. |
+| AE | R-2026-09-22-53 | 2026-09-22 | The placeholder derives instead of being carried, on a finding from R-2026-09-22-52. **First ruling recorded on a pushed holding branch with no pull request** — record-only under R-46, rebasing onto Bundle 3. Its demonstration could not be met as specified, and the first check written for it was a tautology its own plant caught. |
+| AF | R-2026-09-22-54 | 2026-09-22 | Bundle 3's scope ruled by the founder and moved from a handoff line into the record; the sensors given their own bundle, sequenced before facility one; two deadlines pinned to the old meaning of "Bundle 3" re-pointed by note. Carries the remedy for a file my own `git add -A` swept into AE's commit. |
+| AG | R-2026-09-22-55 | 2026-09-22 | `api.openbed.ng` is KEPT — the proxy review's keep-or-remove answered against its own stated criterion, on portability, ISP-block resilience and a place for rate limits, with the caveat that none of the three reaches production until Bundle 3 points a tracked origin at it. Adds the allow-list, guard, stamp and four probes to Bundle 3; leaves the magic-link email host open with a trigger. One report-only read's reason refuted: six tracked files cite the `openbedng` Worker. |
+| AH | R-2026-09-22-56 | 2026-09-22 | The infrastructure review CLOSES on the founder's reads, every one of its seven scope bullets answered, and the `-40 H` gate on Bundle 3 lifts. Records that four of the review's own questions — the NDPA scope cell, the surface, attribution and availability — close with it unanswered and become open items rather than being absorbed. Adds the public-table RLS lint to Bundle 3. Two of the instruction's premises failed: no runbook step uses `dig` at all, and the resolver finding does not explain the 2026-09-19 contradiction. One of mine failed too, and is recorded. |
+| AJ | R-2026-09-22-57 | 2026-09-22 | Bundle 3 becomes **four pull requests in order** rather than one, on the ground that a migration adding operator write functions must not share a review with a wrapper refactor. Splits `-56 D`'s three grant gaps two-in one-out; redesigns the build-stamp check by moving the assertion to upload time, where its property is actually true, rather than building around a test that reds after every commit; and sets ten architecture properties for admin v1, identity from `auth.uid()` in the database first among them. Arrived inside the founder's pasted kickoff, which lands unedited alongside it. Two of its premises did not survive checking: the rebase it instructs was already done, and it carries one Clause 4 scope defect — listed, not fixed, because the document was ruled to land unedited. A planning pass's claim that the kickoff cited phantom `claude/` paths was itself false and was refuted before it could cause an edit. |
+| AK | R-2026-09-22-58 | 2026-09-22 | The founder answers PR 3.1's two open questions. The public dashboard's snapshot Function **keeps its direct origin** — a narrow, triggered exception to `-55 A`, on the ground that `-55 A`'s three reasons are about browser traffic and putting the Worker on the `/beds.json` path would add a failure point while `-23 D5` is open — while its origin still becomes tracked, so Finding D closes for Functions too. Both handoffs land in PR 3.1 from the founder's paste. And the top-level tracked-entry guard is pulled forward out of its trigger because the stray recurred: checking that premise here found the first instance reached a commit and the second reached the index, **neither caught by anything but a person looking**. |
+| AN | R-2026-09-22-59 | 2026-09-22 | **H1 could not be performed**: `SUPABASE_URL` on the Pages project is an encrypted secret and cannot be read back, so the step `-58 A1` depended on asked for something that does not exist — recorded as Cowork's defect rather than restated more carefully. The tracked origin is set from Supabase's own project URL instead, re-read here before it was written into anything, and found to agree with the project id `supabase-proxy/index.js` already tracks — which is itself the finding, because it makes the origin a **two-derivation-site** value that §7 governs. `-58 A1`'s "PR 3.1 changes nothing about which origin the Function calls" is replaced by a **weaker and truthful** claim: the end state is the direct origin, and whether that is a *change* is **unknown**, because the prior value was never readable. The leftover secret becomes dead config, deleted only after a 200 from `/beds.json` on a deployment built from the tracked value. Carries one hazard found while designing against B3: two database legs would have begun addressing the live project with a demo key, asserting 200 throughout. |
+| AP | R-2026-09-22-60 | 2026-09-22 | **A production build must read no untracked source.** Ruled on a finding of mine: Vite inlines the WHOLE `import.meta.env` record, so a stale `VITE_SUPABASE_URL` in an untracked `.env.local` ships inside the bundle — the marker legs of `-57`/`-58` proved `origins.json` is USED and never that untracked values are KEPT OUT, which is Finding D's hazard surviving its own fix. Requires the cause in the code be removed as well as guarded. The cause was established rather than guessed: **bracket notation**, which misses Vite's per-key define and hits the bare one. One of my premises fell with it — bracket notation was not forced by any compiler option, and dot access typechecks today. |
+| AQ | R-2026-09-22-61 | 2026-09-22 | **The publishable key becomes TRACKED**, on the ground that it ships in every client bundle by design, so the stamped commit fully determines the built bundle and no hand-carried step is left in a deploy. Asks which line of `-57`/`-58` it supersedes — and the answer, read here before the clause was written, is **none**: the claim was mine, in a template and a code comment I wrote the same session, and it is narrower than the instruction assumed. The objection that comment raised — that a tracked key makes the repository the place a STALE key lives — is answered by restating the rotation runbook rather than dropped. Also extends `-60` to the PROCESS ENVIRONMENT, which disabling `.env` files does not reach, because Vite's process-env copy outranks every file. |
+| AL | R-2026-09-22-62 | 2026-09-23 | **Issued before AN, landed after AQ** — never pasted until 2026-09-23, which `-61 D` recorded. Closes `-57 G5` in this pull request: the USAGE test must red when the probed privilege is swapped. Lists two Cowork errors for the PR body, and specifies nine things the report must QUOTE rather than state. One of its premises did not apply: `scripts/commit.sh` is not new, having been on `main` since 2026-09-11. |
+| AM | R-2026-09-22-63 | 2026-09-23 | **Issued before AN, landed after AL.** Cowork handoffs no longer enter the repository; `-58 B1`–`B3` withdrawn; the untracked Cowork directory removed with no diff owed. Its B5 check found **two facts with no home** in the record — what the currently deployed ward console is built against, and the hosted auth-user total — and gives them one, marked as relayed readings. The infra-review handoff was pasted truncated, and the check says so. |
+| AR | R-2026-09-23-64 | 2026-09-23 | The live-key probe moves into every ward-console deploy read-back, with a failing half, because no test here can tell a live key from a dead one. **Its signals were observed before they were written, and the observation moved the probe off `/rest/v1/`**: there a live key and a dead key both return 401. First ruling dated 2026-09-23. |
+| AS | R-2026-09-23-65 | 2026-09-23 | Cowork's own file review of PR 3.1 at `fbb0655`: one wrong test citation, a RLS lint that read only the plain form, and a runbook whose "step N" named two things. Each premise held, and two were wider than stated: **18 of 19 planted forms passed the old lint**, and every number 1–8 collided in the runbook. The C1 question was answered by planting, not argued: the bundle leg missed three of four package env reads, so the source scan now follows the import graph. Records the PR 3.3 hazard that the ward-console probe path is on no code-derived allow-list. |
 
 ## Method notes — how rulings reach the implementer
 
@@ -2865,6 +3434,203 @@ _Standing rules, 2026-09-15. This record is their home._
   events), the duty-flag lint's stated reason and correct-forms list corrected
   along with the SOP self-check, four corrections to frozen migrations recorded in
   `database/migrations/README.md`, and three design rulings left open;
+- on 2026-09-23, R-2026-09-23-65 (issued as R-PROVISIONAL-2026-09-23-AS): **Cowork's file
+  review of PR 3.1**, three fixes in one commit. The RLS lint now lexes each migration
+  and pairs or refuses by name every form that can create or move a table into `public`
+  — 18 of 19 planted forms had passed it — with pg_cron exempted by name on an observed
+  catalogue reading. The Pages runbook names a section "section N" and a read-back
+  "read-back N", under a guard that found one reference the hand sweep missed. The
+  env-read scan follows each app's import graph into `packages/`, because the bundle
+  leg was shown to miss three of four planted reads. It also records, for PR 3.3, that
+  the ward-console probe path would 404 behind a code-derived allow-list;
+- on 2026-09-23, R-2026-09-23-64 (issued as R-PROVISIONAL-2026-09-23-AR): **the live-key
+  probe runs on every ward-console deploy**, because no test in the repository can tell
+  a live key from a dead one and the edge is therefore the only check; its signals were
+  **observed before they were written**, and the observation moved the probe off the
+  PostgREST root, where a live key and a dead key both answer 401 and only the body
+  separates them, onto `/auth/v1/settings`, which separates them by status and body and
+  is a settings read rather than a sign-in, so it stays inside `-23 D4`;
+- on 2026-09-23, R-2026-09-22-63 (issued as R-PROVISIONAL-2026-09-22-AM, before AN):
+  **Cowork handoffs no longer enter the repository**, `-58 B1`–`B3` are withdrawn and the
+  committed kickoff's line naming a handoff is superseded without editing the kickoff;
+  its check of both handoffs against the record found **two facts with no home** — the
+  only statement anywhere of what the currently deployed ward console is built against,
+  and the hosted auth-user total that is H2's baseline — which are given one, marked as
+  relayed readings rather than readings taken here; and it records that one handoff was
+  pasted truncated, so the check covers what arrived and no more;
+- on 2026-09-23, R-2026-09-22-62 (issued as R-PROVISIONAL-2026-09-22-AL, before AN):
+  **`-57 G5`'s gap is closed rather than carried** — the USAGE test must red when the
+  privilege it probes is swapped, which a control holding both USAGE and CREATE could
+  never show; it lists Cowork's untested "misspelled privilege" claim and the kickoff's
+  backticked gitignored path as Cowork's errors, and specifies the nine things the PR 3.1
+  report must quote rather than state, one of whose premises did not apply because
+  `scripts/commit.sh` had been on `main` since 2026-09-11;
+- on 2026-09-22, R-2026-09-22-61 (issued as R-PROVISIONAL-2026-09-22-AQ): **the
+  publishable key becomes TRACKED**, because it ships in every client bundle by
+  design and tracking it makes the stamped commit fully determine the built bundle;
+  it asks which line of `-57`/`-58` it supersedes, and **the answer is none** — both
+  blocks were read here in full and neither says it, the claim being mine in a
+  template and a code comment written the same session, so the supersession is
+  recorded against my text rather than against the record's; the objection that
+  comment raised, that a tracked key makes the repository the place a **stale** key
+  lives and a dead key fails in the direction that reads like the boundary holding,
+  is answered by restating the rotation runbook so a rotation moves one tracked line
+  in the same change, rather than being dropped as inconvenient; the tracked value is
+  guarded by KIND and never by length — an `sb_secret_` prefix refused, a JWT decoded
+  and its `role` required to be `anon` — and the secret scan is not widened in
+  general but exempted by named file and named key; **and `-60` is extended to the
+  process environment**, which disabling `.env` files does not reach at all, since
+  Vite copies every prefixed `process.env` entry in afterwards and it outranks every
+  file; it also records that **AL and AM never arrived**, applying the ledger's own
+  rule that Cowork can be told which, so they will be numbered from the record's last
+  when their text lands — after `-60` and `-61`, not before;
+- on 2026-09-22, R-2026-09-22-60 (issued as R-PROVISIONAL-2026-09-22-AP): **a
+  production build's output must contain no value sourced from any untracked file**,
+  ruled on a finding of mine reported with `-59`'s last commit: Vite inlines the
+  **whole** `import.meta.env` record rather than the keys a module reads, so a stale
+  `VITE_SUPABASE_URL` in an untracked `.env.local` ships inside the built bundle —
+  **the marker legs added by `-57` and `-58` prove `origins.json` is USED and never
+  proved untracked values are KEPT OUT**, which is Finding D's hazard surviving the
+  change written to close it; it requires the cause in the code be removed as well as
+  guarded, and the cause was then **established rather than guessed** by reading the
+  pinned Vite's installed source: bracket notation on `import.meta.env` misses the
+  per-key define and hits the bare one, whose value is the entire serialized record;
+  **one of my own premises fell in the process** — I had assumed bracket notation was
+  forced by a compiler option, and it is not, `noPropertyAccessFromIndexSignature`
+  being set nowhere here and dot access typechecking today unchanged, which is worth
+  recording because the wrong reason would have outlived the right fix;
+- on 2026-09-22, R-2026-09-22-59 (issued as R-PROVISIONAL-2026-09-22-AN): **the H1
+  reading could not be taken at all.** `SUPABASE_URL` on the Pages project is an
+  encrypted secret whose value the dashboard will not show, so the step `-58 A1`
+  rested on asked for something that does not exist — **recorded as Cowork's defect,
+  and not reissued in a more careful form**, because the defect is the assumption of
+  a readable variable rather than the wording. The tracked key is set from Supabase's
+  own project URL, **re-read here before it was written into anything** rather than
+  relayed, and found to agree with the project id `supabase-proxy/index.js` already
+  carries — **which is the finding, not the confirmation**: the origin now has two
+  derivation sites in tracked code, and they are bound by an assertion in one block
+  rather than left to agree by coincidence, the proxy deliberately not being made to
+  import the package since it lives outside the workspaces. `-58 A1`'s claim that the
+  change alters nothing about which origin the Function calls is **replaced by a
+  weaker one that can be true**: the end state is the direct origin, and whether that
+  is a change is **unknown**, because nobody could read what it was — if the secret
+  held `api.openbed.ng`, this pull request takes the Worker off the `/beds.json` path,
+  which is `-58`'s intent reached without confirmation that it was needed. The
+  leftover secret becomes **dead config**, deleted only after a 200 from `/beds.json`
+  on a deployment created from the tracked value, and re-observed after the deletion
+  because a variable binds when a deployment is created. And one hazard is recorded
+  from designing against B3: moving the origin onto the request's hostname would have
+  turned two database legs into calls against **the live project with the local demo
+  service-role key**, both asserting 200 throughout — closed by making the test
+  helper local, and asserting it, in a commit that lands **before** the origin moves;
+- on 2026-09-22, R-2026-09-22-58 (issued as R-PROVISIONAL-2026-09-22-AK): the founder
+  answers PR 3.1's two open questions. **The public dashboard's snapshot Function keeps
+  its direct origin** — a narrow exception to `-55 A`, on the ground that that ruling's
+  three reasons (ISP blocks, portability, a place for rate limits) are about **browser**
+  traffic, while a server-side call from Cloudflare is exposed to none of them and
+  putting the Worker on the `/beds.json` path would add a failure point while `-23 D5`
+  is open — **and its origin still becomes tracked**, under its own key set to the
+  founder's H1 reading, with a test that the Function takes it from there and not from
+  the Pages environment, so Finding D closes for Functions too and only the secret stays
+  on the platform; the exception is scoped to that one Function, leaves the admin
+  provisioning Function to PR 3.4's design report, amends the kickoff **in the record
+  rather than in the document**, and carries a trigger that ends it when `-23 D5` closes;
+  both handoffs land in PR 3.1 from the founder's paste; and **the top-level
+  tracked-entry guard is pulled forward out of its trigger because the stray recurred** —
+  checking that premise here found the first instance reached a commit and the second
+  reached the index, neither caught by anything but a person looking, which is the case
+  for the guard rather than against it;
+- on 2026-09-22, R-2026-09-22-57 (issued as R-PROVISIONAL-2026-09-22-AJ, inside the
+  Bundle 3 kickoff the founder pasted): **Bundle 3 becomes four pull requests in order**
+  rather than one, because a migration adding operator write functions must not share a
+  review with a wrapper refactor and a clinical-screen fix must not wait behind an admin
+  app, with all record-only material riding the first; `-56 D`'s three grant gaps split
+  two-in one-out, the hosted exposed-schemas list staying a hand reading **by design**
+  rather than being closed by a test that would only appear to check it; **the
+  build-stamp check is redesigned rather than rebuilt around**, on the finding that the
+  defect is where the assertion lives — the property *the artefact uploaded names the
+  commit deployed* is true only at upload time, so the readback moves into the deploy
+  wrapper and the compliance test stops reading a shared build directory; ten
+  architecture properties are set for admin v1, identity from `auth.uid()` **in the
+  database** first among them, with provisioning forwarding a bearer rather than deciding
+  who the caller is, the `-45` invite gate enforced in the database and not the UI, no
+  personal-data entry in v1, and a freshness list that shows stale rows rather than
+  filtering them; the founder brings the `(unknown facility)` renderer fix and a ward-side
+  new-link request into PR 3.2, choosing the ward form over an operator resend because the
+  identity model rests on physical control of the handset; **two of its premises did not
+  survive checking** — the rebase it instructs was already done, and it carries one
+  Clause 4 scope defect, a gitignored path cited in backticks that no guard can catch,
+  listed and not fixed because the document was ruled to land unedited; **and a claim
+  from my own planning tooling was refuted before it could cause harm**, having reported
+  phantom `claude/` citations in the kickoff that do not exist, which acted on would have
+  meant editing the one artefact that was not to be edited;
+- on 2026-09-22, R-2026-09-22-56 (issued as R-PROVISIONAL-2026-09-22-AH): the
+  **infrastructure review closes** on the founder's reads, with all seven of its
+  scope bullets answered — the proxy kept, the stray Hello World Worker deleted, the
+  ward-console Pages gaps folded into Bundle 3, `mail.` and `ftp.` gone and `www`
+  turned from a 522 into a Pages custom domain returning 200, SSL moved to Full
+  (strict), the §9 test account kept, and the undeclared hosted `ensure_rls` trigger
+  established as **no drift today** with its PUBLIC EXECUTE shown to be inert because
+  an event-trigger function cannot be called directly; **the `-40 H` gate on Bundle 3
+  lifts** and its kickoff is Cowork's; **four of the review's own questions close with
+  it unanswered** — the NDPA sub-processor scope, the surface, attribution and
+  availability — and are recorded as open items with a trigger rather than absorbed
+  into the closure; a lint requiring every `CREATE TABLE` in `public` to carry ENABLE
+  and FORCE RLS in the same file joins Bundle 3, because on hosted the event trigger
+  would otherwise enable silently what local lacks and the suite would run against a
+  database looser than production; the question whether anything proves `anon` and
+  `authenticated` cannot reach schema `app` is answered by quoting three existing
+  tests **and naming their three edges** — a missing positive control, a hosted grant
+  check covering one role and one privilege, and an exposed-schemas setting with no
+  in-database representation; and three premises are refuted, two from the instruction
+  and one my own — **no runbook step uses `dig` anywhere**, the resolver finding does
+  not explain the 2026-09-19 contradiction because that lookup returned records and
+  was run on another machine, and a DKIM absence I nearly recorded was a query that
+  could not have returned what I concluded was missing;
+- on 2026-09-22, R-2026-09-22-55 (issued as R-PROVISIONAL-2026-09-22-AG): the proxy
+  review's keep-or-remove question is answered **KEEP**, against the criterion that
+  ruling stated before it ran — portability of the client builds away from the
+  Supabase project ref, resilience against an ISP-level block of the vendor apex, and
+  somewhere to put rate limits in front of auth, with a nicer hostname explicitly
+  refused as a reason; the same block records that **none of the three reaches
+  production yet**, because nothing tracked sets the apps' origin and the name's
+  liveness is still the recorded contradiction, so the decision is on the design and
+  the property arrives with Bundle 3; the hardening the proxy has always lacked — a
+  path allow-list read from the code with everything else answered 404 by the Worker,
+  a deploy guard and build stamp, and four probes each with a demonstrated failing
+  half — is added to Bundle 3 under `-54 A` item 2; where Supabase's magic-link emails
+  point is left OPEN with the trigger "before facility one", because a `*.supabase.co`
+  verify host would make the blocking protection incomplete and the answer costs
+  money; and three founder reads are recorded, one of whose reasons is refuted — the
+  stray Hello World Worker is deleted as unaccounted infrastructure rather than as
+  something nothing cites, since six tracked files cite it;
+- on 2026-09-22, R-2026-09-22-54 (issued as R-PROVISIONAL-2026-09-22-AF): Bundle 3's
+  scope is ruled by the founder and **moved out of a handoff line into the record**,
+  where it had been attributed to a ruling that did not carry it; the sensors, which
+  no ruling had ever descoped and which lost their carrier when the name "Bundle 3"
+  was re-pointed, are given their own bundle sequenced **before facility one**,
+  because a dead scheduler after onboarding means stale beds shown to ambulances;
+  the Pages cron-trigger check and method note 14, both pinned to the old meaning of
+  the name, are re-pointed by note rather than by rewriting their sources; and a
+  Cowork handoff document that my own `git add -A` swept into the AE commit
+  unnoticed and unread is moved into `docs/` byte for byte, with the three findings
+  recorded unsoftened — a commit whose report said it touched only the record, a
+  clause in that same commit stating the document was not in the repository while
+  the commit carried it, and a Cowork session writing into the tree the file its own
+  text said it was keeping out;
+- on 2026-09-22, R-2026-09-22-53 (issued as R-PROVISIONAL-2026-09-22-AE): the
+  frozen-migrations placeholder derives its number from the recorded boundary
+  instead of being moved by hand, so a hand-carried step whose stated mechanism had
+  stopped reaching on the day it was last carried out is removed rather than
+  guarded; the founder's demonstration could not be met as specified, because
+  whether a stale placeholder reddened was an alphabetical accident of the real
+  migration's name, so the leg gained a collision check that does not depend on
+  spelling; **the first version of that check was a tautology — asserting that the
+  highest frozen number plus one exceeds the count — and its own plant is what
+  found it**; a false docstring written into the previous change's fix is
+  corrected; and the two definitions of "Bundle 3" are reconciled, with the scope
+  that binds it recorded as living in a handoff rather than in the ruling it is
+  attributed to;
 - on 2026-09-22, R-2026-09-22-52: **the hosted apply of 018, and with it the
   close of the accumulation boundary at 05:40:40 UTC** — the three public mirrors
   revoked from `anon` and `authenticated` and removed from the Realtime

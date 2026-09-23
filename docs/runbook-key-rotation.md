@@ -22,6 +22,52 @@ scraper's index within minutes. Rotate first, clean up second.
 
 ---
 
+## Rotating the publishable key — ONE TRACKED LINE, in the same change
+
+**Since R-2026-09-22-61 the publishable key is TRACKED**, in
+`packages/origins/publishable-keys.json`. It is there on the basis that it ships in
+every client bundle by design, so the repository holding it exposes nothing new,
+while tracking it makes **the stamped commit fully determine the built bundle**.
+
+**This step exists because tracking a key creates one new way to be wrong**, and it
+is the objection that was raised against tracking it at all: *the repository becomes
+the place a STALE key lives, and a dead key fails at authentication in a way that
+reads exactly like the boundary holding.* Nothing about a tracked key prevents that.
+This step is what does.
+
+**The rotation, in full:**
+
+1. Rotate in the Supabase dashboard as usual.
+2. Read the new value from the sanctioned source — **never** from a dashboard
+   copy-paste and never from a bundle:
+
+   ```bash
+   bash scripts/get_publishable_key.sh
+   ```
+
+3. **Replace the `production` line in `packages/origins/publishable-keys.json`, in
+   the same change.** That is the only edit. No `.env` file, no Pages variable, no
+   second copy anywhere — `tests/compliance/tracked_client_keys.test.ts` asserts the
+   value is a client key by kind, and `tests/compliance/tracked_origins.test.ts`
+   asserts the built bundles carry the tracked files.
+4. **Build and deploy.** A key that is tracked but not deployed is exactly the stale
+   state this step exists to prevent: the repository would be right and the edge
+   wrong.
+5. **Run the ward-console deploy read-back, step 3 of
+   `docs/runbook-ward-console-deploy.md`** — the live-key probe with its failing half.
+   It is the same probe every ward-console deploy runs (R-2026-09-23-64); this step
+   points at it rather than carrying its own copy, so there is one probe to keep
+   right. **It is the only check that can tell the new key is live**: the build
+   succeeding says nothing about that, and neither does any test.
+
+**The failing half, so this step is not merely a list.** Put the OLD key in that
+line and the suite stays green — it is still a well-formed publishable key, and no
+test in this repository can tell a live key from a dead one. **Only the probe in
+step 5 can**, and its live half then reads **`401`** with **`"Invalid API key"`**. That is stated here rather than left for someone to discover, because
+it is precisely the gap that makes step 5 non-optional.
+
+---
+
 ## Rotating `service_role`
 
 1. **Rotate at the source.** Supabase Dashboard → Settings → API → *Generate new
@@ -127,6 +173,10 @@ it.
 - [ ] New key works for whatever legitimately needs it
 - [ ] All exposure surfaces re-grepped **after** the rotation, to catch anything
       written during the interval
+- [ ] **For the publishable key: `packages/origins/publishable-keys.json` updated,
+      built and DEPLOYED.** Tracked and undeployed is the stale state; the
+      repository would be right and the edge wrong, and no test here can tell a
+      live key from a dead one
 
 **On the 2026-09-09 event specifically:** the remediation chosen was to **disable
 legacy API keys** rather than rotate the JWT secret. Legacy `anon` and

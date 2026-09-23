@@ -1,4 +1,6 @@
 import { SessionExpiredError, SessionHolder, sessionFromUrlFragment } from '@openbed/auth';
+import { apiOrigin } from '@openbed/origins';
+import { publishableKeyFor } from '@openbed/origins/keys';
 
 /**
  * THE WARD CONSOLE. Sign in with a magic link, see the wards at this account's
@@ -37,6 +39,13 @@ import { SessionExpiredError, SessionHolder, sessionFromUrlFragment } from '@ope
  * in practice means only the row for this handset's own ward will ever accept
  * a publish.
  *
+ * NOT ASSERTED HERE, deliberately (method note 12): the RENDERED text of the
+ * "Not configured" screen. Nothing in this repository renders this console -- the
+ * only jsdom test is the public dashboard's -- so its wording is checked by reading
+ * and not by a test. Said plainly rather than left for a reader to assume covered;
+ * R-2026-09-22-57 F2's ward-side sign-in form arrives in PR 3.2 and is the change
+ * that gives this file a rendered surface worth asserting.
+ *
  * CLASSIFICATION (Clause 5): the sign-in and handover path is LIVE -- it runs
  * against the local stack and golden-path steps 0-5 pass against it. The
  * publish RPC is LIVE, proved by tests/db/publish_ward_status.test.ts and the
@@ -45,8 +54,34 @@ import { SessionExpiredError, SessionHolder, sessionFromUrlFragment } from '@ope
  * the handover read already used.
  */
 
-const API_URL = import.meta.env['VITE_SUPABASE_URL'] as string | undefined;
-const PUBLISHABLE_KEY = import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY'] as string | undefined;
+/**
+ * WHERE THIS CONSOLE'S DATABASE ADDRESS COMES FROM (R-2026-09-22-57 item 1).
+ *
+ * It was `import.meta.env['VITE_SUPABASE_URL']`, read from an untracked .env.local.
+ * That was Finding D exactly: the address this app used in production was a fact
+ * that lived on one laptop, and no build, test or reader of this repository could
+ * say what it was. It is now TRACKED CONFIGURATION, chosen at RUNTIME from the host
+ * the console is being served on -- so a build carries every environment's origin
+ * and none of them depends on who ran the build or what they had set.
+ *
+ * THE KEY IS TRACKED TOO, SINCE R-2026-09-22-61, AND THIS PARAGRAPH USED TO SAY THE
+ * OPPOSITE. It argued the key must stay an environment variable because a credential
+ * has a lifecycle the repository does not, and that tracking it would make this
+ * repository the place a STALE key lives -- a dead key authenticating nothing while
+ * every probe reads as though the boundary held. **That objection was answered, not
+ * overruled:** `docs/runbook-key-rotation.md` now moves this one tracked line in the
+ * same change as a rotation, which is what keeps a tracked key from going stale.
+ * What tracking buys is that THE STAMPED COMMIT FULLY DETERMINES THE BUNDLE.
+ *
+ * SO THIS FILE READS NO ENVIRONMENT AT ALL, and that is the whole point rather than
+ * a tidy side effect (R-2026-09-22-60). Vite inlines the WHOLE `import.meta.env`
+ * record for a bracket access, so the single read that used to be here dragged every
+ * VITE_ name from an untracked .env.local into the shipped bundle -- including one
+ * that nothing read any more. With no read at all, Vite's define never fires and the
+ * output cannot vary with a file or with a shell.
+ */
+const API_URL = apiOrigin(window.location.hostname);
+const PUBLISHABLE_KEY = publishableKeyFor(window.location.hostname);
 
 const root = document.querySelector<HTMLDivElement>('#app');
 
@@ -288,18 +323,13 @@ function renderHandover(holder: SessionHolder, email: string | null, wards: Ward
 }
 
 async function main(): Promise<void> {
-  // A MISSING KEY IS A STOP CONDITION, NOT A VALUE TO WORK AROUND. Vite replaces
-  // an unset import.meta.env read with `undefined` at build time, so a console
-  // built without these would otherwise send `Bearer undefined` and report an
-  // auth failure that has nothing to do with auth. `scripts/get_publishable_key.sh`
-  // learned the same lesson the hard way with a fallback to a dead key.
-  if (API_URL === undefined || PUBLISHABLE_KEY === undefined) {
-    show(
-      'Not configured',
-      'This build has no VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY. It was built without them and cannot sign anyone in.',
-    );
-    return;
-  }
+  // THE 'NOT CONFIGURED' SCREEN IS GONE, and its absence is the improvement rather
+  // than a loss. It existed because Vite replaces an unset import.meta.env read with
+  // `undefined`, so a console built without the variable would have sent
+  // `Bearer undefined` and reported an auth failure that had nothing to do with
+  // auth. Both values are now compiled in from tracked files, so a build CANNOT
+  // lack them -- the stop condition has no state left to detect.
+
 
   let session;
   try {

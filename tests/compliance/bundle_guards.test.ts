@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { runLint, withScratch, place, REPO_ROOT } from './_scratch.js';
+import { deployableApps, appsWithFunctions, outputDirOf } from './_apps.js';
 import { PLANT_SB_SECRET, PLANT_SERVICE_ROLE_JWT, PLANT_JWT, NOT_A_CREDENTIAL_PREFIX } from './_plants.js';
 import { execFileSync } from 'node:child_process';
 import { chmodSync, existsSync } from 'node:fs';
@@ -60,9 +61,9 @@ describe('service-role bundle guard', () => {
   const LINT = 'lint_no_service_role_in_bundle.sh';
   const RULE = 'service-role credential reachable from a built client bundle';
 
-  test('the real built bundle is accepted', () => {
-    const dist = join(REPO_ROOT, 'apps', 'public-dashboard', 'dist');
-    expect(existsSync(dist), 'run `npm run build` before the compliance suite').toBe(true);
+  test.each(deployableApps())('the real built bundle of %s is accepted', (app) => {
+    const dist = join(REPO_ROOT, 'apps', app, outputDirOf(app));
+    expect(existsSync(dist), `run \`npm run build\` before the compliance suite — apps/${app} has no built output`).toBe(true);
     const res = runLint(LINT, REPO_ROOT);
     expect(res.status, res.stdout).toBe(0);
   });
@@ -73,13 +74,67 @@ describe('service-role bundle guard', () => {
     // none). That leaves one way for the half to rot silently: functions/ renamed
     // or moved. This leg closes it for the real repository by requiring the
     // count be non-zero.
-    const built = join(REPO_ROOT, 'apps', 'public-dashboard', '.functions-build');
-    expect(existsSync(built), 'run `npm run build` (it runs build:functions) before the compliance suite').toBe(true);
+    const withFns = appsWithFunctions();
+    expect(withFns.length, 'no app has a functions/ directory — this leg is vacuous').toBeGreaterThan(0);
+    for (const app of withFns) {
+      const built = join(REPO_ROOT, 'apps', app, '.functions-build');
+      expect(existsSync(built), `run \`npm run build\` (it runs build:functions) before the compliance suite — apps/${app} has none`).toBe(true);
+    }
     const res = runLint(LINT, REPO_ROOT);
     expect(res.status, res.stdout).toBe(0);
     const m = res.stdout.match(/(\d+) server-side function files scanned/);
     expect(m, `the PASS line did not report a server-side count:\n${res.stdout}`).not.toBeNull();
     expect(Number(m?.[1]), `the server-side corpus scanned nothing:\n${res.stdout}`).toBeGreaterThan(0);
+  });
+
+  test('anti-vacuity — more than one app is discovered, or the per-app plants below prove nothing', () => {
+    // The plants below exist to show the scan REACHES each app. With one app they
+    // would be indistinguishable from the single-app plants that already exist.
+    expect(deployableApps().length, 'fewer than two apps — the per-app reach plants are vacuous').toBeGreaterThan(1);
+  });
+
+  test.each(deployableApps())(
+    'plant — a credential in apps/%s is caught while every OTHER app is clean',
+    (dirty) => {
+      // -21 D4: the scan's reach to each app is "to be confirmed explicitly, with a
+      // plant, in that change, not assumed". The lint globs apps/*/dist, and A GLOB
+      // THAT MATCHES IS NOT PROOF IT REACHED. Every other plant in this file uses one
+      // synthetic app called `x`, so "the second app is scanned too" was unasserted.
+      //
+      // Each app's file is named after the app, so the assertion is on IDENTITY: it
+      // is not enough that the guard refused, it must have refused because of THIS
+      // app's bundle.
+      withScratch((root) => {
+        for (const app of deployableApps()) {
+          place(
+            root,
+            `apps/${app}/dist/assets/${app}.js`,
+            app === dirty ? `const k = "${PLANT_SB_SECRET}";` : 'export const x = 1;',
+          );
+        }
+        const res = runLint(LINT, root);
+        expect(res.status, `a credential in apps/${dirty} was not caught:\n${res.stdout}`).toBe(1);
+        expect(res.stdout, `the guard refused but did not name apps/${dirty}`).toContain(`apps/${dirty}/dist`);
+        for (const clean of deployableApps().filter((a) => a !== dirty)) {
+          expect(res.stdout, `the guard named apps/${clean}, which carries no credential`).not.toContain(
+            `apps/${clean}/dist/assets/${clean}.js`,
+          );
+        }
+      });
+    },
+  );
+
+  test.each(appsWithFunctions())('plant — a credential in apps/%s/.functions-build is caught', (app) => {
+    withScratch((root) => {
+      place(root, `apps/${app}/dist/assets/${app}.js`, 'export const x = 1;');
+      place(root, `apps/${app}/functions/beds.json.ts`, 'export const onRequestGet = () => new Response("{}");');
+      place(root, `apps/${app}/.functions-build/${app}.js`, `const k = "${PLANT_SB_SECRET}";`);
+      const res = runLint(LINT, root);
+      expect(res.status, `a committed key in apps/${app}'s Function output was not caught:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, `the guard refused but did not name apps/${app}'s Function output`).toContain(
+        `apps/${app}/.functions-build`,
+      );
+    });
   });
 
   test.each([

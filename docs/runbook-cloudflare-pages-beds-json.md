@@ -3,12 +3,12 @@
 **Every step here is OWED, and its owner is the founder.** The implementer has no
 Cloudflare access and is issued no deploy token (R-2026-09-17-11 B4, declined
 deliberately). Bundle 1 merges with these seven steps open. **Bundle 2 — migration
-018 — started on your report of steps 5 and 6, not on Bundle 1's merge**
+018 — started on your report of sections 5 and 6, not on Bundle 1's merge**
 (R-2026-09-17-11 C): the ordering exists so there is never an interval with no
 public read path, and merging code does not open one.
 
-**STATUS, 2026-09-22: the gate is DISCHARGED AND THE BOUNDARY IS CLOSED.** Steps 5,
-5b and 6 were run and quoted on deployment `76fe917`, all four EVIDENCE observations
+**STATUS, 2026-09-22: the gate is DISCHARGED AND THE BOUNDARY IS CLOSED.** Sections 5
+and 6 and read-back 5b were run and quoted on deployment `76fe917`, all four EVIDENCE observations
 passed (R-2026-09-21-47), migration 018 was written and merged, and **it was applied
 to the hosted project on 2026-09-22 at 05:40:40 UTC** (R-2026-09-22-52). Step 5 of
 `docs/runbook-supabase-project-creation.md` carries the pre-apply reading, the apply
@@ -25,9 +25,9 @@ change that ADDS the migration. See the rule in step 5 of the Supabase runbook f
 why it was widened — 018 falsified two sections of that document and the change
 that added it restated neither.
 
-**Steps 6 and 7 are GATED by step 4, the custom-domain cutover** (R-2026-09-18-16
+**Sections 6 and 7 are GATED by section 4, the custom-domain cutover** (R-2026-09-18-16
 C2, amending R-2026-09-17-12, which wrote them as independent). The WAF
-rate-limiting rule is zone-level, and step 6 is worded on `openbed.ng` by the
+rate-limiting rule is zone-level, and section 6 is worded on `openbed.ng` by the
 EVIDENCE gate on migration 018, so both need `openbed.ng` live on the Pages project
 first. Neither may be marked met from a `*.pages.dev` URL.
 
@@ -53,8 +53,8 @@ custom domain exists** — on `*.pages.dev` the Cache API has no effect by desig
 cache operations on `*.pages.dev` as well as on custom domains, per the reference
 quoted in the gating note above. What remains true is the sentence after it.
 The local simulation is evidence that the cache code path EXECUTES; it is **not**
-evidence for the cache criterion, which stays OWED and UNMET until step 6 observes
-a hit on the custom domain (R-2026-09-18-17 B1). Steps 5 and 6 are the only proof
+evidence for the cache criterion, which stays OWED and UNMET until section 6 observes
+a hit on the custom domain (R-2026-09-18-17 B1). Sections 5 and 6 are the only proof
 of the edge, and they are yours.
 
 Run every block **in bash or with `zsh -f`**, and paste one block at a time. The
@@ -105,15 +105,26 @@ so `functions/` was never discovered.
 response (see the cache-hit step). A zone rule would serve a cached response before the Function
 runs, and Cloudflare warns that caching in front of Pages Functions can break them.
 
-## 2. The Function's environment — two variables, Production
+## 2. The Function's environment — ONE variable, Production
 
 In the Pages project's environment-variable settings, for the **Production** environment (the menu label is Cloudflare's and is not recorded here, because it was not observed):
 
-- `SUPABASE_URL` — the hosted API URL, `https://klrlpxysjsjpdkeqdhvl.supabase.co`.
-  Plain text.
 - `SUPABASE_SERVICE_ROLE_KEY` — **the hosted secret key, `sb_secret_…`**, added as
   an **encrypted secret**. This project's legacy JWT keys are disabled, so the new
   secret key is the only service credential.
+
+**THERE USED TO BE TWO, AND `SUPABASE_URL` IS NO LONGER ONE OF THEM**
+(R-2026-09-22-59). The origin the Function calls is now tracked configuration in
+`packages/origins/origins.json`, chosen at runtime from the request's hostname, and
+nothing on the `/beds.json` path reads that variable any more. **On an existing
+project it is still SET, and it is dead config** — section 8 is how it is removed, and
+it is gated rather than done here.
+
+**Why it moved, recorded because the reason is the useful part.** It was an
+*encrypted* secret, so its value could not be read back — which meant the address
+this Function called was not a fact anybody could establish, from the repository or
+from the dashboard. An origin is not a credential and gains nothing from being
+stored like one.
 
 **The two key families are sent differently, and getting it wrong looks like a
 permissions problem rather than an auth one.** The Function chooses by the key's
@@ -142,9 +153,6 @@ a fresh deploy to take effect (OBSERVED 2026-09-20: variables added to Productio
 while a deployment was live did not reach it; a new deploy picked them up).
 
 **Symptoms:**
-- **500, `SUPABASE_URL is not set in the Function environment`** — the same
-  diagnosis as the next line. The Function checks `SUPABASE_URL` first, so this is
-  the message you see when **both** are missing.
 - **500, `SUPABASE_SERVICE_ROLE_KEY is not set in the Function environment`** —
   the variable is missing, or set under Preview rather than Production, or set
   after the running deployment was created.
@@ -153,7 +161,10 @@ while a deployment was live did not reach it; a new deploy picked them up).
   a key that has been revoked. Supabase also returns 401 for a secret key sent from
   a browser `User-Agent`; a Function should not send one, so if 401 persists with
   the right key, that is the next thing to rule out.
-- **502, `the origin rejected the snapshot read (HTTP 4xx)`** — the URL is wrong.
+- **502, `the origin rejected the snapshot read (HTTP 4xx)`** — the tracked origin
+  is wrong, or the project it names is not the one holding the snapshot. **This is
+  no longer fixed in the dashboard**: it is a change to
+  `packages/origins/origins.json` and a redeploy.
 
 ## 3. Deploy
 
@@ -208,7 +219,7 @@ Then, in the deployment's **Functions** tab, `/beds.json` must be listed.
 **Symptom:** the Functions tab is empty or absent — wrangler was run from the wrong
 directory; see the third bullet above.
 
-## 4. Custom-domain cutover — `openbed.ng` on the Pages project. GATES steps 6 and 7
+## 4. Custom-domain cutover — `openbed.ng` on the Pages project. GATES sections 6 and 7
 
 > ### HOLD LIFTED 2026-09-21 — THIS STEP IS NOW THE NEXT FOUNDER ACTION
 >
@@ -242,13 +253,13 @@ directory; see the third bullet above.
 > that tree and reports the deployment per *Reporting back*; and only then is this
 > step performed. **All three are now done.**
 
-**THIS STEP AND STEPS 5 AND 6 ARE WHAT LIFT THE EVIDENCE GATE ON MIGRATION 018**
+**THIS SECTION AND SECTIONS 5 AND 6 ARE WHAT LIFT THE EVIDENCE GATE ON MIGRATION 018**
 (R-2026-09-20-28 B, restated by R-2026-09-21-40). That gate names three things, and
 **none of them can be observed on a `*.pages.dev` host**:
 
 1. the apex resolves to Cloudflare, **not** to a `192.0.2.x` TEST-NET-1 placeholder;
 2. this cutover is done — `https://openbed.ng/beds.json` reaches the Function;
-3. step 5's values and step 6's cache hit are observed **on that URL**.
+3. section 5's values and section 6's cache hit are observed **on that URL**.
 
 018 was not written until those were quoted back. **They were, on 2026-09-21
 against deployment `76fe917`: all four observations passed and 018 is now written
@@ -257,28 +268,28 @@ and merged (R-2026-09-21-47).** The earlier deployment report of 2026-09-21 was
 a second, custom-domain run.
 
 Attach `openbed.ng` to the Pages project as a custom domain, and confirm the
-dashboard reports it active. **Nothing in steps 6 and 7 may be attempted, or marked
-met, before this step is done** — step 6 is worded on `openbed.ng` by the EVIDENCE
+dashboard reports it active. **Nothing in sections 6 and 7 may be attempted, or marked
+met, before this section is done** — section 6 is worded on `openbed.ng` by the EVIDENCE
 gate on migration 018, and the rate-limiting rule lives on the `openbed.ng` zone.
 (Not because the Cache API is absent on `*.pages.dev`; it is not. See the gating note
 in the overview.)
 
 **Stop condition:** a request to `https://openbed.ng/beds.json` reaches the
-Function — step 5's checks pass on that URL.
+Function — section 5's checks pass on that URL.
 
 **Symptom:** `openbed.ng` still serves something else, or not at all — the domain
-is not yet attached to this Pages project, or its DNS has not moved. Steps 6 and 7
+is not yet attached to this Pages project, or its DNS has not moved. Sections 6 and 7
 wait.
 
 ## 5. Observe the headers FROM THE EDGE — on the custom domain
 
-Use the **custom domain** (`https://openbed.ng/beds.json`) once step 4 is done, not
-the `*.pages.dev` preview URL — step 6's observation is owed on `openbed.ng`, so
+Use the **custom domain** (`https://openbed.ng/beds.json`) once section 4 is done, not
+the `*.pages.dev` preview URL — section 6's observation is owed on `openbed.ng`, so
 observe both steps on the same URL. The first line waits for you to paste it.
 
 **A `cf-cache-status` line appears in this step's output too. It is printed, not
 judged** — `DYNAMIC` is the expected value for this URL and is not one of the three
-stop conditions below. Step 6 explains why.
+stop conditions below. Section 6 explains why.
 
 ```bash
 read -r BEDS_URL
@@ -300,9 +311,9 @@ could not run**, and all three look identical here: an empty screen. An unset or
 mistyped `$BEDS_URL` produces the same empty screen, because `curl` writes its error
 to stderr and `grep` then has nothing to match. **Re-run without the pipe** —
 `curl -sS -o /dev/null -D - "$BEDS_URL"` — and read what actually came back before
-recording anything. **Symptoms:** `content-type: text/html` is step 1;
+recording anything. **Symptoms:** `content-type: text/html` is section 1;
 a different or missing `cache-control` means something on the zone rewrote it (a
-Transform Rule or Cache Rule); a 5xx means go to step 2's symptoms.
+Transform Rule or Cache Rule); a 5xx means go to section 2's symptoms.
 
 **503, `no snapshot has been generated yet`** — `public.snapshot_current` is empty.
 A freshly created or reset database has no snapshot row until the generator runs:
@@ -333,7 +344,7 @@ minute. **An empty `wards` array is a question about onboarding, not about this
 deployment**, and the two must not be confused: the generator faithfully publishing
 an empty city is the system working.
 
-## 6. Prove THE FUNCTION'S OWN CACHE served the second request — same custom domain. GATED by step 4
+## 6. Prove THE FUNCTION'S OWN CACHE served the second request — same custom domain. GATED by section 4
 
 The Function stores a 200 with Cloudflare's Cache API, and **marks every response
 with what it actually did** — `x-openbed-edge-cache`. That marker is the whole
@@ -456,9 +467,9 @@ previous version of this step on `openbed.ng` after the cutover and got
 `cf-cache-status: DYNAMIC` on both requests. The previous stop condition was
 `cf-cache-status: HIT`. **That condition could never have been met**, whatever the
 Function's cache was doing — the same defect class as the `curl -X HEAD` probe in
-step 8, found the same way (R-2026-09-21-42).
+read-back 8, found the same way (R-2026-09-21-42).
 
-**DO NOT ADD A ZONE CACHE RULE TO MAKE `cf-cache-status` READ `HIT`.** Step 1
+**DO NOT ADD A ZONE CACHE RULE TO MAKE `cf-cache-status` READ `HIT`.** Section 1
 forbids it and this is the reason: a Cache Rule would make the **other** cache
 answer, so the step would pass while proving nothing about `serveBedsCached`. That is
 the false-green this step exists to avoid, not a workaround for it.
@@ -473,13 +484,13 @@ the false-green this step exists to avoid, not a workaround for it.
   prints `x-openbed-edge-cache=<state>` with its cause on every request — dashboard
   **Workers & Pages → the project → Logs → Live**, or `npx wrangler pages deployment tail`.
 - **`x-openbed-edge-cache: nostore`** — the Function answered with a failure, so
-  nothing was stored. Go to step 5's symptoms; the status line says which.
+  nothing was stored. Go to section 5's symptoms; the status line says which.
 - **`x-openbed-edge-cache: read-error`** — the Cache API read threw. The response is
   still correct and the log above says what threw. Report it.
 - **`x-openbed-edge-cache: unavailable`** — there is no Cache API in that
   environment. Not expected at the edge; report it with the URL.
 - **No `x-openbed-edge-cache` line at all** — the Function is not answering. Either
-  the deployment predates 2026-09-21, or `/beds.json` fell through to the SPA (step
+  the deployment predates 2026-09-21, or `/beds.json` fell through to the SPA (section
   1's failure). Check `/version.json` names the commit you deployed.
 
 **What this step does NOT prove, recorded so nobody assumes it:** that the Cache API
@@ -514,7 +525,7 @@ code comment assumed.)*
 >   a premise four documents repeat.
 
 
-## 7. The rate limit — a zone WAF rule, not code. GATED by step 4
+## 7. The rate limit — a zone WAF rule, not code. GATED by section 4
 
 In the `openbed.ng` zone's **WAF rate-limiting rules** (menu path not observed, so not stated): one rule
 matching **URI Path equals `/beds.json`**, counting by IP, with a threshold that a
@@ -619,6 +630,83 @@ with their reasons recorded.
 
 ---
 
+## 8. Delete `SUPABASE_URL` from the Pages project — dead config. GATED by section 5
+
+**It is not needed, and it is not harmful; it is MISLEADING.** Nothing on the
+`/beds.json` path has read it since `R-2026-09-22-59`: the origin is tracked in
+`packages/origins/origins.json` and chosen from the request's hostname. A variable
+left in a project's environment reads to the next person as configuration that
+matters, and the next person may be the one debugging a 502 at 4am.
+
+**It is NOT part of section 2.** Section 2 is "set these". A deletion is a different act
+with a different precondition, and folding it in there would make it read as
+optional tidying.
+
+### The gate, and why it is this one
+
+**Do not touch the variable until you have, IN THIS SESSION, run section 5's block
+against `https://openbed.ng/beds.json` on a deployment created from a commit that
+contains `packages/origins/origins.json`, and read back in that output:**
+
+- `HTTP/2 200` (or `HTTP/1.1 200`),
+- `content-type: application/json; charset=utf-8`,
+- and a body beginning `{"v":`.
+
+**That 200 is the evidence that the Function is ALREADY taking its origin from the
+tracked file.** If it were still reading `SUPABASE_URL`, deleting the variable
+would break it — and the 200 you are about to rely on would have been the
+variable's doing rather than the code's.
+
+**The first line waits for the STATUS LINE you read in section 5** (e.g. `HTTP/2 200`).
+**The second waits for the COMMIT `/version.json` reported** for that same
+deployment. Paste each and press return; neither is echoed anywhere.
+
+**NO `exit` IN THIS BLOCK, deliberately.** Every fence in this runbook is PASTED
+into an interactive shell, and `exit` there closes the terminal rather than
+stopping a script. It prints one verdict instead, and the verdict is the gate.
+
+```bash
+read -r BEDS_STATUS
+read -r DEPLOYED_COMMIT
+OK=1
+case "$BEDS_STATUS" in *200*) ;; *) OK=0 ;; esac
+git merge-base --is-ancestor "$DEPLOYED_COMMIT" HEAD 2>/dev/null || OK=0
+git cat-file -e "$DEPLOYED_COMMIT:packages/origins/origins.json" 2>/dev/null || OK=0
+[ "$OK" = 1 ] \
+  && echo "PROCEED: $DEPLOYED_COMMIT served /beds.json with 200 and carries the tracked origin." \
+  || echo "STOP: not both of (section 5 read 200) and ($DEPLOYED_COMMIT carries packages/origins/origins.json). Delete nothing; deploy a commit that carries it, re-run section 5, then come back."
+```
+
+**The block asks you to paste values in, deliberately.** A step whose first act is
+to consume an observation cannot be performed before the observation exists.
+
+### Then delete it, and re-observe — this half is load-bearing
+
+1. In the Pages project's environment settings, **Production**, delete
+   `SUPABASE_URL`. **Leave `SUPABASE_SERVICE_ROLE_KEY` exactly as it is.**
+2. **Redeploy** through section 3, `--branch main`. This is not optional and it is not
+   caution: section 2 records, OBSERVED 2026-09-20, that variables bind when a
+   deployment is **created**. **Deleting the variable and seeing a 200 from the
+   deployment that is already running proves nothing at all** — that deployment
+   bound its environment before you touched it.
+3. **Re-run section 5's block** against `https://openbed.ng/beds.json`. It must again
+   read `HTTP/2 200`, `application/json; charset=utf-8` and a body beginning
+   `{"v":`, **from the deployment created after the deletion**.
+
+### What a failure means, by exact value
+
+- **`500, SUPABASE_SERVICE_ROLE_KEY is not set in the Function environment`** — the
+  wrong variable was deleted. Restore the secret key and redeploy.
+- **`502, the origin rejected the snapshot read (HTTP 4xx)`** — the tracked origin
+  is wrong. That is a repository change and a redeploy, **not** a reason to put the
+  variable back.
+- **Anything other than the three values in item 3 above** — stop and report the
+  output. Do not re-add the variable to make a symptom go away: if re-adding it
+  changes anything, something still reads it and `R-2026-09-22-59 B3` is not true,
+  which is a finding rather than a fix.
+
+---
+
 ## Reporting back
 
 For each step: done or not done, and the **observed** lines — the cutover from the
@@ -676,11 +764,6 @@ fourth added by R-2026-09-20-30, which also made it a READING):**
      decides it**. `scripts/deploy_pages.sh` runs the check before upload, but this
      clause exists for the case where the wrapper was bypassed, which is exactly the
      case where its check did not run.
-   - **`"dirty": true` means the deploy wrapper was BYPASSED** (R-2026-09-20-31 A4).
-     The wrapper refuses a dirty tree, so a dirty stamp on a DEPLOYED artifact is not
-     a tidiness problem: it says a control was circumvented, and that the artifact
-     matches no commit. Report it as a failed deployment, say how the deploy was run,
-     and deploy again from a clean tree through the wrapper.
 
 **AND READ BACK FOUR THINGS FROM THE DEPLOYED SITE (R-2026-09-20-31 C; a fourth
 added by R-2026-09-21-W A6).** This
@@ -721,18 +804,19 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    **`HTTP/2 200`** (or `HTTP/1.1 200`), `application/json; charset=utf-8` and
    `noindex, nofollow`, and the body must begin `{"v":`.
 
-   **THE STATUS LINE IS NOT OPTIONAL, and leaving it out was a defect in this step
+   **THE STATUS LINE IS NOT OPTIONAL, and leaving it out was a defect in this read-back
    (R-2026-09-21-40).** `failure()` in `packages/snapshot/src/serve.ts` emits
    **exactly** `content-type: application/json; charset=utf-8` and
    `x-robots-tag: noindex, nofollow` on every refusal it builds. So a **500**
-   (`SUPABASE_URL is not set`), a **502** (the origin refused the credential) and a
-   **503** (no snapshot row) all satisfied the two values this step used to name,
+   (`SUPABASE_SERVICE_ROLE_KEY is not set` — it was `SUPABASE_URL is not set` until
+   R-2026-09-22-59 removed that variable), a **502** (the origin refused the credential) and a
+   **503** (no snapshot row) all satisfied the two values this read-back used to name,
    verbatim. The status line was printed and the prose never said what it must read,
    so a reader pasting output and ticking the box could certify a broken deployment.
    That is the shape narrated four paragraphs below about `-I` — committed in the
    same change that narrated it.
 
-   The first line waits for you to paste the DEPLOYMENT URL — this step runs on the
+   The first line waits for you to paste the DEPLOYMENT URL — this read-back runs on the
    `*.pages.dev` alias, so it does not reuse the custom-domain variable set in the
    edge-headers step above.
 
@@ -744,15 +828,15 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
 
    The body read is the second half of the same guard: **an `{"error":` body is a
    failure whatever the status line said**, and `-o /dev/null` alone can never see
-   it. Step 5 has carried that rule since 2026-09-20; this step did not.
+   it. Section 5 has carried that rule since 2026-09-20; this read-back did not.
 
-   **This step said `curl -sSI` until 2026-09-21, and `-I` sends a HEAD.** At that
+   **This read-back said `curl -sSI` until 2026-09-21, and `-I` sends a HEAD.** At that
    moment `/beds.json` had no HEAD handler, so the HEAD was answered by the SPA
    fallback: the step read `content-type: text/html` and the site-wide
    `x-robots-tag: noindex` off the wrong response entirely, and a reader ticking the
    box would have certified a header the Function never sent. A probe that reports
    success for a reason unrelated to what it guards — the shape this project keeps
-   finding. Fixed here, and step 8 is what stops it recurring silently.
+   finding. Fixed here, and read-back 8 is what stops it recurring silently.
 
 7. **`/robots.txt` returning ROBOTS CONTENT, not the SPA fallback.** Fetch it and
    paste the body. Before 2026-09-20 that path returned the site's `index.html` with
@@ -781,7 +865,7 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    (`/nonexistent-path`) returns `text/html` for GET **and** HEAD — the SPA fallback
    is perfectly consistent across methods, so **a parity test passes on a route that
    lost its Function entirely**. Two `500`s likewise agree on every header
-   `failure()` sets. And this step used to grep `^cache-control` while naming **no
+   `failure()` sets. And this read-back used to grep `^cache-control` while naming **no
    expected value for it**, so `no-store` — the failure header — passed.
 
    **`text/html` on either is a FAILED deployment**, and specifically means that
@@ -818,7 +902,7 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
 > **The cutover is no longer HELD** — this sentence said it was until 2026-09-21,
 > after R-2026-09-20-36 A2 had lifted it. **What changed is only the hold, not the
 > evidence:** the 2026-09-21 report was taken entirely on `*.pages.dev`, and the
-> EVIDENCE gate on 018 needs steps 4, 5 and 6 on `openbed.ng` (R-2026-09-21-40).
+> EVIDENCE gate on 018 needs sections 4, 5 and 6 on `openbed.ng` (R-2026-09-21-40).
 >
 > **NOT OBSERVED AT THE EDGE, and named rather than implied:** `X-Robots-Tag` on a
 > FAILURE response. Every failure RESPONSE carries the header in code — see the known
@@ -883,9 +967,18 @@ case where what is running was never reviewed, because the commit will not be an
 ancestor of `main`.
 
 **USE THE WRAPPER, and what it does not do.** `bash scripts/deploy_pages.sh --branch
-<production branch>` refuses a dirty tree, refuses a `HEAD` that is not an ancestor
-of `origin/main`, builds (which stamps the artifact), uploads, and then prints all
-four clauses for this report. **It is local and defeatable** — running wrangler by
+<production branch> <app>` refuses a dirty tree, refuses a `HEAD` that is not an
+ancestor of `origin/main`, builds (which stamps the artifact), **reads the stamp back
+and refuses to upload unless it names the commit just verified, clean**, uploads, and
+then prints all four clauses for this report.
+
+**THE APP ARGUMENT IS REQUIRED and is never defaulted** (R-2026-09-22-57 B). For the
+public dashboard the invocation is `bash scripts/deploy_pages.sh --branch main
+public-dashboard`. A name the wrapper does not recognise is refused rather than
+falling back to another app — a typo that deployed a different site would be the
+accident this wrapper exists to remove. The deployable apps are the directories under
+`apps/` carrying a `wrangler.toml`, and the Pages project name comes from that file,
+so the wrapper and Cloudflare read the same source. **It is local and defeatable** — running wrangler by
 hand bypasses it entirely — so it removes the accident, not the deliberate act, and
 it still cannot see what Cloudflare serves afterwards. That is what clause 4's
 reading is for.

@@ -1,0 +1,5 @@
+# The ward console is an authenticated operational surface, not a public page.
+# There is nothing here for a crawler to index, and a magic-link URL that reached
+# an index would be a session in a search result.
+User-agent: *
+Disallow: /

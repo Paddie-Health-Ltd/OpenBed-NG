@@ -42,7 +42,7 @@ import { REPO_ROOT } from './_scratch.js';
 const RUNBOOK = join(REPO_ROOT, 'docs/runbook-cloudflare-pages-beds-json.md');
 const MARKER = 'x-openbed-edge-cache';
 
-/** Step 6 of the Pages runbook, heading to the next heading. */
+/** Section 6 of the Pages runbook, heading to the next heading. */
 function cacheStep(markdown: string): string | undefined {
   return /^## 6\. [\s\S]*?(?=^## 7\. )/m.exec(markdown)?.[0];
 }
@@ -59,14 +59,14 @@ function stopBullets(step: string): string[] {
 
 export function cacheProbeViolations(markdown: string): string[] {
   const step = cacheStep(markdown);
-  if (!step) return ['runbook step 6 not found — the cache-probe guard checked nothing'];
+  if (!step) return ['runbook section 6 not found — the cache-probe guard checked nothing'];
   const out: string[] = [];
 
   const patterns = grepPatterns(step);
-  if (patterns.length === 0) return ['step 6 contains no `grep -i -E` pattern — the guard checked nothing'];
+  if (patterns.length === 0) return ['section 6 contains no `grep -i -E` pattern — the guard checked nothing'];
   for (const p of patterns) {
     for (const required of [MARKER, '^HTTP', '^content-type', '^cf-ray']) {
-      if (!p.includes(required)) out.push(`a step 6 grep pattern does not select ${required}: ${p}`);
+      if (!p.includes(required)) out.push(`a section 6 grep pattern does not select ${required}: ${p}`);
     }
   }
 
@@ -79,7 +79,7 @@ export function cacheProbeViolations(markdown: string): string[] {
    * header without requiring the reader to COMPARE it would be decoration.
    */
   if (!/same\s+data\s+centre/i.test(step) && !/same\s+colo/i.test(step)) {
-    out.push('step 6 prints `cf-ray` but never tells the reader to compare the two colo codes — a split pair will be misread as a broken cache');
+    out.push('section 6 prints `cf-ray` but never tells the reader to compare the two colo codes — a split pair will be misread as a broken cache');
   }
 
   const bullets = stopBullets(step);
@@ -90,9 +90,9 @@ export function cacheProbeViolations(markdown: string): string[] {
     out.push('`cf-cache-status` is a stop condition again — it reports the zone cache, not this Function');
   }
 
-  // The failing half. A probe with only a passing half is what step 8 shipped.
+  // The failing half. A probe with only a passing half is what read-back 8 shipped.
   if (!/sleep 4\d/.test(step) || !new RegExp(`${MARKER}: miss`).test(step)) {
-    out.push('step 6 no longer carries its demonstrated failing half (the >35s request that must read `miss`)');
+    out.push('section 6 no longer carries its demonstrated failing half (the >35s request that must read `miss`)');
   }
   return out;
 }
@@ -137,10 +137,10 @@ const FUNCTION_HIT_ZONE_DYNAMIC = [
 ].join('\n');
 
 describe('runbook cache step — the probe that discharges the EVIDENCE gate', () => {
-  test('real runbook step 6 is accepted', () => {
+  test('real runbook section 6 is accepted', () => {
     expect(
       cacheProbeViolations(real),
-      'step 6 no longer reads the Function cache marker, or lost its failing half',
+      'section 6 no longer reads the Function cache marker, or lost its failing half',
     ).toEqual([]);
   });
 
@@ -224,8 +224,8 @@ describe('runbook cache step — the probe that discharges the EVIDENCE gate', (
     expect(cacheProbeViolations(planted).join('\n')).toContain('failing half');
   });
 
-  test('anti-vacuity — a runbook with no step 6 fails', () => {
-    expect(cacheProbeViolations('# nothing here\n').join('\n')).toContain('runbook step 6 not found');
-    expect(cacheProbeViolations('').join('\n')).toContain('runbook step 6 not found');
+  test('anti-vacuity — a runbook with no section 6 fails', () => {
+    expect(cacheProbeViolations('# nothing here\n').join('\n')).toContain('runbook section 6 not found');
+    expect(cacheProbeViolations('').join('\n')).toContain('runbook section 6 not found');
   });
 });

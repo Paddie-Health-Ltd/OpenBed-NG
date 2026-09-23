@@ -1,0 +1,27 @@
+{
+  "what_this_is": "THE TRACKED BUILD CONFIGURATION FOR DATABASE ORIGINS (R-2026-09-19-21 D1-D3, delivered by R-2026-09-22-57 item 1). Every value here is PUBLIC by design: each one ships in a browser bundle or a Pages Function bundle, and the security model assumes an attacker holds all of them. NO KEY, NO TOKEN, NO PASSWORD MAY EVER BE ADDED TO THIS FILE. The publishable key is tracked in the sibling publishable-keys.json under R-2026-09-22-61, NOT here, and that separation is deliberate: an origin and a credential have different lifecycles, and a rotation must touch exactly one line in exactly one file. A reader meeting this prohibition next to a key file is meeting two true statements, not a contradiction. Credentials keep their own lifecycles and their own homes -- the publishable key is obtained through scripts/get_publishable_key.sh and the service-role key stays in the Pages environment.",
+
+  "why_it_is_keyed_by_address_and_not_by_app": "So that an app cannot read as CHOOSING an origin. `api` is THE RULE and `supabaseDirect` is a NAMED EXCEPTION to it. Keyed by consumer -- `dashboard`, `wardConsole` -- the next app added would have to guess which it wanted, and the difference between the two would read as an accident. Keyed this way, the default is `api` and the only route to `supabaseDirect` is the ruling printed beside it.",
+
+  "why_every_environment_is_compiled_into_every_bundle": "Because selection is at RUNTIME, by hostname, never at build time. A build-time choice would make 'the built bundle carries the production origin' true only for whoever happened to build with the right variable set, which is the Finding D defect wearing different clothes. These are public values, so there is nothing to withhold from a bundle.",
+
+  "api": {
+    "production": "https://api.openbed.ng",
+    "local": "http://127.0.0.1:54321",
+    "ruling": "R-2026-09-22-55 A",
+    "why": "THE RULE. api.openbed.ng is the database address every app uses, and it is KEPT on three properties the direct origin does not give: portability, because changing the Supabase project is one edit to supabase-proxy/index.js rather than a rebuild of every app; resilience against an ISP-level block of *.supabase.co; and somewhere to put Cloudflare rate limits in front of auth. An app added tomorrow takes this key by default."
+  },
+
+  "supabaseDirect": {
+    "production": "https://klrlpxysjsjpdkeqdhvl.supabase.co",
+    "local": "http://127.0.0.1:54321",
+    "ruling": "R-2026-09-22-58 A, with its value set by R-2026-09-22-59 B1",
+    "why": "THE NARROW EXCEPTION, granted by name to ONE consumer: the public dashboard's /beds.json Pages Function. Nothing else may take it. The reason is that -55 A's three properties are all about BROWSER traffic -- a server-side call from Cloudflare is not exposed to an ISP block, is portable as one line here, and is already cached to one origin read per interval -- while routing it through the Worker would add a failure point on the public read path while R-2026-09-19-23 D5, availability, is open. The exception ENDS when D5 closes; moving the Function onto the Worker is then its own change with its own ruling.",
+    "provenance": "Read from the Supabase project URL on 2026-09-22 (get_project_url for klrlpxysjsjpdkeqdhvl), and re-read independently before it was written here. The Pages environment variable it replaces could NOT be read back -- it is an encrypted secret -- so this value is not a copy of the old one and nobody can say whether it differs from it.",
+    "second_derivation_site": "supabase-proxy/index.js builds this same origin from SUPABASE_PROJECT_ID. That is two derivation sites for one fact, which section 7 of .claude/rules/test-conventions.md governs, so the tracked-origins guard asserts the two agree in one block. The proxy is deliberately NOT made to import this package: it lives outside the npm workspaces and is deployed by `wrangler deploy`, so binding it by import would be a much larger change than the one that introduced this file."
+  },
+
+  "localHosts": ["localhost", "127.0.0.1", "[::1]", "0.0.0.0"],
+
+  "why_localHosts_is_the_list_and_production_is_the_default": "Selection is total: a host on this list is local, and EVERYTHING ELSE is production. Refusing an unrecognised host was considered and rejected -- preview hostnames are per-deployment hashes, so an exhaustive list is impossible, and R-2026-09-21-43 D has production probes run on openbed-public-dashboard.pages.dev as well as openbed.ng, which a refusal would answer with a 500. But a rule stated by negation is exactly what test-conventions warns about, and the direction of the danger is worth naming: if this list stops matching, the failure is NOT 'reaches nothing' -- it is the LOCAL TEST SUITE SILENTLY ADDRESSING PRODUCTION. So the list's reach is asserted by the tracked-origins guard rather than assumed, including against the hosts this repository's own tests use."
+}

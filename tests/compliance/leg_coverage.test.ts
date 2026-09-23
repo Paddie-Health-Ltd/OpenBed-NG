@@ -258,6 +258,12 @@ describe('leg coverage register', () => {
     // it must never do.
     expect(legs.length, 'the register is out of step with the measured leg total').toBe(now.legs_total);
     expect(reached, 'current.reached does not match what is measured').toBe(now.reached);
+    // AND THE THIRD NUMBER, which until 2026-09-22 nothing asserted (R-2026-09-22-57).
+    // `registered` sat in the register as a figure no test derived — a claim nothing
+    // checks, inside the instrument whose entire purpose is catching claims nothing
+    // checks. The set of registered legs was pinned by registerViolations; the COUNT
+    // was not, so it could drift from the set it purports to summarise.
+    expect(legs.length - reached, 'current.registered does not match what is measured').toBe(now.registered);
 
     // THE RATCHET. Progress is free; regression is not.
     expect(

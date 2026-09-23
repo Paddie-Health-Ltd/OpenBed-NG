@@ -11,15 +11,27 @@
  * request a browser makes -- rather than a hand-forged token that proves less.
  *
  * scripts/lint_no_secrets.sh allowlists this file BY PATH, and only for the
- * local-credential patterns. It is the only file in the repository permitted to
- * contain a JWT. If the scan flags a key anywhere else, that key is real.
+ * local-credential patterns.
+ *
+ * IT IS NO LONGER THE ONLY FILE PERMITTED TO CONTAIN A JWT, and that sentence used
+ * to say it was. Since R-2026-09-22-61 the local ANON key lives in
+ * packages/origins/publishable-keys.json, because the ward console needs it too and
+ * two literals of one value can be edited apart and drift while both stay green
+ * (test-conventions section 7). It is IMPORTED below rather than restated here.
+ * That file's allowlist entry covers the JWT pattern ONLY -- a Supabase secret key
+ * is still refused there by the scan itself.
+ *
+ * WHAT DID NOT MOVE IS THE SERVICE-ROLE KEY. It is a service credential and must
+ * never enter a package that browser code imports. If the scan flags a key anywhere
+ * other than these two files, that key is real.
  */
+import { LOCAL_PUBLISHABLE_KEY } from '@openbed/origins/keys';
 
 export const LOCAL_DB_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 export const LOCAL_API_URL = 'http://127.0.0.1:54321';
 
-export const LOCAL_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
+/** Re-exported, never restated: packages/origins/publishable-keys.json is the one site. */
+export const LOCAL_ANON_KEY = LOCAL_PUBLISHABLE_KEY;
 
 export const LOCAL_SERVICE_ROLE_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU';

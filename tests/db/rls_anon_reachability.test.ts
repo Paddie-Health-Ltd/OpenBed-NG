@@ -66,16 +66,157 @@ describe('anon reachability of the app schema', () => {
     }
   });
 
-  test('anon holds no USAGE on the app schema at the grant level', async () => {
+  /**
+   * THE PRIVILEGE THIS TEST IS ABOUT, NAMED ONCE (R-2026-09-22-62 A1).
+   *
+   * Every probe below binds this constant, and the control subject is chosen by a
+   * criterion written with SEPARATE literals -- holds USAGE, does NOT hold CREATE.
+   * So if this line is ever changed to another valid privilege, the control's own
+   * call answers false and the test reds, instead of quietly asserting that anon
+   * lacks some other privilege. That swap is the plant; see the header.
+   */
+  const PROBED_PRIVILEGE = 'USAGE';
+
+  test('neither anon nor authenticated holds USAGE on the app schema at the grant level', async () => {
     // Defence in depth behind the exposed-schemas list. If someone ever exposes
     // `app` by mistake, the grants are the next thing standing.
-    const [row] = await sql()<{ anon: boolean; authenticated: boolean }[]>`
+    //
+    // THE NAME SAID ONLY `anon` UNTIL 2026-09-22 while the body checked two roles
+    // (R-2026-09-22-57 A1). A test name is the failure message someone reads at 2am
+    // with no context, and one that understates what it covers sends them looking in
+    // the wrong place.
+    //
+    // AND IT CARRIES A POSITIVE CONTROL NOW (R-2026-09-22-57 A1). Every assertion
+    // here expected FALSE, and nothing showed the same call could return TRUE.
+    //
+    // THE REASON -56 D GAVE FOR THIS DOES NOT HOLD, AND THE CORRECTED ONE IS
+    // NARROWER. That ruling said "a misspelled privilege string would read as the
+    // boundary holding". Measured here against PostgreSQL 17.6 on 2026-09-22, it
+    // would not: has_schema_privilege RAISES on an unrecognised privilege type
+    // (`unrecognized privilege type: "USAGEE"`), on a schema that does not exist,
+    // and on a role that does not exist. Leading and trailing whitespace and
+    // lower case are all tolerated and return the correct answer. So the specific
+    // defect named is caught loudly by Postgres itself, with or without a control.
+    //
+    // WHAT THE CONTROL DOES ESTABLISH, which is why it is still here: that this
+    // call is CAPABLE of returning true at all. Without it the two assertions below
+    // are consistent with a probe that can only ever answer false — and that is a
+    // property of the probe, not a prediction about one way of breaking it.
+    //
+    // THE SWAP IS NOW CAUGHT (R-2026-09-22-62, closing R-2026-09-22-57 G5). Until
+    // 2026-09-23 the control was simply "some role holding USAGE", which picked a
+    // role that ALSO held CREATE -- so changing the probed privilege to CREATE left
+    // the control true and both subjects false, and nothing reddened. The control is
+    // now a role that holds USAGE and NOT CREATE (pg_read_all_data today: a Postgres
+    // predefined role, not a Supabase fixture, so it does not drift with a
+    // migration). Probed for CREATE, it answers false, and the test fails loudly.
+    //
+    // WHAT THIS LEG STILL ADDS OVER THE ACL READ BELOW: membership inheritance.
+    // has_schema_privilege sees a privilege a role holds THROUGH another role; the
+    // ACL lists direct grants only. Each covers what the other cannot.
+    //
+    // THE CONTROL ROLE IS READ FROM THE CATALOGUE, not assumed. Naming a role here
+    // would make this leg assert a fixture rather than the privilege graph, and the
+    // obvious guess is wrong: service_role holds NO usage on `app` either, so a
+    // hand-picked control would have reddened for a reason unrelated to the defect.
+    // It is required to be neither subject role, or the control and the subject
+    // would be the same call.
+    const [row] = await sql()<
+      { anon: boolean; authenticated: boolean; control_role: string | null; control_holds: boolean | null }[]
+    >`
+      with control as (
+        select r.rolname
+          from pg_roles r
+         where r.rolname not in ('anon', 'authenticated')
+           and has_schema_privilege(r.rolname, 'app', 'USAGE')
+           and not has_schema_privilege(r.rolname, 'app', 'CREATE')
+         order by r.rolname
+         limit 1
+      )
       select
-        has_schema_privilege('anon', 'app', 'USAGE')          as anon,
-        has_schema_privilege('authenticated', 'app', 'USAGE') as authenticated
+        has_schema_privilege('anon', 'app', ${PROBED_PRIVILEGE})          as anon,
+        has_schema_privilege('authenticated', 'app', ${PROBED_PRIVILEGE}) as authenticated,
+        (select rolname from control)                                     as control_role,
+        has_schema_privilege((select rolname from control), 'app', ${PROBED_PRIVILEGE}) as control_holds
     `;
-    expect(row?.anon).toBe(false);
-    expect(row?.authenticated).toBe(false);
+
+    // THE CONTROL FIRST. If it cannot return true, the two assertions below are
+    // satisfied by a call that can only ever answer false, and they prove nothing.
+    expect(
+      row?.control_role,
+      'no role holds USAGE without CREATE on app — the control that makes a privilege swap detectable has no subject',
+    ).not.toBeNull();
+    expect(
+      row?.control_holds,
+      `the probe returned ${String(row?.control_holds)} for ${String(row?.control_role)}, which holds USAGE and not CREATE — either the probe is broken or it is no longer asking about USAGE (probed: ${PROBED_PRIVILEGE})`,
+    ).toBe(true);
+
+    expect(row?.anon, 'anon holds USAGE on the app schema').toBe(false);
+    expect(row?.authenticated, 'authenticated holds USAGE on the app schema').toBe(false);
+  });
+
+  /**
+   * Direct grants on `app`, exploded from its ACL, for the given grantees.
+   *
+   * PUBLIC IS GRANTEE OID 0, AND IT MUST BE MAPPED BY OID. The first version mapped
+   * it with `coalesce(nullif(pg_get_userbyid(grantee), ''), 'PUBLIC')`, on the
+   * assumption that the lookup returns an empty string for OID 0. It returns
+   * 'unknown (OID=0)'. So PUBLIC was never labelled, the filter could never match
+   * it, and a real GRANT ... TO PUBLIC passed this guard -- the one grantee
+   * R-2026-09-22-62 A2 asked for it to cover. Found by planting that grant, not by
+   * reading the query.
+   */
+  // ONE TEXT, READ BY BOTH THE LEG AND ITS PLANT, so a defect in the read -- like
+  // the PUBLIC mapping above -- reds the plant as well as weakening the leg. The
+  // grantee list is a bound parameter; nothing is interpolated into the SQL.
+  const APP_ACL_SQL = `
+    select case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee)::text end as grantee,
+           a.privilege_type
+      from pg_namespace n, aclexplode(n.nspacl) a
+     where n.nspname = 'app'
+       and (case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee)::text end) = any($1::text[])
+     order by 1, 2`;
+  type AclRow = { grantee: string; privilege_type: string };
+  const APP_ACL = async (grantees: readonly string[]): Promise<AclRow[]> =>
+    [...(await sql().unsafe<AclRow[]>(APP_ACL_SQL, [grantees as string[]]))];
+
+  test('app\u2019s ACL grants anon, authenticated and PUBLIC nothing — every privilege type at once', async () => {
+    // R-2026-09-22-62 A2. One catalogue read covers EVERY schema privilege for all
+    // three client grantees, including PUBLIC, which has_schema_privilege above does
+    // not name. It sees direct grants only; the leg above covers inheritance.
+    expect(await APP_ACL(['anon', 'authenticated', 'PUBLIC']), 'a client grantee holds a privilege on schema app').toEqual([]);
+
+    // ANTI-VACUITY: the same read DOES return rows for the owner. Without this, an
+    // ACL that failed to explode -- or a schema name that stopped matching -- would
+    // pass the assertion above by returning nothing for anyone.
+    const [owner] = await sql()<{ owner: string }[]>`select pg_get_userbyid(nspowner) as owner from pg_namespace where nspname = 'app'`;
+    const ownerRows = await APP_ACL([owner?.owner ?? '']);
+    expect(ownerRows.map((r) => r.privilege_type).sort(), `the ACL read returned nothing for app's owner ${String(owner?.owner)} — it is vacuous`).toEqual(['CREATE', 'USAGE']);
+  });
+
+  test('plant — transient grants to anon AND to PUBLIC are SEEN by the ACL read, then rolled back', async () => {
+    // THE FAILING HALF, run against the real catalogue rather than a stub, inside a
+    // transaction that never commits. If the read could not see a grant, the empty
+    // result in the leg above would mean nothing.
+    const sentinel = Symbol('rollback');
+    let seen: AclRow[] = [];
+    await sql()
+      .begin(async (tx) => {
+        await tx`grant usage on schema app to anon`;
+        await tx`grant usage on schema app to public`;
+        // Through the SAME read the real leg uses, so a mapping defect in it -- the
+        // one that let PUBLIC through -- reds this plant too.
+        seen = [...(await tx.unsafe<AclRow[]>(APP_ACL_SQL, [['anon', 'authenticated', 'PUBLIC']]))];
+        throw sentinel;
+      })
+      .catch((e: unknown) => {
+        if (e !== sentinel) throw e;
+      });
+    expect(seen, 'a grant made inside the transaction was invisible to the ACL read').toEqual([
+      { grantee: 'PUBLIC', privilege_type: 'USAGE' },
+      { grantee: 'anon', privilege_type: 'USAGE' },
+    ]);
+    expect(await APP_ACL(['anon', 'PUBLIC']), 'the transient grant survived the rollback').toEqual([]);
   });
 });
 
