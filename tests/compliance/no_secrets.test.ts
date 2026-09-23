@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { runLint, withScratch, place, REPO_ROOT } from './_scratch.js';
@@ -141,6 +141,26 @@ describe('secret scan', () => {
       track(root);
       const res = runLint(LINT, root);
       expect(res.status, `the allowlisted path was flagged:\n${res.stdout}`).toBe(0);
+    });
+  });
+
+  test('could not run — a file the prefilter cannot read is an ERROR, never reported clean', () => {
+    withScratch((root) => {
+      place(root, 'src/unreadable.ts', 'export const nothing = 1;\n');
+      track(root);
+      const target = join(root, 'src', 'unreadable.ts');
+      chmodSync(target, 0o000);
+      try {
+        // CONFIRM THE PLANT LANDED: as root the mode is ignored and this leg would
+        // test nothing, so an unreadable file is a precondition, not an assumption.
+        expect(() => readFileSync(target), 'the planted file is still readable -- running as root?').toThrow();
+        const res = runLint(LINT, root);
+        expect(res.status, `an unreadable file did not stop the scan:\n${res.stdout}`).toBe(2);
+        expect(res.stdout).toContain('against every pattern -- no file it cannot read is ever reported clean');
+        expect(res.stdout).not.toContain('lint_no_secrets.sh: PASS');
+      } finally {
+        chmodSync(target, 0o644);
+      }
     });
   });
 

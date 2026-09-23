@@ -4,7 +4,8 @@
     "`forward` gets the Worker's own 404 and never reaches Supabase.",
     "This file is not maintained by hand against the code: tests/compliance/proxy_allow_list.test.ts",
     "derives every call site from the apps and packages with the TypeScript parser, and every",
-    "probe path from the runbooks' fenced blocks, and requires this list to equal what they",
+    "probe path from the runbooks' fenced blocks and the read-back scripts' `api_probe` lines",
+    "(scripts/readback_*.sh), and requires this list to equal what they",
     "call. An unlisted call, an entry nothing calls, and a probe path missing from here each",
     "turn it red.",
     "`query`, where present, is the ONE query string that entry forwards (R-2026-09-23-70 C4).",
@@ -20,7 +21,7 @@
     { "method": "POST", "path": "/auth/v1/token", "query": "grant_type=refresh_token", "reason": "packages/auth/src/holder.ts: session refresh, the only grant the code sends" },
     { "method": "POST", "path": "/rest/v1/rpc/my_facility_wards", "reason": "apps/ward-console: the handover load" },
     { "method": "POST", "path": "/rest/v1/rpc/publish_ward_status", "reason": "apps/ward-console: a ward publishes" },
-    { "method": "GET", "path": "/auth/v1/settings", "reason": "runbook probe: docs/runbook-ward-console-deploy.md step 3, the live-key probe (R-2026-09-23-65 B2), and the key probe in docs/runbook-cloudflare-worker-proxy.md" },
+    { "method": "GET", "path": "/auth/v1/settings", "reason": "runbook probe: the ward console's live-key probe (docs/runbook-ward-console-deploy.md step 3, run by scripts/readback_ward_console.sh; R-2026-09-23-65 B2), and probe 2 of docs/runbook-cloudflare-worker-proxy.md, run by scripts/readback_worker.sh" },
     { "method": "OPTIONS", "path": "/auth/v1/otp", "preflight_for": "POST /auth/v1/otp" },
     { "method": "OPTIONS", "path": "/auth/v1/token", "preflight_for": "POST /auth/v1/token" },
     { "method": "OPTIONS", "path": "/rest/v1/rpc/my_facility_wards", "preflight_for": "POST /rest/v1/rpc/my_facility_wards" },
@@ -31,6 +32,6 @@
     { "method": "GET", "path": "/auth/v1/verify", "file": null, "reason": "R-2026-09-23-70 C2: the emailed sign-in link is consumed here, on the direct *.supabase.co origin, until -55 C. It lives in the email, not in code, so no parser can see it. IF -55 C's custom domain is routed through this Worker, GET /auth/v1/verify must move to `forward`, or every sign-in link breaks." }
   ],
   "refusal_probes": [
-    { "method": "GET", "path": "/rest/v1/", "reason": "docs/runbook-cloudflare-worker-proxy.md: the off-list probe, which must read the Worker's own 404" }
+    { "method": "GET", "path": "/rest/v1/", "reason": "docs/runbook-cloudflare-worker-proxy.md probe 3, run by scripts/readback_worker.sh: the off-list probe, which must read the Worker's own 404" }
   ]
 }

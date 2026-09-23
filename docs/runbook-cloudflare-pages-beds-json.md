@@ -172,6 +172,20 @@ while a deployment was live did not reach it; a new deploy picked them up).
 
 ## 3. Deploy
 
+**Deploy from the deploy checkout, never from a working tree (R-2026-09-23-70, after
+#67).** `~/Desktop/OpenBed-NG` is also the implementer's working tree, and a
+`git checkout main` there was refused on 2026-09-23 over uncommitted work in progress.
+The deploy checkout is a separate `git worktree`, detached at `origin/main`, that
+nothing else writes to. Before every deploy, refresh it and read its HEAD:
+
+```bash
+git -C ~/Desktop/OpenBed-NG-deploy fetch origin && git -C ~/Desktop/OpenBed-NG-deploy checkout --detach origin/main && (cd ~/Desktop/OpenBed-NG-deploy && npm ci)
+cd ~/Desktop/OpenBed-NG-deploy && git rev-parse HEAD
+```
+
+The last line must print the commit you mean to deploy. Every command below runs from
+that directory.
+
 **This project is direct-upload (see the Pages-project step). Pushing to `main`
 deploys nothing.** Build, then upload explicitly:
 
@@ -736,12 +750,21 @@ fourth added by R-2026-09-20-30, which also made it a READING):**
    `/version.json` (`scripts/stamp_build.mjs`), so this is the deployed artifact
    naming its own source rather than anyone remembering which tree was uploaded.
 
+   **Read-backs 4, 6 and 8 and the serve-time stamp are ONE script run, not pastes**
+   (R-2026-09-23-70, the H4 note: three paste failures in one day, one of them a
+   `read -r` that consumed the next pasted line and turned a good deploy into a false
+   STOP). From the deploy checkout you deployed from, before refreshing it, with the
+   deployment URL wrangler printed in place of `HASH`:
+
    ```bash
-   read -r DEPLOY_URL
-   curl -sS "$DEPLOY_URL/version.json"
-   git rev-parse HEAD
-   git merge-base --is-ancestor "$(git rev-parse HEAD)" origin/main; echo "ancestor check exit: $? -- 0 means on main, 1 means NOT on main, anything else means the check did not run"
+   bash scripts/readback_pages.sh https://HASH.openbed-public-dashboard.pages.dev
    ```
+
+   It prints one line per check, each `ok` or `WRONG` with the value it must have,
+   under a heading per read-back, and ends with exactly one verdict: **`PASS:`
+   (exit 0)** or **`STOP:` (exit 1)**. Paste the whole output back. `ERROR:` with
+   exit 2 means a check could not run, which is neither verdict. Run with no URL, or
+   a non-https one, it STOPs before sending anything.
 
    **Stop condition — all four, and each is a positive value, not an absence
    (R-2026-09-21-40):**
@@ -751,15 +774,18 @@ fourth added by R-2026-09-20-30, which also made it a READING):**
      `/robots.txt` look fine before 2026-09-20, and `version.json` sits in the same
      `public/` directory. **HTML here is a failed deployment, not a formatting
      quirk.**
-   - `"commit"` **equals** the `git rev-parse HEAD` printed beneath it. A stale
-     `version.json` cached from an earlier deployment otherwise passes.
-     **Run this block immediately after the deploy, from the tree you deployed**, and
-     the two agree. Run it later, after `main` has moved on, and they differ for an
-     innocent reason — observed 2026-09-21, when the artifact read `4803d20` and the
-     checkout had already advanced to `cf8bcd9`. **In that case compare against the
-     commit you deployed from, not against today's HEAD**, and say which you used.
+   - `"commit"` **equals** the checkout's HEAD, which the script's heading prints. A
+     stale `version.json` cached from an earlier deployment otherwise passes.
+     **Run it immediately after the deploy, from the checkout you deployed from**, and
+     the two agree. Run it after that checkout has been refreshed and `main` has moved
+     on, and they differ for an innocent reason — observed 2026-09-21, when the
+     artifact read `4803d20` and the checkout had already advanced to `cf8bcd9`. **In
+     that case the `read-back 4 commit` line reads WRONG; compare the commit it read
+     against the commit you deployed from**, and say that you did.
    - `"dirty": false`, stated positively.
-   - the ancestor check prints **exit 0**.
+   - the ancestor check reads **exit 0**. Exit 1 means NOT on `origin/main`; anything
+     else means the check did not run, and the script stops with `ERROR:` instead of
+     a verdict.
 
    - **`"dirty": true` means the deploy wrapper was BYPASSED** (R-2026-09-20-31 A4).
      The wrapper refuses a dirty tree, so a dirty stamp on a DEPLOYED artifact is not
@@ -827,15 +853,9 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    That is the shape narrated four paragraphs below about `-I` — committed in the
    same change that narrated it.
 
-   The first line waits for you to paste the DEPLOYMENT URL — this read-back runs on the
-   `*.pages.dev` alias, so it does not reuse the custom-domain variable set in the
+   These are the script's `read-back 6` lines (under read-back 4 above). It runs on
+   the `*.pages.dev` alias, so it does not reuse the custom-domain variable set in the
    edge-headers step above.
-
-   ```bash
-   read -r DEPLOY_URL
-   curl -sS -o /dev/null -D - "$DEPLOY_URL/beds.json" | grep -i -E '^HTTP|^content-type|^x-robots-tag'
-   curl -sS "$DEPLOY_URL/beds.json" | head -c 120
-   ```
 
    The body read is the second half of the same guard: **an `{"error":` body is a
    failure whatever the status line said**, and `-o /dev/null` alone can never see
@@ -853,18 +873,12 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    paste the body. Before 2026-09-20 that path returned the site's `index.html` with
    a 200, which tells a crawler nothing, so this is fetched and read rather than
    inferred from the file being in `dist`.
-8. **GET AND HEAD MUST BOTH RETURN THE FUNCTION'S OWN VALUES on `/beds.json`.** Run
-   both and paste both.
+8. **GET AND HEAD MUST BOTH RETURN THE FUNCTION'S OWN VALUES on `/beds.json`.** These
+   are the script's `read-back 8 GET` and `read-back 8 HEAD` lines (under read-back 4
+   above); it checks each method against the exact values, never the two against
+   each other.
 
-   ```bash
-   read -r DEPLOY_URL
-   echo "--- GET ---"
-   curl -sS -o /dev/null -D - "$DEPLOY_URL/beds.json" | grep -i -E '^HTTP|^content-type|^x-robots-tag|^cache-control'
-   echo "--- HEAD ---"
-   curl -sS -I "$DEPLOY_URL/beds.json" | grep -i -E '^HTTP|^content-type|^x-robots-tag|^cache-control'
-   ```
-
-   **Stop condition — these exact values under BOTH headings:**
+   **Stop condition — these exact values for BOTH methods:**
 
    - `HTTP/2 200` (or `HTTP/1.1 200`)
    - `content-type: application/json; charset=utf-8`
@@ -904,6 +918,18 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
      `text/html`. Against `/nonexistent-path` on the fixed artifact, **both** returned
      `text/html` — which is why the stop condition above is absolute values rather
      than agreement.
+
+   **THE SERVE-TIME STAMP (added 2026-09-23 with the read-back script; the header
+   arrived with R-2026-09-23-68 A's polling).** The script's last block reads
+   `/beds.json` twice, 5 seconds apart, and each `x-openbed-served-at` must be an ISO
+   time ending `Z`, with **the second later than the first**. A value that does not
+   advance means the page is being answered from something other than the Function.
+   Until this date the check existed only in a hand-over, with no block here to run.
+
+   **Not in the script:** read-back 7, which fetches `/robots.txt` and reads its body;
+   and, in a browser, read-backs 5 and 5b above and the polling check (`openbed.ng` with DevTools on the Network tab filtered to
+   `beds.json`, **Disable cache left unticked**, two minutes with no reload: at least
+   four rows about 30 s apart, each 200, none from disk or memory cache).
 
 > **These read-backs are on the `*.pages.dev` deployment URL or alias. They do NOT
 > discharge the edge-headers step**, which is on the custom domain and is part of

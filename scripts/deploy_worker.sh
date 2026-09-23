@@ -143,7 +143,7 @@ process.stdout.write(s.commit);
         if [ "$pst" -eq 0 ]; then
             if [ "$LIVE" = "$HEAD_SHA" ]; then
                 echo "deploy_worker.sh: DONE. $STAMP_URL names $HEAD_SHA (attempt $i of $ATTEMPTS)."
-                echo "  Now run the four probes in docs/runbook-cloudflare-worker-proxy.md."
+                echo "  Now run: bash scripts/readback_worker.sh https://api.openbed.ng -- probe 4 is Cowork's (docs/runbook-cloudflare-worker-proxy.md)."
                 exit 0
             fi
             LAST="commit $LIVE"

@@ -120,6 +120,7 @@ describe('scripts/deploy_worker.sh', () => {
       expect(uploaded(r), `the upload was never reached:\n${r.log}`).toBe(true);
       expect(r.log).toContain('npm run --silent stamp:worker');
       expect(r.out).toContain(`DONE. https://api.openbed.ng/__openbed/version names ${head} (attempt 2 of 3)`);
+      expect(r.out, 'the wrapper does not point at the read-back script').toContain("Now run: bash scripts/readback_worker.sh https://api.openbed.ng -- probe 4 is Cowork's");
     });
   });
 

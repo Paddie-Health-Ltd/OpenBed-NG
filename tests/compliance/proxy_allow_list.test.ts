@@ -17,9 +17,12 @@ import { REPO_ROOT } from './_scratch.js';
  *     /auth/v1/ or /rest/v1/, and every `authedFetch('<literal>')`, which is the
  *     /rest/v1/ prefix holder.ts adds. Browser AND server-side (AJ E), so the corpus
  *     is apps/<app>/src, apps/<app>/functions and packages/<pkg>/src;
- *   - every probe a runbook sends through https://api.openbed.ng in a fenced block
- *     (R-2026-09-23-65 B2), each listed with its reason, or named as a probe that must
- *     be REFUSED;
+ *   - every probe sent through https://api.openbed.ng, each listed with its reason or
+ *     named as a probe that must be REFUSED (R-2026-09-23-65 B2). Probes live in TWO
+ *     declared places: a runbook's fenced block (docs/*.md), and an `api_probe METHOD
+ *     PATH` line in a read-back script (scripts/readback_*.sh). The founder's
+ *     read-backs moved from pasted fences into those scripts after the -70 H4 note,
+ *     and a probe corpus left reading only docs/ would have seen none of them;
  *   - minus the calls that never pass through the Worker, each named with its ruling
  *     (`direct_origin_exceptions`): the /beds.json Function's direct read (-58 A5), and
  *     GET /auth/v1/verify, where the emailed link is consumed (C2).
@@ -163,6 +166,34 @@ export function runbookProbes(docs: Record<string, string>): Probe[] {
   return out;
 }
 
+/**
+ * Every request a read-back script sends to api.openbed.ng: its `api_probe METHOD PATH`
+ * lines, the one form scripts/readback_common.sh allows for that host. A request to
+ * the host written any other way is refused by name rather than missed, since a
+ * probe this parser cannot see is a probe the list is never held against.
+ */
+export function scriptProbes(scripts: Record<string, string>): { probes: Probe[]; unreadable: string[] } {
+  const probes: Probe[] = [];
+  const unreadable: string[] = [];
+  for (const [file, text] of Object.entries(scripts)) {
+    text.split('\n').forEach((line, i) => {
+      if (/^\s*#/.test(line)) return;
+      const m = /^\s*api_probe\s+([A-Z]+)\s+(\/[A-Za-z0-9_/.-]*)(\s|$)/.exec(line);
+      if (m !== null) {
+        probes.push({ file, line: i + 1, method: m[1] ?? '', path: m[2] ?? '' });
+        return;
+      }
+      if (/api_probe\s/.test(line) && !/^\s*api_probe\(\)/.test(line)) {
+        unreadable.push(`UNREADABLE PROBE: ${file}:${i + 1} calls api_probe without a literal METHOD and /path`);
+      }
+      if (/https:\/\/api\.openbed\.ng\//.test(line)) {
+        unreadable.push(`UNREADABLE PROBE: ${file}:${i + 1} names https://api.openbed.ng/... outside api_probe`);
+      }
+    });
+  }
+  return { probes, unreadable };
+}
+
 const SUPABASE_SERVICE_PREFIXES = ['/auth/v1', '/rest/v1', '/storage/v1', '/realtime/v1', '/functions/v1', '/graphql/v1', '/pg'];
 
 /** Everything wrong between the list, the code and the runbooks. Empty means they agree. */
@@ -227,6 +258,13 @@ export function coverageViolations(
     if (!used.has(key(e.method, e.path))) out.push(`UNUSED ENTRY: ${key(e.method, e.path)} -- nothing in the code or the runbooks calls it`);
   }
 
+  // A refusal probe nothing sends proves nothing: the off-list 404 would go unread.
+  for (const r of list.refusal_probes) {
+    if (!probes.some((p) => p.method === r.method && p.path === r.path)) {
+      out.push(`REFUSAL PROBE UNSENT: ${key(r.method, r.path)} is listed as a probe the Worker must refuse, and nothing sends it`);
+    }
+  }
+
   // C2: the sign-in link's own path must be decided, forwarded or named direct.
   if (!list.forward.some((e) => e.method === 'GET' && e.path === '/auth/v1/verify') &&
       !list.direct_origin_exceptions.some((d) => d.method === 'GET' && d.path === '/auth/v1/verify')) {
@@ -249,8 +287,29 @@ function realDocs(): Record<string, string> {
   return Object.fromEntries(readdirSync(dir).filter((n) => n.endsWith('.md')).map((n) => [`docs/${n}`, readFileSync(join(dir, n), 'utf8')]));
 }
 
-const check = (list = LIST_TYPED, extraSources: Record<string, string> = {}, docs = realDocs(), stamp = STAMP_PATH): string[] =>
-  coverageViolations(list, callSites({ ...realSources(), ...extraSources }, REPO_ROOT), runbookProbes(docs), stamp);
+/** The declared script corpus: every scripts/readback_*.sh, discovered, keyed by repo path. */
+function realScripts(): Record<string, string> {
+  const dir = join(REPO_ROOT, 'scripts');
+  return Object.fromEntries(
+    readdirSync(dir)
+      .filter((n) => /^readback_.*\.sh$/.test(n))
+      .map((n) => [`scripts/${n}`, readFileSync(join(dir, n), 'utf8')]),
+  );
+}
+
+const check = (
+  list = LIST_TYPED,
+  extraSources: Record<string, string> = {},
+  docs = realDocs(),
+  stamp = STAMP_PATH,
+  scripts = realScripts(),
+): string[] => {
+  const fromScripts = scriptProbes(scripts);
+  return [
+    ...fromScripts.unreadable,
+    ...coverageViolations(list, callSites({ ...realSources(), ...extraSources }, REPO_ROOT), [...runbookProbes(docs), ...fromScripts.probes], stamp),
+  ];
+};
 
 const PLANT_FILE = join(REPO_ROOT, 'apps', 'ward-console', 'src', 'planted.ts');
 
@@ -275,7 +334,29 @@ describe('the allow-list against the code and the runbooks', () => {
       'POST /rest/v1/rpc/my_facility_wards @ apps/ward-console/src/main.ts',
       'POST /rest/v1/rpc/publish_ward_status @ apps/ward-console/src/main.ts',
     ]);
-    expect(runbookProbes(realDocs()).length, 'no runbook probe was found, so the probe rule checked nothing').toBeGreaterThan(0);
+    expect(runbookProbes(realDocs()).length + scriptProbes(realScripts()).probes.length, 'no probe was found, so the probe rule checked nothing').toBeGreaterThan(0);
+  });
+
+  test('the probe corpus is the declared one — the three read-back scripts, and every api.openbed.ng probe they send', () => {
+    // Discovered, then held against the declared set by identity (test-conventions 2(d)).
+    expect(Object.keys(realScripts()).sort()).toEqual([
+      'scripts/readback_common.sh',
+      'scripts/readback_pages.sh',
+      'scripts/readback_ward_console.sh',
+      'scripts/readback_worker.sh',
+    ]);
+    const { probes, unreadable } = scriptProbes(realScripts());
+    expect(unreadable).toEqual([]);
+    expect(probes.map((p) => `${p.method} ${p.path} @ ${p.file}`).sort()).toEqual([
+      'GET /__openbed/version @ scripts/readback_worker.sh',
+      'GET /auth/v1/settings @ scripts/readback_ward_console.sh',
+      'GET /auth/v1/settings @ scripts/readback_ward_console.sh',
+      'GET /auth/v1/settings @ scripts/readback_worker.sh',
+      'GET /rest/v1/ @ scripts/readback_worker.sh',
+      'HEAD /__openbed/version @ scripts/readback_worker.sh',
+      'HEAD /auth/v1/settings @ scripts/readback_worker.sh',
+      'POST /rest/v1/rpc/my_facility_wards @ scripts/readback_worker.sh',
+    ]);
   });
 
   test('real allow-list is accepted — it equals what the code and the runbooks call', () => {
@@ -304,7 +385,30 @@ describe('the allow-list against the code and the runbooks', () => {
 
   test('plant — the H4 probe path missing from the list is rejected (R-2026-09-23-65 B1, B2)', () => {
     const planted = { ...LIST_TYPED, forward: LIST_TYPED.forward.filter((e) => e.path !== '/auth/v1/settings') };
-    expect(check(planted).join('\n')).toContain('UNLISTED PROBE: GET /auth/v1/settings in docs/runbook-ward-console-deploy.md');
+    expect(check(planted).join('\n')).toContain('UNLISTED PROBE: GET /auth/v1/settings in scripts/readback_ward_console.sh');
+  });
+
+  test('plant — an unlisted probe is rejected in EACH declared location, a runbook fence and a read-back script', () => {
+    const docs = { ...realDocs(), 'docs/planted.md': '```bash\ncurl -sS https://api.openbed.ng/rest/v1/rpc/planted_in_a_fence\n```\n' };
+    expect(check(LIST_TYPED, {}, docs).join('\n')).toContain('UNLISTED PROBE: GET /rest/v1/rpc/planted_in_a_fence in docs/planted.md');
+    const scripts = { ...realScripts(), 'scripts/readback_planted.sh': 'api_probe GET /rest/v1/rpc/planted_in_a_script\n' };
+    expect(check(LIST_TYPED, {}, realDocs(), STAMP_PATH, scripts).join('\n')).toContain('UNLISTED PROBE: GET /rest/v1/rpc/planted_in_a_script in scripts/readback_planted.sh');
+  });
+
+  test('plant — a read-back script reaching api.openbed.ng other than through api_probe is refused, not missed', () => {
+    const scripts = { ...realScripts(), 'scripts/readback_planted.sh': 'curl -sS https://api.openbed.ng/rest/v1/rpc/hidden\napi_probe GET "$P"\n' };
+    const v = check(LIST_TYPED, {}, realDocs(), STAMP_PATH, scripts);
+    expect(v).toContain('UNREADABLE PROBE: scripts/readback_planted.sh:1 names https://api.openbed.ng/... outside api_probe');
+    expect(v).toContain('UNREADABLE PROBE: scripts/readback_planted.sh:2 calls api_probe without a literal METHOD and /path');
+  });
+
+  test('plant — a refusal probe that nothing sends is rejected', () => {
+    const worker = realScripts()['scripts/readback_worker.sh'] ?? '';
+    const planted = worker.replace(/^api_probe GET \/rest\/v1\/$/m, '# probe 3 removed');
+    // CONFIRM THE PLANT LANDED on the line the corpus reads (test-conventions, 2026-09-21).
+    expect(planted, 'the plant did not remove probe 3').not.toBe(worker);
+    const v = check(LIST_TYPED, {}, realDocs(), STAMP_PATH, { ...realScripts(), 'scripts/readback_worker.sh': planted });
+    expect(v).toEqual(['REFUSAL PROBE UNSENT: GET /rest/v1/ is listed as a probe the Worker must refuse, and nothing sends it']);
   });
 
   test('plant — a preflight missing for a browser call is rejected', () => {
