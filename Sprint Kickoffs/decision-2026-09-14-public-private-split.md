@@ -176,6 +176,8 @@ the ward-level identity decision. There are no individual accounts (v1:121).
 
 - **The Site URL is on `app.openbed.ng`**, and **the redirect allowlist is
   confined to `app.openbed.ng`**.
+  **AMENDED by R-2026-09-23-71 D:** the redirect list is exactly
+  `https://app.openbed.ng` and `https://admin.openbed.ng`.
 - **`openbed.ng` is never an auth redirect target.** A zero-login domain has no
   session to land.
 - **Recorded as a hosted dashboard setting with no in-database
@@ -3491,6 +3493,7 @@ _Issued as R-PROVISIONAL-2026-09-23-AX, by Cowork on 2026-09-23 as its verdict o
 - **Step 6, the deletion of apps/ward-console/.env.local (gitignored, so cited without backticks) from the founder's main checkout: THE FOUNDER'S OUTPUT WAS NOT RECEIVED.** Cowork's message said it was pasted below; nothing followed.
   - **The implementer's own reading, at 20:40 UTC, of `~/Desktop/OpenBed-NG`, which is the founder's main checkout:** ls -la on that file gives `No such file or directory`. The known-present control is `ls apps/ward-console/`, which lists `index.html`, `package.json`, `src` and `wrangler.toml`.
   - This shows the file is absent. It does not show who removed it or when, and it is not the founder's output.
+  - **Cowork's reading of the founder's output** — the first `ls` listed the file, the second said "No such file or directory" — is recorded in `-71`.
 - **What H4 does not do: no ward can receive a sign-in link yet.** There is no `ward_account` on hosted, and H3 is open (the Auth Site URL and redirect URLs for `https://app.openbed.ng`, and custom SMTP with the NDPA processor agreement). The console loads and shows its signed-out screen.
 - **THE PASTE FAILURES ARE A CLASS: three on 2026-09-23.**
   1. The PR 3.3 body went through an unquoted heredoc, and its backticks ran as commands.
@@ -3499,6 +3502,65 @@ _Issued as R-PROVISIONAL-2026-09-23-AX, by Cowork on 2026-09-23 as its verdict o
 
   **The answer is to stop pasting multi-line read-backs:** each becomes a script under `scripts/` that takes the URL as its argument and refuses an empty or non-https one before probing anything. That change rides PR 3.4 on this branch.
 - **Next:** PR 3.4's design report, for Cowork's sign-off before anything is built.
+
+### R-2026-09-23-71 — `record-after-67` becomes its own pull request; "unlisted" is `listed_at`, never quiet mode; no secret key on Cloudflare in v1; PR 3.4 splits into 3.4a and 3.4b
+
+_Issued as R-PROVISIONAL-2026-09-23-AY, by Cowork on 2026-09-23 (~21:45Z), as its review of `c4e97dc` and of the PR 3.4 design report, with staff-engineer and CTO passes. Number assigned on landing from the record's last as read on this branch: R-2026-09-23-70. Lands on `record-after-67`, which this ruling makes its own pull request (A). Next provisional letter: AZ._
+
+**COWORK'S READINGS, 2026-09-23 ~21:45Z, recorded as Cowork's:**
+- `origin/record-after-67` was at `c4e97dc`, parent `4e18448`, with the 15 files reported. The `supabase-proxy/allow-list.json` diff is comment and reason text only: no entry was added or removed.
+- All three read-back scripts, run with no URL and with an `http://` URL: STOP, exit 2, nothing sent.
+- Run live from a copy of the branch's scripts, against the main checkout at `2e62579`:
+  - `readback_worker.sh https://api.openbed.ng`: PASS (probe 2 HEAD 405 and forwarded; stamp `2e62579`, `dirty: false`);
+  - `readback_pages.sh https://cc2b76f9.openbed-public-dashboard.pages.dev`: PASS;
+  - `readback_ward_console.sh https://6abd577d.openbed-ward-console.pages.dev`: PASS (1 bundle, 1 key, live 200, dead 401).
+- **Step 6 of H4.** Cowork read the founder's terminal output in its previous session: the first `ls` listed apps/ward-console/.env.local, and the second said "No such file or directory". The verbatim text was not carried over. **This is Cowork's reading of the founder's output**, recorded beside the implementer's own 20:40Z check in the -70 H4 note. The two are independent; neither is the founder's pasted output.
+
+**A — `record-after-67` BECOMES ITS OWN PULL REQUEST NOW, so CI runs on it.** The runbooks on `main` still carry probe 2's HEAD at 200 and the pasted `read -r` blocks that produced H4's false STOP, and any deploy from `main` before 3.4a merges would repeat both. It is docs, scripts and tests only, and has no reason to share a review with a migration. The founder gives the merge word as usual.
+- **Whether -46 binds, read rather than assumed.** `-46`'s clauses A1 and A2 named 018 and are spent. Clause A3 bars **record-only** work from a pull request of its own. This branch carries three scripts, their tests and three retargeted guards, so A3 does not bar it. It is **not** the visitor-reachable safety exception and is not claimed as one. The record-only notes on the branch ride it as the next pull request, as A3 requires.
+
+**B — BLOCKING: "a new facility starts unlisted" must not use `quiet_mode`.** `quiet_mode` is not "unlisted". A quiet facility writes no public mirror row but **does** feed `public.lga_rollup` (`WHERE f.quiet_mode AND f.is_active AND ws.offering = 'OFFERED'`). Starting new facilities quiet would:
+- put an onboarding facility into a public aggregate as soon as a category is stated OFFERED, contributing a count of 0 from wards that have never reported;
+- count that non-reporting facility toward the k=5 floor, so a cell clears k with fewer real reporters, weakening the anonymity of the facilities that did report;
+- make listing the same act as leaving quiet mode, so a facility that chose quiet mode and one still onboarding would share one state.
+
+**Decision 3 is YES to starting unlisted, through a separate state: `app.facility.listed_at timestamptz`, NULL meaning unlisted** — the same honest-absence pattern as `agreement_accepted_at`. An unlisted facility is excluded from **every** public membership predicate; every site that reads `quiet_mode` or `is_active` for public output is enumerated and stated. `operator_set_facility_listed` sets it, with stated preconditions, at minimum a recorded agreement. `quiet_mode` stays founder-flipped and orthogonal.
+- **B1 — backfill.** 020 sets `listed_at` on every existing facility row, so applying 020 changes no public output anywhere. Test: a database with a projected facility, 020 applied, public rows unchanged. The down migration drops the column.
+- **B2 — propagation.** State the worst-case time an unlisted facility stays visible on `openbed.ng`, and whether v1 allows unlisting at all.
+- **Tests:** an unlisted facility with an OFFERED ward yields no row in `facility_public`, `ward_public` or `lga_rollup`, with `quiet_mode` both true and false. Plant: drop the predicate from each site in turn, and each plant turns the test red.
+
+**C — DECISION 1, REVISED: the secret key does not go to Cloudflare in v1.** The design put `sb_secret_` in a Pages Function behind a public hostname: a second home for the one key that bypasses every grant and RLS check, to serve a flow run a handful of times before facility one. The founder's stated need for admin v1 is operator visibility.
+- The 3.4b admin app does reads and the `operator_*` writes under the operator's own session (publishable key plus the operator's JWT). **No Function holds the secret key.** `-58 A3/A4` and the tracked-origins test are **not** amended.
+- Provisioning stays in `scripts/provision_ward_account.mjs`, which gains the host check and the `PLATFORM_ADMIN` bootstrap, and goes through the same database gates: the agreement gate, the idempotent invite and the scope-conflict refusal. **There is ONE implementation of those gates, in SQL**, with no second copy in JS.
+- "Provisioning incomplete" is derived from `app.invite` (an open invite with no `ward_account`), never by reading `auth.users`, so no operator function returns an email.
+- The ward console still maps `NOT_A_MEMBER` to a ward-facing message.
+- The two unverified items — whether `generate_link` creates a user with sign-ups off, and whether `sb_secret_` is accepted as `apikey` alone — are tested in 3.4b, against the script.
+- **Recorded for the future (CTO):** if provisioning later moves into the app, the default home is a Supabase Edge Function, where Supabase injects the key and no second vendor holds a copy, not a Cloudflare Function. That move is a separate design with its own sign-off.
+
+**D — DECISION 2: the redirect list is exactly `https://app.openbed.ng` and `https://admin.openbed.ng`**, as exact entries with no wildcards. **This amends 2026-09-14 D2**, whose "confined to `app.openbed.ng`" it widens by one named host; D2 is left as written with a pointer to this clause. The H3 runbook text gives the founder both, with the exact strings.
+
+**E — DECISION 4: the split is approved.** **3.4a** is 020, the `operator_*` functions, `listed_at` (B), the D3 closed list, the labels, -69 b and the ward console's words. **3.4b** is the admin app, the script changes (C) and the facility-creation runbook step. Each PR's report is sent before merge.
+
+**F — DECISION 5: agreed.** STOP lines are not legs, for now.
+
+**G — THE `PLATFORM_ADMIN` BYPASS BECOMES REACHABLE.** 3.4 bootstraps the first `PLATFORM_ADMIN` on hosted, which makes `assert_member`'s early return for that role (011:109-111) reachable for the first time. The 3.4a report lists every function executable by `authenticated` and what a `PLATFORM_ADMIN` session gets from each, **as a test driven by a real `PLATFORM_ADMIN` session**, beside the D3 closed-list test.
+
+**H — THE SEVEN HARD-CODED APP LISTS** are derived in 3.4b from one source, with a test that fails if an app directory exists that the derivation does not reach. A list that genuinely cannot be derived says why and keeps a plant.
+
+**I — THE INVITE GATE (D5) ALSO REFUSES WHEN THE FACILITY HAS NO `facility_contact` ROW**, as well as when `agreement_accepted_at` is null. Both are tested.
+
+**J — STAFF-ENGINEER FINDINGS**, each fixed in 3.4a unless stated, with a test:
+- **J1 — the stale-edit check.** `app.facility` has only `updated_at` (microseconds), which a JS `Date` round trip truncates to milliseconds, so an equality check refuses every edit and a truncated comparison lets real races through. An integer row version, incremented by trigger, is returned by the list and passed back on edit. Test: two edits from the same loaded version, the second refused and named.
+- **J2 — double submit.** `operator_create_facility` takes a client-generated id as its idempotency key: an identical retry returns the existing row, and the same id with different fields is refused. `operator_add_category` returns the existing ward on a repeat and never surfaces 23505.
+- **J3 — one account per ward.** Nothing enforces it today. The cardinality is one ("an account is a ward, never a person"): a partial unique index on `ward_account (facility_id, ward_category) WHERE role = 'WARD_STAFF' AND is_active`, and replacing a ward's address means deactivating the old account first.
+- **J4 — re-run on a complete account.** Begin returns "already complete", and the script exits **without** calling `generate_link`, which on an existing user mints a new token and can invalidate a link the ward already requested. Test: re-running provisioning on a complete account makes zero Auth admin calls.
+
+**Signed off as written:** `assert_operator` not built on `assert_member`; create-facility with its duty-flags row in one transaction; the offering stated explicitly, with no default and no admin path out of PENDING; the list never filtered by freshness, with bands from `freshnessBand`; the labels moved to a shared labels package (packages/labels, which 3.4a creates, so it is not cited as a path yet), with `labels.ts` as a re-export; -69 b's wording PROVISIONAL and classed as a guard ahead of its subject; the down migration and a 019-style round trip; runbook step 5 restated for 20.
+
+**PREMISES READ ON LANDING, and where they did not hold as stated:**
+- **G's line numbers.** `publish_ward_status`'s explicit `WARD_STAFF` check is at **014:189-193**, not 014:55; it refuses a `PLATFORM_ADMIN` with 42501 `INSUFFICIENT_ROLE`. **The two reads do NOT refuse a `PLATFORM_ADMIN`.** `my_facility_wards` (011:169-191) and `ward_status_history` (live at 015:97-116; the 011:258 body was dropped by 015) both pass `assert_member`, which returns early for that role, and then filter on the account's facility, which is NULL, so each returns **zero rows and no error**. The 3.4a test asserts that answer, rather than a refusal.
+- **C's "the operator RPCs".** Under C, **no operator RPC provisions in v1**: the app cannot create an Auth user without the key. So the one SQL implementation of the gates lives in `app.*` functions that only the script calls (as the owner, over the direct database URL); there is no `public` provisioning function.
+- **D's strings carry no trailing slash, and both apps send `redirect_to=<origin>/`.** Supabase Auth admits a redirect on the Site URL's own hostname whatever the path, so `app.` is admitted. `admin.` is a different host, so its allow-list entry is what gets matched, and **whether `https://admin.openbed.ng` admits `https://admin.openbed.ng/` is unverified**. The local sign-in test cannot decide it, because its Site URL and redirect share `127.0.0.1`. The H3 runbook text carries a read-back that decides it on hosted.
 
 ## The provisional ledger
 
@@ -3561,6 +3623,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | AV | R-2026-09-23-68 | 2026-09-23 | **#66 not approved: the page polls, the count goes entirely past the ceiling, and the public page shows words for every code.** Two premises needed more than stated: the "Release Gate 3" values are v1's Bundle 4 checklist (v1:239, v1:242), not gate 3's own text; and the page had never read `offering`, so a ward whose staff said it is not offered read as "not yet reporting". The schema cannot tell a stated NOT_OFFERED from the default; the state machine can, only while `publish_ward_status` is the one way out of PENDING, and a guard now holds that — a PR 3.4 obligation. Cowork records its own error, B4. |
 | AW | R-2026-09-23-69 | 2026-09-23 | **#66 merged; 019 applied on hosted and the boundary frozen at 19; dashboard deploy #1 and `SUPABASE_URL` deleted from Production, each reading attributed.** The restatement found a fifth statement of the migration count that 019's own change had missed, and a guard whose premise moved at 19: its blind spot is now constructed rather than found. It binds PR 3.4's design report to state offerings explicitly and to render ADMIN and UNDER_REVIEW before any admin write reaches the public page. It records the ward console's raw codes as unassigned, because the record assigns them to neither 3.4 nor Bundle 4. PR 3.3 goes proposal-first. |
 | AX | R-2026-09-23-70 | 2026-09-23 | **PR 3.3's design signed off with four amendments.** `/otp` is not rewritten: option B works only by holding per-address state at the Worker, on the ward's only sign-in path, and closes nothing while `*.supabase.co` answers directly; it is revisited when -55 C lands. A probe proves forwarding by headers, never by body, because hosted's no-key body is the gateway's and not PostgREST's. `/auth/v1/verify` is a named direct-origin exception. `token` is forwarded only for the refresh grant. Every pending count in the Supabase runbook is now scanned, and the scan's first plant found a region that was read too wide. Cowork records its own error on AJ F2. The ward console's raw codes go to PR 3.4. |
+| AY | R-2026-09-23-71 | 2026-09-23 | **`record-after-67` becomes its own pull request, and PR 3.4 splits.** "Unlisted" is a new `listed_at`, never quiet mode, because a quiet facility still feeds the public rollup and would count toward its k-floor while it reports nothing. The secret key goes to no Cloudflare Function in v1: provisioning stays in the script, over one SQL implementation of the gates. The redirect list gains `admin.openbed.ng`, amending D2. A row version, idempotent create and add, one active account per ward, and no Auth call on a complete account. Two of its premises did not hold as stated: the reads return a `PLATFORM_ADMIN` zero rows rather than refusing it, and no operator RPC provisions in v1. |
 
 ## Method notes — how rulings reach the implementer
 
