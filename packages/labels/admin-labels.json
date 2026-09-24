@@ -28,7 +28,7 @@
     "MOBILE_REQUIRES_SMS_OPT_IN": "A mobile number is kept only with SMS opt-in ticked. Tick it only if the contact agreed.",
     "AGREEMENT_VERSION_NOT_A_LABEL": "The agreement version must be a short label, such as v1 or 2026-09.",
     "AGREEMENT_DATE_IN_FUTURE": "The acceptance date cannot be after today in Lagos.",
-    "AGREEMENT_ALREADY_RECORDED": "An agreement is already recorded for this facility. A new one needs the founder's withdrawal steps first."
+    "AGREEMENT_ALREADY_RECORDED": "An agreement is already recorded for this facility, and it is never replaced. A facility whose agreement was withdrawn cannot be listed again in this release of OpenBed."
   },
   "constraints": {
     "facility_lat_in_nigeria": "Latitude must be between 4.0 and 14.0. Check that latitude and longitude are not swapped.",

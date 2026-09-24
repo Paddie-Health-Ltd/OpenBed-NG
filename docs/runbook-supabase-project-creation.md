@@ -3309,6 +3309,9 @@ through the admin app.
 
 ### 12.5 Withdrawing an agreement
 
+**Withdrawal is final in this version: the facility cannot record a new agreement or be
+listed again (R-2026-09-24-100).**
+
 Exactly as R-2026-09-24-82 BJ-1 e, restated by R-2026-09-24-86 BN-4. **Founder SQL, never
 an operator function**: there is none, deliberately (BD-2 2). Each block is one step,
 with its read-back.
@@ -3342,8 +3345,7 @@ unset DATABASE_URL FACILITY_ID
 
 **Must read** the count `0`.
 
-**3. Clear `listed_at`**, so the register reads "Not listed". Publishing again needs a
-deliberate new agreement and a new listing.
+**3. Clear `listed_at`**, so the register reads "Not listed".
 
 ```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
@@ -3355,6 +3357,13 @@ unset DATABASE_URL FACILITY_ID
 ```
 
 **Must read** `t`.
+
+*Restated 2026-09-24 (R-2026-09-24-100 CB-1 c).* Until then step 3 also read "Publishing
+again needs a deliberate new agreement and a new listing." That sentence is superseded:
+this version has no path to either. `app.facility_agreement` holds one row per facility
+(`database/migrations/021_facility_agreement_and_contact_write.sql:150`),
+`operator_record_agreement` never replaces it (`:582`), and listing refuses a withdrawn
+agreement (`:282`).
 
 **4. Read back `/beds.json`:** the facility is gone from it. Use
 `bash scripts/readback_pages.sh`.

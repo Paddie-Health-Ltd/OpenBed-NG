@@ -3936,7 +3936,7 @@ _Issued as R-PROVISIONAL-2026-09-24-BJ, by Cowork on 2026-09-24, as its check of
 **e) THE WITHDRAWAL STEP, a ruling for 3.4b-app** (BD-2 2; written there, to this):
 1. Set `withdrawn_on`. The public output drops by itself; the page follows in about 2 minutes (020's B2).
 2. Deactivate the facility's ward accounts.
-3. Clear `listed_at`, so the register reads "not listed". Publishing again needs a deliberate new agreement and a re-listing.
+3. Clear `listed_at`, so the register reads "not listed". Publishing again needs a deliberate new agreement and a re-listing. _Pointer, 2026-09-24: in v1 this has no path; see R-2026-09-24-100's open item._
 4. Read back `/beds.json`.
 
 **BI-2 stays queued** for the change that records 021's apply.
@@ -4526,6 +4526,79 @@ Tests in `tests/compliance/admin_render.test.ts`:
 
 **BZ-5 — THEN REPORT;** nothing hosted; STOP for Cowork's check and the founder's merge word.
 
+### R-2026-09-24-99 — #77 merged; 3.4b-app's code is complete; the hosted order
+
+_Issued as R-PROVISIONAL-2026-09-24-CA, by Cowork on 2026-09-24, as its check of #77 at `8e57a2a`. **Pasting it was the founder's merge word for #77.** Record-only; it lands with the next change that touches the record, which is this one (with -100). Number assigned on landing: R-2026-09-24-98 plus one. Next provisional letter: CB._
+
+**VERIFIED BY COWORK** (2026-09-24):
+- #77 was read from the GitHub API on the founder's machine: OPEN at `8e57a2a59babe47e802a9799cb2545dd1ebb1e7f`, base `3df27ca`, mergeable, clean, 3 commits, 52 files. Seven check runs were completed/success on `8e57a2a`.
+- `0f0b0b7..8e57a2a` adds only BZ's change: 023's pair, its README row, the admin edit form, and its tests and runbook.
+- 023's `operator_register` body, diffed by Cowork against 021's, has exactly three added lines (`'lat'`, `'lng'`, `'public_phone_e164'`) and nothing else. 023's down body is byte-identical to 021's.
+- `function-grants.json` and `applied-hosted.json` have no diff in #77.
+- In `apps/admin/src/main.ts`, a phone change shows "Public phone: <saved> → <new>" with Confirm and Cancel, and is never sent on Save.
+
+**THE MERGE (CA-1).**
+- The head was read from the API as `8e57a2a`, and #77 merged as a merge commit with `--match-head-commit`.
+- MERGED was read back: **`4e28cdbc54eaaff0ba51401cb2c859a97bac3f9b`**, with parents `3df27ca` and `8e57a2a`.
+- `pr-3.4b-app-c` was deleted afterwards, as a separate step, both remote and local. `git ls-remote --heads` reads it as gone.
+
+**CA-2 — AFTER THE MERGE, STOP.** 3.4b-app's code is complete. Everything that remains is founder-side, on hosted, in this order, and Cowork reads back each step:
+1. 022's apply (six fences);
+2. H2, sign-ups off;
+3. H3;
+4. 023's apply (six fences);
+5. H5, the Worker redeploy;
+6. H6, in BY-1's order.
+
+Admin is NOT live until H6 steps 2, 6 and 7 read as they must. No facility or ward login on hosted until the -45 gate clears (the backup restore drill, BB-4). Claude Code runs nothing hosted.
+
+### R-2026-09-24-100 — withdrawal is final in v1; the one false operator sentence corrected; agreement history an open item
+
+_Issued as R-PROVISIONAL-2026-09-24-CB, by Cowork on 2026-09-24, from main at `4e28cdb`. It lands in one small pull request with -99 (this change). Number assigned on landing: R-2026-09-24-99 plus one. Next provisional letter: CC._
+
+**READ BY COWORK at `4e28cdb`:**
+- `app.facility_agreement.facility_id` is the PRIMARY KEY (021:150), so there is one agreement row per facility.
+- `operator_record_agreement` never overwrites (`AGREEMENT_ALREADY_RECORDED`), and `operator_set_facility_listed` refuses `AGREEMENT_WITHDRAWN`.
+- **So in v1 a withdrawn facility can neither record a new agreement nor be listed again.** -82 BJ-1 e's "Publishing again needs a deliberate new agreement" has no path.
+- Cowork searched `packages/labels/`, `docs/` and `docs/facility-agreement-clause-x-access-addresses.md`: no facility-facing text promises re-agreement. The promise is operator-side only.
+
+**Re-read on landing, at `4e28cdb`.** Every premise holds:
+- `021:150` is `facility_id uuid PRIMARY KEY`;
+- `:582` raises `AGREEMENT_ALREADY_RECORDED`;
+- `:282` raises `AGREEMENT_WITHDRAWN` in `operator_set_facility_listed`. A second refusal, at `:347`, is `provision_begin`'s.
+
+Two things the ruling did not say:
+- **The label was the false promise itself.** Before this change, `AGREEMENT_ALREADY_RECORDED` read "An agreement is already recorded for this facility. A new one needs the founder's withdrawal steps first." That sends the operator into a withdrawal that leads nowhere.
+- **"No path" means no operator function and no runbook step. It is not a database impossibility.** No trigger stops a founder `UPDATE` from clearing `withdrawn_on`; 021 has only the CHECK `withdrawn_on >= accepted_on`. Finality in v1 is the absence of any path, not a constraint, which is why CB-2's founder-SQL correction is possible at all.
+
+**CB-1 — AS BUILT.**
+- **a) `packages/labels/admin-labels.json`, `AGREEMENT_ALREADY_RECORDED`,** now reads: "An agreement is already recorded for this facility, and it is never replaced. A facility whose agreement was withdrawn cannot be listed again in this release of OpenBed."
+  - Improved from Cowork's proposal in one place. It says "in this release of OpenBed" rather than "in this version", because the same form asks for an agreement *version* (v1, 2026-09), and "this version" would read as that.
+- **b) The refusal-coverage leg** ("the code table covers EXACTLY…", `tests/compliance/admin_render.test.ts`) is red with the key removed and green with the new sentence. It keys on the code, so the new text passes it unchanged.
+- **c) The runbook, §12.5:**
+  - A new first paragraph: "Withdrawal is final in this version: the facility cannot record a new agreement or be listed again". It cites this entry by its landed number rather than the provisional one.
+  - Step 3's "Publishing again needs a deliberate new agreement and a new listing" is taken out of the live step. It is kept, quoted, in a *Restated 2026-09-24* paragraph below step 3's read-back, marked superseded, with 021's three lines as the reason.
+  - The paragraph sits after the fence, not before it: a dated paragraph directly above a fence would date that fence as history in `runbook_migration_expectation`'s units.
+  - Prose only. No fence was added or changed.
+- **d) Not edited:** 021:575's comment "A new version is a founder step (BD-1 c)", in an applied migration; and every `Sprint Kickoffs/` file except the pointer in -82.
+- **e) The search**, re-run over `packages/labels`, `docs` and `apps/*/src` for withdraw, new agreement, re-list, rejoin, re-agree, "again" and "new version":
+  - **Operator-side, corrected:** the label and the runbook's step 3, above.
+  - **Operator-side, accurate, unchanged:**
+    - admin labels `AGREEMENT_WITHDRAWN` (codes and screens);
+    - the `facility_agreement_withdrawn_after_accepted` constraint;
+    - `WITHDRAWN_WARNING`;
+    - `apps/admin/src/main.ts`'s two comments, "never edited or withdrawn here" and "Unlisting and withdrawal are founder steps".
+  - **Facility-facing or agreement text:** none. There are no hits in `ward-labels.json`, `public-labels.json` or the clause-x document.
+  - **Outside the search's scope, carrying the same promise, not edited:** `Sprint Kickoffs/sprint-kickoff-bundle3-operator-path-2026-09-22.md:185`, a committed kickoff; this entry supersedes it.
+
+**CB-2 — OPEN ITEM, not a fix.** "Agreement history — re-agreement after withdrawal, and a runbook step for correcting a mistakenly recorded agreement — needs its own design and ruling."
+- **Trigger:** the first withdrawn facility that asks to return, or the first mistaken agreement record, or earlier on the founder's word.
+- **Backstop:** reviewed at the first post-launch sprint kickoff.
+- **Until then** a mistaken record (not a withdrawal) is corrected by founder SQL, with Claude Code writing the statement at the time.
+- -82 BJ-1 e is left as written, with only a pointer to this item.
+
+**CB-3 — NOTHING ELSE.** No SQL, no migrations, nothing hosted. Report, then STOP for Cowork's check and the founder's merge word.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -4615,6 +4688,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | BX | R-2026-09-24-96 | 2026-09-24 | **#76 merged at `3df27ca`.** BW-1's any-script widening accepted. PR C's design report written, report only. |
 | BY | R-2026-09-24-97 | 2026-09-24 | **The build word for PR C.** H6 reordered so the bootstrap comes before any sign-in observation; the seven open items ruled: preview and Access moved to H6, the BT-3 probe prints the status only, `lagosTime` shared, the service-role lint's corpus from `wrangler.toml`, edit never retried, the E2E operator cleaned, `connect-src` pinned. |
 | BZ | R-2026-09-24-98 | 2026-09-24 | **The retype form refused.** Migration 023 adds `lat`, `lng` and `public_phone_e164` to `operator_register`; the edit form prefills all six and a phone change needs a confirm. 022 and 023 both pending (read, not assumed). Open item: the ward console's digit-less code pattern, trigger the first ward-path code with a digit. |
+| CA | R-2026-09-24-99 | 2026-09-24 | **#77 merged at `4e28cdb`.** 3.4b-app's code is complete. The hosted order: 022's apply, H2, H3, 023's apply, H5, H6, all founder-side. |
+| CB | R-2026-09-24-100 | 2026-09-24 | **Withdrawal is final in v1.** The `AGREEMENT_ALREADY_RECORDED` sentence corrected (it promised a path); §12.5 marks the one-way door, and step 3's re-agreement sentence is superseded. Open item: agreement history, triggered by the first returning facility or mistaken record, backstopped at the first post-launch kickoff. |
 
 ## Method notes — how rulings reach the implementer
 
