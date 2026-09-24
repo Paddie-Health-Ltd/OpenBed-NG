@@ -56,11 +56,15 @@ async function seed(tx: TransactionSql, listed: boolean, quiet: boolean): Promis
     await tx.unsafe(`
       insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, quiet_mode, listed_at)
       values ('${id}', 'Peer ${i + 1}', '${LGA}', 'Lagos', 6.5, 3.4, '+23480000001${i}0', true, now())`);
+    // 021 (R-2026-09-24-83 BK-1): public requires an active agreement. Synthetic.
+    await tx.unsafe(`insert into app.facility_agreement (facility_id, accepted_on, version) values ('${id}', '2026-09-01', 'v1.0')`);
     await tx.unsafe(`insert into app.ward_status (facility_id, category, offering, bed_count) values ('${id}', 'ICU_ADULT', 'OFFERED', 2)`);
   }
   await tx.unsafe(`
     insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, quiet_mode, listed_at)
     values ('${FAC}', 'Under Test', '${LGA}', 'Lagos', 6.5, 3.4, '+2348000000200', ${quiet}, ${listed ? 'now()' : 'NULL'})`);
+  // Every facility here has an agreement, so listing stays the only variable.
+  await tx.unsafe(`insert into app.facility_agreement (facility_id, accepted_on, version) values ('${FAC}', '2026-09-01', 'v1.0')`);
   await tx.unsafe(`insert into app.ward_status (facility_id, category, offering, bed_count) values ('${FAC}', 'ICU_ADULT', 'OFFERED', 2)`);
 }
 

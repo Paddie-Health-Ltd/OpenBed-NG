@@ -86,6 +86,8 @@ async function seedCell(tx: TransactionSql, lga: string, beds: number[]): Promis
       values ('K ${lga} ${i}', '${lga}', 'Lagos', 6.6, 3.35, '+2348000000095', true, now())
       returning id
     `);
+    // 021 (R-2026-09-24-83 BK-1): public requires an active agreement. Synthetic.
+    await tx.unsafe(`insert into app.facility_agreement (facility_id, accepted_on, version) values ('${rows[0]?.id}', '2026-09-01', 'v1.0')`);
     await tx.unsafe(`
       insert into app.ward_status (facility_id, category, offering, bed_count, accepting, monitoring_state)
       values ('${rows[0]?.id}', 'ICU_ADULT', 'OFFERED', ${count}, true, 'ACTIVE')
@@ -149,6 +151,7 @@ describe('lga_rollup k-floor', () => {
         values ('Visible In Mixed', 'MixedCell', 'Lagos', 6.6, 3.35, '+2348000000094', false, now())
         returning id
       `);
+      await tx.unsafe(`insert into app.facility_agreement (facility_id, accepted_on, version) values ('${vis[0]?.id}', '2026-09-01', 'v1.0')`);
       await tx.unsafe(`
         insert into app.ward_status (facility_id, category, offering, bed_count, accepting, monitoring_state)
         values ('${vis[0]?.id}', 'ICU_ADULT', 'OFFERED', 400, true, 'ACTIVE')

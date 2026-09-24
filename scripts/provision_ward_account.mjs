@@ -20,7 +20,9 @@
 // apps/public-dashboard/src/main.ts); wardRowFrom refuses a malformed row rather than
 // defaulting it (apps/ward-console/src/main.ts); and a server refusal reaches a ward
 // only as a fixed sentence (wardMessageFor, same file). The invite gate it named as
-// not built is app.provision_begin (migration 020, applied on hosted 2026-09-24).
+// not built is app.provision_begin (migration 020, applied on hosted 2026-09-24);
+// 021 restates it to read app.facility_agreement, off the contact person's row
+// (R-2026-09-24-76 BD-1).
 // ONE ITEM IS STILL OPEN: no backup of the hosted project has ever been restored
 // (R-2026-09-24-74 BB-4). So the gate has not cleared.
 //

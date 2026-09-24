@@ -164,6 +164,17 @@ BEGIN
     END LOOP;
 END $$;
 
+-- One agreement per LISTED facility, synthetic only (R-2026-09-24-83 BK-1 b). Since
+-- 021 a facility is public only with an agreement that is not withdrawn, so a seed
+-- without these would publish nothing. The version is a synthetic label and the
+-- signatory a role, never a name. Each insert re-projects its facility (021's
+-- trigger), so the mirrors are filled here; the rollup below then counts them.
+INSERT INTO app.facility_agreement (facility_id, accepted_on, version, signatory_role)
+SELECT f.id, DATE '2026-09-01', 'synthetic-v1', 'CMD'
+  FROM app.facility f
+ WHERE f.listed_at IS NOT NULL
+ON CONFLICT (facility_id) DO NOTHING;
+
 -- Populate the rollup from the quiet facilities just inserted.
 SELECT app.refresh_lga_rollup();
 

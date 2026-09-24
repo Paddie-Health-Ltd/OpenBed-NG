@@ -1,11 +1,12 @@
 {
-  "comment": "THE FUNCTION-EXECUTE SURFACE, ONE SOURCE (R-2026-09-24-74 BB-2). For every function in the schemas below, which of the three client-facing roles can EXECUTE it, and why. The key is the function's identity as pg_catalog prints it with search_path set to pg_catalog: schema.name(argument types), so the types are qualified the same way on every database. Read by tests/db/authenticated_executable_closed_list.test.ts, which derives its closed list from the entries authenticated can execute in the exposed schemas, and by scripts/readback_function_grants.sh, which holds hosted to this file after an apply. tests/db/function_grants.test.ts holds the local catalogue equal to it, entry for entry. So a grant changed anywhere reds against this file, and it is changed here, with its reason, in the same change. MEASURED on the local stack on 2026-09-24 at 020: service_role holds EXECUTE on none of this repository's functions (each migration revokes it by name), and graphql_public.graphql is Supabase's own, executable by all three.",
+  "comment": "THE FUNCTION-EXECUTE SURFACE, ONE SOURCE (R-2026-09-24-74 BB-2). For every function in the schemas below, which of the three client-facing roles can EXECUTE it, and why. The key is the function's identity as pg_catalog prints it with search_path set to pg_catalog: schema.name(argument types), so the types are qualified the same way on every database. Read by tests/db/authenticated_executable_closed_list.test.ts, which derives its closed list from the entries authenticated can execute in the exposed schemas, and by scripts/readback_function_grants.sh, which holds hosted to this file after an apply. tests/db/function_grants.test.ts holds the local catalogue equal to it, entry for entry. So a grant changed anywhere reds against this file, and it is changed here, with its reason, in the same change. MEASURED on the local stack on 2026-09-24 at 020, and restated at 021: service_role holds EXECUTE on none of this repository's functions (each migration revokes it by name), and graphql_public.graphql is Supabase's own, executable by all three.",
   "schemas": ["app", "graphql_public", "public"],
   "roles": ["anon", "authenticated", "service_role"],
   "functions": {
     "app.assert_member(uuid, app.app_role)": { "execute": [], "why": "011: the membership check the SECURITY DEFINER RPCs call; never called by a client" },
     "app.assert_operator()": { "execute": [], "why": "020: the operator check the operator_* functions call" },
     "app.bump_facility_version()": { "execute": [], "why": "020: a trigger function (J1's row version)" },
+    "app.bump_row_version()": { "execute": [], "why": "021: the facility_contact version trigger function" },
     "app.gate(app.ward_category, app.tri_state, app.tri_state, app.tri_state)": { "execute": [], "why": "006: the gate rule, called by the projection" },
     "app.gate_for_facility(app.ward_category, uuid)": { "execute": [], "why": "006: the gate over a facility's duty flags, called by the projection" },
     "app.operator_session(uuid)": { "execute": [], "why": "020: the session id the operator writes record in their audit rows" },
@@ -23,7 +24,10 @@
     "public.operator_add_category(text, text, text)": { "execute": ["authenticated"], "why": "020: an operator adds a category (-71 E)" },
     "public.operator_create_facility(text, text, text, text, double precision, double precision, text)": { "execute": ["authenticated"], "why": "020: an operator creates a facility (-71 E)" },
     "public.operator_edit_facility(text, integer, text, text, text, double precision, double precision, text)": { "execute": ["authenticated"], "why": "020: an operator edits a facility (-71 E, J1)" },
-    "public.operator_list_facilities()": { "execute": ["authenticated"], "why": "020: the operator's list (AJ D8)" },
+    "public.operator_get_contact(text)": { "execute": ["authenticated"], "why": "021: the operator's read of one facility's contact and agreement, for the detail view only (BC-5 d, BD-1 f)" },
+    "public.operator_record_agreement(text, date, text, text)": { "execute": ["authenticated"], "why": "021: an operator records the facility's agreement, never overwriting one (BD-1 c)" },
+    "public.operator_record_contact(text, text, text, text, text, boolean, integer)": { "execute": ["authenticated"], "why": "021: an operator records the facility's contact (BC-5 a, BD-1 c)" },
+    "public.operator_register()": { "execute": ["authenticated"], "why": "021: the operator's register, 020's list as an envelope carrying server_now (AJ D8, BC-5 c)" },
     "public.operator_set_facility_listed(text, integer)": { "execute": ["authenticated"], "why": "020: an operator lists a facility (-71 B)" },
     "public.publish_ward_status(text, text, integer, boolean, text, integer, text, timestamp with time zone)": { "execute": ["authenticated"], "why": "014: a ward publishes" },
     "public.ward_status_history(text, timestamp with time zone, integer)": { "execute": ["authenticated"], "why": "015: a ward reads its own history" }

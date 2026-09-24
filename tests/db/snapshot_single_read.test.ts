@@ -108,6 +108,8 @@ async function race(plantedSql: string): Promise<Payload> {
     await B.begin(async (t) => {
       await t.unsafe(`insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, listed_at)
                       values ('${FAC}', '${FAC_NAME}', 'Ikeja', 'Lagos', 6.6, 3.35, '+2348000000019', now())`);
+      // 021 (R-2026-09-24-83 BK-1): public requires an active agreement. Synthetic.
+      await t.unsafe(`insert into app.facility_agreement (facility_id, accepted_on, version) values ('${FAC}', '2026-09-01', 'v1.0')`);
       await t.unsafe(`insert into app.facility_ops (facility_id) values ('${FAC}')`);
       await t.unsafe(`insert into app.ward_status (facility_id, category, offering, bed_count, accepting, monitoring_state)
                       values ('${FAC}', 'ICU_ADULT', 'OFFERED', 5, true, 'ACTIVE')`);
@@ -117,6 +119,9 @@ async function race(plantedSql: string): Promise<Payload> {
     return await a;
   } finally {
     if (!released) await B`select pg_advisory_unlock(${K})`;
+    // The agreement first: its foreign key is RESTRICT by design (021), so a facility
+    // cannot be deleted from under a recorded agreement.
+    await B.unsafe(`delete from app.facility_agreement where facility_id = '${FAC}'`);
     await B.unsafe(`delete from app.facility where id = '${FAC}'`);
   }
 }

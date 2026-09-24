@@ -64,6 +64,8 @@ async function seed(tx: TransactionSql): Promise<void> {
       insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, quiet_mode, listed_at)
       values ('${id}', '${name}', 'Ikeja', 'Lagos', 6.6, 3.35, '+2348000000091', ${quiet}, now())
     `);
+    // 021 (R-2026-09-24-83 BK-1): public requires an active agreement. Synthetic.
+    await tx.unsafe(`insert into app.facility_agreement (facility_id, accepted_on, version) values ('${id}', '2026-09-01', 'v1.0')`);
   }
   // The gate's input. Only the gated facility records an absent anaesthetist;
   // the others have no facility_ops row at all, which the projection treats as

@@ -59,10 +59,27 @@ const RPCS = [
     signature: 'public.operator_add_category(text, text, text)',
     call: `select * from public.operator_add_category('00000000-0000-4000-8000-000000000000', 'ICU_ADULT', 'OFFERED')`,
   },
+  // 021 (R-2026-09-24-75/76): 020's list is restated as the register envelope, under a
+  // new name because a return type cannot change in place; plus the two writes and the read.
   {
-    name: 'operator_list_facilities',
-    signature: 'public.operator_list_facilities()',
-    call: `select * from public.operator_list_facilities()`,
+    name: 'operator_register',
+    signature: 'public.operator_register()',
+    call: `select public.operator_register()`,
+  },
+  {
+    name: 'operator_record_contact',
+    signature: 'public.operator_record_contact(text, text, text, text, text, boolean, integer)',
+    call: `select * from public.operator_record_contact('00000000-0000-4000-8000-000000000000', 'x', 'x', 'role@example.invalid', null, false, null)`,
+  },
+  {
+    name: 'operator_record_agreement',
+    signature: 'public.operator_record_agreement(text, date, text, text)',
+    call: `select * from public.operator_record_agreement('00000000-0000-4000-8000-000000000000', '2026-09-01', 'v1.0', 'CMD')`,
+  },
+  {
+    name: 'operator_get_contact',
+    signature: 'public.operator_get_contact(text)',
+    call: `select public.operator_get_contact('00000000-0000-4000-8000-000000000000')`,
   },
 ] as const;
 

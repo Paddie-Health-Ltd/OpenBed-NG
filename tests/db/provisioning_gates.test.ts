@@ -40,8 +40,12 @@ async function facility(tx: TransactionSql, contact: 'none' | 'unsigned' | 'sign
   await tx.unsafe(`insert into app.ward_status (facility_id, category, offering) values ('${FAC}', 'ICU_ADULT', 'OFFERED')`);
   if (contact !== 'none') {
     await tx.unsafe(`
-      insert into app.facility_contact (facility_id, full_name, job_title, email, agreement_accepted_at)
-      values ('${FAC}', 'Named Person', 'Medical Director', '${EMAIL}', ${contact === 'signed' ? 'now()' : 'NULL'})`);
+      insert into app.facility_contact (facility_id, full_name, job_title, email)
+      values ('${FAC}', 'Named Person', 'Medical Director', '${EMAIL}')`);
+  }
+  // 021 (BD-1): a signed agreement is its own row, never the contact's.
+  if (contact === 'signed') {
+    await tx.unsafe(`insert into app.facility_agreement (facility_id, accepted_on, version) values ('${FAC}', '2026-09-01', 'v1.0')`);
   }
 }
 

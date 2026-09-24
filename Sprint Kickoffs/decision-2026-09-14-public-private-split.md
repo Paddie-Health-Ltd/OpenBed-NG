@@ -3780,6 +3780,246 @@ _Issued as R-PROVISIONAL-2026-09-24-BE, by Cowork on 2026-09-24, as its read-bac
 
 **BE-4 — ORDER:** 021's pull request opens only after this change merges and fence 6 re-reads PASS. Merging `main` into 021 then restates its step 5 to 1 pending (021), and moves 4b's invite-gate row onto `app.facility_agreement`.
 
+### R-2026-09-24-78 — #71 merged; 021's three findings ruled; fence 6 is not run between 021's merge and its apply
+
+_Issued as R-PROVISIONAL-2026-09-24-BF, by Cowork on 2026-09-24, as its check of #71 at `ef33fa6` and its rulings on 021's build findings. Pasting it was the founder's merge word for #71. Number assigned on landing: R-2026-09-24-77 plus one, read on this branch after `main` (with -77) was merged in. Record-only; lands on `pr-3.4b-db-021`, with 021. Next provisional letter: BG._
+
+**COWORK'S READINGS, re-read on landing:** #71 open at `ef33fa6`, base `4a6a9e9`, CLEAN, seven check runs success, all read from the API before the merge. Also re-read from the files: the fixture's 24 `functions` entries and its one `hosted_only` entry; the read-back's handling of each section; the comment-only change to `scripts/provision_ward_account.mjs`; and the Supabase processor row. **#71 merged at `f1d3a1f`** (parents `4a6a9e9`, `ef33fa6`), MERGED read back from the API, and `record-020-apply` deleted afterwards (404).
+
+**THEN:** the founder refreshes the deploy checkout and re-runs fence 6 ONLY. It must read PASS, with `public.rls_auto_enable()` reading `ok` under `(hosted-only)`. **Not yet run when this lands.**
+
+**BF-1 — 021'S THREE FINDINGS:**
+- **a) The move is dropped and the pre-check kept.** 021 refuses to apply over any contact row carrying `agreement_accepted_at`, naming the count, and then drops the column. The down migration restores the column empty. Already as built, and 021's header now cites this.
+- **b) `operator_record_agreement` has no `p_expected_version`.** It never overwrites: an identical repeat returns, and a different agreement is `AGREEMENT_ALREADY_RECORDED`. Already as built.
+- **c) One read path, `operator_register()`. The mechanism differs from BF-1 c as written, and the property is kept.**
+  - BF-1 c asks that 021 keep `operator_list_facilities()` with EXECUTE revoked from authenticated, and a fixture entry `execute []` reading "kept so 020 re-applies unchanged". **021 as built DROPS it instead.**
+  - **A kept function would be broken.** Its 020 body reads `facility_contact.agreement_accepted_at` (020:698), which 021 drops, so every call would error. That is a function left in the schema that cannot run.
+  - **020 still re-applies unchanged with the drop.** A re-apply of 020 recreates the function, a re-apply of 021 drops it again, and `tests/db/migration_idempotency.test.ts` passes on exactly that sequence.
+  - The down migration restores it with 020's body and grant.
+  - So there is one read path and no fixture entry, because there is no function. The D3 list holds `operator_register` and not the old name. 3.4b-app calls `operator_register` only, and only it enters the Worker allow-list.
+  - **For Cowork to overrule before 021's pull request.** _Superseded 2026-09-24 by R-2026-09-24-79 BG-1: BF-1 c's keep-and-revoke is replaced by the drop, which is accepted for the reason above._
+
+**BF-2 — FENCE 6 AROUND 021.** Between 021's merge and its hosted apply, fence 6 is not run: from the merge, the fixture names 021's functions, which hosted does not yet have. 021's apply uses 020's six fences, with fence 6 after the apply. Runbook step 5's new "021's apply" subsection states both. It lists 021's expectation for each fence, and names `operator_list_facilities` as a function that must be gone after the apply.
+
+**BF-3 — THE REWORK, done on `pr-3.4b-db-021`:**
+- `main` (with #71) is merged in.
+- Step 5 is restated to 1 pending (021), and the guard's pinned legs to ONE naming 021.
+- Step 4b's row 4 cites 021's restated `provision_begin` (021:282-291, with `AGREEMENT_WITHDRAWN`), and the interim notes are dropped.
+- The grants fixture keeps `hosted_only`, adds 021's entries, and has no `operator_list_facilities`.
+
+**021's pull request opens only after fence 6 reads PASS on hosted (BE-4), and its report goes to Cowork.**
+
+### R-2026-09-24-79 — BF-1 c's departure accepted: 021 drops operator_list_facilities()
+
+_Issued as R-PROVISIONAL-2026-09-24-BG, by Cowork on 2026-09-24. Number assigned on landing: R-2026-09-24-78 plus one. Record-only; lands on `pr-3.4b-db-021`, with 021. Next provisional letter: BH._
+
+**VERIFIED BY COWORK** (GitHub API and repository, 2026-09-24; Cowork's reading, re-read on landing):
+- #71 is closed and merged, with merge commit `f1d3a1f` (parents `4a6a9e9` and `ef33fa6`). `origin/main` is `f1d3a1f`, and `record-020-apply` returns 404.
+- `pr-3.4b-db-021` is at `f0fd237`.
+- 021 and its down migration are present. Line 585 is `DROP FUNCTION IF EXISTS public.operator_list_facilities() RESTRICT`.
+- The branch's grants fixture has no `operator_list_facilities` entry. It carries `operator_get_contact`, `operator_record_agreement`, `operator_record_contact` and `operator_register`, and keeps `public.rls_auto_enable()` in `hosted_only`.
+
+**BG-1 — THE DROP IS ACCEPTED.** 021 drops `operator_list_facilities()` rather than revoking it. **BF-1 c is superseded by this.** The reason:
+- Its 020 body reads `facility_contact.agreement_accepted_at`, which 021 removes, so a kept copy would fail on every call. **A dead function is not a safe one.**
+- 020 still re-applies unchanged: it recreates the function, and 021 drops it again. `tests/db/migration_idempotency.test.ts` covers that sequence.
+- The down migration restores it with its grant.
+
+021's header now cites this entry in place of BF-1 c.
+
+**BG-2 — THE PULL REQUEST WAITS FOR PASS.** 021's PR is not opened until Cowork relays fence 6 PASS. That condition is met by R-2026-09-24-80.
+
+### R-2026-09-24-80 — fence 6 reads PASS on hosted; 020's apply is complete; 021's pull request opens
+
+_Issued as R-PROVISIONAL-2026-09-24-BH, by Cowork on 2026-09-24. Number assigned on landing: R-2026-09-24-79 plus one. Record-only; lands on `pr-3.4b-db-021`, with 021 (BH-1). Next provisional letter: BI._
+
+**THE FOUNDER'S READING.** Evidence kind: the founder's terminal output, relayed by Cowork. I did not run it and did not see it.
+- It ran on 2026-09-24 from the deploy checkout at `~/Desktop/OpenBed-NG-deploy`.
+- The checkout was refreshed with a fetch, a detach and `npm ci`, leaving HEAD at `f1d3a1f`.
+- `bash scripts/readback_function_grants.sh` printed 25 lines, all `ok`. The 24 fixture functions read as expected, including:
+  - `provision_begin` and `provision_complete`, whose EXECUTE is none;
+  - `operator_list_facilities()`, whose EXECUTE is authenticated, because hosted is at 020.
+- The `hosted_only` entry read: `ok public.rls_auto_enable() (hosted-only): anon,authenticated,service_role owner=postgres returns=event_trigger definer=true`.
+- The last line read: `PASS: every function in app, graphql_public and public is executable by exactly the roles packages/fixtures/function-grants.json names.`
+
+**BH-1 — RECORDED.**
+- **020's apply is complete.** All six fences are read, and fence 6 now reads PASS.
+- **BE-1 is closed by this PASS.** R-2026-09-24-77 left the hosted-only function to be proved by a re-run of fence 6, and this is that re-run.
+- Runbook step 5 records the re-run:
+  - the "020's apply" subsection says it has run;
+  - the 020 checkbox carries the reading.
+- No boundary moves. It stays at 20.
+
+**BH-2 — 021'S PULL REQUEST OPENS NOW.** BE-4 and BG-2 are satisfied. Its report goes to Cowork: the head SHA, the seven check runs from the API, the fresh-database attestation, the Standard P ledger, and step 5's "021's apply" fences exactly as written. Cowork checks them before the founder gives the merge word. **Nothing is run on hosted until the founder runs 021's fences after the merge.**
+
+### R-2026-09-24-81 — the register reports an agreement as none, recorded or withdrawn; the dated-unit guard is queued
+
+_Issued as R-PROVISIONAL-2026-09-24-BI, by Cowork on 2026-09-24, as its check of #72 at `46b522f`. Number assigned on landing: R-2026-09-24-80 plus one. Record-only apart from BI-1's change, which lands on `pr-3.4b-db-021` with 021. Next provisional letter: BJ._
+
+**VERIFIED BY COWORK** (GitHub API and repository, 2026-09-24; Cowork's reading, re-read on landing):
+- #72: open at `46b522f`, base `f1d3a1f`, mergeable CLEAN, with all seven check runs success.
+- 021, read directly, in its table:
+  - `app.facility_agreement` carries the version-label CHECK, `signatory_role` of 1 to 64 characters, and `withdrawn_on >= accepted_on`.
+  - RLS is enabled and forced, and every grant is revoked.
+- 021's migration steps:
+  - The pre-check comes before the column is dropped.
+  - Both gates require a contact and an agreement, and refuse `AGREEMENT_WITHDRAWN`.
+  - `operator_list_facilities` is dropped.
+- 021's functions:
+  - The four operator functions call `app.assert_operator()` first.
+  - The Lagos date is used for the future-date refusal.
+  - `record_agreement` is an insert or an identical repeat, and never an overwrite.
+  - `server_now` is built outside the aggregate.
+- `supabase-proxy/allow-list.json` is unchanged.
+
+**BI-1 — DONE on #72: `agreement_recorded` is replaced by `agreement_state`, one of `'none'`, `'recorded'` or `'withdrawn'`.**
+- **The defect.** The yes/no read a withdrawn agreement as "none" (`withdrawn_on IS NULL`). The operator would then try to record one and be refused `AGREEMENT_ALREADY_RECORDED`: a dead end that also hid the withdrawal.
+- **The mechanism.** A CASE over the one `app.facility_agreement` row (the primary key), falling back to `'none'`. "Withdrawn" is `withdrawn_on IS NOT NULL`, the same test both gates refuse `AGREEMENT_WITHDRAWN` on, so the register and the gates cannot disagree.
+- **This amends BD-1's register yes/no** (item f as issued) for the agreement only. `has_contact` stays a yes/no, and `operator_get_contact` is unchanged.
+- **Tests:**
+  - `tests/db/operator_contact_and_agreement.test.ts` has one leg per state. It also has a listed facility whose agreement is then withdrawn: it reads `'withdrawn'`, stays listed, and a new record is still refused by name.
+  - Each leg asserts that no `agreement_recorded` key is returned.
+  - The erasure leg now reads `'recorded'`.
+  - `tests/db/operator_functions.test.ts` reads `'none'`.
+- **The ledger's register row** now maps 020's `agreement_recorded` to `agreement_state`.
+- **Two premises did not hold as stated:**
+  - **Neither the platform-admin HTTP test nor the runbook named the field.** The HTTP test checked only the envelope's shape. It now also asserts, over a non-empty register, that every facility carries `agreement_state` with one of the three values and no `agreement_recorded`. The runbook needed nothing.
+  - **"The founder's SQL step" for withdrawal does not exist yet.** It is BD-2 2's, written in 3.4b-app. The legs run the UPDATE that step will run, as owner.
+
+**AN OBSERVATION FOR COWORK, not changed here.** Withdrawal leaves `listed_at` set. A facility whose agreement is withdrawn stays on the public page until someone unlists it, and nothing unlists it. The listed-then-withdrawn leg pins today's behaviour. **The BD-2 2 withdrawal step should say whether it unlists**, and when that step is written it will need a ruling on this.
+
+**BI-2 — QUEUED for the change that records 021's apply,** which edits step 5 anyway:
+- `runbook_migration_expectation`'s date exemption is to key on an explicit dated-history marker, such as "Restated YYYY-MM-DD" or "On YYYY-MM-DD", and never on any ISO date anywhere in the unit.
+- It gets a plant: an undated count statement citing a ruling number reads red.
+- Every existing statement the tightened guard catches is reported and restated. None is exempted to go green.
+
+### R-2026-09-24-82 — a withdrawn agreement takes a facility off the public output by itself
+
+_Issued as R-PROVISIONAL-2026-09-24-BJ, by Cowork on 2026-09-24, as its check of #72 at `b276f44`. Number assigned on landing: R-2026-09-24-81 plus one. BJ-1 a-d change 021 on `pr-3.4b-db-021`; BJ-1 e is a ruling for 3.4b-app. Next provisional letter: BK._
+
+**VERIFIED BY COWORK** (GitHub API and repository, 2026-09-24; Cowork's reading, re-read on landing):
+- #72 was open at `b276f44`, base `f1d3a1f`, mergeable CLEAN, with all seven check runs success.
+- `agreement_state` read `'recorded'` or `'withdrawn'` from the one agreement row, else `'none'`, and no `agreement_recorded` key remained.
+
+**BJ-1 — STRUCTURAL.** This follows from -81's observation that withdrawing an agreement left the facility public until someone unlisted it. **A withdrawn data-sharing agreement ends the basis for publishing that facility's data, so removal must not depend on a second manual statement being remembered.**
+
+**a) Both public membership predicates gain "no withdrawn agreement".** The sites were enumerated from the live local catalogue at `b276f44` on 2026-09-24. The scope was every function in `app`, `public` and `graphql_public` whose source reads `listed_at` or names a mirror; there are 0 views and 0 materialized views.
+- **`app.project_facility(uuid)`** is the only writer of `facility_public` and `ward_public`.
+- **`app.refresh_lga_rollup()`** is the only writer of `lga_rollup`.
+- **Each is restated in 021 section 6 as 020's body verbatim, plus one line** after `listed_at IS NOT NULL`: `AND NOT EXISTS (SELECT 1 FROM app.facility_agreement a WHERE a.facility_id = f.id AND a.withdrawn_on IS NOT NULL)`.
+- **The rest inherit or are not public.** `app.regenerate_snapshot()` and `publish_ward_status` read the mirrors only, so they inherit the first site. `operator_create_facility`, `operator_register` and `operator_set_facility_listed` read `listed_at` for the operator, not the public.
+- **The predicate is "no withdrawn agreement", not "has an agreement".** A facility with no agreement row, such as the seed's, is unaffected. _Superseded 2026-09-24 by R-2026-09-24-83 BK-1: the predicate is now positive, an agreement that is not withdrawn. A facility with no agreement row is NOT public. **The invariant is: public implies an active agreement.**_
+
+**b) The trigger.** `trg_facility_agreement_project` fires AFTER INSERT OR UPDATE OR DELETE on `app.facility_agreement`, FOR EACH ROW, and calls **008's `app.trg_project()`**, which already resolves `facility_id` for every table except `facility`. There is no second projection path and no new function, so the grants fixture is unchanged.
+- Setting `withdrawn_on` empties the facility's mirror rows **in the same transaction**.
+- The rollup stops counting the facility at its next refresh (every five minutes).
+- `tests/db/projection_trigger_state.test.ts` and `tests/db/projection_ward_public.test.ts` now hold four projection triggers.
+
+**c) The tests,** in the new `tests/db/agreement_withdrawal_public.test.ts`, modelled on the listing test:
+- **Mirrors:** a listed facility with a published ward reads 1 and 1. The founder's withdrawal UPDATE alone leaves 0 and 0, read in the same transaction.
+- **Rollup:** the facility under test is the fifth of five quiet facilities in one LGA, so the cell exists before the withdrawal and not after.
+- **No agreement:** a facility with no agreement row stays public.
+- **Plants:**
+  - Each site's predicate is removed in turn, from 021's text, and each leaks.
+  - The trigger is dropped, and the mirrors do not move.
+- **The -81 leg,** a listed facility withdrawn afterwards, now also reads **listed but not public**: 1 and 1 before, 0 and 0 after.
+
+**d) B1 holds.** `tests/db/migration_021_round_trip.test.ts` holds both bodies by value: 021's equal 020's with only the predicate inserted. The down migration restores 020's byte for byte.
+- Across down-then-up, the mirrors are unchanged.
+- The rollup is recomputed under each body in a rolled-back transaction, and the cells are equal. The seed's Alimosho cell makes this non-vacuous.
+- On apply there is no agreement row, so the trigger has nothing to fire on and the predicate excludes nothing.
+
+**Line citations moved, and one was wrong.** 021's header grew, and a citation of a line is a fact about one SHA.
+- **The invite gate is now 021:313-322.** Runbook step 4b row 4 is restated to that span.
+- **The cite it replaces, 021:282-291 (from 52dacfd), was wrong when written.** That span ended at `NO_FACILITY_CONTACT` and never reached the agreement checks it named, which were at 292-298. That was my error, and Cowork's -79 relied on it.
+- -79's "line 585" and the other cites earlier in this record are left as history, true at the SHA they name.
+
+**e) THE WITHDRAWAL STEP, a ruling for 3.4b-app** (BD-2 2; written there, to this):
+1. Set `withdrawn_on`. The public output drops by itself; the page follows in about 2 minutes (020's B2).
+2. Deactivate the facility's ward accounts.
+3. Clear `listed_at`, so the register reads "not listed". Publishing again needs a deliberate new agreement and a re-listing.
+4. Read back `/beds.json`.
+
+**BI-2 stays queued** for the change that records 021's apply.
+
+**The Standard P ledger has 12 rows, and 0 failures.**
+- **Row 5 is restated:** a contact write re-projects nothing, and an agreement write re-projects through 008's `trg_project`. Its plant nulls that function's `facility_id` branch.
+- **Row 12 is new:** 021's two membership bodies are 020's plus the predicate. Its plant alters 020's `project_facility`.
+
+### R-2026-09-24-83 — public requires an active agreement, and fails closed
+
+_Issued as R-PROVISIONAL-2026-09-24-BK, by Cowork on 2026-09-24, as its check of #72 at `61dfae6`. Number assigned on landing: R-2026-09-24-82 plus one. BK-1 a-c change 021 on `pr-3.4b-db-021`; d and e are record. Next provisional letter: BL._
+
+**VERIFIED BY COWORK** (GitHub API, repository and hosted catalogue, 2026-09-24; Cowork's reading, re-read on landing where the repository holds it):
+- #72 was open at `61dfae6`, base `f1d3a1f`, CLEAN, with seven check runs success.
+- 021 at `61dfae6` held:
+  - BJ's predicate at 701 and 811;
+  - the agreement trigger at 868-871, calling 008's `app.trg_project()`;
+  - the `snapshot_schedule_state` change, which is test-only.
+- **Hosted, read-only through the Supabase connector** (Cowork's reading; I have no hosted access):
+  - `postgres` reads `rolsuper false`, `rolbypassrls true`.
+  - `project_facility`, `refresh_lga_rollup`, `regenerate_snapshot` and `trg_project` are SECURITY DEFINER, owned by `postgres`.
+  - Both cron jobs run as `postgres`.
+  - `app.facility`, `app.ward_status` and `app.facility_contact` have RLS disabled.
+
+**BK-1 — THE PREDICATE FAILED OPEN, AND ADMITTED A FACILITY WITH NO AGREEMENT. IT IS NOW POSITIVE.**
+
+**a) Both sites now read `AND EXISTS (SELECT 1 FROM app.facility_agreement a WHERE a.facility_id = f.id AND a.withdrawn_on IS NULL)`,** in 021 section 6.
+- Public means listed, active, not quiet, AND an active agreement.
+- Any failure to read the table hides data rather than exposing it.
+- The down still restores 020's bodies byte for byte.
+
+**b) A second pre-check, `LISTED_WITHOUT_AGREEMENT`,** refuses to apply while any listed facility has no agreement row, naming the count. Before the table exists every listed facility counts; on a re-apply, those with no row count.
+- **Synthetic agreement rows were added.** The seed gets one per listed facility (`synthetic-v1`, signatory `CMD`, a role and never a name). The e2e corpus gets them too, and so does every db fixture that lists a facility and expects public output:
+  - `facility_listing`, `gate_semantics`, `lga_rollup_kfloor`;
+  - `projection_quiet_mode`, `projection_ward_public`;
+  - `public_labels_enum`, `publish_ward_status`, `snapshot_single_read`.
+- **Only fixture lines changed, no assertion.** `snapshot_single_read`'s committed cleanup now deletes the agreement before the facility, because the foreign key is RESTRICT by design.
+
+**c) The tests,** in `tests/db/agreement_withdrawal_public.test.ts`:
+- **(i)** A listed facility with no agreement row is not public, in the mirrors or the rollup.
+- **(ii) Fails closed, asserted as the DECISION.** Under a stand-in owner without BYPASSRLS, which has every grant it needs:
+  - 021's projection completes and writes nothing;
+  - 021's rollup, with `row_security` reset, returns 0 and writes no cell;
+  - **counter-plants** with BJ's `NOT EXISTS` body, same owner: both attempt the write.
+- **(iii)** The withdrawal legs pass unchanged.
+- **(iv)** Removing the `EXISTS` from each site leaks, and dropping the trigger leaves the mirrors unmoved.
+- `snapshot_schedule_state` passes with **no expectation changed.**
+
+**A PREMISE THAT HOLDS ONLY IN PART.** "Every withdrawn facility reads as publishable" is true of BJ's predicate: the counter-plants show it deciding to publish. **It does not reach public output on today's schema, though.** The mirrors (`facility_public`, `ward_public`, `lga_rollup`) have RLS forced with no policy for their writer, so the non-bypass owner's attempt raises `new row violates row-level security policy`. The instruction stands on its other grounds:
+- publishing requires an agreement;
+- the positive predicate does not depend on the mirrors' RLS;
+- a future policy on a mirror would have opened the path.
+
+**B1 IS NOW STRUCTURAL.**
+- On a first apply the agreement table does not exist, so the pre-check admits 021 only where no facility is listed. An unlisted facility is public nowhere, so the public output is empty before and after. Hosted holds 0 facilities.
+- `tests/db/migration_021_round_trip.test.ts` shows:
+  - that empty shape;
+  - that the down writes no public row over the seed's published state;
+  - that a re-apply over it changes no public row;
+  - the refusal, naming the count derived from the database.
+
+**THE ROUND-TRIP MECHANISM CHANGED, and why.** BD-1 made 021's down refuse while any agreement exists. BK-1 b gives the seed agreements. Together:
+- the down now refuses on the shared database;
+- after any down, the forward refuses.
+
+So `migration_020_round_trip` and `migration_021_round_trip` no longer apply files committed through psql. Each leg applies the file texts inside one rolled-back transaction, as `snapshot_schedule_state` does with 017, and nothing is committed. Before a down, the leg takes, in that transaction, the founder's decision the refusal exists to force: the agreements go, with the agreement trigger disabled so the mirrors keep the state being compared.
+- **020's assertions are unchanged.**
+- **One assertion of 021's is removed and replaced:** the committed "down then up changes NO public row". "Up" over the seed is refused by design. It is replaced by the three legs above and the first-apply leg.
+
+**d) -82's wording is superseded** where it said a facility with no agreement stays public. The invariant is **public implies an active agreement.**
+
+**e) NOTE, no change.** `app.facility_agreement` is the one `app` table with RLS enabled and forced:
+- locally, by the migrations;
+- on hosted, by Cowork's reading, where the other `app` tables have RLS disabled.
+
+It stays. With a positive predicate it can only fail closed.
+
+**Runbook step 5, "021's apply" fence 3** names the second pre-check. Hosted has neither condition.
+
+**The Standard P ledger has 13 rows, and 0 failures.**
+- **Row 12's line is the EXISTS form.**
+- **Row 13 is new:** the column 020 adds as the listing state is the one the pre-check counts in both branches, and the one both of 020's membership bodies require. Its plant renames 020's column, and it is REPORTED.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -3848,6 +4088,12 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | BC | R-2026-09-24-75 | 2026-09-24 | **#70 merged; fence 6's exact match accepted; step 4b to be restated with evidence; the design review.** The three contact addresses and the controller are fixed, and there is no privacy@. The prototype's admin code is not copied in. 3.4b splits into 021 and the app. The public site is beds first, with a privacy notice to draft, and never "within 30 seconds". No tile ruling exists. |
 | BD | R-2026-09-24-76 | 2026-09-24 | **021 signed off, with the agreement moved off the contact person's row** so that no erasure reaches it; five questions ruled; Supabase added as a processor. Found in the build: the move and its pre-check cannot both act; the agreement write needs no version check; the list becomes `operator_register()`, because a return type cannot change in place. |
 | BE | R-2026-09-24-77 | 2026-09-24 | **020 applied on hosted: fences 1-5 as they must be, and fence 6's first real STOP**, on Supabase's `rls_auto_enable()`. That function was ruled hosted-only and inert, and is held to every recorded property. The record already held it (-55 D3, -56 A7), and a single list of hosted objects now exists. The stop was foreseeable from the record. |
+| BF | R-2026-09-24-78 | 2026-09-24 | **#71 merged; 021's three build findings ruled** (the move dropped and the pre-check kept; no version check on the agreement write; one read path). BF-1 c's revoke-and-keep is carried out as a drop instead, because the kept function would read a dropped column. It is reported for Cowork to overrule. Fence 6 is not run between 021's merge and its apply. |
+| BG | R-2026-09-24-79 | 2026-09-24 | **BF-1 c's departure accepted:** 021 drops `operator_list_facilities()`, because a kept copy would read a dropped column, and a dead function is not a safe one. BF-1 c is superseded. 021's PR waits for fence 6 PASS. |
+| BH | R-2026-09-24-80 | 2026-09-24 | **Fence 6 reads PASS on hosted** (founder's output, relayed by Cowork): 25 lines ok, with `rls_auto_enable()` ok as hosted-only. 020's apply is complete, and BE-1 is closed. 021's PR opens, and its report goes to Cowork before the merge word. |
+| BI | R-2026-09-24-81 | 2026-09-24 | **#72 checked. The register's `agreement_recorded` becomes `agreement_state` (none, recorded or withdrawn)**, because the yes/no read a withdrawal as "none" and led to a dead end. Found: neither the HTTP test nor the runbook named the field, and no withdrawal step exists yet. A withdrawn facility stays listed, flagged for BD-2 2. The dated-unit guard fix is queued for the record-021-apply change. |
+| BJ | R-2026-09-24-82 | 2026-09-24 | **A withdrawn agreement takes a facility off the public output by itself.** Both membership predicates (`project_facility`, `refresh_lga_rollup`) gain "no withdrawn agreement", and a trigger on `facility_agreement` re-projects through 008's `trg_project`. B1 holds. The withdrawal step for 3.4b-app is ruled: withdraw, deactivate the ward accounts, unlist, then read back `/beds.json`. Found: 021:282-291 was wrong when written; the gate is at 021:313-322. |
+| BK | R-2026-09-24-83 | 2026-09-24 | **Public requires an active agreement, and fails closed.** Both predicates are now `EXISTS (agreement, withdrawn_on IS NULL)`. A pre-check refuses to apply over a listed facility with no agreement, and the seed and fixtures gain synthetic agreements. Found: the fail-open was real in the predicate but blocked today by the mirrors' own RLS. The round trips now run in rolled-back transactions, because BD's down refusal and BK's seed agreements together forbid a committed one. B1 is structural. |
 
 ## Method notes — how rulings reach the implementer
 

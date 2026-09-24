@@ -26,9 +26,11 @@ import { withRole } from '../setup/db.js';
  * never touched.
  */
 
-const EXPECTED = ['trg_facility_ops_project', 'trg_facility_project', 'trg_ward_status_project'];
+// 021 adds the fourth (R-2026-09-24-82 BJ-1): a withdrawn agreement must leave the
+// mirrors in the same transaction, which needs the same AFTER ROW, non-deferred shape.
+const EXPECTED = ['trg_facility_agreement_project', 'trg_facility_ops_project', 'trg_facility_project', 'trg_ward_status_project'];
 
-/** Every way the three projection triggers can stop supporting a same-transaction read-back. */
+/** Every way the four projection triggers can stop supporting a same-transaction read-back. */
 async function projectionTriggerViolations(tx: TransactionSql): Promise<string[]> {
   const rows = await tx.unsafe<
     { tgname: string; enabled: string; deferrable: boolean; initdeferred: boolean; is_constraint: boolean; row_level: boolean; after: boolean }[]
@@ -60,7 +62,7 @@ async function projectionTriggerViolations(tx: TransactionSql): Promise<string[]
 }
 
 describe('projection trigger state — condition F', () => {
-  test('the three projection triggers are enabled, AFTER ROW, not deferrable and not constraint triggers', async () => {
+  test('the four projection triggers are enabled, AFTER ROW, not deferrable and not constraint triggers', async () => {
     const violations = await withRole('postgres', null, (tx) => projectionTriggerViolations(tx));
     expect(violations, 'the same-transaction read-back of public_* is no longer guaranteed').toEqual([]);
   });
