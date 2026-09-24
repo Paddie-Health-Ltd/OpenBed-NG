@@ -4020,6 +4020,116 @@ It stays. With a positive predicate it can only fail closed.
 - **Row 12's line is the EXISTS form.**
 - **Row 13 is new:** the column 020 adds as the listing state is the one the pre-check counts in both branches, and the one both of 020's membership bodies require. Its plant renames 020's column, and it is REPORTED.
 
+### R-2026-09-24-84 — #72 merged; the round-trip mechanism accepted
+
+_Issued as R-PROVISIONAL-2026-09-24-BL, by Cowork on 2026-09-24, as its check of #72 at `b568eab`. Pasting it was the founder's merge word for #72. Number assigned on landing: R-2026-09-24-83 plus one. Record-only; lands with the change that records 021's apply (R-46). Next provisional letter: BM._
+
+**VERIFIED BY COWORK** (GitHub API and repository, 2026-09-24):
+- #72 was open at `b568eab`, base `f1d3a1f`, CLEAN, with seven check runs success.
+- 021:734 and 021:844 carry the positive predicate. The pre-checks are at 021:116 and 021:139. The synthetic agreements are in the seed and fixtures only.
+
+**THE MERGE.**
+- The head was read from the API as `b568eab` before merging with `--match-head-commit`.
+- #72 merged as a merge commit, **`f6889d4b631b1715de4134c6db734c8a90cf320c`** (parents `f1d3a1f` and `b568eab`), and read back as MERGED at 2026-09-24T12:23:41Z.
+- `pr-3.4b-db-021` was deleted after that, as a separate step; the API answers "Branch not found".
+
+**BL-1 — THE ROUND-TRIP MECHANISM IS ACCEPTED.**
+- **The reason:** applying 020 and 021 inside a rolled-back transaction in `migration_020_round_trip` and `migration_021_round_trip` is faithful to production, because `scripts/run_migrations.sh` applies each file with `--single-transaction`.
+- **The replacements for the retired "down then up over the seed" leg are accepted:**
+  - the first apply (nothing listed, nothing public);
+  - the down writes no public row;
+  - a re-apply changes no public row;
+  - the `LISTED_WITHOUT_AGREEMENT` refusal, with its count read from the database.
+
+**BL-2 — BK'S PARTIAL PREMISE, as -83 states it.** BJ's predicate decided to publish under a non-bypass owner, and the mirrors' forced RLS refused the write. BK-1 stands on its own grounds: publishing requires an agreement, and the predicate no longer relies on a second control.
+
+### R-2026-09-24-85 — 021 applied on hosted; the boundary at 21; the dated-history marker tightened
+
+_Issued as R-PROVISIONAL-2026-09-24-BM, by Cowork on 2026-09-24, as its read-back of 021's hosted apply. Number assigned on landing: R-2026-09-24-84 plus one. Next provisional letter: BN._
+
+**THE FOUNDER'S READINGS.** Evidence kind: the founder's terminal output, run from `~/Desktop/OpenBed-NG-deploy`, relayed by Cowork. I did not run it and did not see it.
+- **Fence 0:** HEAD `f6889d4` after fetch, detach and `npm ci`.
+- **Fence 1:** 20 `already applied` (001-020), `WOULD APPLY 021_facility_agreement_and_contact_write.sql`, `1 migration(s) pending.`
+- **Fence 2:** `beds.json` `0/0:543f06c0b0c4`, and `facility_public`, `ward_public` and `lga_rollup` each `0:d41d8cd98f00`. `RECORDED`.
+- **Fence 3:** 001-020 skipped and 021 applied. The echo, in order:
+  - DO, DO, CREATE TABLE, COMMENT, ALTER TABLE ×2, REVOKE, DO, ALTER TABLE ×2, COMMENT, CREATE FUNCTION, REVOKE;
+  - NOTICE (trigger "trg_facility_contact_version" does not exist, skipping), DROP TRIGGER, CREATE TRIGGER;
+  - CREATE FUNCTION ×5, DROP FUNCTION, CREATE FUNCTION ×3;
+  - NOTICE (trigger "trg_facility_agreement_project" does not exist, skipping), DROP TRIGGER, CREATE TRIGGER;
+  - DO, INSERT 0 1, INSERT 0 0, `Migrations complete (1 applied this run).`
+- **Fence 4:** all four parts ok against the fence 2 fingerprint, `PASS (VACUOUS FOR B1)`. The founder also ran the no-fingerprint form once before it; that form is read-only.
+- **Fence 5:** 21 `already applied` (001-021), no `WOULD APPLY`, `0 migration(s) pending.`
+- **Fence 6:** 29 lines, all ok, and the `PASS:` line. Among them:
+  - `app.bump_row_version()` none;
+  - the four 021 functions each authenticated;
+  - `operator_list_facilities` absent;
+  - `public.rls_auto_enable()` ok (hosted-only).
+
+**BM-1 — RECORDED, in this change:**
+- **The frozen boundary is at 21:** `node scripts/freeze_applied_migrations.mjs 21 2026-09-24 R-2026-09-24-85`. `ledger_rows: 21` comes from fence 5's twenty-one `already applied` lines. 021's sha256 in `applied-hosted.json` equals the tracked file's at `f6889d4`, the commit the founder applied from.
+- **Runbook step 5 is restated to 0 pending at every site the guard reads,** and the guard's pinned legs to the zero state, as after 018's, 019's and 020's applies. 021's one-pending run is kept as a dated fence. "021's apply" is marked run, with a checkbox carrying the readings, and there is a frozen-boundary checkbox for 21.
+- **Step 7:** 001-021. **Step 4b row 4:** "applied on hosted 2026-09-24".
+- **BI-2, done.** `tests/compliance/runbook_migration_expectation.test.ts`'s `dateUnits` now keys "dated" on `HISTORY_MARKER`, the runbook's own two forms "Restated YYYY-MM-DD" and "On YYYY-MM-DD", never on any ISO date in the unit.
+  - A new plant: an undated count citing a ruling number, and one with a bare date, each read red. Both were first shown red under the old rule.
+  - **The tightened marker caught seventeen statements in thirteen units** (corrected from "twelve" by R-2026-09-24-86 BN-1). Each was restated to carry "On <date>" or "Restated <date>", and none was exempted:
+    - the 2026-09-12 refusal note and the 2026-09-14 "exactly 13" note;
+    - the 2026-09-22 pre-apply reading checkbox;
+    - **020's fence 5 prose**, the case -81 named;
+    - the four "observed on hosted" ledger notes (2026-09-16, -17, -22, -23);
+    - the five applied checkboxes for 014-016, 017, 018, 019 and 020.
+  - One fixture line in the guard's own positive control, "Once, on 2020-01-01", also became "On 2020-01-01".
+- **The 3.4b-app carry:** under PR 3.4 in `Sprint Kickoffs/sprint-kickoff-bundle3-operator-path-2026-09-22.md`:
+  - the withdrawal step (-82 e);
+  - public requires an active agreement (-83);
+  - one read path;
+  - the facility-creation task's `agreement_accepted_at` line, marked superseded by 021.
+
+**BM-3 — STOP after this merges.** 3.4b-app waits for the next Cowork session's kickoff and is not started from earlier notes. Nothing hosted.
+
+### R-2026-09-24-86 — four corrections on #73: the unit count, the read path, dating the count, and who withdraws
+
+_Issued as R-PROVISIONAL-2026-09-24-BN, by Cowork on 2026-09-24, as its check of #73 at `4c779a6` with the staff-engineer and QA passes. Not a merge word. Number assigned on landing: R-2026-09-24-85 plus one. Lands on `record-021-apply`, in #73. Next provisional letter: BO._
+
+**VERIFIED BY COWORK** (GitHub API and repository at `4c779a6`, 2026-09-24):
+- #73 was OPEN at `4c779a6`, base `f6889d4`, mergeable and clean: 1 commit, 5 files, seven check runs success.
+- The recorded hash for 021 equals the tracked file's.
+- The fixture holds 28 functions plus 1 hosted-only.
+- 021:218 and 021:901 are the two guarded trigger drops, and 021:635 drops `operator_list_facilities`.
+- `runbook_migration_expectation` and `frozen_migrations` pass, 28 of 28.
+- Under the old ISO_DATE rule the BI-2 examples read 0 unguarded; under HISTORY_MARKER they read 1 each.
+- HISTORY_MARKER finds 17 unguarded statements in `main`'s runbook and 0 in #73's.
+
+**BN-1 — THE UNIT COUNT IS 13, NOT 12. Derived, not taken from the ruling.**
+- **How:** I replicated the guard's `dateUnits` and `guardedRegions` read-only in node, ran them over `main`'s runbook with #73's HISTORY_MARKER, and counted the distinct unit starts of the 17 unguarded statements. That gave **13**:
+  - units starting at lines 723, 733, 1220 and 1493;
+  - the four observed notes, starting at 1749, 1752, 1755 and 1760;
+  - the five applied checkboxes, 1798 to 1802, where 1799 to 1802 hold two statements each.
+- -85 listed thirteen and said twelve. The number is corrected in the HISTORY_MARKER comment, -85's BI-2 bullet and the BM ledger row. The comment's "restated to carry "On <date>"" now reads "…"On <date>" or "Restated <date>"".
+
+**BN-2 — THE 3.4b-APP CARRY OVERSTATED BF-1 c.** "Only `operator_register` enters the Worker allow-list" turned a rule about the listing READ into a rule about the whole allow-list, which would have excluded the operator writes 3.4b-app needs. It is restated in two bullets:
+- **One listing read:** `operator_register` replaces the dropped `operator_list_facilities`, whose name never enters the allow-list. The `agreement_state` sentence is kept.
+- **The Worker allow-list stays derived from the admin app's actual call sites** (-58 A5), and which operator functions it calls is decided at 3.4b-app's kickoff.
+- -78's text is left alone; it is correct in context.
+
+**BN-3 — THE MARKER DATES THE COUNT THAT FOLLOWS IT, NOT THE WHOLE UNIT.** #73's rule exempted a whole unit when a marker appeared anywhere in it. Cowork's QA found three forms that passed undated:
+- (a) a live count followed by its own restatement note, which is this runbook's house style;
+- (b) a marker after the count;
+- (c) a fence under a dated list item.
+
+The fix, in `tests/compliance/runbook_migration_expectation.test.ts`:
+- **In `unguardedPendingStatements`,** a count in a unit that is not a fence is history only if HISTORY_MARKER matches in `runbook.slice(unit.start, at)`, i.e. before the count.
+- **In `dateUnits`,** only a plain paragraph dates the fence that follows it. A unit starting "- " or "N. " never does.
+- **A new plant leg holds (a), (b) and (c) verbatim.** For (a), the flagged count is the live `4`, not the restatement's `3`.
+  - **Before the fix:** each read `[]`, i.e. passed undated. I showed this by running the leg with its three plant assertions switched to `expect.soft` under `4c779a6`'s rule, so that all three failures print, then reverted.
+  - **After the fix:** the leg is green.
+- **The positive controls stay dated:** "**On 2026-09-24, when 021 was pending,** it printed:" plus a fence, and a "- [x] On <date>, …" checkbox.
+- **The whole-document scan reads 0 on #73's runbook under the fix.** No runbook wording changes.
+- The comment says the marker dates what follows it, and names an impossible or future date ("On 2026-99-99") as not checked.
+
+**BN-4 — THE WITHDRAWAL STEP SAYS WHO SETS `withdrawn_on`.** Step 1 of the carried withdrawal step now reads: by a founder SQL step, never an operator function (BD-2 2, and 021's column comment at 021:161-163). Without that, 3.4b-app could fill the gap with an `operator_withdraw` function the record forbids.
+
+**BN-5 — NOTHING ELSE CHANGES.** No migration, no change to `applied-hosted.json`, nothing hosted. After the new head is reported, STOP. Cowork checks it, then the founder gives the merge word. BM-3 still holds after the merge.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -4094,6 +4204,9 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | BI | R-2026-09-24-81 | 2026-09-24 | **#72 checked. The register's `agreement_recorded` becomes `agreement_state` (none, recorded or withdrawn)**, because the yes/no read a withdrawal as "none" and led to a dead end. Found: neither the HTTP test nor the runbook named the field, and no withdrawal step exists yet. A withdrawn facility stays listed, flagged for BD-2 2. The dated-unit guard fix is queued for the record-021-apply change. |
 | BJ | R-2026-09-24-82 | 2026-09-24 | **A withdrawn agreement takes a facility off the public output by itself.** Both membership predicates (`project_facility`, `refresh_lga_rollup`) gain "no withdrawn agreement", and a trigger on `facility_agreement` re-projects through 008's `trg_project`. B1 holds. The withdrawal step for 3.4b-app is ruled: withdraw, deactivate the ward accounts, unlist, then read back `/beds.json`. Found: 021:282-291 was wrong when written; the gate is at 021:313-322. |
 | BK | R-2026-09-24-83 | 2026-09-24 | **Public requires an active agreement, and fails closed.** Both predicates are now `EXISTS (agreement, withdrawn_on IS NULL)`. A pre-check refuses to apply over a listed facility with no agreement, and the seed and fixtures gain synthetic agreements. Found: the fail-open was real in the predicate but blocked today by the mirrors' own RLS. The round trips now run in rolled-back transactions, because BD's down refusal and BK's seed agreements together forbid a committed one. B1 is structural. |
+| BL | R-2026-09-24-84 | 2026-09-24 | **#72 merged at `f6889d4`**, and the branch deleted after MERGED was read back. The round trips running inside rolled-back transactions are accepted, because `run_migrations.sh` applies each file `--single-transaction`. BK's partial premise is recorded. |
+| BM | R-2026-09-24-85 | 2026-09-24 | **021 applied on hosted: all six fences as they must be** (founder's output, relayed by Cowork). The boundary is at 21, and step 5 is at 0 pending. BI-2 is done: a unit counts as dated history only with "Restated" or "On" plus a date, and 17 statements in 13 units were restated to carry one. The withdrawal step is carried into 3.4b-app's notes. Stop until the next kickoff. |
+| BN | R-2026-09-24-86 | 2026-09-24 | **Four corrections on #73.** The BI-2 unit count is 13, not 12 (derived by running `dateUnits`). The 3.4b-app read-path bullet now covers the listing read only, and the allow-list stays derived from call sites. A marker now dates only the count that follows it, and a list item never dates a fence, with QA's three forms as plants. The withdrawal step is set by a founder SQL step, never a function. Not a merge word. |
 
 ## Method notes — how rulings reach the implementer
 

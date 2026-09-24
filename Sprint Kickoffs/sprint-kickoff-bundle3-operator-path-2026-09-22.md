@@ -178,6 +178,17 @@ Record-only. Claude Code numbers it on landing and adds its ledger row in PR 3.1
 **Blast radius:** `packages/auth` is shared with the ward console, so any change there re-runs the ward console's auth tests and golden path. `rpc_definer_safety.test.ts`'s grant-set assertion (D) covers named functions only **[read]**, so add the new ones. `rls_rpc_execute_allowlist` stays at an empty anon list. The snapshot and projection triggers fire on `facility` and `facility_ops` writes, so confirm a facility created through admin projects correctly and that a `quiet_mode` facility writes no public row (`projection_quiet_mode.test.ts`).
 **Definition of done:** full suite green with the prediction and attestation pair; the refusal matrix quoted; the golden path extended with an operator step that creates a facility, adds a category and provisions a ward, locally; the runbook step written; admin deploys to its Pages project through the wrapper against the stub. **OWED to the founder:** hosted steps H3 and H6.
 
+**Carried for 3.4b-app's kickoff, 2026-09-24 (R-2026-09-24-85 BM-1).** These are input for the next Cowork kickoff, **not a start** (BM-3: 3.4b-app waits for that kickoff). Each is a ruling already in the decision record. Hosted is at 001-021.
+- **The withdrawal step** (R-2026-09-24-82 BJ-1 e, written in 3.4b-app, BD-2 2). In order:
+  1. Set `withdrawn_on`, by a founder SQL step, never an operator function (BD-2 2; 021's column comment at 021:161-163; R-2026-09-24-86 BN-4). The public output drops by itself in the same transaction, and the page follows in about 2 minutes (020's B2).
+  2. Deactivate the facility's ward accounts.
+  3. Clear `listed_at`, so the register reads "not listed". Publishing again needs a deliberate new agreement and a re-listing.
+  4. Read back `/beds.json`.
+- **Public requires an active agreement** (R-2026-09-24-83 BK-1): listed, active, not quiet, and an agreement with `withdrawn_on IS NULL`. A listed facility with no agreement is not public.
+- **One listing read:** `operator_register` is the admin app's one register read. It replaces `operator_list_facilities`, which 021 dropped, and the old name never enters the allow-list (R-2026-09-24-78 BF-1 c, -79 BG-1). Its `agreement_state` reads `none`, `recorded` or `withdrawn` (R-2026-09-24-81 BI-1).
+- **The Worker allow-list stays derived from the admin app's actual call sites** (-58 A5). Which operator functions it calls is decided at 3.4b-app's kickoff, not here (R-2026-09-24-86 BN-2).
+- **Superseded by 021, not deleted** (method note 8): the facility-creation step above says to write `app.facility_contact` "with `agreement_accepted_at` by the step's SQL". 021 removed that column. The agreement is now recorded through `operator_record_agreement` into `app.facility_agreement`, and the contact through `operator_record_contact`.
+
 ---
 
 ## Hosted and founder-side steps (founder runs; Cowork turns each into paste-ready commands when its turn comes)
