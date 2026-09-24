@@ -4364,6 +4364,35 @@ Both are accepted as designed, amended only by BU-1 and BU-2. The staff-engineer
   - for B, the leg measurement before and after, and the per-app table as built.
 - **Nothing hosted, and H2 is not changed.**
 
+### R-2026-09-24-94 — #75 merged; B's ward CSP origins derived, not retyped; the hosted order
+
+_Issued as R-PROVISIONAL-2026-09-24-BV, by Cowork on 2026-09-24, as its check of #75 at `69e357a`. **Pasting it was the founder's merge word for #75.** Record-only; it lands with B (this change). Number assigned on landing: R-2026-09-24-93 plus one. Next provisional letter: BW._
+
+**VERIFIED BY COWORK** (2026-09-24):
+- #75 was read from the GitHub API on the founder's machine: OPEN at `69e357a6e47b0db03792a23ed7c5291185affc86`, base `abd6ee5`, mergeable and clean, 1 commit, 10 files, with seven check runs completed/success.
+- `Sprint Kickoffs/pr-a2-design-report-2026-09-24.md` reads as agreed (10813 bytes).
+- The script, `supabase/config.toml` and the H2 runbook section match BU-1.
+- Three named test files pass locally, 72 of 72.
+
+**THE MERGE (BV-1).**
+- The head was read from the API as `69e357a`, and #75 merged as a merge commit with `--match-head-commit`.
+- MERGED was read back: **`78f1e0099156fab5f8ea2daade8414680caff1ca`**, with parents `abd6ee5` and `69e357a`.
+- `pr-3.4b-app-a2` was deleted as a separate step afterwards, remote and local. `git ls-remote --heads` reads it as gone.
+
+**BV-2 — B, AS PLANNED; THE WARD CSP'S API ORIGINS DERIVED FROM `origins.json`.**
+- B merged `main` in (`32d67d2`) and is re-attested on its own head.
+- **What BV-2 found, observed on B as first built (`f7407bd`):** the ward console's `connect-src` named both API origins as TEXT in `apps/ward-console/public/_headers`. `tests/compliance/security_headers.test.ts` held that text to `origins.json`'s `api` entry, so a drift would have gone red. But the origins were checked there, not derived: retyped.
+- **Now derived:**
+  - the tracked file names `@API_ORIGINS@`;
+  - `scripts/render_headers.mjs` fills it with `api.production` and `api.local` from `packages/origins/origins.json`, the pair `apiOrigin()` selects between. It runs in each app's `npm run build`, and in the read-backs' `rb_tracked_header`;
+  - a placeholder named twice, misspelt or left unrendered, or an `api` value that is not a bare origin, fails the build.
+- **The pinned set:** `connect-src` is `'self'`, the production API origin and the local API origin, and nothing else. `security_headers.test.ts` pins exactly that set on the rendering, and holds the built file equal to the rendering of the tracked one.
+
+**BV-3 — HOSTED, FOUNDER-SIDE, AFTER THE MERGE,** with Cowork reading each fence back.
+- First, 022's apply (six fences).
+- Then H2, sign-ups off (A.2's runbook section), only after 022's fences read as they must.
+- Claude Code runs nothing hosted.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -4448,6 +4477,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | BS | R-2026-09-24-91 | 2026-09-24 | **The build word for PR A.** The down's refusal confirmed; ENABLE_SIGNUP gains a ward sign-in condition and a failing half; the report committed unedited. Its "@openbed.ng/origins" is `@openbed/origins`, noted in the entry. |
 | BT | R-2026-09-24-92 | 2026-09-24 | **#74 merged at `abd6ee5`.** Sign-ups off becomes A.2 (a confirmed user through the admin API; `[auth]` only). `sb_secret_` accepted as sent. The `_legs.ts` hole goes to B. |
 | BU | R-2026-09-24-93 | 2026-09-24 | **The build word for A.2 and B.** The lookup and the order confirmed; H2's text goes in A.2 with a STOP if the switch did not take. `contacts.json` replaces `ward-support.json`; `/beds.json` gets nosniff unconditionally; each app is walked in a real browser under its CSP. |
+| BV | R-2026-09-24-94 | 2026-09-24 | **#75 merged at `78f1e00`.** B's ward CSP API origins are rendered from `origins.json` at build time, never typed into `_headers`; `connect-src` pinned to `'self'` plus that pair. Hosted: 022's apply, then H2, founder-side. |
 
 ## Method notes — how rulings reach the implementer
 

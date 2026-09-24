@@ -131,14 +131,23 @@ rb_header() {
 }
 
 # rb_tracked_header APP NAME -- the value THIS CHECKOUT's tracked apps/APP/public/_headers
-# sets for NAME on /* (PR 3.4b-app B, BP-10). The expected security headers are read
-# from the file that ships, never retyped here. Assign it on its OWN line: a failing
+# sets for NAME on /*, AS RENDERED by scripts/render_headers.mjs (PR 3.4b-app B, BP-10;
+# R-2026-09-24-94 BV-2). The expected security headers are read from the file that
+# ships, never retyped here, and the ward console's API origins are filled from
+# packages/origins/origins.json exactly as its build fills them -- so a deployed CSP is
+# held to the derivation, not to a copy of it. Assign it on its OWN line: a failing
 # $(...) inside an argument does not abort under -e (test-conventions section 8), and
-# a missing file or header must stop the read-back with no verdict.
+# a missing file, a refused render or a missing header must stop the read-back with no
+# verdict.
 rb_tracked_header() {
-    local file="$ROOT/apps/$1/public/_headers" want="$2" line name inall=0 found=""
+    local file="$ROOT/apps/$1/public/_headers" want="$2" line name inall=0 found="" rendered st=0
     if [ ! -f "$file" ]; then
         echo "ERROR: this checkout holds no tracked _headers file for the app at $file, so the expected $want cannot be read" >&2
+        exit 2
+    fi
+    rendered="$(node "$ROOT/scripts/render_headers.mjs" "$file")" || st=$?
+    if [ "$st" -ne 0 ]; then
+        echo "ERROR: scripts/render_headers.mjs could not render $file (exit $st), so the expected $want is unknown -- this read-back has no verdict" >&2
         exit 2
     fi
     while IFS= read -r line || [ -n "$line" ]; do
@@ -150,7 +159,7 @@ rb_tracked_header() {
         line="${line#"${line%%[![:space:]]*}"}"
         name="$(printf '%s' "${line%%:*}" | tr '[:upper:]' '[:lower:]')"
         if [ "$name" = "$want" ]; then found="${line#*:}"; found="${found# }"; fi
-    done < "$file"
+    done <<< "$rendered"
     if [ -z "$found" ]; then
         echo "ERROR: $file sets no $want on /*, so the expected value cannot be read -- this read-back has no verdict" >&2
         exit 2

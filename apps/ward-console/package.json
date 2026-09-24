@@ -6,7 +6,7 @@
   "description": "The ward console. One screen: sign in with a magic link sent to a ward ROLE address, and see the wards this account may report for.",
   "scripts": {
     "dev": "vite",
-    "build": "node ../../scripts/stamp_build.mjs ./public/version.json && vite build",
+    "build": "node ../../scripts/stamp_build.mjs ./public/version.json && vite build && node ../../scripts/render_headers.mjs --write dist/_headers",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -29,7 +29,11 @@ import CONTACTS from '../../packages/origins/contacts.json';
 
 const DOMAIN = 'openbed.ng';
 const ADDRESS = /[A-Za-z0-9._%+-]+@openbed\.ng\b/g;
-const PRIVACY = new RegExp(`privacy${'@'}`, 'i');
+// A privacy@ ADDRESS, at ANY domain, not the bare token: "there is no privacy@" is this
+// rule stated in prose (here, and in contacts.json), and a guard that reds on the
+// sentence describing it is refusing legitimate input -- test-conventions section 2's
+// fifth way. Found on 2026-09-24 when it did exactly that to PR B's own commit.
+const PRIVACY = new RegExp(`\\bprivacy${'@'}[a-z0-9-]+(?:\\.[a-z0-9-]+)+`, 'i');
 const EXEMPT = (path: string): boolean => path.startsWith('Sprint Kickoffs/') || path.startsWith('docs/handoff');
 const PUBLISHED = new Set([CONTACTS.security.address, CONTACTS.hello.address, CONTACTS.support.address]);
 
@@ -88,6 +92,15 @@ describe('the published addresses', () => {
   test('plant — privacy@ is rejected outside the exemption, in any case', () => {
     const privacy = `Privacy${'@'}${DOMAIN}`;
     expect(addressViolations([{ path: 'docs/privacy-notice.md', text: `write to ${privacy}` }]).join('\n')).toContain('names a privacy@ address, and there is none');
+  });
+
+  test('plant — a privacy@ address at another domain is rejected too', () => {
+    const elsewhere = `privacy${'@'}openbed-ng.example.org`;
+    expect(addressViolations([{ path: 'docs/privacy-notice.md', text: `write to ${elsewhere}.` }]).join('\n')).toContain('names a privacy@ address, and there is none');
+  });
+
+  test('accept — the rule stated in prose, "there is no privacy@", is not an address', () => {
+    expect(addressViolations([{ path: 'packages/origins/contacts.json', text: `and there is no privacy${'@'}. The operator's` }])).toEqual([]);
   });
 
   test('plant — the exemption is exactly Sprint Kickoffs/ and docs/handoff*: a runbook is NOT exempt', () => {

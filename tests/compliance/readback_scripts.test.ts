@@ -60,6 +60,8 @@ function git(root: string, ...args: string[]): string {
 }
 
 const TRACKED_KEY = 'sb_publishable_TRACKED_KEY_FOR_THE_WORKER_PROBE';
+/** The real api entry, so the scratch checkout renders the ward CSP as the real one does. */
+const REAL_API = JSON.parse(readFileSync(join(REPO_ROOT, 'packages', 'origins', 'origins.json'), 'utf8')).api as unknown;
 
 /** A scratch checkout with an origin and the two tracked origin files the Worker read-back reads. */
 function repo(root: string, opts: { pushed?: boolean; remote?: boolean; headers?: boolean } = {}): string {
@@ -71,8 +73,11 @@ function repo(root: string, opts: { pushed?: boolean; remote?: boolean; headers?
   git(work, 'config', 'user.email', 'plant@example.invalid');
   git(work, 'config', 'user.name', 'Plant');
   writeFileSync(join(work, 'packages', 'origins', 'publishable-keys.json'), JSON.stringify({ production: TRACKED_KEY }));
-  writeFileSync(join(work, 'packages', 'origins', 'origins.json'), JSON.stringify({ supabaseDirect: { production: 'https://klrlpxysjsjpdkeqdhvl.supabase.co' } }));
-  // The tracked _headers each read-back compares a page's security headers against (BP-10).
+  writeFileSync(join(work, 'packages', 'origins', 'origins.json'), JSON.stringify({ supabaseDirect: { production: 'https://klrlpxysjsjpdkeqdhvl.supabase.co' }, api: REAL_API }));
+  // The tracked _headers each read-back compares a page's security headers against (BP-10),
+  // and the renderer that fills the ward console's API origins from origins.json (BV-2).
+  mkdirSync(join(work, 'scripts'), { recursive: true });
+  copyFileSync(join(REPO_ROOT, 'scripts', 'render_headers.mjs'), join(work, 'scripts', 'render_headers.mjs'));
   if (opts.headers !== false) {
     for (const app of ['public-dashboard', 'ward-console']) {
       mkdirSync(join(work, 'apps', app, 'public'), { recursive: true });
@@ -232,11 +237,15 @@ describe('scripts/readback_common.sh — a URL that is missing or not https:// i
 // scripts/readback_pages.sh -- read-backs 4, 6 and 8, and the serve-time stamp.
 // ---------------------------------------------------------------------------
 
-/** The headers a tracked _headers file sets on /*, lower-cased names (the read-backs' source of truth). */
+/**
+ * The headers a tracked _headers file sets on /*, AS RENDERED by scripts/render_headers.mjs
+ * (BV-2), lower-cased names -- the read-backs' source of truth, and what a deploy serves.
+ */
 function trackedHeaders(app: string): Record<string, string> {
   const out: Record<string, string> = {};
   let inAll = false;
-  for (const raw of readFileSync(join(REPO_ROOT, 'apps', app, 'public', '_headers'), 'utf8').split('\n')) {
+  const rendered = execFileSync('node', [join(REPO_ROOT, 'scripts', 'render_headers.mjs'), join(REPO_ROOT, 'apps', app, 'public', '_headers')], { encoding: 'utf8' });
+  for (const raw of rendered.split('\n')) {
     if (raw.trim() === '' || raw.trim().startsWith('#')) continue;
     if (!/^\s/.test(raw)) { inAll = raw.trim() === '/*'; continue; }
     const i = raw.indexOf(':');
@@ -547,7 +556,10 @@ describe('scripts/readback_common.sh — node failing is an ERROR, never a verdi
       // own node calls reach this one.
       const realNode = process.execPath;
       writeFileSync(join(bin, 'curl'), readFileSync(join(bin, 'curl'), 'utf8').replace('#!/usr/bin/env node', `#!${realNode}`));
-      writeFileSync(join(bin, 'node'), '#!/usr/bin/env bash\nexit 9\n');
+      // It delegates ONLY the header render (BV-2), which the read-back runs before the
+      // stamp: without that, this plant stops at the render and never reaches the leg
+      // it is for. The render's own failure is a leg of its own, planted below.
+      writeFileSync(join(bin, 'node'), `#!/usr/bin/env bash\ncase "$1" in *render_headers.mjs) exec "${realNode}" "$@" ;; esac\nexit 9\n`);
       chmodSync(join(bin, 'node'), 0o755);
       writeFileSync(join(root, 'fixtures.json'), JSON.stringify(wardFixtures(head)));
       writeFileSync(join(root, 'stub.log'), '');
@@ -970,6 +982,38 @@ describe('rb_tracked_header — the expected security headers come from the chec
       expect(r.out).toContain('ERROR: this checkout holds no tracked _headers file for the app at ');
       expect(r.out).toContain('so the expected content-security-policy cannot be read');
       expect(r.out).not.toContain('PASS:');
+    });
+  });
+
+  test('a tracked _headers the renderer refuses is an ERROR with exit 2, never a verdict', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const file = join(work, 'apps', 'ward-console', 'public', '_headers');
+      const planted = readFileSync(file, 'utf8').replace('@API_ORIGINS@', '@API_ORIGINS@ @API_ORIGINS@');
+      expect(planted, 'the plant did not land: the tracked ward _headers holds no placeholder').not.toBe(readFileSync(file, 'utf8'));
+      writeFileSync(file, planted);
+      git(work, 'commit', '-q', '-am', 'placeholder twice');
+      git(work, 'push', '-q', 'origin', 'main');
+      const head = git(work, 'rev-parse', 'HEAD').trim();
+      const r = run(root, SCRIPTS.ward, [WARD, work], wardFixtures(head));
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('could not render');
+      expect(r.out).toContain('so the expected content-security-policy is unknown -- this read-back has no verdict');
+      expect(r.out).not.toContain('PASS:');
+    });
+  });
+
+  test('the served ward CSP is held to the RENDERED origins: the raw tracked line, placeholder and all, is a FAIL', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const head = git(work, 'rev-parse', 'HEAD').trim();
+      const raw = /Content-Security-Policy:\s*(.*)/.exec(readFileSync(join(REPO_ROOT, 'apps', 'ward-console', 'public', '_headers'), 'utf8'))?.[1] ?? '';
+      expect(raw, 'the tracked line holds no placeholder, so this plant proves nothing').toContain('@API_ORIGINS@');
+      const f = wardFixtures(head);
+      f[`GET ${WARD}/`] = { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('ward-console'), 'content-security-policy': raw }, body: '<!doctype html><script type="module" crossorigin src="/assets/index-B7kFspkD.js"></script>' };
+      const r = run(root, SCRIPTS.ward, [WARD, work], f);
+      expect(r.status, r.out).toBe(1);
+      expect(r.out).toContain('step 3 content-security-policy');
     });
   });
 

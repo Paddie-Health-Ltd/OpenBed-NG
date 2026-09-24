@@ -79,7 +79,7 @@ failing half of H4's false STOP.
 | `step 2 commit` / `step 2 dirty` | **this checkout's HEAD** / **`false`** |
 | `step 3 bundles the page loads` | **`1`** |
 | `step 3 publishable keys in the deployed bundle` | **`1`** |
-| `step 3 content-security-policy` / `referrer-policy` / `x-content-type-options` | exactly what **this checkout's** `apps/ward-console/public/_headers` sets on `/*` (section 4) |
+| `step 3 content-security-policy` / `referrer-policy` / `x-content-type-options` | exactly what **this checkout's** `apps/ward-console/public/_headers` sets on `/*`, as rendered by `scripts/render_headers.mjs` (section 4) |
 | `step 3 live half status` / `body` | **`200`** / begins **`{"external":`** |
 | `step 3 dead half status` / `body` | **`401`** / contains **`"message":"Invalid API key"`** |
 | last line | **`PASS: …`** |
@@ -117,6 +117,14 @@ no-referrer` (the sign-in lands with tokens in the URL fragment) and `X-Content-
 nosniff`. Step 3's three header lines compare what the deployment serves on `/` against
 **this checkout's** file, read by the script, never retyped. So a deploy that dropped or
 changed a header reads `WRONG`.
+
+**The CSP's API origins are not in the file** (R-2026-09-24-94 BV-2). Its `connect-src` names
+`@API_ORIGINS@`, and `npm run build` fills that from `packages/origins/origins.json` (`api`,
+production and local: the pair `apiOrigin()` chooses between) with `scripts/render_headers.mjs`.
+The read-back renders the tracked file the same way before comparing. So a build that
+skipped the render step ships `@API_ORIGINS@` literally, which a browser ignores, leaving
+`'self'` only and the sign-in broken; step 3 reads that as `WRONG`. Build with `npm run
+build`, never a bare `vite build`.
 
 **A CSP that is too tight breaks the page SILENTLY** (R-2026-09-24-93 BU-2 e). The browser
 blocks a stylesheet, a script or a fetch and says so only in its own developer console.
