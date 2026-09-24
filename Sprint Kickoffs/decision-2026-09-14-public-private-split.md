@@ -4599,6 +4599,157 @@ Two things the ruling did not say:
 
 **CB-3 — NOTHING ELSE.** No SQL, no migrations, nothing hosted. Report, then STOP for Cowork's check and the founder's merge word.
 
+### R-2026-09-25-101 — #78 merged
+
+_Issued as R-PROVISIONAL-2026-09-25-CC, by Cowork on 2026-09-25, as its check of #78 at `3a8f897`. **Pasting it was the founder's merge word for #78.** Record-only; it lands with the change that records 022's and 023's hosted apply (this one). Number assigned on landing: R-2026-09-24-100 plus one. Next provisional letter: CD._
+
+**VERIFIED BY COWORK** (2026-09-25, GitHub API and git, on the founder's machine):
+- #78 was OPEN at `3a8f897594e3f50745ce46873104288b95edd7b9`, base `4e28cdbc54eaaff0ba51401cb2c859a97bac3f9b`, mergeable and clean, with 1 commit and 3 files. `origin/main` was still `4e28cdb`.
+- All seven check runs on `3a8f897` were completed/success: compliance-tests, db-tests, bundle-guards, secret-scan, migration-lint, repo-lint and golden-path.
+- `4e28cdb..3a8f897` changed only:
+  - the `AGREEMENT_ALREADY_RECORDED` label (one line);
+  - §12.5 of the runbook, in prose, with no fence added or changed;
+  - this record: -99, -100, the -82 BJ-1 e pointer, and ledger rows CA and CB.
+- The three departures reported with #78 were accepted:
+  - "this release of OpenBed" in the label;
+  - the runbook citing -100 rather than the provisional letter;
+  - the superseded sentence placed below step 3's read-back, to keep that fence live.
+- -100's note that "no path" is not a database impossibility was accepted as written.
+
+**THE MERGE (CC-1).**
+- The head was read from the API as `3a8f897`, and #78 merged as a merge commit with `--match-head-commit`.
+- MERGED was read back: **`06fe479f9858332e770ff6bbfed6b0a338919135`**, with parents `4e28cdb` and `3a8f897`.
+- `record-ca-cb` was deleted as a separate step afterwards, both remote and local. `git ls-remote --heads` and `git branch --list` read it as gone.
+
+**CC-2 — after the merge, STOP.** Nothing hosted.
+
+### R-2026-09-25-102 — #78's merge read back
+
+_Issued as R-PROVISIONAL-2026-09-25-CD, by Cowork on 2026-09-25. Record-only; it lands after CC, in this change. Number assigned on landing: R-2026-09-25-101 plus one. Next provisional letter: CE._
+
+**VERIFIED BY COWORK** (2026-09-25, GitHub API and git, on the founder's machine):
+- #78 reads state closed, merged true, `merge_commit_sha` `06fe479f9858332e770ff6bbfed6b0a338919135`, head `3a8f897594e3f50745ce46873104288b95edd7b9`.
+- `06fe479`'s parents are `4e28cdb` and `3a8f897`.
+- `origin/main` is `06fe479`, and the local checkout is at `06fe479` with a clean working tree.
+- `git diff 3a8f897 06fe479` is empty: the merge added nothing beyond what Cowork checked in CC.
+- `record-ca-cb` is gone, remote and local.
+
+**CD-1 — nothing to do then.** CC and CD land with the next record change, each with its ledger row.
+
+### R-2026-09-25-103 — 022 and 023 are applied together, in one run
+
+_Issued as R-PROVISIONAL-2026-09-25-CE, by Cowork on 2026-09-25, from `06fe479`. Record-only when issued; it lands with the change that records the hosted apply (this one). Number assigned on landing: R-2026-09-25-102 plus one. Next provisional letter: CF._
+
+**READ BY COWORK at `06fe479`:**
+- `scripts/run_migrations.sh` takes only `--dry-run` and a root. It applies EVERY pending file, in order, each with `--single-transaction` and `ON_ERROR_STOP`, so it cannot apply 022 alone.
+- Hosted held 001-021 (`applied-hosted.json`), so 022 and 023 were both pending.
+- Step 5's top list and "Expected output" already expected two WOULD APPLY lines (022, then 023) and `2 migration(s) pending.` But three fences expected one file:
+  - "022's apply" fence 1 expected 022 alone;
+  - its fence 5 expected twenty-two already applied;
+  - "023's apply" fence 1 expected 023 alone.
+- **As written, the founder's first fence would have stopped a correct project.**
+
+**Re-read by the implementer at `06fe479` before acting.** Every premise holds, at these lines:
+- the runner's usage (line 61) and its transaction flags (lines 115-130);
+- step 5's three two-pending sites;
+- the three one-file fences.
+
+Each migration writes its own ledger row inside its own transaction, so if 023 had failed after 022, a re-run would have applied 023 alone.
+
+**THE CONTRADICTION WAS MINE.** The change that added 023 (-98, BZ-2 c) restated step 5's list to two pending, and left "022's apply" fence 1 expecting exactly one file. No guard reads the per-apply fences. `tests/compliance/runbook_migration_expectation.test.ts` parses step 5's four sites, and its whole-document scan looks only for an undated `N migration(s) pending.`, which the one-file fences never state: they name files and say "nothing is pending" in words.
+
+**CE-1 — the apply as run:** one run of the six fences of "020's apply", from a clean checkout at `06fe479`:
+1. **Dry run:** twenty-one `already applied` lines; exactly two WOULD APPLY lines, 022 then 023; `2 migration(s) pending.`
+2. **Before-reading:** as for 020, keeping the FINGERPRINT line.
+3. **Apply:** 022's `PLATFORM_ADMIN_DUPLICATES` pre-check must pass (hosted holds no ward_account row), and 023 has no pre-check. If 022 applied and 023 failed: STOP and report. A re-run is the runner's recovery, but never on the founder's own authority.
+4. **After-reading:** `PASS (VACUOUS FOR B1)`.
+5. **Second dry run:** twenty-three `already applied` lines and nothing pending.
+6. **Function grants:** unchanged.
+
+Each fence is read back by Cowork before the next.
+
+**CE-2 — the hosted order, restated:**
+1. 022 and 023 together;
+2. H2;
+3. H3;
+4. H5;
+5. H6, in BY-1's order.
+
+Moving 023 ahead of H2 and H3 is safe: it only adds `lat`, `lng` and `public_phone_e164`, already public for a listed facility, to an operator-only read. Neither step depends on its absence, and neither migration writes a row, so the -45 gate is unaffected.
+
+**CE-3** — the restatements this change makes (see -105).
+
+### R-2026-09-25-104 — the runbook is corrected after the apply, not before
+
+_Issued as R-PROVISIONAL-2026-09-25-CF, by Cowork on 2026-09-25. Record-only; it lands in this change. Number assigned on landing: R-2026-09-25-103 plus one. Next provisional letter: CG._
+
+**Accepted from the report on CE:**
+- CE's premises, with the line numbers given;
+- the attribution above;
+- §12's "PR C merged" step, to be removed when the order is restated.
+
+**CF-1 — no pre-apply pull request.** The runbook's 022 and 023 apply sections stayed as they were until this change. The founder ran from CE-1's text, and Cowork read each fence back before the next. **Method note 8's "correct now" was met by CE-1 as the live instruction for that run**; the runbook's copy is restated here.
+
+**CF-2 — the backstop.** Had any other change been due to merge before the apply was recorded, CE-3's restatements would have gone into that change first. None did.
+
+**CF-3 — nothing hosted** was run by Claude Code.
+
+### R-2026-09-25-105 — 022 and 023 applied on hosted; the frozen boundary at 23; the runbook corrected
+
+_Issued as R-PROVISIONAL-2026-09-25-CG, by Cowork on 2026-09-25. This is the change that records the apply, branched from `06fe479`. Number assigned on landing: R-2026-09-25-104 plus one. Next provisional letter: CH._
+
+**READ BACK BY COWORK** (2026-09-25; the founder's terminal, from the checkout at `06fe479`, run per CE-1):
+1. **Dry run:**
+   - 21 `already applied` lines (001-021);
+   - WOULD APPLY `022_one_operator_and_reactivation.sql`, then `023_operator_register_location_and_phone.sql`;
+   - `2 migration(s) pending.`
+2. **Before-reading:**
+   - `beds.json` `0/0:543f06c0b0c4`;
+   - `facility_public`, `ward_public` and `lga_rollup` each `0:d41d8cd98f00`;
+   - the FINGERPRINT line, and `RECORDED`.
+3. **Apply:**
+   - 022 printed `DO`, `CREATE INDEX`, `CREATE FUNCTION`, `CREATE FUNCTION`, `DO`, `INSERT 0 1`, `INSERT 0 0`;
+   - 023 printed `CREATE FUNCTION`, `DO`, `INSERT 0 1`, `INSERT 0 0`;
+   - then `Migrations complete (2 applied this run).`
+4. **After-reading:** all four parts ok, `NOTE: every count, before and after, is 0.`, and `PASS (VACUOUS FOR B1)`.
+5. **Second dry run:** 23 `already applied` lines (001-023), no WOULD APPLY line, and `0 migration(s) pending.`
+6. **Function grants,** against `packages/fixtures/function-grants.json` at `06fe479`: 29 lines, all ok.
+   - `app.provision_begin(uuid, text, text)` and `app.provision_complete(uuid, uuid)` read `EXECUTE: none`.
+   - `public.operator_register()` reads `EXECUTE: authenticated`.
+   - `public.rls_auto_enable()` reads ok under `(hosted-only)`.
+   - The last line is `PASS`.
+
+The -45 gate is unaffected: no facility and no ward_account row exists.
+
+**Cowork's line matches for fence 3, re-read on landing.** Every line number holds, and one label does not:
+- **022:** pre-check `DO` at :58, the index at :73, `provision_begin` at :81, `provision_complete` at :176, its own ledger row at :300.
+- **022:278 is not a post-check.** It is the grant block, headed "Owner only, as 020 left them", which re-states owner-only EXECUTE for the two functions.
+- **023:** its function at :44, its grant block at :117, and its own ledger row at :136.
+- In each file, the last `INSERT 0 0` is the runner's `ON CONFLICT` no-op.
+
+The runbook's checkbox carries the corrected label.
+
+**CG-1 — AS BUILT:**
+- **`database/migrations/applied-hosted.json`:** the boundary is at 23, written by `node scripts/freeze_applied_migrations.mjs 23 2026-09-25 R-2026-09-25-105`, in its existing form.
+  - `ledger_rows` comes from fence 5's twenty-three `already applied` lines.
+  - 022's and 023's sha256 (`9938ae2d…6961e`, `24e9f13c…20f0e`) are the tracked files' at `06fe479`, and `git diff 06fe479` of both files is empty.
+- **Step 5.** Its top list, the expected-output block, the STOP bullet and the ledger sentence are restated to 23 already applied, no WOULD APPLY line and `0 migration(s) pending.`
+  - Each keeps its earlier text as a dated restatement.
+  - The 2026-09-25 two-pending run is kept as a dated fence.
+  - The newest "observed on hosted" line, the apply checkbox (all six fences) and the frozen-boundary checkbox are added.
+- **"022's apply" and "023's apply"** are marked run on 2026-09-25, together in one run per CE.
+  - 022's fences 1 and 5, 023's fence 1 with its "If 022 is still pending, stop", and 022's "recorded with `22`" line are each kept as written and marked superseded by CE-1, never deleted (method note 8).
+  - 022's header carries the attribution.
+- **Step 7** reads 001-023.
+- **Step 4b row 4** no longer says "until 022 is applied".
+- **H6's preconditions 2, 5 and 7** read met, with their dates.
+- **§12's hosted order** is restated to CE-2, with "PR C merged" removed and the old order kept as a restatement.
+- **`tests/compliance/runbook_migration_expectation.test.ts`: its pinned legs are restated to the zero state.** This is a test change, not only record and runbook: the guard pins step 5's literals, so recording any apply moves them (as -85 did).
+  - Every removed `expect` is paired with a stronger or equal replacement against the new text (listed in the pull request).
+  - A neuter put 06fe479's runbook back against the new boundary. It read red: step 5 names 022 and 023 as pending but `applied-hosted.json` records them applied, and the ledger sentence says 21 against 23.
+
+**CG-2** — no SQL, no migration, nothing hosted run by Claude Code.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -4690,6 +4841,11 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | BZ | R-2026-09-24-98 | 2026-09-24 | **The retype form refused.** Migration 023 adds `lat`, `lng` and `public_phone_e164` to `operator_register`; the edit form prefills all six and a phone change needs a confirm. 022 and 023 both pending (read, not assumed). Open item: the ward console's digit-less code pattern, trigger the first ward-path code with a digit. |
 | CA | R-2026-09-24-99 | 2026-09-24 | **#77 merged at `4e28cdb`.** 3.4b-app's code is complete. The hosted order: 022's apply, H2, H3, 023's apply, H5, H6, all founder-side. |
 | CB | R-2026-09-24-100 | 2026-09-24 | **Withdrawal is final in v1.** The `AGREEMENT_ALREADY_RECORDED` sentence corrected (it promised a path); §12.5 marks the one-way door, and step 3's re-agreement sentence is superseded. Open item: agreement history, triggered by the first returning facility or mistaken record, backstopped at the first post-launch kickoff. |
+| CC | R-2026-09-25-101 | 2026-09-25 | **#78 merged at `06fe479`** (parents `4e28cdb`, `3a8f897`). The three departures in #78 accepted; the branch deleted and read back. |
+| CD | R-2026-09-25-102 | 2026-09-25 | **#78's merge read back.** Merged true; `git diff 3a8f897 06fe479` empty; the branch gone. Nothing to do. |
+| CE | R-2026-09-25-103 | 2026-09-25 | **022 and 023 applied together, in one run.** The runner cannot apply one file alone. CE-1's six-fence expectations; the hosted order restated to 022+023, H2, H3, H5, H6. The one-file fences were the implementer's miss in BZ. |
+| CF | R-2026-09-25-104 | 2026-09-25 | **The runbook is corrected after the apply, not before.** CE-1 was the live instruction for the run; backstop: any earlier merge would have carried CE-3 first. |
+| CG | R-2026-09-25-105 | 2026-09-25 | **022 and 023 applied on hosted, recorded.** All six fences read as they must; the frozen boundary at 23; step 5 at 0 pending; the one-file fences superseded; §12's order restated; the expectation guard's pins restated to the zero state. |
 
 ## Method notes — how rulings reach the implementer
 
