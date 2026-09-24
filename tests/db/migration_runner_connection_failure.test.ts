@@ -269,10 +269,11 @@ describe('the runner refuses to report a count it did not obtain', () => {
       // 019_snapshot_single_read_and_mirror_integrity.sql, 19 until
       // 020_operator_functions_and_listing.sql, 20 until
       // 021_facility_agreement_and_contact_write.sql, 21 until
-      // 022_one_operator_and_reactivation.sql.
+      // 022_one_operator_and_reactivation.sql, 22 until
+      // 023_operator_register_location_and_phone.sql.
       // Deriving it from the directory would compare the runner's file count
       // with the test's own file count, which agrees even when both are wrong.
-      '22 migration(s) pending.',
+      '23 migration(s) pending.',
     );
   });
 

@@ -85,6 +85,9 @@ function facility(id: string, over: Record<string, unknown> = {}): Record<string
     name: "St. Nicholas' Hospital",
     lga: 'Lagos Island',
     state: 'Lagos',
+    lat: 6.45,
+    lng: 3.4,
+    public_phone_e164: '+2348000000303',
     version: 4,
     listed_at: '2026-09-20T09:00:00.000Z',
     quiet_mode: false,
@@ -354,6 +357,87 @@ describe('writes are never re-sent', () => {
     submit('record-contact');
     await until(() => calls(stub, 'operator_record_contact').length === 1);
     expect(calls(stub, 'operator_record_contact')[0]?.['p_expected_version']).toBe(2);
+  });
+});
+
+describe('the edit form shows what is saved, and a phone change needs a confirm (R-2026-09-24-98 BZ-3)', () => {
+  const EDITED = () => json(200, [{ facility_id: FAC_A, version: 5 }]);
+  async function openEdit(route: Route = server({ operator_edit_facility: EDITED })) {
+    const stub = await renderAt(sessionFragment(), route);
+    await until(() => text().includes('Facilities'));
+    button('Open').click();
+    await until(() => document.querySelector('form.edit-facility') !== null);
+    return stub;
+  }
+  const value = (name: string): string => document.querySelector<HTMLInputElement>(`form.edit-facility [name="${name}"]`)?.value ?? '(no input)';
+  const panel = (): HTMLElement | null => document.querySelector<HTMLElement>('div.phone-confirm');
+
+  test('all six fields are prefilled from the register row, the phone and location included', async () => {
+    await openEdit();
+    expect([value('name'), value('lga'), value('state'), value('lat'), value('lng'), value('phone')]).toEqual([
+      "St. Nicholas' Hospital", 'Lagos Island', 'Lagos', '6.45', '3.4', '+2348000000303',
+    ]);
+    expect(text(), 'the retype note survived').not.toContain('Enter all three as they should be now');
+  });
+
+  test('a change that leaves the phone alone is sent on Save, once, with no confirm', async () => {
+    const stub = await openEdit();
+    setInput('edit-facility', 'name', "St. Nicholas' Hospital (Annex)");
+    submit('edit-facility');
+    await until(() => calls(stub, 'operator_edit_facility').length === 1);
+    expect(panel()?.hidden, 'a confirm appeared for a change that did not touch the phone').not.toBe(false);
+    expect(calls(stub, 'operator_edit_facility')[0]?.['p_public_phone_e164']).toBe('+2348000000303');
+  });
+
+  test('a phone change sends NOTHING on Save: the confirm shows <saved> → <new> first', async () => {
+    const stub = await openEdit();
+    setInput('edit-facility', 'phone', '0800 000 0404');
+    submit('edit-facility');
+    await until(() => panel()?.hidden === false);
+    expect(panel()?.textContent).toContain('Public phone: +2348000000303 → +2348000000404');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(calls(stub, 'operator_edit_facility'), 'a phone change was sent before it was confirmed').toHaveLength(0);
+  });
+
+  test('Cancel sends nothing, and closes the confirm', async () => {
+    const stub = await openEdit();
+    setInput('edit-facility', 'phone', '0800 000 0404');
+    submit('edit-facility');
+    await until(() => panel()?.hidden === false);
+    button(ADMIN_LABELS.screens.CANCEL).click();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(panel()?.hidden).toBe(true);
+    expect(calls(stub, 'operator_edit_facility'), 'Cancel sent the edit').toHaveLength(0);
+  });
+
+  test('Confirm sends the edit exactly once, with the new phone', async () => {
+    const stub = await openEdit();
+    setInput('edit-facility', 'phone', '0800 000 0404');
+    submit('edit-facility');
+    await until(() => panel()?.hidden === false);
+    button(ADMIN_LABELS.screens.CONFIRM_PHONE).click();
+    await until(() => calls(stub, 'operator_edit_facility').length === 1);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(calls(stub, 'operator_edit_facility')).toHaveLength(1);
+    expect(calls(stub, 'operator_edit_facility')[0]?.['p_public_phone_e164']).toBe('+2348000000404');
+  });
+
+  test('a latitude change is shown as <saved> → <new>, and sent on Save with no confirm', async () => {
+    const stub = await openEdit();
+    setInput('edit-facility', 'lat', '6.46');
+    expect(text()).toContain('Latitude: 6.45 → 6.46');
+    submit('edit-facility');
+    await until(() => calls(stub, 'operator_edit_facility').length === 1);
+    expect(panel()?.hidden).not.toBe(false);
+    expect(calls(stub, 'operator_edit_facility')[0]?.['p_lat']).toBe(6.46);
+  });
+
+  test('a register row without 023’s keys is unreadable, never defaulted', async () => {
+    const row = facility(FAC_A);
+    delete row['public_phone_e164'];
+    await renderAt(sessionFragment(), server({ operator_register: () => json(200, { server_now: SERVER_NOW, facilities: [row] }) }));
+    await until(() => text().includes('Facilities'));
+    expect(text()).toContain("This facility's record could not be read.");
   });
 });
 

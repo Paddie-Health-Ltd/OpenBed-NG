@@ -61,10 +61,13 @@ import { adminMessageFor, type Refusal } from './messages.js';
  * the device clock: the operator is often in Hong Kong. A band never filters, sorts or
  * hides a row (AJ D8).
  *
- * WHAT THIS PAGE CANNOT SHOW, AND SAYS: no operator read returns a facility's latitude,
- * longitude or public phone (operator_register, 021:636-701, carries neither). So the
- * edit form asks for all three afresh rather than showing them. Adding them to the
- * register is SQL and outside PR C.
+ * THE EDIT FORM SHOWS WHAT IS SAVED (R-2026-09-24-98 BZ-1, BZ-3). Since 023 the register
+ * carries each facility's latitude, longitude and public phone, so all six fields are
+ * prefilled and nothing is retyped to fix an unrelated field. Each changed field is shown
+ * as `<saved> → <new>` while the operator edits. A change to the PUBLIC PHONE -- the
+ * number the public page shows for an emergency call -- is never sent on the Save press:
+ * it needs an explicit confirm, and Cancel sends nothing. A latitude or longitude change
+ * is shown the same way, without a confirm; the database CHECK is the backstop.
  */
 
 const API_URL = apiOrigin(window.location.hostname);
@@ -361,16 +364,31 @@ function facilityFieldsFrom(parts: {
   return { name: parts.name.value, lga: parts.lga.value, state: parts.state.value, lat, lng, publicPhoneE164: phone };
 }
 
-function facilityInputs(values?: { name: string; lga: string; state: string }) {
+function facilityInputs(values?: { name: string; lga: string; state: string; lat: number; lng: number; publicPhoneE164: string }) {
   const name = field('Facility name', 'name', values?.name ?? '');
   const lga = field('LGA', 'lga', values?.lga ?? '');
   const state = field('State', 'state', values?.state ?? '');
-  const lat = field('Latitude', 'lat');
+  const lat = field('Latitude', 'lat', values === undefined ? '' : String(values.lat));
   lat.input.inputMode = 'decimal';
-  const lng = field('Longitude', 'lng');
+  const lng = field('Longitude', 'lng', values === undefined ? '' : String(values.lng));
   lng.input.inputMode = 'decimal';
-  const phone = phoneField('Public phone', 'phone');
+  const phone = phoneField('Public phone', 'phone', values?.publicPhoneE164 ?? '');
   return { name, lga, state, lat, lng, phone };
+}
+
+/** Each field that differs from what is saved, as `<Label>: <saved> → <new>`. */
+function changesFrom(saved: Facility, typed: { name: string; lga: string; state: string; lat: string; lng: string; phone: string | null }): string[] {
+  const out: string[] = [];
+  const line = (label: string, a: string, b: string): void => {
+    if (a !== b) out.push(`${label}: ${a} → ${b}`);
+  };
+  line('Name', saved.name, typed.name);
+  line('LGA', saved.lga, typed.lga);
+  line('State', saved.state, typed.state);
+  line('Latitude', String(saved.lat), typed.lat.trim());
+  line('Longitude', String(saved.lng), typed.lng.trim());
+  line('Public phone', saved.publicPhoneE164, typed.phone ?? '(not a number this page can read)');
+  return out;
 }
 
 /** The create form. Its id is made HERE, once, and every submit from it sends the same one (J2). */
@@ -464,20 +482,52 @@ function renderDetail(
   // The facility, and its edit form.
   const facility = el('section', undefined, 'facility-detail');
   facility.append(el('h2', f.name), el('p', `${f.lga}, ${f.state}`), el('p', f.listedAt === null ? W.NOT_LISTED : `${W.LISTED} (${lagosTime(f.listedAt)})`), checklist(f));
-  const e = facilityInputs({ name: f.name, lga: f.lga, state: f.state });
-  const editNote = el('p', 'Latitude, longitude and public phone are not shown to this page. Enter all three as they should be now: what you enter replaces what is saved.', 'note');
-  facility.append(
-    form('edit-facility', 'Save facility', [editNote, e.name.wrap, e.lga.wrap, e.state.wrap, e.lat.wrap, e.lng.wrap, e.phone.wrap], async (s) => {
-      const fields = facilityFieldsFrom({ name: e.name.input, lga: e.lga.input, state: e.state.input, lat: e.lat.input, lng: e.lng.input, phone: e.phone.value });
-      if (typeof fields === 'string') {
-        s.textContent = fields;
-        return;
-      }
-      // Sent ONCE. A dropped answer reloads and says so; it is never re-sent (BY-2 e).
-      const r = await write(holder, 'editFacility', editFacilityBody(f.facilityId, f.version, fields));
-      if (await after(r, s, ADMIN_FIXED.EDIT_DROPPED)) await reopen('Saved.');
-    }),
-  );
+  // All six fields prefilled from the register row loaded with this version (023, BZ-3 a).
+  const e = facilityInputs({ name: f.name, lga: f.lga, state: f.state, lat: f.lat, lng: f.lng, publicPhoneE164: f.publicPhoneE164 });
+  const changes = el('ul', undefined, 'changes');
+  const showChanges = (): void => {
+    const lines = changesFrom(f, { name: e.name.input.value, lga: e.lga.input.value, state: e.state.input.value, lat: e.lat.input.value, lng: e.lng.input.value, phone: e.phone.value() });
+    changes.replaceChildren(...lines.map((l) => el('li', l)));
+  };
+  for (const input of [e.name.input, e.lga.input, e.state.input, e.lat.input, e.lng.input, e.phone.input]) input.addEventListener('input', showChanges);
+  const confirmPanel = el('div', undefined, 'phone-confirm');
+  confirmPanel.hidden = true;
+
+  /** The edit, sent ONCE. A dropped answer reloads and says so; it is never re-sent (BY-2 e). */
+  const send = async (fields: FacilityFields, s: HTMLParagraphElement): Promise<void> => {
+    const r = await write(holder, 'editFacility', editFacilityBody(f.facilityId, f.version, fields));
+    if (await after(r, s, ADMIN_FIXED.EDIT_DROPPED)) await reopen('Saved.');
+  };
+
+  const editForm = form('edit-facility', 'Save facility', [e.name.wrap, e.lga.wrap, e.state.wrap, e.lat.wrap, e.lng.wrap, e.phone.wrap, el('p', W.CHANGES, 'note'), changes], async (s) => {
+    const fields = facilityFieldsFrom({ name: e.name.input, lga: e.lga.input, state: e.state.input, lat: e.lat.input, lng: e.lng.input, phone: e.phone.value });
+    if (typeof fields === 'string') {
+      s.textContent = fields;
+      return;
+    }
+    if (fields.publicPhoneE164 === f.publicPhoneE164) {
+      await send(fields, s);
+      return;
+    }
+    // A PHONE CHANGE IS NEVER SENT ON THE SAVE PRESS (BZ-3 b): the emergency number the
+    // public page shows. It waits for an explicit confirm; Cancel sends nothing.
+    const confirm = el('button', W.CONFIRM_PHONE);
+    confirm.type = 'button';
+    const cancel = el('button', W.CANCEL);
+    cancel.type = 'button';
+    confirmPanel.replaceChildren(el('p', `Public phone: ${f.publicPhoneE164} → ${fields.publicPhoneE164}`), el('p', W.PHONE_CHANGE_CONFIRM), confirm, cancel);
+    confirmPanel.hidden = false;
+    cancel.addEventListener('click', () => {
+      confirmPanel.hidden = true;
+      confirmPanel.replaceChildren();
+    });
+    confirm.addEventListener('click', () => {
+      confirm.disabled = true;
+      cancel.disabled = true;
+      guarded(send(fields, s));
+    });
+  });
+  facility.append(editForm, confirmPanel);
 
   // The wards, and the add-category form.
   const wards = el('section', undefined, 'wards-detail');

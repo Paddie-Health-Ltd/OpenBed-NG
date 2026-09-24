@@ -4481,6 +4481,51 @@ _Issued as R-PROVISIONAL-2026-09-24-BY, by Cowork on 2026-09-24. **Pasting it wa
 
 **BY-3 — BUILD PR C NOW,** on a branch from `main` at `3df27ca`. The report comes before the merge word. Nothing hosted. H5 and H6 are founder steps after the merge.
 
+### R-2026-09-24-98 — the retype form refused; migration 023 shows what is saved; the edit form prefilled, and a phone change confirmed
+
+_Issued as R-PROVISIONAL-2026-09-24-BZ, by Cowork on 2026-09-24, as its ruling on #77's edit-form finding. Not a merge word. Record-only; it lands in #77 (this change). Number assigned on landing: R-2026-09-24-97 plus one. Next provisional letter: CA._
+
+**READ BY COWORK at `0f0b0b7`:** base `3df27ca`, 2 commits, no file under `database/migrations`. The committed design report reads sha256 `1f28046b…733b2a`. `apps/admin/src/main.ts` told the operator to re-enter latitude, longitude and public phone on every edit, because `operator_register` (021) returned name, lga and state but not those three.
+
+**BZ-1 — THE RETYPE FORM IS NOT ACCEPTED.** `public_phone_e164` is the number the public page shows for an emergency call. A form that makes the operator retype it to fix an unrelated field can silently change it to a wrong number, and a mistyped lat/lng silently moves the facility. The root cause is that the page cannot see what is saved, so the fix is to show it, in C, before the merge.
+
+**BZ-2 — MIGRATION 023, IN PR C, as built** (`database/migrations/023_operator_register_location_and_phone.sql`):
+- **The function.** `public.operator_register()` gains `lat`, `lng` and `public_phone_e164` on each facility, after `state`. Its body is generated from 021's text with those three lines inserted. The signature, the jsonb return type, the ORDER BY and every other key are untouched, and `tests/db/migration_023_round_trip.test.ts` asserts the exact replace.
+- **No new personal data.** All three are already public output (008:109-110; the snapshot's facility columns).
+- **Grants and fence 6.** The grant block re-runs 021's loop for the one signature. `function-grants.json` is unchanged, so fence 6 reads the same.
+- **The down** restores 021's body verbatim. The round trip covers:
+  - the down landing exactly on 021's body and grants;
+  - an idempotent re-apply over 022 and over itself;
+  - no public row written either way;
+  - the behaviour against each facility's own columns;
+  - a plant on the down.
+- **Step 5, read and not assumed.** `applied-hosted.json` records 21 and no entry says 022 has been applied, so **022 and 023 are both pending**, and step 5 and its guard are restated to `2 migration(s) pending.` The virgin counts are now 23 and 22.
+- **The runbook** gains "023's apply": the six fences, run after 022's and before H6. H6's preconditions gain "023 applied on hosted".
+- **Unchanged:** `applied-hosted.json`, and the 022 round trip's own assertions. That file now reverses what sits above it first, as the 020 and 021 files do.
+
+**BZ-3 — THE EDIT FORM, as built:**
+- all six fields are prefilled from the register row loaded with the facility's version, and the retype note is gone;
+- a changes line shows each changed field as `<saved> → <new>`;
+- **a public-phone change is never sent on Save.** A confirm shows `Public phone: <saved> → <new>`. Confirm sends it once, and Cancel sends nothing;
+- a lat/lng change is shown the same way, without a confirm;
+- §3.3 still holds: edit is never retried, and VERSION_CONFLICT reloads.
+
+Tests in `tests/compliance/admin_render.test.ts`:
+- the confirm appears only on a phone change;
+- cancel sends zero POSTs, and confirm sends one;
+- a row without 023's keys is unreadable, never defaulted.
+
+**BZ-4 — ALSO ACCEPTED, as reported:**
+- synthetic `+234800` numbers throughout the tests;
+- the by-file `no_phantom_paths` exemption, recorded as the report's defect;
+- the local `/auth/v1/settings` key halves marked NOT RUN;
+- the service-role lint derivation (BY-2 d);
+- the derived scratch app list.
+
+**OPEN ITEM, with its trigger:** the ward console's code pattern (`[A-Z_]` in `raisedCodes` and `wardMessageFor`) cannot read a code containing a digit. No ward-path code has one today. **Trigger: the first ward-path code containing a digit.** It is not fixed in C, which does not touch the ward console.
+
+**BZ-5 — THEN REPORT;** nothing hosted; STOP for Cowork's check and the founder's merge word.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -4569,6 +4614,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | BW | R-2026-09-24-95 | 2026-09-24 | **The leg rule: a longer message no longer proves a shorter one,** from any script. 305 / 279 / 26 before and after, no flips; 17 nested pairs pinned by name. |
 | BX | R-2026-09-24-96 | 2026-09-24 | **#76 merged at `3df27ca`.** BW-1's any-script widening accepted. PR C's design report written, report only. |
 | BY | R-2026-09-24-97 | 2026-09-24 | **The build word for PR C.** H6 reordered so the bootstrap comes before any sign-in observation; the seven open items ruled: preview and Access moved to H6, the BT-3 probe prints the status only, `lagosTime` shared, the service-role lint's corpus from `wrangler.toml`, edit never retried, the E2E operator cleaned, `connect-src` pinned. |
+| BZ | R-2026-09-24-98 | 2026-09-24 | **The retype form refused.** Migration 023 adds `lat`, `lng` and `public_phone_e164` to `operator_register`; the edit form prefills all six and a phone change needs a confirm. 022 and 023 both pending (read, not assumed). Open item: the ward console's digit-less code pattern, trigger the first ward-path code with a digit. |
 
 ## Method notes — how rulings reach the implementer
 

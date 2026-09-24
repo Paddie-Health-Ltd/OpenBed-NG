@@ -841,11 +841,19 @@ Restated 2026-09-14: until then this read `exactly 13 migration(s) pending.`, an
 migration 014 made that wrong.
 
 - **The hosted project today** holds 001 through 021 (see step 7), and the
-  repository holds 022. Every file up to and including
+  repository holds 022 and 023. Every file up to and including
   `021_facility_agreement_and_contact_write.sql` must read `already applied`;
-  there must be exactly one `WOULD APPLY` line, naming
-  `022_one_operator_and_reactivation.sql`; and the dry run must end
-  `1 migration(s) pending.`
+  there must be exactly two `WOULD APPLY` lines, naming
+  `022_one_operator_and_reactivation.sql` and then
+  `023_operator_register_location_and_phone.sql`; and the dry run must end
+  `2 migration(s) pending.`
+- **Restated 2026-09-24 (R-2026-09-24-98 BZ-2 c), in the change that ADDS 023.**
+  Read, not assumed: `database/migrations/applied-hosted.json` records 21, and no
+  entry in the record says 022 has been applied on hosted, so both are pending. Until
+  then this expected exactly one `WOULD APPLY` line, naming 022, and
+  `1 migration(s) pending.`, which was right from 022's merge while the repository
+  ended at 022. If 022's apply is recorded before 023's, this bullet is restated in
+  that change to name 023 alone.
 - **Restated 2026-09-24 (R-2026-09-24-90 BR-1 d), in the change that ADDS 022.**
   Until then this expected no `WOULD APPLY` line and `0 migration(s) pending.`,
   which was right from 021's hosted apply while the repository ended at 021.
@@ -905,10 +913,14 @@ migration 014 made that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line OTHER than the one named above, or any count other
-  than `1 migration(s) pending.`: stop and report.** Another file pending means
+- **Any `WOULD APPLY` line OTHER than the two named above, or any count other
+  than `2 migration(s) pending.`: stop and report.** Another file pending means
   either a migration reached the repository after the list was last restated, or
   hosted is not where this document says it is.
+  - *Restated 2026-09-24 (R-2026-09-24-98 BZ-2 c), in the change that adds 023. Until
+    then this bullet read "Any `WOULD APPLY` line OTHER than the one named above, or
+    any count other than `1 migration(s) pending.`", which was right from 022's merge
+    while the repository ended at 022.*
   - *Restated 2026-09-24 (R-2026-09-24-90 BR-1 d), in the change that adds 022. Until
     then this bullet read "Any `WOULD APPLY` line AT ALL, or any count other than
     `0 migration(s) pending.`", which was right from 021's apply while the
@@ -1742,15 +1754,64 @@ because from then on the index is the only guard against a second operator.
 **Afterwards:** the frozen boundary is recorded with `22`, in the change that records
 this apply.
 
+### 023's apply — the same six fences; after 022's, and required before H6 (R-2026-09-24-98 BZ-2 d)
+
+**NOT YET RUN. A founder step after PR C (3.4b-app) merges, after 022's apply above, and
+before H6** (section 12): the admin app's edit form prefills a facility's latitude,
+longitude and public phone from `public.operator_register()`, and on 021's body those
+three keys are absent, so every register row reads as unreadable. The -45 gate is
+unaffected: 023 writes no row.
+
+**What 023 changes** (its header says why): `public.operator_register()` gains `lat`,
+`lng` and `public_phone_e164` on each facility, and nothing else. Its body is 021's with
+three keys added; the signature, return type and grants are unchanged. All three are
+already public output for a listed facility (008:109-110), so no new personal data is
+exposed. No table, no column, no new function, no grant.
+
+**Run the six fences of "020's apply" above, in the same order, with these
+expectations for 023.** Only what each must read changes:
+
+1. **The dry run:** exactly one `WOULD APPLY` line, naming
+   `023_operator_register_location_and_phone.sql`, because 022 was applied first.
+   If 022 is still pending, stop: apply 022 first, by its own section. Anything else:
+   stop and report.
+2. **The before-reading:** as for 020. Keep the `FINGERPRINT` line.
+3. **The apply:** as for 020. 023 has no pre-check; it replaces one function.
+4. **The after-reading:** as for 020. `PASS (VACUOUS FOR B1)` is expected while
+   hosted is empty. 023 writes no projected table.
+5. **The second dry run:** twenty-three `already applied` lines, naming
+   `001_app_schema_and_migration_ledger.sql` through
+   `023_operator_register_location_and_phone.sql`, no `WOULD APPLY` line, and the same
+   last line as 020's fence 5, saying nothing is pending. Anything else: stop and
+   report.
+6. **Who can execute what:** as for 020, run after the apply. **It reads the same
+   before and after:** 023 replaces `public.operator_register()` with the same
+   signature, and a replaced function keeps its ACL, so
+   `packages/fixtures/function-grants.json` is unchanged by PR C.
+   `public.operator_register()` reads `authenticated`, and `public.rls_auto_enable()`
+   reads `ok` under `(hosted-only)`. Anything else: stop and report.
+
+**Its down migration is never applied here on anyone's own authority.** It restores
+021's body, and the admin app's edit form would then read every facility as unreadable.
+
+**Afterwards:** the frozen boundary is recorded with `23`, in the change that records
+this apply.
+
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 021 applied, 022 in the repository and
-not yet applied), the dry run prints twenty-one `already applied` lines and:
+**On the hosted project today** (001 through 021 applied, 022 and 023 in the
+repository and not yet applied), the dry run prints twenty-one `already applied` lines
+and:
 
 ```
   WOULD APPLY     : 022_one_operator_and_reactivation.sql   <- dry run
-1 migration(s) pending.
+  WOULD APPLY     : 023_operator_register_location_and_phone.sql
+2 migration(s) pending.
 ```
+
+*Restated 2026-09-24 (R-2026-09-24-98 BZ-2 c), in the change that adds 023.* Until then
+this block showed one WOULD APPLY line, naming 022, and `1 migration(s) pending.`,
+which was right from 022's merge while the repository ended at 022.
 
 *Restated 2026-09-24 (R-2026-09-24-90 BR-1 d), in the change that adds 022.* Until
 then this block showed twenty-one `already applied` lines, no WOULD APPLY line, and
@@ -1871,9 +1932,14 @@ Migrations complete (3 applied this run).   <- apply
 second is lower:
 
 ```
-22 migration(s) pending.          <- dry run
-Migrations complete (21 applied this run).   <- apply
+23 migration(s) pending.          <- dry run
+Migrations complete (22 applied this run).   <- apply
 ```
+
+*Restated 2026-09-24 (R-2026-09-24-98 BZ-2 c), in the change that adds 023. This block
+read `22` and `21` -- right while the repository ended at 022. Observed on the local
+stack in this change: a fresh `db:reset` printed `Migrations complete (22 applied this
+run).`*
 
 *Restated 2026-09-24 (R-2026-09-24-90 BR-1 d), in the change that adds 022. This block
 read `21` and `20` -- right while the repository ended at 021.*
@@ -1892,20 +1958,23 @@ so from that merge it named a count one lower than a correct virgin run prints. 
 not one of the hosted expectations the guard parses; it was found by reading the
 section for this restatement.*
 
-**Twenty-one is correct there. Nothing was skipped.** Migration 001 creates the `app`
+**Twenty-two is correct there. Nothing was skipped.** Migration 001 creates the `app`
 schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
 recorded by a ledger that does not exist yet. The runner applies and ledgers it
 in a separate **bootstrap** step, and the apply loop then counts only what it
-applied itself -- 002 through 022, which is twenty-one. The dry run has no bootstrap
+applied itself -- 002 through 023, which is twenty-two. The dry run has no bootstrap
 branch: `is_applied` returns 0 while the ledger is absent, so it counts all
-twenty-two as pending. The two numbers are measuring different things.
+twenty-three as pending. The two numbers are measuring different things.
 
 **Confirm it by the ledger, which is the artefact that matters, not by the
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `21`, with `1 migration(s) pending.` from the
-dry run** -- 022 is in the repository and not yet applied. *Restated 2026-09-24
+THAT PROJECT. **On hosted today that is `21`, with `2 migration(s) pending.` from the
+dry run** -- 022 and 023 are in the repository and not yet applied.
+*Restated 2026-09-24 (R-2026-09-24-98 BZ-2 c), in the change that adds 023; until then
+it read `21` with `1 migration(s) pending.`, right while the repository ended at 022.*
+*Restated 2026-09-24
 (R-2026-09-24-90 BR-1 d), in the change that adds 022; until then it read `21` with
 `0 migration(s) pending.`, which was right from 021's apply while the repository ended
 at 021: the founder's second dry run after that apply on 2026-09-24 read
@@ -3034,9 +3103,10 @@ operator's sign-in address", typed at run time (R-2026-09-24-89 BQ-1).
 2. H2, sign-ups off (section 3);
 3. H3 (section 9's entry, plus 12.1 below);
 4. PR C merged;
-5. H5, the Worker redeploy (12.2);
-6. H6 (12.3), which ends with the operator bootstrap and an empty register;
-7. and only when step 4b reads CLOSED on every row: facility creation (12.4).
+5. 023's apply (section 5, six fences; R-2026-09-24-98 BZ-2 d);
+6. H5, the Worker redeploy (12.2);
+7. H6 (12.3), which ends with the operator bootstrap and an empty register;
+8. and only when step 4b reads CLOSED on every row: facility creation (12.4).
 
 ### 12.1 H3 — what C adds to it (R-2026-09-24-93 BU-1 e)
 
@@ -3081,6 +3151,9 @@ that does not hold:**
 4. H3 is done: the Site URL, the redirect URLs, custom SMTP, and 12.1's reading.
 5. PR 3.4b-app C is merged.
 6. H5 is done (12.2).
+7. 023 is applied on hosted, with its six fences read as they must (section 5,
+   R-2026-09-24-98 BZ-2 d). Without it, the admin register reads every facility as
+   unreadable.
 
 **Then, in this order (R-2026-09-24-97 BY-1). Each step's STOP stops everything below it.**
 
@@ -3196,7 +3269,7 @@ replacing its **[unverified]** paragraph.
 with "No facility exists yet." **No facility or ward login may be created on hosted
 until step 4b reads CLOSED on every row** (the -45 gate).
 
-- [ ] H6: preconditions 1-6 read; steps 1-8 as above (date, Cowork's reading of each step)
+- [ ] H6: preconditions 1-7 read; steps 1-8 as above (date, Cowork's reading of each step)
 
 ### 12.4 Creating a facility
 

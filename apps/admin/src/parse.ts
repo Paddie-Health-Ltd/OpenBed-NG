@@ -1,7 +1,7 @@
 /**
  * THE ADMIN APP'S READING OF ITS TWO READS (R-2026-09-24-97; PR 3.4b-app C).
  *
- * operator_register (021:636-701) and operator_get_contact (021:586-625). A field of
+ * operator_register (021:636-701, with 023's three keys) and operator_get_contact (021:586-625). A field of
  * the wrong type is REFUSED, never defaulted: a register row that could not be read is
  * shown as unreadable, in its place, and never dropped -- a dropped row is a hidden
  * row, and the register must never hide one (AJ D8). The same rule the ward console's
@@ -27,6 +27,10 @@ export interface Facility {
   readonly name: string;
   readonly lga: string;
   readonly state: string;
+  /** Since 023 (R-2026-09-24-98 BZ-2): what is SAVED, so the edit form shows it rather than asking. */
+  readonly lat: number;
+  readonly lng: number;
+  readonly publicPhoneE164: string;
   readonly version: number;
   readonly listedAt: string | null;
   readonly isActive: boolean;
@@ -74,8 +78,11 @@ function facilityFrom(x: unknown): Facility | UnreadableFacility {
   const id = isObj(x) && str(x['facility_id']) ? x['facility_id'] : null;
   const unreadable: UnreadableFacility = { kind: 'unreadable', facilityId: id };
   if (!isObj(x) || id === null) return unreadable;
-  const { name, lga, state, version, listed_at, is_active, has_contact, agreement_state, categories } = x;
+  const { name, lga, state, lat, lng, public_phone_e164, version, listed_at, is_active, has_contact, agreement_state, categories } = x;
   if (!str(name) || !str(lga) || !str(state)) return unreadable;
+  // 023's three keys. Absent -- a database at 021 -- the row is unreadable, never
+  // defaulted: an edit form showing a guessed phone is the defect 023 exists to close.
+  if (typeof lat !== 'number' || !Number.isFinite(lat) || typeof lng !== 'number' || !Number.isFinite(lng) || !str(public_phone_e164)) return unreadable;
   if (typeof version !== 'number' || !Number.isInteger(version)) return unreadable;
   if (!strOrNull(listed_at) || !bool(is_active) || !bool(has_contact)) return unreadable;
   if (agreement_state !== 'none' && agreement_state !== 'recorded' && agreement_state !== 'withdrawn') return unreadable;
@@ -88,6 +95,9 @@ function facilityFrom(x: unknown): Facility | UnreadableFacility {
     name,
     lga,
     state,
+    lat,
+    lng,
+    publicPhoneE164: public_phone_e164,
     version,
     listedAt: listed_at,
     isActive: is_active,

@@ -106,6 +106,14 @@ describe('the admin app’s calls, live', () => {
     expect(refusal(changed).key).toBe('IDEMPOTENCY_CONFLICT');
   });
 
+  test('the register shows what is saved: each facility carries its lat, lng and public_phone_e164 (023, BZ-2)', async () => {
+    const id = await newFacility({ lat: 6.4561, lng: 3.3912, publicPhoneE164: '+2348000000404' });
+    const row = await registerRow(id);
+    expect(row['lat']).toBe(6.4561);
+    expect(row['lng']).toBe(3.3912);
+    expect(row['public_phone_e164']).toBe('+2348000000404');
+  });
+
   test('chaotic input is stored exactly as entered: an apostrophe, a dash and a diacritic round-trip byte for byte', async () => {
     const id = await newFacility();
     expect((await registerRow(id))['name']).toBe(FIELDS.name);

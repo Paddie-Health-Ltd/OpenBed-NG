@@ -94,6 +94,10 @@
     "NOT_YET_REPORTING": "Not yet reporting",
     "SMS_OPT_IN_NOTE": "Tick only if the contact has agreed to receive SMS from OpenBed. Keep the evidence with the agreement papers. The first opt-in time is kept.",
     "PHONE_PREVIEW": "Will be saved as",
-    "CANNOT_LIST_UNTIL": "Listing needs: a contact, a recorded agreement and at least one ward category."
+    "CANNOT_LIST_UNTIL": "Listing needs: a contact, a recorded agreement and at least one ward category.",
+    "CHANGES": "Changes",
+    "PHONE_CHANGE_CONFIRM": "This is the number the public page shows for an emergency call. Nothing is saved until you confirm the change.",
+    "CONFIRM_PHONE": "Confirm phone change",
+    "CANCEL": "Cancel"
   }
 }
