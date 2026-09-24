@@ -3797,7 +3797,7 @@ _Issued as R-PROVISIONAL-2026-09-24-BF, by Cowork on 2026-09-24, as its check of
   - **020 still re-applies unchanged with the drop.** A re-apply of 020 recreates the function, a re-apply of 021 drops it again, and `tests/db/migration_idempotency.test.ts` passes on exactly that sequence.
   - The down migration restores it with 020's body and grant.
   - So there is one read path and no fixture entry, because there is no function. The D3 list holds `operator_register` and not the old name. 3.4b-app calls `operator_register` only, and only it enters the Worker allow-list.
-  - **For Cowork to overrule before 021's pull request.**
+  - **For Cowork to overrule before 021's pull request.** _Superseded 2026-09-24 by R-2026-09-24-79 BG-1: BF-1 c's keep-and-revoke is replaced by the drop, which is accepted for the reason above._
 
 **BF-2 — FENCE 6 AROUND 021.** Between 021's merge and its hosted apply, fence 6 is not run: from the merge, the fixture names 021's functions, which hosted does not yet have. 021's apply uses 020's six fences, with fence 6 after the apply. Runbook step 5's new "021's apply" subsection states both. It lists 021's expectation for each fence, and names `operator_list_facilities` as a function that must be gone after the apply.
 
@@ -3808,6 +3808,48 @@ _Issued as R-PROVISIONAL-2026-09-24-BF, by Cowork on 2026-09-24, as its check of
 - The grants fixture keeps `hosted_only`, adds 021's entries, and has no `operator_list_facilities`.
 
 **021's pull request opens only after fence 6 reads PASS on hosted (BE-4), and its report goes to Cowork.**
+
+### R-2026-09-24-79 — BF-1 c's departure accepted: 021 drops operator_list_facilities()
+
+_Issued as R-PROVISIONAL-2026-09-24-BG, by Cowork on 2026-09-24. Number assigned on landing: R-2026-09-24-78 plus one. Record-only; lands on `pr-3.4b-db-021`, with 021. Next provisional letter: BH._
+
+**VERIFIED BY COWORK** (GitHub API and repository, 2026-09-24; Cowork's reading, re-read on landing):
+- #71 is closed and merged, with merge commit `f1d3a1f` (parents `4a6a9e9` and `ef33fa6`). `origin/main` is `f1d3a1f`, and `record-020-apply` returns 404.
+- `pr-3.4b-db-021` is at `f0fd237`.
+- 021 and its down migration are present. Line 585 is `DROP FUNCTION IF EXISTS public.operator_list_facilities() RESTRICT`.
+- The branch's grants fixture has no `operator_list_facilities` entry. It carries `operator_get_contact`, `operator_record_agreement`, `operator_record_contact` and `operator_register`, and keeps `public.rls_auto_enable()` in `hosted_only`.
+
+**BG-1 — THE DROP IS ACCEPTED.** 021 drops `operator_list_facilities()` rather than revoking it. **BF-1 c is superseded by this.** The reason:
+- Its 020 body reads `facility_contact.agreement_accepted_at`, which 021 removes, so a kept copy would fail on every call. **A dead function is not a safe one.**
+- 020 still re-applies unchanged: it recreates the function, and 021 drops it again. `tests/db/migration_idempotency.test.ts` covers that sequence.
+- The down migration restores it with its grant.
+
+021's header now cites this entry in place of BF-1 c.
+
+**BG-2 — THE PULL REQUEST WAITS FOR PASS.** 021's PR is not opened until Cowork relays fence 6 PASS. That condition is met by R-2026-09-24-80.
+
+### R-2026-09-24-80 — fence 6 reads PASS on hosted; 020's apply is complete; 021's pull request opens
+
+_Issued as R-PROVISIONAL-2026-09-24-BH, by Cowork on 2026-09-24. Number assigned on landing: R-2026-09-24-79 plus one. Record-only; lands on `pr-3.4b-db-021`, with 021 (BH-1). Next provisional letter: BI._
+
+**THE FOUNDER'S READING.** Evidence kind: the founder's terminal output, relayed by Cowork. I did not run it and did not see it.
+- It ran on 2026-09-24 from the deploy checkout at `~/Desktop/OpenBed-NG-deploy`.
+- The checkout was refreshed with a fetch, a detach and `npm ci`, leaving HEAD at `f1d3a1f`.
+- `bash scripts/readback_function_grants.sh` printed 25 lines, all `ok`. The 24 fixture functions read as expected, including:
+  - `provision_begin` and `provision_complete`, whose EXECUTE is none;
+  - `operator_list_facilities()`, whose EXECUTE is authenticated, because hosted is at 020.
+- The `hosted_only` entry read: `ok public.rls_auto_enable() (hosted-only): anon,authenticated,service_role owner=postgres returns=event_trigger definer=true`.
+- The last line read: `PASS: every function in app, graphql_public and public is executable by exactly the roles packages/fixtures/function-grants.json names.`
+
+**BH-1 — RECORDED.**
+- **020's apply is complete.** All six fences are read, and fence 6 now reads PASS.
+- **BE-1 is closed by this PASS.** R-2026-09-24-77 left the hosted-only function to be proved by a re-run of fence 6, and this is that re-run.
+- Runbook step 5 records the re-run:
+  - the "020's apply" subsection says it has run;
+  - the 020 checkbox carries the reading.
+- No boundary moves. It stays at 20.
+
+**BH-2 — 021'S PULL REQUEST OPENS NOW.** BE-4 and BG-2 are satisfied. Its report goes to Cowork: the head SHA, the seven check runs from the API, the fresh-database attestation, the Standard P ledger, and step 5's "021's apply" fences exactly as written. Cowork checks them before the founder gives the merge word. **Nothing is run on hosted until the founder runs 021's fences after the merge.**
 
 ## The provisional ledger
 
@@ -3878,6 +3920,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | BD | R-2026-09-24-76 | 2026-09-24 | **021 signed off, with the agreement moved off the contact person's row** so that no erasure reaches it; five questions ruled; Supabase added as a processor. Found in the build: the move and its pre-check cannot both act; the agreement write needs no version check; the list becomes `operator_register()`, because a return type cannot change in place. |
 | BE | R-2026-09-24-77 | 2026-09-24 | **020 applied on hosted: fences 1-5 as they must be, and fence 6's first real STOP**, on Supabase's `rls_auto_enable()`. That function was ruled hosted-only and inert, and is held to every recorded property. The record already held it (-55 D3, -56 A7), and a single list of hosted objects now exists. The stop was foreseeable from the record. |
 | BF | R-2026-09-24-78 | 2026-09-24 | **#71 merged; 021's three build findings ruled** (the move dropped and the pre-check kept; no version check on the agreement write; one read path). BF-1 c's revoke-and-keep is carried out as a drop instead, because the kept function would read a dropped column. It is reported for Cowork to overrule. Fence 6 is not run between 021's merge and its apply. |
+| BG | R-2026-09-24-79 | 2026-09-24 | **BF-1 c's departure accepted:** 021 drops `operator_list_facilities()`, because a kept copy would read a dropped column, and a dead function is not a safe one. BF-1 c is superseded. 021's PR waits for fence 6 PASS. |
+| BH | R-2026-09-24-80 | 2026-09-24 | **Fence 6 reads PASS on hosted** (founder's output, relayed by Cowork): 25 lines ok, with `rls_auto_enable()` ok as hosted-only. 020's apply is complete, and BE-1 is closed. 021's PR opens, and its report goes to Cowork before the merge word. |
 
 ## Method notes — how rulings reach the implementer
 

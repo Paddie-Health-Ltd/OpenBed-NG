@@ -43,8 +43,8 @@
 --      function"), breaking tests/db/migration_idempotency.test.ts's invariant that
 --      every forward migration re-applies cleanly over the later ones. Nothing but
 --      tests called the old name. Its grants follow its creation below (BD-1 e).
---      Accepted by R-2026-09-24-78 BF-1 c, which asked for one read path by
---      keeping the old function with its grant revoked. It is DROPPED instead. Kept,
+--      R-2026-09-24-78 BF-1 c asked for one read path by keeping the old function
+--      with its grant revoked; R-2026-09-24-79 BG-1 accepted DROPPING it instead. Kept,
 --      it would be broken: its 020 body reads facility_contact.agreement_accepted_at
 --      (020:698), which this migration drops, so it would error on any call. A
 --      re-apply of 020 recreates it and a re-apply of this drops it again, so 020
