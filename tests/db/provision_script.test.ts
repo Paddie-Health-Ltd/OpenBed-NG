@@ -38,6 +38,13 @@ import { dbUrl } from '../setup/local-keys.js';
  * pg_stat_activity shows the script's provision_complete BLOCKED on that lock, and
  * terminates that backend mid-statement. The leg asserts the block was observed.
  *
+ * THE AUTH USER IS MADE CONFIRMED, AND generate_link IS NEVER CALLED (R-2026-09-24-93
+ * BU-1 a; PR 3.4b-app A.2). gotrue() below routes the three admin calls the script
+ * makes -- POST admin/users, GET admin/users?filter=, PUT admin/users/:id -- and
+ * afterEach asserts no request reached /admin/generate_link in any test, so the
+ * absence is counted, not assumed. The per-path counts are the design report's:
+ * 0 on a refusal or `complete`, 1 new, 2 existing and confirmed, 3 existing and not.
+ *
  * NOT ASSERTED HERE, deliberately: the two `unrecognised status` legs. They fire
  * only if provision_begin or provision_complete returns a status the script does not
  * know, which needs a changed SQL function; they are registered, not planted.
@@ -78,6 +85,36 @@ function answers(...queue: [number, unknown][]): Handler {
   return (_req, res) => {
     const [status, body] = queue[Math.min(i++, queue.length - 1)]!;
     reply(res, status, body);
+  };
+}
+
+/**
+ * A stub GoTrue that routes the script's three admin calls. `existing` is a user the
+ * address already belongs to; without it the address is new. `extra` users are
+ * returned by the lookup beside (or instead of) the real match.
+ */
+function gotrue(opts: { newId?: string; existing?: { id: string; email?: string; confirmed: boolean }; extra?: { id: string; email: string }[]; putStatus?: number } = {}): Handler {
+  const confirmedIds = new Set<string>();
+  return (req, res) => {
+    const url = new URL(req.url ?? '/', 'http://stub');
+    if (req.method === 'POST' && url.pathname === '/auth/v1/admin/users') {
+      if (opts.existing) return reply(res, 422, { code: 422, error_code: 'email_exists', msg: 'A user with this email address has already been registered' });
+      return reply(res, 200, userBody(opts.newId ?? randomUUID()));
+    }
+    if (req.method === 'GET' && url.pathname === '/auth/v1/admin/users') {
+      const users: unknown[] = (opts.extra ?? []).map((u) => ({ id: u.id, email: u.email, email_confirmed_at: '2026-09-24T00:00:00Z' }));
+      if (opts.existing) {
+        const e = opts.existing;
+        users.push({ id: e.id, email: e.email ?? 'ward-role@example.invalid', email_confirmed_at: e.confirmed || confirmedIds.has(e.id) ? '2026-09-24T00:00:00Z' : null });
+      }
+      return reply(res, 200, { aud: 'authenticated', users });
+    }
+    if (req.method === 'PUT' && url.pathname.startsWith('/auth/v1/admin/users/')) {
+      const status = opts.putStatus ?? 200;
+      if (status === 200) confirmedIds.add(url.pathname.split('/').pop() ?? '');
+      return reply(res, status, status === 200 ? { id: url.pathname.split('/').pop() } : { msg: 'refused' });
+    }
+    return reply(res, 404, { msg: `the stub has no route for ${req.method} ${url.pathname}` });
   };
 }
 
@@ -139,6 +176,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
+  expect(requests.filter((r) => r.includes('generate_link')), 'the script called admin/generate_link, which A.2 removed from the provisioning path').toEqual([]);
   const db = sql();
   await db`delete from app.ward_account where facility_id = any(${FACILITIES}::uuid[])`;
   await db`delete from app.invite where facility_id = any(${FACILITIES}::uuid[])`;
@@ -173,17 +211,18 @@ describe('the script refuses at app.provision_begin, and makes ZERO Auth request
 describe('the happy path, and J4', () => {
   test('a gated ward is provisioned with ONE Auth request, and the account id is the auth user id', async () => {
     const user = randomUUID();
-    handler = answers([200, userBody(user)]);
+    handler = gotrue({ newId: user });
     const r = await run(ward(FAC_OK));
     expect(r.status, r.out).toBe(0);
     expect(r.out).toContain(`provisioned WARD_STAFF ward-role@example.invalid -> account ${user}`);
-    expect(requests).toEqual(['POST /auth/v1/admin/generate_link']);
+    expect(r.out).toContain('auth user: created, confirmed');
+    expect(requests).toEqual(['POST /auth/v1/admin/users']);
     expect(await account(user)).toEqual({ role: 'WARD_STAFF', facility_id: FAC_OK, ward_category: 'ICU_ADULT', is_active: true });
     expect(await openInvites(FAC_OK), 'the invite was left open').toEqual([]);
   });
 
   test('J4 — a re-run on a complete ward makes ZERO Auth requests and changes nothing', async () => {
-    handler = answers([200, userBody(randomUUID())]);
+    handler = gotrue();
     expect((await run(ward(FAC_OK))).status).toBe(0);
     requests = [];
     const [before] = await sql()<{ n: number }[]>`select count(*)::int as n from app.invite where facility_id = ${FAC_OK}::uuid`;
@@ -197,7 +236,7 @@ describe('the happy path, and J4', () => {
 });
 
 describe('retry-safe from every point of failure (BP-6 3)', () => {
-  test('F2 — generate_link fails: the invite stays open, the run says so, and a re-run completes on THE SAME invite', async () => {
+  test('F2 — the create fails: the invite stays open, the run says so, and a re-run completes on THE SAME invite', async () => {
     handler = answers([500, { msg: 'down' }]);
     const first = await run(ward(FAC_OK));
     expect(first.status, first.out).toBe(1);
@@ -205,7 +244,7 @@ describe('retry-safe from every point of failure (BP-6 3)', () => {
     const [open] = await openInvites(FAC_OK);
     expect(first.out).toContain(`setup incomplete: invite ${open?.id} is open and no account exists yet`);
     expect(first.out).toContain('is open and no account exists yet — re-run the same command. Cause');
-    expect(first.out).toContain('admin/generate_link refused the invite (HTTP 500)');
+    expect(first.out).toContain('admin/users refused the account (HTTP 500)');
 
     requests = [];
     handler = answers([400, { msg: 'bad request' }]);
@@ -215,7 +254,7 @@ describe('retry-safe from every point of failure (BP-6 3)', () => {
     expect((await openInvites(FAC_OK)).map((i) => i.id), 'the re-run opened a second invite').toEqual([open?.id]);
 
     const user = randomUUID();
-    handler = answers([200, userBody(user)]);
+    handler = gotrue({ newId: user });
     const third = await run(ward(FAC_OK));
     expect(third.status, third.out).toBe(0);
     const [inv] = await sql()<{ accepted: boolean }[]>`select accepted_at is not null as accepted from app.invite where id = ${open!.id}::uuid`;
@@ -233,14 +272,14 @@ describe('retry-safe from every point of failure (BP-6 3)', () => {
   test('an unreachable GoTrue fails loudly after three attempts, and leaves the invite open rather than half-provisioning', async () => {
     const r = await run(ward(FAC_OK), { SUPABASE_API_URL: 'http://127.0.0.1:59999' });
     expect(r.status, r.out).toBe(1);
-    expect(r.out).toContain('admin/generate_link could not be reached after 3 attempts');
+    expect(r.out).toContain('the Auth admin API could not be reached after 3 attempts (POST /admin/users)');
     expect(r.out).toContain('setup incomplete');
     expect(await openInvites(FAC_OK)).toHaveLength(1);
   });
 
   test.each([
     ['a 200 with a body that is not JSON', 'not json', 'GoTrue returned a non-JSON body (HTTP 200)'],
-    ['a 200 with no user id', { hashed_token: TOKEN }, 'admin/generate_link returned no auth user id. Keys: hashed_token'],
+    ['a 200 with no user id', { hashed_token: TOKEN }, 'admin/users created a user and returned no id. Keys: hashed_token'],
   ])('a reachable but misbehaving GoTrue — %s — is named, and the invite stays open', async (_name, body, message) => {
     handler = answers([200, body]);
     const r = await run(ward(FAC_OK));
@@ -278,9 +317,13 @@ describe('retry-safe from every point of failure (BP-6 3)', () => {
     expect(first.out).not.toMatch(/NOT_A_MEMBER|permission denied/);
     expect(await account(user), 'an account exists after the complete that was killed').toBeUndefined();
 
-    handler = answers([200, userBody(user)]);
+    // The user the killed run created now exists, confirmed: create answers 422 and the
+    // lookup returns it -- 2 Auth requests.
+    requests = [];
+    handler = gotrue({ existing: { id: user, confirmed: true } });
     const second = await run(ward(FAC_OK));
     expect(second.status, second.out).toBe(0);
+    expect(requests.map((r) => r.split('?')[0])).toEqual(['POST /auth/v1/admin/users', 'GET /auth/v1/admin/users']);
     expect((await account(user))?.is_active).toBe(true);
   });
 
@@ -305,9 +348,10 @@ describe('retry-safe from every point of failure (BP-6 3)', () => {
 describe('022 through the script (R-2026-09-24-90 BR-1 e)', () => {
   test('a deactivated ward re-provisioned through the gates is REACTIVATED, with its own audit row', async () => {
     const user = randomUUID();
-    handler = answers([200, userBody(user)]);
+    handler = gotrue({ newId: user });
     expect((await run(ward(FAC_OK))).status).toBe(0);
     await sql()`update app.ward_account set is_active = false, deactivated_at = now() where id = ${user}::uuid`;
+    handler = gotrue({ existing: { id: user, confirmed: true } });
     const audits = async () =>
       (await sql()<{ n: number }[]>`select count(*)::int as n from app.audit_log where facility_id = ${FAC_OK}::uuid and action = 'ward_account.reactivate'`)[0]?.n ?? -1;
     const before = await audits();
@@ -315,7 +359,7 @@ describe('022 through the script (R-2026-09-24-90 BR-1 e)', () => {
     const r = await run(ward(FAC_OK));
     expect(r.status, r.out).toBe(0);
     expect(r.out).toContain(`reactivated WARD_STAFF ward-role@example.invalid -> account ${user}`);
-    expect(requests).toHaveLength(1);
+    expect(requests, 'the existing user was not found by create then lookup').toHaveLength(2);
     expect((await account(user))?.is_active).toBe(true);
     expect(await audits(), 'the reactivation did not write exactly one audit row of its own').toBe(before + 1);
   });
@@ -336,7 +380,7 @@ describe('022 through the script (R-2026-09-24-90 BR-1 e)', () => {
     const first = randomUUID();
     const second = randomUUID();
     operators.push(first, second);
-    handler = answers([200, userBody(first)]);
+    handler = gotrue({ newId: first });
     const boot = await run(operator());
     expect(boot.status, boot.out).toBe(0);
     expect(requests).toHaveLength(1);
@@ -344,7 +388,7 @@ describe('022 through the script (R-2026-09-24-90 BR-1 e)', () => {
 
     for (const email of ['operator-role@example.invalid', 'another-address@example.invalid']) {
       requests = [];
-      handler = answers([200, userBody(second)]);
+      handler = gotrue({ newId: second });
       const again = await run(operator(email));
       expect(again.status, again.out).toBe(0);
       expect(again.out).toContain('an operator account already exists: nothing was done');
@@ -360,6 +404,91 @@ describe('022 through the script (R-2026-09-24-90 BR-1 e)', () => {
     expect(r.status).toBe(1);
     expect(r.out).toContain('usage: node scripts/provision_ward_account.mjs');
     expect(requests).toEqual([]);
+  });
+});
+
+describe('A.2 — the auth user is made CONFIRMED through the admin API (R-2026-09-24-93 BU-1 a)', () => {
+  const OLD = 'ward-role@example.invalid';
+
+  test('an address that already has a CONFIRMED user: create answers 422, the lookup finds it — 2 Auth requests', async () => {
+    const user = randomUUID();
+    handler = gotrue({ existing: { id: user, confirmed: true } });
+    const r = await run(ward(FAC_OK));
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).toContain('auth user: found, already confirmed');
+    expect(requests.map((q) => q.split('?')[0])).toEqual(['POST /auth/v1/admin/users', 'GET /auth/v1/admin/users']);
+    expect((await account(user))?.is_active).toBe(true);
+  });
+
+  test("an account from PR A's flow (unconfirmed) is CONFIRMED in place — 3 Auth requests", async () => {
+    const user = randomUUID();
+    handler = gotrue({ existing: { id: user, confirmed: false } });
+    const r = await run(ward(FAC_OK));
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).toContain('auth user: found, confirmed now');
+    expect(requests.map((q) => q.split('?')[0])).toEqual(['POST /auth/v1/admin/users', 'GET /auth/v1/admin/users', `PUT /auth/v1/admin/users/${user}`]);
+  });
+
+  test('the exact match is case-insensitive and done by the script, never trusted to the filter', async () => {
+    const user = randomUUID();
+    handler = gotrue({ existing: { id: user, email: OLD.toUpperCase(), confirmed: true }, extra: [{ id: randomUUID(), email: `x-${OLD}` }] });
+    const r = await run(ward(FAC_OK));
+    expect(r.status, r.out).toBe(0);
+    expect((await account(user))?.is_active, 'the lookup picked a neighbouring address the filter also returned').toBe(true);
+  });
+
+  test("F2' — the address exists but the lookup finds no exact match: a named STOP, the invite stays open", async () => {
+    handler = (req, res) => (req.method === 'POST' ? reply(res, 422, { error_code: 'email_exists' }) : reply(res, 200, { users: [{ id: randomUUID(), email: `x-${OLD}`, email_confirmed_at: null }] }));
+    const r = await run(ward(FAC_OK));
+    expect(r.status, r.out).toBe(1);
+    expect(r.out).toContain('admin/users says this address exists, but the lookup found no user with exactly this address; nothing was guessed');
+    expect(r.out).toContain('setup incomplete');
+    expect(await openInvites(FAC_OK)).toHaveLength(1);
+  });
+
+  test('a FULL page of 50 with no exact match says so, and concludes nothing (BU-1 a)', async () => {
+    const page = Array.from({ length: 50 }, (_, i) => ({ id: randomUUID(), email: `other-${i}@example.invalid`, email_confirmed_at: null }));
+    handler = (req, res) => (req.method === 'POST' ? reply(res, 422, { error_code: 'email_exists' }) : reply(res, 200, { users: page }));
+    const r = await run(ward(FAC_OK));
+    expect(r.status, r.out).toBe(1);
+    expect(r.out).toContain('admin/users lookup returned a FULL page of 50 users and none with exactly this address; no user is concluded, and nothing was guessed');
+  });
+
+  test('more than one exact match is a named STOP, never a guess', async () => {
+    handler = (req, res) => (req.method === 'POST' ? reply(res, 422, { error_code: 'email_exists' })
+      : reply(res, 200, { users: [{ id: randomUUID(), email: OLD, email_confirmed_at: null }, { id: randomUUID(), email: OLD, email_confirmed_at: null }] }));
+    const r = await run(ward(FAC_OK));
+    expect(r.status, r.out).toBe(1);
+    expect(r.out).toContain('admin/users lookup found more than one user with exactly this address (2); nothing was guessed');
+  });
+
+  test("F2'' — the confirm fails: setup incomplete, and a re-run confirms and completes on the SAME invite", async () => {
+    const user = randomUUID();
+    handler = gotrue({ existing: { id: user, confirmed: false }, putStatus: 400 });
+    const first = await run(ward(FAC_OK));
+    expect(first.status, first.out).toBe(1);
+    expect(first.out).toContain('admin/users would not confirm the existing user (HTTP 400)');
+    const [open] = await openInvites(FAC_OK);
+    handler = gotrue({ existing: { id: user, confirmed: false } });
+    const second = await run(ward(FAC_OK));
+    expect(second.status, second.out).toBe(0);
+    const [inv] = await sql()<{ accepted: boolean }[]>`select accepted_at is not null as accepted from app.invite where id = ${open!.id}::uuid`;
+    expect(inv?.accepted).toBe(true);
+  });
+
+  test('a lookup that answers with no users array fails loudly', async () => {
+    handler = (req, res) => (req.method === 'POST' ? reply(res, 422, { error_code: 'email_exists' }) : reply(res, 500, { msg: 'down' }));
+    const r = await run(ward(FAC_OK));
+    expect(r.status, r.out).toBe(1);
+    expect(r.out).toContain('admin/users lookup failed (HTTP 500)');
+  });
+
+  test('a create refused for another reason than email_exists is named with its status', async () => {
+    handler = answers([403, { msg: 'forbidden' }]);
+    const r = await run(ward(FAC_OK));
+    expect(r.status, r.out).toBe(1);
+    expect(r.out).toContain('admin/users refused the account (HTTP 403)');
+    expect(requests, 'a 403 was retried').toHaveLength(1);
   });
 });
 

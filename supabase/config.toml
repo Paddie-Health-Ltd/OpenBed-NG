@@ -226,7 +226,11 @@ enable_refresh_token_rotation = true
 # Requires enable_refresh_token_rotation = true.
 refresh_token_reuse_interval = 10
 # Allow/disallow new user signups to your project.
-enable_signup = true
+# OFF since PR 3.4b-app A.2 (R-2026-09-24-93 BU-1; R-2026-09-24-92 BT-2 b). Every login is
+# provisioned by scripts/provision_ward_account.mjs as a CONFIRMED user; nobody signs up.
+# [auth.email] enable_signup below stays TRUE: false there disables email sign-in outright
+# (422 email_provider_disabled). tests/db/config_drift.test.ts pins both.
+enable_signup = false
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts

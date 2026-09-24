@@ -4286,6 +4286,84 @@ _Issued as R-PROVISIONAL-2026-09-24-BS, by Cowork on 2026-09-24. **Pasting it wa
   - the unchanged-files confirmations: `function-grants.json`, the D3 list, `applied-hosted.json` and public output.
 - **Nothing hosted.** Stop after the report. PR B may be designed while PR A is in review, as a design report only, not built.
 
+### R-2026-09-24-92 — #74 merged; sign-ups off becomes A.2; the leg-register hole goes to B
+
+_Issued as R-PROVISIONAL-2026-09-24-BT, by Cowork on 2026-09-24, as its check of #74 at `c199b07`. **Pasting it was the founder's merge word for #74.** Record-only; it lands with the next change that touches the record, A.2 (this change). Number assigned on landing: R-2026-09-24-91 plus one. Next provisional letter: BU._
+
+**VERIFIED BY COWORK** (2026-09-24):
+- #74 was read from the GitHub API on the founder's machine: OPEN at `c199b07ef0ad6b21b77784c8ac282ba691f52d08`, base `faf984a`, mergeable and clean, 1 commit, 28 files, with seven check runs completed/success.
+- The kickoff and the design report in the tree read as agreed.
+- The script and migration 022 match BR-1 and BS-1.
+- Named test files pass locally. `no_phantom_paths` failed identically on `main` in Cowork's sandbox, which Cowork reads as environmental there.
+
+**THE MERGE (BT-1).**
+- The head was read from the API as `c199b07`, and #74 merged as a merge commit with `--match-head-commit`.
+- MERGED was read back: **`abd6ee51a085e57d68e926776c4733a67315b675`**, with parents `faf984a` and `c199b07`.
+- `pr-3.4b-app-a` was deleted as a separate step afterwards; the API answers "Branch not found".
+
+**BT-2 — SIGN-UPS OFF IS A.2, A SMALL PR AFTER A, DESIGN REPORT FIRST.**
+- **The cause:** `generate_link` leaves a new user unconfirmed. With `[auth] enable_signup = false`, an unconfirmed user's `/otp` is refused (422 `signup_disabled`). `[auth.email] enable_signup = false` disables email sign-in outright (422 `email_provider_disabled`).
+- **The properties:**
+  - (a) provisioning leaves the Auth user CONFIRMED, through the admin API, and J4 and zero-Auth hold;
+  - (b) only `[auth] enable_signup = false`, with a `config_drift` leg pinning both keys;
+  - (c) PASS is BS-1 b's rule (1)-(5), plus the old-flow account named;
+  - (d) H2 changes only after A.2 merges on a PASS, as a founder step with a read-back.
+- **Until then, sign-ups stay on.** That is an accepted interim risk: an address can create an Auth user, but with no `ward_account` it gets `NOT_A_MEMBER`.
+
+**BT-3 — `sb_secret_` ACCEPTED.** The script keeps both headers. PR C's H6 bootstrap step tests that exact shape against hosted `generate_link`, with a failing half. A 401 or 403 is a STOP, never a retry by hand with another shape.
+
+**BT-4 — THE `_legs.ts` MATCHING HOLE IS FIXED IN PR B.**
+- A leg is credited only by a fragment identifying that leg's own message.
+- The five `<script>.sh: FAILED (` legs it unmasks are each made genuinely reached, never exempted.
+- **Plant:** a test that only mentions the script path no longer credits the leg.
+
+**BT-5 — AFTER THE MERGE, STOP.**
+- The founder runs 022's hosted apply, with Cowork reading each fence back, before H6.
+- The A.2 and B design reports were written, with no build: `Sprint Kickoffs/pr-a2-design-report-2026-09-24.md` (committed in this change) and B's (committed in B).
+
+### R-2026-09-24-93 — the A.2 and B design reports accepted; the build word for both
+
+_Issued as R-PROVISIONAL-2026-09-24-BU, by Cowork on 2026-09-24. **Pasting it was the build word for PR A.2 and PR B.** Record-only; lands after -92, in A.2. Number assigned on landing: R-2026-09-24-92 plus one. Next provisional letter: BV._
+
+**READ BY COWORK, in full:**
+- the A.2 report: sha256 `9cd4bf1102b4f4ecd03cbba880a5e809c7470fe474bb91a63ab0672dfe453d45`, 10813 bytes;
+- the B report: sha256 `cca65b2d180c94fa5be7954bde8be25ace3a828d18319c81fe3a4714c2eca3fa`, 16809 bytes.
+
+Both are accepted as designed, amended only by BU-1 and BU-2. The staff-engineer, QA and platform-SRE passes were applied. Each report is committed unedited beside the kickoff in its own PR, with its hash re-read after the copy.
+
+**BU-1 — A.2.**
+- **(a) The lookup, CONFIRMED.**
+  - `POST admin/users` with `email_confirm` true.
+  - On 422 `email_exists`: `GET admin/users?filter=`, with the exact case-insensitive match done in the script.
+  - `PUT email_confirm` only when `email_confirmed_at` is null.
+  - **Never `generate_link`** on the provisioning path.
+  - A zero or multiple match is a named STOP. A full page (50) with no exact match says so, rather than concluding "no user".
+- **(b) The order, CONFIRMED:** A, A.2, B, C.
+  - A.2 and B may both be built now. A.2 merges first, and B merges `main` in before its report.
+  - H6's operator bootstrap needs A.2 merged **and** 022 applied on hosted. PR C states and checks both first.
+- **(c) H2's text goes in A.2's runbook** (§6 steps 1-4). In step 4, if the `create_user:true` request creates a user at all, the switch did not take: STOP. The founder removes that user, by the admin API or SQL as the step names, and records the removal with the reading. "Nothing is created" is conditional on the switch having worked.
+- **(d) PASS** is §6 (1)-(5), plus the harness control with the pre-A.2 config: (4) must pass and (5) must fail.
+- **(e) For PR C:** the H3 and H6 text tells the operator to wait out the email frequency window after any admin link. H3 reads the hosted Auth rate-limit and frequency settings once, recorded as read.
+
+**BU-2 — B.**
+- **(a)** Twelve sites plus three deploy-target lists, against -71 H's "seven", each fence or literal as tabled. The scratch-app test reds every fence and every literal's plant, and an empty tree reds every fence. The corrected count, and the four kickoff mislabels, go in B's report of record. -71 H and BP-9 are left as written.
+- **(b)** `contacts.json` REPLACES `ward-support.json`. Every tracked reference is moved before the build, and `no_phantom_paths` stays green.
+- **(c)** The dashboard's inline `<style>` moves to a CSS file: no hash, no `'unsafe-inline'`.
+- **(d)** `/beds.json` gains `X-Content-Type-Options: nosniff` UNCONDITIONALLY, in `packages/snapshot/src/serve.ts`, with a test and a plant. `readback_pages.sh` asserts it. The production reading is the founder's next dashboard deploy.
+- **(e)** A CSP that is too tight breaks a page silently. So each app is loaded in a real browser locally under its headers, and the console's sign-in is walked end to end locally under the CSP, before the report.
+- **(f)** The `_legs.ts` rule is CONFIRMED, including the sixth leg (`neuter_plant.mjs`, "PLANT DID NOT LAND — neuter"). The ten instrument legs are measured under the rule before it lands. A flip is made genuinely reached, never exempted.
+
+**BU-3 — BUILD A.2 AND B NOW,** each on its own branch from `main` at `abd6ee5`.
+- **Each PR's report comes before its merge word,** carrying:
+  - the head SHA and its seven check runs, from the API;
+  - Standard O;
+  - the E2E and the frontier;
+  - Standard P, with its stopping rule first;
+  - the behavioural ledger;
+  - for A.2, the PASS and the control;
+  - for B, the leg measurement before and after, and the per-app table as built.
+- **Nothing hosted, and H2 is not changed.**
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -4368,6 +4446,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | BQ | R-2026-09-24-89 | 2026-09-24 | **The founder's answers:** the operator's address is a fourth, unpublished role address, never in the repository; Cloudflare Access in front of admin (founder-reported, not read back). Binds PR B and PR C. |
 | BR | R-2026-09-24-90 | 2026-09-24 | **Migration 022 in PR A:** one active operator by index, begin's operator `complete` arm, reactivation in complete, refusals named by constraint. The fallback refused as a second gate outside SQL. |
 | BS | R-2026-09-24-91 | 2026-09-24 | **The build word for PR A.** The down's refusal confirmed; ENABLE_SIGNUP gains a ward sign-in condition and a failing half; the report committed unedited. Its "@openbed.ng/origins" is `@openbed/origins`, noted in the entry. |
+| BT | R-2026-09-24-92 | 2026-09-24 | **#74 merged at `abd6ee5`.** Sign-ups off becomes A.2 (a confirmed user through the admin API; `[auth]` only). `sb_secret_` accepted as sent. The `_legs.ts` hole goes to B. |
+| BU | R-2026-09-24-93 | 2026-09-24 | **The build word for A.2 and B.** The lookup and the order confirmed; H2's text goes in A.2 with a STOP if the switch did not take. `contacts.json` replaces `ward-support.json`; `/beds.json` gets nosniff unconditionally; each app is walked in a real browser under its CSP. |
 
 ## Method notes — how rulings reach the implementer
 

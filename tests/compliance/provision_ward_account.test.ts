@@ -172,6 +172,46 @@ describe('the gates have one implementation, in SQL (BP-6 1, 4)', () => {
   });
 });
 
+/**
+ * A.2 (R-2026-09-24-93 BU-1 a): the Auth user is made through admin/users, and
+ * generate_link is never called on the provisioning path. It leaves a new user
+ * unconfirmed, which sign-ups off refuses, and it opens the user's email window.
+ */
+function authViolations(src: string): string[] {
+  const text = code(src);
+  const out: string[] = [];
+  if (!/['"`]\/admin\/users['"`]/.test(text)) out.push('the script never calls admin/users');
+  // On the CREATE call itself: the confirming PUT also carries email_confirm, so a
+  // bare search for it would pass a create that asks for none (the plant below).
+  if (!/['"`]\/admin\/users['"`]\s*,\s*\{[^}]*email_confirm:\s*true/.test(text)) out.push('the script never asks for a confirmed user');
+  if (/generate_link/.test(text)) out.push('the script calls admin/generate_link on the provisioning path');
+  return out;
+}
+
+describe('the auth user is made confirmed, never by generate_link (A.2)', () => {
+  const REAL = readFileSync(TOOL, 'utf8');
+
+  test('real script is accepted', () => {
+    expect(authViolations(REAL)).toEqual([]);
+  });
+
+  test("plant — PR A's generate_link route put back is rejected", () => {
+    const planted = REAL.replace("admin('POST', '/admin/users',", "admin('POST', '/admin/generate_link',");
+    expect(planted, 'the plant did not land').not.toBe(REAL);
+    expect(authViolations(planted)).toContain('the script calls admin/generate_link on the provisioning path');
+  });
+
+  test('plant — a create that does not ask for a confirmed user is rejected', () => {
+    const planted = REAL.replace('{ email, email_confirm: true }', '{ email }');
+    expect(planted, 'the plant did not land').not.toBe(REAL);
+    expect(authViolations(planted)).toEqual(['the script never asks for a confirmed user']);
+  });
+
+  test('anti-vacuity — the checker over an empty corpus fails', () => {
+    expect(authViolations('')).toEqual(['the script never calls admin/users', 'the script never asks for a confirmed user']);
+  });
+});
+
 type Classified = { ok: true; target: string } | { ok: false; reason: string };
 type Classify = (i: { apiUrl: string; dbUrl: string; projectRef: string | undefined }) => Classified;
 const classify = async (): Promise<Classify> =>
