@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { TransactionSql } from 'postgres';
 import { withRole } from '../setup/db.js';
@@ -49,12 +49,22 @@ import { withRole } from '../setup/db.js';
  * re-apply over it changes no public row. The committed "down then up changes NO
  * public row" leg this file had until BK cannot exist any more, because "up" over the
  * seed is refused; those three legs replace it.
+ *
+ * THE MIGRATIONS ABOVE 021 ARE REVERSED FIRST (since 022), as
+ * tests/db/migration_020_round_trip.test.ts has done since 021. This file's subject is
+ * the step between 020 and 021, so every leg runs on a database AT 021: inside its
+ * rolled-back transaction, every later down migration is applied, newest first, before
+ * the leg's own work. 022's down refuses while an active PLATFORM_ADMIN is committed
+ * (R-2026-09-24-91 BS-1 a); a test that leaves one behind is fixed at its cleanup,
+ * never worked around here.
  */
 
 const MIG_DIR = join(import.meta.dirname, '..', '..', 'database', 'migrations');
 const FORWARD = join(MIG_DIR, '021_facility_agreement_and_contact_write.sql');
 const DOWN = join(MIG_DIR, '021_facility_agreement_and_contact_write.down.sql');
 const LEDGER = '021_facility_agreement_and_contact_write.sql';
+/** Every forward migration numbered above 021, in apply order. */
+const LATER = readdirSync(MIG_DIR).filter((f) => /^\d{3}_.*\.sql$/.test(f) && !f.endsWith('.down.sql') && f > LEDGER).sort();
 
 /** A migration file's text, applied in the caller's transaction. */
 async function apply(tx: TransactionSql, path: string, text = readFileSync(path, 'utf8')): Promise<void> {
@@ -72,8 +82,12 @@ async function refusal(tx: TransactionSql, path: string): Promise<{ message: str
   throw new Error(`${path} applied, and it was expected to refuse`);
 }
 
-/** Everything a leg does happens in here, and is rolled back. */
-const inTx = <T>(fn: (tx: TransactionSql) => Promise<T>): Promise<T> => withRole('postgres', null, fn);
+/** Everything a leg does happens in here, on a database at 021, and is rolled back. */
+const inTx = <T>(fn: (tx: TransactionSql) => Promise<T>): Promise<T> =>
+  withRole('postgres', null, async (tx) => {
+    for (const f of LATER.slice().reverse()) await apply(tx, join(MIG_DIR, f.replace(/\.sql$/, '.down.sql')));
+    return fn(tx);
+  });
 
 /**
  * The founder's decision the down's refusal exists to force, taken in the rolled-back
@@ -302,7 +316,14 @@ describe('migration 021 round trip', () => {
       await clearAgreements(tx);
       await apply(tx, DOWN);
       await unlistAll(tx);
-      const [fac] = await tx.unsafe<{ id: string }[]>('select id from app.facility order by id limit 1');
+      // A facility with NO contact row: facility_contact is one per facility, and since
+      // PR 3.4b-app A committed test fixtures hold contacts (tests/db/provision_script.test.ts).
+      // "The first facility by id" was an assumption that stopped holding; asserting a
+      // candidate was found confirms the plant can land before its refusal is read.
+      const [fac] = await tx.unsafe<{ id: string }[]>(
+        'select id from app.facility f where not exists (select 1 from app.facility_contact c where c.facility_id = f.id) order by id limit 1',
+      );
+      expect(fac, 'every facility already holds a contact, so this plant has nowhere to land').toBeDefined();
       await tx.unsafe(`insert into app.facility_contact (facility_id, full_name, job_title, email, agreement_accepted_at)
                        values ('${fac!.id}', 'Plant Person', 'Matron', 'plant@example.invalid', now())`);
       const refused = await refusal(tx, FORWARD);

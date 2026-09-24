@@ -14,3 +14,11 @@ export const OFFERING_CHOICES: ReadonlyArray<readonly ['OFFERED' | 'NOT_OFFERED'
   ['OFFERED', WARD.offering_choice.OFFERED],
   ['NOT_OFFERED', WARD.offering_choice.NOT_OFFERED],
 ];
+
+/**
+ * The stop a session with NO ward is shown (R-2026-09-24-88 BP-8). Zero rows from
+ * my_facility_wards is never a ward: it is an operator's session that fell back here,
+ * or broken data. The console appends its support sentence to NO_WARD.
+ */
+export const NO_WARD_HEADING: string = WARD.session.NO_WARD_HEADING;
+export const NO_WARD: string = WARD.session.NO_WARD;

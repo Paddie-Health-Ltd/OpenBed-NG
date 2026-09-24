@@ -4130,6 +4130,162 @@ The fix, in `tests/compliance/runbook_migration_expectation.test.ts`:
 
 **BN-5 — NOTHING ELSE CHANGES.** No migration, no change to `applied-hosted.json`, nothing hosted. After the new head is reported, STOP. Cowork checks it, then the founder gives the merge word. BM-3 still holds after the merge.
 
+### R-2026-09-24-87 — #73 merged; Cowork's check at `fc175c4`
+
+_Issued as R-PROVISIONAL-2026-09-24-BO, by Cowork on 2026-09-24. It was #73's merge word, and it carries Cowork's check of #73 at `fc175c4`. Number assigned on landing: R-2026-09-24-86 plus one. Record-only; it lands with the next change that touches the record, which is 3.4b-app's PR A. Next provisional letter: BP._
+
+**VERIFIED BY COWORK** (GitHub API and repository, 2026-09-24). Evidence kind: Cowork's readings, relayed. I carried them in the session's pending notes and did not re-read the API for this entry.
+- #73 at `fc175c4` was clean, with seven check runs success.
+- `4c779a6..fc175c4` touched only the record, the kickoff and the guard test.
+- `runbook_migration_expectation` plus `frozen_migrations` read 29 of 29 pass.
+- Cowork's QA re-run of BN-3's flags (a) to (g) read 1 each, and the positive controls read 0.
+- The whole-document scan reads 0 on `fc175c4`'s runbook and 17 on the old `main`'s.
+
+**THE MERGE.** #73 merged as **`faf984a6a1dfda94be6ab02af8ba4084d667f33d`** (parents `f6889d4` and `fc175c4`). `record-021-apply` was deleted after MERGED was read back from the API, as a separate step.
+
+**BO-2 — STOP UNTIL THE 3.4b-APP KICKOFF.** Nothing was started from earlier notes, and nothing ran on hosted. The kickoff arrived as BP (-88).
+
+### R-2026-09-24-88 — the 3.4b-app kickoff: three pull requests, the calls for each
+
+_Issued as R-PROVISIONAL-2026-09-24-BP, by Cowork on 2026-09-24, inside `Sprint Kickoffs/sprint-kickoff-bundle3-3.4b-app-2026-09-24.md`. That file is committed unedited in the same change (method note 15). Before acting, I read its sha256 as `cdde3c78c76a05986655debf242d72a23c577bcb23f98f79123556a21ab09f56` and its size as 31132 bytes, and re-read both after the copy. Number assigned on landing: R-2026-09-24-87 plus one. Next provisional letter: BQ._
+
+**The ruling's text is the kickoff's section "R-PROVISIONAL-2026-09-24-BP", BP-1 to BP-14. It is not restated here,** so the two cannot drift. In one line each:
+- BP-1: three PRs, merged A, B, C.
+- BP-2: the admin app calls all eight `operator_*` functions.
+- BP-3: the admin app shows database facts only.
+- BP-4: every write is safe to repeat.
+- BP-5: the contact is never logged.
+- BP-6: the script goes through the gates.
+- BP-7: the redirect read-back script.
+- BP-8: the zero-ward stop.
+- BP-9: one source for per-app lists.
+- BP-10: contacts, fonts and headers.
+- BP-11: the admin deploy.
+- BP-12: the golden path's operator step.
+- BP-13: the founder's runbook steps.
+- BP-14: the blast radius per PR.
+
+**Checked against the code before acting** (standing rule):
+- **The kickoff's finding holds.** `scripts/provision_ward_account.mjs` at `faf984a` called neither `app.provision_begin` nor `app.provision_complete`.
+- **A second false fact, not in the kickoff:** step 4b row 4 cited `021:313-322` for the three gate refusals. Those lines are the `p_role` parse. The raises are at 021:341, 344 and 347.
+
+### R-2026-09-24-89 — the founder's two answers to the kickoff's open decisions
+
+_Issued as R-PROVISIONAL-2026-09-24-BQ, by Cowork on 2026-09-24, relaying the founder. Record-only. It does not change PR A's design report, and it binds PR B and PR C. Number assigned on landing: R-2026-09-24-88 plus one. Next provisional letter: BR._
+
+**BQ-1 — THE OPERATOR'S SIGN-IN ADDRESS IS A FOURTH, UNPUBLISHED, SIGN-IN-ONLY ROLE ADDRESS** at openbed.ng, chosen by the founder (AJ D9 satisfied).
+- **It is NOT written into the repository:** no page, doc, runbook, fixture, test, script default or commit message.
+- The runbook's operator-bootstrap step (BP-13) calls it "the operator's sign-in address", and the script takes it as input at run time.
+- -75 BC-3's "security@, hello@, support@" is restated as the three PUBLISHED addresses. The tracked contacts file (BP-10) holds exactly those three. BC-3 is left as written, with a pointer here.
+- **PR B:** the contacts test widens to "every @openbed.ng address anywhere in the tracked tree, outside Sprint Kickoffs/ and docs/handoff*, is one of the contacts file's three". Plant: a fourth address in an app's source reds it. This keeps the operator address out of the repository without naming it.
+
+**BQ-2 — CLOUDFLARE ACCESS IS IN FRONT OF admin.openbed.ng** (founder, 2026-09-24). **Founder-reported, not yet read back.**
+- The login method is an identity provider with two-factor (GitHub or Google). The one-time-PIN method is off, because a PIN to the operator's own inbox would be the same factor twice. The policy admits the founder's identity only.
+- **What Access does NOT do,** stated in the admin deploy runbook: it does not protect the operator RPCs, which are reached with a JWT through api.openbed.ng or the direct origin. The operator's mailbox stays the factor that guards the data.
+- **Consequences for PR C:**
+  - (a) **The \*.pages.dev hosts.** The admin Pages project's production \*.pages.dev alias and its preview deployments must be behind Access too, or the page is reachable around it. `readback_admin.sh` probes BOTH admin.openbed.ng and the project's pages.dev host.
+  - (b) **The probes, and their failing half.**
+    - Without an Access service token, each host must answer with Access's redirect or refusal, never with the app. STOP if /version.json or the app shell is served without a token.
+    - With the token, the app's /version.json must name the deployed HEAD.
+    - The token comes in as CF-Access-Client-Id and CF-Access-Client-Secret, from the environment at run time only: never tracked, never an argument, never printed.
+    - A missing token is ERROR (exit 2), never PASS.
+  - (c) **The sign-in order.** [unverified]
+    - The magic link returns to https://admin.openbed.ng/ with the session in the URL fragment, which no server sees. If Access intercepts that load and bounces through its login, the fragment may be lost and the sign-in fail silently.
+    - PR C shows the actual behaviour on a preview behind Access, in both orders: Access session already held, and not held. The runbook states the order that works, which is expected to be: pass Access first, then request the link.
+    - If the fragment survives in both orders, PR C says so, with the observation.
+- **Founder-side, at H6:** add the admin project's pages.dev hostname(s) to the Access application, and issue the service token when PR C's runbook asks for it.
+
+### R-2026-09-24-90 — Cowork's ruling on PR A's design report: migration 022 in PR A
+
+_Issued as R-PROVISIONAL-2026-09-24-BR, by Cowork on 2026-09-24. Cowork read the first version of PR A's design report in summary, because the file was in a folder Cowork cannot reach. Record-only; it lands in PR A after -89. Number assigned on landing: R-2026-09-24-89 plus one. Next provisional letter: BS._
+
+**VERIFIED BY COWORK** at `faf984a`:
+- **021:301-383 (`provision_begin`).** The PLATFORM_ADMIN branch nulls facility and category, gates nothing, and has no "complete" answer. After the first invite is accepted, a re-run opens a new invite, because the one-open-invite rule covers only `accepted_at IS NULL`. So a different address becomes a second operator.
+- **020:844-901 (`provision_complete`).** An existing `ward_account` of the same scope returns `'complete'` whatever its `is_active`. An inactive account is reported complete, and cannot sign in.
+- **The three gate refusals are at 021:341, 344 and 347.** -82's text and BJ's ledger row say "021:313-322", which is the role parsing. Both are left as written; this ruling is the correction, and PR A's step 4b row 4 cites 341-347. (BS-2 then moves that citation to 022's lines, once 022 lands.)
+
+**BR-1 — MIGRATION 022, IN PR A.** The fallback, a script read-back plus a runbook stop, is refused: it is a second implementation of a gate outside SQL (-71 C; BP-6 4). 022 does exactly this and nothing else:
+- **(a) At most one active PLATFORM_ADMIN, by the database.**
+  - It is a partial unique index on `ward_account WHERE role = 'PLATFORM_ADMIN' AND is_active`, the same shape as J3's per-ward index.
+  - 022 has a pre-check that refuses to apply while more than one active PLATFORM_ADMIN exists, naming the count. Hosted has none.
+  - A second operator is BD-2 1's trigger: it needs a ruling and a migration that drops this index, never a script run.
+- **(b) `provision_begin`, PLATFORM_ADMIN.** When an active PLATFORM_ADMIN exists, it returns `'complete'` with a NULL invite and opens nothing. The script then makes zero Auth calls (J4's rule for the operator) and prints that an operator account already exists and nothing was done. It never prints "provisioned".
+- **(c) `provision_complete`, a deactivated account of the same scope: it REACTIVATES.**
+  - It sets `is_active` true and `deactivated_at` NULL, keeping 003's consistency CHECK.
+  - It writes its own audit action, `ward_account.reactivate`, distinct from `ward_account.provision`, and the script prints "reactivated".
+  - This is safe only because `provision_begin`'s gates ran first. A ward whose agreement is withdrawn still gets `AGREEMENT_WITHDRAWN` at begin, and never reaches complete.
+  - If another account is already active for that ward, or another operator is already active, the one-active index refuses. That refusal is named, never a raw 23505: `WARD_ALREADY_HAS_AN_ACCOUNT` for a ward, and a new `OPERATOR_ALREADY_EXISTS` for an operator. The two are told apart by constraint name, never by guessing the role.
+- **(d) Required of the migration itself:**
+  - a symmetric down migration that refuses while its own index would be needed (state what that means, or why it doesn't apply);
+  - a round trip in the rolled-back-transaction idiom (BL-1);
+  - idempotent re-apply over 021 and over itself (`migration_idempotency`);
+  - no change to `packages/fixtures/function-grants.json`, and no public function (state that fence 6 is unaffected, and why);
+  - step 5 restated for one pending migration, 022, at every site the guard reads;
+  - `applied-hosted.json` untouched.
+- **(e) Tests:**
+  - a second PLATFORM_ADMIN refused by name;
+  - a re-run bootstrap with zero Auth calls;
+  - a deactivated ward re-provisioned and reactivated through the gates, with the audit row;
+  - a withdrawn facility's deactivated ward refused at begin, with zero Auth calls;
+  - two concurrent `complete()` calls on one invite, where one wins and the other is named.
+- **(f) Hosted.** 022's apply is a founder step after PR A merges, using the six fences with 022's expectations. It must be applied before H6's operator bootstrap. The -45 gate is unaffected: 022 creates no facility and no ward_account row.
+
+**BR-2 — THE ZERO-WARD STOP KEEPS THE SUPPORT ADDRESS.** Accepted, for the reason given: the only other way to reach zero rows is broken data on a real ward's account, and that person needs support.
+
+**BR-3 — `enable_signup = false`:** accepted as summarised. Cowork rules on the exact rule text when it reads the report. The hosted toggle (H2) stays unchanged until PR A's local result is quoted.
+
+**BR-4 — ALSO ACCEPTED, as summarised:**
+- the E2E harness seeds the contact directly, beside the agreement it already seeds, and the operator route arrives with PR C's golden-path step;
+- the host check is a module comparing the Auth URL and the database URL by project, with both mismatch plants;
+- the failure-point table;
+- the read-back script takes stdin only, and never prints the token;
+- **`sb_secret_`:** if the local CLI issues none, say so and do not infer the answer from the legacy key. It then becomes a hosted read at H6 with a failing half, written into the bootstrap step.
+
+**BR-5 — NOW:** amend the design report for BR-1 to BR-4, copy it to the handoff folder, print its sha256 and byte count, and STOP until Cowork gives the build word.
+- **Done.** The amended report read sha256 `0a34d9dfa77b9258c5fec655f8496b99ebacc7cf2517af74d5cf069a9c929186` and 24074 bytes. It is committed unedited in this change as `Sprint Kickoffs/pr-a-design-report-2026-09-24.md` (BS-1 c).
+
+**Checked before acting** (standing rule). Every premise BR states held on reading:
+- -82's text at this file's line 3932, and BJ's ledger row, both cite 313-322;
+- the partial index is at 020:332-334;
+- `provision_complete` never reads `is_active` (020:863-876);
+- 003's CHECK is at 003:234-236;
+- audit actions are a verb **regex** (005:146), not a list, so `ward_account.reactivate` needs no schema change.
+
+### R-2026-09-24-91 — Cowork's review of PR A's design report, and the build word
+
+_Issued as R-PROVISIONAL-2026-09-24-BS, by Cowork on 2026-09-24. **Pasting it was the build word for PR A.** Record-only; lands in PR A after -90. Number assigned on landing: R-2026-09-24-90 plus one. Next provisional letter: BT._
+
+**READ BY COWORK:** the report at sha256 `0a34d9dfa77b9258c5fec655f8496b99ebacc7cf2517af74d5cf069a9c929186`, 24074 bytes, read in full. §0-§9 are accepted as designed, amended only by BS-1 and BS-2. The staff-engineer and QA passes were applied.
+
+**BS-1 — THE THREE OPEN ITEMS.**
+- **(a) The down migration's refusal: CONFIRMED as read.**
+  - It refuses (`OPERATOR_INDEX_IN_USE`, with the count) while an active PLATFORM_ADMIN exists, because the down also restores 021's `provision_begin`, which opens a fresh invite on a re-run. Nothing else in the down needs a refusal.
+  - The build-time check in the report's §2a is required. If a db test leaves a committed PLATFORM_ADMIN active when the round-trip or idempotency legs run, the fix is that test's cleanup, which is the root cause. The down's refusal is never loosened, and tests are never ordered to avoid it.
+- **(b) The ENABLE_SIGNUP RULE (the report's §8) is accepted, with two further PASS conditions.** Both are run on the local stack with both settings false:
+  - **(4) The ward's own sign-in still works.** For the address just provisioned, a request shaped exactly like `packages/auth`'s `requestSignInLink` (POST /auth/v1/otp, `create_user` false, `redirect_to` the console origin plus "/") answers. The link it produces verifies to a session whose `my_facility_wards` call returns that ward. This proves sign-ups off does not lock provisioned wards out.
+  - **(5) THE FAILING HALF, which shows the setting does its job.** POST /auth/v1/otp with `create_user` true, for an address GoTrue has never seen, creates NO `auth.users` row. Quote the status and the row count.
+  - If either fails, the rule's "any other result" branch applies: no `config.toml` change, the result quoted, and a stop for a ruling. H2 stays unchanged in every case, and becomes a founder step only after a pass.
+- **(c) Commit the report UNEDITED beside the kickoff** in `Sprint Kickoffs/`, and re-read its sha256 and byte count after the copy. They must equal the values above. BS records the amendments; the report is not edited to absorb them.
+
+**BS-2 — ALSO RULED.**
+- The zero-ward sentence is accepted as proposed (the report's §6), with the support sentence kept (BR-2).
+- If `tracked_origins` scans that source, the admin host is read from "@openbed.ng/origins", never written around the guard.
+  - **Checked before acting:** there is no package of that name. The origins package is `@openbed/origins` (`packages/origins/package.json`), which is what the report's §6 named. The instruction is applied to that package, and the ruling's text is left as issued.
+- Step 4b row 4 cites the gate lines in 022's `provision_begin` once 022 lands, not 021's. Its text says "CLOSED by PR A", with the test names.
+- PR A's body lists 022's hosted apply (six fences, with 022's expectations) as a founder step after the merge, required before H6's operator bootstrap. The -45 gate is unaffected.
+
+**BS-3 — BUILD PR A NOW,** on a branch from `main` at `faf984a`, as designed and amended.
+- **Before the merge word, report:**
+  - the new head SHA and its seven check runs, read from the API;
+  - the full suite and its attestation;
+  - the E2E and the frontier;
+  - the Standard P ledger, with its stopping rule declared first;
+  - the behavioural-pass ledger, one row per control in the report's §9;
+  - the zero-Auth matrix;
+  - the two Auth results and the ENABLE_SIGNUP outcome, quoted from output;
+  - the unchanged-files confirmations: `function-grants.json`, the D3 list, `applied-hosted.json` and public output.
+- **Nothing hosted.** Stop after the report. PR B may be designed while PR A is in review, as a design report only, not built.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -4207,6 +4363,11 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | BL | R-2026-09-24-84 | 2026-09-24 | **#72 merged at `f6889d4`**, and the branch deleted after MERGED was read back. The round trips running inside rolled-back transactions are accepted, because `run_migrations.sh` applies each file `--single-transaction`. BK's partial premise is recorded. |
 | BM | R-2026-09-24-85 | 2026-09-24 | **021 applied on hosted: all six fences as they must be** (founder's output, relayed by Cowork). The boundary is at 21, and step 5 is at 0 pending. BI-2 is done: a unit counts as dated history only with "Restated" or "On" plus a date, and 17 statements in 13 units were restated to carry one. The withdrawal step is carried into 3.4b-app's notes. Stop until the next kickoff. |
 | BN | R-2026-09-24-86 | 2026-09-24 | **Four corrections on #73.** The BI-2 unit count is 13, not 12 (derived by running `dateUnits`). The 3.4b-app read-path bullet now covers the listing read only, and the allow-list stays derived from call sites. A marker now dates only the count that follows it, and a list item never dates a fence, with QA's three forms as plants. The withdrawal step is set by a founder SQL step, never a function. Not a merge word. |
+| BO | R-2026-09-24-87 | 2026-09-24 | **#73 merged at `faf984a`;** Cowork's check at `fc175c4` recorded as Cowork's readings. Stop until the 3.4b-app kickoff. |
+| BP | R-2026-09-24-88 | 2026-09-24 | **The 3.4b-app kickoff:** three PRs, A, B, C; its text is the kickoff file, committed unedited. Its finding held: the script bypassed the gates. A second false fact found: row 4's `021:313-322` citation. |
+| BQ | R-2026-09-24-89 | 2026-09-24 | **The founder's answers:** the operator's address is a fourth, unpublished role address, never in the repository; Cloudflare Access in front of admin (founder-reported, not read back). Binds PR B and PR C. |
+| BR | R-2026-09-24-90 | 2026-09-24 | **Migration 022 in PR A:** one active operator by index, begin's operator `complete` arm, reactivation in complete, refusals named by constraint. The fallback refused as a second gate outside SQL. |
+| BS | R-2026-09-24-91 | 2026-09-24 | **The build word for PR A.** The down's refusal confirmed; ENABLE_SIGNUP gains a ward sign-in condition and a failing half; the report committed unedited. Its "@openbed.ng/origins" is `@openbed/origins`, noted in the entry. |
 
 ## Method notes — how rulings reach the implementer
 

@@ -3,7 +3,7 @@ import { apiOrigin } from '@openbed/origins';
 import { publishableKeyFor } from '@openbed/origins/keys';
 import { WARD_SUPPORT_EMAIL } from '@openbed/origins/support';
 import { categoryLabel, precedence, reasonLabel } from '@openbed/labels';
-import { OFFERING_CHOICES, ZERO_REASONS } from '@openbed/labels/ward';
+import { NO_WARD, NO_WARD_HEADING, OFFERING_CHOICES, ZERO_REASONS } from '@openbed/labels/ward';
 
 /**
  * THE WARD CONSOLE. Sign in with a magic link, see the wards at this account's
@@ -127,6 +127,16 @@ const ASK_FOR_HELP = `To fix this, ${GET_HELP}`;
 export const UNRECOGNISED = `Something went wrong. Reload the page and try again. ${CALL_OPERATOR}`;
 export const ROW_REFUSED = `This ward's record could not be read, so it cannot be updated from here. Reload the page. ${CALL_OPERATOR}`;
 export const LOAD_REFUSED = `The ward list could not be read. Reload the page. ${CALL_OPERATOR}`;
+/**
+ * A SESSION WITH NO WARD (R-2026-09-24-88 BP-8; the found-on-landing item of
+ * R-2026-09-23-72). my_facility_wards answers a PLATFORM_ADMIN with 200 and zero
+ * rows, and a WARD_STAFF account always has its ward, so zero rows is an operator
+ * whose sign-in fell back to this console (the Site URL fallback, AZ-1) or broken
+ * data. It is a stop, never an empty handover list that looks like a sign-in that
+ * worked. The words are in packages/labels; the support sentence is appended here
+ * because the other way to reach it is a real ward's broken account (BR-2).
+ */
+export const NO_WARD_SESSION = `${NO_WARD} ${ASK_FOR_HELP}`;
 export const BAD_LINK = 'That sign-in link cannot be used. It may have been used already, or it has expired. Ask for a new one below.';
 
 /**
@@ -605,6 +615,10 @@ export async function render(): Promise<void> {
     if (!Array.isArray(rows)) {
       console.error('OpenBed ward console: the ward list was not a list', rows);
       show('Could not load the handover list', LOAD_REFUSED);
+      return;
+    }
+    if (rows.length === 0) {
+      show(NO_WARD_HEADING, NO_WARD_SESSION);
       return;
     }
     renderHandover(holder, holder.session?.claims.email ?? null, rows.map(wardRowFrom));

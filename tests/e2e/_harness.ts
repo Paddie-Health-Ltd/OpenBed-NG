@@ -110,6 +110,16 @@ export async function seedE2eCorpus(): Promise<void> {
       values (${f.id}::uuid, '2026-09-01', 'synthetic-v1')
       on conflict (facility_id) do update set withdrawn_on = null
     `;
+    // Since PR 3.4b-app A the provisioning script goes through app.provision_begin,
+    // which refuses a facility with no contact (NO_FACILITY_CONTACT). Synthetic, seeded
+    // directly beside the agreement above, because this corpus has no operator
+    // session; PR 3.4b-app C's golden-path operator step moves ALPHA onto the
+    // operator functions (R-2026-09-24-88 BP-6 9, BP-12).
+    await db`
+      insert into app.facility_contact (facility_id, full_name, job_title, email)
+      values (${f.id}::uuid, 'Synthetic Contact', 'Medical Director', ${`contact-${f.id.slice(-4)}@e2e.invalid`})
+      on conflict (facility_id) do nothing
+    `;
     // Duty flags at 'UNKNOWN' -- the state every real facility is in on day one.
     // If the gate ever treats UNKNOWN as closed, these rows go dark and the golden
     // path goes with them. Reset on conflict, so a run that set a flag cannot

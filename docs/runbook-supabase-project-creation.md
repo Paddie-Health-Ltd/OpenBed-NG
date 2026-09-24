@@ -642,7 +642,7 @@ the whole of its safety.** Read on this project **2026-09-21 16:58 UTC:
 | 1 | `'(unknown facility)'` rendered beside a **real** bed count when a ward references a facility absent from the payload | a count with no callable identity, rendered as if actionable — it tells someone routing an ambulance that beds exist somewhere they cannot ring | **CLOSED** (R-2026-09-23-66). The ward is dropped, not explained: `callableIdentity()` at `apps/public-dashboard/src/main.ts:221-228` decides, and returns null without a name and a number to call. Held by `tests/compliance/dashboard_identity_and_call.test.ts` ("a count renders only beside a callable facility"). 019 makes the case unreachable at source (`tests/db/snapshot_single_read.test.ts`) |
 | 2 | `wardRowFrom` **defaulted** a clinical claim (`offering ?? 'NOT_OFFERED'`) and a concurrency token (`version ?? 0`, which became `p_expected_version`) | it asserted to a ward something the server never said, and turned optimistic concurrency into a guess | **CLOSED**. `wardRowFrom` at `apps/ward-console/src/main.ts:219-245` refuses the row instead: `offering` must be OFFERED or NOT_OFFERED (line 225), `version` a positive integer (line 227), and so on for every field. Held by `tests/compliance/ward_console_render.test.ts` ("B2 — a malformed ward row is refused, never defaulted") |
 | 3 | the publish screen echoed **raw server text** to a ward user on an unrecognised status (R-2026-09-20-30 D1) | a clinical user mid-emergency should not be reading a database error, and server text can carry internals | **CLOSED**. `wardMessageFor` at `apps/ward-console/src/main.ts:167-180` maps a refusal to a fixed sentence, or to `UNRECOGNISED`, and only logs the body. Held by `tests/compliance/ward_console_render.test.ts` ("D1 — no raw server text reaches the screen") |
-| 4 | the invite gate: no invite for a facility without a contact and a recorded agreement | a login handed to a facility that never accepted the agreement | **CLOSED**. Built in 020 as `app.provision_begin` (`database/migrations/020_operator_functions_and_listing.sql:801-807`: `NO_FACILITY_CONTACT`, then `AGREEMENT_NOT_RECORDED`), applied on hosted 2026-09-24. **Restated by 021** to read the agreement from `app.facility_agreement`, off the contact person's row, and to refuse a withdrawn one (`database/migrations/021_facility_agreement_and_contact_write.sql:313-322`: `NO_FACILITY_CONTACT`, `AGREEMENT_NOT_RECORDED`, `AGREEMENT_WITHDRAWN`); applied on hosted 2026-09-24 (R-2026-09-24-85). Held by `tests/db/provisioning_gates.test.ts` and `tests/db/operator_contact_and_agreement.test.ts` |
+| 4 | the invite gate: no invite for a facility without a contact and a recorded agreement | a login handed to a facility that never accepted the agreement | **CLOSED by PR A** (3.4b-app; R-2026-09-24-88 BP-6, R-2026-09-24-90 BR-1). The gate is `app.provision_begin`, and since PR A the one path that creates a login goes through it: `scripts/provision_ward_account.mjs` calls `app.provision_begin` first and `app.provision_complete` last, writes no `app.*` table itself, and makes no Auth call on a refusal. The refusals are at `database/migrations/022_one_operator_and_reactivation.sql:121`, `:124` and `:127` (`NO_FACILITY_CONTACT`, `AGREEMENT_NOT_RECORDED`, `AGREEMENT_WITHDRAWN`); on hosted, until 022 is applied, the same three are 021's, at `database/migrations/021_facility_agreement_and_contact_write.sql:341`, `:344` and `:347`. Held by `tests/db/provision_script.test.ts` ("the script refuses at app.provision_begin, and makes ZERO Auth requests", counted at a stub GoTrue), `tests/compliance/provision_ward_account.test.ts` ("the gates have one implementation, in SQL"), and `tests/db/provisioning_gates.test.ts` for the functions themselves. *Restated 2026-09-24 (R-2026-09-24-88).* Until PR A this row read CLOSED on the SQL alone, and cited `021:313-322`, which is the role parse: the script called `generate_link` first and inserted the invite and the account itself, so no gate ran on the path that creates logins (the 3.4b-app kickoff's finding). |
 | 5 | **a backup has never been restored** (R-2026-09-24-74 BB-4) | the backups are a setting that has been seen, not a restore that has been shown to work | **OPEN.** The checkbox is in step 4. A named human step; no script checks it |
 
 
@@ -675,10 +675,14 @@ must test the HOST first — see R-2026-09-21-45.
 
 > **THIS IS A NAMED HUMAN STEP. Nothing enforces it.** No script reads the list
 > above and none is cited here, because none exists (Clause 4). A mechanical
-> guard is proposed and deliberately not built — see R-2026-09-21-45. Note that
+> guard is proposed and deliberately not built — see R-2026-09-21-45.
 > `scripts/provision_ward_account.mjs`, the only sanctioned way to create a ward
-> account, **has no host check at all**: pointing it at this project is one
-> environment variable. Its header carries this same block.
+> account, has had a **host check** since PR 3.4b-app A (`scripts/provision_target.mjs`):
+> the Auth URL and the database URL must name the same project, and a non-local run
+> must name it with `--project-ref`. **It is not this guard.** It says where a run
+> writes, never whether this step is clear. *Restated 2026-09-24 (R-2026-09-24-88
+> BP-6 5): until then this block said the script had no host check at all.* Its header
+> carries this same block.
 
 **Why this section sits beside the backups one.** Section 4 exists because some
 things must be true *before any real data exists*, and after that it is too late.
@@ -737,11 +741,15 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions.
 Restated 2026-09-14: until then this read `exactly 13 migration(s) pending.`, and
 migration 014 made that wrong.
 
-- **The hosted project today** holds 001 through 021 (see step 7), and so does the
-  repository. Every file up to and including
+- **The hosted project today** holds 001 through 021 (see step 7), and the
+  repository holds 022. Every file up to and including
   `021_facility_agreement_and_contact_write.sql` must read `already applied`;
-  there must be no `WOULD APPLY` line; and the dry run must end
-  `0 migration(s) pending.`
+  there must be exactly one `WOULD APPLY` line, naming
+  `022_one_operator_and_reactivation.sql`; and the dry run must end
+  `1 migration(s) pending.`
+- **Restated 2026-09-24 (R-2026-09-24-90 BR-1 d), in the change that ADDS 022.**
+  Until then this expected no `WOULD APPLY` line and `0 migration(s) pending.`,
+  which was right from 021's hosted apply while the repository ended at 021.
 - **Restated 2026-09-24 (R-2026-09-24-85), in the change that records 021's hosted
   apply.** Until then this expected 001 through 020, exactly one `WOULD APPLY` line
   naming `021_facility_agreement_and_contact_write.sql`, and `1 migration(s) pending.`
@@ -798,10 +806,14 @@ migration 014 made that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line AT ALL, or any count other than
-  `0 migration(s) pending.`: stop and report.** Another file pending means
+- **Any `WOULD APPLY` line OTHER than the one named above, or any count other
+  than `1 migration(s) pending.`: stop and report.** Another file pending means
   either a migration reached the repository after the list was last restated, or
   hosted is not where this document says it is.
+  - *Restated 2026-09-24 (R-2026-09-24-90 BR-1 d), in the change that adds 022. Until
+    then this bullet read "Any `WOULD APPLY` line AT ALL, or any count other than
+    `0 migration(s) pending.`", which was right from 021's apply while the
+    repository ended at 021.*
   - *Restated 2026-09-24 (R-2026-09-24-85), in the change that records 021's hosted
     apply. Until then this bullet read "Any `WOULD APPLY` line OTHER than the one
     named above, or any count other than `1 migration(s) pending.`", which was right
@@ -1585,14 +1597,65 @@ changes:
 **Afterwards:** the frozen boundary is recorded with `21`, in the change that records
 this apply.
 
+### 022's apply — the same six fences; required before the operator bootstrap (R-2026-09-24-90 BR-1 f)
+
+**NOT YET RUN. A founder step after PR A (3.4b-app) merges, and it must be complete
+before H6's operator bootstrap:** the bootstrap goes through 022's
+`app.provision_begin`, and on 021's body a re-run of it would open a second operator
+invite. The -45 gate is unaffected: 022 creates no facility and no ward_account row.
+
+**What 022 changes** (its header says why): a partial unique index allowing at most one
+active `PLATFORM_ADMIN`, an operator arm in `app.provision_begin`, and reactivation plus
+refusals named by constraint in `app.provision_complete`. No table, no column, no
+public function, no grant.
+
+**Run the six fences of "020's apply" above, in the same order, with these
+expectations for 022.** The fences are the procedure. Only what each must read
+changes:
+
+1. **The dry run:** the list at the top of this step, which names exactly one file,
+   `022_one_operator_and_reactivation.sql`. Anything else: stop and report.
+2. **The before-reading:** as for 020. Keep the `FINGERPRINT` line. The before/after
+   comparison still holds, because no ward can publish yet (-74 BB-3).
+3. **The apply:** as for 020. 022's pre-check refuses to apply, naming the count
+   (`PLATFORM_ADMIN_DUPLICATES`), if more than one active `PLATFORM_ADMIN` exists.
+   Hosted holds no `ward_account` row at all.
+4. **The after-reading:** as for 020. `PASS (VACUOUS FOR B1)` is expected while
+   hosted is empty. 022 writes no projected table.
+5. **The second dry run:** twenty-two `already applied` lines, naming
+   `001_app_schema_and_migration_ledger.sql` through
+   `022_one_operator_and_reactivation.sql`, no `WOULD APPLY` line, and the same last
+   line as 020's fence 5, saying nothing is pending. Not "the list at the top of this
+   step": that list is restated only in the change that records this apply, so when
+   this fence runs it still names 022. Anything else: stop and report.
+6. **Who can execute what:** as for 020, run after the apply for the same order as
+   every other apply. **Unlike 021, it reads the same before and after:** 022 adds
+   no function and changes no grant, and a replaced function keeps its ACL, so
+   `packages/fixtures/function-grants.json` is unchanged by PR A.
+   `app.provision_begin(uuid, text, text)` and `app.provision_complete(uuid, uuid)`
+   read `EXECUTE: none`, and `public.rls_auto_enable()` reads `ok` under
+   `(hosted-only)`. Anything else: stop and report.
+
+**Its down migration is never applied here on anyone's own authority.** It refuses
+while an active `PLATFORM_ADMIN` exists (`OPERATOR_INDEX_IN_USE`, R-2026-09-24-91 BS-1 a),
+because from then on the index is the only guard against a second operator.
+
+**Afterwards:** the frozen boundary is recorded with `22`, in the change that records
+this apply.
+
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 021 applied, and the repository ending
-at 021), the dry run prints twenty-one `already applied` lines and:
+**On the hosted project today** (001 through 021 applied, 022 in the repository and
+not yet applied), the dry run prints twenty-one `already applied` lines and:
 
 ```
-0 migration(s) pending.
+  WOULD APPLY     : 022_one_operator_and_reactivation.sql   <- dry run
+1 migration(s) pending.
 ```
+
+*Restated 2026-09-24 (R-2026-09-24-90 BR-1 d), in the change that adds 022.* Until
+then this block showed twenty-one `already applied` lines, no WOULD APPLY line, and
+a count of zero -- right from 021's apply while the repository ended at 021.
 
 *Restated 2026-09-24 (R-2026-09-24-85), in the change that records 021's hosted
 apply.* Until then this block described the state BEFORE that apply: twenty
@@ -1709,9 +1772,12 @@ Migrations complete (3 applied this run).   <- apply
 second is lower:
 
 ```
-21 migration(s) pending.          <- dry run
-Migrations complete (20 applied this run).   <- apply
+22 migration(s) pending.          <- dry run
+Migrations complete (21 applied this run).   <- apply
 ```
+
+*Restated 2026-09-24 (R-2026-09-24-90 BR-1 d), in the change that adds 022. This block
+read `21` and `20` -- right while the repository ended at 021.*
 
 *Restated 2026-09-24 (R-2026-09-24-76), in the change that adds 021. This block
 read `20` and `19` -- right while the repository ended at 020.*
@@ -1727,21 +1793,24 @@ so from that merge it named a count one lower than a correct virgin run prints. 
 not one of the hosted expectations the guard parses; it was found by reading the
 section for this restatement.*
 
-**Twenty is correct there. Nothing was skipped.** Migration 001 creates the `app`
+**Twenty-one is correct there. Nothing was skipped.** Migration 001 creates the `app`
 schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
 recorded by a ledger that does not exist yet. The runner applies and ledgers it
 in a separate **bootstrap** step, and the apply loop then counts only what it
-applied itself -- 002 through 021, which is twenty. The dry run has no bootstrap
+applied itself -- 002 through 022, which is twenty-one. The dry run has no bootstrap
 branch: `is_applied` returns 0 while the ledger is absent, so it counts all
-twenty-one as pending. The two numbers are measuring different things.
+twenty-two as pending. The two numbers are measuring different things.
 
 **Confirm it by the ledger, which is the artefact that matters, not by the
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `21`, with `0 migration(s) pending.` from the
-dry run** -- the founder's second dry run after 021's apply on 2026-09-24 read
-twenty-one `already applied` lines, 001 through 021. *Restated 2026-09-24
+THAT PROJECT. **On hosted today that is `21`, with `1 migration(s) pending.` from the
+dry run** -- 022 is in the repository and not yet applied. *Restated 2026-09-24
+(R-2026-09-24-90 BR-1 d), in the change that adds 022; until then it read `21` with
+`0 migration(s) pending.`, which was right from 021's apply while the repository ended
+at 021: the founder's second dry run after that apply on 2026-09-24 read
+twenty-one `already applied` lines, 001 through 021.* *Restated 2026-09-24
 (R-2026-09-24-85), in the change that records 021's apply; until then it read `20` with
 `1 migration(s) pending.`* *Restated 2026-09-24 (R-2026-09-24-78), in the change that adds 021;
 until then it read `20` with `0 migration(s) pending.`, which was right from that

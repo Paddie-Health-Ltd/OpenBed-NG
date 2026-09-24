@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { REPO_ROOT } from './_scratch.js';
+import ZERO_WARD from '../../packages/fixtures/platform-admin-my-facility-wards.json';
 
 /**
  * THE WARD CONSOLE, RENDERED (R-2026-09-23-66; the kickoff's B2 and D1).
@@ -417,5 +418,55 @@ describe('the ward asks for a new sign-in link, and cannot learn whether an addr
     const b = await requestSignInLink({ apiUrl: 'http://x', anonKey: 'k', email: 'e', redirectTo: 'http://y/', fetch: down as never, sleep: async () => undefined });
     expect(b.kind).toBe('unreachable');
     expect(down, 'a missing answer was not retried, or was retried without bound').toHaveBeenCalledTimes(2);
+  });
+});
+
+/**
+ * BP-8 (R-2026-09-24-88): a session with NO ward is a stop, never an empty handover.
+ * Rendered against packages/fixtures/platform-admin-my-facility-wards.json, the body
+ * tests/db/platform_admin_session_live.test.ts asserts a real PLATFORM_ADMIN session
+ * gets. Until PR 3.4b-app A the console drew "Handover", "Signed in as …" and an empty
+ * list for it: a sign-in that looked as if it worked.
+ */
+function zeroWardViolations(page: Document): string[] {
+  const out: string[] = [];
+  const words = page.body.textContent ?? '';
+  if (!words.includes('Not linked to a ward')) out.push('no zero-ward stop heading');
+  if (!words.includes('admin.openbed.ng')) out.push('the stop does not send an operator to admin.openbed.ng');
+  if (words.includes('Handover')) out.push('the handover heading was drawn');
+  if (page.querySelectorAll('ul').length > 0) out.push('a list was drawn');
+  if (page.querySelectorAll('form').length > 0) out.push('a form was drawn');
+  return out;
+}
+
+describe('the zero-ward session (BP-8)', () => {
+  test('real console — a PLATFORM_ADMIN session (zero rows) gets the stop, with the support sentence, and no list or form', async () => {
+    await renderAt(sessionFragment(), handover(ZERO_WARD.body));
+    await until(() => text().includes('Not linked to a ward'));
+    expect(zeroWardViolations(document)).toEqual([]);
+    const m = await import('../../apps/ward-console/src/main.js');
+    expect(text()).toContain(m.NO_WARD_SESSION);
+    expect(m.NO_WARD_SESSION, 'the stop dropped the support sentence (BR-2)').toContain('email ');
+  });
+
+  test('plant — the pre-3.4b-app page, an empty handover list, is rejected', () => {
+    document.body.innerHTML = '<div id="app"><h1>Handover</h1><p>Signed in as ward@example.invalid.</p><ul></ul></div>';
+    expect(zeroWardViolations(document)).toEqual([
+      'no zero-ward stop heading',
+      'the stop does not send an operator to admin.openbed.ng',
+      'the handover heading was drawn',
+      'a list was drawn',
+    ]);
+  });
+
+  test('anti-vacuity — an empty page is not a stop', () => {
+    document.body.innerHTML = '<div id="app"></div>';
+    expect(zeroWardViolations(document)).toContain('no zero-ward stop heading');
+  });
+
+  test('a ward WITH rows still gets its handover — the stop fires on zero rows only', async () => {
+    await renderAt(sessionFragment(), handover([GOOD_ROW]));
+    await until(() => text().includes('Handover'));
+    expect(text()).not.toContain('Not linked to a ward');
   });
 });

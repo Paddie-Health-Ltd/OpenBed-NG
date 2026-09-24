@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, test } from 'vitest';
 import { signInWard, authedRest, type WardSession } from '../setup/auth.js';
 import { sql } from '../setup/db.js';
+import ZERO_WARD from '../../packages/fixtures/platform-admin-my-facility-wards.json';
 
 /**
  * WHAT A REAL PLATFORM_ADMIN SESSION GETS FROM EVERY FUNCTION `authenticated` CAN RUN
@@ -60,9 +61,13 @@ describe('a real PLATFORM_ADMIN session, function by function', () => {
   });
 
   test('my_facility_wards — NOT refused: 200 and zero rows, because the account has no facility', async () => {
+    // THE SHARED-FIXTURE LINK (R-2026-09-24-88 BP-8): the ward console's render test
+    // draws its zero-ward stop against this same file, so the stop is tested against
+    // what a real PLATFORM_ADMIN session gets, and a change here reds both.
     const r = await call('my_facility_wards', {});
     expect(r.status, JSON.stringify(r.body)).toBe(200);
-    expect(r.body).toEqual([]);
+    expect(ZERO_WARD.body, 'the shared fixture stopped saying zero rows').toEqual([]);
+    expect(r.body, 'the live body no longer matches the fixture the ward console is tested against').toEqual(ZERO_WARD.body);
   });
 
   test('ward_status_history — NOT refused: 200 and zero rows, for the same reason', async () => {
