@@ -35,6 +35,10 @@
 // (migration 003); nothing reads it, and there is no invite-issuing function
 // anywhere, so this is an absence rather than a defect. Named here because it
 // gates this same path and one consolidated condition is the point.
+// OUT OF DATE, as runbook step 4b's copy is, until both are restated with
+// evidence in the change that records 020's apply (R-2026-09-24-75 BC-2). 020
+// built the gate as app.provision_begin. 021 moves the acceptance into
+// app.facility_agreement (R-2026-09-24-76 BD-1).
 //
 // THIS IS A NAMED HUMAN STEP. NOTHING IN THIS SCRIPT ENFORCES IT -- there is no
 // check below that reads the list above, and a reader must not infer one

@@ -647,6 +647,11 @@ gate — no invite for a facility whose `app.facility_contact.agreement_accepted
 is null. The column exists (migration 003); **nothing reads it**, and there is no
 invite-issuing function anywhere, so this is an absence rather than a defect.
 Named here because it gates this same moment.
+*Out of date, and left as written until it is restated with evidence in the change
+that records 020's apply (R-2026-09-24-75 BC-2). 020 built the gate as
+`app.provision_begin`. 021 (R-2026-09-24-76 BD-1) moves the acceptance off the
+contact row into `app.facility_agreement`, so that erasing the contact person never
+erases it.*
 
 **HOW TO CHECK THE CONDITION, rather than remembering it.** Connect as step P
 says, then:
@@ -739,11 +744,16 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions. Until
 that wrong.
 
 - **The hosted project today** holds 001 through 019 (see step 7), and the
-  repository holds 020. Every file up to and including
+  repository holds 020 and 021. Every file up to and including
   `019_snapshot_single_read_and_mirror_integrity.sql` must read `already applied`;
-  there must be exactly one `WOULD APPLY` line, naming
-  `020_operator_functions_and_listing.sql`; and the dry run must end
-  `1 migration(s) pending.`
+  there must be exactly two `WOULD APPLY` lines, naming
+  `020_operator_functions_and_listing.sql` and then
+  `021_facility_agreement_and_contact_write.sql`; and the dry run must end
+  `2 migration(s) pending.`
+- **Restated 2026-09-24 (R-2026-09-24-76), in the change that ADDS 021.** Until
+  then this expected exactly one `WOULD APPLY` line, naming
+  `020_operator_functions_and_listing.sql`, and `1 migration(s) pending.`, which was
+  right while the repository ended at 020 and hosted at 019.
 - **Restated 2026-09-23 (R-2026-09-23-71), in the change that ADDS 020.** Until
   then this expected no `WOULD APPLY` line and `0 migration(s) pending.`, which was
   right while the repository and hosted both ended at 019.
@@ -787,10 +797,14 @@ that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line OTHER than the one named above, or any count other
-  than `1 migration(s) pending.`: stop and report.** Another file pending means
+- **Any `WOULD APPLY` line OTHER than the two named above, or any count other
+  than `2 migration(s) pending.`: stop and report.** Another file pending means
   either a migration reached the repository after the list was last restated, or
   hosted is not where this document says it is.
+  - *Restated 2026-09-24 (R-2026-09-24-76), in the change that adds 021. Until then
+    this bullet read "Any `WOULD APPLY` line OTHER than the one named above, or any
+    count other than `1 migration(s) pending.`", which was right while the
+    repository ended at 020.*
   - *Restated 2026-09-23 (R-2026-09-23-71), in the change that adds 020. Until then
     this bullet read "Any `WOULD APPLY` line AT ALL, or any count other than
     `0 migration(s) pending.`", which was right while the repository ended at 019.*
@@ -1511,13 +1525,19 @@ that records this apply, not in the session that runs it.
 
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 019 applied, 020 in the repository and
-not yet applied), the dry run prints nineteen `already applied` lines and:
+**On the hosted project today** (001 through 019 applied, 020 and 021 in the
+repository and not yet applied), the dry run prints nineteen `already applied` lines
+and:
 
 ```
-  WOULD APPLY     : 020_operator_functions_and_listing.sql   <- dry run
-1 migration(s) pending.
+  WOULD APPLY     : 020_operator_functions_and_listing.sql   <- dry run, first
+  WOULD APPLY     : 021_facility_agreement_and_contact_write.sql   <- dry run, second
+2 migration(s) pending.
 ```
+
+*Restated 2026-09-24 (R-2026-09-24-76), in the change that adds 021.* Until then
+this block showed one WOULD APPLY line, naming `020_operator_functions_and_listing.sql`,
+and a count of one -- right while the repository ended at 020.
 
 *Restated 2026-09-23 (R-2026-09-23-71), in the change that adds 020.* Until then
 this block showed nineteen `already applied` lines, no WOULD APPLY line, and a
@@ -1594,9 +1614,12 @@ Migrations complete (3 applied this run).   <- apply
 second is lower:
 
 ```
-20 migration(s) pending.          <- dry run
-Migrations complete (19 applied this run).   <- apply
+21 migration(s) pending.          <- dry run
+Migrations complete (20 applied this run).   <- apply
 ```
+
+*Restated 2026-09-24 (R-2026-09-24-76), in the change that adds 021. This block
+read `20` and `19` -- right while the repository ended at 020.*
 
 *Restated 2026-09-23 (R-2026-09-23-71), in the change that adds 020. This block
 read `19` and `18` -- right while the repository ended at 019. Observed on the
@@ -1609,21 +1632,24 @@ so from that merge it named a count one lower than a correct virgin run prints. 
 not one of the hosted expectations the guard parses; it was found by reading the
 section for this restatement.*
 
-**Nineteen is correct there. Nothing was skipped.** Migration 001 creates the `app`
+**Twenty is correct there. Nothing was skipped.** Migration 001 creates the `app`
 schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
 recorded by a ledger that does not exist yet. The runner applies and ledgers it
 in a separate **bootstrap** step, and the apply loop then counts only what it
-applied itself -- 002 through 020, which is nineteen. The dry run has no bootstrap
+applied itself -- 002 through 021, which is twenty. The dry run has no bootstrap
 branch: `is_applied` returns 0 while the ledger is absent, so it counts all
-twenty as pending. The two numbers are measuring different things.
+twenty-one as pending. The two numbers are measuring different things.
 
 **Confirm it by the ledger, which is the artefact that matters, not by the
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `19`, with `1 migration(s) pending.` from the
-dry run**, the one being `020_operator_functions_and_listing.sql` -- the founder read
-`19` after 019's apply on 2026-09-23. *Restated 2026-09-23 (R-2026-09-23-71), in the
+THAT PROJECT. **On hosted today that is `19`, with `2 migration(s) pending.` from the
+dry run**, the two being `020_operator_functions_and_listing.sql` and
+`021_facility_agreement_and_contact_write.sql` -- the founder read `19` after 019's
+apply on 2026-09-23. *Restated 2026-09-24 (R-2026-09-24-76), in the change that adds
+021; until then it read `19` with `1 migration(s) pending.`, which was right while
+the repository ended at 020.* *Restated 2026-09-23 (R-2026-09-23-71), in the
 change that adds 020; until then it read `19` with `0 migration(s) pending.`, which
 was right while the repository ended at 019.* *Restated 2026-09-23 (R-2026-09-23-69),
 in the change that records that apply; until then it read `18` with
@@ -1987,7 +2013,7 @@ removes the grant — the transaction never commits, so nothing is left behind e
 if the block is interrupted. **If this returns no rows, the query is broken and
 half 2 means nothing.**
 
-**Half 2 — the real sweep. It must return no rows, and must count 16 tables.**
+**Half 2 — the real sweep. It must return no rows, and must count 17 tables.**
 
 ```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
@@ -2007,8 +2033,10 @@ SQL
 **The second query is the anti-vacuity half and it is not optional.** An empty
 grant result is the same output whether the schema holds 16 tables with no grants
 or holds none at all — a schema that had been renamed would report a clean
-boundary. It must print **16**, matching the enumeration recorded above and the
-count the local test pins.
+boundary. It must print **17**, matching the count the local test pins. That is 16
+until 021 is applied; 021 adds `app.facility_agreement`, and this sweep runs once
+Bundle 3's last migration is applied. *Restated 2026-09-24 (R-2026-09-24-76), in the
+change that adds 021; until then it read 16.*
 
 **The tables are enumerated FROM THE CATALOGUE, never from the list above.** A
 literal list here would go stale the moment a migration adds a table, and would go

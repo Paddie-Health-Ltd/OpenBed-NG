@@ -83,12 +83,15 @@ describe('row level security', () => {
     //   IN   facility_contact   -- the one invited human per facility.
     //   RENAMED app_user -> ward_account: an account is a ward, not a person.
     // `device` survives, re-scoped to a ward account and without its fingerprint.
+    // 17 since 021 (R-2026-09-24-76 BD-1): IN facility_agreement -- the facility's
+    // acceptance, moved off the contact row so that no erasure of a person reaches it.
     expect(names).toEqual([
       'alert',
       'audit_log',
       'challenge',
       'device',
       'facility',
+      'facility_agreement',
       'facility_contact',
       'facility_ops',
       'invite',

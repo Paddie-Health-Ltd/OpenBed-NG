@@ -786,7 +786,7 @@ describe('scripts/readback_function_grants.sh', () => {
 
   test.each<[string, (g: Record<string, string>) => void, string]>([
     ['anon holding EXECUTE on a provisioning gate', (g) => { g['app.provision_begin(uuid, text, text)'] = 'anon'; }, 'app.provision_begin(uuid, text, text) EXECUTE'],
-    ['service_role holding a default grant 020 should have revoked', (g) => { g['public.operator_list_facilities()'] = 'authenticated,service_role'; }, 'public.operator_list_facilities() EXECUTE'],
+    ['service_role holding a default grant the migrations should have revoked', (g) => { g['public.operator_register()'] = 'authenticated,service_role'; }, 'public.operator_register() EXECUTE'],
     ['authenticated missing a grant the fixture gives it', (g) => { g['public.publish_ward_status(text, text, integer, boolean, text, integer, text, timestamp with time zone)'] = ''; }, 'public.publish_ward_status(text, text, integer, boolean, text, integer, text, timestamp with time zone) EXECUTE'],
     ['a function the fixture does not name', (g) => { g['public.zz_hosted_only()'] = 'anon,authenticated,service_role'; }, 'public.zz_hosted_only() EXECUTE'],
     ['a fixture function the database lacks', (g) => { delete g['app.provision_complete(uuid, uuid)']; }, 'app.provision_complete(uuid, uuid) EXECUTE'],

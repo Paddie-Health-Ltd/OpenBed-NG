@@ -71,10 +71,12 @@ describe('a real PLATFORM_ADMIN session, function by function', () => {
     expect(r.body).toEqual([]);
   });
 
-  test('operator_list_facilities — accepted: 200 and an array', async () => {
-    const r = await call('operator_list_facilities', {});
+  test('operator_register — accepted: 200 and the envelope, with server_now and a facilities array', async () => {
+    const r = await call('operator_register', {});
     expect(r.status, JSON.stringify(r.body)).toBe(200);
-    expect(Array.isArray(r.body)).toBe(true);
+    const env = r.body as { server_now?: unknown; facilities?: unknown };
+    expect(Number.isNaN(Date.parse(String(env.server_now)))).toBe(false);
+    expect(Array.isArray(env.facilities)).toBe(true);
   });
 
   test.each([
@@ -82,6 +84,10 @@ describe('a real PLATFORM_ADMIN session, function by function', () => {
     ['operator_edit_facility', { p_facility_id: NO_SUCH, p_expected_version: 1, p_name: 'x', p_lga: 'x', p_state: 'x', p_lat: 6.5, p_lng: 3.4, p_public_phone_e164: '+2348000000000' }, 'NO_SUCH_FACILITY'],
     ['operator_add_category', { p_facility_id: NO_SUCH, p_category: 'ICU_ADULT', p_offering: 'OFFERED' }, 'NO_SUCH_FACILITY'],
     ['operator_set_facility_listed', { p_facility_id: NO_SUCH, p_expected_version: 1 }, 'NO_SUCH_FACILITY'],
+    // 021 (R-2026-09-24-75/76).
+    ['operator_record_contact', { p_facility_id: NO_SUCH, p_full_name: 'x', p_job_title: 'x', p_email: 'role@example.invalid', p_mobile_e164: null, p_sms_opt_in: false, p_expected_version: null }, 'NO_SUCH_FACILITY'],
+    ['operator_record_agreement', { p_facility_id: NO_SUCH, p_accepted_on: '2026-09-01', p_version: 'v1.0', p_signatory_role: 'CMD' }, 'NO_SUCH_FACILITY'],
+    ['operator_get_contact', { p_facility_id: NO_SUCH }, 'NO_SUCH_FACILITY'],
   ])('%s — past the identity check: the refusal is the argument, never NOT_AN_OPERATOR, and nothing is written', async (fn, body, expected) => {
     const r = await call(fn, body);
     const text = JSON.stringify(r.body);

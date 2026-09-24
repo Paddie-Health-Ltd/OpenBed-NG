@@ -71,7 +71,11 @@ const CALLS: [string, (id: string) => string][] = [
   ['operator_edit_facility', () => `select * from public.operator_edit_facility('${FAC}', 1, 'Renamed', 'Ikeja', 'Lagos', 6.6, 3.35, '+2348000000301')`],
   ['operator_add_category', () => `select * from public.operator_add_category('${FAC}', 'MATERNITY', 'OFFERED')`],
   ['operator_set_facility_listed', () => `select * from public.operator_set_facility_listed('${FAC}', 1)`],
-  ['operator_list_facilities', () => `select * from public.operator_list_facilities()`],
+  ['operator_register', () => `select public.operator_register()`],
+  // 021 (R-2026-09-24-75/76): the contact and agreement writes, and the operator's read.
+  ['operator_record_contact', () => `select * from public.operator_record_contact('${FAC}', 'A Person', 'Matron', 'role@example.invalid', null, false, null)`],
+  ['operator_record_agreement', () => `select * from public.operator_record_agreement('${FAC}', '2026-09-01', 'v1.0', 'CMD')`],
+  ['operator_get_contact', () => `select public.operator_get_contact('${FAC}')`],
 ];
 
 describe('the operator functions refuse every caller that is not an active PLATFORM_ADMIN', () => {
@@ -260,7 +264,9 @@ describe('operator_set_facility_listed — the preconditions, each refused by na
       expect(await auditCount(tx, 'facility.list')).toBeGreaterThanOrEqual(1);
     }, async (tx) => {
       await unlisted(tx);
-      await tx.unsafe(`insert into app.facility_contact (facility_id, full_name, job_title, email, agreement_accepted_at) values ('${FAC}', 'Named Person', 'Medical Director', '${CONTACT_EMAIL}', now())`);
+      await tx.unsafe(`insert into app.facility_contact (facility_id, full_name, job_title, email) values ('${FAC}', 'Named Person', 'Medical Director', '${CONTACT_EMAIL}')`);
+      // 021 (BD-1): the agreement is its own row, never the contact's.
+      await tx.unsafe(`insert into app.facility_agreement (facility_id, accepted_on, version) values ('${FAC}', '2026-09-01', 'v1.0')`);
     });
   });
 
@@ -270,19 +276,22 @@ describe('operator_set_facility_listed — the preconditions, each refused by na
         await unlisted(tx);
         await tx.unsafe(`delete from app.ward_account where id = '${WARD}'`);
         await tx.unsafe(`delete from app.ward_status where facility_id = '${FAC}'`);
-        await tx.unsafe(`insert into app.facility_contact (facility_id, full_name, job_title, email, agreement_accepted_at) values ('${FAC}', 'Named Person', 'Medical Director', '${CONTACT_EMAIL}', now())`);
+        await tx.unsafe(`insert into app.facility_contact (facility_id, full_name, job_title, email) values ('${FAC}', 'Named Person', 'Medical Director', '${CONTACT_EMAIL}')`);
+        // 021 (BD-1): the agreement is its own row, never the contact's.
+        await tx.unsafe(`insert into app.facility_agreement (facility_id, accepted_on, version) values ('${FAC}', '2026-09-01', 'v1.0')`);
       }),
     );
     expect(r.message).toBe('NO_CATEGORY');
   });
 });
 
-describe('operator_list_facilities — every facility, every category, and no email', () => {
+describe("operator_register — every facility, every category, and no email (020's list, as 021's envelope)", () => {
   test('provisioning_incomplete is derived from an open invite with no account, and the output carries no address', async () => {
     await withRole('authenticated', claims(OP), async (tx) => {
-      const rows = await tx.unsafe<{ facility_id: string; agreement_recorded: boolean; has_contact: boolean; categories: { category: string; has_account: boolean; provisioning_incomplete: boolean }[] }[]>(
-        `select * from public.operator_list_facilities()`,
+      const [env] = await tx.unsafe<{ r: { facilities: { facility_id: string; agreement_recorded: boolean; has_contact: boolean; categories: { category: string; has_account: boolean; provisioning_incomplete: boolean }[] }[] } }[]>(
+        `select public.operator_register() as r`,
       );
+      const rows = env!.r.facilities;
       const mine = rows.find((r) => r.facility_id === FAC);
       expect(mine, 'the facility is missing from the operator list').toBeDefined();
       expect(mine?.has_contact).toBe(true);
@@ -301,7 +310,8 @@ describe('operator_list_facilities — every facility, every category, and no em
 
   test('a stale category is LISTED, never filtered out (AJ D8)', async () => {
     await withRole('authenticated', claims(OP), async (tx) => {
-      const rows = await tx.unsafe<{ facility_id: string; categories: { category: string }[] }[]>(`select * from public.operator_list_facilities()`);
+      const [env] = await tx.unsafe<{ r: { facilities: { facility_id: string; categories: { category: string }[] }[] } }[]>(`select public.operator_register() as r`);
+      const rows = env!.r.facilities;
       const cats = rows.find((r) => r.facility_id === FAC)?.categories.map((c) => c.category);
       expect(cats).toContain('MATERNITY');
     }, async (tx) => {

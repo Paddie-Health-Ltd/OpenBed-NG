@@ -57,14 +57,20 @@ export function closedListViolations(found: string[], list: Record<string, strin
 }
 
 describe('the authenticated-executable surface', () => {
-  test('the derived list is the list this test held as a literal until 2026-09-24 — the move to one source changed no name', () => {
+  test('the derived list names exactly the functions the migrations grant — the nine held as a literal until 2026-09-24, as restated by 021', () => {
+    // 021: operator_list_facilities restated as operator_register (a return type cannot
+    // change in place), plus operator_record_contact, operator_record_agreement and
+    // operator_get_contact.
     expect(Object.keys(CLOSED_LIST).sort()).toEqual([
       'graphql_public.graphql',
       'public.my_facility_wards',
       'public.operator_add_category',
       'public.operator_create_facility',
       'public.operator_edit_facility',
-      'public.operator_list_facilities',
+      'public.operator_get_contact',
+      'public.operator_record_agreement',
+      'public.operator_record_contact',
+      'public.operator_register',
       'public.operator_set_facility_listed',
       'public.publish_ward_status',
       'public.ward_status_history',

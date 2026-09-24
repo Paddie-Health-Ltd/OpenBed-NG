@@ -91,6 +91,15 @@ A `gmail.com` / `yahoo.com` warning at invite time fails on the same precedent t
 
 ### The acceptance record — where it lives and what it actually evidences
 
+> **SUPERSEDED IN PART, 2026-09-24 (R-2026-09-24-76 BD-1, migration 021).** The home
+> argued for below did not survive a later reading. `app.facility_contact` is a named
+> person's personal data, erasable on request (003). The acceptance is the basis for
+> processing the facility's ward data, and it must outlive any one person's erasure.
+> So 021 moves it into its own row, `app.facility_agreement`, with `accepted_on`, a
+> `version` (the column this section asks for) and a `signatory_role` that is a job
+> title, never a name. The naming argument below still holds. The text is left as
+> written, as the record of the reasoning at the time.
+
 **`app.facility_contact` is right**, and it is where Bundle 2 said its natural home would be. The basis and the signatory coincide: that row is the one invited human at the facility, held on a **contract** basis, and the facility agreement is a contract accepted by that human on the facility's behalf. On `app.facility` it would be separated from the person who gave it; on `app.invite` it would be tied to a lifecycle it does not share.
 
 **Keep the name `agreement_accepted_at`, never `privacy_notice_accepted_at`.** `003`'s comment already makes this argument and it is right: `privacy_notice` implies data-subject consent, there is no consent basis anywhere in this system, and an employee cannot freely consent to her employer in any case. A future reader who sees `privacy_notice_accepted_at` will reason from the wrong lawful basis, and that mistake propagates.

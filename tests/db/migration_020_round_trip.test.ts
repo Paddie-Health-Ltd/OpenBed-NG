@@ -1,6 +1,6 @@
-import { afterAll, describe, expect, test } from 'vitest';
+import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { sql, psqlCommand } from '../setup/db.js';
@@ -25,12 +25,21 @@ import { sql, psqlCommand } from '../setup/db.js';
  * SAFE ON THE SHARED DATABASE for the reason 019's file gives: the db project runs
  * files one at a time, and every leg restores 020 in a `finally`, with an
  * unconditional `afterAll` behind it.
+ *
+ * THE MIGRATIONS ABOVE 020 ARE REVERSED FIRST AND RE-APPLIED LAST (since 021). This
+ * file's subject is the step between 019 and 020, so it runs on a database AT 020:
+ * `beforeAll` applies every later down migration, newest first, and `afterAll`
+ * re-applies 020 and then every later forward migration in order. Without that, a
+ * 020 re-apply would put 020's bodies back over 021's restated gates, and every file
+ * after this one would run against a database no migration describes.
  */
 
 const MIG_DIR = join(import.meta.dirname, '..', '..', 'database', 'migrations');
 const FORWARD = join(MIG_DIR, '020_operator_functions_and_listing.sql');
 const DOWN = join(MIG_DIR, '020_operator_functions_and_listing.down.sql');
 const LEDGER = '020_operator_functions_and_listing.sql';
+/** Every forward migration numbered above 020, in apply order. */
+const LATER = readdirSync(MIG_DIR).filter((f) => /^\d{3}_.*\.sql$/.test(f) && !f.endsWith('.down.sql') && f > LEDGER).sort();
 
 function applyFile(path: string): void {
   const cmd = `${psqlCommand()} -v ON_ERROR_STOP=1 --single-transaction < ${JSON.stringify(path)}`;
@@ -103,8 +112,13 @@ async function mirrors(): Promise<string> {
   return JSON.stringify({ f, w });
 }
 
+beforeAll(() => {
+  for (const f of LATER.slice().reverse()) applyFile(join(MIG_DIR, f.replace(/\.sql$/, '.down.sql')));
+});
+
 afterAll(() => {
   applyFile(FORWARD);
+  for (const f of LATER) applyFile(join(MIG_DIR, f));
 });
 
 describe('migration 020 round trip', () => {
