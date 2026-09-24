@@ -376,6 +376,15 @@ entry points to its source; nothing is copied.**
 | Cloudflare | Every public visitor's IP, at the edge for `openbed.ng` | s.29 written agreement; s.41 transfer basis; retention | R3, this record |
 | Cloudflare — **Data Sub-Processor for API traffic** via `api.openbed.ng`, under its standard DPA (the founder's decision, 2026-09-19) | **Scope to be completed from the proxy review's findings, not written ahead of them:** the fields that traverse the Worker and whether any are patient-identifying or patient-adjacent; whether the platform retains request metadata; the processing regions | Sub-processor listing under the standard DPA; the s.41 transfer basis is a distinct instrument | R-2026-09-19-23 D2 |
 | Email provider(s): **custom SMTP and its written processor agreement, ONE item** | Magic-link and escalation mail | **A prerequisite for facility one** (2026-09-14). Custom SMTP must be configured, AND the NDPA s.29 written processor agreement executed with whichever provider it uses. They are one item because whatever sends the links is the processor (v2:323), so configuring the sender is choosing the processor. The built-in sender returned HTTP 429 on the fourth OTP request of a single sitting, so it cannot carry even the runbook's own verification procedure. The s.41 transfer basis and log retention are as recorded at clauseX:123 | Runbook step 9, run on 2026-09-14 (`docs/runbook-supabase-project-creation.md`); v2:322/323; clauseX:123 |
+| Supabase (the database, Auth and PostgREST, project `klrlpxysjsjpdkeqdhvl`, region `eu-west-1`) | Every row the system holds, including the one named person per facility in `app.facility_contact`, and the login addresses in `auth.users` | s.29 written processor agreement; s.41 transfer basis; retention | Added 2026-09-24 (R-2026-09-24-76 BD-4, on BC-7's check): until this row Supabase was named as a processor nowhere in the record or in any tracked file |
+
+### Hosted objects this repository does not create — this record is where the list lives
+
+_Started 2026-09-24 (R-2026-09-24-77 BE-2). Each entry was found on hosted, is created by no migration, and is kept, not dropped. An entry names what it does, where it was first recorded, and the control that stands in its place._
+
+| Object | What it does | Recorded | The control that stands |
+|---|---|---|---|
+| Event trigger `ensure_rls` (`ddl_command_end`; CREATE TABLE, CREATE TABLE AS, SELECT INTO) and its function `public.rls_auto_enable()` (owner `postgres`, SECURITY DEFINER, returns `event_trigger`) | Supabase's automatic RLS: runs `ENABLE` (not `FORCE`) ROW LEVEL SECURITY on each new table in schema `public`, and nothing else | R-2026-09-22-55 D3 (as hosted-only drift) and -56 A7 (scope, grants inert); its grants ruled into `packages/fixtures/function-grants.json`'s `hosted_only` section by -77 BE-1 | `scripts/lint_public_table_rls.sh`: every public table is ENABLED **and FORCED** in the migration that creates it (-56 C), so the local suite never runs against a database looser than hosted |
 
 ---
 
@@ -3655,6 +3664,122 @@ _Issued as R-PROVISIONAL-2026-09-24-BB, by Cowork on 2026-09-24, as its review o
 
 Its "not built" invite gate is `app.provision_begin` in 020, on hosted once 020 is applied. The gate itself, no facility and no ward_account row until it clears, is unaffected. **The list needs restating, with each row re-verified; that is not done here.**
 
+### R-2026-09-24-75 — #70 merged; fence 6's exact match accepted; step 4b to be restated with evidence; the design review of the founder's prototypes
+
+_Issued as R-PROVISIONAL-2026-09-24-BC, by Cowork on 2026-09-24, as its re-check of #70 at `c66bae1` and its design review of the founder's Claude Design prototypes, with CLCO input. Pasting it was the founder's merge word for #70. Number assigned on landing from the record's last as read on this branch: R-2026-09-24-74. Record-only; lands in the change that records 020's apply, with -76 and -77. Next provisional letter: BD._
+
+**COWORK'S READINGS, re-read on landing:** #70 open at `c66bae1`, base `0406b4f`, CLEAN, seven check runs success. Re-read before its merge: the head from `gh pr view 70`, and the check runs from the API. **#70 merged at `4a6a9e9`** (parents `0406b4f`, `c66bae1`), MERGED read back from the API, and `hosted-apply-020` deleted afterwards (404).
+
+**BC-1 — FENCE 6 EXACT-MATCH RISK: accepted as designed.** A fence 6 STOP means the output goes to Cowork and nothing else runs until Cowork rules. 020 stays applied, since its down migration is never the answer to a read-only STOP. **Exercised the same day:** see -77.
+
+**BC-2 — STEP 4b RESTATED, in this change.** Each row was read against the code at `4a6a9e9`, with file:line and the test that holds it:
+- the orphan row: `callableIdentity`, `apps/public-dashboard/src/main.ts:221-228`;
+- `wardRowFrom` refusing: `apps/ward-console/src/main.ts:219-245`;
+- `wardMessageFor`: `apps/ward-console/src/main.ts:167-180`;
+- the invite gate: 020's `app.provision_begin`, lines 801-807.
+
+All four are CLOSED. The backup restore (BB-4) stays OPEN, so the gate has not cleared. The copy of that block in `scripts/provision_ward_account.mjs`'s header is restated with it.
+
+**BC-3 — CONTACTS AND CONTROLLER (founder, final).**
+- The addresses are security@, hello@ and support@openbed.ng, and **there is no privacy@**.
+- Paddie Health Ltd is the controller.
+- One tracked contacts file is read by every page, SECURITY.md and the privacy notice, or tested against them.
+
+Carried to 3.4b-app.
+
+**BC-4 — the prototype's `platform-admin-src` is not copied in.** It may be used for layout, wording, Lagos absolute times, the worst-ward facility band, and the PGRST202 message only. Its sample data is not synthetic, and fixtures stay synthetic.
+
+**BC-5 — 3.4b SPLITS INTO 3.4b-db (021) AND 3.4b-app.** 021's design went to Cowork before the build and was signed off as restructured by -76.
+
+**BC-6 — 3.4b-app's scope, correcting the prototype:**
+- no facility-admin surface, and no invite list;
+- per ward: login active / setup incomplete / none;
+- Listed / Not listed, with no Paused, and unlisting as a founder step of about 2 minutes;
+- "Not yet reporting" per ward only;
+- fonts self-hosted, plus a bundle guard against `fonts.googleapis.com` and `fonts.gstatic.com`.
+
+**BC-7 — the public site and ward console pass waits for Cowork's brief.** Fixed now:
+- beds first;
+- a privacy notice drafted as a document for review;
+- never "within 30 seconds" (about 2 minutes);
+- session limits only once read back.
+
+Out of v1: update requests, freshest and nearest sorting, the "who's on it" list, the facility-admin override, and duty-flag gating. **Supabase as a processor:** absent from the record, and added under -76 BD-4.
+
+**BC-8 — no tile ruling exists** (recorded under -76 BD-3).
+
+### R-2026-09-24-76 — 021 signed off with the agreement moved off the contact row; five questions ruled
+
+_Issued as R-PROVISIONAL-2026-09-24-BD, by Cowork on 2026-09-24, as its sign-off of 021's design report, with one structural change from the CLCO. Number assigned on landing: R-2026-09-24-75 plus one. Record-only; lands here. Next provisional letter: BE._
+
+**COWORK'S READINGS, re-read on landing:** #70 merged at `4a6a9e9`, `hosted-apply-020` answers 404, and step 5 on `main` carries fences 1-6 as reported. Each was read back from the API and the file.
+
+**BD-1 — THE AGREEMENT MOVES OFF THE CONTACT ROW.** `app.facility_contact` is a named person's data, erasable on request (003). The agreement is the basis for processing the facility's ward data, and it must survive any one person's erasure. So 021 adds:
+- `app.facility_agreement`, holding the date, a version label, a signatory ROLE and `withdrawn_on`;
+- two writes, `operator_record_contact` and `operator_record_agreement`;
+- the gates restated to need both;
+- the list as an envelope carrying `server_now`;
+- `operator_get_contact`, carrying both.
+
+**BD-2 — the five questions:**
+1. **No audit row on reading a contact in v1. OPEN ITEM, trigger: a second PLATFORM_ADMIN account.**
+2. No withdrawal through any function; withdrawal is a founder runbook step, written in 3.4b-app.
+3. A changed email or mobile clears `unreachable_since`.
+4. The version is a short label, by CHECK.
+5. Erasing a contact never touches the agreement, and the register warns "no contact on record".
+
+**BD-3 — BC-8 recorded:** no tile ruling exists. The page keeps its per-ward rows, and per-category versus rollup stays open until dispatcher validation.
+
+**BD-4 — Supabase added to the open processor table**, above.
+
+**021 IS BUILT, ON ITS OWN BRANCH, AND NOT YET OPENED AS A PULL REQUEST (-77 BE-4).** Four findings from the build go to Cowork now, before that pull request:
+- **BD-1 b's move and its pre-check cannot both act.** The pre-check refuses exactly when there is something to move, and a move would need a version never recorded. So 021's pre-check is the whole of it, and its down migration refuses while any agreement row exists. Neither direction invents or loses an agreement.
+- **BD-1 c's `p_expected_version` on `operator_record_agreement` guards nothing.** The table has no row version, and the function never overwrites a row. It is built without the parameter, for Cowork to overrule.
+- **020's list becomes a new function, `public.operator_register()`, and `operator_list_facilities()` is dropped.** Changing a function's return type in place makes 020 fail on re-apply ("cannot change return type of existing function", read from `tests/db/migration_idempotency.test.ts`). That breaks the invariant that every forward migration re-applies cleanly over the later ones. The property BD-1 e asks for (server time with every result) is kept; the name changes. For Cowork to rule on before 021's pull request.
+- `recorded_session` is NULL only for a founder-SQL row. A withdrawn agreement is refused by its own name, `AGREEMENT_WITHDRAWN`.
+
+### R-2026-09-24-77 — 020 applied on hosted; fence 6's first real STOP, on Supabase's own event-trigger function, ruled
+
+_Issued as R-PROVISIONAL-2026-09-24-BE, by Cowork on 2026-09-24, as its read-back of the founder's six fences. Number assigned on landing: R-2026-09-24-76 plus one. Lands in this change, which also carries its code (BE-1). Next provisional letter: BF._
+
+**THE FOUNDER'S READINGS, recorded as the founder's** (terminal output, from a deploy checkout at `4a6a9e9`):
+- **Fence 1:** 19 `already applied`, one `WOULD APPLY` naming `020_operator_functions_and_listing.sql`, and `1 migration(s) pending.`
+- **Fence 2:** `beds.json` 0/0 and every table 0 rows, `RECORDED`.
+- **Fence 3:** 020 applied, `Migrations complete (1 applied this run).`
+- **Fence 4:** every part ok, `PASS (VACUOUS FOR B1)`.
+- **Fence 5:** twenty `already applied` (001-020), no `WOULD APPLY`, and `0 migration(s) pending.`
+- **Fence 6:** 24 functions ok, both `provision_*` reading `none`, and ONE `WRONG`: `public.rls_auto_enable()`, read `anon,authenticated,service_role`, which must be `(not in the fixture)`. STOP.
+
+**COWORK'S READINGS OF `public.rls_auto_enable()`, recorded as Cowork's and not re-observed** (no hosted read is made from this side):
+- owner `postgres`, SECURITY DEFINER, returns `event_trigger`, `search_path=pg_catalog`;
+- the function of event trigger `ensure_rls`, which enables RLS on new tables in `public`;
+- a POST to it through PostgREST answers 400 (`0A000`), and through `api.openbed.ng` answers 404.
+
+**They agree with what the record already held:** -55 D3 and -56 A7, including "PUBLIC EXECUTE is INERT: an event_trigger function cannot be called directly".
+
+**BE-1 — RULED: Supabase-owned, harmless, 020 stays applied.**
+- `packages/fixtures/function-grants.json` gains a `hosted_only` section, and this function is its one entry.
+- `scripts/readback_function_grants.sh` accepts it only if the roles, the owner, the return type and SECURITY DEFINER ALL match.
+- It reads absent without failing where it does not exist (locally).
+- A function in neither section still STOPs, and one in both is an ERROR.
+- `tests/db/function_grants.test.ts` asserts no `hosted_only` entry exists locally, and plants a real event-trigger function to show the match is accepted, and a void return type or a non-definer read STOP.
+- The D3 list reads `functions` only.
+- **After this merges, the founder re-runs fence 6 alone, and it must read PASS before 020 counts as recorded complete.**
+
+**BE-2 — the premise does not hold as stated; the instruction survives.** The pair was not undeclared in the record: -55 D3 listed it as hosted-only drift, and -56 A7 recorded it as undeclared hosted platform configuration, kept, with `scripts/lint_public_table_rls.sh` built in its place (-56 C). **What did not exist was a single list.** It exists now, under the processor table ("Hosted objects this repository does not create"), with this pair as its first entry. Nothing is dropped or altered on hosted.
+
+**THE STOP WAS FORESEEABLE, AND I DID NOT FORESEE IT.** -56 A7 had recorded PUBLIC EXECUTE on this function. When I built the fixture from the LOCAL catalogue (BB-2), I reported the risk of a hosted-only function in general terms, and did not look in the record for a known instance. The fence did its job; the fixture could have carried the entry from the start.
+
+**BE-3 — this change carries:**
+- the readings above;
+- the frozen boundary at 20 (`ledger_rows: 20`, from fence 5's twenty `already applied` lines);
+- step 5 restated to 0 pending, and step 7 to 001-020;
+- BC-2's step 4b;
+- the Supabase row;
+- BE-1, BE-2, and the BC, BD and BE landings.
+
+**BE-4 — ORDER:** 021's pull request opens only after this change merges and fence 6 re-reads PASS. Merging `main` into 021 then restates its step 5 to 1 pending (021), and moves 4b's invite-gate row onto `app.facility_agreement`.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -3720,6 +3845,9 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | AZ | R-2026-09-23-72 | 2026-09-24 | **#68 merged; the redirect entries become the exact slashed strings the apps send**, amending -71 D, so nothing rests on Supabase's matching rules. A silent fallback to the Site URL must read as STOP. -71's premise corrections are accepted, and J4's zero Auth calls bind the 3.4b script. Found on landing: the ward console renders a fallen-back operator's zero-row session as an empty list, for 3.4b. |
 | BA | R-2026-09-24-73 | 2026-09-24 | **#69 merged; 020's hosted apply prepared as founder steps.** A new read-back compares the public output before and after the apply, and says VACUOUS FOR B1 when there was nothing public to change, as on hosted today. The `redirect_to` read becomes script-only. Its stated reason, that the value is percent-encoded, does not hold for these strings (GoTrue encodes only on `&`, `=` or `#`), and the instruction stands on other grounds. |
 | BB | R-2026-09-24-74 | 2026-09-24 | **#70 tightened before anything hosted runs.** Fence 5 becomes the second dry run. Fence 6 reads who can EXECUTE every function on hosted and holds it to one new fixture, which the D3 closed list now derives from too. The before/after comparison is valid only until wards can publish. A backup restore is named as gating facility one. Found on landing: step 4b's defect list describes code that no longer exists. |
+| BC | R-2026-09-24-75 | 2026-09-24 | **#70 merged; fence 6's exact match accepted; step 4b to be restated with evidence; the design review.** The three contact addresses and the controller are fixed, and there is no privacy@. The prototype's admin code is not copied in. 3.4b splits into 021 and the app. The public site is beds first, with a privacy notice to draft, and never "within 30 seconds". No tile ruling exists. |
+| BD | R-2026-09-24-76 | 2026-09-24 | **021 signed off, with the agreement moved off the contact person's row** so that no erasure reaches it; five questions ruled; Supabase added as a processor. Found in the build: the move and its pre-check cannot both act; the agreement write needs no version check; the list becomes `operator_register()`, because a return type cannot change in place. |
+| BE | R-2026-09-24-77 | 2026-09-24 | **020 applied on hosted: fences 1-5 as they must be, and fence 6's first real STOP**, on Supabase's `rls_auto_enable()`. That function was ruled hosted-only and inert, and is held to every recorded property. The record already held it (-55 D3, -56 A7), and a single list of hosted objects now exists. The stop was foreseeable from the record. |
 
 ## Method notes — how rulings reach the implementer
 
