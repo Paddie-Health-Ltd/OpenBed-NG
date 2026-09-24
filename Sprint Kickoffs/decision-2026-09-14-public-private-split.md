@@ -3851,6 +3851,47 @@ _Issued as R-PROVISIONAL-2026-09-24-BH, by Cowork on 2026-09-24. Number assigned
 
 **BH-2 — 021'S PULL REQUEST OPENS NOW.** BE-4 and BG-2 are satisfied. Its report goes to Cowork: the head SHA, the seven check runs from the API, the fresh-database attestation, the Standard P ledger, and step 5's "021's apply" fences exactly as written. Cowork checks them before the founder gives the merge word. **Nothing is run on hosted until the founder runs 021's fences after the merge.**
 
+### R-2026-09-24-81 — the register reports an agreement as none, recorded or withdrawn; the dated-unit guard is queued
+
+_Issued as R-PROVISIONAL-2026-09-24-BI, by Cowork on 2026-09-24, as its check of #72 at `46b522f`. Number assigned on landing: R-2026-09-24-80 plus one. Record-only apart from BI-1's change, which lands on `pr-3.4b-db-021` with 021. Next provisional letter: BJ._
+
+**VERIFIED BY COWORK** (GitHub API and repository, 2026-09-24; Cowork's reading, re-read on landing):
+- #72: open at `46b522f`, base `f1d3a1f`, mergeable CLEAN, with all seven check runs success.
+- 021, read directly, in its table:
+  - `app.facility_agreement` carries the version-label CHECK, `signatory_role` of 1 to 64 characters, and `withdrawn_on >= accepted_on`.
+  - RLS is enabled and forced, and every grant is revoked.
+- 021's migration steps:
+  - The pre-check comes before the column is dropped.
+  - Both gates require a contact and an agreement, and refuse `AGREEMENT_WITHDRAWN`.
+  - `operator_list_facilities` is dropped.
+- 021's functions:
+  - The four operator functions call `app.assert_operator()` first.
+  - The Lagos date is used for the future-date refusal.
+  - `record_agreement` is an insert or an identical repeat, and never an overwrite.
+  - `server_now` is built outside the aggregate.
+- `supabase-proxy/allow-list.json` is unchanged.
+
+**BI-1 — DONE on #72: `agreement_recorded` is replaced by `agreement_state`, one of `'none'`, `'recorded'` or `'withdrawn'`.**
+- **The defect.** The yes/no read a withdrawn agreement as "none" (`withdrawn_on IS NULL`). The operator would then try to record one and be refused `AGREEMENT_ALREADY_RECORDED`: a dead end that also hid the withdrawal.
+- **The mechanism.** A CASE over the one `app.facility_agreement` row (the primary key), falling back to `'none'`. "Withdrawn" is `withdrawn_on IS NOT NULL`, the same test both gates refuse `AGREEMENT_WITHDRAWN` on, so the register and the gates cannot disagree.
+- **This amends BD-1's register yes/no** (item f as issued) for the agreement only. `has_contact` stays a yes/no, and `operator_get_contact` is unchanged.
+- **Tests:**
+  - `tests/db/operator_contact_and_agreement.test.ts` has one leg per state. It also has a listed facility whose agreement is then withdrawn: it reads `'withdrawn'`, stays listed, and a new record is still refused by name.
+  - Each leg asserts that no `agreement_recorded` key is returned.
+  - The erasure leg now reads `'recorded'`.
+  - `tests/db/operator_functions.test.ts` reads `'none'`.
+- **The ledger's register row** now maps 020's `agreement_recorded` to `agreement_state`.
+- **Two premises did not hold as stated:**
+  - **Neither the platform-admin HTTP test nor the runbook named the field.** The HTTP test checked only the envelope's shape. It now also asserts, over a non-empty register, that every facility carries `agreement_state` with one of the three values and no `agreement_recorded`. The runbook needed nothing.
+  - **"The founder's SQL step" for withdrawal does not exist yet.** It is BD-2 2's, written in 3.4b-app. The legs run the UPDATE that step will run, as owner.
+
+**AN OBSERVATION FOR COWORK, not changed here.** Withdrawal leaves `listed_at` set. A facility whose agreement is withdrawn stays on the public page until someone unlists it, and nothing unlists it. The listed-then-withdrawn leg pins today's behaviour. **The BD-2 2 withdrawal step should say whether it unlists**, and when that step is written it will need a ruling on this.
+
+**BI-2 — QUEUED for the change that records 021's apply,** which edits step 5 anyway:
+- `runbook_migration_expectation`'s date exemption is to key on an explicit dated-history marker, such as "Restated YYYY-MM-DD" or "On YYYY-MM-DD", and never on any ISO date anywhere in the unit.
+- It gets a plant: an undated count statement citing a ruling number reads red.
+- Every existing statement the tightened guard catches is reported and restated. None is exempted to go green.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -3922,6 +3963,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | BF | R-2026-09-24-78 | 2026-09-24 | **#71 merged; 021's three build findings ruled** (the move dropped and the pre-check kept; no version check on the agreement write; one read path). BF-1 c's revoke-and-keep is carried out as a drop instead, because the kept function would read a dropped column. It is reported for Cowork to overrule. Fence 6 is not run between 021's merge and its apply. |
 | BG | R-2026-09-24-79 | 2026-09-24 | **BF-1 c's departure accepted:** 021 drops `operator_list_facilities()`, because a kept copy would read a dropped column, and a dead function is not a safe one. BF-1 c is superseded. 021's PR waits for fence 6 PASS. |
 | BH | R-2026-09-24-80 | 2026-09-24 | **Fence 6 reads PASS on hosted** (founder's output, relayed by Cowork): 25 lines ok, with `rls_auto_enable()` ok as hosted-only. 020's apply is complete, and BE-1 is closed. 021's PR opens, and its report goes to Cowork before the merge word. |
+| BI | R-2026-09-24-81 | 2026-09-24 | **#72 checked. The register's `agreement_recorded` becomes `agreement_state` (none, recorded or withdrawn)**, because the yes/no read a withdrawal as "none" and led to a dead end. Found: neither the HTTP test nor the runbook named the field, and no withdrawal step exists yet. A withdrawn facility stays listed, flagged for BD-2 2. The dated-unit guard fix is queued for the record-021-apply change. |
 
 ## Method notes — how rulings reach the implementer
 

@@ -25,7 +25,9 @@ import { withRole } from '../setup/db.js';
  *     AND an agreement that is not withdrawn. Each missing half is refused by name.
  *   - operator_register (020's list, restated as an envelope under a new name, since a
  *     return type cannot change in place) carries the database's now(), so the admin
- *     app never computes freshness against the operator's device clock (BC-5 c).
+ *     app never computes freshness against the operator's device clock (BC-5 c). Its
+ *     agreement_state is none, recorded or withdrawn, never a yes/no that reads a
+ *     withdrawal as "no agreement" (BI-1).
  *   - operator_get_contact returns both parts, and nothing to a non-operator.
  *
  * The identity refusals (anon, no session, ward staff, deactivated) for the three new
@@ -349,12 +351,12 @@ describe('the gates read the two tables — a contact AND an agreement that is n
       await tx.unsafe(`delete from app.facility_contact where facility_id = '${FAC}'`);
       const [n] = await owner<{ n: number }[]>(tx, `select count(*)::int as n from app.facility_agreement where facility_id = '${FAC}'`);
       await tx.unsafe('set local role authenticated');
-      const [env] = await tx.unsafe<{ l: { facilities: { facility_id: string; has_contact: boolean; agreement_recorded: boolean }[] } }[]>(
+      const [env] = await tx.unsafe<{ l: { facilities: { facility_id: string; has_contact: boolean; agreement_state: string }[] } }[]>(
         'select public.operator_register() as l');
       return { n: n?.n, mine: env?.l.facilities.find((f) => f.facility_id === FAC) };
     });
     expect(out.n).toBe(1);
-    expect(out.mine).toMatchObject({ has_contact: false, agreement_recorded: true });
+    expect(out.mine).toMatchObject({ has_contact: false, agreement_state: 'recorded' });
   });
 });
 
@@ -367,6 +369,60 @@ describe('operator_register is an envelope carrying the database clock (BC-5 c)'
     });
     expect(Date.parse(out.env!.server_now)).toBe(out.now!.getTime());
     expect(out.env!.facilities.some((f) => f.facility_id === FAC)).toBe(true);
+  });
+});
+
+/**
+ * THREE STATES, NOT A YES/NO (R-2026-09-24-81 BI-1). A yes/no read a withdrawn agreement
+ * as "no agreement", so the operator recorded one and was refused
+ * AGREEMENT_ALREADY_RECORDED -- a dead end that also hid the withdrawal. "Withdrawn" is
+ * withdrawn_on IS NOT NULL, the same test the two gates refuse AGREEMENT_WITHDRAWN on.
+ *
+ * The withdrawal is the owner's UPDATE, which is what the founder's withdrawal step will
+ * run (BD-2 2, in 3.4b-app). No function withdraws an agreement.
+ */
+describe("operator_register's agreement_state — none, recorded or withdrawn (BI-1)", () => {
+  type Reg = { l: { facilities: Record<string, unknown>[] } };
+  const WITHDRAW = `update app.facility_agreement set withdrawn_on = '2026-09-10' where facility_id = '${FAC}'`;
+  async function mine(tx: TransactionSql): Promise<Record<string, unknown> | undefined> {
+    const [env] = await tx.unsafe<Reg[]>('select public.operator_register() as l');
+    return env?.l.facilities.find((f) => f.facility_id === FAC);
+  }
+
+  test.each<[string, string, string[]]>([
+    ['no agreement', 'none', []],
+    ['an agreement recorded', 'recorded', ['agreement']],
+    ['an agreement recorded and then withdrawn', 'withdrawn', ['agreement', 'withdraw']],
+  ])('operator reads %s as agreement_state %s, and no agreement_recorded key', async (_name, state, steps) => {
+    const out = await asOperator(async (tx) => {
+      if (steps.includes('agreement')) await tx.unsafe(AGREEMENT());
+      if (steps.includes('withdraw')) {
+        await tx.unsafe('reset role');
+        await tx.unsafe(WITHDRAW);
+        await tx.unsafe('set local role authenticated');
+      }
+      return mine(tx);
+    });
+    expect(out, 'the facility is missing from the register').toBeDefined();
+    expect(out?.agreement_state).toBe(state);
+    expect(out, 'the yes/no field that hid a withdrawal is still returned').not.toHaveProperty('agreement_recorded');
+  });
+
+  test('a listed facility whose agreement is then withdrawn reads withdrawn, still listed, and recording again is refused by name', async () => {
+    const out = await asOperator(async (tx) => {
+      await tx.unsafe(CONTACT());
+      await tx.unsafe(AGREEMENT());
+      await tx.unsafe(`select * from public.operator_set_facility_listed('${FAC}', 1)`);
+      await tx.unsafe('reset role');
+      await tx.unsafe(WITHDRAW);
+      await tx.unsafe('set local role authenticated');
+      const reg = await mine(tx);
+      const again = await refusal(tx.savepoint((sp) => sp.unsafe(AGREEMENT({ version: 'v2.0' }))));
+      return { reg, again };
+    });
+    expect(out.reg?.agreement_state).toBe('withdrawn');
+    expect(out.reg?.listed_at, 'the withdrawal unlisted the facility, which nothing here does').not.toBeNull();
+    expect(out.again.message).toBe('AGREEMENT_ALREADY_RECORDED');
   });
 });
 

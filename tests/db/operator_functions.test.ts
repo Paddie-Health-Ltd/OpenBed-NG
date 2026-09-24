@@ -288,14 +288,14 @@ describe('operator_set_facility_listed — the preconditions, each refused by na
 describe("operator_register — every facility, every category, and no email (020's list, as 021's envelope)", () => {
   test('provisioning_incomplete is derived from an open invite with no account, and the output carries no address', async () => {
     await withRole('authenticated', claims(OP), async (tx) => {
-      const [env] = await tx.unsafe<{ r: { facilities: { facility_id: string; agreement_recorded: boolean; has_contact: boolean; categories: { category: string; has_account: boolean; provisioning_incomplete: boolean }[] }[] } }[]>(
+      const [env] = await tx.unsafe<{ r: { facilities: { facility_id: string; agreement_state: string; has_contact: boolean; categories: { category: string; has_account: boolean; provisioning_incomplete: boolean }[] }[] } }[]>(
         `select public.operator_register() as r`,
       );
       const rows = env!.r.facilities;
       const mine = rows.find((r) => r.facility_id === FAC);
       expect(mine, 'the facility is missing from the operator list').toBeDefined();
       expect(mine?.has_contact).toBe(true);
-      expect(mine?.agreement_recorded).toBe(false);
+      expect(mine?.agreement_state, 'a contact and no agreement').toBe('none');
       const byCat = Object.fromEntries((mine?.categories ?? []).map((c) => [c.category, c]));
       expect(byCat['ICU_ADULT']).toMatchObject({ has_account: true, provisioning_incomplete: false });
       expect(byCat['MATERNITY']).toMatchObject({ has_account: false, provisioning_incomplete: true });

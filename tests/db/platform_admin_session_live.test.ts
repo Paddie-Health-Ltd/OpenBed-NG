@@ -77,6 +77,15 @@ describe('a real PLATFORM_ADMIN session, function by function', () => {
     const env = r.body as { server_now?: unknown; facilities?: unknown };
     expect(Number.isNaN(Date.parse(String(env.server_now)))).toBe(false);
     expect(Array.isArray(env.facilities)).toBe(true);
+    // BI-1: over HTTP too, each facility carries the three-state agreement_state and
+    // not the yes/no that read a withdrawal as "no agreement". The seed has facilities,
+    // so the loop below is not vacuous; the length check says so if that changes.
+    const facilities = env.facilities as Record<string, unknown>[];
+    expect(facilities.length, 'the register is empty over HTTP, so nothing below is checked').toBeGreaterThan(0);
+    for (const f of facilities) {
+      expect(['none', 'recorded', 'withdrawn'], JSON.stringify(f)).toContain(f.agreement_state);
+      expect(f, JSON.stringify(f)).not.toHaveProperty('agreement_recorded');
+    }
   });
 
   test.each([

@@ -552,9 +552,9 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM app.facility f WHERE f.id = v_id) THEN
         RAISE EXCEPTION 'NO_SUCH_FACILITY';
     END IF;
-    -- For the facility detail view only. The register keeps has_contact and
-    -- agreement_recorded as yes/no (BD-1 f). No audit row in v1 (BD-2 1): revisit
-    -- when a second PLATFORM_ADMIN account exists.
+    -- For the facility detail view only. The register keeps has_contact as yes/no and
+    -- agreement_state as none/recorded/withdrawn (BD-1 f; -81 BI-1). No audit row in
+    -- v1 (BD-2 1): revisit when a second PLATFORM_ADMIN account exists.
     RETURN jsonb_build_object(
         'contact', (SELECT jsonb_build_object(
                         'full_name', c.full_name,
@@ -613,8 +613,15 @@ BEGIN
                        'quiet_mode', f.quiet_mode,
                        'is_active', f.is_active,
                        'has_contact', EXISTS (SELECT 1 FROM app.facility_contact c WHERE c.facility_id = f.id),
-                       'agreement_recorded', EXISTS (SELECT 1 FROM app.facility_agreement a
-                                                      WHERE a.facility_id = f.id AND a.withdrawn_on IS NULL),
+                       -- Three states, never a yes/no (R-2026-09-24-81 BI-1). A yes/no read a
+                       -- withdrawn agreement as "none", so the operator recorded one and met
+                       -- AGREEMENT_ALREADY_RECORDED, a dead end that hid the withdrawal.
+                       -- "withdrawn" is withdrawn_on IS NOT NULL, the test both gates refuse
+                       -- AGREEMENT_WITHDRAWN on. One row per facility (the primary key).
+                       'agreement_state', coalesce((SELECT CASE WHEN a.withdrawn_on IS NULL THEN 'recorded'
+                                                                ELSE 'withdrawn' END
+                                                      FROM app.facility_agreement a
+                                                     WHERE a.facility_id = f.id), 'none'),
                        'categories', coalesce((
                            SELECT jsonb_agg(jsonb_build_object(
                                       'category', ws.category,
