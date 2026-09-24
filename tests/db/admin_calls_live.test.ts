@@ -72,7 +72,7 @@ const FIELDS: FacilityFields = {
   state: 'Lagos',
   lat: 6.45,
   lng: 3.4,
-  publicPhoneE164: '+2348031234567',
+  publicPhoneE164: '+2348000000303',
 };
 
 async function newFacility(over: Partial<FacilityFields> = {}): Promise<string> {
@@ -158,8 +158,8 @@ describe('the admin app’s calls, live', () => {
   });
 
   test.each([
-    ['MOBILE_NOT_E164', { mobileE164: '08031234567', smsOptIn: true }],
-    ['MOBILE_REQUIRES_SMS_OPT_IN', { mobileE164: '+2348031234567', smsOptIn: false }],
+    ['MOBILE_NOT_E164', { mobileE164: '08000000303', smsOptIn: true }],
+    ['MOBILE_REQUIRES_SMS_OPT_IN', { mobileE164: '+2348000000303', smsOptIn: false }],
   ])('operator contact write is rejected %s, read as its sentence', async (code, over) => {
     const id = await newFacility();
     const m = refusal(await call(RPC.recordContact, recordContactBody(id, { ...CONTACT, ...over }, null)));

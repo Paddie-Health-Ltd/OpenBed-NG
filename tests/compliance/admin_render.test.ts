@@ -40,7 +40,7 @@ import { adminMessageFor } from '../../apps/admin/src/messages.js';
 const MIG = join(REPO_ROOT, 'database', 'migrations');
 const SERVER_NOW = '2026-09-24T12:00:00.000Z';
 const MARK_EMAIL = 'marker-contact-7f3a@example.invalid';
-const MARK_MOBILE = '+2348030007373';
+const MARK_MOBILE = '+2348000007373';
 const MARK_NAME = 'Marker Person Ọ̀dúnlá';
 
 function b64url(obj: unknown): string {
@@ -183,7 +183,7 @@ function fillFacility(formClass: string): void {
   setInput(formClass, 'state', 'Lagos');
   setInput(formClass, 'lat', '6.45');
   setInput(formClass, 'lng', '3.40');
-  setInput(formClass, 'phone', '0803 123 4567');
+  setInput(formClass, 'phone', '0800 000 0303');
 }
 
 beforeEach(() => {
@@ -317,7 +317,7 @@ describe('writes are never re-sent', () => {
     const bodies = calls(stub, 'operator_create_facility');
     expect(bodies).toHaveLength(2);
     expect(bodies[0]?.['p_id']).toBe(bodies[1]?.['p_id']);
-    expect(bodies[0]?.['p_public_phone_e164']).toBe('+2348031234567');
+    expect(bodies[0]?.['p_public_phone_e164']).toBe('+2348000000303');
     expect(bodies[0]?.['p_name'], 'the name was not sent exactly as typed').toBe("St. Nicholas' Hospital");
   });
 
@@ -359,15 +359,15 @@ describe('writes are never re-sent', () => {
 
 describe('the phone preview', () => {
   test.each([
-    ['0803 123 4567', '+2348031234567'],
-    ['2348031234567', '+2348031234567'],
-    ['+234 803 123 4567', '+2348031234567'],
-    ['(0803) 123-4567', '+2348031234567'],
+    ['0800 000 0303', '+2348000000303'],
+    ['2348000000303', '+2348000000303'],
+    ['+234 800 000 0303', '+2348000000303'],
+    ['(0800) 000-0303', '+2348000000303'],
   ])('%s is read as %s', (raw, e164) => {
     expect(normaliseNgPhone(raw)).toBe(e164);
   });
 
-  test.each(['0803', 'call me', '+0803123'])('%s is not guessed: null', (raw) => {
+  test.each(['0800', 'call me', '+0800123'])('%s is not guessed: null', (raw) => {
     expect(normaliseNgPhone(raw)).toBeNull();
   });
 
@@ -375,8 +375,8 @@ describe('the phone preview', () => {
     await renderAt(sessionFragment(), server());
     await until(() => text().includes('Facilities'));
     button('New facility').click();
-    setInput('create-facility', 'phone', '0803 123 4567');
-    expect(text()).toContain(`${ADMIN_LABELS.screens.PHONE_PREVIEW} +2348031234567`);
+    setInput('create-facility', 'phone', '0800 000 0303');
+    expect(text()).toContain(`${ADMIN_LABELS.screens.PHONE_PREVIEW} +2348000000303`);
   });
 });
 

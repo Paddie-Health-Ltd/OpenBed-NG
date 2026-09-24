@@ -111,9 +111,9 @@ export const setListedBody = (facilityId: string, expectedVersion: number) => ({
  * not one this page can read. Shown to the operator as a preview BEFORE submit; the
  * database CHECK (003:121, 003:338) stays the backstop.
  *
- *   0803 123 4567     -> +2348031234567   (national form: the leading 0 becomes +234)
- *   2348031234567     -> +2348031234567   (country code without the +)
- *   +234 803 123 4567 -> +2348031234567   (already international; spacing removed)
+ *   0800 000 0303     -> +2348000000303   (national form: the leading 0 becomes +234)
+ *   2348000000303     -> +2348000000303   (country code without the +)
+ *   +234 800 000 0303 -> +2348000000303   (already international; spacing removed)
  *
  * Spaces, hyphens, dots and brackets are removed first. Nothing else is guessed: a
  * number in none of those forms is null, and the page says so rather than sending it.
