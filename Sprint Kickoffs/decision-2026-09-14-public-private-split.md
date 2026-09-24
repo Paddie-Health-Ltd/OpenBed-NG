@@ -3892,6 +3892,59 @@ _Issued as R-PROVISIONAL-2026-09-24-BI, by Cowork on 2026-09-24, as its check of
 - It gets a plant: an undated count statement citing a ruling number reads red.
 - Every existing statement the tightened guard catches is reported and restated. None is exempted to go green.
 
+### R-2026-09-24-82 — a withdrawn agreement takes a facility off the public output by itself
+
+_Issued as R-PROVISIONAL-2026-09-24-BJ, by Cowork on 2026-09-24, as its check of #72 at `b276f44`. Number assigned on landing: R-2026-09-24-81 plus one. BJ-1 a-d change 021 on `pr-3.4b-db-021`; BJ-1 e is a ruling for 3.4b-app. Next provisional letter: BK._
+
+**VERIFIED BY COWORK** (GitHub API and repository, 2026-09-24; Cowork's reading, re-read on landing):
+- #72 was open at `b276f44`, base `f1d3a1f`, mergeable CLEAN, with all seven check runs success.
+- `agreement_state` read `'recorded'` or `'withdrawn'` from the one agreement row, else `'none'`, and no `agreement_recorded` key remained.
+
+**BJ-1 — STRUCTURAL.** This follows from -81's observation that withdrawing an agreement left the facility public until someone unlisted it. **A withdrawn data-sharing agreement ends the basis for publishing that facility's data, so removal must not depend on a second manual statement being remembered.**
+
+**a) Both public membership predicates gain "no withdrawn agreement".** The sites were enumerated from the live local catalogue at `b276f44` on 2026-09-24. The scope was every function in `app`, `public` and `graphql_public` whose source reads `listed_at` or names a mirror; there are 0 views and 0 materialized views.
+- **`app.project_facility(uuid)`** is the only writer of `facility_public` and `ward_public`.
+- **`app.refresh_lga_rollup()`** is the only writer of `lga_rollup`.
+- **Each is restated in 021 section 6 as 020's body verbatim, plus one line** after `listed_at IS NOT NULL`: `AND NOT EXISTS (SELECT 1 FROM app.facility_agreement a WHERE a.facility_id = f.id AND a.withdrawn_on IS NOT NULL)`.
+- **The rest inherit or are not public.** `app.regenerate_snapshot()` and `publish_ward_status` read the mirrors only, so they inherit the first site. `operator_create_facility`, `operator_register` and `operator_set_facility_listed` read `listed_at` for the operator, not the public.
+- **The predicate is "no withdrawn agreement", not "has an agreement".** A facility with no agreement row, such as the seed's, is unaffected.
+
+**b) The trigger.** `trg_facility_agreement_project` fires AFTER INSERT OR UPDATE OR DELETE on `app.facility_agreement`, FOR EACH ROW, and calls **008's `app.trg_project()`**, which already resolves `facility_id` for every table except `facility`. There is no second projection path and no new function, so the grants fixture is unchanged.
+- Setting `withdrawn_on` empties the facility's mirror rows **in the same transaction**.
+- The rollup stops counting the facility at its next refresh (every five minutes).
+- `tests/db/projection_trigger_state.test.ts` and `tests/db/projection_ward_public.test.ts` now hold four projection triggers.
+
+**c) The tests,** in the new `tests/db/agreement_withdrawal_public.test.ts`, modelled on the listing test:
+- **Mirrors:** a listed facility with a published ward reads 1 and 1. The founder's withdrawal UPDATE alone leaves 0 and 0, read in the same transaction.
+- **Rollup:** the facility under test is the fifth of five quiet facilities in one LGA, so the cell exists before the withdrawal and not after.
+- **No agreement:** a facility with no agreement row stays public.
+- **Plants:**
+  - Each site's predicate is removed in turn, from 021's text, and each leaks.
+  - The trigger is dropped, and the mirrors do not move.
+- **The -81 leg,** a listed facility withdrawn afterwards, now also reads **listed but not public**: 1 and 1 before, 0 and 0 after.
+
+**d) B1 holds.** `tests/db/migration_021_round_trip.test.ts` holds both bodies by value: 021's equal 020's with only the predicate inserted. The down migration restores 020's byte for byte.
+- Across down-then-up, the mirrors are unchanged.
+- The rollup is recomputed under each body in a rolled-back transaction, and the cells are equal. The seed's Alimosho cell makes this non-vacuous.
+- On apply there is no agreement row, so the trigger has nothing to fire on and the predicate excludes nothing.
+
+**Line citations moved, and one was wrong.** 021's header grew, and a citation of a line is a fact about one SHA.
+- **The invite gate is now 021:313-322.** Runbook step 4b row 4 is restated to that span.
+- **The cite it replaces, 021:282-291 (from 52dacfd), was wrong when written.** That span ended at `NO_FACILITY_CONTACT` and never reached the agreement checks it named, which were at 292-298. That was my error, and Cowork's -79 relied on it.
+- -79's "line 585" and the other cites earlier in this record are left as history, true at the SHA they name.
+
+**e) THE WITHDRAWAL STEP, a ruling for 3.4b-app** (BD-2 2; written there, to this):
+1. Set `withdrawn_on`. The public output drops by itself; the page follows in about 2 minutes (020's B2).
+2. Deactivate the facility's ward accounts.
+3. Clear `listed_at`, so the register reads "not listed". Publishing again needs a deliberate new agreement and a re-listing.
+4. Read back `/beds.json`.
+
+**BI-2 stays queued** for the change that records 021's apply.
+
+**The Standard P ledger has 12 rows, and 0 failures.**
+- **Row 5 is restated:** a contact write re-projects nothing, and an agreement write re-projects through 008's `trg_project`. Its plant nulls that function's `facility_id` branch.
+- **Row 12 is new:** 021's two membership bodies are 020's plus the predicate. Its plant alters 020's `project_facility`.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -3964,6 +4017,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | BG | R-2026-09-24-79 | 2026-09-24 | **BF-1 c's departure accepted:** 021 drops `operator_list_facilities()`, because a kept copy would read a dropped column, and a dead function is not a safe one. BF-1 c is superseded. 021's PR waits for fence 6 PASS. |
 | BH | R-2026-09-24-80 | 2026-09-24 | **Fence 6 reads PASS on hosted** (founder's output, relayed by Cowork): 25 lines ok, with `rls_auto_enable()` ok as hosted-only. 020's apply is complete, and BE-1 is closed. 021's PR opens, and its report goes to Cowork before the merge word. |
 | BI | R-2026-09-24-81 | 2026-09-24 | **#72 checked. The register's `agreement_recorded` becomes `agreement_state` (none, recorded or withdrawn)**, because the yes/no read a withdrawal as "none" and led to a dead end. Found: neither the HTTP test nor the runbook named the field, and no withdrawal step exists yet. A withdrawn facility stays listed, flagged for BD-2 2. The dated-unit guard fix is queued for the record-021-apply change. |
+| BJ | R-2026-09-24-82 | 2026-09-24 | **A withdrawn agreement takes a facility off the public output by itself.** Both membership predicates (`project_facility`, `refresh_lga_rollup`) gain "no withdrawn agreement", and a trigger on `facility_agreement` re-projects through 008's `trg_project`. B1 holds. The withdrawal step for 3.4b-app is ruled: withdraw, deactivate the ward accounts, unlist, then read back `/beds.json`. Found: 021:282-291 was wrong when written; the gate is at 021:313-322. |
 
 ## Method notes — how rulings reach the implementer
 

@@ -200,7 +200,10 @@ async function nonBypassRollupOwner(tx: TransactionSql): Promise<void> {
   await tx.unsafe('grant usage on schema app, public to zz_rollup_nobypass');
   // ALTER FUNCTION ... OWNER TO needs CREATE on the function's schema.
   await tx.unsafe('grant create on schema app to zz_rollup_nobypass');
-  await tx.unsafe('grant select on app.facility, app.ward_status to zz_rollup_nobypass');
+  // Every table the refresh reads. 021 (R-2026-09-24-82 BJ-1) added app.facility_agreement
+  // to its membership predicate; without SELECT on it the planted owner is refused with
+  // "permission denied" before it reaches the hazard this plant exists to reproduce.
+  await tx.unsafe('grant select on app.facility, app.ward_status, app.facility_agreement to zz_rollup_nobypass');
   await tx.unsafe('grant select, insert, delete on public.lga_rollup to zz_rollup_nobypass');
   await tx.unsafe('alter function app.refresh_lga_rollup() owner to zz_rollup_nobypass');
 }

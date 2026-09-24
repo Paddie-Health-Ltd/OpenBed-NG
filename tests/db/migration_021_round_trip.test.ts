@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { sql, psqlCommand } from '../setup/db.js';
+import { sql, psqlCommand, withRole } from '../setup/db.js';
 
 /**
  * MIGRATION 021 REVERSES TO EXACTLY THE 020 STATE, CHANGES NO PUBLIC OUTPUT, AND NEVER
@@ -16,6 +16,17 @@ import { sql, psqlCommand } from '../setup/db.js';
  *   - app.facility_agreement, the contact's agreement_accepted_at and version columns,
  *     the version trigger, and the functions 021 adds or drops, each by name;
  *   - the ledger row.
+ *
+ * THE TWO PUBLIC-MEMBERSHIP BODIES DIFFER FROM 020 BY ONE PREDICATE AND NOTHING ELSE
+ * (R-2026-09-24-82 BJ-1): app.project_facility() and app.refresh_lga_rollup() each gain
+ * "no withdrawn agreement", and the down restores 020's bodies byte for byte. With the
+ * agreement's projection trigger, they are compared by value in the state below.
+ *
+ * B1 STILL HOLDS: APPLYING 021 CHANGES NO PUBLIC OUTPUT. The mirrors are compared across
+ * down-then-up, and the rollup is RECOMPUTED under 021's body and under 020's inside a
+ * rolled-back transaction: the cells must be equal. The seed carries no agreement row,
+ * as hosted carries none, so the new predicate excludes nothing on apply, and the new
+ * trigger has no row to fire on.
  *
  * THE RESTATED GATES DIFFER FROM 020 IN THE AGREEMENT CHECK AND NOTHING ELSE. Each
  * 021 body must equal 020's with only that check replaced, so no other line of a
@@ -66,9 +77,12 @@ const DROPPED = ['public.operator_list_facilities'];
 interface State {
   listed: string;
   begin: string;
+  project: string;
+  rollup: string;
   agreementTable: boolean;
   contactColumns: string[];
   trigger: number;
+  projectTrigger: number;
   functions: string[];
   ledger: number;
 }
@@ -77,18 +91,22 @@ async function state(): Promise<State> {
   const db = sql();
   const [l] = await db<{ src: string }[]>`select prosrc as src from pg_proc where oid = 'public.operator_set_facility_listed(text, integer)'::regprocedure`;
   const [b] = await db<{ src: string }[]>`select prosrc as src from pg_proc where oid = 'app.provision_begin(uuid, text, text)'::regprocedure`;
+  const [p] = await db<{ src: string }[]>`select prosrc as src from pg_proc where oid = 'app.project_facility(uuid)'::regprocedure`;
+  const [r] = await db<{ src: string }[]>`select prosrc as src from pg_proc where oid = 'app.refresh_lga_rollup()'::regprocedure`;
   const [t] = await db<{ r: string | null }[]>`select to_regclass('app.facility_agreement')::text as r`;
   const cols = await db<{ c: string }[]>`
     select column_name as c from information_schema.columns
      where table_schema = 'app' and table_name = 'facility_contact' and column_name in ('agreement_accepted_at', 'version') order by 1`;
   const [tr] = await db<{ n: number }[]>`select count(*)::int as n from pg_trigger where tgname = 'trg_facility_contact_version' and not tgisinternal`;
+  const [pt] = await db<{ n: number }[]>`select count(*)::int as n from pg_trigger where tgname = 'trg_facility_agreement_project' and not tgisinternal`;
   const fns = await db<{ f: string }[]>`
     select distinct n.nspname || '.' || p.proname as f from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname || '.' || p.proname = any(${[...ADDED, ...DROPPED]}) order by 1`;
   const [g] = await db<{ n: number }[]>`select count(*)::int as n from app.schema_migrations where filename = ${LEDGER}`;
   return {
-    listed: l?.src ?? '', begin: b?.src ?? '', agreementTable: t?.r !== null, contactColumns: cols.map((c) => c.c),
-    trigger: tr?.n ?? -1, functions: fns.map((f) => f.f), ledger: g?.n ?? -1,
+    listed: l?.src ?? '', begin: b?.src ?? '', project: p?.src ?? '', rollup: r?.src ?? '',
+    agreementTable: t?.r !== null, contactColumns: cols.map((c) => c.c),
+    trigger: tr?.n ?? -1, projectTrigger: pt?.n ?? -1, functions: fns.map((f) => f.f), ledger: g?.n ?? -1,
   };
 }
 
@@ -97,18 +115,24 @@ const F021 = '021_facility_agreement_and_contact_write.sql';
 const STATE_021: State = {
   listed: bodyFrom(F021, 'public.operator_set_facility_listed'),
   begin: bodyFrom(F021, 'app.provision_begin'),
+  project: bodyFrom(F021, 'app.project_facility'),
+  rollup: bodyFrom(F021, 'app.refresh_lga_rollup'),
   agreementTable: true,
   contactColumns: ['version'],
   trigger: 1,
+  projectTrigger: 1,
   functions: [...ADDED].sort(),
   ledger: 1,
 };
 const STATE_020: State = {
   listed: bodyFrom(F020, 'public.operator_set_facility_listed'),
   begin: bodyFrom(F020, 'app.provision_begin'),
+  project: bodyFrom(F020, 'app.project_facility'),
+  rollup: bodyFrom(F020, 'app.refresh_lga_rollup'),
   agreementTable: false,
   contactColumns: ['agreement_accepted_at'],
   trigger: 0,
+  projectTrigger: 0,
   functions: [...DROPPED],
   ledger: 0,
 };
@@ -117,6 +141,26 @@ async function mirrors(): Promise<string> {
   const f = await sql()`select * from public.facility_public order by facility_id`;
   const w = await sql()`select * from public.ward_public order by facility_id, category`;
   return JSON.stringify({ f, w });
+}
+
+/**
+ * The rollup cells refresh_lga_rollup() computes against the live body, read inside a
+ * transaction that is rolled back, so the shared table is left as it was. updated_at is
+ * now() by construction and is left out.
+ */
+async function rollupCells(): Promise<string> {
+  return withRole('postgres', null, async (tx) => {
+    await tx.unsafe('select app.refresh_lga_rollup()');
+    const rows = await tx.unsafe('select state, lga, category, facility_count, total_beds from public.lga_rollup order by state, lga, category');
+    return JSON.stringify(rows);
+  });
+}
+
+/** 021's withdrawal predicate (BJ-1), inserted after the one line it follows in 020's body. */
+const WITHDRAWN = 'AND NOT EXISTS (SELECT 1 FROM app.facility_agreement a WHERE a.facility_id = f.id AND a.withdrawn_on IS NOT NULL)';
+function predicateAdd(body: string, after: string, ind: string): string {
+  expect(body.split(after).length - 1, `020's line "${after.trim()}" is not in the body exactly once`).toBe(1);
+  return body.replace(after, `${after}${ind}${WITHDRAWN}\n`);
 }
 
 /** 020's agreement check, and what 021 puts in its place, at one indentation. */
@@ -144,6 +188,11 @@ describe('migration 021 round trip', () => {
     expect(await state()).toEqual(STATE_021);
   });
 
+  test("the two public-membership bodies are 020's with only the withdrawal predicate added (BJ-1)", () => {
+    expect(predicateAdd(STATE_020.project, '           AND f.listed_at IS NOT NULL\n', '           '), 'project_facility moved beyond its withdrawal predicate').toBe(STATE_021.project);
+    expect(predicateAdd(STATE_020.rollup, '           AND f.listed_at IS NOT NULL\n', '           '), 'refresh_lga_rollup moved beyond its withdrawal predicate').toBe(STATE_021.rollup);
+  });
+
   test("the restated gates are 020's bodies with the agreement check replaced, and nothing else", () => {
     expect(agreementSwap(STATE_020.listed, 'v_id', '    '), 'operator_set_facility_listed moved beyond its agreement check').toBe(STATE_021.listed);
     expect(agreementSwap(STATE_020.begin, 'p_facility', '        '), 'provision_begin moved beyond its agreement check').toBe(STATE_021.begin);
@@ -161,10 +210,14 @@ describe('migration 021 round trip', () => {
   test('down then up changes NO public row, not even updated_at', async () => {
     const before = await mirrors();
     expect(JSON.parse(before).f.length, 'the seed projected no facility, so this leg would pass vacuously').toBeGreaterThan(0);
+    const cells021 = await rollupCells();
+    expect(JSON.parse(cells021).length, 'the seed forms no rollup cell, so the rollup half would pass vacuously').toBeGreaterThan(0);
     try {
       applyFile(DOWN);
+      const cells020 = await rollupCells();
       applyFile(FORWARD);
       expect(await mirrors(), 'applying 021 changed the public mirrors').toBe(before);
+      expect(cells021, "021's rollup body computes different public cells from 020's over the same rows").toBe(cells020);
     } finally {
       applyFile(FORWARD);
     }

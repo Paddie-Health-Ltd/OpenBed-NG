@@ -80,7 +80,7 @@ describe('projection into ward_public', () => {
     }, seed);
   });
 
-  test('all three projection triggers exist and are row-level AFTER triggers', async () => {
+  test('all four projection triggers exist and are row-level AFTER triggers', async () => {
     // Named, so that removing one is a failure here rather than a silent gap that
     // only shows up when a duty flag changes at 22:00.
     await withRole('postgres', null, async (tx) => {
@@ -90,6 +90,8 @@ describe('projection into ward_public', () => {
          where t.tgname like '%_project' order by t.tgname
       `);
       expect(rows.map((r) => `${r.tgname}@${r.tgrelid}`)).toEqual([
+        // 021 (R-2026-09-24-82 BJ-1): a withdrawn agreement re-projects its facility.
+        'trg_facility_agreement_project@facility_agreement',
         'trg_facility_ops_project@facility_ops',
         'trg_facility_project@facility',
         'trg_ward_status_project@ward_status',

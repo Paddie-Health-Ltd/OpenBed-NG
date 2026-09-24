@@ -49,6 +49,25 @@
 --      (020:698), which this migration drops, so it would error on any call. A
 --      re-apply of 020 recreates it and a re-apply of this drops it again, so 020
 --      still re-applies unchanged. The down migration restores it with its grant.
+--   6. A withdrawn agreement takes the facility off the public output BY ITSELF
+--      (R-2026-09-24-82 BJ-1). The data-sharing agreement is the basis for publishing
+--      a facility's data, so its withdrawal cannot wait on someone remembering to
+--      unlist. Both public membership predicates gain "no withdrawn agreement", and a
+--      trigger on app.facility_agreement re-projects the facility through 008's
+--      app.trg_project(), so setting withdrawn_on empties its mirror rows in the same
+--      transaction; the rollup stops counting it at its next refresh (every five
+--      minutes, 017). The page follows in about two minutes (020's B2).
+--
+-- EVERY PUBLIC MEMBERSHIP PREDICATE, enumerated from the live catalogue on 2026-09-24
+-- (every function in app, public and graphql_public whose source reads listed_at or
+-- names a mirror; no view and no materialized view exists). Exactly two decide which
+-- facilities reach public output, and both gain the predicate in section 6:
+--   - app.project_facility(uuid): the only writer of public.facility_public and
+--     public.ward_public;
+--   - app.refresh_lga_rollup(): the only writer of public.lga_rollup.
+-- app.regenerate_snapshot() and public.publish_ward_status read the mirrors only, so
+-- they inherit the first. operator_create_facility, operator_register and
+-- operator_set_facility_listed read listed_at for the operator, not the public.
 --
 -- NOTHING IS MOVED, AND NOTHING IS INVENTED. BD-1 b asks for existing
 -- agreement_accepted_at values to be moved, behind a pre-check that refuses when any
@@ -59,9 +78,14 @@
 -- migration mirrors this, restoring the column empty and refusing while any
 -- agreement row exists, so neither direction loses or invents an agreement.
 --
--- APPLYING THIS CHANGES NO PUBLIC OUTPUT. No projected table is written: the contact
--- and the agreement are not projected (008's triggers are on facility, facility_ops
--- and ward_status), and no facility row is updated.
+-- APPLYING THIS CHANGES NO PUBLIC OUTPUT. No projected table is written, and no
+-- facility row is updated. The contact is never projected. The agreement is, from
+-- section 6 on, but its trigger fires only on agreement rows and applying this writes
+-- none. The restated predicates exclude only a facility with a WITHDRAWN agreement,
+-- and on apply there is no agreement row at all: hosted holds no facility (step 4b),
+-- and the seed holds no agreement. Nothing is re-projected by the apply, and a later
+-- refresh of the rollup computes the same cells as under 020 (both shown in
+-- tests/db/migration_021_round_trip.test.ts; -71 B1).
 --
 -- Idempotency: the pre-check reads a column only while it exists; CREATE TABLE IF NOT
 -- EXISTS; ADD COLUMN IF NOT EXISTS; DROP COLUMN IF EXISTS; DROP TRIGGER IF EXISTS
@@ -652,7 +676,203 @@ $FN$;
 
 
 -- ============================================================
--- 6. EXECUTE: authenticated only, for every public function this migration writes.
+-- 6. A withdrawn agreement leaves the public output by itself (R-2026-09-24-82 BJ-1).
+-- ============================================================
+-- The two public membership predicates are 020's bodies verbatim, each with ONE line
+-- added after `listed_at IS NOT NULL`: no withdrawn agreement. A facility with no
+-- agreement row is unaffected -- the predicate is "no withdrawn agreement", not "has
+-- one" -- which is what keeps B1 (see the header). The down migration restores 020's
+-- bodies byte for byte; tests/db/migration_021_round_trip.test.ts compares both by value.
+CREATE OR REPLACE FUNCTION app.project_facility(p_facility_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $FN$
+DECLARE
+    v_visible boolean;
+BEGIN
+    -- Visible means: the facility exists, is active, is not in quiet mode, and is
+    -- LISTED (020; R-2026-09-23-71 B). A facility row that has been deleted yields
+    -- NULL, which coalesces to false and therefore removes its mirror rows -- the
+    -- correct behaviour.
+    SELECT f.is_active AND NOT f.quiet_mode
+           AND f.listed_at IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM app.facility_agreement a WHERE a.facility_id = f.id AND a.withdrawn_on IS NOT NULL)
+      INTO v_visible
+      FROM app.facility f
+     WHERE f.id = p_facility_id;
+
+    v_visible := coalesce(v_visible, false);
+
+    IF NOT v_visible THEN
+        -- QUIET, INACTIVE OR GONE: no row, not a filtered row. See the header
+        -- for why a DELETE is safe here and a tombstone would not be.
+        DELETE FROM public.ward_public     WHERE facility_id = p_facility_id;
+        DELETE FROM public.facility_public WHERE facility_id = p_facility_id;
+        RETURN;
+    END IF;
+
+    -- ---- facility_public ------------------------------------------------
+    INSERT INTO public.facility_public
+        (facility_id, name, lga, state, lat, lng, public_phone_e164, updated_at)
+    SELECT f.id, f.name, f.lga, f.state, f.lat, f.lng, f.public_phone_e164, f.updated_at
+      FROM app.facility f
+     WHERE f.id = p_facility_id
+    ON CONFLICT (facility_id) DO UPDATE SET
+        name              = EXCLUDED.name,
+        lga               = EXCLUDED.lga,
+        state             = EXCLUDED.state,
+        lat               = EXCLUDED.lat,
+        lng               = EXCLUDED.lng,
+        public_phone_e164 = EXCLUDED.public_phone_e164,
+        updated_at        = EXCLUDED.updated_at;
+
+    -- ---- ward_public ----------------------------------------------------
+    -- accepting_effective composes two things, and both are deliberate:
+    --   (a) offering = 'OFFERED'  -- a ward the facility does not offer is never
+    --       accepting, whatever its stored claim says. Mirrored by
+    --       acceptingEffectiveForWard() in packages/gate/src/gate.ts.
+    --   (b) accepting AND gate IS NULL -- the ward's claim, reduced by the gate.
+    --       The gate can close; it can never open. The only route to `true` here
+    --       is the ward having claimed `true`.
+    INSERT INTO public.ward_public
+        (facility_id, category, offering, bed_count,
+         accepting_effective, gated_by, state, source, monitoring_state, updated_at)
+    SELECT
+        ws.facility_id,
+        ws.category,
+        ws.offering,
+        ws.bed_count,
+        (ws.offering = 'OFFERED'
+             AND ws.accepting
+             AND app.gate(ws.category, ops.anaesthetist, ops.obstetrician, ops.paediatrician) IS NULL),
+        app.gate(ws.category, ops.anaesthetist, ops.obstetrician, ops.paediatrician),
+        ws.state,
+        ws.source,
+        ws.monitoring_state,
+        ws.updated_at
+      FROM app.ward_status ws
+      -- LEFT JOIN, not JOIN. A facility with no facility_ops row must still
+      -- publish its wards, ungated: no recorded duty cover is not the same thing
+      -- as recorded absence of cover. An inner join here would make every ward at
+      -- such a facility silently vanish from the public dashboard.
+      LEFT JOIN app.facility_ops ops ON ops.facility_id = ws.facility_id
+     WHERE ws.facility_id = p_facility_id
+    ON CONFLICT (facility_id, category) DO UPDATE SET
+        offering            = EXCLUDED.offering,
+        bed_count           = EXCLUDED.bed_count,
+        accepting_effective = EXCLUDED.accepting_effective,
+        gated_by            = EXCLUDED.gated_by,
+        state               = EXCLUDED.state,
+        source              = EXCLUDED.source,
+        monitoring_state    = EXCLUDED.monitoring_state,
+        updated_at          = EXCLUDED.updated_at;
+
+    -- Remove mirror rows whose source ward_status row is gone.
+    DELETE FROM public.ward_public wp
+     WHERE wp.facility_id = p_facility_id
+       AND NOT EXISTS (
+           SELECT 1 FROM app.ward_status ws
+            WHERE ws.facility_id = wp.facility_id
+              AND ws.category    = wp.category
+       );
+END;
+$FN$;
+
+CREATE OR REPLACE FUNCTION app.refresh_lga_rollup()
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+SET row_security = off
+AS $FN$
+DECLARE
+    v_rows integer;
+BEGIN
+    -- Full recompute. A cell that no longer clears the k-floor must DISAPPEAR,
+    -- and an incremental update would leave it behind -- which is precisely the
+    -- disclosure the floor exists to prevent.
+    DELETE FROM public.lga_rollup;
+
+    WITH contrib AS (
+        -- One row per (cell, facility). THE SET.
+        SELECT
+            f.state,
+            f.lga,
+            ws.category,
+            f.id AS facility_id,
+            sum(coalesce(ws.bed_count, 0))::integer AS beds
+          FROM app.facility f
+          JOIN app.ward_status ws ON ws.facility_id = f.id
+         WHERE f.quiet_mode
+           AND f.is_active
+           AND f.listed_at IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM app.facility_agreement a WHERE a.facility_id = f.id AND a.withdrawn_on IS NOT NULL)
+           AND ws.offering = 'OFFERED'
+         GROUP BY f.state, f.lga, ws.category, f.id
+    ),
+    agg AS (
+        SELECT
+            c.state,
+            c.lga,
+            c.category,
+            count(DISTINCT c.facility_id)::integer AS facility_count,
+            sum(c.beds)::integer                   AS total_beds,
+            max(c.beds)::integer                   AS max_facility_beds
+          FROM contrib c
+         GROUP BY c.state, c.lga, c.category
+    )
+    INSERT INTO public.lga_rollup (state, lga, category, facility_count, total_beds, updated_at)
+    SELECT a.state, a.lga, a.category, a.facility_count, a.total_beds, now()
+      FROM agg a
+     WHERE CASE
+               -- 1. K-FLOOR. Fewer than 5 contributing facilities: suppress.
+               --    Stable over time, which is what makes it safe: a cell that is
+               --    always absent tells an observer nothing.
+               WHEN a.facility_count < 5 THEN false
+
+               -- 2. ALL-ZERO. PUBLISH, and return before any division is reached.
+               --
+               --    This arm MUST precede arm 3. CASE evaluates its conditions in
+               --    order and stops at the first true one, so arm 3's division is
+               --    unreachable when total_beds = 0.
+               --
+               --    Published rather than suppressed because suppressing would not
+               --    hide it: if all-zero were the only condition beyond the k-floor
+               --    that removed a cell, the cell would be present on normal days
+               --    and absent on zero days, and the absence would be the signal.
+               --    Suppression buys nothing and costs the most useful thing the
+               --    rollup can say.
+               WHEN a.total_beds = 0 THEN true
+
+               -- 3. DOMINANCE. Reachable only when total_beds > 0.
+               --    NULLIF is belt-and-braces on top of the ordering above: if
+               --    anyone ever reorders these arms, this yields NULL (row not
+               --    selected) rather than raising division_by_zero and taking the
+               --    whole refresh down.
+               WHEN a.max_facility_beds::numeric / nullif(a.total_beds, 0) <= 0.40 THEN true
+
+               ELSE false
+           END;
+
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
+    RETURN v_rows;
+END;
+$FN$;
+
+-- The mirrors move in the SAME TRANSACTION as the withdrawal: this is 008's projection
+-- path, app.trg_project(), which resolves facility_id for every table but app.facility.
+-- Not a second projection routine. AFTER ROW and not deferrable, like the other three,
+-- which tests/db/projection_trigger_state.test.ts holds.
+DROP TRIGGER IF EXISTS trg_facility_agreement_project ON app.facility_agreement;
+CREATE TRIGGER trg_facility_agreement_project
+    AFTER INSERT OR UPDATE OR DELETE ON app.facility_agreement
+    FOR EACH ROW EXECUTE FUNCTION app.trg_project();
+
+
+-- ============================================================
+-- 7. EXECUTE: authenticated only, for every public function this migration writes.
 -- ============================================================
 -- REVOKE FROM PUBLIC is not enough: Supabase's default ACL grants EXECUTE on public
 -- functions to anon, authenticated and service_role BY NAME (014; observed again in
@@ -692,7 +912,7 @@ END $$;
 
 
 -- ============================================================
--- 7. Record migration so re-apply is a no-op.
+-- 8. Record migration so re-apply is a no-op.
 -- ============================================================
 INSERT INTO app.schema_migrations (filename, applied_at)
 VALUES ('021_facility_agreement_and_contact_write.sql', now())

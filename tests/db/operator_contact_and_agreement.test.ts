@@ -408,18 +408,27 @@ describe("operator_register's agreement_state — none, recorded or withdrawn (B
     expect(out, 'the yes/no field that hid a withdrawal is still returned').not.toHaveProperty('agreement_recorded');
   });
 
-  test('a listed facility whose agreement is then withdrawn reads withdrawn, still listed, and recording again is refused by name', async () => {
+  test('a listed facility whose agreement is then withdrawn reads withdrawn, still listed but no longer public, and recording again is refused by name', async () => {
+    // Listed but not public (R-2026-09-24-82 BJ-1): the withdrawal alone takes the
+    // facility out of the mirrors; listed_at is cleared by the founder's withdrawal
+    // step, not by the database.
+    const PUBLIC = `select (select count(*) from public.facility_public where facility_id = '${FAC}')::int as f,
+                           (select count(*) from public.ward_public where facility_id = '${FAC}')::int as w`;
     const out = await asOperator(async (tx) => {
       await tx.unsafe(CONTACT());
       await tx.unsafe(AGREEMENT());
       await tx.unsafe(`select * from public.operator_set_facility_listed('${FAC}', 1)`);
+      const [before] = await owner<{ f: number; w: number }[]>(tx, PUBLIC);
       await tx.unsafe('reset role');
       await tx.unsafe(WITHDRAW);
       await tx.unsafe('set local role authenticated');
+      const [after] = await owner<{ f: number; w: number }[]>(tx, PUBLIC);
       const reg = await mine(tx);
       const again = await refusal(tx.savepoint((sp) => sp.unsafe(AGREEMENT({ version: 'v2.0' }))));
-      return { reg, again };
+      return { reg, again, before, after };
     });
+    expect(out.before, 'the listed facility was never public, so its removal would prove nothing').toEqual({ f: 1, w: 1 });
+    expect(out.after, 'a withdrawn agreement left the facility public').toEqual({ f: 0, w: 0 });
     expect(out.reg?.agreement_state).toBe('withdrawn');
     expect(out.reg?.listed_at, 'the withdrawal unlisted the facility, which nothing here does').not.toBeNull();
     expect(out.again.message).toBe('AGREEMENT_ALREADY_RECORDED');
