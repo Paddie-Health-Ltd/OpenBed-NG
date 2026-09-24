@@ -101,6 +101,11 @@ const PLANNED_ARTEFACTS: Record<string, { stage: number }> = {
   'scripts/lint_referral_ward_to_ward.sh': { stage: 5 },
   'tests/compliance/referral_ward_to_ward.test.ts': { stage: 5 },
   'tests/db/referral_column_list.test.ts': { stage: 5 },
+  // Bundle 3, PR 3.4b-app C (R-2026-09-24-88 BP-11): the admin app and its deploy
+  // read-back, cited by the 3.4b-app kickoff, which is committed unedited in PR A.
+  'apps/admin': { stage: 3 },
+  'apps/admin/wrangler.toml': { stage: 3 },
+  'scripts/readback_admin.sh': { stage: 3 },
 };
 
 /**

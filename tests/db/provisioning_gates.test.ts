@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, test } from 'vitest';
 import type { TransactionSql } from 'postgres';
-import { sql, withRole } from '../setup/db.js';
+import { sql, sqlSecond, withRole } from '../setup/db.js';
 
 /**
  * THE PROVISIONING GATES: ONE IMPLEMENTATION, IN SQL (R-2026-09-23-71 C, I, J3, J4).
@@ -27,7 +27,15 @@ import { sql, withRole } from '../setup/db.js';
  * J4: begin on a ward that already has its account returns `complete` and opens
  * nothing. That tells the script not to call generate_link, which would mint a new
  * token and could invalidate a link the ward already requested. That the script
- * then makes zero Auth admin calls is 3.4b's test, against the script.
+ * then makes zero Auth admin calls is asserted against the script, by counting
+ * requests at a stub GoTrue: tests/db/provision_script.test.ts.
+ *
+ * 022 (R-2026-09-24-90 BR-1), the last describe block below:
+ *   - at most ONE active PLATFORM_ADMIN, by a partial unique index; begin on an
+ *     operator that already exists is `complete` and opens nothing;
+ *   - complete REACTIVATES a deactivated account of the same scope, against an open
+ *     invite only, with its own audit action;
+ *   - every one-active refusal is named by its constraint, never a raw 23505.
  */
 
 const FAC = '0b000000-0000-4000-8000-0000000000fa';
@@ -188,6 +196,131 @@ describe('begin and complete are idempotent, and a ward has one active account',
       const [acct] = await tx.unsafe<{ role: string; facility_id: string | null }[]>(`select role, facility_id from app.ward_account where id = '${user}'`);
       expect(acct).toEqual({ role: 'PLATFORM_ADMIN', facility_id: null });
     });
+  });
+});
+
+describe('022 — one active operator, and reactivation through the gates (R-2026-09-24-90 BR-1)', () => {
+  const deactivate = (tx: TransactionSql, id: string) =>
+    tx.unsafe(`update app.ward_account set is_active = false, deactivated_at = now() where id = '${id}'`);
+
+  test('BR-1 b — begin on an operator that already exists returns complete and opens NOTHING', async () => {
+    await withRole('postgres', null, async (tx) => {
+      const b = await begin(tx, '', 'PLATFORM_ADMIN', null);
+      await complete(tx, b.invite_id ?? '', randomUUID());
+      const [before] = await tx.unsafe<{ n: number }[]>(`select count(*)::int as n from app.invite where role = 'PLATFORM_ADMIN'`);
+      expect(await begin(tx, '', 'PLATFORM_ADMIN', null)).toEqual({ status: 'complete', invite_id: null });
+      const [after] = await tx.unsafe<{ n: number }[]>(`select count(*)::int as n from app.invite where role = 'PLATFORM_ADMIN'`);
+      expect(after?.n, 'begin opened an operator invite while an operator exists').toBe(before?.n);
+    });
+  });
+
+  test('BR-1 a — a second active PLATFORM_ADMIN is refused OPERATOR_ALREADY_EXISTS by name, never a raw 23505', async () => {
+    await withRole('postgres', null, async (tx) => {
+      // The invite is opened while no operator exists; one then appears by another path.
+      const b = await begin(tx, '', 'PLATFORM_ADMIN', null);
+      await tx.unsafe(`insert into app.ward_account (id, role) values ('${randomUUID()}', 'PLATFORM_ADMIN')`);
+      const r = await refusal(tx.savepoint((sp) => sp.unsafe(`select * from app.provision_complete('${b.invite_id}', '${randomUUID()}')`)));
+      expect(r.message).toBe('OPERATOR_ALREADY_EXISTS');
+      expect(r.code, 'the refusal surfaced as the raw unique violation').not.toBe('23505');
+    });
+  });
+
+  test('BR-1 c — a deactivated ward re-provisioned through the gates is REACTIVATED, with its own audit row', async () => {
+    const user = randomUUID();
+    await withRole('postgres', null, async (tx) => {
+      const first = await begin(tx);
+      await complete(tx, first.invite_id ?? '', user);
+      await deactivate(tx, user);
+      const again = await begin(tx);
+      expect(again.status, 'begin treated a switched-off ward as complete').toBe('open');
+      expect(await complete(tx, again.invite_id ?? '', user)).toBe('reactivated');
+      const [acct] = await tx.unsafe<{ is_active: boolean; off: boolean }[]>(`select is_active, deactivated_at is not null as off from app.ward_account where id = '${user}'`);
+      expect(acct).toEqual({ is_active: true, off: false });
+      const [inv] = await tx.unsafe<{ accepted: boolean }[]>(`select accepted_at is not null as accepted from app.invite where id = '${again.invite_id}'`);
+      expect(inv?.accepted).toBe(true);
+      const audits = await tx.unsafe<{ action: string }[]>(`select action from app.audit_log where facility_id = '${FAC}' and action like 'ward_account.%' order by id`);
+      expect(audits.map((a) => a.action)).toEqual(['ward_account.provision', 'ward_account.reactivate']);
+    }, (tx) => facility(tx, 'signed'));
+  });
+
+  test("BR-1 c — a deactivated operator re-provisioned through the gates is reactivated", async () => {
+    const user = randomUUID();
+    await withRole('postgres', null, async (tx) => {
+      const first = await begin(tx, '', 'PLATFORM_ADMIN', null);
+      await complete(tx, first.invite_id ?? '', user);
+      await deactivate(tx, user);
+      const again = await begin(tx, '', 'PLATFORM_ADMIN', null);
+      expect(again.status).toBe('open');
+      expect(await complete(tx, again.invite_id ?? '', user)).toBe('reactivated');
+    });
+  });
+
+  test("a withdrawn facility's deactivated ward is refused AGREEMENT_WITHDRAWN at begin, and never reaches complete", async () => {
+    const user = randomUUID();
+    const r = await refusal(
+      withRole('postgres', null, async (tx) => {
+        const first = await begin(tx);
+        await complete(tx, first.invite_id ?? '', user);
+        await deactivate(tx, user);
+        await tx.unsafe(`update app.facility_agreement set withdrawn_on = '2026-09-20' where facility_id = '${FAC}'`);
+        await begin(tx);
+      }, (tx) => facility(tx, 'signed')),
+    );
+    expect(r.message).toBe('AGREEMENT_WITHDRAWN');
+  });
+
+  test('reactivation while the ward holds another active account is refused WARD_ALREADY_HAS_AN_ACCOUNT by name', async () => {
+    const old = randomUUID();
+    await withRole('postgres', null, async (tx) => {
+      const first = await begin(tx);
+      await complete(tx, first.invite_id ?? '', old);
+      await deactivate(tx, old);
+      const second = await begin(tx);
+      await complete(tx, second.invite_id ?? '', randomUUID());
+      // begin now says complete (J4), so the open invite is made directly.
+      const [inv] = await tx.unsafe<{ id: string }[]>(`insert into app.invite (facility_id, ward_category, role) values ('${FAC}', 'ICU_ADULT', 'WARD_STAFF') returning id`);
+      const r = await refusal(tx.savepoint((sp) => sp.unsafe(`select * from app.provision_complete('${inv?.id}', '${old}')`)));
+      expect(r.message).toBe('WARD_ALREADY_HAS_AN_ACCOUNT');
+      expect(r.code).not.toBe('23505');
+    }, (tx) => facility(tx, 'signed'));
+  });
+
+  test('an inactive account is NOT reactivated over an invite that is already accepted', async () => {
+    const user = randomUUID();
+    await withRole('postgres', null, async (tx) => {
+      const first = await begin(tx);
+      await complete(tx, first.invite_id ?? '', user);
+      await deactivate(tx, user);
+      const r = await refusal(tx.savepoint((sp) => sp.unsafe(`select * from app.provision_complete('${first.invite_id}', '${user}')`)));
+      expect(r.message).toBe('INVITE_ALREADY_ACCEPTED');
+      const [acct] = await tx.unsafe<{ is_active: boolean }[]>(`select is_active from app.ward_account where id = '${user}'`);
+      expect(acct?.is_active, 'the account was switched back on without an open invite').toBe(false);
+    }, (tx) => facility(tx, 'signed'));
+  });
+
+  test('two concurrent complete() calls on one invite, over two real connections: one wins, the other is named', async () => {
+    // COMMITS, because two connections cannot share a rolled-back transaction. The
+    // operator scope needs no facility, so nothing is left behind but the append-only
+    // audit rows; finally removes the invite and any account, so no active
+    // PLATFORM_ADMIN outlives this test (R-2026-09-24-91 BS-1 a).
+    const [a, b] = [randomUUID(), randomUUID()];
+    const [inv] = await sql()<{ invite_id: string; status: string }[]>`select * from app.provision_begin(NULL, NULL, 'PLATFORM_ADMIN')`;
+    try {
+      expect(inv?.status, 'an operator already exists on this database, so the race has nothing to race for').toBe('open');
+      const results = await Promise.allSettled([
+        sql()`select * from app.provision_complete(${inv!.invite_id}::uuid, ${a}::uuid)`,
+        sqlSecond()`select * from app.provision_complete(${inv!.invite_id}::uuid, ${b}::uuid)`,
+      ]);
+      const won = results.filter((r) => r.status === 'fulfilled');
+      const lost = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+      expect(won, JSON.stringify(results)).toHaveLength(1);
+      expect(lost.map((l) => (l.reason as Error).message)).toEqual(['INVITE_ALREADY_ACCEPTED']);
+      const [n] = await sql()<{ n: number }[]>`select count(*)::int as n from app.ward_account where id in (${a}::uuid, ${b}::uuid)`;
+      expect(n?.n, 'both racers created an account').toBe(1);
+    } finally {
+      await sql()`delete from app.ward_account where id in (${a}::uuid, ${b}::uuid)`;
+      if (inv) await sql()`delete from app.invite where id = ${inv.invite_id}::uuid`;
+    }
   });
 });
 

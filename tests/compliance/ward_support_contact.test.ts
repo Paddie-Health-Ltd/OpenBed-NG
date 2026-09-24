@@ -43,7 +43,7 @@ export function bareOperatorInstructions(source: string): string[] {
 async function consoleMessages(): Promise<string[]> {
   document.body.innerHTML = '<div id="app"></div>';
   const m = await import('../../apps/ward-console/src/main.js');
-  return [m.UNRECOGNISED, m.ROW_REFUSED, m.LOAD_REFUSED, m.BAD_LINK, m.SIGNIN_ANSWERED, m.SIGNIN_UNREACHABLE, ...Object.values(m.WARD_MESSAGES)];
+  return [m.UNRECOGNISED, m.ROW_REFUSED, m.LOAD_REFUSED, m.BAD_LINK, m.SIGNIN_ANSWERED, m.SIGNIN_UNREACHABLE, m.NO_WARD_SESSION, ...Object.values(m.WARD_MESSAGES)];
 }
 
 describe('the ward support address', () => {

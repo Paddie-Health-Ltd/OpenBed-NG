@@ -1,6 +1,6 @@
 {
   "status": "PROVISIONAL -- the same status as public-labels.json: the founder's clinicians confirm this wording.",
-  "comment": "Words ONLY the ward console shows, kept out of public-labels.json because that table must cover exactly the enums the public page receives (tests/compliance/public_labels.test.ts and tests/db/public_labels_enum.test.ts hold it to that). `zero_reason` is app.zero_reason (002) in its declared order, which tests/compliance/ward_console_render.test.ts asserts. `offering_choice` is the publish form's choice between the two values of app.ward_offering: a ward CHOOSING what it offers, which is not the public line's statement of it. Moved here from the ward console's own code by R-2026-09-23-70 E, so the console holds no word table of its own.",
+  "comment": "Words ONLY the ward console shows, kept out of public-labels.json because that table must cover exactly the enums the public page receives (tests/compliance/public_labels.test.ts and tests/db/public_labels_enum.test.ts hold it to that). `zero_reason` is app.zero_reason (002) in its declared order, which tests/compliance/ward_console_render.test.ts asserts. `offering_choice` is the publish form's choice between the two values of app.ward_offering: a ward CHOOSING what it offers, which is not the public line's statement of it. Moved here from the ward console's own code by R-2026-09-23-70 E, so the console holds no word table of its own. `session` holds the stop a session with NO ward is shown (R-2026-09-24-88 BP-8, wording accepted by R-2026-09-24-91 BS-2): zero rows from my_facility_wards is never a legitimate ward, because a WARD_STAFF account always has its ward. It is an operator's session that fell back to this console, or broken data. The console appends its own support sentence, which names the support address (BR-2).",
   "zero_reason": {
     "ALL_BEDS_OCCUPIED": "All beds occupied",
     "NO_ANAESTHETIST": "No anaesthetist",
@@ -14,5 +14,9 @@
   "offering_choice": {
     "OFFERED": "Offered",
     "NOT_OFFERED": "Not offered"
+  },
+  "session": {
+    "NO_WARD_HEADING": "Not linked to a ward",
+    "NO_WARD": "This sign-in isn't linked to a ward, so there is nothing to hand over. If you run OpenBed, sign in at admin.openbed.ng instead."
   }
 }
