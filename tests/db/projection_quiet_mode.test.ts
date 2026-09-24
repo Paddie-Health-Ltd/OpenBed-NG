@@ -20,6 +20,8 @@ async function seed(tx: TransactionSql): Promise<void> {
     insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, quiet_mode, listed_at)
     values ('${FAC}','Quiet Under Test','Eti-Osa','Lagos',6.45,3.42,'+2348000000096', false, now())
   `);
+  // 021 (R-2026-09-24-83 BK-1): public requires an active agreement. Synthetic.
+  await tx.unsafe(`insert into app.facility_agreement (facility_id, accepted_on, version) values ('${FAC}', '2026-09-01', 'v1.0')`);
   await tx.unsafe(`insert into app.facility_ops (facility_id) values ('${FAC}')`);
   await tx.unsafe(`
     insert into app.ward_status (facility_id, category, offering, bed_count, accepting, monitoring_state)

@@ -3907,7 +3907,7 @@ _Issued as R-PROVISIONAL-2026-09-24-BJ, by Cowork on 2026-09-24, as its check of
 - **`app.refresh_lga_rollup()`** is the only writer of `lga_rollup`.
 - **Each is restated in 021 section 6 as 020's body verbatim, plus one line** after `listed_at IS NOT NULL`: `AND NOT EXISTS (SELECT 1 FROM app.facility_agreement a WHERE a.facility_id = f.id AND a.withdrawn_on IS NOT NULL)`.
 - **The rest inherit or are not public.** `app.regenerate_snapshot()` and `publish_ward_status` read the mirrors only, so they inherit the first site. `operator_create_facility`, `operator_register` and `operator_set_facility_listed` read `listed_at` for the operator, not the public.
-- **The predicate is "no withdrawn agreement", not "has an agreement".** A facility with no agreement row, such as the seed's, is unaffected.
+- **The predicate is "no withdrawn agreement", not "has an agreement".** A facility with no agreement row, such as the seed's, is unaffected. _Superseded 2026-09-24 by R-2026-09-24-83 BK-1: the predicate is now positive, an agreement that is not withdrawn. A facility with no agreement row is NOT public. **The invariant is: public implies an active agreement.**_
 
 **b) The trigger.** `trg_facility_agreement_project` fires AFTER INSERT OR UPDATE OR DELETE on `app.facility_agreement`, FOR EACH ROW, and calls **008's `app.trg_project()`**, which already resolves `facility_id` for every table except `facility`. There is no second projection path and no new function, so the grants fixture is unchanged.
 - Setting `withdrawn_on` empties the facility's mirror rows **in the same transaction**.
@@ -3944,6 +3944,81 @@ _Issued as R-PROVISIONAL-2026-09-24-BJ, by Cowork on 2026-09-24, as its check of
 **The Standard P ledger has 12 rows, and 0 failures.**
 - **Row 5 is restated:** a contact write re-projects nothing, and an agreement write re-projects through 008's `trg_project`. Its plant nulls that function's `facility_id` branch.
 - **Row 12 is new:** 021's two membership bodies are 020's plus the predicate. Its plant alters 020's `project_facility`.
+
+### R-2026-09-24-83 — public requires an active agreement, and fails closed
+
+_Issued as R-PROVISIONAL-2026-09-24-BK, by Cowork on 2026-09-24, as its check of #72 at `61dfae6`. Number assigned on landing: R-2026-09-24-82 plus one. BK-1 a-c change 021 on `pr-3.4b-db-021`; d and e are record. Next provisional letter: BL._
+
+**VERIFIED BY COWORK** (GitHub API, repository and hosted catalogue, 2026-09-24; Cowork's reading, re-read on landing where the repository holds it):
+- #72 was open at `61dfae6`, base `f1d3a1f`, CLEAN, with seven check runs success.
+- 021 at `61dfae6` held:
+  - BJ's predicate at 701 and 811;
+  - the agreement trigger at 868-871, calling 008's `app.trg_project()`;
+  - the `snapshot_schedule_state` change, which is test-only.
+- **Hosted, read-only through the Supabase connector** (Cowork's reading; I have no hosted access):
+  - `postgres` reads `rolsuper false`, `rolbypassrls true`.
+  - `project_facility`, `refresh_lga_rollup`, `regenerate_snapshot` and `trg_project` are SECURITY DEFINER, owned by `postgres`.
+  - Both cron jobs run as `postgres`.
+  - `app.facility`, `app.ward_status` and `app.facility_contact` have RLS disabled.
+
+**BK-1 — THE PREDICATE FAILED OPEN, AND ADMITTED A FACILITY WITH NO AGREEMENT. IT IS NOW POSITIVE.**
+
+**a) Both sites now read `AND EXISTS (SELECT 1 FROM app.facility_agreement a WHERE a.facility_id = f.id AND a.withdrawn_on IS NULL)`,** in 021 section 6.
+- Public means listed, active, not quiet, AND an active agreement.
+- Any failure to read the table hides data rather than exposing it.
+- The down still restores 020's bodies byte for byte.
+
+**b) A second pre-check, `LISTED_WITHOUT_AGREEMENT`,** refuses to apply while any listed facility has no agreement row, naming the count. Before the table exists every listed facility counts; on a re-apply, those with no row count.
+- **Synthetic agreement rows were added.** The seed gets one per listed facility (`synthetic-v1`, signatory `CMD`, a role and never a name). The e2e corpus gets them too, and so does every db fixture that lists a facility and expects public output:
+  - `facility_listing`, `gate_semantics`, `lga_rollup_kfloor`;
+  - `projection_quiet_mode`, `projection_ward_public`;
+  - `public_labels_enum`, `publish_ward_status`, `snapshot_single_read`.
+- **Only fixture lines changed, no assertion.** `snapshot_single_read`'s committed cleanup now deletes the agreement before the facility, because the foreign key is RESTRICT by design.
+
+**c) The tests,** in `tests/db/agreement_withdrawal_public.test.ts`:
+- **(i)** A listed facility with no agreement row is not public, in the mirrors or the rollup.
+- **(ii) Fails closed, asserted as the DECISION.** Under a stand-in owner without BYPASSRLS, which has every grant it needs:
+  - 021's projection completes and writes nothing;
+  - 021's rollup, with `row_security` reset, returns 0 and writes no cell;
+  - **counter-plants** with BJ's `NOT EXISTS` body, same owner: both attempt the write.
+- **(iii)** The withdrawal legs pass unchanged.
+- **(iv)** Removing the `EXISTS` from each site leaks, and dropping the trigger leaves the mirrors unmoved.
+- `snapshot_schedule_state` passes with **no expectation changed.**
+
+**A PREMISE THAT HOLDS ONLY IN PART.** "Every withdrawn facility reads as publishable" is true of BJ's predicate: the counter-plants show it deciding to publish. **It does not reach public output on today's schema, though.** The mirrors (`facility_public`, `ward_public`, `lga_rollup`) have RLS forced with no policy for their writer, so the non-bypass owner's attempt raises `new row violates row-level security policy`. The instruction stands on its other grounds:
+- publishing requires an agreement;
+- the positive predicate does not depend on the mirrors' RLS;
+- a future policy on a mirror would have opened the path.
+
+**B1 IS NOW STRUCTURAL.**
+- On a first apply the agreement table does not exist, so the pre-check admits 021 only where no facility is listed. An unlisted facility is public nowhere, so the public output is empty before and after. Hosted holds 0 facilities.
+- `tests/db/migration_021_round_trip.test.ts` shows:
+  - that empty shape;
+  - that the down writes no public row over the seed's published state;
+  - that a re-apply over it changes no public row;
+  - the refusal, naming the count derived from the database.
+
+**THE ROUND-TRIP MECHANISM CHANGED, and why.** BD-1 made 021's down refuse while any agreement exists. BK-1 b gives the seed agreements. Together:
+- the down now refuses on the shared database;
+- after any down, the forward refuses.
+
+So `migration_020_round_trip` and `migration_021_round_trip` no longer apply files committed through psql. Each leg applies the file texts inside one rolled-back transaction, as `snapshot_schedule_state` does with 017, and nothing is committed. Before a down, the leg takes, in that transaction, the founder's decision the refusal exists to force: the agreements go, with the agreement trigger disabled so the mirrors keep the state being compared.
+- **020's assertions are unchanged.**
+- **One assertion of 021's is removed and replaced:** the committed "down then up changes NO public row". "Up" over the seed is refused by design. It is replaced by the three legs above and the first-apply leg.
+
+**d) -82's wording is superseded** where it said a facility with no agreement stays public. The invariant is **public implies an active agreement.**
+
+**e) NOTE, no change.** `app.facility_agreement` is the one `app` table with RLS enabled and forced:
+- locally, by the migrations;
+- on hosted, by Cowork's reading, where the other `app` tables have RLS disabled.
+
+It stays. With a positive predicate it can only fail closed.
+
+**Runbook step 5, "021's apply" fence 3** names the second pre-check. Hosted has neither condition.
+
+**The Standard P ledger has 13 rows, and 0 failures.**
+- **Row 12's line is the EXISTS form.**
+- **Row 13 is new:** the column 020 adds as the listing state is the one the pre-check counts in both branches, and the one both of 020's membership bodies require. Its plant renames 020's column, and it is REPORTED.
 
 ## The provisional ledger
 
@@ -4018,6 +4093,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | BH | R-2026-09-24-80 | 2026-09-24 | **Fence 6 reads PASS on hosted** (founder's output, relayed by Cowork): 25 lines ok, with `rls_auto_enable()` ok as hosted-only. 020's apply is complete, and BE-1 is closed. 021's PR opens, and its report goes to Cowork before the merge word. |
 | BI | R-2026-09-24-81 | 2026-09-24 | **#72 checked. The register's `agreement_recorded` becomes `agreement_state` (none, recorded or withdrawn)**, because the yes/no read a withdrawal as "none" and led to a dead end. Found: neither the HTTP test nor the runbook named the field, and no withdrawal step exists yet. A withdrawn facility stays listed, flagged for BD-2 2. The dated-unit guard fix is queued for the record-021-apply change. |
 | BJ | R-2026-09-24-82 | 2026-09-24 | **A withdrawn agreement takes a facility off the public output by itself.** Both membership predicates (`project_facility`, `refresh_lga_rollup`) gain "no withdrawn agreement", and a trigger on `facility_agreement` re-projects through 008's `trg_project`. B1 holds. The withdrawal step for 3.4b-app is ruled: withdraw, deactivate the ward accounts, unlist, then read back `/beds.json`. Found: 021:282-291 was wrong when written; the gate is at 021:313-322. |
+| BK | R-2026-09-24-83 | 2026-09-24 | **Public requires an active agreement, and fails closed.** Both predicates are now `EXISTS (agreement, withdrawn_on IS NULL)`. A pre-check refuses to apply over a listed facility with no agreement, and the seed and fixtures gain synthetic agreements. Found: the fail-open was real in the predicate but blocked today by the mirrors' own RLS. The round trips now run in rolled-back transactions, because BD's down refusal and BK's seed agreements together forbid a committed one. B1 is structural. |
 
 ## Method notes — how rulings reach the implementer
 

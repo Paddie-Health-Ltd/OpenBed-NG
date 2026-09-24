@@ -102,6 +102,14 @@ export async function seedE2eCorpus(): Promise<void> {
       values (${f.id}::uuid, ${f.name}, ${f.lga}, 'Lagos', ${f.lat}, ${f.lng}, ${f.phone}, false, true, now())
       on conflict (id) do update set is_active = true, quiet_mode = false, listed_at = coalesce(app.facility.listed_at, now())
     `;
+    // Since 021 a facility is public only with an agreement that is not withdrawn
+    // (R-2026-09-24-83 BK-1). Synthetic; un-withdrawn on conflict, so a run that
+    // withdrew one cannot leak it into the next.
+    await db`
+      insert into app.facility_agreement (facility_id, accepted_on, version)
+      values (${f.id}::uuid, '2026-09-01', 'synthetic-v1')
+      on conflict (facility_id) do update set withdrawn_on = null
+    `;
     // Duty flags at 'UNKNOWN' -- the state every real facility is in on day one.
     // If the gate ever treats UNKNOWN as closed, these rows go dark and the golden
     // path goes with them. Reset on conflict, so a run that set a flag cannot

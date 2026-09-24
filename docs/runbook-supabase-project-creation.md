@@ -1551,8 +1551,10 @@ changes:
    report.
 2. **The before-reading:** as for 020. Keep the `FINGERPRINT` line. The before/after
    comparison still holds, because no ward can publish yet (-74 BB-3).
-3. **The apply:** as for 020. 021's own pre-check refuses to apply if any contact row
-   carries `agreement_accepted_at`, naming the count (-78 BF-1 a). Hosted has none.
+3. **The apply:** as for 020. 021's two pre-checks refuse to apply, each naming the
+   count, if any contact row carries `agreement_accepted_at` (-78 BF-1 a), or if any
+   listed facility has no agreement row (`LISTED_WITHOUT_AGREEMENT`, -83 BK-1 b).
+   Hosted has neither: it holds no facility.
 4. **The after-reading:** as for 020. `PASS (VACUOUS FOR B1)` is expected while
    hosted is empty. 021 writes no projected table.
 5. **The second dry run:** twenty-one `already applied` lines, naming

@@ -49,11 +49,12 @@
 --      (020:698), which this migration drops, so it would error on any call. A
 --      re-apply of 020 recreates it and a re-apply of this drops it again, so 020
 --      still re-applies unchanged. The down migration restores it with its grant.
---   6. A withdrawn agreement takes the facility off the public output BY ITSELF
---      (R-2026-09-24-82 BJ-1). The data-sharing agreement is the basis for publishing
---      a facility's data, so its withdrawal cannot wait on someone remembering to
---      unlist. Both public membership predicates gain "no withdrawn agreement", and a
---      trigger on app.facility_agreement re-projects the facility through 008's
+--   6. Public requires an ACTIVE AGREEMENT, and a withdrawal takes the facility off
+--      the public output BY ITSELF (R-2026-09-24-82 BJ-1; made positive by
+--      R-2026-09-24-83 BK-1, so that it fails closed). The data-sharing agreement is
+--      the basis for publishing a facility's data. Both public membership predicates
+--      require an agreement that is not withdrawn, and a trigger on
+--      app.facility_agreement re-projects the facility through 008's
 --      app.trg_project(), so setting withdrawn_on empties its mirror rows in the same
 --      transaction; the rollup stops counting it at its next refresh (every five
 --      minutes, 017). The page follows in about two minutes (020's B2).
@@ -61,7 +62,7 @@
 -- EVERY PUBLIC MEMBERSHIP PREDICATE, enumerated from the live catalogue on 2026-09-24
 -- (every function in app, public and graphql_public whose source reads listed_at or
 -- names a mirror; no view and no materialized view exists). Exactly two decide which
--- facilities reach public output, and both gain the predicate in section 6:
+-- facilities reach public output, and both require the agreement in section 6:
 --   - app.project_facility(uuid): the only writer of public.facility_public and
 --     public.ward_public;
 --   - app.refresh_lga_rollup(): the only writer of public.lga_rollup.
@@ -78,16 +79,18 @@
 -- migration mirrors this, restoring the column empty and refusing while any
 -- agreement row exists, so neither direction loses or invents an agreement.
 --
--- APPLYING THIS CHANGES NO PUBLIC OUTPUT. No projected table is written, and no
--- facility row is updated. The contact is never projected. The agreement is, from
--- section 6 on, but its trigger fires only on agreement rows and applying this writes
--- none. The restated predicates exclude only a facility with a WITHDRAWN agreement,
--- and on apply there is no agreement row at all: hosted holds no facility (step 4b),
--- and the seed holds no agreement. Nothing is re-projected by the apply, and a later
--- refresh of the rollup computes the same cells as under 020 (both shown in
--- tests/db/migration_021_round_trip.test.ts; -71 B1).
+-- APPLYING THIS CHANGES NO PUBLIC OUTPUT, AND BY CONSTRUCTION (-71 B1; BK-1 b). The
+-- second pre-check in section 0 refuses while any listed facility has no agreement
+-- row, and on a first apply the table does not exist yet, so 021 first applies only
+-- where NO facility is listed. An unlisted facility is public nowhere (020), so the
+-- public output is empty before the apply and, with no agreement row, empty after.
+-- Hosted holds no facility (step 4b). No projected table is written and no facility
+-- row is updated; the agreement trigger has no row to fire on. A re-apply over a
+-- database whose listed facilities all have agreements changes no public row either
+-- (tests/db/migration_021_round_trip.test.ts shows both, and the refusal).
 --
--- Idempotency: the pre-check reads a column only while it exists; CREATE TABLE IF NOT
+-- Idempotency: the first pre-check reads a column only while it exists, the second a
+-- table; CREATE TABLE IF NOT
 -- EXISTS; ADD COLUMN IF NOT EXISTS; DROP COLUMN IF EXISTS; DROP TRIGGER IF EXISTS
 -- before CREATE TRIGGER; CREATE OR REPLACE for every function; DROP FUNCTION IF
 -- EXISTS for 020's list, which a re-apply of 020 recreates and a re-apply of this
@@ -99,7 +102,7 @@
 
 
 -- ============================================================
--- 0. Pre-check: no agreement may be sitting on a contact row.
+-- 0. Pre-checks: no agreement on a contact row, and no listed facility without one.
 -- ============================================================
 DO $$
 DECLARE
@@ -113,6 +116,29 @@ BEGIN
             RAISE EXCEPTION 'AGREEMENT_ON_CONTACT_ROWS'
                 USING DETAIL = format('%s facility_contact row(s) carry agreement_accepted_at, and moving one would need a version never recorded. Record each through operator_record_agreement after this migration, by hand.', n);
         END IF;
+    END IF;
+END $$;
+
+-- And no listed facility may be without an agreement row (R-2026-09-24-83 BK-1 b).
+-- From section 6 on, public requires an active agreement, so a listed facility with
+-- none would silently leave the public output on apply. Refused rather than invented:
+-- an agreement is a fact about a signature, and this migration has none to record.
+-- Before the table exists, every listed facility counts; on a re-apply, those with no
+-- row. Hosted holds no facility (step 4b), so there it counts 0.
+DO $$
+DECLARE
+    n integer;
+BEGIN
+    IF to_regclass('app.facility_agreement') IS NULL THEN
+        SELECT count(*) INTO n FROM app.facility f WHERE f.listed_at IS NOT NULL;
+    ELSE
+        EXECUTE 'SELECT count(*) FROM app.facility f WHERE f.listed_at IS NOT NULL
+                   AND NOT EXISTS (SELECT 1 FROM app.facility_agreement a WHERE a.facility_id = f.id)' INTO n;
+    END IF;
+    IF n > 0 THEN
+        RAISE EXCEPTION 'LISTED_WITHOUT_AGREEMENT'
+            USING DETAIL = format('%s listed facility row(s) have no app.facility_agreement row; from this migration on they could not be public.', n),
+                  HINT = 'record each facility''s agreement, or unlist it, first; never invent one';
     END IF;
 END $$;
 
@@ -676,13 +702,20 @@ $FN$;
 
 
 -- ============================================================
--- 6. A withdrawn agreement leaves the public output by itself (R-2026-09-24-82 BJ-1).
+-- 6. Public requires an active agreement (R-2026-09-24-82 BJ-1, made positive by
+--    R-2026-09-24-83 BK-1); a withdrawal leaves the public output by itself.
 -- ============================================================
 -- The two public membership predicates are 020's bodies verbatim, each with ONE line
--- added after `listed_at IS NOT NULL`: no withdrawn agreement. A facility with no
--- agreement row is unaffected -- the predicate is "no withdrawn agreement", not "has
--- one" -- which is what keeps B1 (see the header). The down migration restores 020's
--- bodies byte for byte; tests/db/migration_021_round_trip.test.ts compares both by value.
+-- added after `listed_at IS NOT NULL`: an agreement exists that is not withdrawn. So
+-- public means listed, active, not quiet AND an active agreement, and a facility with
+-- no agreement row is not public.
+--
+-- POSITIVE, SO IT FAILS CLOSED (BK-1). app.facility_agreement has RLS enabled and
+-- forced with no policy, so a reader without BYPASSRLS sees it empty. BJ's
+-- `NOT EXISTS (a withdrawn agreement)` read that as "nothing withdrawn" and published;
+-- this reads it as "no agreement" and does not. Any failure to read the table hides
+-- data rather than exposing it. The down migration restores 020's bodies byte for
+-- byte; tests/db/migration_021_round_trip.test.ts compares both by value.
 CREATE OR REPLACE FUNCTION app.project_facility(p_facility_id uuid)
 RETURNS void
 LANGUAGE plpgsql
@@ -698,7 +731,7 @@ BEGIN
     -- correct behaviour.
     SELECT f.is_active AND NOT f.quiet_mode
            AND f.listed_at IS NOT NULL
-           AND NOT EXISTS (SELECT 1 FROM app.facility_agreement a WHERE a.facility_id = f.id AND a.withdrawn_on IS NOT NULL)
+           AND EXISTS (SELECT 1 FROM app.facility_agreement a WHERE a.facility_id = f.id AND a.withdrawn_on IS NULL)
       INTO v_visible
       FROM app.facility f
      WHERE f.id = p_facility_id;
@@ -808,7 +841,7 @@ BEGIN
          WHERE f.quiet_mode
            AND f.is_active
            AND f.listed_at IS NOT NULL
-           AND NOT EXISTS (SELECT 1 FROM app.facility_agreement a WHERE a.facility_id = f.id AND a.withdrawn_on IS NOT NULL)
+           AND EXISTS (SELECT 1 FROM app.facility_agreement a WHERE a.facility_id = f.id AND a.withdrawn_on IS NULL)
            AND ws.offering = 'OFFERED'
          GROUP BY f.state, f.lga, ws.category, f.id
     ),

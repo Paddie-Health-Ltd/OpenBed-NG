@@ -1,9 +1,8 @@
-import { afterAll, describe, expect, test } from 'vitest';
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { describe, expect, test } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { sql, psqlCommand, withRole } from '../setup/db.js';
+import type { TransactionSql } from 'postgres';
+import { withRole } from '../setup/db.js';
 
 /**
  * MIGRATION 021 REVERSES TO EXACTLY THE 020 STATE, CHANGES NO PUBLIC OUTPUT, AND NEVER
@@ -18,28 +17,38 @@ import { sql, psqlCommand, withRole } from '../setup/db.js';
  *   - the ledger row.
  *
  * THE TWO PUBLIC-MEMBERSHIP BODIES DIFFER FROM 020 BY ONE PREDICATE AND NOTHING ELSE
- * (R-2026-09-24-82 BJ-1): app.project_facility() and app.refresh_lga_rollup() each gain
- * "no withdrawn agreement", and the down restores 020's bodies byte for byte. With the
- * agreement's projection trigger, they are compared by value in the state below.
- *
- * B1 STILL HOLDS: APPLYING 021 CHANGES NO PUBLIC OUTPUT. The mirrors are compared across
- * down-then-up, and the rollup is RECOMPUTED under 021's body and under 020's inside a
- * rolled-back transaction: the cells must be equal. The seed carries no agreement row,
- * as hosted carries none, so the new predicate excludes nothing on apply, and the new
- * trigger has no row to fire on.
+ * (R-2026-09-24-82 BJ-1, positive since R-2026-09-24-83 BK-1): app.project_facility()
+ * and app.refresh_lga_rollup() each gain "an agreement that is not withdrawn", and the
+ * down restores 020's bodies byte for byte. With the agreement's projection trigger,
+ * they are compared by value in the state below.
  *
  * THE RESTATED GATES DIFFER FROM 020 IN THE AGREEMENT CHECK AND NOTHING ELSE. Each
  * 021 body must equal 020's with only that check replaced, so no other line of a
  * gate that 020's review signed off can move under cover of this one.
  *
  * NEITHER DIRECTION INVENTS OR LOSES AN AGREEMENT. The forward refuses over a contact
- * row carrying agreement_accepted_at (moving it would need a version never recorded).
- * The down refuses while any app.facility_agreement row exists. Both refusals are
- * planted with committed rows, removed again in `finally`.
+ * row carrying agreement_accepted_at, and over a listed facility with no agreement row
+ * (BK-1 b). The down refuses while any app.facility_agreement row exists.
  *
- * SAFE ON THE SHARED DATABASE for the reason 019's and 020's files give: the db
- * project runs files one at a time, and every leg restores 021 in a `finally`, with
- * an unconditional `afterAll` behind it.
+ * EVERY LEG RUNS INSIDE ONE ROLLED-BACK TRANSACTION (R-2026-09-24-83). Until BK these
+ * legs applied the files through psql, committed, and restored 021 in `finally`. BK-1 b
+ * gives every listed seed facility an agreement row, so on the shared database the down
+ * now refuses (it never loses an agreement), and after any down the forward refuses
+ * (the seed's listed facilities would have none). So each leg applies the file TEXT in
+ * a transaction that is rolled back, as tests/db/snapshot_schedule_state.test.ts does
+ * with 017, and nothing here is committed. Where a leg needs the down to run, it first
+ * takes, in that transaction, the founder's decision the down's refusal exists to
+ * force: the agreements are removed, with the agreement trigger disabled so the mirrors
+ * keep the state being compared.
+ *
+ * B1, BY CONSTRUCTION (BK-1 b). On a first apply app.facility_agreement does not exist,
+ * so the second pre-check admits 021 only where no facility is listed, and an unlisted
+ * facility is public nowhere. So the public output is empty before and after, and the
+ * leg below says so rather than dressing it as a comparison of something. What is
+ * non-vacuous: the down writes no public row over the seed's published state, and a
+ * re-apply over it changes no public row. The committed "down then up changes NO
+ * public row" leg this file had until BK cannot exist any more, because "up" over the
+ * seed is refused; those three legs replace it.
  */
 
 const MIG_DIR = join(import.meta.dirname, '..', '..', 'database', 'migrations');
@@ -47,20 +56,38 @@ const FORWARD = join(MIG_DIR, '021_facility_agreement_and_contact_write.sql');
 const DOWN = join(MIG_DIR, '021_facility_agreement_and_contact_write.down.sql');
 const LEDGER = '021_facility_agreement_and_contact_write.sql';
 
-function applyFile(path: string): void {
-  const cmd = `${psqlCommand()} -v ON_ERROR_STOP=1 --single-transaction < ${JSON.stringify(path)}`;
-  execFileSync('bash', ['-c', cmd], { stdio: ['ignore', 'pipe', 'pipe'] });
+/** A migration file's text, applied in the caller's transaction. */
+async function apply(tx: TransactionSql, path: string, text = readFileSync(path, 'utf8')): Promise<void> {
+  await tx.unsafe(text);
 }
 
-/** The error text of an apply that must fail. */
-function applyFailure(path: string): string {
+/** The refusal of an apply that must fail, taken in a savepoint so the transaction survives. */
+async function refusal(tx: TransactionSql, path: string): Promise<{ message: string; detail: string }> {
   try {
-    applyFile(path);
+    await tx.savepoint((sp) => apply(sp, path));
   } catch (e) {
-    const err = e as { stderr?: Buffer | string };
-    return String(err.stderr ?? '');
+    const err = e as { message: string; detail?: string };
+    return { message: err.message, detail: err.detail ?? '' };
   }
   throw new Error(`${path} applied, and it was expected to refuse`);
+}
+
+/** Everything a leg does happens in here, and is rolled back. */
+const inTx = <T>(fn: (tx: TransactionSql) => Promise<T>): Promise<T> => withRole('postgres', null, fn);
+
+/**
+ * The founder's decision the down's refusal exists to force, taken in the rolled-back
+ * transaction: the agreements go. The trigger is disabled first, so the mirrors keep
+ * the published state the down is then compared against.
+ */
+async function clearAgreements(tx: TransactionSql): Promise<void> {
+  await tx.unsafe('alter table app.facility_agreement disable trigger trg_facility_agreement_project');
+  await tx.unsafe('delete from app.facility_agreement');
+}
+
+/** Unlists every facility, so a first apply of 021 is admitted (the hosted shape). */
+async function unlistAll(tx: TransactionSql): Promise<void> {
+  await tx.unsafe('update app.facility set listed_at = null where listed_at is not null');
 }
 
 /** The body between `AS $FN$` and `$FN$;` of one function, as a file writes it. */
@@ -87,22 +114,23 @@ interface State {
   ledger: number;
 }
 
-async function state(): Promise<State> {
-  const db = sql();
-  const [l] = await db<{ src: string }[]>`select prosrc as src from pg_proc where oid = 'public.operator_set_facility_listed(text, integer)'::regprocedure`;
-  const [b] = await db<{ src: string }[]>`select prosrc as src from pg_proc where oid = 'app.provision_begin(uuid, text, text)'::regprocedure`;
-  const [p] = await db<{ src: string }[]>`select prosrc as src from pg_proc where oid = 'app.project_facility(uuid)'::regprocedure`;
-  const [r] = await db<{ src: string }[]>`select prosrc as src from pg_proc where oid = 'app.refresh_lga_rollup()'::regprocedure`;
-  const [t] = await db<{ r: string | null }[]>`select to_regclass('app.facility_agreement')::text as r`;
-  const cols = await db<{ c: string }[]>`
+async function state(tx: TransactionSql): Promise<State> {
+  const src = async (sig: string): Promise<string> =>
+    (await tx.unsafe<{ src: string }[]>('select prosrc as src from pg_proc where oid = to_regprocedure($1)', [sig] as never[]))[0]?.src ?? '';
+  const l = { src: await src('public.operator_set_facility_listed(text, integer)') };
+  const b = { src: await src('app.provision_begin(uuid, text, text)') };
+  const p = { src: await src('app.project_facility(uuid)') };
+  const r = { src: await src('app.refresh_lga_rollup()') };
+  const [t] = await tx.unsafe<{ r: string | null }[]>(`select to_regclass('app.facility_agreement')::text as r`);
+  const cols = await tx.unsafe<{ c: string }[]>(`
     select column_name as c from information_schema.columns
-     where table_schema = 'app' and table_name = 'facility_contact' and column_name in ('agreement_accepted_at', 'version') order by 1`;
-  const [tr] = await db<{ n: number }[]>`select count(*)::int as n from pg_trigger where tgname = 'trg_facility_contact_version' and not tgisinternal`;
-  const [pt] = await db<{ n: number }[]>`select count(*)::int as n from pg_trigger where tgname = 'trg_facility_agreement_project' and not tgisinternal`;
-  const fns = await db<{ f: string }[]>`
+     where table_schema = 'app' and table_name = 'facility_contact' and column_name in ('agreement_accepted_at', 'version') order by 1`);
+  const [tr] = await tx.unsafe<{ n: number }[]>(`select count(*)::int as n from pg_trigger where tgname = 'trg_facility_contact_version' and not tgisinternal`);
+  const [pt] = await tx.unsafe<{ n: number }[]>(`select count(*)::int as n from pg_trigger where tgname = 'trg_facility_agreement_project' and not tgisinternal`);
+  const fns = await tx.unsafe<{ f: string }[]>(`
     select distinct n.nspname || '.' || p.proname as f from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-     where n.nspname || '.' || p.proname = any(${[...ADDED, ...DROPPED]}) order by 1`;
-  const [g] = await db<{ n: number }[]>`select count(*)::int as n from app.schema_migrations where filename = ${LEDGER}`;
+     where n.nspname || '.' || p.proname = any($1) order by 1`, [[...ADDED, ...DROPPED]] as never[]);
+  const [g] = await tx.unsafe<{ n: number }[]>('select count(*)::int as n from app.schema_migrations where filename = $1', [LEDGER] as never[]);
   return {
     listed: l?.src ?? '', begin: b?.src ?? '', project: p?.src ?? '', rollup: r?.src ?? '',
     agreementTable: t?.r !== null, contactColumns: cols.map((c) => c.c),
@@ -137,30 +165,25 @@ const STATE_020: State = {
   ledger: 0,
 };
 
-async function mirrors(): Promise<string> {
-  const f = await sql()`select * from public.facility_public order by facility_id`;
-  const w = await sql()`select * from public.ward_public order by facility_id, category`;
-  return JSON.stringify({ f, w });
+/** The public output as stored: both mirrors and the rollup table, updated_at included. */
+async function publicOutput(tx: TransactionSql): Promise<{ f: unknown[]; w: unknown[]; r: unknown[] }> {
+  const f = await tx.unsafe('select * from public.facility_public order by facility_id');
+  const w = await tx.unsafe('select * from public.ward_public order by facility_id, category');
+  const r = await tx.unsafe('select * from public.lga_rollup order by state, lga, category');
+  return { f: [...f], w: [...w], r: [...r] };
 }
 
-/**
- * The rollup cells refresh_lga_rollup() computes against the live body, read inside a
- * transaction that is rolled back, so the shared table is left as it was. updated_at is
- * now() by construction and is left out.
- */
-async function rollupCells(): Promise<string> {
-  return withRole('postgres', null, async (tx) => {
-    await tx.unsafe('select app.refresh_lga_rollup()');
-    const rows = await tx.unsafe('select state, lga, category, facility_count, total_beds from public.lga_rollup order by state, lga, category');
-    return JSON.stringify(rows);
-  });
+/** The cells a refresh computes now, against the live body. updated_at is now() and left out. */
+async function refreshedCells(tx: TransactionSql): Promise<unknown[]> {
+  await tx.unsafe('select app.refresh_lga_rollup()');
+  return [...(await tx.unsafe('select state, lga, category, facility_count, total_beds from public.lga_rollup order by state, lga, category'))];
 }
 
-/** 021's withdrawal predicate (BJ-1), inserted after the one line it follows in 020's body. */
-const WITHDRAWN = 'AND NOT EXISTS (SELECT 1 FROM app.facility_agreement a WHERE a.facility_id = f.id AND a.withdrawn_on IS NOT NULL)';
+/** 021's agreement predicate (BJ-1, positive by BK-1), inserted after the line it follows in 020's body. */
+const ACTIVE = 'AND EXISTS (SELECT 1 FROM app.facility_agreement a WHERE a.facility_id = f.id AND a.withdrawn_on IS NULL)';
 function predicateAdd(body: string, after: string, ind: string): string {
   expect(body.split(after).length - 1, `020's line "${after.trim()}" is not in the body exactly once`).toBe(1);
-  return body.replace(after, `${after}${ind}${WITHDRAWN}\n`);
+  return body.replace(after, `${after}${ind}${ACTIVE}\n`);
 }
 
 /** 020's agreement check, and what 021 puts in its place, at one indentation. */
@@ -177,20 +200,16 @@ function agreementSwap(body: string, v: string, ind: string): string {
   return body.replace(old, replacement);
 }
 
-afterAll(() => {
-  applyFile(FORWARD);
-});
-
 describe('migration 021 round trip', () => {
   test('the database starts in the 021 state, and the bodies discriminate', async () => {
     expect(STATE_020.listed).not.toBe(STATE_021.listed);
     expect(STATE_020.begin).not.toBe(STATE_021.begin);
-    expect(await state()).toEqual(STATE_021);
+    expect(await inTx(state)).toEqual(STATE_021);
   });
 
-  test("the two public-membership bodies are 020's with only the withdrawal predicate added (BJ-1)", () => {
-    expect(predicateAdd(STATE_020.project, '           AND f.listed_at IS NOT NULL\n', '           '), 'project_facility moved beyond its withdrawal predicate').toBe(STATE_021.project);
-    expect(predicateAdd(STATE_020.rollup, '           AND f.listed_at IS NOT NULL\n', '           '), 'refresh_lga_rollup moved beyond its withdrawal predicate').toBe(STATE_021.rollup);
+  test("the two public-membership bodies are 020's with only the agreement predicate added (BJ-1, BK-1)", () => {
+    expect(predicateAdd(STATE_020.project, '           AND f.listed_at IS NOT NULL\n', '           '), 'project_facility moved beyond its agreement predicate').toBe(STATE_021.project);
+    expect(predicateAdd(STATE_020.rollup, '           AND f.listed_at IS NOT NULL\n', '           '), 'refresh_lga_rollup moved beyond its agreement predicate').toBe(STATE_021.rollup);
   });
 
   test("the restated gates are 020's bodies with the agreement check replaced, and nothing else", () => {
@@ -199,63 +218,109 @@ describe('migration 021 round trip', () => {
   });
 
   test("down restores EXACTLY the 020 state — 020's gates and list, the contact's column, no agreement table, no ledger row", async () => {
-    try {
-      applyFile(DOWN);
-      expect(await state(), 'the reversal did not land on 020 exactly').toEqual(STATE_020);
-    } finally {
-      applyFile(FORWARD);
-    }
+    const s = await inTx(async (tx) => {
+      await clearAgreements(tx);
+      await apply(tx, DOWN);
+      return state(tx);
+    });
+    expect(s, 'the reversal did not land on 020 exactly').toEqual(STATE_020);
   });
 
-  test('down then up changes NO public row, not even updated_at', async () => {
-    const before = await mirrors();
-    expect(JSON.parse(before).f.length, 'the seed projected no facility, so this leg would pass vacuously').toBeGreaterThan(0);
-    const cells021 = await rollupCells();
-    expect(JSON.parse(cells021).length, 'the seed forms no rollup cell, so the rollup half would pass vacuously').toBeGreaterThan(0);
-    try {
-      applyFile(DOWN);
-      const cells020 = await rollupCells();
-      applyFile(FORWARD);
-      expect(await mirrors(), 'applying 021 changed the public mirrors').toBe(before);
-      expect(cells021, "021's rollup body computes different public cells from 020's over the same rows").toBe(cells020);
-    } finally {
-      applyFile(FORWARD);
-    }
+  test('the down writes NO public row — over the seed\'s published state, not even updated_at', async () => {
+    const r = await inTx(async (tx) => {
+      await clearAgreements(tx);
+      const before = await publicOutput(tx);
+      await apply(tx, DOWN);
+      return { before, after: await publicOutput(tx) };
+    });
+    expect(r.before.f.length, 'the seed projected no facility, so this leg would pass vacuously').toBeGreaterThan(0);
+    expect(r.before.r.length, 'the seed holds no rollup cell, so the rollup half would pass vacuously').toBeGreaterThan(0);
+    expect(r.after, 'the down changed the public output').toEqual(r.before);
+  });
+
+  test('a re-apply over the seeded 021 state changes NO public row, and recomputes the same cells', async () => {
+    const r = await inTx(async (tx) => {
+      const before = await publicOutput(tx);
+      const cellsBefore = await refreshedCells(tx);
+      const stored = await publicOutput(tx);
+      await apply(tx, FORWARD);
+      return { before, stored, after: await publicOutput(tx), cellsBefore, cellsAfter: await refreshedCells(tx) };
+    });
+    expect(r.before.f.length, 'the seed projected no facility, so this leg would pass vacuously').toBeGreaterThan(0);
+    expect(r.cellsBefore.length, 'the seed forms no rollup cell, so the rollup half would pass vacuously').toBeGreaterThan(0);
+    expect(r.after, 'a re-apply of 021 changed the public output').toEqual(r.stored);
+    expect(r.cellsAfter, 'a re-apply of 021 changed the cells a refresh computes').toEqual(r.cellsBefore);
+  });
+
+  test('B1 by construction — where 021 can first apply, no facility is listed, so nothing is public before or after', async () => {
+    const r = await inTx(async (tx) => {
+      await clearAgreements(tx);
+      await apply(tx, DOWN);
+      await unlistAll(tx);
+      // Refreshed first: the stored rollup still holds the seed's cell until its next
+      // refresh (every five minutes), and the shape's public output is what a refresh makes.
+      const cells = await refreshedCells(tx);
+      const before = { cells, out: await publicOutput(tx) };
+      await apply(tx, FORWARD);
+      const cellsAfter = await refreshedCells(tx);
+      return { before, after: { cells: cellsAfter, out: await publicOutput(tx) } };
+    });
+    expect(r.after, 'applying 021 changed the public output').toEqual(r.before);
+    expect(r.before.out, 'the first-apply shape is not the empty one this leg claims').toEqual({ f: [], w: [], r: [] });
+    expect(r.before.cells).toEqual([]);
+    expect(r.after.cells).toEqual([]);
   });
 
   test('up after down restores EXACTLY the 021 state, and a re-apply changes nothing', async () => {
-    applyFile(DOWN);
-    applyFile(FORWARD);
-    applyFile(FORWARD);
-    expect(await state()).toEqual(STATE_021);
+    const s = await inTx(async (tx) => {
+      await clearAgreements(tx);
+      await apply(tx, DOWN);
+      await unlistAll(tx);
+      await apply(tx, FORWARD);
+      await apply(tx, FORWARD);
+      return state(tx);
+    });
+    expect(s).toEqual(STATE_021);
+  });
+
+  test('the forward REFUSES over a listed facility with no agreement row, naming the count — it never invents one (BK-1 b)', async () => {
+    const r = await inTx(async (tx) => {
+      await clearAgreements(tx);
+      await apply(tx, DOWN);
+      const [n] = await tx.unsafe<{ n: number }[]>('select count(*)::int as n from app.facility where listed_at is not null');
+      const refused = await refusal(tx, FORWARD);
+      return { n: n?.n ?? 0, refused, table: (await state(tx)).agreementTable };
+    });
+    expect(r.n, 'the seed lists no facility, so this plant has nothing to refuse').toBeGreaterThan(0);
+    expect(r.refused.message).toBe('LISTED_WITHOUT_AGREEMENT');
+    expect(r.refused.detail, 'the refusal does not name the count').toContain(`${r.n} listed facility row(s)`);
+    expect(r.table, 'the refused forward left part of itself behind').toBe(false);
   });
 
   test('the forward REFUSES over a contact row carrying an agreement — it never invents a version', async () => {
-    const [fac] = await sql()<{ id: string }[]>`select id from app.facility order by id limit 1`;
-    expect(fac, 'the seed holds no facility, so this plant has nowhere to land').toBeDefined();
-    try {
-      applyFile(DOWN);
-      await sql()`insert into app.facility_contact (facility_id, full_name, job_title, email, agreement_accepted_at)
-                  values (${fac!.id}, 'Plant Person', 'Matron', 'plant@example.invalid', now())`;
-      const err = applyFailure(FORWARD);
-      expect(err).toContain('AGREEMENT_ON_CONTACT_ROWS');
-      expect((await state()).agreementTable, 'the refused forward left part of itself behind').toBe(false);
-    } finally {
-      await sql()`delete from app.facility_contact where email = 'plant@example.invalid'`;
-      applyFile(FORWARD);
-    }
+    const r = await inTx(async (tx) => {
+      await clearAgreements(tx);
+      await apply(tx, DOWN);
+      await unlistAll(tx);
+      const [fac] = await tx.unsafe<{ id: string }[]>('select id from app.facility order by id limit 1');
+      await tx.unsafe(`insert into app.facility_contact (facility_id, full_name, job_title, email, agreement_accepted_at)
+                       values ('${fac!.id}', 'Plant Person', 'Matron', 'plant@example.invalid', now())`);
+      const refused = await refusal(tx, FORWARD);
+      return { refused, table: (await state(tx)).agreementTable };
+    });
+    expect(r.refused.message).toBe('AGREEMENT_ON_CONTACT_ROWS');
+    expect(r.table, 'the refused forward left part of itself behind').toBe(false);
   });
 
-  test('the down REFUSES while an agreement row exists — it never loses one', async () => {
-    const [fac] = await sql()<{ id: string }[]>`select id from app.facility order by id limit 1`;
-    try {
-      await sql()`insert into app.facility_agreement (facility_id, accepted_on, version) values (${fac!.id}, '2026-09-01', 'plant-v1')`;
-      const err = applyFailure(DOWN);
-      expect(err).toContain('AGREEMENTS_RECORDED');
-      expect(await state(), 'the refused reversal changed the schema').toEqual(STATE_021);
-    } finally {
-      await sql()`delete from app.facility_agreement where version = 'plant-v1'`;
-    }
+  test("the down REFUSES while an agreement row exists — over the seed's own agreements, it never loses one", async () => {
+    const r = await inTx(async (tx) => {
+      const [n] = await tx.unsafe<{ n: number }[]>('select count(*)::int as n from app.facility_agreement');
+      const refused = await refusal(tx, DOWN);
+      return { n: n?.n ?? 0, refused, s: await state(tx) };
+    });
+    expect(r.n, 'the seed holds no agreement, so this leg refuses nothing').toBeGreaterThan(0);
+    expect(r.refused.message).toBe('AGREEMENTS_RECORDED');
+    expect(r.s, 'the refused reversal changed the schema').toEqual(STATE_021);
   });
 
   test.each([
@@ -265,15 +330,11 @@ describe('migration 021 round trip', () => {
     const original = readFileSync(DOWN, 'utf8');
     expect(original, `the plant's target is not in the down file: ${needle}`).toContain(needle);
     const tampered = original.replace(needle, replacement);
-    const dir = mkdtempSync(join(tmpdir(), 'openbed-021-plant-'));
-    const path = join(dir, 'tampered.down.sql');
-    writeFileSync(path, tampered, 'utf8');
-    try {
-      applyFile(path);
-      expect(await state(), 'the tampered reversal still produced the 020 state — the plant did not reach an executed statement').not.toEqual(STATE_020);
-    } finally {
-      await sql().unsafe('drop function if exists public.zz_not_the_gate(text, integer)');
-      applyFile(FORWARD);
-    }
+    const s = await inTx(async (tx) => {
+      await clearAgreements(tx);
+      await apply(tx, DOWN, tampered);
+      return state(tx);
+    });
+    expect(s, 'the tampered reversal still produced the 020 state — the plant did not reach an executed statement').not.toEqual(STATE_020);
   });
 });
