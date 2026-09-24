@@ -29,6 +29,12 @@ import GRANTS from '../../packages/fixtures/function-grants.json';
  * cannot see a transaction that is never committed. Committing a grant to a shared
  * database would race every other test that reads the catalogue.
  *
+ * THE hosted_only SECTION (R-2026-09-24-77 BE-1) holds functions hosted has and this
+ * repository does not create. This file asserts none of them exists locally, so the two
+ * sections cannot blur, and plants a real event-trigger function to show the script
+ * accepts one only on every recorded property -- the roles, the owner, the return type
+ * and SECURITY DEFINER.
+ *
  * NOT ASSERTED HERE, deliberately: hosted's answer. Only fence 6 of 020's apply shows
  * that.
  */
@@ -41,7 +47,11 @@ const Q_GRANTS = (() => {
   return m[1]!;
 })();
 
-type Fixture = { schemas: string[]; functions: Record<string, { execute: string[]; why: string }> };
+type Fixture = {
+  schemas: string[];
+  functions: Record<string, { execute: string[]; why: string }>;
+  hosted_only: Record<string, { execute: string[]; owner: string; returns: string; security_definer: boolean; why: string }>;
+};
 const FX = GRANTS as Fixture;
 
 async function rows(tx: TransactionSql): Promise<string[]> {
@@ -71,7 +81,47 @@ describe('the function-EXECUTE surface, against packages/fixtures/function-grant
     const fromFixture = Object.entries(FX.functions)
       .map(([id, g]) => `${id}|${g.execute.join(',')}`)
       .sort();
-    expect(read.slice().sort()).toEqual(fromFixture);
+    // Identity and roles: the main section holds nothing else.
+    expect(read.map((r) => r.split('|').slice(0, 2).join('|')).sort()).toEqual(fromFixture);
+  });
+
+  test('no hosted_only function exists locally — the two sections cannot blur (BE-1 c)', async () => {
+    const read = await withRole('postgres', null, rows);
+    const ids = read.map((r) => r.split('|')[0]);
+    expect(Object.keys(FX.hosted_only).length, 'the hosted_only section is empty, so this leg checks nothing').toBeGreaterThan(0);
+    for (const id of Object.keys(FX.hosted_only)) {
+      expect(ids, `${id} exists locally, so it is not hosted-only`).not.toContain(id);
+      expect(FX.functions, `${id} is in both sections`).not.toHaveProperty([id]);
+    }
+  });
+
+  test("the query reads each function's owner, return type and SECURITY DEFINER as the catalogue holds them", async () => {
+    const read = await withRole('postgres', null, rows);
+    expect(read).toContain('app.provision_begin(uuid, text, text)||postgres|record|t');
+    expect(read).toContain('app.touch_updated_at()||postgres|trigger|f');
+  });
+
+  test('accept — an event-trigger function matching the hosted_only entry on every property reads PASS', async () => {
+    const read = await withRole('postgres', null, async (tx) => {
+      await tx.unsafe(`create function public.rls_auto_enable() returns event_trigger language plpgsql security definer set search_path = pg_catalog as $$ begin end $$`);
+      return rows(tx);
+    });
+    const r = scriptOver(read);
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).toContain('  ok     public.rls_auto_enable() (hosted-only): anon,authenticated,service_role owner=postgres returns=event_trigger definer=true');
+  });
+
+  test.each<[string, string]>([
+    ['a callable return type', `create function public.rls_auto_enable() returns void language plpgsql security definer as $$ begin end $$`],
+    ['no SECURITY DEFINER', `create function public.rls_auto_enable() returns event_trigger language plpgsql as $$ begin end $$`],
+  ])('plant — the hosted_only function with %s reads STOP naming it', async (_name, ddl) => {
+    const read = await withRole('postgres', null, async (tx) => {
+      await tx.unsafe(ddl);
+      return rows(tx);
+    });
+    const r = scriptOver(read);
+    expect(r.status, r.out).toBe(1);
+    expect(r.out).toContain('  WRONG  public.rls_auto_enable() (hosted-only): ');
   });
 
   test("the query's schemas are the fixture's, and the fixture holds both provisioning gates executable by no role", () => {

@@ -31,5 +31,15 @@
     "public.operator_set_facility_listed(text, integer)": { "execute": ["authenticated"], "why": "020: an operator lists a facility (-71 B)" },
     "public.publish_ward_status(text, text, integer, boolean, text, integer, text, timestamp with time zone)": { "execute": ["authenticated"], "why": "014: a ward publishes" },
     "public.ward_status_history(text, timestamp with time zone, integer)": { "execute": ["authenticated"], "why": "015: a ward reads its own history" }
+  },
+  "why_hosted_only": "FUNCTIONS HOSTED HAS AND THIS REPOSITORY DOES NOT CREATE (R-2026-09-24-77 BE-1). Kept apart from `functions` so the two cannot blur: tests/db/function_grants.test.ts holds the LOCAL catalogue equal to `functions` and asserts no entry below exists locally, and the D3 closed list reads `functions` only. scripts/readback_function_grants.sh accepts an entry below only if EVERY recorded property matches on the database it reads -- the roles, the owner, the return type and SECURITY DEFINER -- so a change to a callable return type, a widened grant or a new owner reads STOP. An entry absent from the database it reads (as locally) is not a failure. A function in neither section is still a STOP.",
+  "hosted_only": {
+    "public.rls_auto_enable()": {
+      "execute": ["anon", "authenticated", "service_role"],
+      "owner": "postgres",
+      "returns": "event_trigger",
+      "security_definer": true,
+      "why": "Supabase's automatic-RLS feature: the function of event trigger ensure_rls (ddl_command_end), which runs ALTER TABLE ... ENABLE (not FORCE) ROW LEVEL SECURITY on each new table in schema public. Not callable over the API: an event_trigger function cannot be called directly (Cowork's readings, 2026-09-24: PostgREST answers 400, 0A000, and api.openbed.ng answers 404). Recorded as undeclared hosted platform configuration by R-2026-09-22-55 D3 and -56 A7; it read STOP at fence 6 of 020's apply on 2026-09-24, and BE-1 ruled it here."
+    }
   }
 }

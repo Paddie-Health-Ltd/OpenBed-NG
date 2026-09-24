@@ -771,7 +771,18 @@ const GRANTS_FX = JSON.parse(readFileSync(join(REPO_ROOT, 'packages', 'fixtures'
 function grantRows(): Record<string, string> {
   return Object.fromEntries(Object.entries(GRANTS_FX.functions).map(([id, g]) => [id, g.execute.join(',')]));
 }
-const grantsAnswer = (r: Record<string, string>): Fixtures => ({ 'PSQL pg_proc': { out: Object.entries(r).map(([id, roles]) => `${id}|${roles}`).join('\n') } });
+/**
+ * Each row is identity|roles|owner|return type|security definer (R-2026-09-24-77 BE-1).
+ * The last three are compared only for a hosted_only entry, so the main rows carry any
+ * plausible value.
+ */
+const MAIN_TAIL = 'postgres|void|f';
+/** The one hosted_only function, as fence 6 of 020's apply read it on 2026-09-24. */
+const HOSTED = 'public.rls_auto_enable()';
+const HOSTED_ROW = `${HOSTED}|anon,authenticated,service_role|postgres|event_trigger|t`;
+const grantsAnswer = (r: Record<string, string>, extra: string[] = []): Fixtures => ({
+  'PSQL pg_proc': { out: [...Object.entries(r).map(([id, roles]) => `${id}|${roles}|${MAIN_TAIL}`), ...extra].join('\n') },
+});
 
 describe('scripts/readback_function_grants.sh', () => {
   test('real reading is accepted — rows matching the fixture give PASS, with every function ok', () => {
@@ -781,6 +792,40 @@ describe('scripts/readback_function_grants.sh', () => {
       for (const id of Object.keys(GRANTS_FX.functions)) expect(r.out, `the function ${id} was never compared`).toContain(`  ok     ${id} EXECUTE: `);
       expect(r.out).toContain('PASS: every function in app, graphql_public and public is executable by exactly the roles packages/fixtures/function-grants.json names.');
       expect(r.calls).toEqual(['PSQL pg_proc']);
+      expect(r.out, 'a hosted_only function absent from this database is not a failure').toContain(`  ok     ${HOSTED} (hosted-only): absent`);
+    });
+  });
+
+  test('real reading is accepted — the hosted_only function, with every recorded property as fence 6 read it, gives PASS', () => {
+    withScratch((root) => {
+      const r = run(root, SCRIPTS.grants, [], grantsAnswer(grantRows(), [HOSTED_ROW]), DB_ENV);
+      expect(r.status, r.out).toBe(0);
+      expect(r.out).toContain(`  ok     ${HOSTED} (hosted-only): anon,authenticated,service_role owner=postgres returns=event_trigger definer=true`);
+      expect(r.out).toContain('PASS: every function in app, graphql_public and public is executable by exactly the roles packages/fixtures/function-grants.json names.');
+    });
+  });
+
+  test.each<[string, string]>([
+    ['a return type that is callable (void)', `${HOSTED}|anon,authenticated,service_role|postgres|void|t`],
+    ['its grants reduced', `${HOSTED}|authenticated,service_role|postgres|event_trigger|t`],
+    ['another owner', `${HOSTED}|anon,authenticated,service_role|supabase_admin|event_trigger|t`],
+    ['no longer SECURITY DEFINER', `${HOSTED}|anon,authenticated,service_role|postgres|event_trigger|f`],
+  ])('plant — the hosted_only function with %s is a STOP naming it (BE-1 b)', (_name, row) => {
+    withScratch((root) => {
+      const r = run(root, SCRIPTS.grants, [], grantsAnswer(grantRows(), [row]), DB_ENV);
+      expectStopAt(r, `${HOSTED} (hosted-only)`);
+    });
+  });
+
+  test('could not run — a fixture naming one function in both sections is an ERROR, never a verdict', () => {
+    withScratch((root) => {
+      mkdirSync(join(root, 'packages', 'fixtures'), { recursive: true });
+      const fx = JSON.parse(readFileSync(join(REPO_ROOT, 'packages', 'fixtures', 'function-grants.json'), 'utf8')) as { functions: Record<string, unknown>; hosted_only: Record<string, unknown> };
+      fx.hosted_only['app.provision_begin(uuid, text, text)'] = { execute: [], owner: 'postgres', returns: 'record', security_definer: true, why: 'planted' };
+      writeFileSync(join(root, 'packages', 'fixtures', 'function-grants.json'), JSON.stringify(fx));
+      const r = run(root, SCRIPTS.grants, [root], grantsAnswer(grantRows()), DB_ENV);
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('names a function in both its functions and hosted_only sections: app.provision_begin(uuid, text, text) -- the reading did not run, so it has no verdict');
     });
   });
 
