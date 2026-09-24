@@ -4750,6 +4750,33 @@ The runbook's checkbox carries the corrected label.
 
 **CG-2** — no SQL, no migration, nothing hosted run by Claude Code.
 
+### R-2026-09-25-106 — H2 done on hosted: sign-ups off
+
+_Issued as R-PROVISIONAL-2026-09-25-CH, by Cowork on 2026-09-25. Added to the change that records 022's and 023's apply (this one), not a new pull request. Number assigned on landing: R-2026-09-25-105 plus one. Next provisional letter: CI._
+
+**READ BACK BY COWORK** (2026-09-25; the founder's terminal, from the checkout at `06fe479`, runbook §3 "Sign-ups off (H2 …)"):
+1. **Unconfirmed active accounts:** `0`.
+2. **The switch:** Dashboard -> Authentication -> Sign In / Providers -> "Allow new users to sign up" off, saved. The Email provider toggle was not touched.
+3. **Settings:** `get_publishable_key.sh` printed `key obtained`, and the settings read-back printed `PASS: sign-ups are off and email sign-in is on`.
+4. **The failing half:** probe `h2-probe-1790293376@example.invalid`.
+   - `POST /auth/v1/otp` with `create_user` true answered `HTTP 422`.
+   - `auth.users` held `0` rows for that address.
+   - PASS. No user was created, so no removal step ran.
+
+**Re-read on landing against the runbook's H2 section.** Each reading is the one that step names as passing:
+- step 1's stop condition, `0`;
+- step 3's `PASS:` line;
+- step 4's `HTTP 422` with a count of `0`.
+
+The probe address is on the reserved `example.invalid` domain, as step 4 prescribes. It is not the operator's sign-in address (BQ-1).
+
+**CH-1 — AS BUILT:**
+- §3's H2 section is marked run on 2026-09-25, and its checkbox is ticked with the four readings, the date and Cowork's reading.
+- H6 precondition 3 reads met on 2026-09-25, citing this entry.
+- §12's hosted order marks step 2 (H2) done, as step 1 is marked. CH did not list this; it keeps the order true.
+
+**CH-2** — no SQL, nothing hosted run by Claude Code.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -4846,6 +4873,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | CE | R-2026-09-25-103 | 2026-09-25 | **022 and 023 applied together, in one run.** The runner cannot apply one file alone. CE-1's six-fence expectations; the hosted order restated to 022+023, H2, H3, H5, H6. The one-file fences were the implementer's miss in BZ. |
 | CF | R-2026-09-25-104 | 2026-09-25 | **The runbook is corrected after the apply, not before.** CE-1 was the live instruction for the run; backstop: any earlier merge would have carried CE-3 first. |
 | CG | R-2026-09-25-105 | 2026-09-25 | **022 and 023 applied on hosted, recorded.** All six fences read as they must; the frozen boundary at 23; step 5 at 0 pending; the one-file fences superseded; §12's order restated; the expectation guard's pins restated to the zero state. |
+| CH | R-2026-09-25-106 | 2026-09-25 | **H2 done on hosted: sign-ups off.** 0 unconfirmed active accounts; the switch saved, the Email provider untouched; settings PASS; the probe answered 422 and created no user. H6 precondition 3 met. |
 
 ## Method notes — how rulings reach the implementer
 

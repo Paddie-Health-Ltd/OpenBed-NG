@@ -589,7 +589,12 @@ nothing about the hosted session-bound **values**, which remain this step's.
 
 ### Sign-ups off (H2, R-2026-09-24-92 BT-2 d, R-2026-09-24-93 BU-1 c)
 
-**NOT YET RUN. A founder step, and only after PR 3.4b-app A.2 has merged on a PASS.**
+**Run on 2026-09-25** by the founder from a checkout at `06fe479`, each step read back
+by Cowork (R-2026-09-25-106). All four read as they must; the readings are in the
+checkbox at the end of this section. The steps are kept below as the procedure that was
+run. *Restated 2026-09-25 (R-2026-09-25-106).* Until then this read "NOT YET RUN. A
+founder step, and only after PR 3.4b-app A.2 has merged on a PASS."
+
 From A.2, `scripts/provision_ward_account.mjs` makes every login a CONFIRMED user
 through the admin API, so an open sign-up has no legitimate caller. Until this step
 runs, sign-ups stay on: an address can create an Auth user, but with no
@@ -683,7 +688,7 @@ The second waits silently for the connection string.)
   The second count must read `0`. Then return to step 2: the switch is not in force,
   and nothing here may be ticked.
 
-- [ ] H2 read back: step 1 `0`; step 3 PASS; step 4 `HTTP 422` and `0` (date, and Cowork's reading)
+- [x] On 2026-09-25, H2 read back (the founder's terminal output from a checkout at `06fe479`, Cowork's reading, R-2026-09-25-106): step 1 `0` unconfirmed active accounts; step 2 "Allow new users to sign up" switched off and saved, the Email provider toggle not touched; step 3 `key obtained`, then `PASS: sign-ups are off and email sign-in is on`; step 4 probe `h2-probe-1790293376@example.invalid`, `POST /auth/v1/otp` with `create_user` true answered `HTTP 422`, and `auth.users` held `0` rows for that address. PASS: no user was created, so no removal step ran.
 
 ---
 
@@ -3171,7 +3176,7 @@ operator's sign-in address", typed at run time (R-2026-09-24-89 BQ-1).
 **The hosted order, in full** (R-2026-09-25-103 CE-2):
 1. 022 and 023, applied together in one run (section 5, six fences): **done on
    2026-09-25** (R-2026-09-25-105);
-2. H2, sign-ups off (section 3);
+2. H2, sign-ups off (section 3): **done on 2026-09-25** (R-2026-09-25-106);
 3. H3 (section 9's entry, plus 12.1 below);
 4. H5, the Worker redeploy (12.2);
 5. H6 (12.3), which ends with the operator bootstrap and an empty register;
@@ -3225,7 +3230,8 @@ that does not hold:**
 1. PR 3.4b-app A.2 is merged (`78f1e00`: met on 2026-09-24).
 2. 022 is applied on hosted, with its six fences read as they must (section 5): met on
    2026-09-25, together with 023 (R-2026-09-25-105).
-3. H2 is done: sign-ups off, with its checkbox ticked and Cowork's reading.
+3. H2 is done: sign-ups off, with its checkbox ticked and Cowork's reading: met on
+   2026-09-25 (R-2026-09-25-106).
 4. H3 is done: the Site URL, the redirect URLs, custom SMTP, and 12.1's reading.
 5. PR 3.4b-app C is merged (`4e28cdb`: met on 2026-09-24, R-2026-09-24-99).
 6. H5 is done (12.2).
