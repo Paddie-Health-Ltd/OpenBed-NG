@@ -235,13 +235,23 @@ function guardedRegions(runbook: string): [number, number][] {
 }
 
 /**
- * WHAT DATES A UNIT AS HISTORY: one of the runbook's own two dated-history forms,
+ * WHAT DATES A COUNT AS HISTORY: one of the runbook's own two dated-history forms,
  * "Restated YYYY-MM-DD" or "On YYYY-MM-DD" -- never any ISO date anywhere in the unit
  * (R-2026-09-24-81 BI-2, done in R-2026-09-24-85). Until then any date exempted a
  * unit, and a ruling number carries a date: "(R-2026-09-24-74 BB-1)" is a citation,
  * not a dating, and it let 020's fence 5 state a count undated. Tightening this caught
- * seventeen statements in twelve units; each was restated to carry "On <date>", and
- * none was exempted to go green.
+ * seventeen statements in thirteen units; each was restated to carry "On <date>" or
+ * "Restated <date>", and none was exempted to go green.
+ *
+ * THE MARKER DATES WHAT FOLLOWS IT, not its whole unit (R-2026-09-24-86 BN-3). A
+ * count in a list item or paragraph is history only if a marker comes BEFORE it in
+ * that unit, so a live count followed by its own restatement note -- this runbook's
+ * house style -- is still read as live. A fence is dated only by the plain paragraph
+ * that introduces it, never by a list item above it. See unguardedPendingStatements.
+ *
+ * NOT CHECKED, deliberately: that the date is a real past date. "On 2026-99-99" is
+ * accepted as a marker. Not worth code: the marker's job is to say "this is history",
+ * and a reviewer reading the date is the check.
  */
 const HISTORY_MARKER = /\b(?:Restated|On) \d{4}-\d{2}-\d{2}\b/;
 
@@ -255,8 +265,8 @@ const HISTORY_MARKER = /\b(?:Restated|On) \d{4}-\d{2}-\d{2}\b/;
  * between its bullets, so as one paragraph it is dated by any restatement in it, and
  * an UNDATED bullet planted into that list would inherit a neighbour's date and pass.
  */
-function dateUnits(runbook: string): { start: number; end: number; dated: boolean }[] {
-  const units: { start: number; end: number; dated: boolean }[] = [];
+function dateUnits(runbook: string): { start: number; end: number; dated: boolean; fence: boolean }[] {
+  const units: { start: number; end: number; dated: boolean; fence: boolean }[] = [];
   const lines = runbook.split('\n');
   let offset = 0;
   let cur: { start: number; end: number; text: string } | null = null;
@@ -265,8 +275,10 @@ function dateUnits(runbook: string): { start: number; end: number; dated: boolea
   const close = (): void => {
     if (cur === null) return;
     const dated = HISTORY_MARKER.test(cur.text);
-    units.push({ start: cur.start, end: cur.end, dated });
-    lastIntroDated = dated;
+    units.push({ start: cur.start, end: cur.end, dated, fence: false });
+    // Only a PLAIN PARAGRAPH introduces a fence (BN-3). A list item that happens to
+    // precede a fence -- "- On 2026-09-16, ledger 16 rows." -- does not date it.
+    lastIntroDated = dated && !/^\s*(- |\d+\. )/.test(cur.text);
     cur = null;
   };
   for (const line of lines) {
@@ -276,7 +288,7 @@ function dateUnits(runbook: string): { start: number; end: number; dated: boolea
         close();
         fence = { start: offset, intro: lastIntroDated };
       } else {
-        units.push({ start: fence.start, end, dated: fence.intro });
+        units.push({ start: fence.start, end, dated: fence.intro, fence: true });
         fence = null;
       }
     } else if (fence === null) {
@@ -317,7 +329,10 @@ export function unguardedPendingStatements(runbook: string): string[] {
     const at = m.index;
     if (regions.some(([a, b]) => at >= a && at < b)) continue;
     const unit = units.find((u) => at >= u.start && at < u.end);
-    if (unit?.dated) continue;
+    // A fence is dated by its introducing paragraph. Anything else is dated only by a
+    // marker BEFORE the count in its own unit: the marker dates what follows it (BN-3).
+    const dated = unit === undefined ? false : unit.fence ? unit.dated : HISTORY_MARKER.test(runbook.slice(unit.start, at));
+    if (dated) continue;
     const line = runbook.slice(0, at).split('\n').length;
     out.push(`line ${line}: \`${m[0]}\` is stated outside every guarded site and outside any dated historical block`);
   }
@@ -718,6 +733,29 @@ describe('runbook migration expectation', () => {
       'a bare date with no Restated/On marker was accepted as dating the count',
     ).toHaveLength(1);
     expect(unguardedPendingStatements('- [x] Restated 2026-09-24 (R-2026-09-24-85): it read `1 migration(s) pending.`'), 'the Restated form is a marker').toEqual([]);
+  });
+
+  test('plant — a marker dates only what FOLLOWS it: a count before the marker, or under a list item, is not history (BN-3)', () => {
+    // R-2026-09-24-86 BN-3, Cowork's QA pass. Keyed on a marker ANYWHERE in the unit,
+    // BI-2's rule exempted three undated forms. (a) is this runbook's own house style
+    // -- a live count followed by its restatement note -- so it is the likeliest miss.
+    const a = unguardedPendingStatements(
+      '- The deploy check must end `4 migration(s) pending.` *Restated 2026-09-24: until then it read `3 migration(s) pending.`*',
+    );
+    expect(a, '(a) the live count before a Restated note was read as history').toHaveLength(1);
+    expect(a[0], "(a) flagged the restatement's history, not the live count").toContain('`4 migration(s) pending.`');
+    expect(
+      unguardedPendingStatements('- The dry run must end `4 migration(s) pending.` (per the note On 2026-09-24 in step 7).'),
+      '(b) a marker AFTER the count was read as dating it',
+    ).toHaveLength(1);
+    expect(
+      unguardedPendingStatements('- On 2026-09-16, ledger 16 rows.\n\n```\n4 migration(s) pending.\n```'),
+      "(c) a fence inherited a LIST ITEM's date",
+    ).toHaveLength(1);
+    // The positive controls: a plain paragraph still dates the fence it introduces, and a
+    // checkbox whose marker comes first is still history.
+    expect(unguardedPendingStatements('**On 2026-09-24, when 021 was pending,** it printed:\n\n```\n1 migration(s) pending.\n```')).toEqual([]);
+    expect(unguardedPendingStatements('- [x] On 2026-09-24, 021 applied: the second dry run printed `0 migration(s) pending.`')).toEqual([]);
   });
 
   test('anti-vacuity — a runbook with no expectation bullet FAILS rather than passing', () => {

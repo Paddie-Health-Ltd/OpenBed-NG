@@ -4071,7 +4071,7 @@ _Issued as R-PROVISIONAL-2026-09-24-BM, by Cowork on 2026-09-24, as its read-bac
 - **Step 7:** 001-021. **Step 4b row 4:** "applied on hosted 2026-09-24".
 - **BI-2, done.** `tests/compliance/runbook_migration_expectation.test.ts`'s `dateUnits` now keys "dated" on `HISTORY_MARKER`, the runbook's own two forms "Restated YYYY-MM-DD" and "On YYYY-MM-DD", never on any ISO date in the unit.
   - A new plant: an undated count citing a ruling number, and one with a bare date, each read red. Both were first shown red under the old rule.
-  - **The tightened marker caught seventeen statements in twelve units.** Each was restated to carry "On <date>" or "Restated <date>", and none was exempted:
+  - **The tightened marker caught seventeen statements in thirteen units** (corrected from "twelve" by R-2026-09-24-86 BN-1). Each was restated to carry "On <date>" or "Restated <date>", and none was exempted:
     - the 2026-09-12 refusal note and the 2026-09-14 "exactly 13" note;
     - the 2026-09-22 pre-apply reading checkbox;
     - **020's fence 5 prose**, the case -81 named;
@@ -4085,6 +4085,50 @@ _Issued as R-PROVISIONAL-2026-09-24-BM, by Cowork on 2026-09-24, as its read-bac
   - the facility-creation task's `agreement_accepted_at` line, marked superseded by 021.
 
 **BM-3 — STOP after this merges.** 3.4b-app waits for the next Cowork session's kickoff and is not started from earlier notes. Nothing hosted.
+
+### R-2026-09-24-86 — four corrections on #73: the unit count, the read path, dating the count, and who withdraws
+
+_Issued as R-PROVISIONAL-2026-09-24-BN, by Cowork on 2026-09-24, as its check of #73 at `4c779a6` with the staff-engineer and QA passes. Not a merge word. Number assigned on landing: R-2026-09-24-85 plus one. Lands on `record-021-apply`, in #73. Next provisional letter: BO._
+
+**VERIFIED BY COWORK** (GitHub API and repository at `4c779a6`, 2026-09-24):
+- #73 was OPEN at `4c779a6`, base `f6889d4`, mergeable and clean: 1 commit, 5 files, seven check runs success.
+- The recorded hash for 021 equals the tracked file's.
+- The fixture holds 28 functions plus 1 hosted-only.
+- 021:218 and 021:901 are the two guarded trigger drops, and 021:635 drops `operator_list_facilities`.
+- `runbook_migration_expectation` and `frozen_migrations` pass, 28 of 28.
+- Under the old ISO_DATE rule the BI-2 examples read 0 unguarded; under HISTORY_MARKER they read 1 each.
+- HISTORY_MARKER finds 17 unguarded statements in `main`'s runbook and 0 in #73's.
+
+**BN-1 — THE UNIT COUNT IS 13, NOT 12. Derived, not taken from the ruling.**
+- **How:** I replicated the guard's `dateUnits` and `guardedRegions` read-only in node, ran them over `main`'s runbook with #73's HISTORY_MARKER, and counted the distinct unit starts of the 17 unguarded statements. That gave **13**:
+  - units starting at lines 723, 733, 1220 and 1493;
+  - the four observed notes, starting at 1749, 1752, 1755 and 1760;
+  - the five applied checkboxes, 1798 to 1802, where 1799 to 1802 hold two statements each.
+- -85 listed thirteen and said twelve. The number is corrected in the HISTORY_MARKER comment, -85's BI-2 bullet and the BM ledger row. The comment's "restated to carry "On <date>"" now reads "…"On <date>" or "Restated <date>"".
+
+**BN-2 — THE 3.4b-APP CARRY OVERSTATED BF-1 c.** "Only `operator_register` enters the Worker allow-list" turned a rule about the listing READ into a rule about the whole allow-list, which would have excluded the operator writes 3.4b-app needs. It is restated in two bullets:
+- **One listing read:** `operator_register` replaces the dropped `operator_list_facilities`, whose name never enters the allow-list. The `agreement_state` sentence is kept.
+- **The Worker allow-list stays derived from the admin app's actual call sites** (-58 A5), and which operator functions it calls is decided at 3.4b-app's kickoff.
+- -78's text is left alone; it is correct in context.
+
+**BN-3 — THE MARKER DATES THE COUNT THAT FOLLOWS IT, NOT THE WHOLE UNIT.** #73's rule exempted a whole unit when a marker appeared anywhere in it. Cowork's QA found three forms that passed undated:
+- (a) a live count followed by its own restatement note, which is this runbook's house style;
+- (b) a marker after the count;
+- (c) a fence under a dated list item.
+
+The fix, in `tests/compliance/runbook_migration_expectation.test.ts`:
+- **In `unguardedPendingStatements`,** a count in a unit that is not a fence is history only if HISTORY_MARKER matches in `runbook.slice(unit.start, at)`, i.e. before the count.
+- **In `dateUnits`,** only a plain paragraph dates the fence that follows it. A unit starting "- " or "N. " never does.
+- **A new plant leg holds (a), (b) and (c) verbatim.** For (a), the flagged count is the live `4`, not the restatement's `3`.
+  - **Before the fix:** each read `[]`, i.e. passed undated. I showed this by running the leg with its three plant assertions switched to `expect.soft` under `4c779a6`'s rule, so that all three failures print, then reverted.
+  - **After the fix:** the leg is green.
+- **The positive controls stay dated:** "**On 2026-09-24, when 021 was pending,** it printed:" plus a fence, and a "- [x] On <date>, …" checkbox.
+- **The whole-document scan reads 0 on #73's runbook under the fix.** No runbook wording changes.
+- The comment says the marker dates what follows it, and names an impossible or future date ("On 2026-99-99") as not checked.
+
+**BN-4 — THE WITHDRAWAL STEP SAYS WHO SETS `withdrawn_on`.** Step 1 of the carried withdrawal step now reads: by a founder SQL step, never an operator function (BD-2 2, and 021's column comment at 021:161-163). Without that, 3.4b-app could fill the gap with an `operator_withdraw` function the record forbids.
+
+**BN-5 — NOTHING ELSE CHANGES.** No migration, no change to `applied-hosted.json`, nothing hosted. After the new head is reported, STOP. Cowork checks it, then the founder gives the merge word. BM-3 still holds after the merge.
 
 ## The provisional ledger
 
@@ -4161,7 +4205,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | BJ | R-2026-09-24-82 | 2026-09-24 | **A withdrawn agreement takes a facility off the public output by itself.** Both membership predicates (`project_facility`, `refresh_lga_rollup`) gain "no withdrawn agreement", and a trigger on `facility_agreement` re-projects through 008's `trg_project`. B1 holds. The withdrawal step for 3.4b-app is ruled: withdraw, deactivate the ward accounts, unlist, then read back `/beds.json`. Found: 021:282-291 was wrong when written; the gate is at 021:313-322. |
 | BK | R-2026-09-24-83 | 2026-09-24 | **Public requires an active agreement, and fails closed.** Both predicates are now `EXISTS (agreement, withdrawn_on IS NULL)`. A pre-check refuses to apply over a listed facility with no agreement, and the seed and fixtures gain synthetic agreements. Found: the fail-open was real in the predicate but blocked today by the mirrors' own RLS. The round trips now run in rolled-back transactions, because BD's down refusal and BK's seed agreements together forbid a committed one. B1 is structural. |
 | BL | R-2026-09-24-84 | 2026-09-24 | **#72 merged at `f6889d4`**, and the branch deleted after MERGED was read back. The round trips running inside rolled-back transactions are accepted, because `run_migrations.sh` applies each file `--single-transaction`. BK's partial premise is recorded. |
-| BM | R-2026-09-24-85 | 2026-09-24 | **021 applied on hosted: all six fences as they must be** (founder's output, relayed by Cowork). The boundary is at 21, and step 5 is at 0 pending. BI-2 is done: a unit counts as dated history only with "Restated" or "On" plus a date, and 17 statements in 12 units were restated to carry one. The withdrawal step is carried into 3.4b-app's notes. Stop until the next kickoff. |
+| BM | R-2026-09-24-85 | 2026-09-24 | **021 applied on hosted: all six fences as they must be** (founder's output, relayed by Cowork). The boundary is at 21, and step 5 is at 0 pending. BI-2 is done: a unit counts as dated history only with "Restated" or "On" plus a date, and 17 statements in 13 units were restated to carry one. The withdrawal step is carried into 3.4b-app's notes. Stop until the next kickoff. |
+| BN | R-2026-09-24-86 | 2026-09-24 | **Four corrections on #73.** The BI-2 unit count is 13, not 12 (derived by running `dateUnits`). The 3.4b-app read-path bullet now covers the listing read only, and the allow-list stays derived from call sites. A marker now dates only the count that follows it, and a list item never dates a fence, with QA's three forms as plants. The withdrawal step is set by a founder SQL step, never a function. Not a merge word. |
 
 ## Method notes — how rulings reach the implementer
 
