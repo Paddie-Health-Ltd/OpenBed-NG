@@ -12,8 +12,8 @@
   ],
   "project_ref": "klrlpxysjsjpdkeqdhvl",
   "observed": "2026-09-24",
-  "ruling": "R-2026-09-24-77",
-  "ledger_rows": 20,
+  "ruling": "R-2026-09-24-85",
+  "ledger_rows": 21,
   "frozen": [
     {
       "file": "001_app_schema_and_migration_ledger.sql",
@@ -94,6 +94,10 @@
     {
       "file": "020_operator_functions_and_listing.sql",
       "sha256": "4cb61974faaf9bae5b7c6207aef4e769c10af61c99d8f7bf8eb898efe7746763"
+    },
+    {
+      "file": "021_facility_agreement_and_contact_write.sql",
+      "sha256": "702f9fc97480405157eef255b0aa9c50754da7a3df8200d0a869c80495eddb04"
     }
   ]
 }
