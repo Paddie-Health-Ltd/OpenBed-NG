@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { join } from 'node:path';
 import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { parseLegs, parseInstrumentLegs, assertedByScript, evidenceDirs, isReached, legsWithoutIdentity, duplicateIds, stringLiteralsInCode, type Leg } from './_legs.js';
+import { parseLegs, parseInstrumentLegs, assertedByScript, evidenceDirs, isReached, legsWithoutIdentity, duplicateIds, nestedIdentities, stringLiteralsInCode, type Leg } from './_legs.js';
 import { REPO_ROOT } from './_scratch.js';
 import REGISTER from '../../packages/fixtures/leg-coverage.json';
 import ts from 'typescript';
@@ -303,6 +303,65 @@ describe('leg coverage register', () => {
 
   test('anti-vacuity — with no assertions, nothing is reached', () => {
     expect(ALL.filter((l) => isReached(l, new Map(), ALL))).toEqual([]);
+  });
+
+  // A WHOLE IDENTITY INSIDE A LONGER ONE (R-2026-09-24-95 BW-1). The shape is real:
+  // readback_common.sh's curl failure is identified only by the tail its stamp and
+  // body-search failures also carry.
+  const SHORT: Leg = { script: 'lint_n.sh', line: 1, id: 'the check did not run, so no verdict' };
+  const LONG: Leg = { script: 'lint_n.sh', line: 2, id: 'reading a stamp -- the check did not run, so no verdict' };
+  const ELSEWHERE: Leg = { script: 'lint_m.sh', line: 1, id: 'summarising a file -- the check did not run, so no verdict' };
+  const NESTED = [SHORT, LONG, ELSEWHERE];
+
+  test('plant — a literal quoting only the LONGER message credits the longer leg, never the shorter', () => {
+    const asserted = new Map([['lint_n.sh', ['ERROR: node exited 9 reading a stamp -- the check did not run, so no verdict']]]);
+    expect(isReached(SHORT, asserted, NESTED), "the longer message's literal credited the shorter leg").toBe(false);
+    expect(isReached(LONG, asserted, NESTED), 'the longer message did not credit its own leg').toBe(true);
+  });
+
+  test("plant — a longer message from ANOTHER script, asserted in a test that runs both, credits the shorter leg of neither", () => {
+    const asserted = new Map([['lint_n.sh', ['ERROR: node exited 9 summarising a file -- the check did not run, so no verdict']]]);
+    expect(isReached(SHORT, asserted, NESTED), "another script's longer message credited this script's shorter leg").toBe(false);
+  });
+
+  test("accept — a literal from the shorter leg's OWN path credits it", () => {
+    const asserted = new Map([['lint_n.sh', ['ERROR: curl exited 6 on GET https://x.example/version.json -- the check did not run, so no verdict']]]);
+    expect(isReached(SHORT, asserted, NESTED), "the shorter leg's own message did not credit it").toBe(true);
+    expect(isReached(LONG, asserted, NESTED), "the shorter leg's message credited the longer leg").toBe(false);
+  });
+
+  test('nestedIdentities reports a constructed pair, and nothing over no legs', () => {
+    expect(nestedIdentities(NESTED)).toEqual([
+      'lint_n.sh "the check did not run, so no verdict" ⊂ lint_m.sh "summarising a file -- the check did not run, so no verdict"',
+      'lint_n.sh "the check did not run, so no verdict" ⊂ lint_n.sh "reading a stamp -- the check did not run, so no verdict"',
+    ]);
+    expect(nestedIdentities([])).toEqual([]);
+  });
+
+  test('the nested identity pairs in the real tree are exactly these, by name (BW-1 d)', () => {
+    // A REPORT, NOT A RULE: nesting is legal, and isReached already refuses to credit a
+    // shorter leg through a longer message. This pin exists so a NEW nesting is seen.
+    // If it reds: confirm the new pair's shorter leg is reached by a test that triggers
+    // ITS OWN message (the register test above says so either way), then add the pair.
+    expect(nestedIdentities(legs), 'the nested identity pairs changed -- see the comment above').toEqual([
+      'attest_counts.mjs "cannot read" ⊂ lint_no_secrets.sh "against every pattern -- no file it cannot read is ever reported clean"',
+      'attest_counts.mjs "cannot read" ⊂ lint_public_table_rls.sh "builds SQL in a string that creates or moves a table, which this lint cannot read"',
+      'attest_counts.mjs "cannot read" ⊂ neuter_plant.mjs "cannot read the neuter spec as JSON"',
+      'attest_counts.mjs "cannot read" ⊂ predict_counts.mjs "cannot read the baseline JUnit file"',
+      'attest_counts.mjs "cannot read" ⊂ predict_counts.mjs "cannot read the deltas file as JSON"',
+      'lint_audit_log_columns.sh "could not read" ⊂ get_extra_search_path.sh "could not read the PostgREST config from the Supabase Management API."',
+      'lint_audit_log_columns.sh "could not read" ⊂ readback_worker.sh "could not read the Supabase project ref from"',
+      'lint_from_allowlist.sh "could not read" ⊂ get_extra_search_path.sh "could not read the PostgREST config from the Supabase Management API."',
+      'lint_from_allowlist.sh "could not read" ⊂ readback_worker.sh "could not read the Supabase project ref from"',
+      'readback_common.sh "the check did not run, so this read-back has no verdict" ⊂ readback_common.sh "reading a version stamp -- the check did not run, so this read-back has no verdict"',
+      'readback_common.sh "the check did not run, so this read-back has no verdict" ⊂ readback_common.sh "searching a response body -- the check did not run, so this read-back has no verdict"',
+      'readback_function_grants.sh "the reading did not run, so it has no verdict" ⊂ readback_function_grants.sh "comparing the function grants -- the reading did not run, so it has no verdict"',
+      'readback_function_grants.sh "the reading did not run, so it has no verdict" ⊂ readback_function_grants.sh "the query read no functions at all -- the reading did not run, so it has no verdict"',
+      'readback_function_grants.sh "the reading did not run, so it has no verdict" ⊂ readback_public_output.sh ", which is not a count and a digest -- the reading did not run, so it has no verdict"',
+      'readback_function_grants.sh "the reading did not run, so it has no verdict" ⊂ readback_public_output.sh "summarising beds.json -- the reading did not run, so it has no verdict"',
+      'readback_public_output.sh "127 means psql is not on PATH (step P). The reading did not run, so it has no verdict" ⊂ readback_function_grants.sh "reading the function grants -- 127 means psql is not on PATH (step P). The reading did not run, so it has no verdict"',
+      'run_migrations.sh "unknown option $1" ⊂ deploy_pages.sh "unknown option $1 -- this wrapper takes [--branch NAME] APP [ROOT]"',
+    ]);
   });
 
   const LEG: Leg = { script: 'lint_x.sh', line: 1, id: 'the planted leg message' };
