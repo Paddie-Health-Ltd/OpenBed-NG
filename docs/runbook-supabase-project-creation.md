@@ -1555,8 +1555,12 @@ changes:
    carries `agreement_accepted_at`, naming the count (-78 BF-1 a). Hosted has none.
 4. **The after-reading:** as for 020. `PASS (VACUOUS FOR B1)` is expected while
    hosted is empty. 021 writes no projected table.
-5. **The second dry run:** the list at the top of this step once 021 is applied,
-   which will then name no file. Anything else: stop and report.
+5. **The second dry run:** twenty-one `already applied` lines, naming
+   `001_app_schema_and_migration_ledger.sql` through
+   `021_facility_agreement_and_contact_write.sql`, no `WOULD APPLY` line, and the
+   same last line as 020's fence 5, saying nothing is pending. Not "the list at the
+   top of this step": that list is restated only in the change that records this
+   apply, so when this fence runs it still names 021. Anything else: stop and report.
 6. **Who can execute what, AFTER the apply and never before:** as for 020. Every
    function in `packages/fixtures/function-grants.json`'s main section reads `ok`,
    including 021's `operator_register`, `operator_record_contact`,
