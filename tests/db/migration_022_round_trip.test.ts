@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { TransactionSql } from 'postgres';
 import { withRole } from '../setup/db.js';
@@ -29,6 +29,10 @@ import { withRole } from '../setup/db.js';
  * EVERY LEG RUNS INSIDE ONE ROLLED-BACK TRANSACTION (BL-1): scripts/run_migrations.sh
  * applies each file with --single-transaction, so applying the file TEXT inside a
  * transaction is faithful, and nothing here is committed.
+ *
+ * THE MIGRATIONS ABOVE 022 ARE REVERSED FIRST (since 023), as the 020 and 021 round trips
+ * do: every leg runs on a database AT 022, every later down migration applied, newest
+ * first, inside the same rolled-back transaction.
  */
 
 const MIG_DIR = join(import.meta.dirname, '..', '..', 'database', 'migrations');
@@ -53,7 +57,15 @@ async function refusal(tx: TransactionSql, path: string): Promise<{ message: str
   throw new Error(`${path} applied, and it was expected to refuse`);
 }
 
-const inTx = <T>(fn: (tx: TransactionSql) => Promise<T>): Promise<T> => withRole('postgres', null, fn);
+/** Every forward migration numbered above 022, in apply order. */
+const LATER = readdirSync(MIG_DIR).filter((f) => /^\d{3}_.*\.sql$/.test(f) && !f.endsWith('.down.sql') && f > LEDGER).sort();
+
+/** Everything a leg does happens in here, on a database at 022, and is rolled back. */
+const inTx = <T>(fn: (tx: TransactionSql) => Promise<T>): Promise<T> =>
+  withRole('postgres', null, async (tx) => {
+    for (const f of LATER.slice().reverse()) await apply(tx, join(MIG_DIR, f.replace(/\.sql$/, '.down.sql')));
+    return fn(tx);
+  });
 
 /** The body between `AS $FN$` and `$FN$;` of one function, as a file writes it. */
 function bodyFrom(file: string, fn: string): string {

@@ -61,6 +61,19 @@ describe('service-role bundle guard', () => {
   const LINT = 'lint_no_service_role_in_bundle.sh';
   const RULE = 'service-role credential reachable from a built client bundle';
 
+  /**
+   * Places a built file at `apps/<app>/<outDir>/...` AND the app's wrangler.toml naming
+   * <outDir>. Since PR 3.4b-app C (R-2026-09-24-97 BY-2 d) the guard reads each app's
+   * `pages_build_output_dir` rather than globbing `apps/*\/dist`, so a plant without a
+   * wrangler.toml is not in any app -- and would be ignored, correctly.
+   */
+  const placeBundle = (root: string, rel: string, body: string): void => {
+    const [, app, outDir] = /^apps\/([^/]+)\/([^/]+)\//.exec(rel) ?? [];
+    if (!app || !outDir) throw new Error(`placeBundle needs apps/<app>/<outDir>/...: ${rel}`);
+    place(root, `apps/${app}/wrangler.toml`, `name = "x-${app}"\npages_build_output_dir = "./${outDir}"\n`);
+    place(root, rel, body);
+  };
+
   test.each(deployableApps())('the real built bundle of %s is accepted', (app) => {
     const dist = join(REPO_ROOT, 'apps', app, outputDirOf(app));
     expect(existsSync(dist), `run \`npm run build\` before the compliance suite — apps/${app} has no built output`).toBe(true);
@@ -97,8 +110,9 @@ describe('service-role bundle guard', () => {
     'plant — a credential in apps/%s is caught while every OTHER app is clean',
     (dirty) => {
       // -21 D4: the scan's reach to each app is "to be confirmed explicitly, with a
-      // plant, in that change, not assumed". The lint globs apps/*/dist, and A GLOB
-      // THAT MATCHES IS NOT PROOF IT REACHED. Every other plant in this file uses one
+      // plant, in that change, not assumed". The lint reads each app's output
+      // directory from its wrangler.toml (since PR 3.4b-app C; until then it globbed
+      // apps/*/dist), and A CORPUS THAT MATCHES IS NOT PROOF IT REACHED. Every other plant in this file uses one
       // synthetic app called `x`, so "the second app is scanned too" was unasserted.
       //
       // Each app's file is named after the app, so the assertion is on IDENTITY: it
@@ -106,18 +120,18 @@ describe('service-role bundle guard', () => {
       // app's bundle.
       withScratch((root) => {
         for (const app of deployableApps()) {
-          place(
+          placeBundle(
             root,
-            `apps/${app}/dist/assets/${app}.js`,
+            `apps/${app}/${outputDirOf(app)}/assets/${app}.js`,
             app === dirty ? `const k = "${PLANT_SB_SECRET}";` : 'export const x = 1;',
           );
         }
         const res = runLint(LINT, root);
         expect(res.status, `a credential in apps/${dirty} was not caught:\n${res.stdout}`).toBe(1);
-        expect(res.stdout, `the guard refused but did not name apps/${dirty}`).toContain(`apps/${dirty}/dist`);
+        expect(res.stdout, `the guard refused but did not name apps/${dirty}`).toContain(`apps/${dirty}/${outputDirOf(dirty)}`);
         for (const clean of deployableApps().filter((a) => a !== dirty)) {
           expect(res.stdout, `the guard named apps/${clean}, which carries no credential`).not.toContain(
-            `apps/${clean}/dist/assets/${clean}.js`,
+            `apps/${clean}/${outputDirOf(clean)}/assets/${clean}.js`,
           );
         }
       });
@@ -126,7 +140,7 @@ describe('service-role bundle guard', () => {
 
   test.each(appsWithFunctions())('plant — a credential in apps/%s/.functions-build is caught', (app) => {
     withScratch((root) => {
-      place(root, `apps/${app}/dist/assets/${app}.js`, 'export const x = 1;');
+      placeBundle(root, `apps/${app}/${outputDirOf(app)}/assets/${app}.js`, 'export const x = 1;');
       place(root, `apps/${app}/functions/beds.json.ts`, 'export const onRequestGet = () => new Response("{}");');
       place(root, `apps/${app}/.functions-build/${app}.js`, `const k = "${PLANT_SB_SECRET}";`);
       const res = runLint(LINT, root);
@@ -148,7 +162,7 @@ describe('service-role bundle guard', () => {
     ['a literal key in a BLOCK comment', `/* ${PLANT_SB_SECRET} */\nexport const x = 1;`],
   ])('plant — %s in a built bundle is rejected', (_name, code) => {
     withScratch((root) => {
-      place(root, 'apps/x/dist/assets/index.js', code);
+      placeBundle(root, 'apps/x/dist/assets/index.js', code);
       const res = runLint(LINT, root);
       expect(res.status, `plant was accepted:\n${res.stdout}`).toBe(1);
       expect(res.stdout, 'the guard did not name the rule it enforces').toContain(RULE);
@@ -165,17 +179,20 @@ describe('service-role bundle guard', () => {
   /**
    * THE CORPUS-SCOPE MATRIX -- test-conventions.md section 2(d).
    *
-   * The guard's header declares five extensions and two locations. That is a
-   * CLAIM ABOUT COVERAGE, and a claim its corpus does not support is invisible
-   * from the green: the uncovered corner produces no failures because nothing
-   * looked. Before this existed, only `dist/**` + `.js` was ever planted, so
-   * eight of the ten declared cells were a description rather than a control.
+   * The guard's header declares five extensions and, since PR 3.4b-app C, ONE
+   * location: whatever directory each app's wrangler.toml names. That is a CLAIM
+   * ABOUT COVERAGE, and a claim its corpus does not support is invisible from the
+   * green: the uncovered corner produces no failures because nothing looked.
+   * Before this existed, only `dist/**` + `.js` was ever planted, so eight of the
+   * ten declared cells were a description rather than a control. The two locations
+   * below are two output-directory NAMES, dist and build, each named by its app's
+   * wrangler.toml -- the second is the one the old path glob never reached.
    *
    * A credential is planted in EVERY declared cell and every one must be
    * rejected. Parsed identity over the declared matrix, not a count of files
    * the `find` happened to return.
    */
-  const DECLARED_LOCATIONS = ['dist/assets', '.next/static/chunks'];
+  const DECLARED_LOCATIONS = ['dist/assets', 'build/static/chunks'];
   const DECLARED_EXTENSIONS = ['js', 'mjs', 'cjs', 'html', 'json'];
   const MATRIX = DECLARED_LOCATIONS.flatMap((loc) => DECLARED_EXTENSIONS.map((ext) => [loc, ext] as const));
 
@@ -191,7 +208,7 @@ describe('service-role bundle guard', () => {
         html: `<!doctype html><script>const k = "${PLANT_SB_SECRET}";</script>`,
         json: JSON.stringify({ k: PLANT_SB_SECRET }),
       };
-      place(root, `apps/x/${loc}/f.${ext}`, bodies[ext] as string);
+      placeBundle(root, `apps/x/${loc}/f.${ext}`, bodies[ext] as string);
       const res = runLint(LINT, root);
       expect(res.status, `a declared cell of the corpus does not actually scan:\n${res.stdout}`).toBe(1);
       expect(res.stdout, 'the guard did not name the rule it enforces').toContain(RULE);
@@ -213,22 +230,37 @@ describe('service-role bundle guard', () => {
     // second is the exact 23-of-24 case: the guard firing on the warning
     // against the thing it guards.
     withScratch((root) => {
-      place(root, 'apps/x/dist/assets/index.js', code);
+      placeBundle(root, 'apps/x/dist/assets/index.js', code);
       const res = runLint(LINT, root);
       expect(res.status, `legitimate bundle content was refused:\n${res.stdout}`).toBe(0);
     });
   });
 
-  test('plant — a credential in .next/static is rejected, not only in dist', () => {
-    // The guard's find predicate declares TWO paths: */dist/* and */.next/static/*.
-    // Only the first was ever planted, so the second half of the scope was a
-    // coverage claim with nothing behind it -- a `-path` that stopped matching
-    // after a framework change would have gone unnoticed.
+  test('plant — a credential in an app that builds to build/, not dist/, is caught (BY-2 d)', () => {
+    // THE GAP THIS CHANGE CLOSES. Until PR 3.4b-app C the corpus was the path glob
+    // */dist/* (and */.next/static/*): an app whose wrangler.toml names build/ was
+    // never scanned, and the guard said PASS over the apps it did find. A clean
+    // dist/ app sits beside it, so a PASS here would be the old behaviour exactly.
     withScratch((root) => {
-      place(root, 'apps/x/.next/static/chunks/main.js', `const k = "${PLANT_SB_SECRET}";`);
+      placeBundle(root, 'apps/clean/dist/assets/index.js', 'export const x = 1;');
+      placeBundle(root, 'apps/y/build/assets/main.js', `const k = "${PLANT_SB_SECRET}";`);
       const res = runLint(LINT, root);
-      expect(res.status, `a credential in .next/static was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.status, `a credential in an app that builds to build/ was accepted:\n${res.stdout}`).toBe(1);
       expect(res.stdout, 'the guard did not name the rule it enforces').toContain(RULE);
+      expect(res.stdout, 'the guard refused but did not name the build/ bundle').toContain('apps/y/build/assets/main.js');
+    });
+  });
+
+  test('the corpus is the directory wrangler.toml NAMES: a stray dist/ beside a build/ app is not scanned', () => {
+    // The other half of reading the output directory rather than assuming it. A
+    // dist/ that the app does not deploy is not its bundle; scanning it would make
+    // the verdict about a file nobody ships. Positive control: this is accepted.
+    withScratch((root) => {
+      placeBundle(root, 'apps/y/build/assets/main.js', 'export const x = 1;');
+      place(root, 'apps/y/dist/assets/leftover.js', `const k = "${PLANT_SB_SECRET}";`);
+      const res = runLint(LINT, root);
+      expect(res.status, `a file outside the named output directory decided the verdict:\n${res.stdout}`).toBe(0);
+      expect(res.stdout).toContain('1 built files scanned in 1 app(s)');
     });
   });
 
@@ -238,7 +270,7 @@ describe('service-role bundle guard', () => {
     // noisy-but-safe, skipping is FAIL-OPEN, and both are verdicts from a check
     // that did not run. So it is exit 2, distinct from both clean and dirty.
     withScratch((root) => {
-      place(root, 'apps/x/dist/assets/index.js', 'const k = ((((;');
+      placeBundle(root, 'apps/x/dist/assets/index.js', 'const k = ((((;');
       const res = runLint(LINT, root);
       expect(res.status, `an unparseable bundle did not stop the scan:\n${res.stdout}`).toBe(2);
       // The scanner's own refusal...
@@ -254,14 +286,37 @@ describe('service-role bundle guard', () => {
     });
   });
 
-  test('anti-vacuity — no built output FAILS rather than passing', () => {
+  test('anti-vacuity — no built output FAILS rather than passing, naming the unbuilt app', () => {
     // The failure this guard is most likely to have in practice: the build step
-    // was skipped and the scan ran over an empty directory.
+    // was skipped and the scan ran over an empty directory. Per app now: one built
+    // app cannot hide an unbuilt one.
+    withScratch((root) => {
+      placeBundle(root, 'apps/built/dist/assets/index.js', 'export const x = 1;');
+      place(root, 'apps/x/wrangler.toml', 'name = "x-x"\npages_build_output_dir = "./dist"\n');
+      place(root, 'apps/x/src/main.ts', 'export const x = 1;');
+      const res = runLint(LINT, root);
+      expect(res.status, 'scanning an unbuilt app reported success').toBe(2);
+      expect(res.stdout, 'the empty-corpus refusal did not name itself').toContain('has no built client bundle in');
+      expect(res.stdout, 'the refusal did not name the unbuilt app').toContain('apps/x/dist');
+    });
+  });
+
+  test('anti-vacuity — a tree with no deployable app FAILS rather than passing', () => {
     withScratch((root) => {
       place(root, 'apps/x/src/main.ts', 'export const x = 1;');
       const res = runLint(LINT, root);
-      expect(res.status, 'scanning zero built files reported success').toBe(2);
-      expect(res.stdout, 'the empty-corpus refusal did not name itself').toContain('no built client bundles found under');
+      expect(res.status, 'a tree with no app reported success').toBe(2);
+      expect(res.stdout).toContain('no deployable app (apps/*/wrangler.toml) under');
+    });
+  });
+
+  test('plant — a wrangler.toml naming no output directory is refused, never defaulted to dist', () => {
+    withScratch((root) => {
+      place(root, 'apps/x/wrangler.toml', 'name = "x-x"\n');
+      place(root, 'apps/x/dist/assets/index.js', `const k = "${PLANT_SB_SECRET}";`);
+      const res = runLint(LINT, root);
+      expect(res.status, `a wrangler.toml with no output dir was defaulted:\n${res.stdout}`).toBe(2);
+      expect(res.stdout).toContain('names no pages_build_output_dir, so its built client bundle cannot be found.');
     });
   });
 
@@ -293,7 +348,7 @@ describe('service-role bundle guard', () => {
   const SERVER_VERDICT =
     'lint_no_service_role_in_bundle.sh: FAILED — a service-role credential is committed as a literal in server-side code';
   const placeFunction = (root: string, file: string, body: string): void => {
-    place(root, 'apps/x/dist/assets/index.js', 'export const x = 1;');
+    placeBundle(root, 'apps/x/dist/assets/index.js', 'export const x = 1;');
     place(root, 'apps/x/functions/beds.json.ts', 'export const onRequestGet = () => new Response("{}");');
     place(root, `apps/x/.functions-build/${file}`, body);
   };
@@ -341,7 +396,7 @@ describe('service-role bundle guard', () => {
     // would ship to a browser. If this ever passes, the client corpus lost its
     // identifier-name tier.
     withScratch((root) => {
-      place(root, 'apps/x/dist/assets/index.js', LEGIT_ENV_READ);
+      placeBundle(root, 'apps/x/dist/assets/index.js', LEGIT_ENV_READ);
       const res = runLint(LINT, root);
       expect(res.status, `the client corpus accepted a service-role env name:\n${res.stdout}`).toBe(1);
       expect(res.stdout).toContain(RULE);
@@ -350,7 +405,7 @@ describe('service-role bundle guard', () => {
 
   test('anti-vacuity — a functions/ directory with no built output FAILS rather than passing', () => {
     withScratch((root) => {
-      place(root, 'apps/x/dist/assets/index.js', 'export const x = 1;');
+      placeBundle(root, 'apps/x/dist/assets/index.js', 'export const x = 1;');
       place(root, 'apps/x/functions/beds.json.ts', 'export const onRequestGet = () => new Response("{}");');
       const res = runLint(LINT, root);
       expect(res.status, `an unbuilt Function was reported clean:\n${res.stdout}`).toBe(2);
@@ -392,7 +447,7 @@ describe('service-role bundle guard', () => {
     // that is all there is.
     withScratch((root) => {
       const many = Array.from({ length: 15 }, (_, i) => `const k${i} = "${PLANT_SB_SECRET}";`).join('\n');
-      place(root, 'apps/x/dist/assets/index.js', many);
+      placeBundle(root, 'apps/x/dist/assets/index.js', many);
       const res = runLint(LINT, root);
       expect(res.status, `15 credentials were accepted:\n${res.stdout}`).toBe(1);
       expect(res.stdout, 'the truncated report did not say it was truncated').toContain('more in this file');

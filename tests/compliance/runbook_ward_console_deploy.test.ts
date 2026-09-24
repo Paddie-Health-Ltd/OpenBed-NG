@@ -29,7 +29,7 @@ import { REPO_ROOT } from './_scratch.js';
  * rules were protecting: that nobody pastes the probe at all. So:
  *   - the runbook's read-back fence must be exactly the one-line invocation of the
  *     script;
- *   - no fence in any of the three deploy runbooks may `read` from the terminal, the
+ *   - no fence in any of the four deploy runbooks may `read` from the terminal, the
  *     exact failure H4 hit, except the reads named in PASTED_READS_STILL_OPEN below.
  *
  * PASTED_READS_STILL_OPEN IS A CLOSED LIST, NOT A LOOPHOLE. The Pages runbook's
@@ -56,8 +56,11 @@ const PASTED_READS_STILL_OPEN: Record<string, string[]> = {
   'runbook-cloudflare-pages-beds-json.md': ['BEDS_STATUS', 'BEDS_URL', 'DEPLOYED_COMMIT'],
   'runbook-cloudflare-worker-proxy.md': [],
   'runbook-ward-console-deploy.md': [],
+  'runbook-admin-deploy.md': [],
 };
-const DEPLOY_RUNBOOKS = ['runbook-ward-console-deploy.md', 'runbook-cloudflare-pages-beds-json.md', 'runbook-cloudflare-worker-proxy.md'];
+// The admin app's runbook joined in PR 3.4b-app C (R-2026-09-24-97): its read-back is a
+// script too, and no fence in it may read from the terminal.
+const DEPLOY_RUNBOOKS = ['runbook-ward-console-deploy.md', 'runbook-cloudflare-pages-beds-json.md', 'runbook-cloudflare-worker-proxy.md', 'runbook-admin-deploy.md'];
 
 /** The script's code, comments removed, so a property named only in the header never counts. */
 function code(script: string): string {

@@ -1,13 +1,15 @@
 {
   "comment": "THE DELIBERATE PER-APP LITERALS, IN ONE PLACE (R-2026-09-24-88 BP-9; R-2026-09-24-93 BU-2 a). The set of deployable apps is DERIVED from apps/*/wrangler.toml (tests/compliance/_apps.ts). These three tables are the per-app facts that cannot be derived, kept as literals on purpose: each decays LOUDLY, because tests/compliance/_per_app.ts fences its keys against the derived set, and tests/compliance/per_app_reach.test.ts plants a scratch app that must red every fence. Until PR 3.4b-app B the first two lived as literals inside tests/compliance/build_stamp.test.ts and tests/compliance/tracked_client_keys.test.ts, where no scratch tree could reach them; moving them here changed where they are read from, not what they say.",
-  "deployable_apps": ["public-dashboard", "ward-console"],
+  "deployable_apps": ["admin", "public-dashboard", "ward-console"],
   "client_import_closure": {
     "comment": "The workspace packages each app's build reaches, BY IDENTITY. NOT origins for the dashboard: @openbed/snapshot's index re-exports only codec.ts, so serve.ts and its relative edge into origins are reached by the Pages Function alone, which wrangler builds and Vite never sees (read 2026-09-23). labels since R-2026-09-23-70 E: the one table of words, shared by both screens.",
+    "admin": ["auth", "labels", "origins", "snapshot"],
     "public-dashboard": ["labels", "snapshot"],
     "ward-console": ["auth", "labels", "origins"]
   },
   "deploy_targets": {
     "comment": "Every deployable app has a deploy runbook and a read-back script, and these name them. The Worker (supabase-proxy/) is not an app and is not here. PR 3.4b-app C's admin app reds this table until its own runbook and read-back exist.",
+    "admin": { "runbook": "docs/runbook-admin-deploy.md", "readback": "scripts/readback_admin.sh" },
     "public-dashboard": { "runbook": "docs/runbook-cloudflare-pages-beds-json.md", "readback": "scripts/readback_pages.sh" },
     "ward-console": { "runbook": "docs/runbook-ward-console-deploy.md", "readback": "scripts/readback_ward_console.sh" }
   }

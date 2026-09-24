@@ -13,6 +13,41 @@
 
   "steps": [
     {
+      "id": "operator-creates-facility",
+      "description": "The operator creates ALPHA through operator_create_facility, with a client-made id, as the admin app does (apps/admin/src/bodies.ts). The answer's created flag is true exactly when the facility did not exist before the call, and the same id and fields again answer created=false: one facility, never two.",
+      "gate2_clause": "An operator onboards the facility the ward belongs to (PR 3.4's definition of done: the golden path gains an operator step, R-2026-09-24-88 BP-12)",
+      "owning_stage": 0,
+      "needs_browser": false
+    },
+    {
+      "id": "operator-records-contact-and-agreement",
+      "description": "The operator records ALPHA's contact (a first write passes a null version) and its agreement, through operator_record_contact and operator_record_agreement, and operator_get_contact returns both. Without them, the provisioning gate refuses NO_FACILITY_CONTACT and AGREEMENT_NOT_RECORDED.",
+      "gate2_clause": "An operator onboards the facility the ward belongs to (PR 3.4's definition of done: the golden path gains an operator step, R-2026-09-24-88 BP-12)",
+      "owning_stage": 0,
+      "needs_browser": false
+    },
+    {
+      "id": "operator-adds-category",
+      "description": "The operator adds ALPHA's three ward categories through operator_add_category, each with its offering stated; a repeat answers created=false.",
+      "gate2_clause": "An operator onboards the facility the ward belongs to (PR 3.4's definition of done: the golden path gains an operator step, R-2026-09-24-88 BP-12)",
+      "owning_stage": 0,
+      "needs_browser": false
+    },
+    {
+      "id": "operator-lists-facility",
+      "description": "The operator lists ALPHA through operator_set_facility_listed, and the register reads it listed with every checklist line satisfied. Listing is refused in SQL until contact, agreement and a category exist (021:273-285).",
+      "gate2_clause": "An operator onboards the facility the ward belongs to (PR 3.4's definition of done: the golden path gains an operator step, R-2026-09-24-88 BP-12)",
+      "owning_stage": 0,
+      "needs_browser": false
+    },
+    {
+      "id": "operator-provisions-ward",
+      "description": "The two ward logins are provisioned through scripts/provision_ward_account.mjs, which goes through app.provision_begin's gates on the facility the operator just made, and the register reads each ward's login as active. ALPHA is then public, and the ward steps start from their baseline.",
+      "gate2_clause": "An operator onboards the facility the ward belongs to (PR 3.4's definition of done: the golden path gains an operator step, R-2026-09-24-88 BP-12)",
+      "owning_stage": 0,
+      "needs_browser": false
+    },
+    {
       "id": "magic-link-minted",
       "description": "admin/generate_link mints a magic link for the E2E ward role address. The response field names are printed verbatim and the assertion is written against what this GoTrue returned, not against what the documentation says.",
       "gate2_clause": "Ward staff opens a single-use magic link",

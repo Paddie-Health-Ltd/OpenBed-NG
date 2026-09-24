@@ -13,3 +13,4 @@ export {
 export { freshnessBand, freshnessBucket, snapshotAge, type Freshness, type FreshnessBand, type SnapshotAge } from './freshness.js';
 export { markFetch, elapsedSince, type FetchMark } from './anchor.js';
 export { SERVED_AT_HEADER } from './headers.js';
+export { lagosTime } from './time.js';

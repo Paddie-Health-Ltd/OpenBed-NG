@@ -59,6 +59,34 @@ export const SECOND_CATEGORY = 'THEATRE';
 export const STALE_CATEGORY = 'ICU_ADULT';
 
 /**
+ * THE E2E OPERATOR (R-2026-09-24-88 BP-12; R-2026-09-24-97 BY-2 f). A ROLE address on the
+ * reserved e2e.invalid domain, never a person and never the real operator's (BQ-1). It is
+ * bootstrapped through the production script's PLATFORM_ADMIN path in global setup, and
+ * removed by resetE2eCorpus at the start AND the end of every run: 022's one-operator
+ * index (022:73-75) would otherwise make a db test's direct PLATFORM_ADMIN insert fail on
+ * a shared local database after an E2E run.
+ */
+export const E2E_OPERATOR_EMAIL = 'e2e-operator@e2e.invalid';
+
+/**
+ * ALPHA's contact and agreement, as the golden path's operator step records them through
+ * the operator functions. The values are the ones the seed used to write directly, so a
+ * local database that ran an earlier version of this harness answers them as an
+ * identical repeat rather than a conflict.
+ */
+export const ALPHA_CONTACT = {
+  fullName: 'Synthetic Contact',
+  jobTitle: 'Medical Director',
+  email: `contact-${ALPHA.id.slice(-4)}@e2e.invalid`,
+  mobileE164: null,
+  smsOptIn: false,
+} as const;
+export const ALPHA_AGREEMENT = { acceptedOn: '2026-09-01', version: 'synthetic-v1', signatoryRole: null } as const;
+
+/** The three wards the operator step adds to ALPHA, each offered. */
+export const ALPHA_CATEGORIES = [PUBLISH_CATEGORY, SECOND_CATEGORY, STALE_CATEGORY] as const;
+
+/**
  * Remove the E2E_ accounts, and take the E2E_ facilities OUT OF PUBLIC VIEW.
  *
  * Deletion is by the prefix and the fixed ids, never "delete everything": a helper
@@ -88,6 +116,12 @@ export async function resetE2eCorpus(): Promise<void> {
   // still deleted and re-provisioned every run.
   await db`delete from app.ward_account where facility_id in (${ALPHA.id}::uuid, ${BETA.id}::uuid)`;
   await db`delete from app.invite where facility_id in (${ALPHA.id}::uuid, ${BETA.id}::uuid)`;
+  // The E2E operator, found by its Auth user, and any operator invite left open by an
+  // interrupted bootstrap. Before the users are deleted, because this finds it by them.
+  await db`
+    delete from app.ward_account
+     where role = 'PLATFORM_ADMIN' and id in (select id from auth.users where email = ${E2E_OPERATOR_EMAIL})`;
+  await db`delete from app.invite where role = 'PLATFORM_ADMIN' and facility_id is null and accepted_at is null`;
   await db`update app.facility set is_active = false where id in (${ALPHA.id}::uuid, ${BETA.id}::uuid)`;
   await db`delete from auth.users where email like ${`%@e2e.invalid`}`;
 }
@@ -95,7 +129,21 @@ export async function resetE2eCorpus(): Promise<void> {
 export async function seedE2eCorpus(): Promise<void> {
   const db = sql();
 
-  for (const f of [ALPHA, BETA]) {
+  // ALPHA IS NOT SEEDED (R-2026-09-24-88 BP-12): the golden path's operator steps create
+  // it through the operator functions. A facility is deactivated between runs, never
+  // deleted (see resetE2eCorpus), so on a database that has run the golden path before,
+  // ALPHA exists and the operator steps answer as identical repeats. That existing ALPHA
+  // is reactivated here, its agreement un-withdrawn and its duty flags reset -- the
+  // baseline the seed always restored -- because no operator function reactivates a
+  // facility. On a fresh database (CI's) there is nothing to reactivate, and the steps
+  // create it for real.
+  await db`update app.facility set is_active = true, quiet_mode = false where id = ${ALPHA.id}::uuid`;
+  await db`update app.facility_agreement set withdrawn_on = null where facility_id = ${ALPHA.id}::uuid`;
+  await db`
+    update app.facility_ops set anaesthetist = 'UNKNOWN', obstetrician = 'UNKNOWN', paediatrician = 'UNKNOWN'
+     where facility_id = ${ALPHA.id}::uuid`;
+
+  for (const f of [BETA]) {
     // Reactivated on conflict: resetE2eCorpus() deactivates rather than deletes.
     await db`
       insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, quiet_mode, is_active, listed_at)
@@ -111,10 +159,10 @@ export async function seedE2eCorpus(): Promise<void> {
       on conflict (facility_id) do update set withdrawn_on = null
     `;
     // Since PR 3.4b-app A the provisioning script goes through app.provision_begin,
-    // which refuses a facility with no contact (NO_FACILITY_CONTACT). Synthetic, seeded
-    // directly beside the agreement above, because this corpus has no operator
-    // session; PR 3.4b-app C's golden-path operator step moves ALPHA onto the
-    // operator functions (R-2026-09-24-88 BP-6 9, BP-12).
+    // which refuses a facility with no contact (NO_FACILITY_CONTACT). BETA's is seeded
+    // directly; ALPHA's is recorded by the golden path's operator step since PR 3.4b-app
+    // C (R-2026-09-24-88 BP-6 9, BP-12). BETA stays seeded: it is the cross-facility
+    // control, and no operator step touches it.
     await db`
       insert into app.facility_contact (facility_id, full_name, job_title, email)
       values (${f.id}::uuid, 'Synthetic Contact', 'Medical Director', ${`contact-${f.id.slice(-4)}@e2e.invalid`})
@@ -161,13 +209,41 @@ export async function seedE2eCorpus(): Promise<void> {
   // inside the session; PGOPTIONS at connection start is refused. Anywhere that grant is absent this fails loudly rather than seeding
   // half a corpus. Recorded as a vendor dependency, LOCAL AND CI ONLY, in the
   // un-automatable table of docs/runbook-supabase-project-creation.md.
-  const wards: [string, string, string, number | null, string, string][] = [
-    // facility, category, offering, bed_count, monitoring_state, updated_at offset
-    [ALPHA.id, PUBLISH_CATEGORY, 'OFFERED', null, 'PENDING', '0 seconds'], // the ward the golden path publishes to
-    [ALPHA.id, SECOND_CATEGORY, 'OFFERED', null, 'PENDING', '0 seconds'],
-    [ALPHA.id, STALE_CATEGORY, 'OFFERED', 3, 'ACTIVE', '4 hours'], // deliberately stale
-    [BETA.id, PUBLISH_CATEGORY, 'OFFERED', 2, 'ACTIVE', '0 seconds'],
-  ];
+  await restoreWardBaseline(BETA_WARDS);
+  await db`select app.project_facility(${BETA.id}::uuid)`;
+}
+
+type WardBaseline = [string, string, string, number | null, string, string];
+
+/** BETA's ward, seeded. */
+const BETA_WARDS: WardBaseline[] = [[BETA.id, PUBLISH_CATEGORY, 'OFFERED', 2, 'ACTIVE', '0 seconds']];
+
+/**
+ * ALPHA's wards: the baseline the ward steps start from. The operator step ADDS the three
+ * categories (operator_add_category, each OFFERED and PENDING); this then restores the
+ * baseline over them -- including the deliberately stale ward, which no operator function
+ * can make, because a ward's age is its history.
+ */
+const ALPHA_WARDS: WardBaseline[] = [
+  // facility, category, offering, bed_count, monitoring_state, updated_at offset
+  [ALPHA.id, PUBLISH_CATEGORY, 'OFFERED', null, 'PENDING', '0 seconds'], // the ward the golden path publishes to
+  [ALPHA.id, SECOND_CATEGORY, 'OFFERED', null, 'PENDING', '0 seconds'],
+  [ALPHA.id, STALE_CATEGORY, 'OFFERED', 3, 'ACTIVE', '4 hours'], // deliberately stale
+];
+
+/**
+ * Restore ALPHA's ward baseline after the operator step has added its categories, and
+ * bring its public mirror up to date. Called by the golden path's operator-provisions-ward
+ * step, the last of the operator steps, so the ward steps start from exactly the state
+ * the seed used to give them.
+ */
+export async function restoreAlphaWardBaseline(): Promise<void> {
+  await restoreWardBaseline(ALPHA_WARDS);
+  await sql()`select app.project_facility(${ALPHA.id}::uuid)`;
+}
+
+async function restoreWardBaseline(wards: WardBaseline[]): Promise<void> {
+  const db = sql();
   await db.begin(async (tx) => {
     await tx`set local session_replication_role = replica`;
     for (const [facility, category, offering, bedCount, monitoring, age] of wards) {
@@ -184,26 +260,56 @@ export async function seedE2eCorpus(): Promise<void> {
       `;
     }
   });
-  for (const f of [ALPHA, BETA]) {
-    await db`select app.project_facility(${f.id}::uuid)`;
-  }
 }
 
 /** Loud, and it names what was missing. A corpus that half-seeded is worse than none. */
 export async function assertE2eCorpus(): Promise<void> {
+  await assertPublic(BETA.id, 1, 'the seeded control facility');
+}
+
+/** ALPHA in public view with its three wards: asserted by the last operator step. */
+export async function assertAlphaPublic(): Promise<void> {
+  await assertPublic(ALPHA.id, 3, 'ALPHA, onboarded by the operator steps');
+}
+
+async function assertPublic(facilityId: string, wardCount: number, what: string): Promise<void> {
   const db = sql();
   const [facilities] = await db<{ n: number }[]>`
-    select count(*)::int as n from public.facility_public where facility_id in (${ALPHA.id}::uuid, ${BETA.id}::uuid)
+    select count(*)::int as n from public.facility_public where facility_id = ${facilityId}::uuid
   `;
   const [wards] = await db<{ n: number }[]>`
-    select count(*)::int as n from public.ward_public where facility_id in (${ALPHA.id}::uuid, ${BETA.id}::uuid)
+    select count(*)::int as n from public.ward_public where facility_id = ${facilityId}::uuid
   `;
-  if (!facilities || facilities.n !== 2) {
-    throw new Error(`E2E corpus: expected 2 facilities in public.facility_public, found ${facilities?.n ?? 0}. The 008 projection trigger did not fire.`);
+  if (!facilities || facilities.n !== 1) {
+    throw new Error(`E2E corpus: expected ${what} in public.facility_public, found ${facilities?.n ?? 0} rows. The 008 projection trigger did not fire.`);
   }
-  if (!wards || wards.n !== 4) {
-    throw new Error(`E2E corpus: expected 4 wards in public.ward_public, found ${wards?.n ?? 0}.`);
+  if (!wards || wards.n !== wardCount) {
+    throw new Error(`E2E corpus: expected ${wardCount} wards of ${what} in public.ward_public, found ${wards?.n ?? 0}.`);
   }
+}
+
+/**
+ * Bootstrap the E2E operator THROUGH THE PRODUCTION SCRIPT's PLATFORM_ADMIN path -- the
+ * way the founder bootstraps the real one at H6 -- never by inserting the row. If another
+ * operator is already active on this database, 022 makes the script answer "already
+ * exists" for the WRONG address, and every operator step would then run as nobody: so
+ * that is refused here, loudly, naming the address in the way.
+ */
+export async function bootstrapE2eOperator(): Promise<string> {
+  const others = await sql()<{ email: string | null }[]>`
+    select u.email from app.ward_account w left join auth.users u on u.id = w.id
+     where w.role = 'PLATFORM_ADMIN' and w.is_active`;
+  if (others.length > 0) {
+    throw new Error(
+      `E2E: an operator is already active on this database (${others.map((o) => o.email ?? '(no auth user)').join(', ')}). ` +
+        `022 allows one, so the E2E operator cannot be made. Deactivate it first; a db test that inserted it should have removed it.`,
+    );
+  }
+  return execFileSync(
+    'node',
+    [join(import.meta.dirname, '..', '..', 'scripts', 'provision_ward_account.mjs'), '--role', 'PLATFORM_ADMIN', '--email', E2E_OPERATOR_EMAIL],
+    { encoding: 'utf8', env: { ...process.env, SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey() } },
+  );
 }
 
 /**

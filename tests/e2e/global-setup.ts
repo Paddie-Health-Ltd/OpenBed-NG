@@ -1,7 +1,7 @@
 import { endPool, sql, pauseScheduledJobs, assertScheduledJobsPaused } from '../setup/db.js';
 import { gotrueVersion } from '../setup/auth.js';
 import { apiUrl } from '../setup/local-keys.js';
-import { resetE2eCorpus, seedE2eCorpus, assertE2eCorpus, provisionE2eWardAccounts } from './_harness.js';
+import { resetE2eCorpus, seedE2eCorpus, assertE2eCorpus, bootstrapE2eOperator } from './_harness.js';
 
 /**
  * Verifies the whole stack is reachable AND migrated, then builds the E2E corpus.
@@ -61,11 +61,16 @@ export async function setup(): Promise<void> {
   await resetE2eCorpus();
   await seedE2eCorpus();
   await assertE2eCorpus();
-  provisionE2eWardAccounts();
+  // The operator exists before the golden path starts; ALPHA and its ward logins do NOT.
+  // The golden path's first five steps make them, through the operator functions and
+  // the provisioning script (R-2026-09-24-88 BP-12).
+  console.log(`[e2e] ${(await bootstrapE2eOperator()).trim().split('\n').join(' / ')}`);
 }
 
 export async function teardown(): Promise<void> {
   try {
+    // Removes the E2E operator too: an operator left active would make a db test's
+    // PLATFORM_ADMIN insert fail under 022's one-operator index (R-2026-09-24-97 BY-2 f).
     await resetE2eCorpus();
   } finally {
     await endPool();
