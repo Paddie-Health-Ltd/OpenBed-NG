@@ -23,6 +23,16 @@
 # The last two mean a function hosted has and local lacks (one Supabase added,
 # say) reads STOP. That STOP is safe, since this only reads, but it needs a ruling.
 #
+# A RULED HOSTED-ONLY FUNCTION IS HELD TO EVERY PROPERTY RECORDED FOR IT
+# (R-2026-09-24-77 BE-1). The fixture's `hosted_only` section names functions hosted
+# has and this repository does not create -- the first, public.rls_auto_enable(),
+# read STOP at fence 6 of 020's apply and was ruled Supabase-owned and inert. Such an
+# entry passes only if its roles, its owner, its return type and SECURITY DEFINER all
+# match what was recorded, so a callable return type, a widened grant or a new owner
+# reads STOP. Absent from the database read (as it is locally), it is not a failure.
+# A function in neither section is still a STOP, and one named in both sections is an
+# ERROR in the fixture.
+#
 # THE IDENTITY of a function is schema.name(argument types), printed with
 # search_path set to pg_catalog, so the types are qualified the same way everywhere.
 # The query is the Q_GRANTS literal below. tests/db/function_grants.test.ts runs that
@@ -56,7 +66,7 @@ fi
 
 FIXTURE="$ROOT/packages/fixtures/function-grants.json"
 
-Q_GRANTS="select n.nspname || '.' || p.proname || '(' || oidvectortypes(p.proargtypes) || ')|' || concat_ws(',', case when has_function_privilege('anon', p.oid, 'EXECUTE') then 'anon' end, case when has_function_privilege('authenticated', p.oid, 'EXECUTE') then 'authenticated' end, case when has_function_privilege('service_role', p.oid, 'EXECUTE') then 'service_role' end) from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace where n.nspname in ('app', 'graphql_public', 'public') order by 1"
+Q_GRANTS="select n.nspname || '.' || p.proname || '(' || oidvectortypes(p.proargtypes) || ')|' || concat_ws(',', case when has_function_privilege('anon', p.oid, 'EXECUTE') then 'anon' end, case when has_function_privilege('authenticated', p.oid, 'EXECUTE') then 'authenticated' end, case when has_function_privilege('service_role', p.oid, 'EXECUTE') then 'service_role' end) || '|' || pg_get_userbyid(p.proowner) || '|' || format_type(p.prorettype, null) || '|' || case when p.prosecdef then 't' else 'f' end from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace where n.nspname in ('app', 'graphql_public', 'public') order by 1"
 
 echo "=== EXECUTE on every function in app, graphql_public and public, against $FIXTURE ==="
 st=0
@@ -66,28 +76,42 @@ if [ "$st" -ne 0 ]; then
     exit 2
 fi
 
-# node pairs each function with the fixture: one "identity<TAB>observed<TAB>expected"
-# line per function, "none" for no role, and a marker for a side that lacks it.
+# node pairs each function with the fixture: one "identity<TAB>label<TAB>observed<TAB>
+# expected" line per function, "none" for no role, and a marker for a side that lacks
+# it. The label is EXECUTE for a `functions` entry or an unknown function, and
+# (hosted-only) for a `hosted_only` entry, whose value is every recorded property.
 st=0
 node -e '
 const fs = require("fs");
 let fx;
 try { fx = JSON.parse(fs.readFileSync(process.argv[2], "utf8")); } catch { process.exit(3); }
 if (!fx || typeof fx.functions !== "object") process.exit(3);
+const hosted = fx.hosted_only && typeof fx.hosted_only === "object" ? fx.hosted_only : {};
+const both = Object.keys(hosted).filter((id) => id in fx.functions);
+if (both.length) { process.stdout.write(both.join(", ")); process.exit(6); }
 const seen = new Map();
 for (const line of fs.readFileSync(process.argv[1], "utf8").split("\n")) {
   if (line === "") continue;
-  const m = /^([a-z_]+\.[a-z_0-9]+\([^|]*\))\|((?:anon|authenticated|service_role)(?:,(?:anon|authenticated|service_role))*)?$/.exec(line);
+  const m = /^([a-z_]+\.[a-z_0-9]+\([^|]*\))\|((?:anon|authenticated|service_role)(?:,(?:anon|authenticated|service_role))*)?\|([a-z_][a-z0-9_]*)\|([^|]+)\|([tf])$/.exec(line);
   if (!m) { process.stdout.write(line); process.exit(4); }
-  seen.set(m[1], m[2] ? m[2] : "none");
+  seen.set(m[1], { roles: m[2] ? m[2] : "none", owner: m[3], returns: m[4], definer: m[5] === "t" });
 }
 if (seen.size === 0) process.exit(5);
-const want = (id) => (fx.functions[id].execute.length ? fx.functions[id].execute.join(",") : "none");
-const ids = [...new Set([...seen.keys(), ...Object.keys(fx.functions)])].sort();
+const roles = (list) => (list.length ? list.join(",") : "none");
+const props = (h) => roles(h.execute ?? []) + " owner=" + h.owner + " returns=" + h.returns + " definer=" + h.security_definer;
+const ids = [...new Set([...seen.keys(), ...Object.keys(fx.functions), ...Object.keys(hosted)])].sort();
 for (const id of ids) {
-  const observed = seen.has(id) ? seen.get(id) : "(no such function on this database)";
-  const expected = id in fx.functions ? want(id) : "(not in the fixture)";
-  process.stdout.write(id + "\t" + observed + "\t" + expected + "\n");
+  const s = seen.get(id);
+  let label = "EXECUTE", observed, expected;
+  if (id in hosted) {
+    label = "(hosted-only)";
+    expected = s ? props(hosted[id]) : "absent";
+    observed = s ? s.roles + " owner=" + s.owner + " returns=" + s.returns + " definer=" + s.definer : "absent";
+  } else {
+    observed = s ? s.roles : "(no such function on this database)";
+    expected = id in fx.functions ? roles(fx.functions[id].execute) : "(not in the fixture)";
+  }
+  process.stdout.write(id + "\t" + label + "\t" + observed + "\t" + expected + "\n");
 }
 ' "$RB_TMP/grants" "$FIXTURE" > "$RB_TMP/pairs" || st=$?
 case "$st" in
@@ -95,11 +119,12 @@ case "$st" in
     3) echo "ERROR: could not read $FIXTURE -- the reading did not run, so it has no verdict"; exit 2 ;;
     4) echo "ERROR: psql answered a line that is not a function and its roles: '$(cat "$RB_TMP/pairs")' -- the reading did not run, so it has no verdict"; exit 2 ;;
     5) echo "ERROR: the query read no functions at all -- the reading did not run, so it has no verdict"; exit 2 ;;
+    6) echo "ERROR: $FIXTURE names a function in both its functions and hosted_only sections: $(cat "$RB_TMP/pairs") -- the reading did not run, so it has no verdict"; exit 2 ;;
     *) echo "ERROR: node exited $st comparing the function grants -- the reading did not run, so it has no verdict"; exit 2 ;;
 esac
 
-while IFS=$'\t' read -r id observed expected; do
-    rb_expect "$id EXECUTE" "$observed" "$expected"
+while IFS=$'\t' read -r id label observed expected; do
+    rb_expect "$id $label" "$observed" "$expected"
 done < "$RB_TMP/pairs"
 
 if [ "$RB_OK" != 1 ]; then

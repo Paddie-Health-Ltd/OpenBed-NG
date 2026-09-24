@@ -7,34 +7,22 @@
 //
 // STOP -- READ THIS BEFORE YOU RUN THIS SCRIPT AGAINST THE HOSTED PROJECT.
 //
-// THREE DEFECTS MUST BE FIXED BEFORE THE FIRST app.ward_account ROW -- OR THE
-// FIRST app.facility ROW -- EXISTS ON THE HOSTED PROJECT (R-2026-09-21-45).
-// Whatever the reason for creating it: a test, a staging trial, a signed
-// agreement or no agreement at all. The trigger is THE ROW, not the occasion,
-// because onboarding can be staged and an account created "just to try it"
-// puts all three live before anyone intends it.
+// NOTHING MAY CREATE THE FIRST app.ward_account ROW -- OR THE FIRST app.facility
+// ROW -- ON THE HOSTED PROJECT UNTIL RUNBOOK STEP 4b READS CLEAR
+// (R-2026-09-21-45). Whatever the reason for creating it: a test, a staging trial,
+// a signed agreement or no agreement at all. The trigger is THE ROW, not the
+// occasion, because onboarding can be staged and an account created "just to try
+// it" makes every open item live before anyone intends it.
 //
-// They are unreachable ONLY while those two tables are empty, and that is the
-// whole of their safety. Read on the hosted project 2026-09-21 16:58 UTC:
-// app.facility 0, app.ward_account 0.
-//
-//   1. The public dashboard renders "(unknown facility)" beside a REAL bed
-//      count when a ward references a facility absent from the payload -- a
-//      count with no callable identity, rendered as if it were actionable.
-//      apps/public-dashboard/src/main.ts
-//   2. The ward console's wardRowFrom DEFAULTS a clinical claim
-//      (offering ?? 'NOT_OFFERED') and a concurrency token (version ?? 0,
-//      which becomes p_expected_version). Refuse the malformed row instead.
-//      apps/ward-console/src/main.ts
-//   3. The publish screen echoes raw server text to a ward user on an
-//      unrecognised status (R-2026-09-20-30 D1). Same screen as 2.
-//
-// A FOURTH ITEM GATES THE SAME MOMENT AND IS SPECIFIED BUT NOT BUILT: the
-// invite gate -- no invite for a facility whose
-// app.facility_contact.agreement_accepted_at IS NULL. The column exists
-// (migration 003); nothing reads it, and there is no invite-issuing function
-// anywhere, so this is an absence rather than a defect. Named here because it
-// gates this same path and one consolidated condition is the point.
+// RESTATED 2026-09-24 (R-2026-09-24-75 BC-2), with runbook step 4b, which holds the
+// evidence for each item. The three defects this block used to list are CLOSED in
+// the code: the "(unknown facility)" row is dropped (callableIdentity,
+// apps/public-dashboard/src/main.ts); wardRowFrom refuses a malformed row rather than
+// defaulting it (apps/ward-console/src/main.ts); and a server refusal reaches a ward
+// only as a fixed sentence (wardMessageFor, same file). The invite gate it named as
+// not built is app.provision_begin (migration 020, applied on hosted 2026-09-24).
+// ONE ITEM IS STILL OPEN: no backup of the hosted project has ever been restored
+// (R-2026-09-24-74 BB-4). So the gate has not cleared.
 //
 // THIS IS A NAMED HUMAN STEP. NOTHING IN THIS SCRIPT ENFORCES IT -- there is no
 // check below that reads the list above, and a reader must not infer one
