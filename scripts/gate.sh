@@ -81,6 +81,7 @@ run "migration lints"    bash scripts/lint_migrations_all.sh
 run "bundle: service-role" bash scripts/lint_no_service_role_in_bundle.sh
 run "bundle: updated_at"  bash scripts/lint_no_updated_at_filter.sh
 run "bundle: from-allowlist" bash scripts/lint_from_allowlist.sh
+run "bundle: fonts"      bash scripts/lint_no_third_party_fonts.sh
 run "grep exit codes"    bash scripts/lint_grep_exit_codes.sh
 run "audit-log columns"  bash scripts/lint_audit_log_columns.sh
 if [ "$FAST" -eq 0 ]; then

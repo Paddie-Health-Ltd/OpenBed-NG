@@ -422,6 +422,7 @@ describe('updated_at filter guard', () => {
       place(root, 'apps/x/src/query.ts', code);
       const res = runLint(LINT, root);
       expect(res.status, `THE 4AM BUG WAS ACCEPTED:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the summary line that names the verdict was not printed').toContain('lint_no_updated_at_filter.sh: FAILED (');
       expect(res.stdout, 'the guard did not name the rule it enforces').toContain('updated_at used as a FILTER on the public search path');
     });
   });
@@ -484,6 +485,7 @@ describe('from() allowlist guard', () => {
       place(root, 'apps/x/src/query.ts', code);
       const res = runLint(LINT, root);
       expect(res.status, `plant was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the summary line that names the verdict was not printed').toContain('lint_from_allowlist.sh: FAILED (');
       expect(res.stdout, `a DIFFERENT rule fired than the one this plant targets:\n${res.stdout}`).toContain(message);
     });
   });
@@ -633,6 +635,109 @@ describe('from() allowlist guard', () => {
       const res = runLint(LINT, root);
       expect(res.status, `a fixture missing its rpcs array still produced a verdict:\n${res.stdout}`).toBe(2);
       expect(res.stdout, 'the malformed-fixture refusal did not name itself').toContain('could not read');
+    });
+  });
+});
+
+/**
+ * NO THIRD-PARTY FONT HOST IN ANY BUILT APP -- scripts/lint_no_third_party_fonts.sh
+ * (R-2026-09-24-88 BP-10; PR 3.4b-app B).
+ *
+ * The declared corpus is every deployable app's built output, in js, mjs, cjs, html
+ * AND css: a font host sits in CSS as often as in markup. The matrix below plants one
+ * host per declared type in each app, and a dirty app must be caught while every
+ * other app stays clean (test-conventions section 2(d): assert the declared scope by
+ * identity, one plant per type x location). The plant hosts are built at run time.
+ */
+describe('lint_no_third_party_fonts.sh', () => {
+  const LINT = 'lint_no_third_party_fonts.sh';
+  const TYPES = ['js', 'mjs', 'cjs', 'html', 'css'] as const;
+  const HOSTS = [['fonts', 'googleapis', 'com'].join('.'), ['fonts', 'gstatic', 'com'].join('.')];
+
+  /** A scratch tree with every real app built clean, one file per declared type. */
+  function cleanTree(root: string): void {
+    for (const app of deployableApps()) {
+      place(root, `apps/${app}/wrangler.toml`, `name = "x-${app}"\npages_build_output_dir = "./${outputDirOf(app)}"\n`);
+      for (const t of TYPES) place(root, `apps/${app}/${outputDirOf(app)}/assets/clean.${t}`, t === 'css' ? 'body { font-family: system-ui; }' : 'export const x = 1;');
+    }
+  }
+
+  test('real built apps are accepted', () => {
+    const res = runLint(LINT, REPO_ROOT);
+    expect(res.status, res.stdout).toBe(0);
+    expect(res.stdout).toContain('lint_no_third_party_fonts.sh: PASS');
+  });
+
+  test('the clean scratch tree is accepted -- the plants below start from green', () => {
+    withScratch((root) => {
+      cleanTree(root);
+      const res = runLint(LINT, root);
+      expect(res.status, res.stdout).toBe(0);
+    });
+  });
+
+  test.each(deployableApps().flatMap((app) => TYPES.flatMap((t) => HOSTS.map((h) => [app, t, h] as const))))(
+    'plant — %s: a .%s file loading %s is rejected, and only that app is named',
+    (dirty, type, host) => {
+      withScratch((root) => {
+        cleanTree(root);
+        const file = `apps/${dirty}/${outputDirOf(dirty)}/assets/font.${type}`;
+        place(root, file, type === 'css' ? `@import url("https://${host}/css2?family=X");` : `const u = "https://${host}/x";`);
+        const res = runLint(LINT, root);
+        expect(res.status, res.stdout).toBe(1);
+        expect(res.stdout).toContain(file);
+        expect(res.stdout).toContain('lint_no_third_party_fonts.sh: FAILED (1 file(s)) -- a third-party font host is in a built app');
+        for (const clean of deployableApps().filter((a) => a !== dirty)) expect(res.stdout).not.toContain(`apps/${clean}/`);
+      });
+    },
+  );
+
+  test('anti-vacuity — an unbuilt app FAILS rather than passing, and is named', () => {
+    withScratch((root) => {
+      cleanTree(root);
+      place(root, 'apps/unbuilt/wrangler.toml', 'name = "x-unbuilt"\npages_build_output_dir = "./dist"\n');
+      const res = runLint(LINT, root);
+      expect(res.status, res.stdout).toBe(2);
+      expect(res.stdout).toContain('has no built output in');
+      expect(res.stdout).toContain(". Run 'npm run build' first: a font guard over an unbuilt app is not a pass.");
+      expect(res.stdout).toContain('apps/unbuilt');
+    });
+  });
+
+  test('anti-vacuity — a tree with no deployable app FAILS rather than passing', () => {
+    withScratch((root) => {
+      const res = runLint(LINT, root);
+      expect(res.status, res.stdout).toBe(2);
+      expect(res.stdout).toContain('no deployable app (apps/*/wrangler.toml) under');
+    });
+  });
+
+  test('could not run — an unreadable built file is an ERROR, never reported clean', () => {
+    withScratch((root) => {
+      cleanTree(root);
+      const app = deployableApps()[0] as string;
+      const target = join(root, 'apps', app, outputDirOf(app), 'assets', 'clean.js');
+      chmodSync(target, 0o000);
+      try {
+        // CONFIRM THE PLANT LANDED: as root the mode is ignored and this leg would test nothing.
+        expect(() => execFileSync('cat', [target], { stdio: 'ignore' }), 'the planted file is still readable -- running as root?').toThrow();
+        const res = runLint(LINT, root);
+        expect(res.status, res.stdout).toBe(2);
+        expect(res.stdout).toContain('over the built apps -- the check did not run');
+        expect(res.stdout).not.toContain('lint_no_third_party_fonts.sh: PASS');
+      } finally {
+        chmodSync(target, 0o644);
+      }
+    });
+  });
+
+  test('plant — a wrangler.toml naming no output directory is refused, never defaulted', () => {
+    withScratch((root) => {
+      cleanTree(root);
+      place(root, 'apps/nodir/wrangler.toml', 'name = "x-nodir"\n');
+      const res = runLint(LINT, root);
+      expect(res.status, res.stdout).toBe(2);
+      expect(res.stdout).toContain('names no pages_build_output_dir, so its built output cannot be found');
     });
   });
 });

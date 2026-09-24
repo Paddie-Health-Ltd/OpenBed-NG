@@ -38,8 +38,13 @@
  *     Cloudflare. The deploy wrapper and the deployment report cover that.
  *   - that the commit is on main. That is the wrapper's check, and the report's.
  *
- * Usage: node scripts/stamp_build.mjs [OUTPUT_PATH]
- * Exit: 0 written; 2 git could not answer, or the output could not be written.
+ * Usage: node scripts/stamp_build.mjs OUTPUT_PATH
+ * Exit: 0 written; 2 no output path, git could not answer, or the output could not be written.
+ *
+ * OUTPUT_PATH IS REQUIRED since PR 3.4b-app B (R-2026-09-24-88 BP-9). It used to
+ * default to the public dashboard's public/version.json: one app standing in for every
+ * app, and a default no tracked caller used (both apps' builds and `stamp:worker` pass
+ * a path). A run that forgot the path stamped the DASHBOARD, whichever app it was for.
  */
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -55,7 +60,11 @@ import { fileURLToPath } from 'node:url';
 // It introduces no new failure site: a root that is not a git work tree falls into
 // the "git could not name HEAD" refusal below, which already has its own plant.
 const ROOT = process.env.OPENBED_STAMP_ROOT ?? join(dirname(fileURLToPath(import.meta.url)), '..');
-const OUT = process.argv[2] ?? join(ROOT, 'apps', 'public-dashboard', 'public', 'version.json');
+const OUT = process.argv[2];
+if (!OUT) {
+  console.error('usage: node scripts/stamp_build.mjs OUTPUT_PATH -- the stamp has no default; name the version.json this build writes');
+  process.exit(2);
+}
 
 function git(...args) {
   return execFileSync('git', ['-C', ROOT, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();

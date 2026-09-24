@@ -72,6 +72,7 @@ describe('audit log has no identity-bearing column', () => {
       plantInAuditBlock(root, find, replace);
       const res = runLint(LINT, root);
       expect(res.status, `plant was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the summary line that names the verdict was not printed').toContain('lint_audit_log_columns.sh: FAILED (');
     });
   });
 

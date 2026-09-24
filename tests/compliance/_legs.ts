@@ -413,13 +413,73 @@ export function stringLiteralsInCode(
   return out;
 }
 
-/** A leg is REACHED when a test THAT RUNS ITS GUARD asserts a substring of its own message. */
-export function isReached(leg: Leg, byScript: Map<string, string[]>): boolean {
+/**
+ * A leg is REACHED only by a literal, in a test THAT RUNS ITS GUARD, that identifies
+ * THAT LEG'S OWN MESSAGE (R-2026-09-24-92 BT-4; the rule R-2026-09-24-93 BU-2 f
+ * confirmed). The literal must either:
+ *   1. contain the leg's whole identity, and NO identity of a LONGER leg -- in any
+ *      script -- whose identity contains this one (R-2026-09-24-95 BW-1); or
+ *   2. be a fragment of it that is at least MIN_ID characters, is not a path or a
+ *      script's name, and is contained in NO OTHER leg's identity in the same script.
+ *
+ * UNTIL 2026-09-24 ANY literal of MIN_ID or more that the message contained counted.
+ * A test must NAME its script to be counted at all, so the script's own name credited
+ * every leg whose message quotes it: five `<script>.sh: FAILED (` summary lines read as
+ * reached with no test quoting them, and scripts/readback_signin_link.mjs's stdin-is-a-
+ * terminal STOP read as reached before any plant existed -- by its test's script path,
+ * then by the flag literal '--project-ref'. A fragment two legs share proves neither:
+ * scripts/neuter_plant.mjs's two `PLANT DID NOT LAND` legs were both "reached" by one
+ * assertion of that shared prefix. Measured with this module over the real tree before
+ * the rule landed: 276 script legs, 250 reached before, 244 after, six flips, all
+ * reached -> not; the ten instrument legs, 10 reached before and after.
+ *
+ * RULE 1's SECOND HALF (R-2026-09-24-95 BW-1). A whole identity can sit INSIDE a longer
+ * one: readback_common.sh's curl failure is identified only by its tail, "the check did
+ * not run, so this read-back has no verdict", which the stamp and body-search failures
+ * carry too. A literal quoting one of THOSE credited the curl leg as well -- one literal
+ * proving two legs, the defect above arriving through the whole-identity clause. So a
+ * literal holding a longer leg's identity credits that leg, never the shorter one.
+ * "Longer leg" is drawn from EVERY script, not only this one: a test exercising two
+ * scripts carries both scripts' messages, and readback_function_grants.sh's unreadable-
+ * fixture leg was being credited by readback_public_output.sh's messages that way.
+ * Measured before it landed: 305 legs, 279 reached before and after, NO flips -- each
+ * shorter leg already had a test triggering its own path. nestedIdentities() below
+ * lists the pairs, and leg_coverage.test.ts pins them, so a new nesting is seen.
+ *
+ * `legs` is every leg of every script, so both rules can see the leg's neighbours.
+ */
+export function isReached(leg: Leg, byScript: Map<string, string[]>, legs: Leg[]): boolean {
   const asserted = byScript.get(leg.script) ?? [];
-  return asserted.some(
-    (a) => a.includes(leg.id) || (leg.id.includes(a.trim()) && a.trim().length >= MIN_ID),
-  );
+  const neighbours = legs.filter((l) => l.script === leg.script && l.id !== leg.id);
+  const longer = legs.filter((l) => l.id !== leg.id && l.id.includes(leg.id));
+  return asserted.some((raw) => {
+    const a = raw.trim();
+    if (a.includes(leg.id)) return !longer.some((n) => a.includes(n.id));
+    if (a.length < MIN_ID || !leg.id.includes(a) || PATH_SHAPED.test(a)) return false;
+    return !neighbours.some((n) => n.id.includes(a));
+  });
 }
+
+/**
+ * Every pair of legs, in any scripts, where one identity sits inside the other, as
+ * `<script> "<identity>" ⊂ <script> "<identity>"`, by identity and never by line, so an
+ * unrelated edit that moves a line does not move the list (R-2026-09-24-95 BW-1 d). A REPORT, not a
+ * violation: nesting is legal, and isReached keeps a literal from crediting the shorter
+ * leg through the longer. leg_coverage.test.ts pins the list by name so a new nesting is
+ * seen, and whoever adds one confirms its shorter leg is reached by its own path.
+ */
+export function nestedIdentities(legs: Leg[]): string[] {
+  return legs
+    .flatMap((short) =>
+      legs
+        .filter((long) => long.id !== short.id && long.id.includes(short.id))
+        .map((long) => `${short.script} ${JSON.stringify(short.id)} ⊂ ${long.script} ${JSON.stringify(long.id)}`),
+    )
+    .sort();
+}
+
+/** A path or a script's name: never evidence for a leg (BT-4). */
+const PATH_SHAPED = /^(?:[\w.-]+\/)*[\w.-]+\.(?:sh|mjs|ts|js|json|sql|toml|md)$/;
 
 /**
  * EVERY DIRECTORY A PLANT COULD LIVE IN, DISCOVERED RATHER THAN LISTED.

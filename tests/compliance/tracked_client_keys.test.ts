@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { REPO_ROOT, withScratch, place } from './_scratch.js';
 import { PLANT_SERVICE_ROLE_JWT, PLANT_SB_SECRET, PLANT_JWT } from './_plants.js';
-import { deployableApps, outputDirOf } from './_apps.js';
+import { appsWithFunctions, deployableApps, outputDirOf } from './_apps.js';
+import PER_APP from '../../packages/fixtures/per-app.json';
 import KEYS from '../../packages/origins/publishable-keys.json';
 import { PRODUCTION_PUBLISHABLE_KEY, LOCAL_PUBLISHABLE_KEY, publishableKeyFor } from '../../packages/origins/src/keys.js';
 
@@ -188,15 +189,13 @@ export function envReadClosure(root: string, app: string): { files: string[]; pa
 /**
  * The workspace packages each app's build reaches, BY IDENTITY (test-conventions
  * section 3). It decays loudly: a new edge reddens this until someone looks at it.
+ * The table is packages/fixtures/per-app.json's `client_import_closure` since PR
+ * 3.4b-app B, where tests/compliance/per_app_reach.test.ts fences its keys; its
+ * reasons are recorded there.
  */
-const EXPECTED_CLOSURE_PACKAGES: Record<string, string[]> = {
-  // NOT origins: @openbed/snapshot's index re-exports only codec.ts, so serve.ts and its
-  // relative edge into origins are reached by the Pages Function alone, which wrangler
-  // builds and Vite never sees. Read 2026-09-23, not presumed.
-  // labels since R-2026-09-23-70 E: the one table of words, shared by both screens.
-  'public-dashboard': ['labels', 'snapshot'],
-  'ward-console': ['auth', 'labels', 'origins'],
-};
+const EXPECTED_CLOSURE_PACKAGES: Record<string, string[]> = Object.fromEntries(
+  Object.entries(PER_APP.client_import_closure).filter(([k]) => k !== 'comment'),
+) as Record<string, string[]>;
 
 const APPS = deployableApps();
 
@@ -337,18 +336,18 @@ describe('no environment reaches a build', () => {
   });
 
   test('the ward console’s built bundle carries the TRACKED key, from the tracked file', () => {
-    const dir = join(REPO_ROOT, 'apps', 'ward-console', 'dist', 'assets');
+    const dir = join(REPO_ROOT, 'apps', 'ward-console', outputDirOf('ward-console'), 'assets');
     const text = readdirSync(dir).filter((n) => n.endsWith('.js')).map((n) => readFileSync(join(dir, n), 'utf8')).join('\n');
     expect(text, 'the ward console ships no publishable key').toContain(PRODUCTION_PUBLISHABLE_KEY);
     expect(text, 'the ward console lost the local key — an environment was shaken out').toContain(LOCAL_PUBLISHABLE_KEY);
   });
 
-  test('the built Pages Function carries NO client key — it has no business holding one', () => {
+  test.each(appsWithFunctions())('%s’s built Pages Function carries NO client key — it has no business holding one', (app) => {
     // OBSERVED, NOT PREDICTED. When the key and the origin selector shared one
     // module, packages/snapshot/src/serve.ts dragged the key into the Function's
     // bundle and the secret scan said so. The split is what keeps it out, and this
     // is what would notice if the split were undone.
-    const dir = join(REPO_ROOT, 'apps', 'public-dashboard', '.functions-build');
+    const dir = join(REPO_ROOT, 'apps', app, '.functions-build');
     expect(existsSync(dir), 'run `npm run build` before the compliance suite').toBe(true);
     const text = readdirSync(dir).filter((n) => n.endsWith('.js')).map((n) => readFileSync(join(dir, n), 'utf8')).join('\n');
     expect(text, 'the Pages Function bundle carries the local client key').not.toContain(LOCAL_PUBLISHABLE_KEY);

@@ -75,6 +75,17 @@ const DELIBERATE_ABSENCES: Record<string, string> = {
     'to fix. The assertions actually live in ci_required_checks_not_paths_filtered.test.ts. ' +
     'This file is not planned and will never be built, so it does not belong in ' +
     'PLANNED_ARTEFACTS: an entry there would be a false claim that never retires.',
+  'apps/zz-scratch/wrangler.toml':
+    'The scratch app tests/compliance/per_app_reach.test.ts plants, in a TEMPORARY tree and ' +
+    'never in this repository. PR 3.4b-app B\'s design report names its path, and that report ' +
+    'is committed byte-identical; the path exists only inside a plant, so its absence here is ' +
+    'the design.',
+  'packages/origins/ward-support.json':
+    'REPLACED by packages/origins/contacts.json in PR 3.4b-app B (R-2026-09-24-93 BU-2 b). ' +
+    'The decision record cites the old path in its -73 entry (B1), and the 3.4b-app kickoff ' +
+    'cites it too; the record keeps its history as written (method note 8), and the kickoff ' +
+    'is committed byte-identical, so each remaining citation names a path whose absence is ' +
+    'now the design. Every live reference -- code, tests, the ward console -- was moved.',
   'apps/public-dashboard/src/public-labels.json':
     'MOVED to packages/labels/public-labels.json by PR 3.4a (R-2026-09-23-70 E), so the ' +
     'ward console reads the same words. The decision record cites the old path in its ' +

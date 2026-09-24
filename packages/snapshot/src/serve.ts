@@ -132,6 +132,18 @@ export const FAILURE_CACHE_CONTROL = 'no-store';
  */
 export const ROBOTS_TAG = 'noindex, nofollow';
 
+/**
+ * X-Content-Type-Options on every /beds.json response (R-2026-09-24-93 BU-2 d; PR
+ * 3.4b-app B). The browser must read this document as the JSON its content-type says,
+ * never sniff it into something it could execute. Set HERE, unconditionally, because
+ * Cloudflare Pages is understood not to apply an app's `_headers` file to a Function's
+ * response -- so the dashboard's _headers cannot be relied on to reach this route, and
+ * a local `wrangler pages dev` reading would not be evidence of production either.
+ * The production reading is scripts/readback_pages.sh on the founder's next dashboard
+ * deploy.
+ */
+export const NOSNIFF = 'nosniff';
+
 /** The upstream read's bounds. The pipeline caps an external call at 12s. */
 export const UPSTREAM_TIMEOUT_MS = 8000;
 export const UPSTREAM_ATTEMPTS = 2;
@@ -174,6 +186,7 @@ function failure(status: number, reason: string): Response {
       'content-type': 'application/json; charset=utf-8',
       'cache-control': FAILURE_CACHE_CONTROL,
       'x-robots-tag': ROBOTS_TAG,
+      'x-content-type-options': NOSNIFF,
     },
   });
 }
@@ -240,6 +253,7 @@ export function buildBedsResponse(row: SnapshotRow | null): Response {
       'content-type': 'application/json; charset=utf-8',
       'cache-control': CACHE_CONTROL,
       'x-robots-tag': ROBOTS_TAG,
+      'x-content-type-options': NOSNIFF,
     },
   });
 }

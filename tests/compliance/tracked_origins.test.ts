@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { REPO_ROOT } from './_scratch.js';
-import { deployableApps, appsWithFunctions, outputDirOf } from './_apps.js';
+import { deployableApps, appsWithFunctions, outputDirOf, pagesProjectOf } from './_apps.js';
 import ORIGINS from '../../packages/origins/origins.json';
 import {
   environmentForHost,
@@ -209,8 +209,12 @@ describe('tracked origins — the selector', () => {
   test.each([
     ['openbed.ng', 'the production apex'],
     ['www.openbed.ng', 'the www host'],
-    ['openbed-public-dashboard.pages.dev', 'the production pages.dev host, which R-2026-09-21-43 D runs probes against'],
-    ['a1b2c3d4.openbed-public-dashboard.pages.dev', 'a per-deployment preview host, which can never be enumerated'],
+    // Every app's pages.dev hosts, derived from its wrangler.toml since PR 3.4b-app B
+    // (BP-9), not the dashboard's alone.
+    ...deployableApps().flatMap((app) => [
+      [`${pagesProjectOf(app)}.pages.dev`, `${app}'s production pages.dev host`],
+      [`a1b2c3d4.${pagesProjectOf(app)}.pages.dev`, `${app}'s per-deployment preview host, which can never be enumerated`],
+    ]),
     ['admin.openbed.ng', 'a host that does not exist yet'],
   ])('%s selects production — %s', (host) => {
     expect(environmentForHost(host)).toBe('production');

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { withScratch, place, REPO_ROOT } from './_scratch.js';
 import { deployableApps } from './_apps.js';
+import PER_APP from '../../packages/fixtures/per-app.json';
 
 /**
  * THE BUILD STAMP — scripts/stamp_build.mjs (R-2026-09-20-30 A3, redesigned by
@@ -84,7 +85,21 @@ describe('the build stamp', () => {
     // leg below is a `test.each` over this list, so a list that silently emptied
     // would turn each of them into zero tests and report the same green.
     expect(APPS.length, 'no deployable apps discovered — every per-app leg below is vacuous').toBeGreaterThan(0);
-    expect(APPS, 'the deployable app set changed; every per-app guard needs a look').toEqual(['public-dashboard', 'ward-console']);
+    // The literal lives in packages/fixtures/per-app.json since PR 3.4b-app B, where
+    // tests/compliance/per_app_reach.test.ts can plant against it; it is still a literal.
+    expect(APPS, 'the deployable app set changed; every per-app guard needs a look').toEqual(PER_APP.deployable_apps);
+  });
+
+  test('plant — no output path is REFUSED, never defaulted to one app (BP-9)', () => {
+    let r: Run;
+    try {
+      r = { status: 0, text: execFileSync('node', [join(REPO_ROOT, STAMP_SCRIPT)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }) };
+    } catch (e) {
+      const err = e as { status?: number; stdout?: string; stderr?: string };
+      r = { status: err.status ?? -1, text: `${err.stdout ?? ''}${err.stderr ?? ''}` };
+    }
+    expect(r.status, r.text).toBe(2);
+    expect(r.text).toContain('usage: node scripts/stamp_build.mjs OUTPUT_PATH -- the stamp has no default; name the version.json this build writes');
   });
 
   test('the stamp names HEAD at the moment it is written', () => {

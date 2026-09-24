@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { withScratch, REPO_ROOT } from './_scratch.js';
@@ -60,9 +60,11 @@ function git(root: string, ...args: string[]): string {
 }
 
 const TRACKED_KEY = 'sb_publishable_TRACKED_KEY_FOR_THE_WORKER_PROBE';
+/** The real api entry, so the scratch checkout renders the ward CSP as the real one does. */
+const REAL_API = JSON.parse(readFileSync(join(REPO_ROOT, 'packages', 'origins', 'origins.json'), 'utf8')).api as unknown;
 
 /** A scratch checkout with an origin and the two tracked origin files the Worker read-back reads. */
-function repo(root: string, opts: { pushed?: boolean; remote?: boolean } = {}): string {
+function repo(root: string, opts: { pushed?: boolean; remote?: boolean; headers?: boolean } = {}): string {
   const upstream = join(root, 'upstream.git');
   const work = join(root, 'work');
   mkdirSync(join(work, 'packages', 'origins'), { recursive: true });
@@ -71,7 +73,17 @@ function repo(root: string, opts: { pushed?: boolean; remote?: boolean } = {}): 
   git(work, 'config', 'user.email', 'plant@example.invalid');
   git(work, 'config', 'user.name', 'Plant');
   writeFileSync(join(work, 'packages', 'origins', 'publishable-keys.json'), JSON.stringify({ production: TRACKED_KEY }));
-  writeFileSync(join(work, 'packages', 'origins', 'origins.json'), JSON.stringify({ supabaseDirect: { production: 'https://klrlpxysjsjpdkeqdhvl.supabase.co' } }));
+  writeFileSync(join(work, 'packages', 'origins', 'origins.json'), JSON.stringify({ supabaseDirect: { production: 'https://klrlpxysjsjpdkeqdhvl.supabase.co' }, api: REAL_API }));
+  // The tracked _headers each read-back compares a page's security headers against (BP-10),
+  // and the renderer that fills the ward console's API origins from origins.json (BV-2).
+  mkdirSync(join(work, 'scripts'), { recursive: true });
+  copyFileSync(join(REPO_ROOT, 'scripts', 'render_headers.mjs'), join(work, 'scripts', 'render_headers.mjs'));
+  if (opts.headers !== false) {
+    for (const app of ['public-dashboard', 'ward-console']) {
+      mkdirSync(join(work, 'apps', app, 'public'), { recursive: true });
+      copyFileSync(join(REPO_ROOT, 'apps', app, 'public', '_headers'), join(work, 'apps', app, 'public', '_headers'));
+    }
+  }
   git(work, 'add', '-A');
   git(work, 'commit', '-q', '-m', 'seed');
   if (opts.remote !== false) {
@@ -225,11 +237,34 @@ describe('scripts/readback_common.sh — a URL that is missing or not https:// i
 // scripts/readback_pages.sh -- read-backs 4, 6 and 8, and the serve-time stamp.
 // ---------------------------------------------------------------------------
 
+/**
+ * The headers a tracked _headers file sets on /*, AS RENDERED by scripts/render_headers.mjs
+ * (BV-2), lower-cased names -- the read-backs' source of truth, and what a deploy serves.
+ */
+function trackedHeaders(app: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  let inAll = false;
+  const rendered = execFileSync('node', [join(REPO_ROOT, 'scripts', 'render_headers.mjs'), join(REPO_ROOT, 'apps', app, 'public', '_headers')], { encoding: 'utf8' });
+  for (const raw of rendered.split('\n')) {
+    if (raw.trim() === '' || raw.trim().startsWith('#')) continue;
+    if (!/^\s/.test(raw)) { inAll = raw.trim() === '/*'; continue; }
+    const i = raw.indexOf(':');
+    if (inAll && i > 0) out[raw.slice(0, i).trim().toLowerCase()] = raw.slice(i + 1).trim();
+  }
+  return out;
+}
+
+/** A copy of `headers` with one header removed -- the shape a plant needs. */
+function without(headers: Record<string, string>, name: string): Record<string, string> {
+  return Object.fromEntries(Object.entries(headers).filter(([k]) => k !== name));
+}
+
 const SITE = 'https://cc2b76f9.openbed-public-dashboard.pages.dev';
 const BEDS_HEADERS = {
   'content-type': 'application/json; charset=utf-8',
   'cache-control': 'public, s-maxage=30, stale-while-revalidate=300',
   'x-robots-tag': 'noindex, nofollow',
+  'x-content-type-options': 'nosniff',
 };
 const BEDS_BODY = '{"v":9371,"wards":[],"facilities":[]}';
 
@@ -240,6 +275,7 @@ function pagesFixtures(head: string): Fixtures {
     // read-back 6, read-back 8's GET, then the two serve-time reads.
     [`GET ${SITE}/beds.json`]: [beds('2026-09-23T18:48:44.001Z'), beds('2026-09-23T18:48:47.300Z'), beds('2026-09-23T18:48:50.582Z'), beds('2026-09-23T18:48:56.068Z')],
     [`HEAD ${SITE}/beds.json`]: { status: 200, headers: { ...BEDS_HEADERS, 'x-openbed-served-at': '2026-09-23T18:48:48.000Z' } },
+    [`GET ${SITE}/`]: { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('public-dashboard') }, body: '<!doctype html>' },
   };
 }
 
@@ -258,6 +294,7 @@ describe('scripts/readback_pages.sh', () => {
         'read-back 6 status',
         'read-back 6 content-type',
         'read-back 6 x-robots-tag',
+        'read-back 6 x-content-type-options',
         'read-back 6 body',
         'read-back 8 GET status',
         'read-back 8 GET cache-control',
@@ -265,13 +302,19 @@ describe('scripts/readback_pages.sh', () => {
         'read-back 8 HEAD content-type',
         'read-back 8 HEAD cache-control',
         'read-back 8 HEAD x-robots-tag',
+        'read-back 8 GET x-content-type-options',
+        'read-back 8 HEAD x-content-type-options',
+        'page status',
+        'page content-security-policy',
+        'page referrer-policy',
+        'page x-content-type-options',
         'serve-time stamp, first read',
         'serve-time stamp, second read',
         'serve-time stamp advances',
       ]) {
         expect(r.out, `the check "${check}" never ran`).toContain(`  ok     ${check}: `);
       }
-      expect(r.out).toContain('PASS: read-backs 4, 6 and 8 and the serve-time stamp read as they must.');
+      expect(r.out).toContain("PASS: read-backs 4, 6 and 8, the page's security headers and the serve-time stamp read as they must.");
       expect(r.calls).toContain(`HEAD ${SITE}/beds.json`);
     });
   });
@@ -286,6 +329,9 @@ describe('scripts/readback_pages.sh', () => {
     ['the failure cache header, no-store', (f) => { f[`HEAD ${SITE}/beds.json`] = { status: 200, headers: { ...BEDS_HEADERS, 'cache-control': 'no-store' } }; }, 'read-back 8 HEAD cache-control'],
     ['a serve-time stamp that does not advance', (f) => { f[`GET ${SITE}/beds.json`] = { status: 200, headers: { ...BEDS_HEADERS, 'x-openbed-served-at': '2026-09-23T18:48:50.582Z' }, body: BEDS_BODY }; }, 'serve-time stamp advances'],
     ['no serve-time stamp at all', (f) => { f[`GET ${SITE}/beds.json`] = { status: 200, headers: BEDS_HEADERS, body: BEDS_BODY }; }, 'serve-time stamp, first read'],
+    ['/beds.json without nosniff (BU-2 d)', (f) => { f[`HEAD ${SITE}/beds.json`] = { status: 200, headers: without(BEDS_HEADERS, 'x-content-type-options') }; }, 'read-back 8 HEAD x-content-type-options'],
+    ['a page CSP that differs from the tracked one', (f) => { f[`GET ${SITE}/`] = { status: 200, headers: { ...trackedHeaders('public-dashboard'), 'content-security-policy': "default-src *" } }; }, 'page content-security-policy'],
+    ['a page with no Referrer-Policy', (f) => { f[`GET ${SITE}/`] = { status: 200, headers: without(trackedHeaders('public-dashboard'), 'referrer-policy') }; }, 'page referrer-policy'],
   ])('plant — %s is a STOP', (_label, plant, check) => {
     withScratch((root) => {
       const work = repo(root);
@@ -351,7 +397,7 @@ const WRONG_KEY = 'sb_publishable_DELIBERATELY_WRONG_FOR_THE_FAILING_HALF';
 function wardFixtures(head: string): Fixtures {
   return {
     [`GET ${WARD}/version.json`]: { status: 200, body: stampOf(head) },
-    [`GET ${WARD}/`]: { status: 200, headers: { 'content-type': 'text/html' }, body: '<!doctype html><script type="module" crossorigin src="/assets/index-B7kFspkD.js"></script>' },
+    [`GET ${WARD}/`]: { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('ward-console') }, body: '<!doctype html><script type="module" crossorigin src="/assets/index-B7kFspkD.js"></script>' },
     [`GET ${WARD}/assets/index-B7kFspkD.js`]: { status: 200, body: `const k="${DEPLOYED_KEY}";` },
     [`GET ${API}/auth/v1/settings apikey=${DEPLOYED_KEY}`]: { status: 200, headers: { 'x-openbed-proxy': 'forwarded' }, body: '{"external":{"email":true}}' },
     [`GET ${API}/auth/v1/settings apikey=${WRONG_KEY}`]: { status: 401, headers: { 'x-openbed-proxy': 'forwarded' }, body: '{"message":"Invalid API key","hint":"Double check your Supabase `anon` or `service_role` API key."}' },
@@ -370,6 +416,9 @@ describe('scripts/readback_ward_console.sh', () => {
         'step 2 dirty',
         'step 3 bundles the page loads',
         'step 3 publishable keys in the deployed bundle',
+        'step 3 content-security-policy',
+        'step 3 referrer-policy',
+        'step 3 x-content-type-options',
         'step 3 live half status',
         'step 3 live half body',
         'step 3 dead half status',
@@ -390,6 +439,7 @@ describe('scripts/readback_ward_console.sh', () => {
     ['a dead deployed key', (f) => { f[`GET ${API}/auth/v1/settings apikey=${DEPLOYED_KEY}`] = { status: 401, body: '{"message":"Invalid API key"}' }; }, 'step 3 live half status'],
     ['a failing half that does not fail', (f) => { f[`GET ${API}/auth/v1/settings apikey=${WRONG_KEY}`] = { status: 200, body: '{"external":{}}' }; }, 'step 3 dead half status'],
     ['a live body that is not the settings object', (f) => { f[`GET ${API}/auth/v1/settings apikey=${DEPLOYED_KEY}`] = { status: 200, body: '{"message":"ok"}' }; }, 'step 3 live half body'],
+    ['a console page served with no CSP', (f) => { f[`GET ${WARD}/`] = { status: 200, headers: without(trackedHeaders('ward-console'), 'content-security-policy'), body: '<!doctype html><script type="module" crossorigin src="/assets/index-B7kFspkD.js"></script>' }; }, 'step 3 content-security-policy'],
   ])('plant — %s is a STOP', (_label, plant, check) => {
     withScratch((root) => {
       const work = repo(root);
@@ -506,7 +556,10 @@ describe('scripts/readback_common.sh — node failing is an ERROR, never a verdi
       // own node calls reach this one.
       const realNode = process.execPath;
       writeFileSync(join(bin, 'curl'), readFileSync(join(bin, 'curl'), 'utf8').replace('#!/usr/bin/env node', `#!${realNode}`));
-      writeFileSync(join(bin, 'node'), '#!/usr/bin/env bash\nexit 9\n');
+      // It delegates ONLY the header render (BV-2), which the read-back runs before the
+      // stamp: without that, this plant stops at the render and never reaches the leg
+      // it is for. The render's own failure is a leg of its own, planted below.
+      writeFileSync(join(bin, 'node'), `#!/usr/bin/env bash\ncase "$1" in *render_headers.mjs) exec "${realNode}" "$@" ;; esac\nexit 9\n`);
       chmodSync(join(bin, 'node'), 0o755);
       writeFileSync(join(root, 'fixtures.json'), JSON.stringify(wardFixtures(head)));
       writeFileSync(join(root, 'stub.log'), '');
@@ -912,6 +965,68 @@ describe('scripts/readback_function_grants.sh', () => {
       }
       expect(status, out).toBe(2);
       expect(out).toContain('ERROR: node exited 9 comparing the function grants -- the reading did not run, so it has no verdict');
+    });
+  });
+});
+
+describe('rb_tracked_header — the expected security headers come from the checkout, or there is no verdict', () => {
+  test.each([
+    ['readback_pages.sh', (): string => SCRIPTS.pages, (): string => SITE, pagesFixtures],
+    ['readback_ward_console.sh', (): string => SCRIPTS.ward, (): string => WARD, wardFixtures],
+  ] as const)('%s: a checkout with no tracked _headers is an ERROR with exit 2, never a verdict', (_name, script, site, fixtures) => {
+    withScratch((root) => {
+      const work = repo(root, { headers: false });
+      const head = git(work, 'rev-parse', 'HEAD').trim();
+      const r = run(root, script(), [site(), work], fixtures(head));
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('ERROR: this checkout holds no tracked _headers file for the app at ');
+      expect(r.out).toContain('so the expected content-security-policy cannot be read');
+      expect(r.out).not.toContain('PASS:');
+    });
+  });
+
+  test('a tracked _headers the renderer refuses is an ERROR with exit 2, never a verdict', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const file = join(work, 'apps', 'ward-console', 'public', '_headers');
+      const planted = readFileSync(file, 'utf8').replace('@API_ORIGINS@', '@API_ORIGINS@ @API_ORIGINS@');
+      expect(planted, 'the plant did not land: the tracked ward _headers holds no placeholder').not.toBe(readFileSync(file, 'utf8'));
+      writeFileSync(file, planted);
+      git(work, 'commit', '-q', '-am', 'placeholder twice');
+      git(work, 'push', '-q', 'origin', 'main');
+      const head = git(work, 'rev-parse', 'HEAD').trim();
+      const r = run(root, SCRIPTS.ward, [WARD, work], wardFixtures(head));
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('could not render');
+      expect(r.out).toContain('so the expected content-security-policy is unknown -- this read-back has no verdict');
+      expect(r.out).not.toContain('PASS:');
+    });
+  });
+
+  test('the served ward CSP is held to the RENDERED origins: the raw tracked line, placeholder and all, is a FAIL', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const head = git(work, 'rev-parse', 'HEAD').trim();
+      const raw = /Content-Security-Policy:\s*(.*)/.exec(readFileSync(join(REPO_ROOT, 'apps', 'ward-console', 'public', '_headers'), 'utf8'))?.[1] ?? '';
+      expect(raw, 'the tracked line holds no placeholder, so this plant proves nothing').toContain('@API_ORIGINS@');
+      const f = wardFixtures(head);
+      f[`GET ${WARD}/`] = { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('ward-console'), 'content-security-policy': raw }, body: '<!doctype html><script type="module" crossorigin src="/assets/index-B7kFspkD.js"></script>' };
+      const r = run(root, SCRIPTS.ward, [WARD, work], f);
+      expect(r.status, r.out).toBe(1);
+      expect(r.out).toContain('step 3 content-security-policy');
+    });
+  });
+
+  test('a tracked _headers that sets no CSP on /* is an ERROR with exit 2', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      writeFileSync(join(work, 'apps', 'public-dashboard', 'public', '_headers'), '/*\n  Referrer-Policy: no-referrer\n');
+      git(work, 'commit', '-q', '-am', 'no csp');
+      git(work, 'push', '-q', 'origin', 'main');
+      const head = git(work, 'rev-parse', 'HEAD').trim();
+      const r = run(root, SCRIPTS.pages, [SITE, work], pagesFixtures(head));
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('sets no content-security-policy on /*, so the expected value cannot be read -- this read-back has no verdict');
     });
   });
 });

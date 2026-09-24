@@ -88,6 +88,7 @@ describe('secret scan', () => {
       track(root);
       const res = runLint(LINT, root);
       expect(res.status, `plant was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the summary line that names the verdict was not printed').toContain('lint_no_secrets.sh: FAILED (');
       expect(res.stdout, 'the scanner did not name the rule it enforces').toContain('committed secret matched in');
     });
   });

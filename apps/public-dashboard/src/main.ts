@@ -10,6 +10,7 @@ import {
   type FetchMark,
 } from '@openbed/snapshot';
 import { snapshotBanner, wardLine, type ServeClock } from './age-view.js';
+import './style.css';
 
 /**
  * The public dashboard.

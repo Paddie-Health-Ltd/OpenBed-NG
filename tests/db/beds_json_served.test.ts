@@ -129,6 +129,17 @@ describe('GET /beds.json — the served document', () => {
     expect(res.headers.get('x-robots-tag'), 'the served document invites archiving').toBe('noindex, nofollow');
   });
 
+  test('the served document AND a failure carry X-Content-Type-Options: nosniff, set by serve() itself (BU-2 d)', async () => {
+    // Asserted against the literal, as above. Set in serve.ts rather than left to the
+    // dashboard's _headers file, which Pages is understood not to apply to a Function.
+    const ok = await serveBeds(localOrigin(), serviceEnv());
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get('x-content-type-options'), 'the served document may be sniffed').toBe('nosniff');
+    const failed = await serveBeds(localOrigin(), { SUPABASE_SERVICE_ROLE_KEY: anonKey() });
+    expect(failed.status).toBe(502);
+    expect(failed.headers.get('x-content-type-options'), 'a failure response may be sniffed').toBe('nosniff');
+  });
+
   test('a FAILURE response carries it too — an error page is still a page a crawler can keep', async () => {
     const res = await serveBeds(localOrigin(), { SUPABASE_SERVICE_ROLE_KEY: anonKey() });
     expect(res.status).toBe(502);
@@ -367,6 +378,7 @@ describe('GET /beds.json — the explicit edge cache', () => {
     expect(origin.calls(), 'the HEAD read the origin instead of the entry the GET populated').toBe(1);
     expect(head.headers.get('content-type'), 'a HEAD answered as the SPA fallback').toBe('application/json; charset=utf-8');
     expect(head.headers.get('x-robots-tag'), 'a HEAD lost the robots header and invites archiving').toBe('noindex, nofollow');
+    expect(head.headers.get('x-content-type-options'), 'a HEAD served from the cache lost nosniff').toBe('nosniff');
     expect(head.headers.get('cache-control')).toBe(EXPECTED_CACHE_CONTROL);
   });
 

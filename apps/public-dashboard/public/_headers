@@ -1,0 +1,9 @@
+# Response headers for every static asset of the public dashboard (Cloudflare Pages
+# `_headers`; R-2026-09-24-88 BP-10, PR 3.4b-app B). tests/compliance/security_headers.test.ts
+# holds this file to its rule. Pages is understood not to apply it to the /beds.json
+# Function's own responses, which set nosniff themselves (packages/snapshot/src/serve.ts).
+# connect-src is 'self' alone: the page's only fetch is same-origin /beds.json.
+/*
+  Content-Security-Policy: default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff

@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { REPO_ROOT } from './_scratch.js';
+import { deployableApps } from './_apps.js';
 import SHAPE from '../../packages/fixtures/snapshot-shape.json';
 import { freshnessBand, freshnessBucket, snapshotAge } from '../../packages/snapshot/src/freshness.js';
 import { markFetch, elapsedSince } from '../../packages/snapshot/src/anchor.js';
@@ -199,7 +200,12 @@ describe('the setting states each value once (R-2026-09-23-68 B2, B3)', () => {
   });
 
   test('no code reads v1SpecValues — it is a record for the clinicians, not a setting', () => {
-    for (const file of ['packages/snapshot/src/freshness.ts', 'apps/public-dashboard/src/age-view.ts', 'apps/public-dashboard/src/main.ts']) {
+    // Every app's source, derived since PR 3.4b-app B (BP-9), not two dashboard files.
+    const appSources = deployableApps().flatMap((a) =>
+      (readdirSync(join(REPO_ROOT, 'apps', a, 'src'), { recursive: true }) as string[]).filter((f) => f.endsWith('.ts')).map((f) => `apps/${a}/src/${f}`),
+    );
+    expect(appSources.length, 'no app source found, so this leg read nothing').toBeGreaterThan(2);
+    for (const file of ['packages/snapshot/src/freshness.ts', ...appSources]) {
       expect(readFileSync(join(REPO_ROOT, file), 'utf8'), `${file} reads the v1 values`).not.toContain('v1SpecValues');
     }
   });
