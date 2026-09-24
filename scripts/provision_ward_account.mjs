@@ -3,8 +3,18 @@
 // scripts/provision_ward_account.mjs
 // ============================================================
 // Provisions ONE account -- a ward's, or the operator's -- THROUGH THE GATES:
-// app.provision_begin, then GoTrue's admin generate_link only if begin says `open`,
-// then app.provision_complete. The account row's id EQUALS the auth user's id.
+// app.provision_begin, then a CONFIRMED auth user through GoTrue's admin API only if
+// begin says `open`, then app.provision_complete. The account row's id EQUALS the auth
+// user's id.
+//
+// RESTATED 2026-09-24 (R-2026-09-24-93 BU-1 a; PR 3.4b-app A.2). PR A made the auth
+// user with admin generate_link, which leaves a NEW user unconfirmed -- and with
+// sign-ups off ([auth] enable_signup = false) an unconfirmed user's own sign-in
+// request is refused, 422 signup_disabled, so every ward this script provisioned
+// would have been locked out. It also opens that user's email-frequency window, so
+// a ward asking for its link straight after gets 429 while its console says a link
+// is on its way (observed locally, the A.2 design report's P5). So generate_link is
+// NOT used on this path at all: see "THE AUTH USER" below.
 //
 // RESTATED 2026-09-24 (R-2026-09-24-88 BP-6, R-2026-09-24-90 BR-1; PR 3.4b-app A).
 // Until then this script called generate_link FIRST and inserted an accepted
@@ -89,22 +99,32 @@
 // be worse than absent: it turns "the Operator makes no determination" into a
 // self-generated document in which the Operator did.
 //
-// RETRY-SAFE FROM EVERY POINT OF FAILURE (BP-6 3). begin and complete are two
-// statements, never one transaction: an Auth call sits between them, and a
-// transaction held across it would roll a write back when the call failed, or hold
-// locks for the length of its timeouts. If generate_link or complete fails, the
-// invite stays OPEN and the run says "setup incomplete"; a re-run of the same
-// command finds the same invite (begin), gets the same auth user (generate_link
-// returns the existing user for a known address) and completes. That failure never
-// reads as a permissions bug. The second generate_link mints a new token, which is
-// safe: no account exists yet, so no ward can be using a link.
+// THE AUTH USER (R-2026-09-24-93 BU-1 a), after begin says `open`:
+//   1. POST admin/users {email, email_confirm: true} -- a new address becomes a
+//      CONFIRMED user, and no email is sent or window opened. 1 Auth request.
+//   2. On 422 email_exists: GET admin/users?filter=<address>&per_page=50, keeping ONLY
+//      the user whose email equals the address, compared case-insensitively here --
+//      `filter` narrows the page; it is never trusted to be exact. Zero matches, or
+//      more than one, is a named STOP ("setup incomplete"), never a guess; a FULL page
+//      with no exact match says so rather than concluding there is no user. 2 requests.
+//   3. Only if that user's email_confirmed_at is null -- an account made by PR A's
+//      flow -- PUT admin/users/{id} {email_confirm: true}. 3 requests.
+// A refusal at begin, or begin saying `complete`, makes NO Auth request (J4).
 //
-// generate_link: 12 s per attempt, at most 3 attempts, and only on a network error,
-// a 5xx or a 429, with backoff and full jitter. A 4xx is never retried. Its token
-// and link are NEVER printed. Headers: `apikey` and `Authorization: Bearer`, the one
-// shape local GoTrue accepted for BOTH key kinds on 2026-09-24 -- the legacy JWT is
-// refused without Bearer (HTTP 401 no_authorization); an sb_secret_ key is accepted
-// either way (PR 3.4b-app A's body quotes the four readings).
+// RETRY-SAFE FROM EVERY POINT OF FAILURE (BP-6 3). begin and complete are two
+// statements, never one transaction: Auth calls sit between them, and a transaction
+// held across them would roll a write back when a call failed, or hold locks for the
+// length of their timeouts. If any Auth call or complete fails, the invite stays
+// OPEN and the run says "setup incomplete"; a re-run of the same command finds the
+// same invite (begin), finds the same user (create answers 422, the lookup returns
+// it) and completes. That failure never reads as a permissions bug.
+//
+// Every Auth call: 12 s per attempt, at most 3 attempts, and only on a network error,
+// a 5xx or a 429, with backoff and full jitter. A 4xx is never retried; 422
+// email_exists on the create is the branch into step 2, not an error. Headers:
+// `apikey` and `Authorization: Bearer`, the one shape local GoTrue accepted for BOTH
+// key kinds on 2026-09-24 -- the legacy JWT is refused without Bearer (HTTP 401
+// no_authorization); an sb_secret_ key is accepted either way (R-2026-09-24-92 BT-3).
 //
 // Usage:
 //   node scripts/provision_ward_account.mjs --email <address> --facility <uuid> \
@@ -204,27 +224,19 @@ async function json(res) {
 
 const pause = (attempt) => new Promise((r) => setTimeout(r, Math.random() * 500 * 2 ** (attempt - 1)));
 
-/**
- * The auth user for this address, through the admin API.
- *
- * THE SAME ROUTE tests/setup/auth.ts PROVED, not a second one. That harness was
- * written against the response shape observed on GoTrue v2.196.0, where the
- * minted field is `hashed_token` and `verification_type` comes back as "signup"
- * for an address GoTrue has never seen. For a known address it returns the SAME
- * user id, which is what makes a re-run after a failed complete finish the job.
- */
-async function authUserFor(email) {
+/** One admin API call, with the retry and timeout rule above. Returns the status and the parsed body. */
+async function admin(method, path, payload) {
   for (let attempt = 1; ; attempt++) {
     let res;
     try {
-      res = await fetch(`${apiUrl}/auth/v1/admin/generate_link`, {
-        method: 'POST',
+      res = await fetch(`${apiUrl}/auth/v1${path}`, {
+        method,
         headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'magiclink', email }),
+        body: payload === undefined ? undefined : JSON.stringify(payload),
         signal: AbortSignal.timeout(12_000),
       });
     } catch (e) {
-      if (attempt >= 3) throw new Error(`admin/generate_link could not be reached after ${attempt} attempts: ${e.message}`);
+      if (attempt >= 3) throw new Error(`the Auth admin API could not be reached after ${attempt} attempts (${method} ${path.split('?')[0]}): ${e.message}`);
       await pause(attempt);
       continue;
     }
@@ -233,15 +245,46 @@ async function authUserFor(email) {
       await pause(attempt);
       continue;
     }
-    const body = await json(res);
-    if (res.status !== 200) {
-      throw new Error(`admin/generate_link refused the invite (HTTP ${res.status}): ${JSON.stringify(body)}`);
-    }
-    if (typeof body.id !== 'string') {
-      throw new Error(`admin/generate_link returned no auth user id. Keys: ${Object.keys(body).sort().join(', ')}`);
-    }
-    return { userId: body.id, verificationType: body.verification_type };
+    return { status: res.status, body: await json(res) };
   }
+}
+
+/** The CONFIRMED auth user for this address: create, else look up, else confirm (see THE AUTH USER). */
+async function confirmedUserFor(email) {
+  const created = await admin('POST', '/admin/users', { email, email_confirm: true });
+  if (created.status === 200) {
+    if (typeof created.body.id !== 'string') {
+      throw new Error(`admin/users created a user and returned no id. Keys: ${Object.keys(created.body).sort().join(', ')}`);
+    }
+    return { userId: created.body.id, how: 'created, confirmed' };
+  }
+  if (created.status !== 422 || created.body.error_code !== 'email_exists') {
+    throw new Error(`admin/users refused the account (HTTP ${created.status}): ${JSON.stringify(created.body)}`);
+  }
+
+  const found = await admin('GET', `/admin/users?filter=${encodeURIComponent(email)}&per_page=50`);
+  if (found.status !== 200 || !Array.isArray(found.body.users)) {
+    throw new Error(`admin/users lookup failed (HTTP ${found.status}): ${JSON.stringify(found.body).slice(0, 300)}`);
+  }
+  const want = email.trim().toLowerCase();
+  const exact = found.body.users.filter((u) => typeof u.email === 'string' && u.email.toLowerCase() === want);
+  if (exact.length === 0 && found.body.users.length >= 50) {
+    throw new Error('admin/users lookup returned a FULL page of 50 users and none with exactly this address; no user is concluded, and nothing was guessed');
+  }
+  if (exact.length === 0) {
+    throw new Error('admin/users says this address exists, but the lookup found no user with exactly this address; nothing was guessed');
+  }
+  if (exact.length > 1) {
+    throw new Error(`admin/users lookup found more than one user with exactly this address (${exact.length}); nothing was guessed`);
+  }
+  const user = exact[0];
+  if (user.email_confirmed_at !== null && user.email_confirmed_at !== undefined) return { userId: user.id, how: 'found, already confirmed' };
+
+  const confirmed = await admin('PUT', `/admin/users/${user.id}`, { email_confirm: true });
+  if (confirmed.status !== 200) {
+    throw new Error(`admin/users would not confirm the existing user (HTTP ${confirmed.status}): ${JSON.stringify(confirmed.body)}`);
+  }
+  return { userId: user.id, how: 'found, confirmed now' };
 }
 
 const sql = postgres(dbUrl, { max: 1, onnotice: () => {}, connect_timeout: 10, connection: { application_name: 'provision_ward_account' } });
@@ -269,7 +312,7 @@ try {
     let user;
     let done;
     try {
-      user = await authUserFor(args.email);
+      user = await confirmedUserFor(args.email);
       [done] = await sql`select * from app.provision_complete(${invite}::uuid, ${user.userId}::uuid)`;
     } catch (e) {
       const refused = refusalCode(e);
@@ -282,9 +325,10 @@ try {
     }
     if (done?.status === 'complete') {
       console.log(`provisioned ${role} ${args.email} -> account ${user.userId} (${scope})`);
-      console.log(`  verification_type=${user.verificationType}`);
+      console.log(`  auth user: ${user.how}`);
     } else if (done?.status === 'reactivated') {
       console.log(`reactivated ${role} ${args.email} -> account ${user.userId} (${scope})`);
+      console.log(`  auth user: ${user.how}`);
     } else if (done !== undefined) {
       console.error(`ERROR: unrecognised status from provision_complete: ${JSON.stringify(done.status)}`);
       code = 1;

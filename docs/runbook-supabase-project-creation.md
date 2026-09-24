@@ -586,6 +586,104 @@ pins the local version. On 2026-09-14 hosted reported the same v2.196.0 (step 9)
 That is a snapshot the next hosted upgrade silently invalidates, and it says
 nothing about the hosted session-bound **values**, which remain this step's.
 
+### Sign-ups off (H2, R-2026-09-24-92 BT-2 d, R-2026-09-24-93 BU-1 c)
+
+**NOT YET RUN. A founder step, and only after PR 3.4b-app A.2 has merged on a PASS.**
+From A.2, `scripts/provision_ward_account.mjs` makes every login a CONFIRMED user
+through the admin API, so an open sign-up has no legitimate caller. Until this step
+runs, sign-ups stay on: an address can create an Auth user, but with no
+`app.ward_account` row it gets `NOT_A_MEMBER` (the accepted interim risk, BT-2).
+Cowork reads each step back before the next.
+
+**The switch is "Allow new users to sign up", and ONLY that one.** Do not touch the
+Email provider's own toggle: turned off, it disables email sign-in outright, and
+every ward, confirmed or not, is answered `422 email_provider_disabled` (observed
+locally for PR A). The local equivalent is pinned in `supabase/config.toml` by
+`tests/db/config_drift.test.ts`.
+
+**1. Read-back first: no active account may belong to an unconfirmed user.** With
+sign-ups off, an unconfirmed user's own sign-in request is refused `422
+signup_disabled`, so any such account would be locked out by step 2. Only a login made
+before A.2 can be unconfirmed.
+
+**Step P's PATH line is carried in below**, because this block calls `psql` itself.
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -tAc "select count(*) from app.ward_account w join auth.users u on u.id = w.id where w.is_active and u.email_confirmed_at is null"
+unset DATABASE_URL
+```
+
+**Stop condition:** `0`. Anything else: stop and report. Do not switch.
+
+**2. The switch.** Dashboard -> Authentication -> Sign In / Providers -> **Allow new
+users to sign up: off**. Save. Nothing else on that page changes.
+
+**3. Read-back after.** Take the key exactly as step 6 does, then read the settings:
+
+```bash
+KEY="$(bash scripts/get_publishable_key.sh)" || KEY=
+case "$KEY" in
+  sb_publishable_?*) echo "key obtained" ;;
+  *) echo "STOP: no usable publishable key. Do not run the read-back -- its answer now means nothing."; KEY= ;;
+esac
+```
+
+```bash
+BODY="$(curl -s --max-time 12 "https://klrlpxysjsjpdkeqdhvl.supabase.co/auth/v1/settings" -H "apikey: ${KEY:?no key -- refusing to read}")" || BODY=
+case "$BODY" in
+  *'"disable_signup":true'*'"email":true'*|*'"email":true'*'"disable_signup":true'*) echo "PASS: sign-ups are off and email sign-in is on" ;;
+  *'"disable_signup":false'*) echo "STOP: sign-ups are still on -- the switch did not save" ;;
+  *) echo "FAIL: the settings answer matches neither form -- report it, do not tick" ;;
+esac
+unset BODY
+```
+
+**4. The failing half.** An open sign-up for an address nobody has used must be
+refused, and must create no user. Use a throwaway address on the reserved
+`example.invalid` domain, which no mail server accepts:
+
+```bash
+PROBE="h2-probe-$(date +%s)@example.invalid"
+echo "probe address: $PROBE"
+curl -s --max-time 12 -o /dev/null -w "HTTP %{http_code}\n" -X POST "https://klrlpxysjsjpdkeqdhvl.supabase.co/auth/v1/otp" -H "apikey: ${KEY:?no key -- refusing to probe}" -H "Content-Type: application/json" -d "{\"email\":\"$PROBE\",\"create_user\":true}"
+unset KEY
+```
+
+**Expected:** `HTTP 422`. Then count the users that address made. **Step P's PATH
+line is carried in below**, because this block calls `psql` itself.
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -r PROBE
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -tAc "select count(*) from auth.users where email = '$PROBE'"
+unset DATABASE_URL
+```
+
+(The first line waits for the probe address printed above: paste it and press Enter.
+The second waits silently for the connection string.)
+
+- **`0`, with HTTP 422:** PASS. Nothing was created, **because the switch worked**.
+  Record both readings.
+- **Anything else is STOP: the switch did not take,** and the request created a user.
+  **Remove that user**, read the removal back, and record both with the reading:
+
+  ```bash
+  export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+  read -r PROBE
+  read -rs DATABASE_URL && export DATABASE_URL
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "delete from auth.users where email = '$PROBE'"
+  psql "$DATABASE_URL" -tAc "select count(*) from auth.users where email = '$PROBE'"
+  unset DATABASE_URL PROBE
+  ```
+
+  The second count must read `0`. Then return to step 2: the switch is not in force,
+  and nothing here may be ticked.
+
+- [ ] H2 read back: step 1 `0`; step 3 PASS; step 4 `HTTP 422` and `0` (date, and Cowork's reading)
+
 ---
 
 

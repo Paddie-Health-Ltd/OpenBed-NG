@@ -80,6 +80,32 @@ describe('configuration drift', () => {
     expect(tomlValue(configToml, 'db.seed', 'enabled')).toBe('false');
   });
 
+  /** The two sign-up keys, each read from its OWN section: tomlValue matches a header exactly, so [auth] is never [auth.email]. */
+  const signupViolations = (toml: string): string[] => {
+    const out: string[] = [];
+    if (tomlValue(toml, 'auth', 'enable_signup') !== 'false') out.push('[auth] enable_signup is not false -- anyone can create an Auth user');
+    if (tomlValue(toml, 'auth.email', 'enable_signup') !== 'true') out.push('[auth.email] enable_signup is not true -- that disables email sign-in outright');
+    return out;
+  };
+
+  test('sign-ups are OFF in [auth], and email sign-in stays ON in [auth.email] (R-2026-09-24-93 BU-1)', () => {
+    // PR 3.4b-app A.2 provisions every login as a CONFIRMED user, so an open sign-up
+    // has no legitimate caller. [auth.email] enable_signup = false is the wrong switch:
+    // it answers 422 email_provider_disabled even for a confirmed ward (observed
+    // locally for PR A), which would lock every ward out.
+    expect(signupViolations(configToml)).toEqual([]);
+  });
+
+  test.each([
+    ['sign-ups turned back on in [auth]', (t: string) => t.replace(/^(\[auth\][\s\S]*?^enable_signup = )false/m, '$1true'), '[auth] enable_signup is not false'],
+    ['email sign-in turned off in [auth.email]', (t: string) => t.replace(/^(\[auth\.email\][\s\S]*?^enable_signup = )true/m, '$1false'), '[auth.email] enable_signup is not true'],
+    ['the two values swapped between the sections', (t: string) => t.replace(/^(\[auth\][\s\S]*?^enable_signup = )false/m, '$1true').replace(/^(\[auth\.email\][\s\S]*?^enable_signup = )true/m, '$1false'), '[auth] enable_signup is not false'],
+  ])('plant — %s is rejected', (_name, plant, message) => {
+    const planted = plant(configToml);
+    expect(planted, 'the plant did not change config.toml').not.toBe(configToml);
+    expect(signupViolations(planted).join('\n')).toContain(message);
+  });
+
   test('auto_expose_new_tables stays at the cloud default of true', () => {
     // Counter-intuitive on purpose. Hardening this locally would make the RLS
     // negative suite pass against a stricter regime than production runs, and the
