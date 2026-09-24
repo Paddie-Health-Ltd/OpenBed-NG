@@ -602,6 +602,12 @@ curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
 
 - [ ] Daily backups enabled, and a backup listed
 - [ ] PITR status recorded (Pro add-on; note whether it is on, rather than assuming)
+- [ ] **One backup restored, once, before facility one** (R-2026-09-24-74 BB-4). No
+      backup of this project has ever been restored, so the backups are a setting that
+      has been seen, not a restore that has been shown to work. Restore one, into a
+      scratch project or as a PITR drill, and record what was observed: which backup,
+      where it went, how long it took, and whether the restored `app.schema_migrations`
+      and row counts matched. It gates the same moment as step 4b.
 
 **Covered by tests: nothing** — same class as the region pin. Assertable via the
 Management API, declined on credential-surface grounds, verified here instead.
@@ -630,6 +636,11 @@ whole of their safety.** Read on this project **2026-09-21 16:58 UTC:
 | 1 | `'(unknown facility)'` is rendered beside a **real** bed count when a ward references a facility absent from the payload | a count with no callable identity, rendered as if actionable — it tells someone routing an ambulance that beds exist somewhere they cannot ring | `apps/public-dashboard/src/main.ts` |
 | 2 | `wardRowFrom` **defaults** a clinical claim (`offering ?? 'NOT_OFFERED'`) and a concurrency token (`version ?? 0`, which becomes `p_expected_version`) | asserts to a ward something the server never said, and turns optimistic concurrency into a guess. Refuse the malformed row instead | `apps/ward-console/src/main.ts` |
 | 3 | the publish screen echoes **raw server text** to a ward user on an unrecognised status (R-2026-09-20-30 D1) | a clinical user mid-emergency should not be reading a database error, and server text can carry internals. Same screen as 2 | `apps/ward-console/src/main.ts` |
+
+**A backup restore also gates the same moment (R-2026-09-24-74 BB-4).** No backup of
+this project has ever been restored. Before the first `app.facility` or
+`app.ward_account` row exists, restore one once and record what was observed. The
+checkbox is in step 4. A named human step; no script checks it.
 
 **A fourth item gates the same moment and is SPECIFIED BUT NOT BUILT:** the invite
 gate — no invite for a facility whose `app.facility_contact.agreement_accepted_at`
@@ -1395,7 +1406,12 @@ fires and no public row changes (-71 B1). The reading below checks that on hoste
 `/beds.json`, `facility_public`, `ward_public` and `lga_rollup`, before and after.
 `scripts/readback_public_output.sh` reads all four, and its header says how.
 
-**Five fences, in this order. A stop condition never shares a fence with the step it
+**This before/after comparison is valid only while no ward can publish (R-2026-09-24-74
+BB-3)**, which means before step 4b's gate clears. Once wards publish, a status changing
+between the two readings is a real change, and it reads as STOP. An apply after go-live
+needs a different reading, designed then. Do not reuse this one.
+
+**Six fences, in this order. A stop condition never shares a fence with the step it
 gates.** Each fence waits silently at its `read -rs` line for the connection string,
 and removes it again on its last line.
 
@@ -1452,14 +1468,43 @@ unset DATABASE_URL
 - **STOP:** a part reads `WRONG`. Run nothing further, and paste the whole output
   back. **Do not apply 020's down migration on your own authority.**
 
-**5. The ledger count.** Must print `20`.
+**5. The second dry run (R-2026-09-24-74 BB-1).** Not a row count. A count of 20
+would say how many ledger rows exist, not which ones, and not that nothing is still
+pending. **Stop condition:** twenty `already applied` lines, naming
+`001_app_schema_and_migration_ledger.sql` through
+`020_operator_functions_and_listing.sql`, no `WOULD APPLY` line, and a last line of
+`0 migration(s) pending.` **Anything else: stop and report.**
 
 ```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 read -rs DATABASE_URL && export DATABASE_URL
-psql "$DATABASE_URL" -Atc "select count(*) from app.schema_migrations"
+bash scripts/run_migrations.sh --dry-run
 unset DATABASE_URL
 ```
+
+**6. Who can execute what (R-2026-09-24-74 BB-2).** Supabase grants EXECUTE on every
+new function to anon, authenticated and service_role by default, and 020 is correct
+only if its REVOKEs removed those grants on hosted. No local test can show that.
+`scripts/readback_function_grants.sh` reads, for every function in `app`,
+`graphql_public` and `public`, which of the three roles can execute it. It compares
+the answer with `packages/fixtures/function-grants.json`, the same file the D3
+closed-list test derives its list from.
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -rs DATABASE_URL && export DATABASE_URL
+bash scripts/readback_function_grants.sh
+unset DATABASE_URL
+```
+
+- **PASS:** the last line begins `PASS:`, and every function reads `ok`. Among them:
+  `app.provision_begin(uuid, text, text) EXECUTE: none` and
+  `app.provision_complete(uuid, uuid) EXECUTE: none`.
+- **STOP:** a function reads `WRONG`. The line names the function, the roles read and
+  the roles expected. Run nothing further, and paste the whole output back.
+  **The comparison is exact.** A function hosted has and this repository does not,
+  such as one Supabase added, also reads STOP. That STOP changes nothing, because
+  this only reads, but it needs a ruling before anything else runs.
 
 **Afterwards:** the frozen boundary is recorded as above with `20`, in the change
 that records this apply, not in the session that runs it.

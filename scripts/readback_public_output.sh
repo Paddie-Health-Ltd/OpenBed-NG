@@ -26,6 +26,11 @@
 # rows in sorted order. The queries are the Q_ literals below. tests/db runs those
 # exact literals against a real database, so what hosted runs is what was tested.
 #
+# VALID ONLY WHILE NO WARD CAN PUBLISH (R-2026-09-24-74 BB-3), which means before
+# runbook step 4b's gate clears. Once wards publish, a status changing between the
+# two readings is a real change, and this reads it as STOP. An apply after go-live
+# needs a different reading, designed then.
+#
 # EMPTY IS NOT EVIDENCE. If every count is 0 before and after, the apply created no
 # public row, and nothing more can be said: there was nothing for it to change. The
 # verdict then says VACUOUS FOR B1, and B1's evidence remains

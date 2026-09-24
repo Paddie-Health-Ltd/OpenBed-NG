@@ -3626,6 +3626,35 @@ _Issued as R-PROVISIONAL-2026-09-24-BA, by Cowork on 2026-09-24, as its review o
 - the facility-creation runbook step;
 - the two hosted Auth checks.
 
+### R-2026-09-24-74 — #70 tightened: the second dry run, a function-grants read-back held to one source, the comparison's scope, and a restore drill before facility one
+
+_Issued as R-PROVISIONAL-2026-09-24-BB, by Cowork on 2026-09-24, as its review of #70 at `9a3dc21` with a platform-SRE pass. Number assigned on landing from the record's last as read on this branch: R-2026-09-24-73, which rides the same pull request unmerged. Lands on `hosted-apply-020` (#70). Next provisional letter: BC._
+
+**COWORK'S READINGS, 2026-09-24, recorded as Cowork's, each re-read on landing:**
+- #69 merged at `0406b4f` (parents `ae14701`, `86ff698`), and `origin/main` is `0406b4f`. **Re-read:** as landed in -73, from `git rev-parse` and `gh pr view 69`.
+- #70 open, head `9a3dc21`, base `0406b4f`, CLEAN, all seven check runs success. **Re-read:** the check-runs API at `9a3dc21` listed the seven as completed success before this change began.
+- `scripts/readback_public_output.sh`, read in full: its refusals, fingerprint shape check, `Q_` literals, reduction to `facilities` and `wards`, VACUOUS verdict and exit-2 ERRORs. **Re-read:** each is in the script as described.
+- `scripts/run_migrations.sh` applies each file with `--single-transaction` and `ON_ERROR_STOP=1`, so a failed 020 leaves hosted at 19 with nothing half-applied. **Re-read:** its header (lines 22-30) and `PSQL_TX` (line 130). 020 writes its own ledger row inside the file, so the row commits or rolls back with it.
+
+**BB-1 — FENCE 5 IS THE SECOND DRY RUN, NOT A ROW COUNT.** A count of 20 says how many ledger rows exist, not which ones, and not that nothing is still pending. Its stop condition: twenty `already applied` lines naming 001 through 020, no `WOULD APPLY`, and `0 migration(s) pending.`; anything else, stop and report. **The quoted sentence ("the second dry run is part of an apply, not an optional extra") is in step 5's "Expected output" subsection, not in the 020 section; the instruction holds either way.**
+
+**BB-2 — FENCE 6: WHO CAN EXECUTE WHAT, READ ON HOSTED.** `scripts/readback_function_grants.sh` reads, for every function in `app`, `graphql_public` and `public`, which of anon, authenticated and service_role can EXECUTE it, and holds the answer to `packages/fixtures/function-grants.json` exactly, in both directions.
+- **The one source did not exist; this change makes it.** D3's closed list was a literal in `tests/db/authenticated_executable_closed_list.test.ts`. It now derives from the fixture, with a leg pinning the nine names it held. `graphql_public` is in scope because D3 covers `graphql_public.graphql`.
+- **MEASURED on the local stack at 020:** 24 functions. The 15 in `app`, both `provision_*` gates included, are executable by none of the three. `graphql_public.graphql` is executable by all three. The 8 in `public` are executable by authenticated only. service_role holds EXECUTE on none of this repository's functions. A function created in `public` with no GRANT reads EXECUTE for all three roles: Supabase's default privileges, observed, which is the default 020's REVOKEs exist to remove.
+- `tests/db/function_grants.test.ts` runs the script's own query literal against the real schema: it reads exactly the fixture, and the real script with real psql reads PASS. Four plants, each in a rolled-back transaction, have their rows handed to the real script, and each reads STOP naming the function: a grant to anon, a revoke from authenticated, a grant on `app.provision_begin`, and an unnamed function.
+- **THE RISK, recorded rather than designed away.** The comparison is exact. A function hosted has in these schemas and local lacks, such as one Supabase added, reads STOP, and it would do so after 020 is already applied. That STOP changes nothing, because the script only reads, but it needs a ruling before anything else runs.
+
+**BB-3 — THE BEFORE/AFTER COMPARISON'S SCOPE.** It holds only while no ward can publish, that is, before the -45 gate clears. After that, a status change between the two readings reads as STOP. A later apply needs a different reading, designed then. Written into the script's header and the runbook subsection.
+
+**BB-4 — OPEN ITEM, NOT FOR THIS APPLY: NO BACKUP HAS EVER BEEN RESTORED.** Before facility one, restore one once (to a scratch project, or as a PITR drill) and record what was observed. Added as a checkbox in runbook step 4 and named in step 4b as gating the same moment. A named human step; nothing checks it.
+
+**FOUND ON LANDING, an open item: step 4b's list describes code that no longer exists.** Its three "defects" are:
+- the `(unknown facility)` row, dropped on the page by -66;
+- `wardRowFrom`'s defaults, now refused, since 3.4a;
+- raw server text on the publish screen, now mapped to fixed sentences by `wardMessageFor`.
+
+Its "not built" invite gate is `app.provision_begin` in 020, on hosted once 020 is applied. The gate itself, no facility and no ward_account row until it clears, is unaffected. **The list needs restating, with each row re-verified; that is not done here.**
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -3690,6 +3719,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | AY | R-2026-09-23-71 | 2026-09-23 | **`record-after-67` becomes its own pull request, and PR 3.4 splits.** "Unlisted" is a new `listed_at`, never quiet mode, because a quiet facility still feeds the public rollup and would count toward its k-floor while it reports nothing. The secret key goes to no Cloudflare Function in v1: provisioning stays in the script, over one SQL implementation of the gates. The redirect list gains `admin.openbed.ng`, amending D2. A row version, idempotent create and add, one active account per ward, and no Auth call on a complete account. Two of its premises did not hold as stated: the reads return a `PLATFORM_ADMIN` zero rows rather than refusing it, and no operator RPC provisions in v1. |
 | AZ | R-2026-09-23-72 | 2026-09-24 | **#68 merged; the redirect entries become the exact slashed strings the apps send**, amending -71 D, so nothing rests on Supabase's matching rules. A silent fallback to the Site URL must read as STOP. -71's premise corrections are accepted, and J4's zero Auth calls bind the 3.4b script. Found on landing: the ward console renders a fallen-back operator's zero-row session as an empty list, for 3.4b. |
 | BA | R-2026-09-24-73 | 2026-09-24 | **#69 merged; 020's hosted apply prepared as founder steps.** A new read-back compares the public output before and after the apply, and says VACUOUS FOR B1 when there was nothing public to change, as on hosted today. The `redirect_to` read becomes script-only. Its stated reason, that the value is percent-encoded, does not hold for these strings (GoTrue encodes only on `&`, `=` or `#`), and the instruction stands on other grounds. |
+| BB | R-2026-09-24-74 | 2026-09-24 | **#70 tightened before anything hosted runs.** Fence 5 becomes the second dry run. Fence 6 reads who can EXECUTE every function on hosted and holds it to one new fixture, which the D3 closed list now derives from too. The before/after comparison is valid only until wards can publish. A backup restore is named as gating facility one. Found on landing: step 4b's defect list describes code that no longer exists. |
 
 ## Method notes — how rulings reach the implementer
 

@@ -43,6 +43,7 @@ const SCRIPTS = {
   ward: join(REPO_ROOT, 'scripts', 'readback_ward_console.sh'),
   worker: join(REPO_ROOT, 'scripts', 'readback_worker.sh'),
   publicOutput: join(REPO_ROOT, 'scripts', 'readback_public_output.sh'),
+  grants: join(REPO_ROOT, 'scripts', 'readback_function_grants.sh'),
 };
 
 type Answer = { status: number; headers?: Record<string, string>; body?: string } | { fail: number } | { out: string };
@@ -135,8 +136,8 @@ if (fmt) process.stdout.write(fmt.replace('%{http_code}', String(ans.status)));
     `#!/usr/bin/env node
 const fs = require('fs');
 const a = process.argv.slice(2);
-const q = a[a.indexOf('-c') + 1] || '';
-const t = (/from public\\.([a-z_]+)/.exec(q) || [])[1] || '(no table)';
+const q = a[a.lastIndexOf('-c') + 1] || '';
+const t = (/from (?:public|pg_catalog)\\.([a-z_]+)/.exec(q) || [])[1] || '(no table)';
 const k = 'PSQL ' + t;
 fs.appendFileSync(process.env.STUB_LOG, k + '\\n');
 const ans = JSON.parse(fs.readFileSync(process.env.STUB_FIXTURES, 'utf8'))[k];
@@ -752,6 +753,120 @@ describe('scripts/readback_public_output.sh', () => {
       expect(status, out).toBe(2);
       expect(out).toContain('ERROR: node exited 9 summarising beds.json -- the reading did not run, so it has no verdict');
       expect(out).not.toMatch(FINGERPRINT_LINE);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// scripts/readback_function_grants.sh -- fence 6 of 020's apply (R-2026-09-24-74
+// BB-2): who can EXECUTE every function, held to packages/fixtures/function-grants.json.
+// The query and the comparison against a real schema are tests/db/function_grants.test.ts;
+// these legs are the script's own refusals and verdicts, over the psql stub.
+// ---------------------------------------------------------------------------
+
+type GrantsFixture = { functions: Record<string, { execute: string[] }> };
+const GRANTS_FX = JSON.parse(readFileSync(join(REPO_ROOT, 'packages', 'fixtures', 'function-grants.json'), 'utf8')) as GrantsFixture;
+
+/** The rows the grants query would read on a database that matches the fixture. */
+function grantRows(): Record<string, string> {
+  return Object.fromEntries(Object.entries(GRANTS_FX.functions).map(([id, g]) => [id, g.execute.join(',')]));
+}
+const grantsAnswer = (r: Record<string, string>): Fixtures => ({ 'PSQL pg_proc': { out: Object.entries(r).map(([id, roles]) => `${id}|${roles}`).join('\n') } });
+
+describe('scripts/readback_function_grants.sh', () => {
+  test('real reading is accepted — rows matching the fixture give PASS, with every function ok', () => {
+    withScratch((root) => {
+      const r = run(root, SCRIPTS.grants, [], grantsAnswer(grantRows()), DB_ENV);
+      expect(r.status, r.out).toBe(0);
+      for (const id of Object.keys(GRANTS_FX.functions)) expect(r.out, `the function ${id} was never compared`).toContain(`  ok     ${id} EXECUTE: `);
+      expect(r.out).toContain('PASS: every function in app, graphql_public and public is executable by exactly the roles packages/fixtures/function-grants.json names.');
+      expect(r.calls).toEqual(['PSQL pg_proc']);
+    });
+  });
+
+  test.each<[string, (g: Record<string, string>) => void, string]>([
+    ['anon holding EXECUTE on a provisioning gate', (g) => { g['app.provision_begin(uuid, text, text)'] = 'anon'; }, 'app.provision_begin(uuid, text, text) EXECUTE'],
+    ['service_role holding a default grant 020 should have revoked', (g) => { g['public.operator_list_facilities()'] = 'authenticated,service_role'; }, 'public.operator_list_facilities() EXECUTE'],
+    ['authenticated missing a grant the fixture gives it', (g) => { g['public.publish_ward_status(text, text, integer, boolean, text, integer, text, timestamp with time zone)'] = ''; }, 'public.publish_ward_status(text, text, integer, boolean, text, integer, text, timestamp with time zone) EXECUTE'],
+    ['a function the fixture does not name', (g) => { g['public.zz_hosted_only()'] = 'anon,authenticated,service_role'; }, 'public.zz_hosted_only() EXECUTE'],
+    ['a fixture function the database lacks', (g) => { delete g['app.provision_complete(uuid, uuid)']; }, 'app.provision_complete(uuid, uuid) EXECUTE'],
+  ])('plant — %s is a STOP naming it', (_name, plant, check) => {
+    withScratch((root) => {
+      const g = grantRows();
+      plant(g);
+      const r = run(root, SCRIPTS.grants, [], grantsAnswer(g), DB_ENV);
+      expectStopAt(r, check);
+      expect(r.out).toContain("A function's EXECUTE grants are not what the fixture says. Run nothing further; paste this whole output back.");
+    });
+  });
+
+  test('plant — no DATABASE_URL STOPs before anything is read', () => {
+    withScratch((root) => {
+      const r = run(root, SCRIPTS.grants, [], grantsAnswer(grantRows()), { DATABASE_URL: '' });
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('STOP: DATABASE_URL is not set, so nothing was read.');
+      expect(r.calls).toEqual([]);
+    });
+  });
+
+  test('could not run — psql failing is an ERROR, never a verdict', () => {
+    withScratch((root) => {
+      const r = run(root, SCRIPTS.grants, [], { 'PSQL pg_proc': { fail: 2 } }, DB_ENV);
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('ERROR: psql exited 2 reading the function grants -- 127 means psql is not on PATH (step P). The reading did not run, so it has no verdict');
+      expect(r.out).not.toContain('PASS');
+    });
+  });
+
+  test('could not run — a row that is not a function and its roles is an ERROR, never a verdict', () => {
+    withScratch((root) => {
+      const r = run(root, SCRIPTS.grants, [], { 'PSQL pg_proc': { out: 'ERROR:  permission denied for table pg_proc' } }, DB_ENV);
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain("ERROR: psql answered a line that is not a function and its roles: 'ERROR:  permission denied for table pg_proc' -- the reading did not run, so it has no verdict");
+    });
+  });
+
+  test('anti-vacuity — a query that read no functions is an ERROR, never a PASS', () => {
+    withScratch((root) => {
+      const r = run(root, SCRIPTS.grants, [], { 'PSQL pg_proc': { out: '' } }, DB_ENV);
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('ERROR: the query read no functions at all -- the reading did not run, so it has no verdict');
+      expect(r.out).not.toContain('PASS');
+    });
+  });
+
+  test('could not run — a checkout without the fixture is an ERROR, never a verdict', () => {
+    withScratch((root) => {
+      const r = run(root, SCRIPTS.grants, [root], grantsAnswer(grantRows()), DB_ENV);
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('/packages/fixtures/function-grants.json -- the reading did not run, so it has no verdict');
+    });
+  });
+
+  test('could not run — node failing while comparing is an ERROR, never a verdict', () => {
+    withScratch((root) => {
+      const bin = stubBin(root);
+      const realNode = process.execPath;
+      writeFileSync(join(bin, 'psql'), readFileSync(join(bin, 'psql'), 'utf8').replace('#!/usr/bin/env node', `#!${realNode}`));
+      writeFileSync(join(bin, 'node'), '#!/usr/bin/env bash\nexit 9\n');
+      chmodSync(join(bin, 'node'), 0o755);
+      writeFileSync(join(root, 'fixtures.json'), JSON.stringify(grantsAnswer(grantRows())));
+      writeFileSync(join(root, 'stub.log'), '');
+      let out = '';
+      let status = 0;
+      try {
+        out = execFileSync('bash', [SCRIPTS.grants], {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env: { ...process.env, ...DB_ENV, PATH: `${bin}:${process.env['PATH'] ?? ''}`, STUB_LOG: join(root, 'stub.log'), STUB_FIXTURES: join(root, 'fixtures.json'), STUB_COUNTS: join(root, 'counts.json') },
+        });
+      } catch (e) {
+        const err = e as { status?: number; stdout?: string; stderr?: string };
+        status = err.status ?? -1;
+        out = `${err.stdout ?? ''}${err.stderr ?? ''}`;
+      }
+      expect(status, out).toBe(2);
+      expect(out).toContain('ERROR: node exited 9 comparing the function grants -- the reading did not run, so it has no verdict');
     });
   });
 });
