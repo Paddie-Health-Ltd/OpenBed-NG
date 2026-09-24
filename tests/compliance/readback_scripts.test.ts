@@ -42,9 +42,10 @@ const SCRIPTS = {
   pages: join(REPO_ROOT, 'scripts', 'readback_pages.sh'),
   ward: join(REPO_ROOT, 'scripts', 'readback_ward_console.sh'),
   worker: join(REPO_ROOT, 'scripts', 'readback_worker.sh'),
+  publicOutput: join(REPO_ROOT, 'scripts', 'readback_public_output.sh'),
 };
 
-type Answer = { status: number; headers?: Record<string, string>; body?: string } | { fail: number };
+type Answer = { status: number; headers?: Record<string, string>; body?: string } | { fail: number } | { out: string };
 type Fixtures = Record<string, Answer | Answer[]>;
 
 interface Run {
@@ -127,6 +128,24 @@ if (fmt) process.stdout.write(fmt.replace('%{http_code}', String(ans.status)));
     'utf8',
   );
   chmodSync(join(bin, 'curl'), 0o755);
+  // A psql stub for scripts/readback_public_output.sh: it answers from the same fixture
+  // file, keyed "PSQL <table>" by the public table the -c query reads, and logs that key.
+  writeFileSync(
+    join(bin, 'psql'),
+    `#!/usr/bin/env node
+const fs = require('fs');
+const a = process.argv.slice(2);
+const q = a[a.indexOf('-c') + 1] || '';
+const t = (/from public\\.([a-z_]+)/.exec(q) || [])[1] || '(no table)';
+const k = 'PSQL ' + t;
+fs.appendFileSync(process.env.STUB_LOG, k + '\\n');
+const ans = JSON.parse(fs.readFileSync(process.env.STUB_FIXTURES, 'utf8'))[k];
+if (ans === undefined || ans.fail) { process.stderr.write('psql: error: planted failure for ' + k + '\\n'); process.exit(ans && ans.fail ? ans.fail : 2); }
+process.stdout.write(ans.out + '\\n');
+`,
+    'utf8',
+  );
+  chmodSync(join(bin, 'psql'), 0o755);
   return bin;
 }
 
@@ -537,6 +556,202 @@ describe('scripts/readback_common.sh — node failing is an ERROR, never a verdi
       expect(status, out).toBe(2);
       expect(out).toContain('ERROR: node exited 9 searching a response body -- the check did not run, so this read-back has no verdict');
       expect(out).toContain('  ok     step 2 commit: ');
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// scripts/readback_public_output.sh -- 020's hosted apply must change no public
+// output (R-2026-09-24-73 BA-2). Before the apply it prints a FINGERPRINT; after,
+// given that fingerprint, it reads PASS or STOP naming each part that moved.
+// ---------------------------------------------------------------------------
+
+const ORIGIN = 'https://openbed.ng';
+const EMPTY = '0:d41d8cd98f00';
+const DB_ENV = { DATABASE_URL: 'postgresql://stub@db.invalid:5432/postgres' };
+
+const bedsBody = (v: number, generatedAt: string, facilities: unknown[] = [], wards: unknown[] = []): string =>
+  JSON.stringify({ v, generated_at: generatedAt, server_now: generatedAt, facilities, wards });
+
+const FACILITY_ROW = ['f-1', 'Synthetic General', 'Ikeja', 'Lagos', 6.6, 3.3, '+2340000000000', '2026-09-24T01:00:00Z'];
+const WARD_ROW = ['f-1', 'MATERNITY', 'OFFERED', 3, '2026-09-24T01:00:00Z'];
+
+function outputFixtures(opts: { empty?: boolean; body?: string } = {}): Fixtures {
+  const facilities = opts.empty ? [] : [FACILITY_ROW];
+  const wards = opts.empty ? [] : [WARD_ROW];
+  return {
+    [`GET ${ORIGIN}/beds.json`]: { status: 200, headers: { 'content-type': 'application/json' }, body: opts.body ?? bedsBody(9371, '2026-09-24T01:00:00Z', facilities, wards) },
+    'PSQL facility_public': { out: opts.empty ? EMPTY : '1:0a1b2c3d4e5f' },
+    'PSQL ward_public': { out: opts.empty ? EMPTY : '1:1a2b3c4d5e6f' },
+    'PSQL lga_rollup': { out: EMPTY },
+  };
+}
+
+const FINGERPRINT_LINE = /^FINGERPRINT (beds\.json=\d+\/\d+:[0-9a-f]{12},facility_public=\d+:[0-9a-f]{12},ward_public=\d+:[0-9a-f]{12},lga_rollup=\d+:[0-9a-f]{12})$/m;
+
+/** The before-reading's fingerprint, as the founder would copy it. */
+function before(root: string, fixtures: Fixtures): string {
+  const r = run(root, SCRIPTS.publicOutput, [ORIGIN], fixtures, DB_ENV);
+  expect(r.status, r.out).toBe(0);
+  const m = FINGERPRINT_LINE.exec(r.out);
+  expect(m, `no FINGERPRINT line was printed:\n${r.out}`).not.toBeNull();
+  return m![1]!;
+}
+
+describe('scripts/readback_public_output.sh', () => {
+  test('real reading is accepted — before the apply it prints the four parts and one FINGERPRINT, and reads nothing else', () => {
+    withScratch((root) => {
+      const r = run(root, SCRIPTS.publicOutput, [ORIGIN], outputFixtures(), DB_ENV);
+      expect(r.status, r.out).toBe(0);
+      expect(r.out).toMatch(FINGERPRINT_LINE);
+      expect(r.out).toContain('RECORDED: the reading before the apply. Keep the FINGERPRINT line.');
+      expect(r.out).toContain(`  bash scripts/readback_public_output.sh ${ORIGIN} '`);
+      expect(r.out).not.toContain('PASS:');
+      expect(r.calls).toEqual([`GET ${ORIGIN}/beds.json`, 'PSQL facility_public', 'PSQL ward_public', 'PSQL lga_rollup']);
+    });
+  });
+
+  test('real reading is accepted — after the apply, the same output gives PASS with every part ok', () => {
+    withScratch((root) => {
+      const fp = before(root, outputFixtures());
+      const r = run(root, SCRIPTS.publicOutput, [ORIGIN, fp], outputFixtures(), DB_ENV);
+      expect(r.status, r.out).toBe(0);
+      for (const part of ['beds.json', 'facility_public', 'ward_public', 'lga_rollup']) {
+        expect(r.out, `the part "${part}" was never compared`).toContain(`  ok     ${part}: `);
+      }
+      expect(r.out).toContain('PASS: the public output reads exactly as it did before the apply.');
+      expect(r.out).not.toContain('VACUOUS');
+    });
+  });
+
+  test('plant — an empty hosted project passes only as VACUOUS FOR B1, never as a plain PASS', () => {
+    withScratch((root) => {
+      const fp = before(root, outputFixtures({ empty: true }));
+      const r = run(root, SCRIPTS.publicOutput, [ORIGIN, fp], outputFixtures({ empty: true }), DB_ENV);
+      expect(r.status, r.out).toBe(0);
+      expect(r.out).toContain('NOTE: every count, before and after, is 0.');
+      expect(r.out).toContain('PASS (VACUOUS FOR B1): the apply created no public row. With nothing public before it, this cannot show that it changed none.');
+      expect(r.out).not.toContain('PASS: the public output reads exactly');
+    });
+  });
+
+  test('plant — only the envelope moving (v, generated_at, server_now) is not a change', () => {
+    withScratch((root) => {
+      const fp = before(root, outputFixtures());
+      const later = outputFixtures({ body: bedsBody(9384, '2026-09-24T01:13:00Z', [FACILITY_ROW], [WARD_ROW]) });
+      const r = run(root, SCRIPTS.publicOutput, [ORIGIN, fp], later, DB_ENV);
+      expect(r.status, r.out).toBe(0);
+      expect(r.out).toContain('PASS: the public output reads exactly as it did before the apply.');
+    });
+  });
+
+  test.each<[string, (f: Fixtures) => void, string]>([
+    ['a facility row whose updated_at moved in beds.json', (f) => { f[`GET ${ORIGIN}/beds.json`] = { status: 200, body: bedsBody(9384, '2026-09-24T01:13:00Z', [[...FACILITY_ROW.slice(0, 7), '2026-09-24T01:05:00Z']], [WARD_ROW]) }; }, 'beds.json'],
+    ['a ward row gone from beds.json', (f) => { f[`GET ${ORIGIN}/beds.json`] = { status: 200, body: bedsBody(9384, '2026-09-24T01:13:00Z', [FACILITY_ROW], []) }; }, 'beds.json'],
+    ['beds.json answering the SPA fallback', (f) => { f[`GET ${ORIGIN}/beds.json`] = { status: 200, body: '<!doctype html><html></html>' }; }, 'beds.json'],
+    ['beds.json answering 500', (f) => { f[`GET ${ORIGIN}/beds.json`] = { status: 500, body: bedsBody(1, 'x', [FACILITY_ROW], [WARD_ROW]) }; }, 'beds.json'],
+    ['facility_public with the same count and other contents', (f) => { f['PSQL facility_public'] = { out: '1:ffffffffffff' }; }, 'facility_public'],
+    ['ward_public with a row more', (f) => { f['PSQL ward_public'] = { out: '2:1a2b3c4d5e6f' }; }, 'ward_public'],
+    ['lga_rollup with a row', (f) => { f['PSQL lga_rollup'] = { out: '1:abcdefabcdef' }; }, 'lga_rollup'],
+  ])('plant — %s after the apply is a STOP naming it', (_name, plant, part) => {
+    withScratch((root) => {
+      const fp = before(root, outputFixtures());
+      const after = outputFixtures();
+      plant(after);
+      const r = run(root, SCRIPTS.publicOutput, [ORIGIN, fp], after, DB_ENV);
+      expectStopAt(r, part);
+      expect(r.out).toContain('The public output changed across the apply. Run nothing further; paste this whole output back.');
+    });
+  });
+
+  test('plant — a before-reading that is not a snapshot is no baseline, and says do not apply', () => {
+    withScratch((root) => {
+      const r = run(root, SCRIPTS.publicOutput, [ORIGIN], outputFixtures({ body: '<!doctype html>' }), DB_ENV);
+      expect(r.status, r.out).toBe(1);
+      expect(r.out).toContain(`STOP: ${ORIGIN}/beds.json did not answer a snapshot (read 'not-a-snapshot'), so this reading is no baseline. Do not apply.`);
+      expect(r.out).not.toMatch(FINGERPRINT_LINE);
+    });
+  });
+
+  test('plant — no URL, and an http:// URL, STOP with nothing read', () => {
+    withScratch((root) => {
+      for (const args of [[], ['http://openbed.ng']]) {
+        const r = run(root, SCRIPTS.publicOutput, args, outputFixtures(), DB_ENV);
+        expect(r.status, r.out).toBe(2);
+        expect(r.out).toContain('Usage: bash scripts/readback_public_output.sh https://openbed.ng');
+        expect(r.calls, 'something was read with no usable URL').toEqual([]);
+      }
+    });
+  });
+
+  test('plant — no DATABASE_URL STOPs before beds.json or any table is read', () => {
+    withScratch((root) => {
+      const r = run(root, SCRIPTS.publicOutput, [ORIGIN], outputFixtures(), { DATABASE_URL: '' });
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('STOP: DATABASE_URL is not set, so nothing was read.');
+      expect(r.calls).toEqual([]);
+    });
+  });
+
+  test('plant — a second argument that is not a fingerprint this script printed STOPs before anything is read', () => {
+    withScratch((root) => {
+      const r = run(root, SCRIPTS.publicOutput, [ORIGIN, 'FINGERPRINT beds.json=0/0:abc'], outputFixtures(), DB_ENV);
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain("is not a fingerprint this script printed, so nothing was read. Copy the value after 'FINGERPRINT ' from the before-reading, inside single quotes.");
+      expect(r.calls).toEqual([]);
+    });
+  });
+
+  test('could not run — psql failing is an ERROR naming the table, never a verdict', () => {
+    withScratch((root) => {
+      const f = outputFixtures();
+      f['PSQL ward_public'] = { fail: 2 };
+      const r = run(root, SCRIPTS.publicOutput, [ORIGIN], f, DB_ENV);
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('ERROR: psql exited 2 reading public.ward_public -- 127 means psql is not on PATH (step P). The reading did not run, so it has no verdict');
+      expect(r.out).not.toMatch(FINGERPRINT_LINE);
+      expect(r.out).not.toContain('PASS');
+    });
+  });
+
+  test('could not run — psql answering something that is not a count and a digest is an ERROR, never a verdict', () => {
+    withScratch((root) => {
+      const f = outputFixtures();
+      f['PSQL lga_rollup'] = { out: 'relation does not exist' };
+      const r = run(root, SCRIPTS.publicOutput, [ORIGIN], f, DB_ENV);
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain("is not a count and a digest -- the reading did not run, so it has no verdict");
+      expect(r.out).not.toMatch(FINGERPRINT_LINE);
+    });
+  });
+
+  test('could not run — node failing while summarising beds.json is an ERROR, never a verdict', () => {
+    withScratch((root) => {
+      const bin = stubBin(root);
+      const realNode = process.execPath;
+      for (const stub of ['curl', 'psql']) {
+        writeFileSync(join(bin, stub), readFileSync(join(bin, stub), 'utf8').replace('#!/usr/bin/env node', `#!${realNode}`));
+      }
+      writeFileSync(join(bin, 'node'), '#!/usr/bin/env bash\nexit 9\n');
+      chmodSync(join(bin, 'node'), 0o755);
+      writeFileSync(join(root, 'fixtures.json'), JSON.stringify(outputFixtures()));
+      writeFileSync(join(root, 'stub.log'), '');
+      let out = '';
+      let status = 0;
+      try {
+        out = execFileSync('bash', [SCRIPTS.publicOutput, ORIGIN], {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env: { ...process.env, ...DB_ENV, PATH: `${bin}:${process.env['PATH'] ?? ''}`, STUB_LOG: join(root, 'stub.log'), STUB_FIXTURES: join(root, 'fixtures.json'), STUB_COUNTS: join(root, 'counts.json') },
+        });
+      } catch (e) {
+        const err = e as { status?: number; stdout?: string; stderr?: string };
+        status = err.status ?? -1;
+        out = `${err.stdout ?? ''}${err.stderr ?? ''}`;
+      }
+      expect(status, out).toBe(2);
+      expect(out).toContain('ERROR: node exited 9 summarising beds.json -- the reading did not run, so it has no verdict');
+      expect(out).not.toMatch(FINGERPRINT_LINE);
     });
   });
 });

@@ -337,11 +337,14 @@ describe('the allow-list against the code and the runbooks', () => {
     expect(runbookProbes(realDocs()).length + scriptProbes(realScripts()).probes.length, 'no probe was found, so the probe rule checked nothing').toBeGreaterThan(0);
   });
 
-  test('the probe corpus is the declared one — the three read-back scripts, and every api.openbed.ng probe they send', () => {
+  test('the probe corpus is the declared one — the four read-back scripts, and every api.openbed.ng probe they send', () => {
     // Discovered, then held against the declared set by identity (test-conventions 2(d)).
+    // scripts/readback_public_output.sh (R-2026-09-24-73 BA-2) reads openbed.ng/beds.json
+    // and the database, and sends nothing to api.openbed.ng, so it adds no probe below.
     expect(Object.keys(realScripts()).sort()).toEqual([
       'scripts/readback_common.sh',
       'scripts/readback_pages.sh',
+      'scripts/readback_public_output.sh',
       'scripts/readback_ward_console.sh',
       'scripts/readback_worker.sh',
     ]);

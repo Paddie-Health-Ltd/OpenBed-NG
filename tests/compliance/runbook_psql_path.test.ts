@@ -56,7 +56,7 @@ const RUNBOOKS = [
 ];
 
 /** The total governed-fence count today. Asserted by identity -- see `anti-vacuity`. */
-const GOVERNED_TODAY = 18;
+const GOVERNED_TODAY = 23;
 
 export interface Fence {
   /** Which runbook it came from. */
@@ -95,9 +95,17 @@ export function bashFences(doc: string, text: string): Fence[] {
   return out;
 }
 
+/**
+ * The scripts that call `psql` themselves, so a fence running one needs the PATH line
+ * as much as a fence calling psql directly. scripts/readback_public_output.sh joined
+ * on 2026-09-24 (R-2026-09-24-73 BA-2): its two fences in step 5 carried the line, and
+ * the guard did not know they had to. Widened by name, with a plant.
+ */
+const PSQL_SCRIPTS = /(run_migrations|readback_public_output)\.sh/;
+
 /** A fence is GOVERNED when running it needs `psql` on PATH. */
 export function isGoverned(body: string): boolean {
-  return /(^|[\s|(])psql\s/m.test(body) || /run_migrations\.sh/.test(body);
+  return /(^|[\s|(])psql\s/m.test(body) || PSQL_SCRIPTS.test(body);
 }
 
 /** The first line of a body that needs `psql`, 1-indexed within the body. */
@@ -105,7 +113,7 @@ function firstGovernedCall(body: string): number {
   const lines = body.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i] ?? '';
-    if (/(^|[\s|(])psql\s/.test(l) || /run_migrations\.sh/.test(l)) return i + 1;
+    if (/(^|[\s|(])psql\s/.test(l) || PSQL_SCRIPTS.test(l)) return i + 1;
   }
   return -1;
 }
@@ -213,6 +221,20 @@ describe('runbook psql PATH line', () => {
 
     const v = pathViolations([{ doc: DOCS[0]?.doc ?? '', text: planted }, DOCS[1] as { doc: string; text: string }]);
     expect(v.join('\n'), 'a governed block with no PATH line was accepted').toContain(
+      "runs psql and does not carry step P's PATH line",
+    );
+  });
+
+  test('plant — dropping the line from a fence that runs scripts/readback_public_output.sh is rejected', () => {
+    // The script calls psql itself, so its fence is governed although no psql appears in it.
+    const planted = SUPABASE.replace(
+      'export PATH="/opt/homebrew/opt/libpq/bin:$PATH"\nread -rs DATABASE_URL && export DATABASE_URL\nbash scripts/readback_public_output.sh https://openbed.ng\n',
+      'read -rs DATABASE_URL && export DATABASE_URL\nbash scripts/readback_public_output.sh https://openbed.ng\n',
+    );
+    expect(planted, 'the plant did not reach the before-reading fence').not.toBe(SUPABASE);
+
+    const v = pathViolations([{ doc: DOCS[0]?.doc ?? '', text: planted }, DOCS[1] as { doc: string; text: string }]);
+    expect(v.join('\n'), 'a fence running a psql-calling script with no PATH line was accepted').toContain(
       "runs psql and does not carry step P's PATH line",
     );
   });

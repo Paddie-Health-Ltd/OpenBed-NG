@@ -1382,6 +1382,88 @@ node scripts/freeze_applied_migrations.mjs 19 YYYY-MM-DD R-YYYY-MM-DD-NN
 - [x] Frozen boundary recorded, 2026-09-22: 18 migrations, `001_app_schema_and_migration_ledger.sql` first, `018_close_mirror_read_and_push_surfaces.sql` last (R-2026-09-22-52), with the frozen_migrations placeholder moved to 019 in the same change. `ledger_rows: 18`, matching the `18` read from hosted `app.schema_migrations` in the apply session; the recorder would have refused any other number.
 - [x] Frozen boundary recorded, 2026-09-23: 19 migrations, `001_app_schema_and_migration_ledger.sql` first, `019_snapshot_single_read_and_mirror_integrity.sql` last (R-2026-09-23-69). `ledger_rows: 19`, matching the `19` the founder read from hosted `app.schema_migrations` after the apply. No placeholder was moved by hand: since R-2026-09-22-53 `tests/compliance/frozen_migrations.test.ts` derives it from this boundary, so it is now 020.
 
+### 020's apply — the public output must not change (R-2026-09-24-73 BA-2)
+
+**Not run yet. Run it only after Cowork has reviewed these steps and the founder has
+given the word.** The -45 gate is unaffected: 020 creates no facility and no
+ward_account row, and none may be created on hosted until step 4b reads clear.
+
+**What 020 must not do.** It adds `app.facility.listed_at`, and it restates the two
+functions that decide what is public so that they require it. Existing facilities
+take `listed_at` from a column default, not from an UPDATE, so no projection trigger
+fires and no public row changes (-71 B1). The reading below checks that on hosted:
+`/beds.json`, `facility_public`, `ward_public` and `lga_rollup`, before and after.
+`scripts/readback_public_output.sh` reads all four, and its header says how.
+
+**Five fences, in this order. A stop condition never shares a fence with the step it
+gates.** Each fence waits silently at its `read -rs` line for the connection string,
+and removes it again on its last line.
+
+**1. The dry run.** The same command as the dry run at the top of this step, and the
+same stop condition: the list at the top of this step, which today names exactly one
+file, `020_operator_functions_and_listing.sql`. **Anything else: stop and report.**
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -rs DATABASE_URL && export DATABASE_URL
+bash scripts/run_migrations.sh --dry-run
+unset DATABASE_URL
+```
+
+**2. The before-reading.** It prints four lines and then a line beginning
+`FINGERPRINT`. **Keep that line.** It ends `RECORDED:` and exits 0, without a verdict,
+because a verdict needs something to compare with. **A `STOP:` or `ERROR:` here
+means do not apply.**
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -rs DATABASE_URL && export DATABASE_URL
+bash scripts/readback_public_output.sh https://openbed.ng
+unset DATABASE_URL
+```
+
+**3. The apply.** Only after fences 1 and 2 have both read as they must.
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -rs DATABASE_URL && export DATABASE_URL
+bash scripts/run_migrations.sh
+unset DATABASE_URL
+```
+
+**4. The after-reading.** The same command, with the fingerprint from fence 2 in
+single quotes. The before-reading prints this command with the value already in it,
+so copy that line and do not retype the fingerprint.
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -rs DATABASE_URL && export DATABASE_URL
+bash scripts/readback_public_output.sh https://openbed.ng 'PASTE-THE-FINGERPRINT-HERE'
+unset DATABASE_URL
+```
+
+- **PASS:** the last line begins `PASS:`, and every part reads `ok`.
+- **PASS (VACUOUS FOR B1)** is what an empty project reads: nothing public before or
+  after. On 2026-09-23, read-back 6 of the dashboard deploy read a body beginning
+  `{"v":9371,"wards":[],"facilities":[]` (the -70 step (a) note), so this is the
+  expected answer today. It shows that the apply
+  created no public row. It cannot show that it changed none, because there was
+  nothing to change. That half is `tests/db/migration_020_round_trip.test.ts`.
+- **STOP:** a part reads `WRONG`. Run nothing further, and paste the whole output
+  back. **Do not apply 020's down migration on your own authority.**
+
+**5. The ledger count.** Must print `20`.
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -Atc "select count(*) from app.schema_migrations"
+unset DATABASE_URL
+```
+
+**Afterwards:** the frozen boundary is recorded as above with `20`, in the change
+that records this apply, not in the session that runs it.
+
 ### Expected output, including the one line that looks like a failure and is not
 
 **On the hosted project today** (001 through 019 applied, 020 in the repository and
@@ -2368,8 +2450,17 @@ So, once SMTP works and the admin app exists, request an operator sign-in link a
   not click the link. Report its `redirect_to`, but never the rest of the link, which
   carries the sign-in token. Do not add a wildcard to make it pass.
 
-PR 3.4b turns this read into a script, and gives the ward console a stop message for a
-session with no ward, together with the admin app the read needs.
+**This read is done only with the script PR 3.4b adds, never by eye (R-2026-09-24-73
+BA-1).** Until that script exists, no operator sign-in link is requested. By eye, one
+correct link can read two ways. Auth percent-encodes `redirect_to` when it holds `&`,
+`=` or `#`, and leaves it plain otherwise. Read in GoTrue's source, 2026-09-24: the
+function is `encodeRedirectURL`. The one hosted link on record was plain (step 9,
+2026-09-14). An email provider's click tracking can also rewrite the whole link. The
+script decodes the value before it compares, prints both forms, and refuses a link that
+does not point at the project's own Auth host.
+
+PR 3.4b also gives the ward console a stop message for a session with no ward, together
+with the admin app the read needs.
 
 Record the exact strings entered, and the observed `redirect_to`, in the Site URL row
 of the un-automatable table below, with the date.

@@ -3591,6 +3591,41 @@ This amends -71 D and 2026-09-14 D2; both are left as written with a pointer her
 
 **FOUND ON LANDING, an open item for 3.4b.** The fallback AZ-1 names does not read as STOP today. An operator whose link falls back lands on the ward console, which calls `my_facility_wards`, gets 200 with zero rows (AZ-2), and renders an empty handover list: a sign-in that looks as if it worked. 3.4b gives that zero-ward session a stop message, and turns the H3 read-back into a script, together with the admin app that the read-back needs.
 
+### R-2026-09-24-73 — #69 merged; 020's hosted apply prepared as founder steps, with a read-back that the public output did not change; the redirect read is script-only
+
+_Issued as R-PROVISIONAL-2026-09-24-BA, by Cowork on 2026-09-24, as its review of the -72 landing and of #69, with the founder's merge word for #69. Number assigned on landing from the record's last as read on merged `main` at `0406b4f`: R-2026-09-23-72. Lands on `hosted-apply-020`, which carries the read-back script and its tests, so it is a pull request in its own right under R-46. Next provisional letter: BB._
+
+**COWORK'S READINGS, 2026-09-24, recorded as Cowork's, each re-read on landing:**
+- #68 closed and merged, merge commit `ae14701` (parents `2e62579`, `590cb5c`), head `590cb5c`; `record-after-67` answers 404. **Re-read on landing:** `git rev-parse ae14701^1 ae14701^2` gives those parents; the branches API answers `404 Branch not found`.
+- #69 open, head `86ff698`, base `ae14701`, mergeable CLEAN, all seven check runs success. **Re-read on landing,** before the merge: `gh pr view 69` gave that head and CLEAN, and the pulls API gave base `ae14701`.
+- `cb9be47` carries no code change from `03f7cc3`, and `86ff698` touches only the decision record and `docs/runbook-supabase-project-creation.md`. **Re-read on landing:** `git diff --stat 03f7cc3 cb9be47` is empty; `git show --stat 86ff698` lists those two files.
+
+**MERGE WORD — #69.** Merged as a merge commit on the founder's word, with `--match-head-commit` taken from the API read: **`0406b4f`** (parents `ae14701`, `86ff698`). MERGED was read back from the API before `pr-3.4a-operator-functions` was deleted, as a separate step.
+
+**BA-1 — THE redirect_to READ IS DONE ONLY WITH 3.4b's SCRIPT.** The script decodes `redirect_to` before comparing and prints both forms. Until it exists, the H3 runbook text says the read is script-only, and that no operator link is requested.
+- **Its stated reason does not hold for these strings; the instruction stands on others.** BA-1 says the emailed link carries `redirect_to` percent-encoded. GoTrue encodes it only when it holds `&`, `=` or `#` (`encodeRedirectURL`, `internal/mailer/templatemailer/templatemailer.go:515-525` in supabase/auth, read at `2399fe5`, 2026-08-10; hosted's own GoTrue version is not pinned to that commit). `https://admin.openbed.ng/` holds none of them. The one hosted link on record was plain: `redirect_to=http://localhost:3000`, runbook step 9, 2026-09-14.
+- **Why the script is still right.** One correct link can reach a reader in two spellings. An email provider's click tracking can rewrite the whole link. And a comparison made by eye is the thing the -70 H4 fix removed. So 3.4b's script also refuses a link that does not point at the project's own Auth host.
+
+**BA-2 — 020's HOSTED APPLY, AS FOUNDER STEPS, SENT TO COWORK BEFORE ANYTHING RUNS.** The new subsection of runbook step 5, "020's apply — the public output must not change", has five fences:
+1. the dry run, against the step 5 list, which names exactly `020_operator_functions_and_listing.sql`;
+2. the before-reading;
+3. the apply;
+4. the after-reading, with the before-reading's fingerprint;
+5. the ledger count, which must read 20.
+
+`scripts/readback_public_output.sh` reads `/beds.json`'s `facilities` and `wards`, and each of `facility_public`, `ward_public` and `lga_rollup` as a count and a digest. `lga_rollup` is read without `updated_at`, which its refresh rewrites. The script gives PASS, or a STOP naming each part that moved. Nothing hosted is run until Cowork has read the steps, and this pull request has merged on the founder's word, because the steps call the script from `main`. The -45 gate is unaffected.
+- **THE LIMIT, stated in the script's own output.** Hosted is empty: read-back 6 read `{"v":9371,"wards":[],"facilities":[]` on 2026-09-23. So the after-reading can show only that the apply created no public row, not that it changed none; there is nothing to change. It then reads `PASS (VACUOUS FOR B1)`, never a plain PASS. B1's evidence stays `tests/db/migration_020_round_trip.test.ts`.
+- **What the read-back's own queries were proved against.** `tests/db/readback_public_output_sql.test.ts` runs the script's three query literals against the real schema. A no-op UPDATE of a listed facility fires the projection, and the `facility_public` digest sees it. A changed ward row is seen. A new rollup row and a changed total are seen, and an `updated_at`-only rollup change is not. Weakening the facility query to four columns, or the rollup query to `select *`, reds the matching leg.
+
+**BA-3 — THEN 3.4b, AS QUEUED:**
+- the admin app;
+- the script calling `provision_begin` first, with J4's zero Auth admin requests on a complete ward;
+- the ward console's stop message for a session with no ward;
+- the redirect read-back script (BA-1);
+- per-app lists derived from one source (H);
+- the facility-creation runbook step;
+- the two hosted Auth checks.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -3654,6 +3689,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | AX | R-2026-09-23-70 | 2026-09-23 | **PR 3.3's design signed off with four amendments.** `/otp` is not rewritten: option B works only by holding per-address state at the Worker, on the ward's only sign-in path, and closes nothing while `*.supabase.co` answers directly; it is revisited when -55 C lands. A probe proves forwarding by headers, never by body, because hosted's no-key body is the gateway's and not PostgREST's. `/auth/v1/verify` is a named direct-origin exception. `token` is forwarded only for the refresh grant. Every pending count in the Supabase runbook is now scanned, and the scan's first plant found a region that was read too wide. Cowork records its own error on AJ F2. The ward console's raw codes go to PR 3.4. |
 | AY | R-2026-09-23-71 | 2026-09-23 | **`record-after-67` becomes its own pull request, and PR 3.4 splits.** "Unlisted" is a new `listed_at`, never quiet mode, because a quiet facility still feeds the public rollup and would count toward its k-floor while it reports nothing. The secret key goes to no Cloudflare Function in v1: provisioning stays in the script, over one SQL implementation of the gates. The redirect list gains `admin.openbed.ng`, amending D2. A row version, idempotent create and add, one active account per ward, and no Auth call on a complete account. Two of its premises did not hold as stated: the reads return a `PLATFORM_ADMIN` zero rows rather than refusing it, and no operator RPC provisions in v1. |
 | AZ | R-2026-09-23-72 | 2026-09-24 | **#68 merged; the redirect entries become the exact slashed strings the apps send**, amending -71 D, so nothing rests on Supabase's matching rules. A silent fallback to the Site URL must read as STOP. -71's premise corrections are accepted, and J4's zero Auth calls bind the 3.4b script. Found on landing: the ward console renders a fallen-back operator's zero-row session as an empty list, for 3.4b. |
+| BA | R-2026-09-24-73 | 2026-09-24 | **#69 merged; 020's hosted apply prepared as founder steps.** A new read-back compares the public output before and after the apply, and says VACUOUS FOR B1 when there was nothing public to change, as on hosted today. The `redirect_to` read becomes script-only. Its stated reason, that the value is percent-encoded, does not hold for these strings (GoTrue encodes only on `&`, `=` or `#`), and the instruction stands on other grounds. |
 
 ## Method notes — how rulings reach the implementer
 
