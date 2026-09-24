@@ -1530,6 +1530,43 @@ unset DATABASE_URL
 **Afterwards:** the frozen boundary is recorded as above with `20`, in the change
 that records this apply, not in the session that runs it.
 
+### 021's apply — the same six fences, fence 6 after the apply (R-2026-09-24-78 BF-2)
+
+**Not run yet.** It runs after 021's pull request merges, on the founder's word and
+with Cowork reading each fence back. The -45 gate is unaffected: 021 creates no
+facility and no ward_account row.
+
+**Between 021's merge and its apply, fence 6 is NOT run.** From that merge,
+`packages/fixtures/function-grants.json` names 021's functions, and hosted does not
+have them yet. Fence 6 would read each of them as absent, and STOP for a reason that
+is only the order of events.
+
+**Run the six fences of "020's apply" above, in the same order, with these
+expectations for 021.** The fences are the procedure. Only what each must read
+changes:
+
+1. **The dry run:** the list at the top of this step, which today names exactly one
+   file, `021_facility_agreement_and_contact_write.sql`. Anything else: stop and
+   report.
+2. **The before-reading:** as for 020. Keep the `FINGERPRINT` line. The before/after
+   comparison still holds, because no ward can publish yet (-74 BB-3).
+3. **The apply:** as for 020. 021's own pre-check refuses to apply if any contact row
+   carries `agreement_accepted_at`, naming the count (-78 BF-1 a). Hosted has none.
+4. **The after-reading:** as for 020. `PASS (VACUOUS FOR B1)` is expected while
+   hosted is empty. 021 writes no projected table.
+5. **The second dry run:** the list at the top of this step once 021 is applied,
+   which will then name no file. Anything else: stop and report.
+6. **Who can execute what, AFTER the apply and never before:** as for 020. Every
+   function in `packages/fixtures/function-grants.json`'s main section reads `ok`,
+   including 021's `operator_register`, `operator_record_contact`,
+   `operator_record_agreement` and `operator_get_contact`, each `authenticated`.
+   `public.rls_auto_enable()` reads `ok` under `(hosted-only)`. 020's
+   `operator_list_facilities` is gone (dropped by 021), so it must not appear at
+   all: if it does, it reads `WRONG` as a function the fixture does not name.
+
+**Afterwards:** the frozen boundary is recorded with `21`, in the change that records
+this apply.
+
 ### Expected output, including the one line that looks like a failure and is not
 
 **On the hosted project today** (001 through 020 applied, 021 in the repository and

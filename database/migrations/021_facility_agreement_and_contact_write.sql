@@ -43,14 +43,21 @@
 --      function"), breaking tests/db/migration_idempotency.test.ts's invariant that
 --      every forward migration re-applies cleanly over the later ones. Nothing but
 --      tests called the old name. Its grants follow its creation below (BD-1 e).
+--      Accepted by R-2026-09-24-78 BF-1 c, which asked for one read path by
+--      keeping the old function with its grant revoked. It is DROPPED instead. Kept,
+--      it would be broken: its 020 body reads facility_contact.agreement_accepted_at
+--      (020:698), which this migration drops, so it would error on any call. A
+--      re-apply of 020 recreates it and a re-apply of this drops it again, so 020
+--      still re-applies unchanged. The down migration restores it with its grant.
 --
 -- NOTHING IS MOVED, AND NOTHING IS INVENTED. BD-1 b asks for existing
 -- agreement_accepted_at values to be moved, behind a pre-check that refuses when any
 -- exist. Both cannot act: the pre-check refuses exactly when there is something to
 -- move, and a moved agreement would need a version that was never recorded. So the
--- pre-check below is the whole of it. Hosted holds no facility (runbook step 4b, read
--- 2026-09-21), so it holds no contact row. The down migration mirrors this, refusing
--- while any agreement row exists, so neither direction loses or invents an agreement.
+-- pre-check below is the whole of it (agreed by R-2026-09-24-78 BF-1 a). Hosted holds
+-- no facility (runbook step 4b, read 2026-09-21), so it holds no contact row. The down
+-- migration mirrors this, restoring the column empty and refusing while any
+-- agreement row exists, so neither direction loses or invents an agreement.
 --
 -- APPLYING THIS CHANGES NO PUBLIC OUTPUT. No projected table is written: the contact
 -- and the agreement are not projected (008's triggers are on facility, facility_ops
@@ -512,6 +519,8 @@ BEGIN
         RETURN;
     END IF;
 
+    -- No expected-version parameter (R-2026-09-24-78 BF-1 b): nothing here is ever
+    -- overwritten, so there is no stale write for one to guard.
     -- An agreement exists. An identical repeat is an answer; anything else is never
     -- overwritten here, withdrawn or not. A new version is a founder step (BD-1 c).
     SELECT * INTO v_old FROM app.facility_agreement a WHERE a.facility_id = v_id;

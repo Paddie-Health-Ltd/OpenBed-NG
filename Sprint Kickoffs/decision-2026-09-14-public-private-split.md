@@ -3780,6 +3780,35 @@ _Issued as R-PROVISIONAL-2026-09-24-BE, by Cowork on 2026-09-24, as its read-bac
 
 **BE-4 — ORDER:** 021's pull request opens only after this change merges and fence 6 re-reads PASS. Merging `main` into 021 then restates its step 5 to 1 pending (021), and moves 4b's invite-gate row onto `app.facility_agreement`.
 
+### R-2026-09-24-78 — #71 merged; 021's three findings ruled; fence 6 is not run between 021's merge and its apply
+
+_Issued as R-PROVISIONAL-2026-09-24-BF, by Cowork on 2026-09-24, as its check of #71 at `ef33fa6` and its rulings on 021's build findings. Pasting it was the founder's merge word for #71. Number assigned on landing: R-2026-09-24-77 plus one, read on this branch after `main` (with -77) was merged in. Record-only; lands on `pr-3.4b-db-021`, with 021. Next provisional letter: BG._
+
+**COWORK'S READINGS, re-read on landing:** #71 open at `ef33fa6`, base `4a6a9e9`, CLEAN, seven check runs success, all read from the API before the merge. Also re-read from the files: the fixture's 24 `functions` entries and its one `hosted_only` entry; the read-back's handling of each section; the comment-only change to `scripts/provision_ward_account.mjs`; and the Supabase processor row. **#71 merged at `f1d3a1f`** (parents `4a6a9e9`, `ef33fa6`), MERGED read back from the API, and `record-020-apply` deleted afterwards (404).
+
+**THEN:** the founder refreshes the deploy checkout and re-runs fence 6 ONLY. It must read PASS, with `public.rls_auto_enable()` reading `ok` under `(hosted-only)`. **Not yet run when this lands.**
+
+**BF-1 — 021'S THREE FINDINGS:**
+- **a) The move is dropped and the pre-check kept.** 021 refuses to apply over any contact row carrying `agreement_accepted_at`, naming the count, and then drops the column. The down migration restores the column empty. Already as built, and 021's header now cites this.
+- **b) `operator_record_agreement` has no `p_expected_version`.** It never overwrites: an identical repeat returns, and a different agreement is `AGREEMENT_ALREADY_RECORDED`. Already as built.
+- **c) One read path, `operator_register()`. The mechanism differs from BF-1 c as written, and the property is kept.**
+  - BF-1 c asks that 021 keep `operator_list_facilities()` with EXECUTE revoked from authenticated, and a fixture entry `execute []` reading "kept so 020 re-applies unchanged". **021 as built DROPS it instead.**
+  - **A kept function would be broken.** Its 020 body reads `facility_contact.agreement_accepted_at` (020:698), which 021 drops, so every call would error. That is a function left in the schema that cannot run.
+  - **020 still re-applies unchanged with the drop.** A re-apply of 020 recreates the function, a re-apply of 021 drops it again, and `tests/db/migration_idempotency.test.ts` passes on exactly that sequence.
+  - The down migration restores it with 020's body and grant.
+  - So there is one read path and no fixture entry, because there is no function. The D3 list holds `operator_register` and not the old name. 3.4b-app calls `operator_register` only, and only it enters the Worker allow-list.
+  - **For Cowork to overrule before 021's pull request.**
+
+**BF-2 — FENCE 6 AROUND 021.** Between 021's merge and its hosted apply, fence 6 is not run: from the merge, the fixture names 021's functions, which hosted does not yet have. 021's apply uses 020's six fences, with fence 6 after the apply. Runbook step 5's new "021's apply" subsection states both. It lists 021's expectation for each fence, and names `operator_list_facilities` as a function that must be gone after the apply.
+
+**BF-3 — THE REWORK, done on `pr-3.4b-db-021`:**
+- `main` (with #71) is merged in.
+- Step 5 is restated to 1 pending (021), and the guard's pinned legs to ONE naming 021.
+- Step 4b's row 4 cites 021's restated `provision_begin` (021:282-291, with `AGREEMENT_WITHDRAWN`), and the interim notes are dropped.
+- The grants fixture keeps `hosted_only`, adds 021's entries, and has no `operator_list_facilities`.
+
+**021's pull request opens only after fence 6 reads PASS on hosted (BE-4), and its report goes to Cowork.**
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -3848,6 +3877,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | BC | R-2026-09-24-75 | 2026-09-24 | **#70 merged; fence 6's exact match accepted; step 4b to be restated with evidence; the design review.** The three contact addresses and the controller are fixed, and there is no privacy@. The prototype's admin code is not copied in. 3.4b splits into 021 and the app. The public site is beds first, with a privacy notice to draft, and never "within 30 seconds". No tile ruling exists. |
 | BD | R-2026-09-24-76 | 2026-09-24 | **021 signed off, with the agreement moved off the contact person's row** so that no erasure reaches it; five questions ruled; Supabase added as a processor. Found in the build: the move and its pre-check cannot both act; the agreement write needs no version check; the list becomes `operator_register()`, because a return type cannot change in place. |
 | BE | R-2026-09-24-77 | 2026-09-24 | **020 applied on hosted: fences 1-5 as they must be, and fence 6's first real STOP**, on Supabase's `rls_auto_enable()`. That function was ruled hosted-only and inert, and is held to every recorded property. The record already held it (-55 D3, -56 A7), and a single list of hosted objects now exists. The stop was foreseeable from the record. |
+| BF | R-2026-09-24-78 | 2026-09-24 | **#71 merged; 021's three build findings ruled** (the move dropped and the pre-check kept; no version check on the agreement write; one read path). BF-1 c's revoke-and-keep is carried out as a drop instead, because the kept function would read a dropped column. It is reported for Cowork to overrule. Fence 6 is not run between 021's merge and its apply. |
 
 ## Method notes — how rulings reach the implementer
 
