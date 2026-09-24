@@ -728,10 +728,14 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions. Until
 that wrong.
 
 - **The hosted project today** holds 001 through 019 (see step 7), and the
-  repository holds nothing newer. Every file up to and including
+  repository holds 020. Every file up to and including
   `019_snapshot_single_read_and_mirror_integrity.sql` must read `already applied`;
-  there must be no `WOULD APPLY` line; and the dry run must end
-  `0 migration(s) pending.`
+  there must be exactly one `WOULD APPLY` line, naming
+  `020_operator_functions_and_listing.sql`; and the dry run must end
+  `1 migration(s) pending.`
+- **Restated 2026-09-23 (R-2026-09-23-71), in the change that ADDS 020.** Until
+  then this expected no `WOULD APPLY` line and `0 migration(s) pending.`, which was
+  right while the repository and hosted both ended at 019.
 - **Restated 2026-09-23 (R-2026-09-23-69), in the change that records 019's hosted
   apply.** Until then this expected 001 through 018, exactly one `WOULD APPLY` line
   naming `019_snapshot_single_read_and_mirror_integrity.sql`, and
@@ -772,10 +776,13 @@ that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line AT ALL, or any count other than
-  `0 migration(s) pending.`: stop and report.** A file pending means either a
-  migration reached the repository after the list was last restated, or hosted is
-  not where this document says it is.
+- **Any `WOULD APPLY` line OTHER than the one named above, or any count other
+  than `1 migration(s) pending.`: stop and report.** Another file pending means
+  either a migration reached the repository after the list was last restated, or
+  hosted is not where this document says it is.
+  - *Restated 2026-09-23 (R-2026-09-23-71), in the change that adds 020. Until then
+    this bullet read "Any `WOULD APPLY` line AT ALL, or any count other than
+    `0 migration(s) pending.`", which was right while the repository ended at 019.*
   - *Restated 2026-09-23 (R-2026-09-23-69), in the change that records 019's hosted
     apply. Until then this bullet read "Any `WOULD APPLY` line OTHER than the one
     named above, or any count other than `1 migration(s) pending.`", which was right
@@ -1377,12 +1384,17 @@ node scripts/freeze_applied_migrations.mjs 19 YYYY-MM-DD R-YYYY-MM-DD-NN
 
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 019 applied, nothing newer in the
-repository), the dry run prints nineteen `already applied` lines and:
+**On the hosted project today** (001 through 019 applied, 020 in the repository and
+not yet applied), the dry run prints nineteen `already applied` lines and:
 
 ```
-0 migration(s) pending.
+  WOULD APPLY     : 020_operator_functions_and_listing.sql   <- dry run
+1 migration(s) pending.
 ```
+
+*Restated 2026-09-23 (R-2026-09-23-71), in the change that adds 020.* Until then
+this block showed nineteen `already applied` lines, no WOULD APPLY line, and a
+count of zero -- right while the repository ended at 019.
 
 *Restated 2026-09-23 (R-2026-09-23-69), in the change that records 019's hosted
 apply.* Until then this block described the state BEFORE that apply: eighteen
@@ -1455,9 +1467,14 @@ Migrations complete (3 applied this run).   <- apply
 second is lower:
 
 ```
-19 migration(s) pending.          <- dry run
-Migrations complete (18 applied this run).   <- apply
+20 migration(s) pending.          <- dry run
+Migrations complete (19 applied this run).   <- apply
 ```
+
+*Restated 2026-09-23 (R-2026-09-23-71), in the change that adds 020. This block
+read `19` and `18` -- right while the repository ended at 019. Observed on the
+local stack in this change: a fresh `db:reset` printed `Migrations complete (19
+applied this run).`*
 
 *Restated 2026-09-23 (R-2026-09-23-69). This block read `18` and `17` -- right while
 the repository ended at 018 -- and the change that added 019 did not restate it,
@@ -1465,21 +1482,23 @@ so from that merge it named a count one lower than a correct virgin run prints. 
 not one of the hosted expectations the guard parses; it was found by reading the
 section for this restatement.*
 
-**Eighteen is correct there. Nothing was skipped.** Migration 001 creates the `app`
+**Nineteen is correct there. Nothing was skipped.** Migration 001 creates the `app`
 schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
 recorded by a ledger that does not exist yet. The runner applies and ledgers it
 in a separate **bootstrap** step, and the apply loop then counts only what it
-applied itself -- 002 through 019, which is eighteen. The dry run has no bootstrap
+applied itself -- 002 through 020, which is nineteen. The dry run has no bootstrap
 branch: `is_applied` returns 0 while the ledger is absent, so it counts all
-nineteen as pending. The two numbers are measuring different things.
+twenty as pending. The two numbers are measuring different things.
 
 **Confirm it by the ledger, which is the artefact that matters, not by the
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `19`, with `0 migration(s) pending.` from the
-dry run** -- the founder read `19` after 019's apply on 2026-09-23, and the second
-dry run printed `0 migration(s) pending.` *Restated 2026-09-23 (R-2026-09-23-69),
+THAT PROJECT. **On hosted today that is `19`, with `1 migration(s) pending.` from the
+dry run**, the one being `020_operator_functions_and_listing.sql` -- the founder read
+`19` after 019's apply on 2026-09-23. *Restated 2026-09-23 (R-2026-09-23-71), in the
+change that adds 020; until then it read `19` with `0 migration(s) pending.`, which
+was right while the repository ended at 019.* *Restated 2026-09-23 (R-2026-09-23-69),
 in the change that records that apply; until then it read `18` with
 `1 migration(s) pending.`* *Restated 2026-09-23 (R-2026-09-23-67): this is the
 FOURTH statement of the pending expectation in this section, and the change that added
@@ -2315,7 +2334,7 @@ call was used.
   their own machine. See the Site URL row of the un-automatable table at the end
   of this runbook.
 
-### Entering the Site URL and redirect URLs (H3, R-2026-09-23-71 D)
+### Entering the Site URL and redirect URLs (H3, R-2026-09-23-71 D, amended by R-2026-09-23-72 AZ-1)
 
 **Not done yet.** Entered by the founder in the Supabase dashboard, as part of H3,
 together with custom SMTP and its processor agreement. Until all three are done, no
@@ -2324,24 +2343,33 @@ ward and no operator can receive a working sign-in link.
 Enter **exactly these strings**, with no wildcards:
 
 - **Site URL:** `https://app.openbed.ng`
-- **Redirect URLs** — two entries:
-  - `https://app.openbed.ng`
-  - `https://admin.openbed.ng`
+- **Redirect URLs** — two entries, each ending in `/`:
+  - `https://app.openbed.ng/`
+  - `https://admin.openbed.ng/`
+
+The redirect entries end in `/` because that is exactly what both apps send:
+`redirect_to=<their origin>/`. They are entered as sent, so that nothing depends on
+how Supabase Auth matches one string against another (-72 AZ-1). The Site URL has no
+`/`.
 
 `openbed.ng` is never an auth redirect target: the public site has no session to land.
 
-**Read back after entering them — the admin half is not yet known to work.** Both
-apps ask for `redirect_to=<their origin>/`, with a trailing slash. Supabase Auth admits
-a redirect on the Site URL's own host whatever the path, so `app.openbed.ng` is
-admitted. `admin.openbed.ng` is a different host, so only its entry above can admit
-it, and **whether `https://admin.openbed.ng` admits `https://admin.openbed.ng/` has not
-been observed.** The local stack cannot decide it: there, the Site URL and every
-redirect share the host `127.0.0.1`. So, once SMTP works and the admin app exists,
-request an operator sign-in link and read the `redirect_to` in the emailed link:
+**Read back after entering them: where the admin link lands.** **If Auth does not match
+a redirect, it falls back to the Site URL silently.** An operator's link would then take
+them to `app.openbed.ng`, the ward console. There an operator has no ward, so the
+console shows an empty list, which looks like a sign-in that worked. The local stack
+cannot show this: there, the Site URL and every redirect share the host `127.0.0.1`.
+So, once SMTP works and the admin app exists, request an operator sign-in link and,
+**before clicking it**, read the `redirect_to` in the emailed link:
 
-- **Pass:** it begins `https://admin.openbed.ng/`.
-- **Fail:** it is the Site URL (`https://app.openbed.ng`). The entry did not match;
-  report the link's `redirect_to` and stop. Do not add a wildcard to make it pass.
+- **Pass:** it is exactly `https://admin.openbed.ng/`.
+- **STOP, on any other value**, and above all on the Site URL (`https://app.openbed.ng`).
+  That value means the entry did not match and Auth fell back without saying so. Do
+  not click the link. Report its `redirect_to`, but never the rest of the link, which
+  carries the sign-in token. Do not add a wildcard to make it pass.
+
+PR 3.4b turns this read into a script, and gives the ward console a stop message for a
+session with no ward, together with the admin app the read needs.
 
 Record the exact strings entered, and the observed `redirect_to`, in the Site URL row
 of the un-automatable table below, with the date.
@@ -2557,7 +2585,7 @@ is the same exists-then-compare shape as the two queries above. The
 |---|---|
 | Region pin | Assertable via the Management API, declined on credential-surface grounds |
 | Hosted exposed-schemas list | A dashboard setting with no in-database representation — **but not unobservable.** Discharged by hand probe on 2026-09-13: the live project's `PGRST106` body carries `hint: "Only the following schemas are exposed: public, graphql_public"` (step 2). No test carries it, because the suite never targets hosted (step 6). `extra_search_path` is a separate setting, discharged by its own single-field probe on 2026-09-13 (step 2): `public, extensions`, the untouched Supabase default |
-| Hosted Auth Site URL and redirect allowlist | A dashboard setting with no in-database representation, the same idiom as the exposed-schemas list. Decided 2026-09-14 (`Sprint Kickoffs/decision-2026-09-14-public-private-split.md`, D2): the Site URL is on `app.openbed.ng`, and `openbed.ng` is never an auth redirect target. **The redirect list is exactly `https://app.openbed.ng` and `https://admin.openbed.ng`** (R-2026-09-23-71 D, amending D2's "confined to it"); the strings and their read-back are under "Entering the Site URL and redirect URLs" above. **Observed 2026-09-14 (step 9): the hosted Site URL is still http://localhost:3000, the Supabase default.** It arrives as `redirect_to` in every link examined, so a ward clicking a real link today is sent to their own machine. It becomes https://app.openbed.ng when the app exists. Record the exact hosted strings here when they are entered. The values in `supabase/config.toml` are local-only |
+| Hosted Auth Site URL and redirect allowlist | A dashboard setting with no in-database representation, the same idiom as the exposed-schemas list. Decided 2026-09-14 (`Sprint Kickoffs/decision-2026-09-14-public-private-split.md`, D2): the Site URL is on `app.openbed.ng`, and `openbed.ng` is never an auth redirect target. **The Site URL is exactly `https://app.openbed.ng`, and the redirect list is exactly `https://app.openbed.ng/` and `https://admin.openbed.ng/`**: the strings the apps send (R-2026-09-23-71 D, amending D2's "confined to it"; slashes by R-2026-09-23-72 AZ-1). A redirect that does not match falls back silently to the Site URL, and that is a STOP. The strings and their read-back are under "Entering the Site URL and redirect URLs" above. **Observed 2026-09-14 (step 9): the hosted Site URL is still http://localhost:3000, the Supabase default.** It arrives as `redirect_to` in every link examined, so a ward clicking a real link today is sent to their own machine. It becomes https://app.openbed.ng when the app exists. Record the exact hosted strings here when they are entered. The values in `supabase/config.toml` are local-only |
 | Hosted role attributes | A property of Supabase-managed roles; no migration can assert it and a platform upgrade or project restore can change it. **Observed 2026-09-15 by Cowork, read-only:** hosted `postgres` and `service_role` are both `rolsuper f`, `rolbypassrls t`, identical to local. The old row said the local role graph differs from the hosted one; on these attributes it does not. Re-observe after any Supabase platform change |
 | Hosted auth session bounds (`timebox`, `inactivity_timeout`) | A dashboard setting with no in-database representation. Both bounds ARE proved locally in `tests/db/auth_refresh_live.test.ts`; the hosted values are step 3 |
 | Magic-link single-use and expiry | Enforced by Supabase auth, not by this schema, since `app.invite` no longer holds a token. Step 9 is the hand check, partly closed on 2026-09-14. Closing it needs custom SMTP, which is recorded once, as the email-provider row of the open processor obligations in `Sprint Kickoffs/decision-2026-09-14-public-private-split.md` |

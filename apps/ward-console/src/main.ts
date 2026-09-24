@@ -2,6 +2,8 @@ import { SessionExpiredError, SessionHolder, requestSignInLink, sessionFromUrlFr
 import { apiOrigin } from '@openbed/origins';
 import { publishableKeyFor } from '@openbed/origins/keys';
 import { WARD_SUPPORT_EMAIL } from '@openbed/origins/support';
+import { categoryLabel, precedence, reasonLabel } from '@openbed/labels';
+import { OFFERING_CHOICES, ZERO_REASONS } from '@openbed/labels/ward';
 
 /**
  * THE WARD CONSOLE. Sign in with a magic link, see the wards at this account's
@@ -177,17 +179,13 @@ export function wardMessageFor(status: number, body: string): string {
   return UNRECOGNISED;
 }
 
-/** The eight reasons a ward may give for zero offered beds -- app.zero_reason (002), with words a ward reads. */
-export const ZERO_REASONS: ReadonlyArray<readonly [string, string]> = [
-  ['ALL_BEDS_OCCUPIED', 'All beds occupied'],
-  ['NO_ANAESTHETIST', 'No anaesthetist'],
-  ['STAFF_SHORTAGE', 'Staff shortage'],
-  ['EQUIPMENT_UNAVAILABLE', 'Equipment unavailable'],
-  ['WARD_CLOSED', 'Ward closed'],
-  ['AWAITING_DISCHARGE', 'Awaiting discharge'],
-  ['INFECTION_CONTROL', 'Infection control'],
-  ['OTHER', 'Other'],
-];
+/**
+ * The eight reasons a ward may give for zero offered beds -- app.zero_reason (002),
+ * with words a ward reads. Since R-2026-09-23-70 E the words live in
+ * packages/labels/ward-labels.json with every other word this console shows, so the
+ * console holds no word table of its own; re-exported here for the tests that read it.
+ */
+export { ZERO_REASONS };
 
 export interface WardRow {
   readonly category: string;
@@ -196,6 +194,10 @@ export interface WardRow {
   readonly accepting: boolean;
   readonly version: number;
   readonly gatedBy: string | null;
+  /** app.monitoring_state, app.status_source and app.status_state, as codes; shown in words. */
+  readonly monitoringState: string;
+  readonly source: string;
+  readonly state: string;
 }
 
 export interface RowRefusal {
@@ -229,7 +231,17 @@ export function wardRowFrom(r: unknown): WardRow | RowRefusal {
   if (typeof accepting !== 'boolean') return refuse('accepting is not true or false');
   const gatedBy = row['gated_by'];
   if (!(gatedBy === null || gatedBy === undefined || typeof gatedBy === 'string')) return refuse('gated_by is not text');
-  return { category, offering, bedCount: beds, accepting, version, gatedBy: gatedBy ?? null };
+  // The three states the console read none of until R-2026-09-23-70 E, and which
+  // decide how the line reads. Missing is refused like every other field; a code the
+  // label table does not know renders "Status unknown", never the code.
+  const code = (v: unknown): string | null => (typeof v === 'string' && /^[A-Z_]+$/.test(v) ? v : null);
+  const monitoringState = code(row['monitoring_state']);
+  if (monitoringState === null) return refuse('monitoring_state is missing or not a code');
+  const source = code(row['source']);
+  if (source === null) return refuse('source is missing or not a code');
+  const state = code(row['state']);
+  if (state === null) return refuse('state is missing or not a code');
+  return { category, offering, bedCount: beds, accepting, version, gatedBy: gatedBy ?? null, monitoringState, source, state };
 }
 
 function isRefusal(w: WardRow | RowRefusal): w is RowRefusal {
@@ -295,7 +307,7 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onUpdated: (update
 
   const offeringSelect = document.createElement('select');
   offeringSelect.name = 'offering';
-  for (const [value, label] of [['OFFERED', 'Offered'], ['NOT_OFFERED', 'Not offered']] as const) {
+  for (const [value, label] of OFFERING_CHOICES) {
     const option = document.createElement('option');
     option.value = value;
     option.textContent = label;
@@ -405,6 +417,12 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onUpdated: (update
           accepting: outcome.result.claim_accepting,
           version: outcome.result.version,
           gatedBy: outcome.result.public_gated_by,
+          // What publish_ward_status's UPDATE does to the three states it does not
+          // return (014:265-276): source becomes WARD, PENDING becomes ACTIVE and any
+          // other monitoring state is kept, and `state` is never written.
+          monitoringState: ward.monitoringState === 'PENDING' ? 'ACTIVE' : ward.monitoringState,
+          source: 'WARD',
+          state: ward.state,
         });
       } catch (e) {
         if (e instanceof SessionExpiredError) {
@@ -421,6 +439,25 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onUpdated: (update
 
   form.append(offeringSelect, bedCountInput, acceptingLabel, reasonSelect, submitButton, status);
   return form;
+}
+
+/**
+ * ONE WARD'S LINE, IN WORDS, WITH THE PUBLIC PAGE'S PRECEDENCE (R-2026-09-23-70 E).
+ * This printed the database's codes until then -- "ICU_ADULT: NOT_OFFERED, not yet
+ * reporting" -- and showed a PENDING ward's default offering as if someone had stated
+ * it. The words and the order in which states win are precedence() in
+ * packages/labels, the same function the public page uses, so the two cannot
+ * disagree.
+ */
+export function summaryLine(ward: WardRow): string {
+  const category = categoryLabel(ward.category);
+  const p = precedence({ monitoring_state: ward.monitoringState, offering: ward.offering, source: ward.source, state: ward.state });
+  if (p.kind !== 'claim') return `${category}: ${p.words}`;
+  // `bedCount === null` means never reported, and is rendered as such rather than as
+  // zero. Publishing "0 beds" for a ward nobody has updated states a claim the
+  // facility never made.
+  const beds = ward.bedCount === null ? 'not yet reporting' : `${ward.bedCount} beds`;
+  return `${category}: ${beds}${ward.accepting ? '' : ' — not accepting'}${ward.gatedBy ? ` (${reasonLabel(ward.gatedBy)})` : ''}${p.qualifiers}`;
 }
 
 function renderHandover(holder: SessionHolder, email: string | null, wards: (WardRow | RowRefusal)[]): void {
@@ -441,19 +478,13 @@ function renderHandover(holder: SessionHolder, email: string | null, wards: (War
       // look like one that can.
       console.error('OpenBed ward console: a ward row was refused', ward);
       summary.className = 'refused';
-      summary.textContent = `${ward.category ?? 'A ward'}: ${ROW_REFUSED}`;
+      summary.textContent = `${ward.category === null ? 'A ward' : categoryLabel(ward.category)}: ${ROW_REFUSED}`;
       li.append(summary);
       list.append(li);
       continue;
     }
 
-    // `bedCount === null` means never reported, and is rendered as such rather
-    // than as zero. Publishing "0 beds" for a ward nobody has updated states a
-    // claim the facility never made.
-    const beds = ward.bedCount === null ? 'not yet reporting' : `${ward.bedCount} beds`;
-    summary.textContent =
-      `${ward.category}: ${ward.offering}, ${beds}` +
-      `${ward.accepting ? '' : ' — not accepting'}${ward.gatedBy ? ` (${ward.gatedBy})` : ''}`;
+    summary.textContent = summaryLine(ward);
 
     const form = publishFormFor(holder, ward, (updated) => {
       const index = wards.findIndex((w) => !isRefusal(w) && w.category === ward.category);

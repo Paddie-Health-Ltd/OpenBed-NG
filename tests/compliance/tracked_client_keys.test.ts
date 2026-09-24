@@ -193,8 +193,9 @@ const EXPECTED_CLOSURE_PACKAGES: Record<string, string[]> = {
   // NOT origins: @openbed/snapshot's index re-exports only codec.ts, so serve.ts and its
   // relative edge into origins are reached by the Pages Function alone, which wrangler
   // builds and Vite never sees. Read 2026-09-23, not presumed.
-  'public-dashboard': ['snapshot'],
-  'ward-console': ['auth', 'origins'],
+  // labels since R-2026-09-23-70 E: the one table of words, shared by both screens.
+  'public-dashboard': ['labels', 'snapshot'],
+  'ward-console': ['auth', 'labels', 'origins'],
 };
 
 const APPS = deployableApps();

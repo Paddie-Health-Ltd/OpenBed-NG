@@ -98,9 +98,9 @@ export async function seedE2eCorpus(): Promise<void> {
   for (const f of [ALPHA, BETA]) {
     // Reactivated on conflict: resetE2eCorpus() deactivates rather than deletes.
     await db`
-      insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, quiet_mode, is_active)
-      values (${f.id}::uuid, ${f.name}, ${f.lga}, 'Lagos', ${f.lat}, ${f.lng}, ${f.phone}, false, true)
-      on conflict (id) do update set is_active = true, quiet_mode = false
+      insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, quiet_mode, is_active, listed_at)
+      values (${f.id}::uuid, ${f.name}, ${f.lga}, 'Lagos', ${f.lat}, ${f.lng}, ${f.phone}, false, true, now())
+      on conflict (id) do update set is_active = true, quiet_mode = false, listed_at = coalesce(app.facility.listed_at, now())
     `;
     // Duty flags at 'UNKNOWN' -- the state every real facility is in on day one.
     // If the gate ever treats UNKNOWN as closed, these rows go dark and the golden

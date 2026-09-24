@@ -22,7 +22,7 @@ import { sql, withRole } from '../setup/db.js';
  *    hold EXECUTE, and nobody else -- no PUBLIC, no anon, no service_role.
  *
  * tests/db/rls_rpc_execute_allowlist.test.ts asserts the anon-executable set is
- * empty across all of public. This file names the two functions and asserts the
+ * empty across all of public. This file names the RPCs (two until 020, seven since) and asserts the
  * stronger outcomes above for each.
  */
 
@@ -36,6 +36,33 @@ const RPCS = [
     name: 'ward_status_history',
     signature: 'public.ward_status_history(text, timestamptz, integer)',
     call: `select * from public.ward_status_history('ICU_ADULT', null, 1)`,
+  },
+  // The operator functions of 020 (R-2026-09-23-71): the first authenticated write
+  // surface since 014, so each gets the anon refusal and the exact ACL below.
+  {
+    name: 'operator_create_facility',
+    signature: 'public.operator_create_facility(text, text, text, text, double precision, double precision, text)',
+    call: `select * from public.operator_create_facility('00000000-0000-4000-8000-000000000000', 'x', 'x', 'x', 6.5, 3.4, '+2348000000000')`,
+  },
+  {
+    name: 'operator_edit_facility',
+    signature: 'public.operator_edit_facility(text, integer, text, text, text, double precision, double precision, text)',
+    call: `select * from public.operator_edit_facility('00000000-0000-4000-8000-000000000000', 1, 'x', 'x', 'x', 6.5, 3.4, '+2348000000000')`,
+  },
+  {
+    name: 'operator_set_facility_listed',
+    signature: 'public.operator_set_facility_listed(text, integer)',
+    call: `select * from public.operator_set_facility_listed('00000000-0000-4000-8000-000000000000', 1)`,
+  },
+  {
+    name: 'operator_add_category',
+    signature: 'public.operator_add_category(text, text, text)',
+    call: `select * from public.operator_add_category('00000000-0000-4000-8000-000000000000', 'ICU_ADULT', 'OFFERED')`,
+  },
+  {
+    name: 'operator_list_facilities',
+    signature: 'public.operator_list_facilities()',
+    call: `select * from public.operator_list_facilities()`,
   },
 ] as const;
 

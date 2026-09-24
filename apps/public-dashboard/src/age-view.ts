@@ -1,5 +1,5 @@
 import { freshnessBand, snapshotAge, type DecodedRow } from '@openbed/snapshot';
-import { categoryLabel, reasonLabel, stateWords, UNKNOWN_STATUS } from './labels.js';
+import { categoryLabel, precedence, reasonLabel, UNKNOWN_STATUS } from './labels.js';
 
 /**
  * WHAT A VISITOR IS TOLD ABOUT HOW OLD A COUNT IS (R-2026-09-23-67 A1-A5).
@@ -19,19 +19,17 @@ import { categoryLabel, reasonLabel, stateWords, UNKNOWN_STATUS } from './labels
  *           survived as small print, which is the count still on the page.
  *   PENDING / PAUSED  "not currently reporting", and no count at all
  *
- * WHICH STATE WINS, in this order (R-2026-09-23-68 C, the founder's condition):
- *   1. a monitoring_state or offering the label table does not know -> "Status
- *      unknown -- call to confirm". A state this page cannot read is not guessed at.
- *   2. PENDING or PAUSED -> "not currently reporting", WHATEVER THE OFFERING. A new
- *      ward is NOT_OFFERED by default (004) and PENDING by default, so a PENDING
- *      ward's offering may be a default nobody chose.
+ * WHICH STATE WINS is precedence() in packages/labels/src/index.ts, shared with the
+ * ward console since R-2026-09-23-70 E so the two screens cannot disagree:
+ *   1. any of monitoring_state, offering, status_source or status_state that the
+ *      label table does not know -> "Status unknown -- call to confirm";
+ *   2. PENDING or PAUSED -> "not currently reporting", WHATEVER THE OFFERING;
  *   3. NOT_OFFERED -> "not offered at this facility", with no count, age or
- *      accepting clause. Reached only by a ward that has left PENDING, and the only
- *      path out of PENDING today is publish_ward_status (014), which writes the
- *      offering in the same UPDATE: so this is the offering someone last STATED.
- *      tests/compliance/public_labels.test.ts holds that path to be the only one.
- *   4. otherwise, the count and its age band, below.
- * Every category and reason is shown in words from ./public-labels.json.
+ *      accepting clause -- reached only by a ward that has left PENDING, and every
+ *      path out of PENDING states the offering (tests/compliance/public_labels.test.ts);
+ *   4. otherwise, the count, the words for an ADMIN source and an UNDER_REVIEW state
+ *      BESIDE it (R-2026-09-23-69 (b); 002 section 6), and its age band, below.
+ * Every category, reason and state is shown in words from the shared table.
  *
  * AGE NEVER CHANGES A CLAIM. A stale ward is not shown as 0 beds or as not accepting
  * because it is stale; whatever the ward itself last said is shown, with its age.
@@ -82,23 +80,21 @@ export interface WardLine {
 /** The whole line for one ward: its claim, and how old that claim is. */
 export function wardLine(ward: DecodedRow, clock: ServeClock): WardLine {
   const category = categoryLabel(ward['category']);
-  const monitoring = stateWords('monitoring_state', ward['monitoring_state']);
-  const offering = stateWords('ward_offering', ward['offering']);
-  if (monitoring === undefined || offering === undefined) {
-    return { text: `${category}: ${UNKNOWN_STATUS}`, tone: 'unknown' };
-  }
-  if (ward['monitoring_state'] === 'PENDING' || ward['monitoring_state'] === 'PAUSED') {
-    return { text: `${category}: ${monitoring}`, tone: 'not-reporting' };
-  }
-  if (ward['offering'] === 'NOT_OFFERED') {
-    return { text: `${category}: ${offering}`, tone: 'not-offered' };
-  }
+  const p = precedence({
+    monitoring_state: ward['monitoring_state'],
+    offering: ward['offering'],
+    source: ward['source'],
+    state: ward['state'],
+  });
+  if (p.kind === 'unknown') return { text: `${category}: ${p.words}`, tone: 'unknown' };
+  if (p.kind === 'not-reporting') return { text: `${category}: ${p.words}`, tone: 'not-reporting' };
+  if (p.kind === 'not-offered') return { text: `${category}: ${p.words}`, tone: 'not-offered' };
 
   const bedCount = ward['bed_count'];
   const beds = bedCount === null ? 'not yet reporting' : `${String(bedCount)} beds`;
   const open = ward['accepting_effective'] === true;
   const reason = ward['gated_by'];
-  const claim = `${category}: ${beds}${open ? '' : ' — not accepting'}${reason === null || reason === undefined ? '' : ` (${reasonLabel(reason)})`}`;
+  const claim = `${category}: ${beds}${open ? '' : ' — not accepting'}${reason === null || reason === undefined ? '' : ` (${reasonLabel(reason)})`}${p.qualifiers}`;
 
   const updatedAt = typeof ward['updated_at'] === 'string' ? ward['updated_at'] : '';
   if (clock.servedAt === null || Number.isNaN(Date.parse(clock.servedAt)) || Number.isNaN(Date.parse(updatedAt))) {

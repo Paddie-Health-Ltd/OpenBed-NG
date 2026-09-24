@@ -1,0 +1,13 @@
+{
+  "name": "@openbed/labels",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The words shown in place of a database code, and the order in which a ward's states win, shared by the public page and the ward console so the two cannot disagree (R-2026-09-23-70 E). The root entry is the public table only; ./ward adds the words only the ward console shows.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ward": "./src/ward.ts"
+  }
+}

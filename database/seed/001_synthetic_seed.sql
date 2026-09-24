@@ -38,10 +38,13 @@ BEGIN;
 -- which is the state EVERY real facility will be in on the first day. If the
 -- gate ever treats UNKNOWN as closed, this facility goes dark and takes the
 -- whole city with it.
-INSERT INTO app.facility (id, name, lga, state, lat, lng, public_phone_e164, quiet_mode)
+-- listed_at is stated on every seed facility. Since 020 a NULL listed_at means
+-- UNLISTED, and an unlisted facility reaches no public output, so a seed that left
+-- it out would publish nothing (R-2026-09-23-71 B).
+INSERT INTO app.facility (id, name, lga, state, lat, lng, public_phone_e164, quiet_mode, listed_at)
 VALUES ('a0000000-0000-4000-8000-000000000001',
         'Synthetic Central Hospital (SYN-OPEN)', 'Ikeja', 'Lagos',
-        6.6018, 3.3515, '+2348000000001', false)
+        6.6018, 3.3515, '+2348000000001', false, now())
 ON CONFLICT (id) DO NOTHING;
 
 -- Flags left entirely at their NOT NULL DEFAULT 'UNKNOWN'. Not written out
@@ -93,10 +96,10 @@ ON CONFLICT DO NOTHING;
 -- that claim is preserved untouched (finding F1) -- only the projection reduces.
 -- NICU here is NOT gated, which is the cross-gate case: an anaesthetist being
 -- off duty must not close a neonatal unit.
-INSERT INTO app.facility (id, name, lga, state, lat, lng, public_phone_e164, quiet_mode)
+INSERT INTO app.facility (id, name, lga, state, lat, lng, public_phone_e164, quiet_mode, listed_at)
 VALUES ('a0000000-0000-4000-8000-000000000002',
         'Synthetic Riverside Hospital (SYN-GATED)', 'Surulere', 'Lagos',
-        6.4969, 3.3481, '+2348000000002', false)
+        6.4969, 3.3481, '+2348000000002', false, now())
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO app.facility_ops (facility_id, anaesthetist, obstetrician, paediatrician)
@@ -145,10 +148,10 @@ BEGIN
         -- numbers can be stated next to the assertion.
         v_beds := 3;
 
-        INSERT INTO app.facility (id, name, lga, state, lat, lng, public_phone_e164, quiet_mode)
+        INSERT INTO app.facility (id, name, lga, state, lat, lng, public_phone_e164, quiet_mode, listed_at)
         VALUES (v_id, 'Synthetic Quiet Hospital ' || i::text || ' (SYN-Q' || i::text || ')',
                 v_lga, 'Lagos', 6.60 + (i * 0.01), 3.30 + (i * 0.01),
-                '+23480000001' || i::text, true)
+                '+23480000001' || i::text, true, now())
         ON CONFLICT (id) DO NOTHING;
 
         INSERT INTO app.facility_ops (facility_id) VALUES (v_id)

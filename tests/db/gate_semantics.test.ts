@@ -16,8 +16,8 @@ const FAC = 'eeeeeeee-0000-4000-8000-000000000001';
 
 async function seed(tx: TransactionSql): Promise<void> {
   await tx.unsafe(`
-    insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164)
-    values ('${FAC}','Gate Semantics','Ikeja','Lagos',6.6,3.35,'+2348000000097')
+    insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, listed_at)
+    values ('${FAC}','Gate Semantics','Ikeja','Lagos',6.6,3.35,'+2348000000097', now())
   `);
   await tx.unsafe(`insert into app.facility_ops (facility_id) values ('${FAC}')`);
   await tx.unsafe(`

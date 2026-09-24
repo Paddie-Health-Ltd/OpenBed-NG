@@ -4,7 +4,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { facilityColumns, wardColumns } from '../../packages/snapshot/src/codec.js';
-import TABLE from '../../apps/public-dashboard/src/public-labels.json';
+import TABLE from '../../packages/labels/public-labels.json';
 import { withScratch, place, copyMigrations, REPO_ROOT } from './_scratch.js';
 
 /**
@@ -12,7 +12,7 @@ import { withScratch, place, copyMigrations, REPO_ROOT } from './_scratch.js';
  *
  * Until -68 the page printed `ICU_ADULT` and `NO_ANAESTHETIST_ON_DUTY`: the
  * database's words, not a reader's (-67 D found nothing that scoped plain labels).
- * apps/public-dashboard/src/public-labels.json is now the one table of words, and
+ * packages/labels/public-labels.json is now the one table of words, and
  * this file holds it complete.
  *
  * WHAT "COMPLETE" IS DERIVED FROM, never a hand list (C2):
@@ -170,8 +170,11 @@ describe('the label table is complete against the migrations', () => {
     const received = receivedEnumColumns(MIGRATIONS);
     const stale = { ...TABLE, labels: { ...TABLE.labels, gate_reason: { ...TABLE.labels.gate_reason, NO_SURGEON_ON_DUTY: 'no surgeon' } } };
     expect(labelViolations(enums, received, stale)).toEqual(['stale label gate_reason.NO_SURGEON_ON_DUTY -- the enum has no such value']);
-    const rest = Object.fromEntries(Object.entries(TABLE.not_yet_displayed).filter(([type]) => type !== 'status_source'));
-    expect(labelViolations(enums, received, { ...TABLE, not_yet_displayed: rest })).toEqual([
+    // Re-aimed by R-2026-09-23-69 (b): status_source moved from not_yet_displayed into
+    // labels when its rendering was built, so the omission is planted there.
+    const rest = Object.fromEntries(Object.entries(TABLE.labels).filter(([type]) => type !== 'status_source'));
+    expect(Object.keys(rest), 'the plant did not remove status_source').not.toContain('status_source');
+    expect(labelViolations(enums, received, { ...TABLE, labels: rest })).toEqual([
       'app.status_source reaches the page and the table does not mention it',
       'no label for status_source.WARD',
       'no label for status_source.ADMIN',
@@ -309,10 +312,51 @@ describe('offering and monitoring state: which one the page believes', () => {
   test.each([
     ['monitoring_state', { monitoring_state: 'SUSPENDED' }],
     ['offering', { offering: 'MAYBE' }],
+    ['status_source', { source: 'ROBOT' }],
+    ['status_state', { state: 'DISPUTED' }],
   ])('an unknown %s reads "Status unknown", with no count', async (_label, extra) => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     await renderWards([ward({ category: 'ICU_ADULT', ...extra })]);
     expect(lines()[0]).toBe(`${ADULT_ICU}: ${TABLE.fallbacks.status}`);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// -69 (b): a count an admin set, or one under review, says so beside the count.
+// ---------------------------------------------------------------------------
+
+describe('R-2026-09-23-69 (b) — ADMIN and UNDER_REVIEW are rendered beside the count', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.spyOn(performance, 'now').mockReturnValue(1_000);
+  });
+
+  const ADULT_ICU = 'Adult ICU';
+
+  test.each([
+    ['WARD', 'OK', `${ADULT_ICU}: 3 beds — updated 1 min ago`],
+    ['ADMIN', 'OK', `${ADULT_ICU}: 3 beds — set by admin, not ward-confirmed — updated 1 min ago`],
+    ['WARD', 'UNDER_REVIEW', `${ADULT_ICU}: 3 beds — under review — updated 1 min ago`],
+    ['ADMIN', 'UNDER_REVIEW', `${ADULT_ICU}: 3 beds — set by admin, not ward-confirmed — under review — updated 1 min ago`],
+  ])('source %s, state %s reads exactly as decided (002 section 6)', async (source, state, expected) => {
+    await renderWards([ward({ category: 'ICU_ADULT', source, state })]);
+    expect(lines()[0]).toBe(expected);
+  });
+
+  test('plant — an ADMIN count whose words are emptied is caught: it would read as ward-confirmed', async () => {
+    const labels = TABLE.labels as Record<string, Record<string, string>>;
+    const source = labels['status_source'];
+    expect(source, 'status_source is not in the label table, so there is nothing to plant').toBeDefined();
+    const original = source?.['ADMIN'];
+    try {
+      if (source) source['ADMIN'] = '';
+      await renderWards([ward({ category: 'ICU_ADULT', source: 'ADMIN' })]);
+      expect(lines()[0], 'the plant did not reach the rendered line').toBe(`${ADULT_ICU}: 3 beds — updated 1 min ago`);
+      expect(lines()[0]).not.toContain('set by admin');
+    } finally {
+      if (source && original !== undefined) source['ADMIN'] = original;
+    }
   });
 });
 
