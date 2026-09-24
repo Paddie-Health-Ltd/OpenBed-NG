@@ -1,0 +1,31 @@
+{
+  "comment": "THE FUNCTION-EXECUTE SURFACE, ONE SOURCE (R-2026-09-24-74 BB-2). For every function in the schemas below, which of the three client-facing roles can EXECUTE it, and why. The key is the function's identity as pg_catalog prints it with search_path set to pg_catalog: schema.name(argument types), so the types are qualified the same way on every database. Read by tests/db/authenticated_executable_closed_list.test.ts, which derives its closed list from the entries authenticated can execute in the exposed schemas, and by scripts/readback_function_grants.sh, which holds hosted to this file after an apply. tests/db/function_grants.test.ts holds the local catalogue equal to it, entry for entry. So a grant changed anywhere reds against this file, and it is changed here, with its reason, in the same change. MEASURED on the local stack on 2026-09-24 at 020: service_role holds EXECUTE on none of this repository's functions (each migration revokes it by name), and graphql_public.graphql is Supabase's own, executable by all three.",
+  "schemas": ["app", "graphql_public", "public"],
+  "roles": ["anon", "authenticated", "service_role"],
+  "functions": {
+    "app.assert_member(uuid, app.app_role)": { "execute": [], "why": "011: the membership check the SECURITY DEFINER RPCs call; never called by a client" },
+    "app.assert_operator()": { "execute": [], "why": "020: the operator check the operator_* functions call" },
+    "app.bump_facility_version()": { "execute": [], "why": "020: a trigger function (J1's row version)" },
+    "app.gate(app.ward_category, app.tri_state, app.tri_state, app.tri_state)": { "execute": [], "why": "006: the gate rule, called by the projection" },
+    "app.gate_for_facility(app.ward_category, uuid)": { "execute": [], "why": "006: the gate over a facility's duty flags, called by the projection" },
+    "app.operator_session(uuid)": { "execute": [], "why": "020: the session id the operator writes record in their audit rows" },
+    "app.project_facility(uuid)": { "execute": [], "why": "008, restated in 020: the only writer of the public mirrors" },
+    "app.provision_begin(uuid, text, text)": { "execute": [], "why": "020: the provisioning gates (-71 C). Only the provisioning script calls it, as the owner; executable by no client role (BB-2)" },
+    "app.provision_complete(uuid, uuid)": { "execute": [], "why": "020: the provisioning gates (-71 C). Only the provisioning script calls it, as the owner; executable by no client role (BB-2)" },
+    "app.raise_append_only()": { "execute": [], "why": "010: the append-only trigger function" },
+    "app.refresh_lga_rollup()": { "execute": [], "why": "009, restated in 017 and 020: the rollup's only writer, run by pg_cron" },
+    "app.regenerate_snapshot()": { "execute": [], "why": "016, restated in 019: the snapshot generator, run by pg_cron" },
+    "app.snapshot_retention()": { "execute": [], "why": "016: how long the generator keeps snapshot rows" },
+    "app.touch_updated_at()": { "execute": [], "why": "003: the shared updated_at trigger function" },
+    "app.trg_project()": { "execute": [], "why": "008: the projection trigger function" },
+    "graphql_public.graphql(text, text, jsonb, jsonb)": { "execute": ["anon", "authenticated", "service_role"], "why": "Supabase-owned; the GraphQL entry point shipped with every project, not written here" },
+    "public.my_facility_wards()": { "execute": ["authenticated"], "why": "011: a ward loads its own facility's wards" },
+    "public.operator_add_category(text, text, text)": { "execute": ["authenticated"], "why": "020: an operator adds a category (-71 E)" },
+    "public.operator_create_facility(text, text, text, text, double precision, double precision, text)": { "execute": ["authenticated"], "why": "020: an operator creates a facility (-71 E)" },
+    "public.operator_edit_facility(text, integer, text, text, text, double precision, double precision, text)": { "execute": ["authenticated"], "why": "020: an operator edits a facility (-71 E, J1)" },
+    "public.operator_list_facilities()": { "execute": ["authenticated"], "why": "020: the operator's list (AJ D8)" },
+    "public.operator_set_facility_listed(text, integer)": { "execute": ["authenticated"], "why": "020: an operator lists a facility (-71 B)" },
+    "public.publish_ward_status(text, text, integer, boolean, text, integer, text, timestamp with time zone)": { "execute": ["authenticated"], "why": "014: a ward publishes" },
+    "public.ward_status_history(text, timestamp with time zone, integer)": { "execute": ["authenticated"], "why": "015: a ward reads its own history" }
+  }
+}

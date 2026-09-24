@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { sql, withRole } from '../setup/db.js';
+import GRANTS from '../../packages/fixtures/function-grants.json';
 
 /**
  * THE FUNCTIONS `authenticated` CAN RUN ARE A CLOSED, NAMED LIST (kickoff AJ D3;
@@ -25,18 +26,18 @@ import { sql, withRole } from '../setup/db.js';
 
 const EXPOSED = ['public', 'graphql_public'];
 
-/** Each entry: schema.function, and why `authenticated` may run it. */
-const CLOSED_LIST: Record<string, string> = {
-  'graphql_public.graphql': 'Supabase-owned; the GraphQL entry point shipped with every project, not written here',
-  'public.my_facility_wards': '011: a ward loads its own facility\'s wards',
-  'public.publish_ward_status': '014: a ward publishes',
-  'public.ward_status_history': '015: a ward reads its own history',
-  'public.operator_add_category': '020: an operator adds a category (-71 E)',
-  'public.operator_create_facility': '020: an operator creates a facility (-71 E)',
-  'public.operator_edit_facility': '020: an operator edits a facility (-71 E, J1)',
-  'public.operator_list_facilities': '020: the operator\'s list (AJ D8)',
-  'public.operator_set_facility_listed': '020: an operator lists a facility (-71 B)',
-};
+/**
+ * THE LIST IS DERIVED, NEVER WRITTEN HERE (R-2026-09-24-74 BB-2). Its one source is
+ * packages/fixtures/function-grants.json, which scripts/readback_function_grants.sh
+ * also holds hosted to after an apply. Until 2026-09-24 the list was a literal in
+ * this file. Each entry is schema.function, and why `authenticated` may run it: every
+ * fixture entry in an exposed schema whose `execute` includes authenticated.
+ */
+const CLOSED_LIST: Record<string, string> = Object.fromEntries(
+  Object.entries(GRANTS.functions as Record<string, { execute: string[]; why: string }>)
+    .filter(([identity, g]) => EXPOSED.includes(identity.split('.')[0]!) && g.execute.includes('authenticated'))
+    .map(([identity, g]) => [identity.slice(0, identity.indexOf('(')), g.why]),
+);
 
 async function executable(tx: { unsafe: <T>(q: string) => Promise<T> } = sql() as never): Promise<string[]> {
   const rows = await tx.unsafe<{ f: string }[]>(`
@@ -56,6 +57,20 @@ export function closedListViolations(found: string[], list: Record<string, strin
 }
 
 describe('the authenticated-executable surface', () => {
+  test('the derived list is the list this test held as a literal until 2026-09-24 — the move to one source changed no name', () => {
+    expect(Object.keys(CLOSED_LIST).sort()).toEqual([
+      'graphql_public.graphql',
+      'public.my_facility_wards',
+      'public.operator_add_category',
+      'public.operator_create_facility',
+      'public.operator_edit_facility',
+      'public.operator_list_facilities',
+      'public.operator_set_facility_listed',
+      'public.publish_ward_status',
+      'public.ward_status_history',
+    ]);
+  });
+
   test('real catalogue is accepted — exactly the named list, by identity', async () => {
     expect(closedListViolations(await executable())).toEqual([]);
   });
