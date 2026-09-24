@@ -53,6 +53,9 @@ import { REPO_ROOT } from './_scratch.js';
 const RUNBOOKS = [
   join('docs', 'runbook-supabase-project-creation.md'),
   join('docs', 'runbook-cloudflare-pages-beds-json.md'),
+  // PR 3.4b-app C (R-2026-09-24-88 BP-11): the admin deploy runbook's psql blocks carry
+  // step P's line too. It holds none today; it is in the corpus so the next one is held.
+  join('docs', 'runbook-admin-deploy.md'),
 ];
 
 /**
@@ -60,8 +63,12 @@ const RUNBOOKS = [
  * 24 -> 27 on 2026-09-24 (PR 3.4b-app A.2): step 3's H2 section adds three blocks that
  * call psql -- the unconfirmed-account read-back, the probe-address count, and the
  * STOP branch's removal -- each carrying step P's PATH line.
+ * 27 -> 32 on 2026-09-24 (PR 3.4b-app C): section 12 adds five blocks that call psql --
+ * H6's operator count read-back, the three agreement-withdrawal steps and the contact
+ * erasure. Its two provisioning-script blocks do not call psql (the script uses
+ * postgres.js) and carry no PATH line.
  */
-const GOVERNED_TODAY = 27;
+const GOVERNED_TODAY = 32;
 
 export interface Fence {
   /** Which runbook it came from. */

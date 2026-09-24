@@ -42,6 +42,7 @@ kickoff is a historical record that does not get rewritten.
 | 9 | Magic-link single-use *(was §5b)* | Needs hosted auth reachable; independent of the tables. **Partly closed 2026-09-14**; the remainder needs custom SMTP. |
 | 10 | Realtime publication *(was §6)* | The publication is created by the migrations. |
 | 11 | Keys *(was §7)* | Storage hygiene; no dependency, last because nothing waits on it. |
+| 12 | Operating: H3, H5, H6, the operator, facilities, withdrawal, erasure | Needs everything above; facility creation needs step 4b CLOSED on every row. Written by PR 3.4b-app C, NOT YET RUN. |
 
 ### Read the rotation runbook before step 6
 
@@ -3020,6 +3021,304 @@ is the same exists-then-compare shape as the two queries above. The
 
 ---
 
+
+## 12. Operating the service: H3, H5, H6, the operator, facilities, withdrawal and erasure
+
+Written by PR 3.4b-app C (R-2026-09-24-88 BP-13, as amended by R-2026-09-24-97). **NOT YET
+RUN.** Every step below is a founder step, and nothing is run until Cowork has read its
+text. The operator's own sign-in address is **never written here**. It is "the
+operator's sign-in address", typed at run time (R-2026-09-24-89 BQ-1).
+
+**The hosted order, in full:**
+1. 022's apply (section 5, six fences);
+2. H2, sign-ups off (section 3);
+3. H3 (section 9's entry, plus 12.1 below);
+4. PR C merged;
+5. H5, the Worker redeploy (12.2);
+6. H6 (12.3), which ends with the operator bootstrap and an empty register;
+7. and only when step 4b reads CLOSED on every row: facility creation (12.4).
+
+### 12.1 H3 — what C adds to it (R-2026-09-24-93 BU-1 e)
+
+H3's Site URL, redirect URLs and custom SMTP are entered and read back as section 9's
+"Entering the Site URL and redirect URLs (H3 …)" says. C adds two things.
+
+**Read once, and record here: the hosted Auth rate limits and the email frequency
+window.** Dashboard -> Authentication -> Rate Limits, and the email provider's minimum
+interval between emails to one address. Locally the interval is 1 second. **The hosted
+value is [unverified]** until this reading is recorded:
+
+- [ ] Hosted rate limits and email frequency window, as read (date, values, Cowork's reading)
+
+**The waiting rule, which H6 relies on.** After any sign-in request, and after H2's step
+4 probe, **wait out that frequency window before asking again for the same address.** A
+second request inside the window is refused with 429, and that refusal reads exactly
+like a broken sign-in. Since A.2, provisioning mints no link at all, so the only
+requests are the operator's own and H2's probe.
+
+### 12.2 H5 — the Worker redeploy, so the admin calls pass api.openbed.ng
+
+**After PR C merges, and before H6's deploy.** The Worker forwards only what
+`supabase-proxy/allow-list.json` lists. C adds sixteen entries: eight operator calls, and
+the eight preflights. Until the Worker is redeployed, every admin call through
+`api.openbed.ng` is refused by the Worker, and the admin app says so by name.
+
+Redeploy through the Worker's wrapper, and read it back, exactly as
+`docs/runbook-cloudflare-worker-proxy.md` says. Cowork runs the probes. Then, at H6 step
+2, `scripts/readback_admin.sh`'s last probe reads `x-openbed-proxy: forwarded` on
+`operator_register`. **`refused` there means this step has not landed.**
+
+- [ ] H5: Worker redeployed at the merged commit, and its read-back PASS (date, commit, Cowork's reading)
+
+### 12.3 H6 — the admin app goes live, and the operator exists
+
+**Its preconditions come first. Each is a reading, not a memory. STOP at the first
+that does not hold:**
+
+1. PR 3.4b-app A.2 is merged (`78f1e00`: met on 2026-09-24).
+2. 022 is applied on hosted, with its six fences read as they must (section 5).
+3. H2 is done: sign-ups off, with its checkbox ticked and Cowork's reading.
+4. H3 is done: the Site URL, the redirect URLs, custom SMTP, and 12.1's reading.
+5. PR 3.4b-app C is merged.
+6. H5 is done (12.2).
+
+**Then, in this order (R-2026-09-24-97 BY-1). Each step's STOP stops everything below it.**
+
+**Step 1 — the project, the hosts, Access and the service token** (founder, in the
+Cloudflare dashboard):
+- create the admin Pages project and `admin.openbed.ng`;
+- add the project's pages.dev hostnames to the Access application, **both** the
+  production alias and the preview deployments (R-2026-09-24-89 BQ-2 a);
+- issue the Access service token.
+
+The token goes into the shell only when step 2 runs, and never into a file here.
+
+**Step 2 — deploy, and read back, failing half first:** `docs/runbook-admin-deploy.md`
+sections 1 and 2. The token is read silently into the environment for the read-back and
+removed after it:
+
+```bash
+read -rs OPENBED_ACCESS_CLIENT_ID && export OPENBED_ACCESS_CLIENT_ID
+read -rs OPENBED_ACCESS_CLIENT_SECRET && export OPENBED_ACCESS_CLIENT_SECRET
+bash scripts/readback_admin.sh https://HASH.openbed-admin.pages.dev
+unset OPENBED_ACCESS_CLIENT_ID OPENBED_ACCESS_CLIENT_SECRET
+```
+
+**Stop condition:** the last line reads `PASS:`. **Any `step 1` line reading `200` is
+STOP**: a host serves the page around Access.
+
+**Step 3 — the secret key's header shape, both halves** (R-2026-09-24-92 BT-3, as
+reshaped by R-2026-09-24-97 BY-2 b). The provisioning script sends the `sb_secret_` key as
+both `apikey` and `Authorization: Bearer`. This reads that exact shape against hosted
+Auth with a request that **creates nothing**: a list of at most one user. It prints the
+HTTP status ONLY. **The body carries a real user record, so it goes to `/dev/null`**, and
+the key goes to curl on its standard input, never on its command line:
+
+```bash
+read -rs SUPABASE_SERVICE_ROLE_KEY && export SUPABASE_SERVICE_ROLE_KEY
+printf 'apikey: %s\nAuthorization: Bearer %s\n' "$SUPABASE_SERVICE_ROLE_KEY" "$SUPABASE_SERVICE_ROLE_KEY" | curl -s --max-time 12 -o /dev/null -w "real key: HTTP %{http_code}\n" -H @- "https://klrlpxysjsjpdkeqdhvl.supabase.co/auth/v1/admin/users?per_page=1"
+printf 'apikey: %sx\nAuthorization: Bearer %sx\n' "$SUPABASE_SERVICE_ROLE_KEY" "$SUPABASE_SERVICE_ROLE_KEY" | curl -s --max-time 12 -o /dev/null -w "wrong key: HTTP %{http_code}\n" -H @- "https://klrlpxysjsjpdkeqdhvl.supabase.co/auth/v1/admin/users?per_page=1"
+unset SUPABASE_SERVICE_ROLE_KEY
+```
+
+The wrong key is the real one with one character appended, so no key value is written here.
+
+- **PASS:** `real key: HTTP 200` and `wrong key: HTTP 401`.
+- **`real key` reading 401 or 403 is a STOP.** It is never a retry by hand with another
+  header shape. The provisioning script's shape does not work on hosted, and step 5
+  would fail on it. Report it.
+- **`wrong key` reading anything but 401:** the probe's own control failed, so the real
+  half proves nothing either. STOP and report.
+
+**Step 4 — the widened grant sweep, failing half first:** section 6, "The WIDENED grant
+sweep — run once when Bundle 3 lands". Both halves, in one sitting. **It has never run
+on hosted** (the PR 3.4b-app C design report, section 0 item 3). Record its result
+under that heading, with the date and the project ref.
+
+**Step 5 — the operator bootstrap.** The script's `PLATFORM_ADMIN` path (-71 C), through
+022's gates. The host check refuses a pair that does not name `--project-ref`'s
+project. The script reaches the database itself (postgres.js, not `psql`), so this
+block needs no PATH line:
+
+```bash
+read -r OPERATOR_EMAIL
+read -rs SUPABASE_SERVICE_ROLE_KEY && export SUPABASE_SERVICE_ROLE_KEY
+read -rs DATABASE_URL && export DATABASE_URL
+SUPABASE_API_URL=https://klrlpxysjsjpdkeqdhvl.supabase.co node scripts/provision_ward_account.mjs --role PLATFORM_ADMIN --email "$OPERATOR_EMAIL" --project-ref klrlpxysjsjpdkeqdhvl
+unset SUPABASE_SERVICE_ROLE_KEY DATABASE_URL OPERATOR_EMAIL
+```
+
+The first line waits for **the operator's sign-in address**: type it and press Enter.
+It is not written in this file or anywhere in the repository. The next two wait
+silently for the key and the connection string.
+
+- **PASS:** `provisioned PLATFORM_ADMIN … (the operator)`, then `auth user: created,
+  confirmed`.
+- **A re-run** prints `an operator account already exists: nothing was done, and no
+  Auth call was made`. That is not a failure.
+- **STOP on any `REFUSED` line**, and above all on `OPERATOR_ALREADY_EXISTS`: a second
+  operator needs its own ruling (BD-2 1).
+
+**The count read-back**, which must read `1`:
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -tAc "select count(*) from app.ward_account where role = 'PLATFORM_ADMIN' and is_active"
+unset DATABASE_URL
+```
+
+**Step 6 — the sign-in link, read back before it is opened** (R-2026-09-24-88 BP-7):
+1. The operator opens `admin.openbed.ng` and passes Access first.
+2. They request a link for the operator's sign-in address.
+3. From the email, they copy the link without opening it, and pipe it in:
+
+```bash
+pbpaste | node scripts/readback_signin_link.mjs --mode admin --project-ref klrlpxysjsjpdkeqdhvl
+```
+
+**PASS:** `PASS: this project's Auth link, and redirect_to is exactly https://admin.openbed.ng/`.
+Anything else is STOP. **Do not open that link.**
+
+**Step 7 — the sign-in order behind Access, both orders** (R-2026-09-24-89 BQ-2 c). Wait
+out the frequency window (12.1) before each new request.
+1. **With an Access session held:** open `admin.openbed.ng`, pass Access, request a link,
+   open it in the same browser. Record whether the register loads.
+2. **Without one:** in a fresh private window, request a link after passing Access. Then
+   open the link in a second fresh private window that holds no Access session. Record
+   whether the fragment survived Access's login bounce and the register loaded, or the
+   page came back signed out.
+
+Record both results in `docs/runbook-admin-deploy.md` section 4, with the date,
+replacing its **[unverified]** paragraph.
+
+**Step 8 — the register loads, empty.** Signed in, the admin app shows **Facilities**,
+with "No facility exists yet." **No facility or ward login may be created on hosted
+until step 4b reads CLOSED on every row** (the -45 gate).
+
+- [ ] H6: preconditions 1-6 read; steps 1-8 as above (date, Cowork's reading of each step)
+
+### 12.4 Creating a facility
+
+**This is new.** No facility-creation step existed before PR 3.4b-app C (-45 B). It
+replaces the plan at `Sprint Kickoffs/sprint-kickoff-bundle3-operator-path-2026-09-22.md`
+line 173, whose `agreement_accepted_at` line that kickoff already marks superseded at
+line 190: 021 removed that column. The agreement and the contact are now recorded
+through the admin app.
+
+1. **The -45 stop condition first.** Step 4b must read CLOSED on every row, and its
+   count check must read as its stop condition says. **Today step 4b's row 5, the
+   backup restore, is OPEN, so this step STOPS here.**
+2. **Create** the facility in the admin app: name, LGA, state, latitude, longitude,
+   public phone. The phone is shown in international form before it is saved.
+3. **Record the contact and the agreement** in the facility's detail view.
+4. **Add the ward categories**, each with its offering stated. There is no default.
+5. **Provision each ward's login** with the script, one ward at a time. A gate refusal
+   names what is missing, and no Auth call is made:
+
+   ```bash
+   read -r WARD_EMAIL
+   read -r FACILITY_ID
+   read -r CATEGORY
+   read -rs SUPABASE_SERVICE_ROLE_KEY && export SUPABASE_SERVICE_ROLE_KEY
+   read -rs DATABASE_URL && export DATABASE_URL
+   SUPABASE_API_URL=https://klrlpxysjsjpdkeqdhvl.supabase.co node scripts/provision_ward_account.mjs --email "$WARD_EMAIL" --facility "$FACILITY_ID" --category "$CATEGORY" --project-ref klrlpxysjsjpdkeqdhvl
+   unset SUPABASE_SERVICE_ROLE_KEY DATABASE_URL WARD_EMAIL FACILITY_ID CATEGORY
+   ```
+
+   The three plain reads wait, in order, for the ward's role address, the facility id
+   (shown in the admin app), and the category code, such as `MATERNITY`.
+6. **List** the facility in the admin app. The List button is enabled only once the
+   contact, the agreement and a category exist. The database refuses it otherwise
+   (021:273-285).
+7. **Read back `/beds.json`:** the facility appears within the snapshot's regeneration
+   interval. Use `bash scripts/readback_pages.sh`, as its runbook says.
+
+### 12.5 Withdrawing an agreement
+
+Exactly as R-2026-09-24-82 BJ-1 e, restated by R-2026-09-24-86 BN-4. **Founder SQL, never
+an operator function**: there is none, deliberately (BD-2 2). Each block is one step,
+with its read-back.
+
+**1. Set `withdrawn_on`.** The trigger takes the facility's wards off the public output
+in the same transaction. `/beds.json` follows within the regeneration interval.
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -r FACILITY_ID
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "update app.facility_agreement set withdrawn_on = (now() at time zone 'Africa/Lagos')::date where facility_id = '$FACILITY_ID' and withdrawn_on is null"
+psql "$DATABASE_URL" -tAc "select withdrawn_on is not null from app.facility_agreement where facility_id = '$FACILITY_ID'"
+unset DATABASE_URL FACILITY_ID
+```
+
+**Must read** `UPDATE 1`, then `t`.
+
+**2. Deactivate the facility's ward accounts.** A ward is refused on its very next
+request, because `app.assert_member` checks `is_active` on every call (011:96-111). The
+console already tells a ward it has been switched off.
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -r FACILITY_ID
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "update app.ward_account set is_active = false, deactivated_at = now() where facility_id = '$FACILITY_ID' and is_active"
+psql "$DATABASE_URL" -tAc "select count(*) from app.ward_account where facility_id = '$FACILITY_ID' and is_active"
+unset DATABASE_URL FACILITY_ID
+```
+
+**Must read** the count `0`.
+
+**3. Clear `listed_at`**, so the register reads "Not listed". Publishing again needs a
+deliberate new agreement and a new listing.
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -r FACILITY_ID
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "update app.facility set listed_at = null where id = '$FACILITY_ID'"
+psql "$DATABASE_URL" -tAc "select listed_at is null from app.facility where id = '$FACILITY_ID'"
+unset DATABASE_URL FACILITY_ID
+```
+
+**Must read** `t`.
+
+**4. Read back `/beds.json`:** the facility is gone from it. Use
+`bash scripts/readback_pages.sh`.
+
+- [ ] Withdrawal (facility id, date of each step, and each reading)
+
+### 12.6 Erasing a contact
+
+A contact is a named person's data (R-2026-09-24-88 BP-5). Erasing it never touches the
+agreement (BD-2 5).
+
+**1. Delete the facility's contact row.**
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -r FACILITY_ID
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "delete from app.facility_contact where facility_id = '$FACILITY_ID'"
+psql "$DATABASE_URL" -tAc "select (select count(*) from app.facility_contact where facility_id = '$FACILITY_ID') || '|' || (select count(*) from app.facility_agreement where facility_id = '$FACILITY_ID')"
+unset DATABASE_URL FACILITY_ID
+```
+
+**Must read** `DELETE 1`, then `0|1`: the contact is gone and the agreement is intact.
+
+**2. Read it back in the admin app.** The facility's detail view shows "No contact on
+record" (`operator_get_contact` returns `contact: null`), and a listed facility's
+register card warns "No contact on record".
+
+**3. The copies outside the database** — mail correspondence, the agreement papers'
+covering email, anything the founder holds — are the founder's to find and handle.
+Note what was found.
+
+**4. Record** the date the request was received and the date the erasure was completed.
+
+- [ ] Erasure (facility id, request date, completion date, and each reading)
+
+---
 
 ## What remains un-automatable, and stays that way
 

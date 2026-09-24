@@ -20,7 +20,7 @@
     "db:reset": "supabase db reset && bash scripts/run_migrations.sh && bash scripts/seed.sh",
     "lint": "eslint .",
     "lint:migrations": "bash scripts/lint_migrations_all.sh",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p apps/public-dashboard/tsconfig.json && tsc --noEmit -p apps/public-dashboard/functions/tsconfig.json && tsc --noEmit -p apps/ward-console/tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p apps/public-dashboard/tsconfig.json && tsc --noEmit -p apps/public-dashboard/functions/tsconfig.json && tsc --noEmit -p apps/ward-console/tsconfig.json && tsc --noEmit -p apps/admin/tsconfig.json",
     "build": "npm run build --workspaces --if-present && npm run build:functions",
     "build:functions": "wrangler pages functions build apps/public-dashboard/functions --outdir apps/public-dashboard/.functions-build",
     "stamp:worker": "node scripts/stamp_build.mjs supabase-proxy/version.json",

@@ -319,6 +319,7 @@ describe('the allow-list against the code and the runbooks', () => {
     expect(files, 'the corpus lost a file this guard depends on').toEqual(
       expect.arrayContaining([
         'apps/ward-console/src/main.ts',
+        'apps/admin/src/main.ts',
         'apps/public-dashboard/functions/beds.json.ts',
         'packages/auth/src/request.ts',
         'packages/auth/src/holder.ts',
@@ -332,18 +333,27 @@ describe('the allow-list against the code and the runbooks', () => {
       'POST /auth/v1/otp @ packages/auth/src/request.ts',
       'POST /auth/v1/token?grant_type=refresh_token @ packages/auth/src/holder.ts',
       'POST /rest/v1/rpc/my_facility_wards @ apps/ward-console/src/main.ts',
+      'POST /rest/v1/rpc/operator_add_category @ apps/admin/src/main.ts',
+      'POST /rest/v1/rpc/operator_create_facility @ apps/admin/src/main.ts',
+      'POST /rest/v1/rpc/operator_edit_facility @ apps/admin/src/main.ts',
+      'POST /rest/v1/rpc/operator_get_contact @ apps/admin/src/main.ts',
+      'POST /rest/v1/rpc/operator_record_agreement @ apps/admin/src/main.ts',
+      'POST /rest/v1/rpc/operator_record_contact @ apps/admin/src/main.ts',
+      'POST /rest/v1/rpc/operator_register @ apps/admin/src/main.ts',
+      'POST /rest/v1/rpc/operator_set_facility_listed @ apps/admin/src/main.ts',
       'POST /rest/v1/rpc/publish_ward_status @ apps/ward-console/src/main.ts',
     ]);
     expect(runbookProbes(realDocs()).length + scriptProbes(realScripts()).probes.length, 'no probe was found, so the probe rule checked nothing').toBeGreaterThan(0);
   });
 
-  test('the probe corpus is the declared one — the five read-back scripts, and every api.openbed.ng probe they send', () => {
+  test('the probe corpus is the declared one — the read-back scripts, and every api.openbed.ng probe they send', () => {
     // Discovered, then held against the declared set by identity (test-conventions 2(d)).
     // scripts/readback_public_output.sh (R-2026-09-24-73 BA-2) reads openbed.ng/beds.json
     // and the database, and sends nothing to api.openbed.ng, so it adds no probe below.
     // Nor does scripts/readback_function_grants.sh (R-2026-09-24-74 BB-2), which reads
     // only the database.
     expect(Object.keys(realScripts()).sort()).toEqual([
+      'scripts/readback_admin.sh',
       'scripts/readback_common.sh',
       'scripts/readback_function_grants.sh',
       'scripts/readback_pages.sh',
@@ -355,6 +365,8 @@ describe('the allow-list against the code and the runbooks', () => {
     expect(unreadable).toEqual([]);
     expect(probes.map((p) => `${p.method} ${p.path} @ ${p.file}`).sort()).toEqual([
       'GET /__openbed/version @ scripts/readback_worker.sh',
+      'GET /auth/v1/settings @ scripts/readback_admin.sh',
+      'GET /auth/v1/settings @ scripts/readback_admin.sh',
       'GET /auth/v1/settings @ scripts/readback_ward_console.sh',
       'GET /auth/v1/settings @ scripts/readback_ward_console.sh',
       'GET /auth/v1/settings @ scripts/readback_worker.sh',
@@ -362,6 +374,7 @@ describe('the allow-list against the code and the runbooks', () => {
       'HEAD /__openbed/version @ scripts/readback_worker.sh',
       'HEAD /auth/v1/settings @ scripts/readback_worker.sh',
       'POST /rest/v1/rpc/my_facility_wards @ scripts/readback_worker.sh',
+      'POST /rest/v1/rpc/operator_register @ scripts/readback_admin.sh',
     ]);
   });
 

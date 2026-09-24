@@ -3,6 +3,7 @@ import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFile
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { withScratch, REPO_ROOT } from './_scratch.js';
+import { deployableApps } from './_apps.js';
 
 /**
  * GUARD OVER THE DEPLOY READ-BACK SCRIPTS: scripts/readback_pages.sh,
@@ -36,6 +37,8 @@ import { withScratch, REPO_ROOT } from './_scratch.js';
 
 /** The shared file's legs are reached through the three scripts that source it. */
 const COMMON_NAME = 'readback_common.sh';
+/** Named, as the shared file is, so the leg register credits this file's admin assertions to it. */
+const ADMIN_NAME = 'readback_admin.sh';
 
 const SCRIPTS = {
   common: join(REPO_ROOT, 'scripts', COMMON_NAME),
@@ -44,6 +47,7 @@ const SCRIPTS = {
   worker: join(REPO_ROOT, 'scripts', 'readback_worker.sh'),
   publicOutput: join(REPO_ROOT, 'scripts', 'readback_public_output.sh'),
   grants: join(REPO_ROOT, 'scripts', 'readback_function_grants.sh'),
+  admin: join(REPO_ROOT, 'scripts', ADMIN_NAME),
 };
 
 type Answer = { status: number; headers?: Record<string, string>; body?: string } | { fail: number } | { out: string };
@@ -78,12 +82,17 @@ function repo(root: string, opts: { pushed?: boolean; remote?: boolean; headers?
   // and the renderer that fills the ward console's API origins from origins.json (BV-2).
   mkdirSync(join(work, 'scripts'), { recursive: true });
   copyFileSync(join(REPO_ROOT, 'scripts', 'render_headers.mjs'), join(work, 'scripts', 'render_headers.mjs'));
+  // Every deployable app, derived (PR 3.4b-app C): a hand list here left the admin app's
+  // _headers out of the scratch checkout until it was added by name.
   if (opts.headers !== false) {
-    for (const app of ['public-dashboard', 'ward-console']) {
+    for (const app of deployableApps()) {
       mkdirSync(join(work, 'apps', app, 'public'), { recursive: true });
       copyFileSync(join(REPO_ROOT, 'apps', app, 'public', '_headers'), join(work, 'apps', app, 'public', '_headers'));
     }
   }
+  // The admin read-back reads its Pages project name from here, never retyped.
+  mkdirSync(join(work, 'apps', 'admin'), { recursive: true });
+  copyFileSync(join(REPO_ROOT, 'apps', 'admin', 'wrangler.toml'), join(work, 'apps', 'admin', 'wrangler.toml'));
   git(work, 'add', '-A');
   git(work, 'commit', '-q', '-m', 'seed');
   if (opts.remote !== false) {
@@ -104,6 +113,7 @@ function stubBin(root: string): string {
     `#!/usr/bin/env node
 const fs = require('fs');
 const a = process.argv.slice(2);
+if (a[0] === '--version') { process.stdout.write((process.env.STUB_CURL_VERSION || 'curl 8.7.1 (stub)') + '\\n'); process.exit(0); }
 let method = 'GET', head = false, out = null, dump = null, fmt = null, url = null;
 const hdrs = [];
 for (let i = 0; i < a.length; i++) {
@@ -118,10 +128,15 @@ for (let i = 0; i < a.length; i++) {
   else if (/^https?:/.test(x)) url = x;
 }
 if (head) method = 'HEAD';
+// -H @FILE reads headers from a file, one per line (readback_admin.sh's Access token).
+// The stub records only WHETHER the token came, never its value.
+for (const h of hdrs.filter((x) => x.startsWith('@'))) hdrs.push(...fs.readFileSync(h.slice(1), 'utf8').split('\\n').filter(Boolean));
+const access = hdrs.some((h) => /^CF-Access-Client-Id:\\s*\\S/i.test(h)) && hdrs.some((h) => /^CF-Access-Client-Secret:\\s*\\S/i.test(h));
 const apikey = (hdrs.map((h) => /^apikey:\\s*(.*)$/i.exec(h)).find(Boolean) || [])[1];
-fs.appendFileSync(process.env.STUB_LOG, method + ' ' + url + (apikey ? ' apikey=' + apikey : '') + '\\n');
+fs.appendFileSync(process.env.STUB_LOG, method + ' ' + url + (apikey ? ' apikey=' + apikey : '') + (access ? ' access' : '') + '\\n');
 const fx = JSON.parse(fs.readFileSync(process.env.STUB_FIXTURES, 'utf8'));
-const k = apikey && (method + ' ' + url + ' apikey=' + apikey) in fx ? method + ' ' + url + ' apikey=' + apikey : method + ' ' + url;
+const k = apikey && (method + ' ' + url + ' apikey=' + apikey) in fx ? method + ' ' + url + ' apikey=' + apikey
+  : access && (method + ' ' + url + ' access') in fx ? method + ' ' + url + ' access' : method + ' ' + url;
 let ans = fx[k];
 if (ans === undefined) { process.stderr.write('curl: (6) Could not resolve host (no fixture for ' + k + ')\\n'); process.exit(6); }
 if (Array.isArray(ans)) {
@@ -1027,6 +1042,168 @@ describe('rb_tracked_header — the expected security headers come from the chec
       const r = run(root, SCRIPTS.pages, [SITE, work], pagesFixtures(head));
       expect(r.status, r.out).toBe(2);
       expect(r.out).toContain('sets no content-security-policy on /*, so the expected value cannot be read -- this read-back has no verdict');
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// scripts/readback_admin.sh -- Access first, then the token half, then the API
+// (R-2026-09-24-97 BY-2 a; the PR 3.4b-app C design report, section 6.3).
+// ---------------------------------------------------------------------------
+
+const ADMIN_SITE = 'https://a1b2c3d4.openbed-admin.pages.dev';
+const ADMIN_HOSTS = ['https://admin.openbed.ng', 'https://openbed-admin.pages.dev', ADMIN_SITE];
+const ADMIN_LOCAL = 'http://127.0.0.1:8790';
+const ACCESS_LOGIN = { status: 302, headers: { location: 'https://openbed.cloudflareaccess.com/cdn-cgi/access/login/admin.openbed.ng' } };
+const ACCESS_ENV = { OPENBED_ACCESS_CLIENT_ID: 'access-id-PLANTED-7f3a.access', OPENBED_ACCESS_CLIENT_SECRET: 'access-secret-PLANTED-9c1e' };
+const ADMIN_SHELL = '<!doctype html><script type="module" crossorigin src="/assets/index-Ad3m1nXy.js"></script>';
+
+/** What admin's pages answer: Access without the token, the app with it. */
+function adminFixtures(head: string, site = ADMIN_SITE, withAccess = true): Fixtures {
+  const f: Fixtures = {};
+  if (withAccess) {
+    for (const host of ADMIN_HOSTS) {
+      f[`GET ${host}/version.json`] = ACCESS_LOGIN;
+      f[`GET ${host}/`] = ACCESS_LOGIN;
+    }
+  }
+  const tok = withAccess ? ' access' : '';
+  f[`GET ${site}/version.json${tok}`] = { status: 200, body: stampOf(head) };
+  f[`GET https://admin.openbed.ng/version.json${tok}`] = { status: 200, body: stampOf(head) };
+  f[`GET ${site}/${tok}`] = { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('admin') }, body: ADMIN_SHELL };
+  f[`GET ${site}/assets/index-Ad3m1nXy.js${tok}`] = { status: 200, body: `const k="${withAccess ? DEPLOYED_KEY : TRACKED_KEY}";` };
+  f[`GET ${API}/auth/v1/settings apikey=${DEPLOYED_KEY}`] = { status: 200, headers: { 'x-openbed-proxy': 'forwarded' }, body: '{"external":{"email":true}}' };
+  f[`GET ${API}/auth/v1/settings apikey=${WRONG_KEY}`] = { status: 401, headers: { 'x-openbed-proxy': 'forwarded' }, body: '{"message":"Invalid API key"}' };
+  f[`POST ${API}/rest/v1/rpc/operator_register`] = { status: 401, headers: { 'x-openbed-proxy': 'forwarded' }, body: '{"code":"42501"}' };
+  return f;
+}
+
+describe('readback_admin.sh — Access first, the token from the environment only', () => {
+  const runAdmin = (root: string, work: string, f: Fixtures, env: Record<string, string> = ACCESS_ENV, args: string[] = [ADMIN_SITE, work]) =>
+    run(root, SCRIPTS.admin, args, f, env);
+
+  test('real read-back is accepted — Access answers every host without the token; with it, the app is this checkout', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const r = runAdmin(root, work, adminFixtures(git(work, 'rev-parse', 'HEAD').trim()));
+      expect(r.status, r.out).toBe(0);
+      expect(r.out).toContain('PASS: Access answers every host without the token');
+      // The FAILING HALF FIRST: every host was probed without the token before any with it.
+      const firstToken = r.calls.findIndex((c) => c.endsWith(' access'));
+      expect(r.calls.slice(0, firstToken).filter((c) => c.startsWith('GET ') && !c.includes(API))).toHaveLength(6);
+      // The token is never printed and never on curl's command line (the stub logs argv-derived keys only).
+      expect(r.out).not.toContain(ACCESS_ENV.OPENBED_ACCESS_CLIENT_SECRET);
+      expect(r.out).not.toContain(ACCESS_ENV.OPENBED_ACCESS_CLIENT_ID);
+      expect(r.calls.join('\n')).not.toContain(ACCESS_ENV.OPENBED_ACCESS_CLIENT_SECRET);
+    });
+  });
+
+  test('a 403 from Access is accepted as Access answering, the same as its redirect', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const f = adminFixtures(git(work, 'rev-parse', 'HEAD').trim());
+      f[`GET https://openbed-admin.pages.dev/`] = { status: 403, body: 'Forbidden' };
+      expect(runAdmin(root, work, f).status).toBe(0);
+    });
+  });
+
+  test.each([
+    ['the pages.dev host serves the stamp WITHOUT the token -- the page is around Access', (f: Fixtures, head: string) => { f['GET https://openbed-admin.pages.dev/version.json'] = { status: 200, body: stampOf(head) }; }, 'step 1 https://openbed-admin.pages.dev/version.json'],
+    ['admin.openbed.ng serves the app shell without the token', (f: Fixtures) => { f['GET https://admin.openbed.ng/'] = { status: 200, body: ADMIN_SHELL }; }, 'step 1 https://admin.openbed.ng/'],
+    ['a redirect, but not to Access', (f: Fixtures) => { f[`GET ${ADMIN_SITE}/`] = { status: 302, headers: { location: 'https://evil.example/login' } }; }, `step 1 ${ADMIN_SITE}/`],
+    ['a stamp naming another commit', (f: Fixtures) => { f[`GET ${ADMIN_SITE}/version.json access`] = { status: 200, body: stampOf('0'.repeat(40)) }; }, 'step 2 commit'],
+    ['admin.openbed.ng serving a different deployment', (f: Fixtures) => { f['GET https://admin.openbed.ng/version.json access'] = { status: 200, body: stampOf('1'.repeat(40)) }; }, 'step 2 admin.openbed.ng commit'],
+    ['a page CSP that is not the tracked one', (f: Fixtures) => { f[`GET ${ADMIN_SITE}/ access`] = { status: 200, headers: { ...trackedHeaders('admin'), 'content-security-policy': "default-src *" }, body: ADMIN_SHELL }; }, 'step 2 content-security-policy'],
+    ['the Worker refusing the operator call (H5 not landed)', (f: Fixtures) => { f[`POST ${API}/rest/v1/rpc/operator_register`] = { status: 404, headers: { 'x-openbed-proxy': 'refused' } }; }, 'step 3 operator call x-openbed-proxy'],
+  ] as const)('plant — %s is a STOP', (_name, plant, check) => {
+    withScratch((root) => {
+      const work = repo(root);
+      const head = git(work, 'rev-parse', 'HEAD').trim();
+      const f = adminFixtures(head);
+      plant(f, head);
+      expectStopAt(runAdmin(root, work, f), check);
+    });
+  });
+
+  test('a missing token is an ERROR with exit 2, never a PASS -- after the failing half ran', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const r = runAdmin(root, work, adminFixtures(git(work, 'rev-parse', 'HEAD').trim()), { OPENBED_ACCESS_CLIENT_ID: '', OPENBED_ACCESS_CLIENT_SECRET: '' });
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('OPENBED_ACCESS_CLIENT_ID and OPENBED_ACCESS_CLIENT_SECRET must both be set in the environment -- the token half cannot run, so this read-back has no verdict');
+      expect(r.out).not.toContain('PASS:');
+      expect(r.calls.some((c) => c.endsWith(' access')), 'a request went out with a token that was not set').toBe(false);
+    });
+  });
+
+  test('a curl that cannot read headers from a file is an ERROR, and the token is never sent on the command line', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const r = runAdmin(root, work, adminFixtures(git(work, 'rev-parse', 'HEAD').trim()), { ...ACCESS_ENV, STUB_CURL_VERSION: 'curl 7.54.0 (stub)' });
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('this curl cannot read headers from a file (-H @file needs 7.55 or later), so the token would have to go on the command line -- nothing was sent');
+      expect(r.calls.some((c) => c.endsWith(' access'))).toBe(false);
+    });
+  });
+
+  test('a checkout whose admin wrangler.toml names no project is an ERROR: the hosts to probe are unknown', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      writeFileSync(join(work, 'apps', 'admin', 'wrangler.toml'), 'pages_build_output_dir = "./dist"\n');
+      git(work, 'commit', '-q', '-am', 'no name');
+      git(work, 'push', '-q', 'origin', 'main');
+      const r = runAdmin(root, work, adminFixtures(git(work, 'rev-parse', 'HEAD').trim()));
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('apps/admin/wrangler.toml names no Pages project in this checkout, so the hosts to probe are unknown -- nothing was checked');
+      expect(r.calls).toEqual([]);
+    });
+  });
+
+  describe('--local (BY-2 a): what runs without Access, and what is NOT RUN', () => {
+    test('real local read-back is accepted, says what did not run, and calls neither Access nor api.openbed.ng', () => {
+      withScratch((root) => {
+        const work = repo(root);
+        const r = runAdmin(root, work, adminFixtures(git(work, 'rev-parse', 'HEAD').trim(), ADMIN_LOCAL, false), {}, ['--local', ADMIN_LOCAL, work]);
+        expect(r.status, r.out).toBe(0);
+        expect(r.out).toContain('=== step 1: NOT RUN (local)');
+        expect(r.out).toContain('NOT RUN (local): the live and dead key halves');
+        expect(r.out).toContain('NOT RUN (local): the Worker probe');
+        expect(r.out).toContain('LOCAL RUN: step 1, the token half, both key halves and the Worker probe were NOT RUN. This is not a production verdict');
+        expect(r.out).toContain('PASS: LOCAL --');
+        expect(r.calls.filter((c) => !c.startsWith(`GET ${ADMIN_LOCAL}`)), 'a local run reached beyond the local server').toEqual([]);
+      });
+    });
+
+    test('--local on a hosted URL is an ERROR, and nothing is probed', () => {
+      withScratch((root) => {
+        const work = repo(root);
+        const r = runAdmin(root, work, {}, {}, ['--local', ADMIN_SITE, work]);
+        expect(r.status, r.out).toBe(2);
+        expect(r.out).toContain("--local takes only a local address (http://127.0.0.1:PORT), and '");
+        expect(r.calls).toEqual([]);
+      });
+    });
+
+    test('plant — a local bundle carrying a key that is not the tracked one is a STOP', () => {
+      withScratch((root) => {
+        const work = repo(root);
+        const f = adminFixtures(git(work, 'rev-parse', 'HEAD').trim(), ADMIN_LOCAL, false);
+        f[`GET ${ADMIN_LOCAL}/assets/index-Ad3m1nXy.js`] = { status: 200, body: 'const k="sb_publishable_SOME_OTHER_KEY";' };
+        expectStopAt(runAdmin(root, work, f, {}, ['--local', ADMIN_LOCAL, work]), "step 3 the bundle's key is the tracked production key");
+      });
+    });
+
+    test('a local run that cannot read the tracked key is an ERROR, never a verdict', () => {
+      withScratch((root) => {
+        const work = repo(root);
+        writeFileSync(join(work, 'packages', 'origins', 'publishable-keys.json'), 'not json');
+        git(work, 'commit', '-q', '-am', 'broken keys');
+        git(work, 'push', '-q', 'origin', 'main');
+        const r = runAdmin(root, work, adminFixtures(git(work, 'rev-parse', 'HEAD').trim(), ADMIN_LOCAL, false), {}, ['--local', ADMIN_LOCAL, work]);
+        expect(r.status, r.out).toBe(2);
+        expect(r.out).toContain('could not read packages/origins/publishable-keys.json (node exited');
+        expect(r.out).toContain('the key check did not run, so this read-back has no verdict');
+      });
     });
   });
 });

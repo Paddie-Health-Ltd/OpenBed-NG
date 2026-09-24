@@ -1,4 +1,4 @@
-import { freshnessBand, snapshotAge, type DecodedRow } from '@openbed/snapshot';
+import { freshnessBand, lagosTime, snapshotAge, type DecodedRow } from '@openbed/snapshot';
 import { categoryLabel, precedence, reasonLabel, UNKNOWN_STATUS } from './labels.js';
 
 /**
@@ -46,20 +46,6 @@ export interface ServeClock {
   readonly servedAt: string | null;
   /** Monotonic milliseconds since the fetch. */
   readonly elapsedMs: number;
-}
-
-/** A server timestamp as a Lagos wall time. Formats the instant it is given; reads no clock. */
-export function lagosTime(isoString: string): string {
-  const at = new Date(isoString);
-  const text = at.toLocaleString('en-GB', {
-    timeZone: 'Africa/Lagos',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    day: 'numeric',
-    month: 'short',
-  });
-  return `${text} (Lagos time)`;
 }
 
 function relative(minutes: number): string {

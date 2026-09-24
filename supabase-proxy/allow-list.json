@@ -17,15 +17,31 @@
     "`refusal_probes` are runbook probes that must be REFUSED -- the off-list probe."
   ],
   "forward": [
-    { "method": "POST", "path": "/auth/v1/otp", "reason": "packages/auth/src/request.ts: a ward asks for its own sign-in link" },
+    { "method": "POST", "path": "/auth/v1/otp", "reason": "packages/auth/src/request.ts: a ward, or the operator on admin.openbed.ng, asks for its own sign-in link" },
     { "method": "POST", "path": "/auth/v1/token", "query": "grant_type=refresh_token", "reason": "packages/auth/src/holder.ts: session refresh, the only grant the code sends" },
     { "method": "POST", "path": "/rest/v1/rpc/my_facility_wards", "reason": "apps/ward-console: the handover load" },
     { "method": "POST", "path": "/rest/v1/rpc/publish_ward_status", "reason": "apps/ward-console: a ward publishes" },
+    { "method": "POST", "path": "/rest/v1/rpc/operator_register", "reason": "apps/admin: the register load, and reload after every write" },
+    { "method": "POST", "path": "/rest/v1/rpc/operator_get_contact", "reason": "apps/admin: a facility's detail opens" },
+    { "method": "POST", "path": "/rest/v1/rpc/operator_create_facility", "reason": "apps/admin: the operator creates a facility" },
+    { "method": "POST", "path": "/rest/v1/rpc/operator_edit_facility", "reason": "apps/admin: the operator edits a facility" },
+    { "method": "POST", "path": "/rest/v1/rpc/operator_add_category", "reason": "apps/admin: the operator adds a ward category" },
+    { "method": "POST", "path": "/rest/v1/rpc/operator_record_contact", "reason": "apps/admin: the operator records a facility's contact" },
+    { "method": "POST", "path": "/rest/v1/rpc/operator_record_agreement", "reason": "apps/admin: the operator records a facility's agreement" },
+    { "method": "POST", "path": "/rest/v1/rpc/operator_set_facility_listed", "reason": "apps/admin: the operator lists a facility" },
     { "method": "GET", "path": "/auth/v1/settings", "reason": "runbook probe: the ward console's live-key probe (docs/runbook-ward-console-deploy.md step 3, run by scripts/readback_ward_console.sh; R-2026-09-23-65 B2), and probe 2 of docs/runbook-cloudflare-worker-proxy.md, run by scripts/readback_worker.sh" },
     { "method": "OPTIONS", "path": "/auth/v1/otp", "preflight_for": "POST /auth/v1/otp" },
     { "method": "OPTIONS", "path": "/auth/v1/token", "preflight_for": "POST /auth/v1/token" },
     { "method": "OPTIONS", "path": "/rest/v1/rpc/my_facility_wards", "preflight_for": "POST /rest/v1/rpc/my_facility_wards" },
-    { "method": "OPTIONS", "path": "/rest/v1/rpc/publish_ward_status", "preflight_for": "POST /rest/v1/rpc/publish_ward_status" }
+    { "method": "OPTIONS", "path": "/rest/v1/rpc/publish_ward_status", "preflight_for": "POST /rest/v1/rpc/publish_ward_status" },
+    { "method": "OPTIONS", "path": "/rest/v1/rpc/operator_register", "preflight_for": "POST /rest/v1/rpc/operator_register" },
+    { "method": "OPTIONS", "path": "/rest/v1/rpc/operator_get_contact", "preflight_for": "POST /rest/v1/rpc/operator_get_contact" },
+    { "method": "OPTIONS", "path": "/rest/v1/rpc/operator_create_facility", "preflight_for": "POST /rest/v1/rpc/operator_create_facility" },
+    { "method": "OPTIONS", "path": "/rest/v1/rpc/operator_edit_facility", "preflight_for": "POST /rest/v1/rpc/operator_edit_facility" },
+    { "method": "OPTIONS", "path": "/rest/v1/rpc/operator_add_category", "preflight_for": "POST /rest/v1/rpc/operator_add_category" },
+    { "method": "OPTIONS", "path": "/rest/v1/rpc/operator_record_contact", "preflight_for": "POST /rest/v1/rpc/operator_record_contact" },
+    { "method": "OPTIONS", "path": "/rest/v1/rpc/operator_record_agreement", "preflight_for": "POST /rest/v1/rpc/operator_record_agreement" },
+    { "method": "OPTIONS", "path": "/rest/v1/rpc/operator_set_facility_listed", "preflight_for": "POST /rest/v1/rpc/operator_set_facility_listed" }
   ],
   "direct_origin_exceptions": [
     { "method": "GET", "path": "/rest/v1/snapshot_current", "file": "packages/snapshot/src/serve.ts", "reason": "R-2026-09-22-58 A5: the /beds.json Function reads the Supabase origin directly, until -23 D5 closes" },

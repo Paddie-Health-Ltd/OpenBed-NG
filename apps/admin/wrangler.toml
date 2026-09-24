@@ -1,0 +1,13 @@
+# Cloudflare Pages configuration for the admin app (admin.openbed.ng; R-2026-09-24-97,
+# PR 3.4b-app C). The ward console's shape: no functions/ directory, because this app
+# calls Supabase through api.openbed.ng (supabase-proxy/) with the publishable key and
+# the operator's own session. No Function holds the secret key (-71 C).
+#
+# Cloudflare Access sits in front of this project's hosts (R-2026-09-24-89 BQ-2): both
+# admin.openbed.ng and the project's pages.dev hosts. That is dashboard configuration,
+# read back by scripts/readback_admin.sh; nothing here configures it.
+#
+# NO SECRETS IN THIS FILE, EVER.
+name = "openbed-admin"
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-09-01"

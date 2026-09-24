@@ -87,7 +87,12 @@ describe('per-app reach', () => {
       delete (fixture.client_import_closure as Record<string, unknown>)['ward-console'];
       place(root, 'packages/fixtures/per-app.json', JSON.stringify(fixture));
       const fence = perAppFences(root).find((f) => f.site === 'per-app.json client_import_closure');
-      expect(fence?.violations.join('\n')).toContain('client_import_closure names [public-dashboard] but the deployable apps are [public-dashboard, ward-console]');
+      // The expected sets are derived, not typed: typed, this line held the two-app set
+      // and went red when the third app landed, for a reason unrelated to the fence.
+      const apps = deployableApps();
+      expect(fence?.violations.join('\n')).toContain(
+        `client_import_closure names [${apps.filter((a) => a !== 'ward-console').join(', ')}] but the deployable apps are [${apps.join(', ')}]`,
+      );
     });
   });
 });

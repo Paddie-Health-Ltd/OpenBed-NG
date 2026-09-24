@@ -8,10 +8,36 @@ import {
   verifyToken,
   forceLinkExpiry,
   wardSession,
+  signInWard,
   authedRest,
   type MintedLink,
+  type WardSession,
 } from '../setup/auth.js';
-import { ALPHA, BETA, WARD_EMAIL, PUBLISH_CATEGORY, STALE_CATEGORY, loadFuture } from './_harness.js';
+import {
+  ALPHA,
+  BETA,
+  WARD_EMAIL,
+  PUBLISH_CATEGORY,
+  STALE_CATEGORY,
+  E2E_OPERATOR_EMAIL,
+  ALPHA_CONTACT,
+  ALPHA_AGREEMENT,
+  ALPHA_CATEGORIES,
+  loadFuture,
+  provisionE2eWardAccounts,
+  restoreAlphaWardBaseline,
+  assertAlphaPublic,
+} from './_harness.js';
+import {
+  RPC,
+  addCategoryBody,
+  createFacilityBody,
+  getContactBody,
+  recordAgreementBody,
+  recordContactBody,
+  registerBody,
+  setListedBody,
+} from '../../apps/admin/src/bodies.js';
 
 /**
  * RELEASE GATE 2, EXECUTED. One test per entry in
@@ -57,7 +83,27 @@ function name(id: string): string {
 }
 
 /** Shared across steps within the single-threaded run. */
-const state: { link?: MintedLink; expiringLink?: MintedLink } = {};
+const state: { link?: MintedLink; expiringLink?: MintedLink; operator?: WardSession } = {};
+
+/**
+ * THE OPERATOR'S SESSION: the E2E operator global setup bootstrapped through the
+ * provisioning script, signed in by the same mint-and-verify route every ward session
+ * here takes. Held in this file's state, not wardSession's cache, so the ward steps'
+ * one cached session is not displaced.
+ */
+async function operatorCall(fn: string, body: unknown) {
+  state.operator ??= await signInWard(E2E_OPERATOR_EMAIL);
+  return authedRest(`rpc/${fn}`, state.operator, { method: 'POST', body: body as Record<string, unknown> });
+}
+
+/** ALPHA's register row, read as the admin app reads it. */
+async function alphaInRegister(): Promise<Record<string, unknown>> {
+  const r = await operatorCall(RPC.register, registerBody());
+  expect(r.status, JSON.stringify(r.body)).toBe(200);
+  const row = (r.body as { facilities: Record<string, unknown>[] }).facilities.find((f) => f['facility_id'] === ALPHA.id);
+  expect(row, 'ALPHA is not in the operator register').toBeDefined();
+  return row as Record<string, unknown>;
+}
 
 /**
  * One id per run, suffixed onto every client_mutation_id. Since 014 a mutation id
@@ -81,6 +127,75 @@ interface PublishContract {
 }
 
 describe('golden path — release gate 2', () => {
+  // ------------------------------------------------ the operator step (BP-12)
+  // Through the same functions the admin app calls, with the bodies it sends. A facility
+  // is deactivated between runs, never deleted, so each step asserts against the state
+  // read just before its call: on a fresh database (CI's) every write is real; on one
+  // that has run before, each is the identical repeat the app's retry model relies on.
+  test(name('operator-creates-facility'), async () => {
+    const [before] = await sql()<{ n: number }[]>`select count(*)::int as n from app.facility where id = ${ALPHA.id}::uuid`;
+    const fields = { name: ALPHA.name, lga: ALPHA.lga, state: 'Lagos', lat: ALPHA.lat, lng: ALPHA.lng, publicPhoneE164: ALPHA.phone };
+    const first = await operatorCall(RPC.createFacility, createFacilityBody(ALPHA.id, fields));
+    expect(first.status, JSON.stringify(first.body)).toBe(200);
+    expect((first.body as { created: boolean }[])[0]?.created, 'created must be true exactly when ALPHA did not exist').toBe(before?.n === 0);
+    const again = await operatorCall(RPC.createFacility, createFacilityBody(ALPHA.id, fields));
+    expect((again.body as { created: boolean }[])[0]?.created, 'the same id and fields made a second facility').toBe(false);
+    const [after] = await sql()<{ n: number }[]>`select count(*)::int as n from app.facility where id = ${ALPHA.id}::uuid`;
+    expect(after?.n).toBe(1);
+  });
+
+  test(name('operator-records-contact-and-agreement'), async () => {
+    const [had] = await sql()<{ n: number }[]>`select count(*)::int as n from app.facility_agreement where facility_id = ${ALPHA.id}::uuid`;
+    const contact = await operatorCall(RPC.recordContact, recordContactBody(ALPHA.id, ALPHA_CONTACT, null));
+    expect(contact.status, JSON.stringify(contact.body)).toBe(200);
+    const agreement = await operatorCall(
+      RPC.recordAgreement,
+      recordAgreementBody(ALPHA.id, ALPHA_AGREEMENT.acceptedOn, ALPHA_AGREEMENT.version, ALPHA_AGREEMENT.signatoryRole),
+    );
+    expect(agreement.status, JSON.stringify(agreement.body)).toBe(200);
+    expect((agreement.body as { recorded: boolean }[])[0]?.recorded, 'recorded must be true exactly when no agreement existed').toBe(had?.n === 0);
+    const read = await operatorCall(RPC.getContact, getContactBody(ALPHA.id));
+    const view = read.body as { contact: { full_name: string } | null; agreement: { version: string; withdrawn_on: string | null } | null };
+    expect(view.contact?.full_name).toBe(ALPHA_CONTACT.fullName);
+    expect(view.agreement?.version).toBe(ALPHA_AGREEMENT.version);
+    expect(view.agreement?.withdrawn_on).toBeNull();
+  });
+
+  test(name('operator-adds-category'), async () => {
+    for (const category of ALPHA_CATEGORIES) {
+      const [had] = await sql()<{ n: number }[]>`
+        select count(*)::int as n from app.ward_status where facility_id = ${ALPHA.id}::uuid and category = ${category}::app.ward_category`;
+      const r = await operatorCall(RPC.addCategory, addCategoryBody(ALPHA.id, category, 'OFFERED'));
+      expect(r.status, JSON.stringify(r.body)).toBe(200);
+      expect((r.body as { created: boolean }[])[0]?.created, `${category}: created must be true exactly when it did not exist`).toBe(had?.n === 0);
+    }
+    const row = await alphaInRegister();
+    expect((row['categories'] as { category: string }[]).map((c) => c.category).sort()).toEqual([...ALPHA_CATEGORIES].sort());
+  });
+
+  test(name('operator-lists-facility'), async () => {
+    const before = await alphaInRegister();
+    const r = await operatorCall(RPC.setListed, setListedBody(ALPHA.id, before['version'] as number));
+    expect(r.status, JSON.stringify(r.body)).toBe(200);
+    const after = await alphaInRegister();
+    expect(after['listed_at'], 'ALPHA is not listed').not.toBeNull();
+    expect(after['has_contact']).toBe(true);
+    expect(after['agreement_state']).toBe('recorded');
+    expect(after['is_active']).toBe(true);
+  });
+
+  test(name('operator-provisions-ward'), async () => {
+    // The production script, through app.provision_begin's gates, on the facility the
+    // operator just made: a refusal here is a gate the steps above did not satisfy.
+    provisionE2eWardAccounts();
+    const row = await alphaInRegister();
+    const logins = Object.fromEntries((row['categories'] as { category: string; has_account: boolean }[]).map((c) => [c.category, c.has_account]));
+    expect(logins[PUBLISH_CATEGORY], 'the publishing ward has no active login').toBe(true);
+    // The ward steps' baseline, including the stale ward no operator function can make.
+    await restoreAlphaWardBaseline();
+    await assertAlphaPublic();
+  });
+
   // ---------------------------------------------------------------- stage 0
   test(name('magic-link-minted'), async () => {
     const link = await mintMagicLink(WARD_EMAIL);

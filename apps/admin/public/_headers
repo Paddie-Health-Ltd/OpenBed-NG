@@ -1,0 +1,16 @@
+# Response headers for every static asset of the admin app (Cloudflare Pages
+# `_headers`; R-2026-09-24-88 BP-10 as PR 3.4b-app B built it for the ward console,
+# carried to admin by R-2026-09-24-97 BY-2 g). tests/compliance/security_headers.test.ts
+# holds this file to its rule. connect-src is 'self' plus exactly the API origins
+# packages/origins/origins.json gives apiOrigin() -- production and local, because the
+# origin is chosen at run time by hostname -- and never the direct *.supabase.co origin:
+# the emailed sign-in link opens there as a navigation, which connect-src does not govern.
+# The origins are NOT typed here (R-2026-09-24-94 BV-2): the placeholder in connect-src
+# is filled from origins.json by scripts/render_headers.mjs when the app is built.
+# Referrer-Policy no-referrer: the sign-in lands with tokens in the URL fragment.
+# Cloudflare Access sits in front of this app's hosts (BQ-2); these headers are the
+# app's own, whatever Access adds to its own responses.
+/*
+  Content-Security-Policy: default-src 'self'; connect-src 'self' @API_ORIGINS@; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff

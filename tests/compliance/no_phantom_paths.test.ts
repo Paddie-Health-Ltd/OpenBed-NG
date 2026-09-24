@@ -44,7 +44,7 @@ import { REPO_ROOT } from './_scratch.js';
  * Backticked citations of a gitignored path that are exempt BY FILE, not by path.
  *
  * Keyed `citedIn::path`, so the same path cited from any OTHER file is still
- * refused. One entry, and it exists only because the document it sits in is
+ * refused. Two entries, and each exists only because the document it sits in is
  * committed byte-identical by ruling and may not be edited to repair it.
  */
 const IGNORED_CITATION_EXEMPTIONS: Record<string, string> = {
@@ -54,6 +54,12 @@ const IGNORED_CITATION_EXEMPTIONS: Record<string, string> = {
     'byte-identical to what was pasted. It passes the existence check only because CI ' +
     'builds before the compliance suite, which is exactly the machine-dependence this ' +
     'check exists to refuse; the exemption is the record of that, not a repair.',
+  'Sprint Kickoffs/pr-c-design-report-2026-09-24.md::apps/admin/public/version.json':
+    'The implementer\'s own Clause 4 scope defect in the PR 3.4b-app C design report (section ' +
+    '6.2), found when that report was committed. It is NOT fixed there, because the report ' +
+    'is committed byte-identical to what Cowork read and accepted (R-2026-09-24-97, sha256 ' +
+    '1f28046b…3b2a). The path is the admin app\'s gitignored build stamp; the .gitignore ' +
+    'line it describes is real. The exemption is the record of the defect, not a repair.',
 };
 
 /**
@@ -112,11 +118,6 @@ const PLANNED_ARTEFACTS: Record<string, { stage: number }> = {
   'scripts/lint_referral_ward_to_ward.sh': { stage: 5 },
   'tests/compliance/referral_ward_to_ward.test.ts': { stage: 5 },
   'tests/db/referral_column_list.test.ts': { stage: 5 },
-  // Bundle 3, PR 3.4b-app C (R-2026-09-24-88 BP-11): the admin app and its deploy
-  // read-back, cited by the 3.4b-app kickoff, which is committed unedited in PR A.
-  'apps/admin': { stage: 3 },
-  'apps/admin/wrangler.toml': { stage: 3 },
-  'scripts/readback_admin.sh': { stage: 3 },
 };
 
 /**

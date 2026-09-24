@@ -4423,6 +4423,64 @@ Two neuters confirm them: the old clause, and a same-script-only fix.
 
 **BW-2 — NOTHING ELSE CHANGES.** Re-attested on the new head. Report, then STOP.
 
+### R-2026-09-24-96 — #76 merged; the build of B checked; PR C's design report asked for
+
+_Issued as R-PROVISIONAL-2026-09-24-BX, by Cowork on 2026-09-24, as its check of #76 at `c054698`. **Pasting it was the founder's merge word for #76.** Record-only; it lands with PR C (this change). Number assigned on landing: R-2026-09-24-95 plus one. Next provisional letter: BY._
+
+**VERIFIED BY COWORK** (2026-09-24):
+- #76 was read from the GitHub API: OPEN at `c054698f36b742dcb5ba9ba4e06bfcbc1be4f2d2`, base `78f1e00`, clean, 4 commits, 49 files, seven check runs success.
+- `cc46fda..c054698` touches only the record, `leg-coverage.json`, `_legs.ts` and `leg_coverage.test.ts`.
+- `leg_coverage.test.ts` passed locally, 38 of 38.
+
+**BX-1 — BW-1 a's widening to every script is ACCEPTED.** The cross-script finding is the same defect, and a same-script fix would have left it open. The 17 nested pairs, pinned by identity, meet BW-1 d.
+
+**THE MERGE (BX-2).**
+- The head was read from the API as `c054698`, and #76 merged as a merge commit with `--match-head-commit`.
+- MERGED was read back: **`3df27ca5406a5b1ec89287a2a4225a7b34e5a322`**, with parents `78f1e00` and `c054698`.
+- `pr-3.4b-app-b` was deleted as a separate step afterwards, remote and local. `git ls-remote --heads` reads it as gone.
+
+**BX-3 — PR C's design report, report only.** Written as `~/cowork-handoff/pr-c-design-report-2026-09-24.md`, sha256 `1f28046bb3892359943a3626634cbd10a6ad828c1a8b5601f4bfb6c875733b2a`, 49442 bytes. It is committed unedited in this change as `Sprint Kickoffs/pr-c-design-report-2026-09-24.md`, with its hash re-read after the copy. Its §0 names nine premises that did not hold, among them:
+- the runbook had no facility-creation step to supersede;
+- BT-3's `generate_link` probe would recreate what A.2 removed;
+- the widened grant sweep has not run on hosted;
+- `operator_edit_facility` is not safe to repeat.
+
+### R-2026-09-24-97 — PR C's design report accepted; H6's order fixed; the build word for PR C
+
+_Issued as R-PROVISIONAL-2026-09-24-BY, by Cowork on 2026-09-24. **Pasting it was the build word for PR C.** Record-only; lands after -96, in PR C (this change). Number assigned on landing: R-2026-09-24-96 plus one. Next provisional letter: BZ._
+
+**VERIFIED BY COWORK:**
+- #76 merged at `3df27ca`, and its tree equals `c054698`.
+- The design report was read in full at sha256 `1f28046b…3b2a`, 49442 bytes, with zero @openbed.ng addresses.
+- §0-§10 are accepted as designed, amended only below. The staff-engineer, QA, CLCO and platform-SRE passes were applied.
+
+**BY-1 — H6'S ORDER IS WRONG AS WRITTEN, AND IS FIXED.** With `create_user` false, a link request for an address with no account sends nothing. The report's sign-in observation came before the operator bootstrap, so it could have observed nothing. After its six preconditions, H6 is:
+1. the admin Pages project and `admin.openbed.ng`, with the pages.dev hostnames added to the Access application and the service token issued;
+2. deploy through the wrapper, then `readback_admin.sh`, failing half first;
+3. BT-3 as reshaped (BY-2 b). A STOP here stops everything below;
+4. the widened grant sweep, failing half first, with its result recorded under its heading;
+5. the operator bootstrap, with its count read-back reading 1;
+6. the link read-back with `readback_signin_link.mjs`;
+7. the sign-in-order observation, in both orders;
+8. the register loads, empty.
+
+"No facility or ward login on hosted until the -45 gate reads clear" stays last.
+
+**BY-2 — THE SEVEN OPEN ITEMS:**
+- **(a) The preview deploy, `readback_admin.sh` PASS and the sign-in-order observation move to H6.** C merges on local evidence:
+  - a real-browser walk of `apps/admin` under its rendered CSP, from sign-in to an empty register, with zero CSP violations and a too-tight control;
+  - `readback_admin.sh` against local `wrangler pages dev` for every step that does not need Access, with the Access and service-token steps held by plants.
+
+  Admin is NOT live until H6 steps 2, 6 and 7 have read as they must.
+- **(b) The BT-3 probe** is `GET /auth/v1/admin/users?per_page=1` in two halves. It prints the HTTP status only, never the body. A 401 or 403 on the real key is a STOP.
+- **(c) `lagosTime` moves into `@openbed/snapshot`,** and the dashboard imports it. Its rendered times are compared before and after. The `TZ=Asia/Hong_Kong` test runs in a child process.
+- **(d) FIX IT IN C:** `lint_no_service_role_in_bundle.sh` derives its corpus from each app's `wrangler.toml` `pages_build_output_dir`, as B did for fonts, with a plant for an app that builds to `build/`.
+- **(e) Edit is never retried automatically.** An idempotency key on `operator_edit_facility` needs its own ruling if ever wanted.
+- **(f) The E2E operator** is made by the script and removed at reset and teardown. The local collision plant is shown once and quoted.
+- **(g) Admin's `connect-src`** is the same rendered pair, and `security_headers` pins it for all three apps.
+
+**BY-3 — BUILD PR C NOW,** on a branch from `main` at `3df27ca`. The report comes before the merge word. Nothing hosted. H5 and H6 are founder steps after the merge.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -4509,6 +4567,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | BU | R-2026-09-24-93 | 2026-09-24 | **The build word for A.2 and B.** The lookup and the order confirmed; H2's text goes in A.2 with a STOP if the switch did not take. `contacts.json` replaces `ward-support.json`; `/beds.json` gets nosniff unconditionally; each app is walked in a real browser under its CSP. |
 | BV | R-2026-09-24-94 | 2026-09-24 | **#75 merged at `78f1e00`.** B's ward CSP API origins are rendered from `origins.json` at build time, never typed into `_headers`; `connect-src` pinned to `'self'` plus that pair. Hosted: 022's apply, then H2, founder-side. |
 | BW | R-2026-09-24-95 | 2026-09-24 | **The leg rule: a longer message no longer proves a shorter one,** from any script. 305 / 279 / 26 before and after, no flips; 17 nested pairs pinned by name. |
+| BX | R-2026-09-24-96 | 2026-09-24 | **#76 merged at `3df27ca`.** BW-1's any-script widening accepted. PR C's design report written, report only. |
+| BY | R-2026-09-24-97 | 2026-09-24 | **The build word for PR C.** H6 reordered so the bootstrap comes before any sign-in observation; the seven open items ruled: preview and Access moved to H6, the BT-3 probe prints the status only, `lagosTime` shared, the service-role lint's corpus from `wrangler.toml`, edit never retried, the E2E operator cleaned, `connect-src` pinned. |
 
 ## Method notes — how rulings reach the implementer
 

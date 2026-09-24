@@ -22,8 +22,17 @@
 # warning is a guard someone switches off.
 #
 # SCOPE IS BUILT CLIENT OUTPUT ONLY, AND THAT IS DELIBERATE.
-#   apps/*/dist/**  and  apps/*/.next/static/**
+#   Every deployable app (each apps/*/ holding a wrangler.toml), and within it the
+#   directory its `pages_build_output_dir` names -- READ, never assumed to be dist.
 #   Extensions: .js .mjs .cjs .html .json
+#
+# UNTIL PR 3.4b-app C (R-2026-09-24-97 BY-2 d) THE CORPUS WAS A PATH GLOB,
+# `apps/*/dist/**` and `apps/*/.next/static/**`, found by `find -path`. An app whose
+# build output was named anything else -- `build/`, say -- was never scanned, and the
+# guard reported PASS over the apps it did find. That is the gap PR B closed for the
+# font guard (scripts/lint_no_third_party_fonts.sh), and the admin app, the third
+# deployable app, is what made it worth closing here too. `.next/static` named a
+# framework no app uses; an app that builds there now says so in its wrangler.toml.
 #
 # That list is a CLAIM ABOUT COVERAGE, and test-conventions.md section 2(d)
 # requires the claim be asserted rather than described: a planted credential in
@@ -99,18 +108,34 @@ set -euo pipefail
 ROOT="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
+# ANTI-VACUITY, PER APP. An app whose output directory holds no file of those types
+# was not built, and a guard over an unbuilt app must not report clean -- that is
+# exactly how this class of guard rots into a green light over an empty directory.
+# A tree with no deployable app at all is refused the same way.
 FILES=()
-while IFS= read -r _line; do FILES+=("$_line"); done < <(
-    find "$ROOT/apps" \( -path '*/dist/*' -o -path '*/.next/static/*' \) \
-         -type f \( -name '*.js' -o -name '*.mjs' -o -name '*.cjs' -o -name '*.html' -o -name '*.json' \) 2>/dev/null | sort
-)
+APPS=0
+while IFS= read -r _toml; do
+    _app="$(dirname "$_toml")"
+    APPS=$((APPS + 1))
+    _out="$(sed -n 's/^pages_build_output_dir *= *"\(\.\/\)\{0,1\}\([^"]*\)".*/\2/p' "$_toml")"
+    if [ -z "$_out" ]; then
+        echo "ERROR: $_toml names no pages_build_output_dir, so its built client bundle cannot be found." >&2
+        exit 2
+    fi
+    _n=0
+    while IFS= read -r _f; do FILES+=("$_f"); _n=$((_n + 1)); done < <(
+        find "$_app/$_out" -type f \( -name '*.js' -o -name '*.mjs' -o -name '*.cjs' -o -name '*.html' -o -name '*.json' \) 2>/dev/null | sort
+    )
+    if [ "$_n" -eq 0 ]; then
+        echo "ERROR: $_app has no built client bundle in $_app/$_out." >&2
+        echo "  Run 'npm run build' first. A bundle guard over an unbuilt app is not a pass." >&2
+        exit 2
+    fi
+done < <(find "$ROOT/apps" -mindepth 2 -maxdepth 2 -type f -name wrangler.toml 2>/dev/null | sort)
 
-# ANTI-VACUITY. An empty corpus means the apps were not built, and a guard that
-# scans nothing must not report clean -- that is exactly how this class of guard
-# rots into a green light over an empty directory.
-if [ "${#FILES[@]}" -eq 0 ]; then
-    echo "ERROR: no built client bundles found under $ROOT/apps." >&2
-    echo "  Run 'npm run build' first. A bundle guard over an empty corpus is not a pass." >&2
+if [ "$APPS" -eq 0 ]; then
+    echo "ERROR: no deployable app (apps/*/wrangler.toml) under $ROOT, so no built client bundle was found." >&2
+    echo "  A bundle guard over no app is not a pass." >&2
     exit 2
 fi
 
@@ -166,4 +191,4 @@ case "$sst" in
     *)  echo "ERROR: the server-side scan did not run (scanner exited $sst)" >&2
         exit 2 ;;
 esac
-echo "lint_no_service_role_in_bundle.sh: PASS (${#FILES[@]} built files scanned; ${#SERVER_FILES[@]} server-side function files scanned)"
+echo "lint_no_service_role_in_bundle.sh: PASS (${#FILES[@]} built files scanned in $APPS app(s); ${#SERVER_FILES[@]} server-side function files scanned)"
