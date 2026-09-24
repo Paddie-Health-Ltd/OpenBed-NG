@@ -70,6 +70,7 @@ const GATE_SCRIPTS = [
   'lint_no_service_role_in_bundle.sh',
   'lint_no_updated_at_filter.sh',
   'lint_from_allowlist.sh',
+  'lint_no_third_party_fonts.sh',
   'lint_grep_exit_codes.sh',
   'lint_audit_log_columns.sh',
 ];

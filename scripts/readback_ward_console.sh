@@ -41,6 +41,11 @@ SITE="${SITE%/}"
 rb_head "$ROOT"
 
 echo "=== step 2: $SITE/version.json, against this checkout's HEAD $RB_HEAD ==="
+# The page's security headers, read from this checkout's tracked _headers (BP-10).
+CSP_WANT="$(rb_tracked_header ward-console content-security-policy)"
+REFERRER_WANT="$(rb_tracked_header ward-console referrer-policy)"
+SNIFF_WANT="$(rb_tracked_header ward-console x-content-type-options)"
+
 site_probe GET /version.json
 rb_stamp
 rb_expect "step 2 commit" "$RB_COMMIT" "$RB_HEAD"
@@ -49,6 +54,11 @@ rb_expect "step 2 dirty" "$RB_DIRTY" "false"
 echo
 echo "=== step 3: the live-key probe, both halves ==="
 site_probe GET /
+# The page's security headers, against this checkout's tracked _headers (BP-10), read
+# from the same response the bundle is found in.
+rb_expect "step 3 content-security-policy" "$(rb_header content-security-policy)" "$CSP_WANT"
+rb_expect "step 3 referrer-policy" "$(rb_header referrer-policy)" "$REFERRER_WANT"
+rb_expect "step 3 x-content-type-options" "$(rb_header x-content-type-options)" "$SNIFF_WANT"
 rb_matches 'assets/index-[A-Za-z0-9_-]*\.js'
 BUNDLE="$RB_MATCHES"
 rb_expect "step 3 bundles the page loads" "$RB_COUNT" 1

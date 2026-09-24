@@ -115,7 +115,7 @@ const TAP_AGAIN = 'Your session has ended. Tap the link on the ward handset agai
  *
  * WHERE A WARD IS SENT FOR HELP (R-2026-09-23-67 B1). These said "phone the OpenBed
  * operator" and named no number, because none existed (R-2026-09-23-66). They now
- * name the ward support address from packages/origins/ward-support.json, and point
+ * name the ward support address from packages/origins/contacts.json, and point
  * first at the facility's own OpenBed administrator -- conditionally, because nothing
  * this console can read says whether the facility has one.
  * tests/compliance/ward_support_contact.test.ts refuses any message that sends a ward

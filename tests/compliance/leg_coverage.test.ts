@@ -90,7 +90,7 @@ export function registerViolations(
       out.push(`${leg.script}: leg "${leg.id}" is not in the register — add it as reached or registered`);
       continue;
     }
-    const reached = isReached(leg, asserted);
+    const reached = isReached(leg, asserted, legs);
     if (entry.state === 'reached' && !reached) {
       out.push(`${leg.script}: leg "${leg.id}" is marked reached but no test asserts its message`);
     }
@@ -247,7 +247,7 @@ describe('leg coverage register', () => {
 
   test('the recorded baseline still matches what is measured', () => {
     // The number future sessions will want and cannot reconstruct.
-    const reached = legs.filter((l) => isReached(l, asserted)).length;
+    const reached = legs.filter((l) => isReached(l, asserted, legs)).length;
     const base = REGISTER.baseline_2026_09_10;
     const now = REGISTER.current;
 
@@ -270,6 +270,39 @@ describe('leg coverage register', () => {
       reached,
       `reached is ${reached}; the 2026-09-10 baseline was ${base.reached}. A fall means a leg stopped being proved.`,
     ).toBeGreaterThanOrEqual(base.reached);
+  });
+
+  // THE MATCHING RULE (R-2026-09-24-92 BT-4, confirmed by R-2026-09-24-93 BU-2 f).
+  // A literal credits a leg only if it identifies THAT leg's own message.
+  const A: Leg = { script: 'lint_y.sh', line: 1, id: 'lint_y.sh: FAILED (' };
+  const B: Leg = { script: 'lint_y.sh', line: 2, id: 'PLANT DID NOT LAND — first form' };
+  const C: Leg = { script: 'lint_y.sh', line: 3, id: 'PLANT DID NOT LAND — second form' };
+  const ALL = [A, B, C];
+
+  test("plant — a test that only names the script's path credits NOTHING", () => {
+    // The name must be at least MIN_ID long, as the real ones are (lint_public_table_rls.sh),
+    // or the old rule would ignore it too and this plant could not fail: a neuter back to
+    // the old rule showed exactly that with a nine-character name.
+    const LONG: Leg = { script: 'lint_long_name.sh', line: 1, id: 'lint_long_name.sh: FAILED (' };
+    for (const named of ['lint_long_name.sh', 'scripts/lint_long_name.sh']) {
+      expect(isReached(LONG, new Map([['lint_long_name.sh', [named]]]), [LONG]), `"${named}" credited the leg whose message quotes it`).toBe(false);
+    }
+  });
+
+  test('plant — a fragment two legs share credits NEITHER', () => {
+    const asserted = new Map([['lint_y.sh', ['PLANT DID NOT LAND']]]);
+    expect(isReached(B, asserted, ALL), 'a shared prefix credited the first leg').toBe(false);
+    expect(isReached(C, asserted, ALL), 'a shared prefix credited the second leg').toBe(false);
+  });
+
+  test("accept — the whole identity, or a fragment only that leg's message holds, credits the leg", () => {
+    expect(isReached(A, new Map([['lint_y.sh', ['lint_y.sh: FAILED (2)']]]), ALL), 'the quoted summary line did not credit its leg').toBe(true);
+    expect(isReached(B, new Map([['lint_y.sh', ['NOT LAND — first']]]), ALL), 'a fragment unique to one leg did not credit it').toBe(true);
+    expect(isReached(C, new Map([['lint_y.sh', ['NOT LAND — first']]]), ALL), 'a fragment of ANOTHER leg credited this one').toBe(false);
+  });
+
+  test('anti-vacuity — with no assertions, nothing is reached', () => {
+    expect(ALL.filter((l) => isReached(l, new Map(), ALL))).toEqual([]);
   });
 
   const LEG: Leg = { script: 'lint_x.sh', line: 1, id: 'the planted leg message' };

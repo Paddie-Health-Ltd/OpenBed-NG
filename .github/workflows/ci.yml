@@ -303,6 +303,9 @@ jobs:
       - name: No service-role credential in any client bundle
         run: bash scripts/lint_no_service_role_in_bundle.sh
 
+      - name: No third-party font host in any built app (BP-10)
+        run: bash scripts/lint_no_third_party_fonts.sh
+
       - name: No updated_at filter on the public search path
         run: bash scripts/lint_no_updated_at_filter.sh
 

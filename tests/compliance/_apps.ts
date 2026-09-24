@@ -17,7 +17,8 @@ import { REPO_ROOT } from './_scratch.js';
  * extend a list.
  *
  * WHY THERE IS STILL A LITERAL TABLE. tests/compliance/build_stamp.test.ts asserts
- * this function's result against a checked-in list of names. That is deliberate and
+ * this function's result against a checked-in list of names, which lives in
+ * packages/fixtures/per-app.json since PR 3.4b-app B. That is deliberate and
  * it is not a magic number: it decays LOUDLY the moment an app is added or renamed,
  * which is the review you want (.claude/rules/test-conventions.md section 3 --
  * assert on parsed identity, never on a count).

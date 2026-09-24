@@ -413,13 +413,40 @@ export function stringLiteralsInCode(
   return out;
 }
 
-/** A leg is REACHED when a test THAT RUNS ITS GUARD asserts a substring of its own message. */
-export function isReached(leg: Leg, byScript: Map<string, string[]>): boolean {
+/**
+ * A leg is REACHED only by a literal, in a test THAT RUNS ITS GUARD, that identifies
+ * THAT LEG'S OWN MESSAGE (R-2026-09-24-92 BT-4; the rule R-2026-09-24-93 BU-2 f
+ * confirmed). The literal must either:
+ *   1. contain the leg's whole identity; or
+ *   2. be a fragment of it that is at least MIN_ID characters, is not a path or a
+ *      script's name, and is contained in NO OTHER leg's identity in the same script.
+ *
+ * UNTIL 2026-09-24 ANY literal of MIN_ID or more that the message contained counted.
+ * A test must NAME its script to be counted at all, so the script's own name credited
+ * every leg whose message quotes it: five `<script>.sh: FAILED (` summary lines read as
+ * reached with no test quoting them, and scripts/readback_signin_link.mjs's stdin-is-a-
+ * terminal STOP read as reached before any plant existed -- by its test's script path,
+ * then by the flag literal '--project-ref'. A fragment two legs share proves neither:
+ * scripts/neuter_plant.mjs's two `PLANT DID NOT LAND` legs were both "reached" by one
+ * assertion of that shared prefix. Measured with this module over the real tree before
+ * the rule landed: 276 script legs, 250 reached before, 244 after, six flips, all
+ * reached -> not; the ten instrument legs, 10 reached before and after.
+ *
+ * `legs` is every leg of every script, so rule 2 can see the leg's neighbours.
+ */
+export function isReached(leg: Leg, byScript: Map<string, string[]>, legs: Leg[]): boolean {
   const asserted = byScript.get(leg.script) ?? [];
-  return asserted.some(
-    (a) => a.includes(leg.id) || (leg.id.includes(a.trim()) && a.trim().length >= MIN_ID),
-  );
+  const neighbours = legs.filter((l) => l.script === leg.script && l.id !== leg.id);
+  return asserted.some((raw) => {
+    const a = raw.trim();
+    if (a.includes(leg.id)) return true;
+    if (a.length < MIN_ID || !leg.id.includes(a) || PATH_SHAPED.test(a)) return false;
+    return !neighbours.some((n) => n.id.includes(a));
+  });
 }
+
+/** A path or a script's name: never evidence for a leg (BT-4). */
+const PATH_SHAPED = /^(?:[\w.-]+\/)*[\w.-]+\.(?:sh|mjs|ts|js|json|sql|toml|md)$/;
 
 /**
  * EVERY DIRECTORY A PLANT COULD LIVE IN, DISCOVERED RATHER THAN LISTED.

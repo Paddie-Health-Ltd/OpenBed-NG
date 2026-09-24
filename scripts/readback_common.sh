@@ -130,6 +130,34 @@ rb_header() {
     printf '%s' "$found"
 }
 
+# rb_tracked_header APP NAME -- the value THIS CHECKOUT's tracked apps/APP/public/_headers
+# sets for NAME on /* (PR 3.4b-app B, BP-10). The expected security headers are read
+# from the file that ships, never retyped here. Assign it on its OWN line: a failing
+# $(...) inside an argument does not abort under -e (test-conventions section 8), and
+# a missing file or header must stop the read-back with no verdict.
+rb_tracked_header() {
+    local file="$ROOT/apps/$1/public/_headers" want="$2" line name inall=0 found=""
+    if [ ! -f "$file" ]; then
+        echo "ERROR: this checkout holds no tracked _headers file for the app at $file, so the expected $want cannot be read" >&2
+        exit 2
+    fi
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in ''|'#'*) continue ;; esac
+        case "$line" in
+            [![:space:]]*) if [ "$line" = '/*' ]; then inall=1; else inall=0; fi; continue ;;
+        esac
+        [ "$inall" = 1 ] || continue
+        line="${line#"${line%%[![:space:]]*}"}"
+        name="$(printf '%s' "${line%%:*}" | tr '[:upper:]' '[:lower:]')"
+        if [ "$name" = "$want" ]; then found="${line#*:}"; found="${found# }"; fi
+    done < "$file"
+    if [ -z "$found" ]; then
+        echo "ERROR: $file sets no $want on /*, so the expected value cannot be read -- this read-back has no verdict" >&2
+        exit 2
+    fi
+    printf '%s' "$found"
+}
+
 # rb_body N -- the first N bytes of the last response body.
 rb_body() {
     head -c "$1" "$RB_TMP/body"

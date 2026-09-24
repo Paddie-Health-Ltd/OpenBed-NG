@@ -22,7 +22,8 @@ import { REPO_ROOT } from './_scratch.js';
  *
  * NOT ASSERTED HERE, deliberately:
  *   - that the tap target MEASURES 44px. jsdom lays nothing out. The rule that
- *     sizes it is asserted from index.html's own text; how a real browser renders
+ *     sizes it is asserted from src/style.css's own text (index.html's inline <style>
+ *     until PR 3.4b-app B moved it for the CSP); how a real browser renders
  *     it is a deploy-time read-back, not something this suite can see.
  *   - that the number is ANSWERED. E.164 proves the format only. Onboarding
  *     confirms the line is staffed 24/7 by someone who can confirm bed status, with
@@ -84,9 +85,9 @@ export function callLinkViolations(doc: Document, shown: { name: string; phone: 
   return out;
 }
 
-/** The smallest tap dimension index.html's a.call rule declares, or null if it declares none. */
-export function callTapTargetPx(html: string): { minHeight: number | null; minWidth: number | null } {
-  const rule = /a\.call\s*\{([^}]*)\}/.exec(html)?.[1] ?? '';
+/** The smallest tap dimension an a.call rule in `css` declares, or null if it declares none. */
+export function callTapTargetPx(css: string): { minHeight: number | null; minWidth: number | null } {
+  const rule = /a\.call\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
   const px = (prop: string) => {
     const m = new RegExp(`${prop}\\s*:\\s*(\\d+)px`).exec(rule);
     return m === null ? null : Number(m[1]);
@@ -195,12 +196,21 @@ describe('one tap-to-call link per facility', () => {
   });
 
   test("the link's tap target is declared at least 44 x 44 CSS px, and a smaller rule is refused", () => {
-    const html = readFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'index.html'), 'utf8');
-    const real = callTapTargetPx(html);
-    expect(real.minHeight ?? 0, 'index.html declares no min-height of 44px or more on a.call').toBeGreaterThanOrEqual(44);
-    expect(real.minWidth ?? 0, 'index.html declares no min-width of 44px or more on a.call').toBeGreaterThanOrEqual(44);
-    const planted = callTapTargetPx(html.replace(/min-height:\s*44px/, 'min-height: 40px'));
+    const css = readFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'src', 'style.css'), 'utf8');
+    const real = callTapTargetPx(css);
+    expect(real.minHeight ?? 0, 'style.css declares no min-height of 44px or more on a.call').toBeGreaterThanOrEqual(44);
+    expect(real.minWidth ?? 0, 'style.css declares no min-width of 44px or more on a.call').toBeGreaterThanOrEqual(44);
+    const planted = callTapTargetPx(css.replace(/min-height:\s*44px/, 'min-height: 40px'));
     expect(planted.minHeight, 'the plant did not reach the rule').toBe(40);
     expect(callTapTargetPx('<style>a.other { min-height: 44px }</style>'), 'a rule for another selector was read').toEqual({ minHeight: null, minWidth: null });
+  });
+
+  test('index.html carries NO inline <style>, which the CSP would block silently, and main.ts imports the stylesheet', () => {
+    // Comments stripped first: the page's own comment explains the move, and prose is
+    // not evidence either way (test-conventions section 2(a)).
+    const html = readFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'index.html'), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+    expect(html, 'an inline <style> is back in index.html; style-src is self only').not.toMatch(/<style[\s>]/i);
+    expect('<head><style>a{}</style></head>', 'the check cannot see an inline block, so it proves nothing').toMatch(/<style[\s>]/i);
+    expect(readFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'src', 'main.ts'), 'utf8')).toContain("import './style.css';");
   });
 });

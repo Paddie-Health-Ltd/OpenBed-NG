@@ -61,6 +61,7 @@ describe('lint_public_table_rls.sh', () => {
       place(root, 'database/migrations/900_plant.sql', mig('900_plant.sql', CREATE));
       const res = runLint(LINT, root);
       expect(res.status, `an unprotected public table was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, 'the summary line that names the verdict was not printed').toContain('lint_public_table_rls.sh: FAILED (');
       expect(res.stdout).toContain('is created in 900_plant.sql and never ENABLEs row level security');
       expect(res.stdout, 'the refusal did not say what the consequence is').toContain(
         'A public table with RLS off is readable by anon the moment PostgREST exposes the schema.',

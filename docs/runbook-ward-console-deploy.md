@@ -79,6 +79,7 @@ failing half of H4's false STOP.
 | `step 2 commit` / `step 2 dirty` | **this checkout's HEAD** / **`false`** |
 | `step 3 bundles the page loads` | **`1`** |
 | `step 3 publishable keys in the deployed bundle` | **`1`** |
+| `step 3 content-security-policy` / `referrer-policy` / `x-content-type-options` | exactly what **this checkout's** `apps/ward-console/public/_headers` sets on `/*` (section 4) |
 | `step 3 live half status` / `body` | **`200`** / begins **`{"external":`** |
 | `step 3 dead half status` / `body` | **`401`** / contains **`"message":"Invalid API key"`** |
 | last line | **`PASS: …`** |
@@ -107,3 +108,30 @@ R-2026-09-19-23 D4 forbids touching.
 
 **This read-back is the one the rotation step points at**; there is no second copy
 of the probe to drift from this one.
+
+## 4. The page's security headers — and why a green read-back is not enough
+
+The console ships a tracked `apps/ward-console/public/_headers` (PR 3.4b-app B; R-2026-09-24-88
+BP-10), which Vite copies into the build: a Content-Security-Policy, `Referrer-Policy:
+no-referrer` (the sign-in lands with tokens in the URL fragment) and `X-Content-Type-Options:
+nosniff`. Step 3's three header lines compare what the deployment serves on `/` against
+**this checkout's** file, read by the script, never retyped. So a deploy that dropped or
+changed a header reads `WRONG`.
+
+**A CSP that is too tight breaks the page SILENTLY** (R-2026-09-24-93 BU-2 e). The browser
+blocks a stylesheet, a script or a fetch and says so only in its own developer console.
+The page may render half-working, every curl-level check above still reads `ok`, and
+`tests/compliance/security_headers.test.ts` still passes, because it checks the file, not
+the browser. So:
+
+- **Before any change to `_headers` is reported,** the app is built and served locally
+  under its headers with `npx wrangler pages dev apps/ward-console/dist`. That is a local
+  server: it deploys nothing and needs no Cloudflare login. The app is then loaded in a
+  real browser, the console is checked for a CSP violation, and the sign-in is walked end
+  to end against the local stack: request a link, open it from the local mail catcher, and
+  see the handover load.
+- **That local walk is not evidence of production.** The production reading is this
+  read-back, on the deploy, plus one load of the deployed page in a browser with its
+  console open. A `WRONG` on any header line, or a CSP violation in that console, is a
+  STOP.
+

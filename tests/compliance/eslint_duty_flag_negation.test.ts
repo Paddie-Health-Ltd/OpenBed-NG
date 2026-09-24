@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { ESLint } from 'eslint';
 import { REPO_ROOT } from './_scratch.js';
+import { deployableApps } from './_apps.js';
 
 /**
  * GUARD OVER A GUARD -- the `no-restricted-syntax` duty-flag rule in
@@ -46,10 +47,8 @@ describe('eslint duty-flag rule', () => {
   });
 
   test('the real source tree passes the rule', async () => {
-    const results = await eslint.lintFiles([
-      'packages/gate/src/**/*.ts',
-      'apps/public-dashboard/src/**/*.ts',
-    ]);
+    // Every app's source, derived since PR 3.4b-app B (BP-9), not the dashboard alone.
+    const results = await eslint.lintFiles(['packages/gate/src/**/*.ts', ...deployableApps().map((a) => `apps/${a}/src/**/*.ts`)]);
     expect(results.length, 'no files linted — the guard is vacuous').toBeGreaterThan(0);
     const hits = results.flatMap((r) => r.messages).filter((m) => m.ruleId === 'no-restricted-syntax');
     expect(hits.map((m) => m.message), 'real source violates the duty-flag rule').toEqual([]);

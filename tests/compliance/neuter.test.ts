@@ -104,7 +104,9 @@ describe('neuter.sh — the harness that proves a test can fail', () => {
   test('plant — a plant whose anchor is absent aborts with exit 2', () => {
     const r = harness([{ name: 'G4', file: TARGET, replace: [{ old: 'if (n <= 0)', new: '', count: 1 }], tests: ['tests/target.test.mjs'] }]);
     expect(r.status, `an unlanded plant was run:\n${r.out}`).toBe(2);
-    expect(r.out).toContain('PLANT DID NOT LAND');
+    // The identifying text, not the prefix two neuter_plant.mjs legs share: a fragment
+    // that could prove either leg proves neither (R-2026-09-24-92 BT-4).
+    expect(r.out).toContain('PLANT DID NOT LAND — neuter G4');
     expect(r.out).toContain('An unlanded plant leaves the file unchanged');
     expect(r.targetAfter).toBe(TARGET_SRC);
   });

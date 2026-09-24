@@ -3,15 +3,17 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import SUPPORT from '../../packages/origins/ward-support.json';
+import CONTACTS from '../../packages/origins/contacts.json';
 import { WARD_SUPPORT_EMAIL } from '../../packages/origins/src/support.js';
 import { REPO_ROOT } from './_scratch.js';
+import { deployableApps, outputDirOf } from './_apps.js';
 
 /**
  * A WARD SENT FOR HELP IS TOLD WHERE TO GO (R-2026-09-23-67 B1, B2).
  *
  * Every ward-console message that sends a ward to OpenBed for help names the ward
- * support address, read from ONE tracked setting, packages/origins/ward-support.json.
+ * support address, read from ONE tracked setting: the `support` entry of
+ * packages/origins/contacts.json (ward-support.json until PR 3.4b-app B).
  * Until this ruling they said "phone the OpenBed operator" and no number existed to
  * call. A message that points a ward at the operator with nothing to reach them by is
  * the defect, and it is refused here in the messages the console exports AND in its
@@ -48,8 +50,8 @@ async function consoleMessages(): Promise<string[]> {
 
 describe('the ward support address', () => {
   test('the tracked setting holds the founder\'s address, and it is not security@ or hello@', () => {
-    expect(SUPPORT.address).toBe('support@openbed.ng');
-    expect(WARD_SUPPORT_EMAIL, 'the module does not read the tracked file').toBe(SUPPORT.address);
+    expect(CONTACTS.support.address).toBe('support@openbed.ng');
+    expect(WARD_SUPPORT_EMAIL, 'the module does not read the tracked file').toBe(CONTACTS.support.address);
     expect(WARD_SUPPORT_EMAIL).not.toMatch(/^(security|hello)@/);
   });
 
@@ -73,13 +75,17 @@ describe('the ward support address', () => {
     expect(bareOperatorInstructions(' * they said "phone the OpenBed operator" once'), 'a comment recording history was flagged').toEqual([]);
   });
 
-  test('the ward console bundle carries the address, and the public dashboard bundle does not', () => {
+  test('the ward console bundle carries the address, and EVERY OTHER app\'s bundle does not', () => {
     const js = (app: string): string => {
-      const dir = join(REPO_ROOT, 'apps', app, 'dist', 'assets');
+      const dir = join(REPO_ROOT, 'apps', app, outputDirOf(app), 'assets');
       expect(existsSync(dir), `run \`npm run build\` before the compliance suite — apps/${app} has no built output`).toBe(true);
       return readdirSync(dir).filter((n) => n.endsWith('.js')).map((n) => readFileSync(join(dir, n), 'utf8')).join('\n');
     };
     expect(js('ward-console'), 'the ward console shipped without its support address').toContain(WARD_SUPPORT_EMAIL);
-    expect(js('public-dashboard'), 'the ward support address reached the public page').not.toContain(WARD_SUPPORT_EMAIL);
+    // Derived since PR 3.4b-app B (BP-9): every deployable app but the ward console,
+    // so an app added later is held to it by existing.
+    const others = deployableApps().filter((a) => a !== 'ward-console');
+    expect(others.length, 'no other app was discovered, so this leg checked nothing').toBeGreaterThan(0);
+    for (const app of others) expect(js(app), `the ward support address reached apps/${app}`).not.toContain(WARD_SUPPORT_EMAIL);
   });
 });

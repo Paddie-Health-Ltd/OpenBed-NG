@@ -35,6 +35,11 @@ rb_head "$ROOT"
 JSON_CT='application/json; charset=utf-8'
 CACHE='public, s-maxage=30, stale-while-revalidate=300'
 ROBOTS='noindex, nofollow'
+NOSNIFF='nosniff'
+# The page's security headers, read from this checkout's tracked _headers (BP-10).
+CSP_WANT="$(rb_tracked_header public-dashboard content-security-policy)"
+REFERRER_WANT="$(rb_tracked_header public-dashboard referrer-policy)"
+SNIFF_WANT="$(rb_tracked_header public-dashboard x-content-type-options)"
 ISO='^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?Z$'
 
 echo "=== read-back 4: $SITE/version.json, against this checkout's HEAD $RB_HEAD ==="
@@ -58,6 +63,9 @@ site_probe GET /beds.json
 rb_expect "read-back 6 status" "$RB_CODE" 200
 rb_expect "read-back 6 content-type" "$(rb_header content-type)" "$JSON_CT"
 rb_expect "read-back 6 x-robots-tag" "$(rb_header x-robots-tag)" "$ROBOTS"
+# Set by the Function itself (packages/snapshot/src/serve.ts): Pages is understood not to
+# apply _headers to a Function's response (R-2026-09-24-93 BU-2 d).
+rb_expect "read-back 6 x-content-type-options" "$(rb_header x-content-type-options)" "$NOSNIFF"
 # An {"error": body fails whatever the status line said.
 rb_expect_prefix "read-back 6 body" "$(rb_body 120)" '{"v":'
 
@@ -69,7 +77,16 @@ for m in GET HEAD; do
     rb_expect "read-back 8 $m content-type" "$(rb_header content-type)" "$JSON_CT"
     rb_expect "read-back 8 $m cache-control" "$(rb_header cache-control)" "$CACHE"
     rb_expect "read-back 8 $m x-robots-tag" "$(rb_header x-robots-tag)" "$ROBOTS"
+    rb_expect "read-back 8 $m x-content-type-options" "$(rb_header x-content-type-options)" "$NOSNIFF"
 done
+
+echo
+echo "=== the page's security headers: GET $SITE/, against this checkout's tracked apps/public-dashboard/public/_headers ==="
+site_probe GET /
+rb_expect "page status" "$RB_CODE" 200
+rb_expect "page content-security-policy" "$(rb_header content-security-policy)" "$CSP_WANT"
+rb_expect "page referrer-policy" "$(rb_header referrer-policy)" "$REFERRER_WANT"
+rb_expect "page x-content-type-options" "$(rb_header x-content-type-options)" "$SNIFF_WANT"
 
 echo
 echo "=== the serve-time stamp: two GETs of $SITE/beds.json, ${PAUSE}s apart ==="
@@ -93,4 +110,4 @@ else
     rb_wrong "serve-time stamp advances" "$FIRST -> $SECOND" "the second must be later than the first"
 fi
 
-rb_verdict "read-backs 4, 6 and 8 and the serve-time stamp read as they must."
+rb_verdict "read-backs 4, 6 and 8, the page's security headers and the serve-time stamp read as they must."

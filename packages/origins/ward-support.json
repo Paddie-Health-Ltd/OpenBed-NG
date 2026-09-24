@@ -1,7 +1,0 @@
-{
-  "what_this_is": "THE ONE ADDRESS A WARD IS TOLD TO WRITE TO FOR HELP (R-2026-09-23-67 B1). Every ward-console message that sends a ward to OpenBed for help names this address, read from here. tests/compliance/ward_support_contact.test.ts refuses a console message that points a ward at the operator without it.",
-  "address": "support@openbed.ng",
-  "ruling": "R-2026-09-23-67 B1, B2. The address is the founder's: created in Proton on the openbed.ng account on 2026-09-23 and confirmed by a test email from an outside address (the founder's reading); openbed.ng's MX, SPF, DKIM and DMARC read as Proton's over DNS-over-HTTPS the same day (Cowork's reading).",
-  "what_may_never_go_here": "security@openbed.ng (vulnerability disclosure, SECURITY.md) or hello@openbed.ng (general enquiries). A ward in trouble must reach the mailbox that handles wards. A personal address, ever: support is a role, and a person leaves.",
-  "not_yet": "A staffed phone or WhatsApp line for wards, with honest hours, is an open item before facility one (R-2026-09-23-67 B3). Until it exists, email is the only contact this console names."
-}

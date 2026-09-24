@@ -134,8 +134,17 @@ function goodStamp(root: string): string {
   return JSON.stringify({ commit: head, dirty: false, built_at: new Date().toISOString() });
 }
 
+/**
+ * The SCRATCH tree's build output directory: what placeApp writes into each scratch
+ * wrangler.toml, and where the stub build writes its stamp. It is a fact about the
+ * scratch tree, not about any real app -- so it is one named constant here, never
+ * tests/compliance/_apps.ts's outputDirOf(), which reads the real repository and has
+ * no entry for the plants' made-up apps (PR 3.4b-app B, BP-9).
+ */
+const SCRATCH_OUT_DIR = 'dist';
+
 /** Gives the scratch work tree the wrangler.toml the wrapper reads its registry from. */
-function placeApp(root: string, app: string, project: string, outDir: string | null = 'dist'): void {
+function placeApp(root: string, app: string, project: string, outDir: string | null = SCRATCH_OUT_DIR): void {
   const lines = [`name = "${project}"`];
   if (outDir !== null) lines.push(`pages_build_output_dir = "./${outDir}"`);
   place(root, `work/apps/${app}/wrangler.toml`, `${lines.join('\n')}\n`);
@@ -150,6 +159,9 @@ interface DeployOpts {
 
 /** Runs the real wrapper against the scratch work tree with `npm`/`npx` stubbed. */
 function deploy(root: string, opts: DeployOpts = {}): Run {
+  // ONE REPRESENTATIVE APP, deliberately (BP-9, a literal kept with its reason): the
+  // argument-parsing plants need one real app to parse, and the accept legs below are
+  // derived per app with deployableApps().
   const app = opts.app ?? 'public-dashboard';
   const work = join(root, 'work');
   const bin = stubBin(root);
@@ -157,7 +169,7 @@ function deploy(root: string, opts: DeployOpts = {}): Run {
   const stampEnv: Record<string, string> =
     opts.stamp === null
       ? {}
-      : { STUB_STAMP: join(work, 'apps', app, 'dist', 'version.json'), STUB_STAMP_BODY: opts.stamp ?? goodStamp(root) };
+      : { STUB_STAMP: join(work, 'apps', app, SCRATCH_OUT_DIR, 'version.json'), STUB_STAMP_BODY: opts.stamp ?? goodStamp(root) };
   const r = exec('bash', [join(REPO_ROOT, DEPLOY_SCRIPT), app, work], {
     PATH: `${bin}:${process.env['PATH'] ?? ''}`,
     STUB_LOG: log,
@@ -318,7 +330,7 @@ describe('deploy_pages.sh — the accident case, refused', () => {
       const res = exec('bash', [join(REPO_ROOT, DEPLOY_SCRIPT), 'public-dashboard', join(root, 'work'), '--branch', 'preview'], {
         PATH: `${bin}:${process.env['PATH'] ?? ''}`,
         STUB_LOG: log,
-        STUB_STAMP: join(root, 'work', 'apps', 'public-dashboard', 'dist', 'version.json'),
+        STUB_STAMP: join(root, 'work', 'apps', 'public-dashboard', SCRATCH_OUT_DIR, 'version.json'),
         STUB_STAMP_BODY: goodStamp(root),
       });
       const ran = existsSync(log) ? readFileSync(log, 'utf8') : '';
