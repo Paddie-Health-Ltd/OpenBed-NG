@@ -16,8 +16,12 @@ import ORIGINS from '../../packages/origins/origins.json';
  *     style-src 'self' (no 'unsafe-inline', no hash), object-src 'none',
  *     base-uri 'none' and frame-ancestors 'none';
  *   - connect-src EXACTLY 'self', plus -- for an app whose browser code calls
- *     apiOrigin() -- the API origins packages/origins/origins.json gives it,
- *     production and local, read from that file and never retyped here;
+ *     apiOrigin() -- THE BUILD TARGET'S API origin from packages/origins/origins.json,
+ *     read from that file and never retyped here. The build the founder deploys
+ *     renders `production` and names no local host at all (R-2026-09-25-117 CS-2);
+ *     `build:local` renders `local` for a local `wrangler pages dev`. Until 2026-09-25
+ *     this read "the API origins … production and local", and every build shipped
+ *     both;
  *   - and, for such an app, those origins DERIVED, not retyped, in the file itself
  *     (R-2026-09-24-94 BV-2): the tracked _headers names the @API_ORIGINS@
  *     placeholder exactly once, in connect-src, and holds neither origin as text.
@@ -46,6 +50,8 @@ import ORIGINS from '../../packages/origins/origins.json';
 
 const APPS = deployableApps();
 const API_ORIGINS = [ORIGINS.api.production, ORIGINS.api.local];
+/** origins.json's own list of what counts as local, read, never retyped. */
+const LOCAL_HOSTS: string[] = ORIGINS.localHosts;
 
 /** Whether an app's browser source selects an API origin at run time. */
 function callsApi(app: string): boolean {
@@ -92,11 +98,13 @@ function headerViolations(text: string, expectedConnect: string[]): string[] {
 const PLACEHOLDER = '@API_ORIGINS@';
 const RENDERER = join(REPO_ROOT, 'scripts', 'render_headers.mjs');
 
-/** scripts/render_headers.mjs run over `text`, as the build runs it. Never throws. */
-function render(text: string, renderer: string = RENDERER): { status: number; out: string; err: string } {
+type Target = 'production' | 'local';
+
+/** scripts/render_headers.mjs run over `text` for `target`, as the build runs it. Never throws. */
+function render(text: string, target: Target = 'production', renderer: string = RENDERER): { status: number; out: string; err: string } {
   return withScratch((work) => {
     place(work, '_headers', text);
-    const r = spawnSync('node', [renderer, join(work, '_headers')], { encoding: 'utf8' });
+    const r = spawnSync('node', [renderer, '--target', target, join(work, '_headers')], { encoding: 'utf8' });
     return { status: r.status ?? -1, out: r.stdout, err: r.stderr };
   });
 }
@@ -114,14 +122,14 @@ function sourceViolations(text: string, api: boolean): string[] {
 }
 
 /** Every violation of the tracked text: the source rule, then the header rules on its rendering. */
-function violations(text: string, app: string): string[] {
-  if (text.trim() === '') return headerViolations(text, expectedFor(app));
-  const r = render(text);
+function violations(text: string, app: string, target: Target = 'production'): string[] {
+  if (text.trim() === '') return headerViolations(text, expectedFor(app, target));
+  const r = render(text, target);
   if (r.status !== 0) return [...sourceViolations(text, callsApi(app)), `the renderer refused: ${r.err.trim()}`];
-  return [...sourceViolations(text, callsApi(app)), ...headerViolations(r.out, expectedFor(app))];
+  return [...sourceViolations(text, callsApi(app)), ...headerViolations(r.out, expectedFor(app, target))];
 }
 
-const expectedFor = (app: string): string[] => ["'self'", ...(callsApi(app) ? API_ORIGINS : [])];
+const expectedFor = (app: string, target: Target): string[] => ["'self'", ...(callsApi(app) ? [ORIGINS.api[target]] : [])];
 const source = (app: string): string => {
   const p = join(REPO_ROOT, 'apps', app, 'public', '_headers');
   return existsSync(p) ? readFileSync(p, 'utf8') : '';
@@ -135,16 +143,37 @@ describe('security headers, per deployable app', () => {
     expect(APPS.filter(callsApi).length, 'no app calls apiOrigin(), so the connect-src rule for one is never exercised').toBeGreaterThan(0);
   });
 
-  test.each(APPS)('real %s _headers is accepted', (app) => {
-    expect(violations(source(app), app)).toEqual([]);
+  test.each(APPS)('real %s _headers is accepted, rendered for production and for local', (app) => {
+    expect(violations(source(app), app, 'production')).toEqual([]);
+    expect(violations(source(app), app, 'local')).toEqual([]);
   });
 
-  test.each(APPS)('%s: the built output ships the tracked _headers as rendered from origins.json', (app) => {
+  test.each(APPS)('%s: the production rendering names no local host in any header value', (app) => {
+    const r = render(source(app), 'production');
+    expect(r.status, r.err).toBe(0);
+    const values = [...headersFor(r.out).values()].join('\n');
+    expect(values).not.toBe('');
+    for (const host of LOCAL_HOSTS) expect(values, `the production rendering of apps/${app}/public/_headers names ${host}`).not.toContain(host);
+  });
+
+  test.each(APPS)('%s: the built output ships the tracked _headers as rendered from origins.json for production', (app) => {
     const built = join(REPO_ROOT, 'apps', app, outputDirOf(app), '_headers');
     expect(existsSync(built), `run \`npm run build\` before the compliance suite — apps/${app} has no built _headers`).toBe(true);
-    const r = render(source(app));
+    const r = render(source(app), 'production');
     expect(r.status, r.err).toBe(0);
-    expect(readFileSync(built, 'utf8'), `apps/${app}'s built _headers is not the rendering of its tracked one: was the render step skipped?`).toBe(r.out);
+    expect(readFileSync(built, 'utf8'), `apps/${app}'s built _headers is not the PRODUCTION rendering of its tracked one: was the render step skipped, or built with build:local?`).toBe(r.out);
+  });
+
+  // THE BUILD THE FOUNDER DEPLOYS NAMES NO LOCAL ORIGIN (R-2026-09-25-117 CS-2). Until
+  // then the renderer filled BOTH api origins into every build, so the live admin and
+  // ward-console CSPs carried http://127.0.0.1:54321. Only header VALUES are read, never
+  // the file's comment prose, and the local hosts are origins.json's own localHosts.
+  test.each(APPS)('%s: the built _headers names no local host in any header value', (app) => {
+    const built = join(REPO_ROOT, 'apps', app, outputDirOf(app), '_headers');
+    expect(existsSync(built), `run \`npm run build\` before the compliance suite — apps/${app} has no built _headers`).toBe(true);
+    const values = [...headersFor(readFileSync(built, 'utf8')).values()].join('\n');
+    expect(values, `apps/${app}'s built _headers has no header values at all`).not.toBe('');
+    for (const host of LOCAL_HOSTS) expect(values, `apps/${app}'s built _headers names the local host ${host}`).not.toContain(host);
   });
 
   test('plant — a built _headers that was never rendered is not what the render step makes', () => {
@@ -185,17 +214,48 @@ describe('security headers, per deployable app', () => {
 });
 
 describe('scripts/render_headers.mjs', () => {
-  test('real ward console _headers renders to connect-src exactly self plus the origins.json api pair', () => {
-    const r = render(ward());
+  test('real ward console _headers renders for production to connect-src exactly self plus api.production', () => {
+    const r = render(ward(), 'production');
     expect(r.status, r.err).toBe(0);
-    expect(r.out).toContain(`connect-src 'self' ${ORIGINS.api.production} ${ORIGINS.api.local};`);
+    expect(r.out).toContain(`connect-src 'self' ${ORIGINS.api.production};`);
     expect(r.out).not.toContain(PLACEHOLDER);
   });
 
-  test('a file with no placeholder renders to itself', () => {
-    const r = render(source('public-dashboard'));
+  test('real ward console _headers renders for local to connect-src exactly self plus api.local', () => {
+    const r = render(ward(), 'local');
     expect(r.status, r.err).toBe(0);
-    expect(r.out).toBe(source('public-dashboard'));
+    expect(r.out).toContain(`connect-src 'self' ${ORIGINS.api.local};`);
+    expect(r.out).not.toContain(ORIGINS.api.production);
+  });
+
+  // THE TARGET IS REQUIRED (R-2026-09-25-117 CS-2): a silent default is what shipped a
+  // local origin to production, so neither a missing nor an unknown target renders.
+  test('plant — no --target is refused, exit 2, with nothing rendered', () => {
+    withScratch((work) => {
+      place(work, '_headers', ward());
+      const r = spawnSync('node', [RENDERER, join(work, '_headers')], { encoding: 'utf8' });
+      expect(r.status, r.stderr).toBe(2);
+      expect(r.stdout).toBe('');
+      expect(r.stderr).toContain('ERROR: no --target was given, so the API origin to name is unknown -- name production or local; there is no default, because a silent default shipped a local origin to production');
+    });
+  });
+
+  test('plant — an unknown --target is refused, exit 2, with nothing rendered', () => {
+    withScratch((work) => {
+      place(work, '_headers', ward());
+      const r = spawnSync('node', [RENDERER, '--target', 'staging', join(work, '_headers')], { encoding: 'utf8' });
+      expect(r.status, r.stderr).toBe(2);
+      expect(r.stdout).toBe('');
+      expect(r.stderr).toContain("ERROR: unknown --target 'staging' -- the build target is production or local");
+    });
+  });
+
+  test('a file with no placeholder renders to itself', () => {
+    for (const target of ['production', 'local'] as const) {
+      const r = render(source('public-dashboard'), target);
+      expect(r.status, r.err).toBe(0);
+      expect(r.out).toBe(source('public-dashboard'));
+    }
   });
 
   // The renderer reads origins.json relative to itself, so the plant is a scratch copy
@@ -208,7 +268,7 @@ describe('scripts/render_headers.mjs', () => {
       place(work, 'packages/origins/origins.json', JSON.stringify({ api }));
       place(work, 'scripts/.keep', '');
       copyFileSync(RENDERER, join(work, 'scripts', 'render_headers.mjs'));
-      const r = render(ward(), join(work, 'scripts', 'render_headers.mjs'));
+      const r = render(ward(), 'production', join(work, 'scripts', 'render_headers.mjs'));
       expect(r.status, r.err).toBe(2);
       expect(r.err).toContain(message);
       expect(r.err).toContain('ERROR: could not render the headers file');
@@ -218,11 +278,11 @@ describe('scripts/render_headers.mjs', () => {
   test('plant — no file named is a usage refusal, exit 2', () => {
     const r = spawnSync('node', [RENDERER], { encoding: 'utf8' });
     expect(r.status).toBe(2);
-    expect(r.stderr).toContain('usage: node scripts/render_headers.mjs [--write] FILE -- name the _headers file to render');
+    expect(r.stderr).toContain('usage: node scripts/render_headers.mjs [--write] --target production|local FILE -- name the build target and the _headers file to render');
   });
 
   test('plant — an unreadable file is refused with no output, exit 2', () => {
-    const r = spawnSync('node', [RENDERER, join(REPO_ROOT, 'apps', 'no-such-app', '_headers')], { encoding: 'utf8' });
+    const r = spawnSync('node', [RENDERER, '--target', 'production', join(REPO_ROOT, 'apps', 'no-such-app', '_headers')], { encoding: 'utf8' });
     expect(r.status).toBe(2);
     expect(r.stdout).toBe('');
     expect(r.stderr).toContain('ERROR: could not render the headers file');
@@ -231,9 +291,9 @@ describe('scripts/render_headers.mjs', () => {
   test('--write rewrites the file in place with the rendering', () => {
     withScratch((work) => {
       place(work, '_headers', ward());
-      const r = spawnSync('node', [RENDERER, '--write', join(work, '_headers')], { encoding: 'utf8' });
+      const r = spawnSync('node', [RENDERER, '--write', '--target', 'production', join(work, '_headers')], { encoding: 'utf8' });
       expect(r.status, r.stderr).toBe(0);
-      expect(readFileSync(join(work, '_headers'), 'utf8')).toBe(render(ward()).out);
+      expect(readFileSync(join(work, '_headers'), 'utf8')).toBe(render(ward(), 'production').out);
     });
   });
 });

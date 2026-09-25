@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { withScratch, REPO_ROOT } from './_scratch.js';
 import { deployableApps } from './_apps.js';
+import ORIGINS_JSON from '../../packages/origins/origins.json';
 
 /**
  * GUARD OVER THE DEPLOY READ-BACK SCRIPTS: scripts/readback_pages.sh,
@@ -277,12 +278,14 @@ describe('scripts/readback_common.sh — a URL that is missing or not https:// i
 
 /**
  * The headers a tracked _headers file sets on /*, AS RENDERED by scripts/render_headers.mjs
- * (BV-2), lower-cased names -- the read-backs' source of truth, and what a deploy serves.
+ * for a build target (BV-2; R-2026-09-25-117 CS-2), lower-cased names -- the read-backs'
+ * source of truth, and what a deploy serves. A hosted deploy is `production`; only
+ * readback_admin.sh --local serves a `local` build.
  */
-function trackedHeaders(app: string): Record<string, string> {
+function trackedHeaders(app: string, target: 'production' | 'local' = 'production'): Record<string, string> {
   const out: Record<string, string> = {};
   let inAll = false;
-  const rendered = execFileSync('node', [join(REPO_ROOT, 'scripts', 'render_headers.mjs'), join(REPO_ROOT, 'apps', app, 'public', '_headers')], { encoding: 'utf8' });
+  const rendered = execFileSync('node', [join(REPO_ROOT, 'scripts', 'render_headers.mjs'), '--target', target, join(REPO_ROOT, 'apps', app, 'public', '_headers')], { encoding: 'utf8' });
   for (const raw of rendered.split('\n')) {
     if (raw.trim() === '' || raw.trim().startsWith('#')) continue;
     if (!/^\s/.test(raw)) { inAll = raw.trim() === '/*'; continue; }
@@ -478,6 +481,9 @@ describe('scripts/readback_ward_console.sh', () => {
     ['a failing half that does not fail', (f) => { f[`GET ${API}/auth/v1/settings apikey=${WRONG_KEY}`] = { status: 200, body: '{"external":{}}' }; }, 'step 3 dead half status'],
     ['a live body that is not the settings object', (f) => { f[`GET ${API}/auth/v1/settings apikey=${DEPLOYED_KEY}`] = { status: 200, body: '{"message":"ok"}' }; }, 'step 3 live half body'],
     ['a console page served with no CSP', (f) => { f[`GET ${WARD}/`] = { status: 200, headers: without(trackedHeaders('ward-console'), 'content-security-policy'), body: '<!doctype html><script type="module" crossorigin src="/assets/index-B7kFspkD.js"></script>' }; }, 'step 3 content-security-policy'],
+    // THE PRE-CS DEPLOY (R-2026-09-25-117 CS-2 f): its CSP names the local origin beside the production one. Held to the
+    // production rendering, it reads WRONG, which is the failing half of the ward console's redeploy step.
+    ['the pre-CS deployment, whose CSP also names the local origin', (f) => { const h = trackedHeaders('ward-console'); f[`GET ${WARD}/`] = { status: 200, headers: { ...h, 'content-security-policy': (h['content-security-policy'] as string).replace(ORIGINS_JSON.api.production, `${ORIGINS_JSON.api.production} ${ORIGINS_JSON.api.local}`) }, body: '<!doctype html><script type="module" crossorigin src="/assets/index-B7kFspkD.js"></script>' }; }, 'step 3 content-security-policy'],
   ])('plant — %s is a STOP', (_label, plant, check) => {
     withScratch((root) => {
       const work = repo(root);
@@ -1093,7 +1099,8 @@ function adminFixtures(head: string, site = ADMIN_SITE, withAccess = true): Fixt
   const tok = withAccess ? ' access' : '';
   f[`GET ${site}/version.json${tok}`] = { status: 200, body: stampOf(head) };
   f[`GET https://admin.openbed.ng/version.json${tok}`] = { status: 200, body: stampOf(head) };
-  f[`GET ${site}/${tok}`] = { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('admin') }, body: ADMIN_SHELL };
+  // A hosted deploy serves the production rendering; the --local server (no Access) serves build:local's.
+  f[`GET ${site}/${tok}`] = { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('admin', withAccess ? 'production' : 'local') }, body: ADMIN_SHELL };
   f[`GET ${site}/assets/index-Ad3m1nXy.js${tok}`] = { status: 200, body: `const k="${withAccess ? DEPLOYED_KEY : TRACKED_KEY}";` };
   f[`GET ${API}/auth/v1/settings apikey=${DEPLOYED_KEY}`] = { status: 200, headers: { 'x-openbed-proxy': 'forwarded' }, body: '{"external":{"email":true}}' };
   f[`GET ${API}/auth/v1/settings apikey=${WRONG_KEY}`] = { status: 401, headers: { 'x-openbed-proxy': 'forwarded' }, body: '{"message":"Invalid API key"}' };

@@ -150,7 +150,10 @@ exactly that: never a PASS.** Paste the whole output back.
 
 PR C merged on a local run. The app was built and served by `npx wrangler pages dev
 apps/admin/dist`, which is a local server: it deploys nothing and needs no Cloudflare
-login. The read-back was then run against it:
+login. The read-back was then run against it. **Since 2026-09-25 the local build is
+`npm run build:local -w apps/admin`** (R-2026-09-25-117 CS-2). It names only the local API
+origin, and `--local` holds the served CSP to the local rendering. A plain `npm run build`
+names only the production origin, so step 2's CSP line would read WRONG here:
 
 ```bash
 bash scripts/readback_admin.sh --local http://127.0.0.1:8790
@@ -171,7 +174,8 @@ Its verdict says `LOCAL`. **A local PASS is not evidence that admin is live.**
 The admin app ships the ward console's security headers. That is a tracked
 `apps/admin/public/_headers`, whose `connect-src` names `@API_ORIGINS@` and is filled
 from `packages/origins/origins.json` when the app is built (R-2026-09-24-94 BV-2,
-R-2026-09-24-97 BY-2 g). `tests/compliance/security_headers.test.ts` holds all three
+R-2026-09-24-97 BY-2 g), **with the build target's origin only**: production for
+`npm run build`, local for `npm run build:local` (R-2026-09-25-117 CS-2). `tests/compliance/security_headers.test.ts` holds all three
 apps to it.
 
 **A CSP that is too tight breaks the page SILENTLY** (R-2026-09-24-93 BU-2 e). Before any
@@ -213,3 +217,26 @@ lists the local API next to the production one. The fix is to render `connect-sr
 build target, with a test that a production `_headers` names no `127.0.0.1` and no
 `localhost`. **Trigger: the next change that touches `apps/*/public/_headers` or
 `scripts/render_headers.mjs`, and before facility one.**
+*Since 2026-09-25 the fix is in the code* (R-2026-09-25-117 CS-2): the renderer takes a
+required `--target`, and the deployed build renders production only. **The item is not
+closed by that merge.** It closes when admin and the ward console are redeployed from the
+merged `main` and each read-back reads the new CSP as PASS (section 5 of this runbook and
+of the ward-console runbook).
+
+## 5. Redeploy after the CSP change (R-2026-09-25-117 CS-2 f)
+
+**Until this step reads PASS, the deployed admin CSP still names
+`http://127.0.0.1:54321`** (H6 step 2 read it on 2026-09-25), because it was built before
+the renderer took a target. So before the redeploy, step 2's `content-security-policy`
+line reads **WRONG** against this checkout's production rendering. **That WRONG is the
+expected failing half.**
+
+1. Refresh the deploy checkout to the merged `main` and deploy, exactly as section 1
+   says. `npm run build` now renders `--target production`.
+2. Run the read-back, with the Access token, exactly as section 2 says, against the new
+   deployment's URL.
+3. **PASS:** every line is `ok`, and `step 2 content-security-policy` reads
+   `connect-src 'self' https://api.openbed.ng` with no local origin.
+
+This, together with the ward-console runbook's section 5, is the closing condition of
+the facility-one checklist's CSP box (the Supabase runbook, 12.4 step 1).

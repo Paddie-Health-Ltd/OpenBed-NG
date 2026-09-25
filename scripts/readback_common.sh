@@ -138,22 +138,26 @@ rb_header() {
     printf '%s' "$found"
 }
 
-# rb_tracked_header APP NAME -- the value THIS CHECKOUT's tracked apps/APP/public/_headers
-# sets for NAME on /*, AS RENDERED by scripts/render_headers.mjs (PR 3.4b-app B, BP-10;
-# R-2026-09-24-94 BV-2). The expected security headers are read from the file that
-# ships, never retyped here, and the ward console's API origins are filled from
-# packages/origins/origins.json exactly as its build fills them -- so a deployed CSP is
-# held to the derivation, not to a copy of it. Assign it on its OWN line: a failing
+# rb_tracked_header APP NAME TARGET -- the value THIS CHECKOUT's tracked
+# apps/APP/public/_headers sets for NAME on /*, AS RENDERED by scripts/render_headers.mjs
+# for TARGET (PR 3.4b-app B, BP-10; R-2026-09-24-94 BV-2). The expected security
+# headers are read from the file that ships, never retyped here, and the API origin is
+# filled from packages/origins/origins.json exactly as the build fills it -- so a
+# deployed CSP is held to the derivation, not to a copy of it. TARGET is `production`
+# for every read of hosted, and `local` only for readback_admin.sh --local, whose
+# server serves an `npm run build:local` build (R-2026-09-25-117 CS-2). Until
+# 2026-09-25 this took no target, and the rendering named BOTH api origins, as every
+# build did. Assign it on its OWN line: a failing
 # $(...) inside an argument does not abort under -e (test-conventions section 8), and
 # a missing file, a refused render or a missing header must stop the read-back with no
 # verdict.
 rb_tracked_header() {
-    local file="$ROOT/apps/$1/public/_headers" want="$2" line name inall=0 found="" rendered st=0
+    local file="$ROOT/apps/$1/public/_headers" want="$2" target="$3" line name inall=0 found="" rendered st=0
     if [ ! -f "$file" ]; then
         echo "ERROR: this checkout holds no tracked _headers file for the app at $file, so the expected $want cannot be read" >&2
         exit 2
     fi
-    rendered="$(node "$ROOT/scripts/render_headers.mjs" "$file")" || st=$?
+    rendered="$(node "$ROOT/scripts/render_headers.mjs" --target "$target" "$file")" || st=$?
     if [ "$st" -ne 0 ]; then
         echo "ERROR: scripts/render_headers.mjs could not render $file (exit $st), so the expected $want is unknown -- this read-back has no verdict" >&2
         exit 2

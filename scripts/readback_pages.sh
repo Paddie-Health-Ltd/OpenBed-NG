@@ -37,9 +37,9 @@ CACHE='public, s-maxage=30, stale-while-revalidate=300'
 ROBOTS='noindex, nofollow'
 NOSNIFF='nosniff'
 # The page's security headers, read from this checkout's tracked _headers (BP-10).
-CSP_WANT="$(rb_tracked_header public-dashboard content-security-policy)"
-REFERRER_WANT="$(rb_tracked_header public-dashboard referrer-policy)"
-SNIFF_WANT="$(rb_tracked_header public-dashboard x-content-type-options)"
+CSP_WANT="$(rb_tracked_header public-dashboard content-security-policy production)"
+REFERRER_WANT="$(rb_tracked_header public-dashboard referrer-policy production)"
+SNIFF_WANT="$(rb_tracked_header public-dashboard x-content-type-options production)"
 ISO='^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?Z$'
 
 echo "=== read-back 4: $SITE/version.json, against this checkout's HEAD $RB_HEAD ==="

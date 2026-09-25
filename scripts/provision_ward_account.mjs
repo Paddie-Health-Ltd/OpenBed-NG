@@ -221,6 +221,21 @@ const SENTENCES = {
 };
 
 /** A gate's refusal: PL/pgSQL `RAISE EXCEPTION '<CODE>'` arrives as SQLSTATE P0001 with the code as its message. */
+// NEVER THE FULL ADDRESS (R-2026-09-25-117 CS-3; R-2026-09-24-89 BQ-1). A pasted
+// output carries whatever this script printed, so every line that would show the
+// address shows its masked form instead: the first character, an ellipsis, and the
+// domain. scrub() applies that to text this script did not write -- a GoTrue body or a
+// database error inside e.message can echo the address -- case-insensitively.
+const mask = (addr) => {
+  const at = addr.lastIndexOf('@');
+  return at > 0 ? `${addr[0]}…@${addr.slice(at + 1)}` : '…';
+};
+const scrub = (text) => {
+  const s = String(text);
+  if (!args.email) return s;
+  return s.replace(new RegExp(args.email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), mask(args.email));
+};
+
 const refusalCode = (e) => (e && e.code === 'P0001' && /^[A-Z][A-Z0-9_]*$/.test(e.message) ? e.message : null);
 const said = (code) => `${code}${Object.hasOwn(SENTENCES, code) ? ` — ${SENTENCES[code]}` : ''}`;
 
@@ -330,15 +345,15 @@ try {
       if (refused !== null) {
         console.error(`REFUSED by app.provision_complete: ${said(refused)}. Invite ${invite} is still open.`);
       } else {
-        console.error(`ERROR: setup incomplete: invite ${invite} is open and no account exists yet — re-run the same command. Cause: ${e.message}`);
+        console.error(`ERROR: setup incomplete: invite ${invite} is open and no account exists yet — re-run the same command. Cause: ${scrub(e.message)}`);
       }
       code = 1;
     }
     if (done?.status === 'complete') {
-      console.log(`provisioned ${role} ${args.email} -> account ${user.userId} (${scope})`);
+      console.log(`provisioned ${role} ${mask(args.email)} -> account ${user.userId} (${scope})`);
       console.log(`  auth user: ${user.how}`);
     } else if (done?.status === 'reactivated') {
-      console.log(`reactivated ${role} ${args.email} -> account ${user.userId} (${scope})`);
+      console.log(`reactivated ${role} ${mask(args.email)} -> account ${user.userId} (${scope})`);
       console.log(`  auth user: ${user.how}`);
     } else if (done !== undefined) {
       console.error(`ERROR: unrecognised status from provision_complete: ${JSON.stringify(done.status)}`);
@@ -349,7 +364,7 @@ try {
     code = 1;
   }
 } catch (e) {
-  console.error(`ERROR: provisioning failed for ${args.email}: ${e.message}`);
+  console.error(`ERROR: provisioning failed for ${mask(args.email)}: ${scrub(e.message)}`);
   code = 1;
 } finally {
   await sql.end({ timeout: 5 });
