@@ -42,7 +42,7 @@ kickoff is a historical record that does not get rewritten.
 | 9 | Magic-link single-use *(was §5b)* | Needs hosted auth reachable; independent of the tables. **Partly closed 2026-09-14**; the remainder needs custom SMTP. |
 | 10 | Realtime publication *(was §6)* | The publication is created by the migrations. |
 | 11 | Keys *(was §7)* | Storage hygiene; no dependency, last because nothing waits on it. |
-| 12 | Operating: H3, H5, H6, the operator, facilities, withdrawal, erasure | Needs everything above; facility creation needs step 4b CLOSED on every row. Written by PR 3.4b-app C, NOT YET RUN. |
+| 12 | Operating: H3, H5, H6, the operator, facilities, withdrawal, erasure | Needs everything above; facility creation needs step 4b CLOSED on every row. Written by PR 3.4b-app C. **H3, H5 and H6 ran on 2026-09-25; step 4b reads CLOSED since 2026-09-25; facility creation waits on CJ-2 alone** (R-2026-09-25-113, -115). *Restated 2026-09-25;* until then this cell ended "NOT YET RUN." |
 
 ### Read the rotation runbook before step 6
 
@@ -704,14 +704,56 @@ curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
   https://api.supabase.com/v1/projects/klrlpxysjsjpdkeqdhvl/database/backups | jq .
 ```
 
-- [ ] Daily backups enabled, and a backup listed
-- [ ] PITR status recorded (Pro add-on; note whether it is on, rather than assuming)
-- [ ] **One backup restored, once, before facility one** (R-2026-09-24-74 BB-4). No
-      backup of this project has ever been restored, so the backups are a setting that
-      has been seen, not a restore that has been shown to work. Restore one, into a
-      scratch project or as a PITR drill, and record what was observed: which backup,
-      where it went, how long it took, and whether the restored `app.schema_migrations`
-      and row counts matched. It gates the same moment as step 4b.
+- [x] Daily backups enabled, and a backup listed
+  - **Met on 2026-09-25** (R-2026-09-25-115). Read from the founder's dashboard
+    screenshots by Cowork, not with the curl above. Database -> Backups -> Scheduled
+    backups lists daily **physical** backups at about 06:55 UTC: 25 Sep 06:54:11, 24 Sep
+    06:57:25, 23 Sep 06:57:50, 22 Sep 06:55:45, 21 Sep 06:54:35, 20 Sep 06:57:41,
+    19 Sep 06:55:44, 18 Sep 06:57:09, and earlier. The tabs are Scheduled backups,
+    Point in time, and Restore to new project (BETA).
+- [x] PITR status recorded (Pro add-on; note whether it is on, rather than assuming)
+  - **OFF, on 2026-09-25** (R-2026-09-25-115). The Point in time tab reads "Point in
+    Time Recovery is available as an add-on". **The founder declines the add-on, on
+    cost** (2026-09-25).
+  - **The recovery point is therefore the last daily backup, so up to about 24 hours of
+    writes can be lost.** In v1 that is operator data, recoverable from the signed
+    originals, and ward status, which wards republish.
+  - **Revisit:** at the first data-loss event, or when re-entering a day's operator
+    writes stops being practical, on the founder's word.
+- [x] **One backup restored, once, before facility one** (R-2026-09-24-74 BB-4).
+  - **Met on 2026-09-25** (R-2026-09-25-115; the founder's dashboard, read by Cowork).
+    The **25 Sep 06:54:11 UTC** physical backup was restored via "Restore to a new
+    project" into `openbed-restore-drill` (eu-west-1). Click-to-ready took about 10
+    minutes (the founder's estimate; exact times were not taken).
+  - The same query was read on live and on the clone: `count(*)` and
+    `max(applied_at)` of `app.schema_migrations`; the counts of `app.facility`,
+    `app.ward_account` and `auth.users`; and `max(auth.users.created_at)`:
+
+    | | migrations | last applied | facility | ward_account | auth.users | last user created |
+    |---|---|---|---|---|---|---|
+    | live | 23 | 2026-09-24 23:29:53.3062+00 | 0 | 1 | 2 | 2026-09-25 07:55:58.035448+00 |
+    | clone | 23 | 2026-09-24 23:29:53.3062+00 | 0 | 0 | 1 | 2026-09-14 16:14:43.813421+00 |
+
+  - **PASS: the clone equals live as at 06:54:11 UTC.** Every migration is present:
+    022 and 023 were applied at 23:29:53 UTC on 24 Sep. The operator, created at
+    07:55:58 UTC after the backup, is correctly absent. **The clone was then deleted**
+    (founder-confirmed), because it held a copy of the Auth identities.
+  - *Restated 2026-09-25 (R-2026-09-25-115).* Until then this box read: "No backup of
+    this project has ever been restored, so the backups are a setting that has been
+    seen, not a restore that has been shown to work. Restore one, into a scratch
+    project or as a PITR drill, and record what was observed: which backup, where it
+    went, how long it took, and whether the restored `app.schema_migrations` and row
+    counts matched. It gates the same moment as step 4b."
+
+**Restoring safely, as the drill established** (R-2026-09-25-115):
+- **Never restore in place.** The latest daily backup can predate the latest
+  migration and the latest accounts. It did on 2026-09-25: it held no operator. Restore
+  to a new project and compare there.
+- **A clone runs `pg_cron` as soon as it is restored.** That is safe here: OpenBed's only
+  jobs are 017's `openbed_regenerate_snapshot` and `openbed_refresh_lga_rollup`, both
+  inside the database, and no migration uses `pg_net`. A clone therefore makes no
+  outbound call.
+- **A clone holds a copy of the Auth identities, so delete it once it has been read.**
 
 **Covered by tests: nothing** — same class as the region pin. Assertable via the
 Management API, declined on credential-surface grounds, verified here instead.
@@ -735,11 +777,33 @@ the three defects below as open, and the invite gate as specified and not built.
 four are now closed in the code, and the evidence is on each row. **One item is still
 open, the backup restore, so the gate has NOT cleared.** The gate itself is unchanged.
 
+**THE GATE IS CLEAR, since 2026-09-25** (R-2026-09-25-115 CQ-2). Row 5 closed when a
+backup was restored and read (step 4, box 3), so **all five rows read CLOSED.** What
+still stands between hosted and facility one is not this gate. It is the email
+provider's processor agreement (R-2026-09-25-108 CJ-2; section 12.4).
+
+**The trigger counts WARD accounts, not the operator's row** (R-2026-09-25-115 CQ-2).
+Until 2026-09-25 this section said "the first `app.ward_account` row", and its check
+expected `0|0`. But the operator's own row is an `app.ward_account` row
+(`role = 'PLATFORM_ADMIN'`). It was created at H6 step 5 (`4459e348-098a-4e2f-89e4-fec261c1e58e`,
+2026-09-25 07:55:58 UTC), before the gate cleared, **as intended**: R-2026-09-24-97 BY-1
+ordered the operator bootstrap into H6, and only facility and ward logins waited on
+-45. The old wording would have read that as the gate passing. **So the trigger is the
+first `app.facility` row, or the first ward account: an `app.ward_account` row whose
+`role <> 'PLATFORM_ADMIN'`.** This section's opening sentence and the heading keep
+their old wording, as the record of what they said, and this paragraph restates them.
+
 **The trigger is the ROW, not the occasion.** Onboarding can be staged, and an
 account created "just to try it" makes every open item live before anyone intends
 it. **An open item is unreachable only while those two tables are empty, and that is
 the whole of its safety.** Read on this project **2026-09-21 16:58 UTC:
 `app.facility` 0, `app.ward_account` 0.**
+
+**Read again on 2026-09-25**, at the restore drill (R-2026-09-25-115; the live half of
+step 4 box 3's query): `app.facility` **0**; `app.ward_account` **1**, the operator.
+Ward accounts other than the operator: **0**. That last figure is **derived**, not
+read on its own. The one row is the operator's, since H6 step 5's count of active
+PLATFORM_ADMIN rows read 1. The restated check below has not yet been run on hosted.
 
 | # | Item | Why it matters | Status, with the evidence |
 |---|---|---|---|
@@ -747,7 +811,7 @@ the whole of its safety.** Read on this project **2026-09-21 16:58 UTC:
 | 2 | `wardRowFrom` **defaulted** a clinical claim (`offering ?? 'NOT_OFFERED'`) and a concurrency token (`version ?? 0`, which became `p_expected_version`) | it asserted to a ward something the server never said, and turned optimistic concurrency into a guess | **CLOSED**. `wardRowFrom` at `apps/ward-console/src/main.ts:219-245` refuses the row instead: `offering` must be OFFERED or NOT_OFFERED (line 225), `version` a positive integer (line 227), and so on for every field. Held by `tests/compliance/ward_console_render.test.ts` ("B2 — a malformed ward row is refused, never defaulted") |
 | 3 | the publish screen echoed **raw server text** to a ward user on an unrecognised status (R-2026-09-20-30 D1) | a clinical user mid-emergency should not be reading a database error, and server text can carry internals | **CLOSED**. `wardMessageFor` at `apps/ward-console/src/main.ts:167-180` maps a refusal to a fixed sentence, or to `UNRECOGNISED`, and only logs the body. Held by `tests/compliance/ward_console_render.test.ts` ("D1 — no raw server text reaches the screen") |
 | 4 | the invite gate: no invite for a facility without a contact and a recorded agreement | a login handed to a facility that never accepted the agreement | **CLOSED by PR A** (3.4b-app; R-2026-09-24-88 BP-6, R-2026-09-24-90 BR-1). The gate is `app.provision_begin`, and since PR A the one path that creates a login goes through it: `scripts/provision_ward_account.mjs` calls `app.provision_begin` first and `app.provision_complete` last, writes no `app.*` table itself, and makes no Auth call on a refusal. The refusals are at `database/migrations/022_one_operator_and_reactivation.sql:121`, `:124` and `:127` (`NO_FACILITY_CONTACT`, `AGREEMENT_NOT_RECORDED`, `AGREEMENT_WITHDRAWN`), on hosted since 022's apply on 2026-09-25 (R-2026-09-25-105). *Restated 2026-09-25 (R-2026-09-25-105).* Until then this read "on hosted, until 022 is applied, the same three are 021's", at `database/migrations/021_facility_agreement_and_contact_write.sql:341`, `:344` and `:347`. Held by `tests/db/provision_script.test.ts` ("the script refuses at app.provision_begin, and makes ZERO Auth requests", counted at a stub GoTrue), `tests/compliance/provision_ward_account.test.ts` ("the gates have one implementation, in SQL"), and `tests/db/provisioning_gates.test.ts` for the functions themselves. *Restated 2026-09-24 (R-2026-09-24-88).* Until PR A this row read CLOSED on the SQL alone, and cited `021:313-322`, which is the role parse: the script called `generate_link` first and inserted the invite and the account itself, so no gate ran on the path that creates logins (the 3.4b-app kickoff's finding). |
-| 5 | **a backup has never been restored** (R-2026-09-24-74 BB-4) | the backups are a setting that has been seen, not a restore that has been shown to work | **OPEN.** The checkbox is in step 4. A named human step; no script checks it |
+| 5 | **a backup has never been restored** (R-2026-09-24-74 BB-4) | the backups are a setting that has been seen, not a restore that has been shown to work | **CLOSED on 2026-09-25** (R-2026-09-25-115). The 25 Sep 06:54:11 UTC physical backup was restored to a new project, and it read equal to live as at that moment. The operator, created after the backup, was correctly absent (step 4, box 3). The clone was deleted. A named human step; no script checks it. *Restated 2026-09-25.* Until then this cell read "**OPEN.** The checkbox is in step 4. A named human step; no script checks it" |
 
 
 **HOW TO CHECK THE CONDITION, rather than remembering it.** Connect as step P
@@ -757,12 +821,19 @@ says, then:
 
 ```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-psql "$DATABASE_URL" -tAc "select (select count(*) from app.facility) as facility, (select count(*) from app.ward_account) as ward_account"
+psql "$DATABASE_URL" -tAc "select (select count(*) from app.facility) as facility, (select count(*) from app.ward_account where role <> 'PLATFORM_ADMIN') as ward_account"
 ```
 
 **Stop condition:** `0|0`. **Anything else means the gate has already passed and
 every item above still OPEN is LIVE**, not pending — report that rather than
-continuing.
+continuing. The second count is **ward accounts only**, so the operator's row is not
+counted. `role` is `app.app_role NOT NULL`
+(`database/migrations/003_app_facility_and_identity_tables.sql`), so `<>` cannot drop a
+row with a NULL role. *Restated 2026-09-25 (R-2026-09-25-115 CQ-2).* Until then the
+second count was `(select count(*) from app.ward_account)`, which reads `1` once the
+operator exists. **Since the gate cleared, every item reads CLOSED.** This check now
+records when facility one and the first ward account arrive, and nothing it reads
+makes an open item live.
 
 **BOTH READINGS OF THIS CHECK ARE DEMONSTRATED** (method note 23 — a probe nobody
 has seen fail is not evidence). Pasted into `zsh -f -i`, 2026-09-21:
@@ -771,6 +842,18 @@ has seen fail is not evidence). Pasted into `zsh -f -i`, 2026-09-21:
 - **against a local development database: `8|0`** — the failing reading, because
   `database/seed/001_synthetic_seed.sql` inserts synthetic facilities on every
   `npm run db:reset`.
+
+**The restated query, on a fresh local database, 2026-09-25**, in one transaction that
+was rolled back:
+
+| state | old query | restated query |
+|---|---|---|
+| the seed alone | `8\|0` | `8\|0` |
+| plus an operator (`PLATFORM_ADMIN`) row | `8\|1` | `8\|0` |
+| plus a `WARD_STAFF` row | `8\|2` | `8\|1` |
+
+The restated count ignores the operator and catches a ward account. **It has not been
+run on hosted.** The 2026-09-25 hosted figures above come from the drill's query.
 
 **That second reading is also why this stays a human step rather than becoming a
 script that refuses.** A guard keyed on "a facility row exists" fires on every
@@ -1576,9 +1659,13 @@ fires and no public row changes (-71 B1). The reading below checks that on hoste
 `scripts/readback_public_output.sh` reads all four, and its header says how.
 
 **This before/after comparison is valid only while no ward can publish (R-2026-09-24-74
-BB-3)**, which means before step 4b's gate clears. Once wards publish, a status changing
-between the two readings is a real change, and it reads as STOP. An apply after go-live
-needs a different reading, designed then. Do not reuse this one.
+BB-3)**, which means while no ward account exists: no `app.ward_account` row with
+`role <> 'PLATFORM_ADMIN'` (step 4b's restated check). Once wards publish, a status
+changing between the two readings is a real change, and it reads as STOP. An apply
+after go-live needs a different reading, designed then. Do not reuse this one.
+*Restated 2026-09-25 (R-2026-09-25-115).* Until then the gloss read "which means before
+step 4b's gate clears". The gate cleared on 2026-09-25 while no ward account existed,
+so that gloss stopped tracking the condition it stood for.
 
 **Six fences, in this order. A stop condition never shares a fence with the step it
 gates.** Each fence waits silently at its `read -rs` line for the connection string,
@@ -2869,6 +2956,20 @@ same token   403
              {"code":403,"error_code":"otp_expired","msg":"Email link is invalid or has expired"}
 ```
 
+**The test identity this run created was removed on 2026-09-25** (R-2026-09-25-115
+CQ-3). It is the disclosure address's test login: created 2026-09-14 16:14:43 UTC,
+confirmed, last signed in at 16:27:26 UTC, and never given an `app.ward_account` row.
+- **How:** the founder deleted it in the dashboard (Authentication -> Users -> Delete
+  user).
+- **Read back:** `auth.users` with no `app.ward_account` row returned **0 rows**.
+- **Why:** it served no purpose, and it was the only Auth user at a published address.
+  With sign-ups off, an existing user can still request an OTP. Repeated requests for
+  it could spend the project-wide 30 emails an hour and block every ward's link
+  (section 12.1).
+
+**Any future probe on hosted uses a throwaway `example.invalid` address, as H2's did,
+or removes its identity in the same sitting.**
+
 ### A 403 from this endpoint never means one thing, so every 403 here needs a same-type 200
 
 `POST /auth/v1/verify` returns **one** refusal body, 403 `otp_expired` with
@@ -3226,10 +3327,14 @@ Until then the second sentence read "**NOT YET RUN.**"
 4. H5, the Worker redeploy (12.2): **done on 2026-09-25** (R-2026-09-25-110);
 5. H6 (12.3), which ends with the operator bootstrap and an empty register: **done on
    2026-09-25** (R-2026-09-25-113). **The admin app is live at `admin.openbed.ng`;**
-6. facility creation (12.4), which is **BLOCKED by two gates, both open**:
-   (a) the -45 gate, step 4b, whose row 5, the backup restore drill, has never run; and
-   (b) R-2026-09-25-108 CJ-2, the email provider's s.29 processor agreement, not yet
-   approved. Either one alone blocks it.
+6. facility creation (12.4), which is **BLOCKED by one gate:** R-2026-09-25-108 CJ-2,
+   the email provider's s.29 processor agreement, not yet approved. The -45 gate (step
+   4b) is **clear since 2026-09-25**: the backup restore drill passed (R-2026-09-25-115).
+
+*Restated 2026-09-25 (R-2026-09-25-115).* Until then item 6 read: "facility creation
+(12.4), which is **BLOCKED by two gates, both open**: (a) the -45 gate, step 4b, whose
+row 5, the backup restore drill, has never run; and (b) R-2026-09-25-108 CJ-2, the email
+provider's s.29 processor agreement, not yet approved. Either one alone blocks it."
 
 *Restated 2026-09-25 (R-2026-09-25-113).* Until then items 5 and 6 read: "5. H6 (12.3),
 which ends with the operator bootstrap and an empty register; 6. and only when step 4b
@@ -3261,6 +3366,12 @@ this reading is recorded".
     - **Rate limits,** Dashboard -> Authentication -> Rate Limits: emails 30 per hour (project); SMS 30 per hour (greyed, unused); token refreshes 150 per 5 minutes per IP; token verifications 30 per 5 minutes per IP; anonymous sign-ins 30 per hour per IP (greyed, unused); sign-ups and sign-ins 30 per 5 minutes per IP; Web3 30 per 5 minutes per IP (greyed, unused).
     - **Custom SMTP, via Proton:** host `smtp.protonmail.ch`, port 587, sender and username `support@openbed.ng`, sender name OpenBed. The password is a Proton SMTP token named `supabase-auth`, and it is recorded nowhere.
     - **The minimum interval between emails: 60 seconds.** Supabase's SMTP settings, "Minimum interval per user", read by the founder on 2026-09-25 and relayed by Cowork (R-2026-09-25-110). *Restated 2026-09-25 (R-2026-09-25-110).* Until then this line read: "The minimum interval between emails: NOT YET READ. The relayed reading carried a blank the founder was to fill in before pasting, and it arrived unfilled. This box stays unticked, and "[unverified]" above stands, until the number is read."
+
+**Open item (R-2026-09-25-115 CQ-4): the email limit is project-wide.** The 30 emails an
+hour above are shared by the whole project. With sign-ups off, OTP requests for any
+known existing address can still spend them, and a spent hour blocks every ward's
+sign-in link. The fix is to revisit the limit, or to throttle per address at the
+Worker. **Trigger: the second facility, or the first 429 a ward sees.**
 
 **The waiting rule, which H6 relies on.** After any sign-in request, and after H2's step
 4 probe, **wait out that frequency window, 60 seconds on hosted, before asking again for
@@ -3494,7 +3605,9 @@ replacing its **[unverified]** paragraph.
 
 **Step 8 — the register loads, empty.** Signed in, the admin app shows **Facilities**,
 with "No facility exists yet." **No facility or ward login may be created on hosted
-until step 4b reads CLOSED on every row** (the -45 gate).
+until step 4b reads CLOSED on every row** (the -45 gate). *Since 2026-09-25 step 4b
+reads CLOSED on every row (R-2026-09-25-115). Facility and ward logins now wait on CJ-2
+alone (section 12.4).*
 
 - [x] H6: preconditions 1-7 read; steps 1-8 as above (date, Cowork's reading of each step)
   - **On 2026-09-25, all eight steps read as they must, and the admin app is LIVE**
@@ -3559,14 +3672,17 @@ until step 4b reads CLOSED on every row** (the -45 gate).
 
 ### 12.4 Creating a facility
 
-**BLOCKED, by two gates, both open on 2026-09-25** (R-2026-09-25-113 CO-1). Either one
-alone stops this section:
-- **(a) The -45 gate.** Step 4b must read CLOSED on every row. Its row 5, the backup
-  restore drill, has never been run.
-- **(b) The email provider's processor agreement** (R-2026-09-25-108 CJ-2). Proton's
-  s.29 written processor agreement, the s.41 transfer basis and retention are not yet
-  approved. They are tracked in the founder's paperwork register, outside this
-  repository. Until they are approved, no hospital or ward address is sent a link.
+**BLOCKED by one gate: the email provider's processor agreement** (R-2026-09-25-108
+CJ-2; R-2026-09-25-115 CQ-2). Proton's s.29 written processor agreement, the s.41
+transfer basis and retention are not yet approved. They are tracked in the founder's
+paperwork register, outside this repository. Until they are approved, no hospital or
+ward address is sent a link. **The -45 gate is clear since 2026-09-25:** step 4b reads
+CLOSED on every row, now that the backup restore drill has passed.
+
+*Restated 2026-09-25 (R-2026-09-25-115).* Until then this read: "**BLOCKED, by two
+gates, both open on 2026-09-25** (R-2026-09-25-113 CO-1). Either one alone stops this
+section: (a) The -45 gate. Step 4b must read CLOSED on every row. Its row 5, the backup
+restore drill, has never been run. (b) The email provider's processor agreement …"
 
 **This is new.** No facility-creation step existed before PR 3.4b-app C (-45 B). It
 replaces the plan at `Sprint Kickoffs/sprint-kickoff-bundle3-operator-path-2026-09-22.md`
@@ -3574,9 +3690,12 @@ line 173, whose `agreement_accepted_at` line that kickoff already marks supersed
 line 190: 021 removed that column. The agreement and the contact are now recorded
 through the admin app.
 
-1. **The -45 stop condition first.** Step 4b must read CLOSED on every row, and its
-   count check must read as its stop condition says. **Today step 4b's row 5, the
-   backup restore, is OPEN, so this step STOPS here.**
+1. **The stop conditions first.** Step 4b must read CLOSED on every row, and its
+   count check must read as its stop condition says. **Step 4b is clear since
+   2026-09-25** (R-2026-09-25-115). **CJ-2 is not: until the processor agreement is
+   approved, this step STOPS here.** *Restated 2026-09-25.* Until then this item was
+   headed "The -45 stop condition first", and it ended "**Today step 4b's row 5, the
+   backup restore, is OPEN, so this step STOPS here.**"
 2. **Create** the facility in the admin app: name, LGA, state, latitude, longitude,
    public phone. The phone is shown in international form before it is saved.
 3. **Record the contact and the agreement** in the facility's detail view.

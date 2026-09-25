@@ -5017,6 +5017,87 @@ _Issued as R-PROVISIONAL-2026-09-25-CO, by Cowork on 2026-09-25. It lands with -
 
 **CO-4:** the checks are reported in this change's pull request. No SQL and no migration; nothing hosted was run by Claude Code.
 
+### R-2026-09-25-114 — #82 checked and merged; the restore drill planned
+
+_Issued as R-PROVISIONAL-2026-09-25-CP, by Cowork on 2026-09-25, as its check of #82 at `43ce55a`. **Pasting it was the founder's merge word for #82.** Record-only; it was held, and it lands with -115 in one change, branched from `9f91d91`. Number assigned on landing: R-2026-09-25-113 plus one. Next provisional letter: CQ._
+
+**VERIFIED BY COWORK** (2026-09-25, GitHub API and git, on the founder's machine):
+- **#81:** closed and merged; merge commit `389cd10606add5ed1ee900a2abdf9049d8636b12`, parents `5786626` and `e7c7c69`.
+- **#82:** OPEN at `43ce55a563023681154c55463a94ea0c5c7a48d6`, base `389cd10`; clean; 1 commit, 7 files; seven check runs success. The operator's sign-in address occurs 0 times in the diff.
+- **The script diff, read in full:** `readback_common.sh` refuses `https://HASH…` with ERROR, exit 2, before any request. `readback_admin.sh`'s local-run line is restated, and the old text is kept as a comment.
+- **All four of the implementer's departures accepted:**
+  - the PATH line was already present;
+  - the ERROR wording applies to HASH only, and the other refusals are unchanged;
+  - step 7's order 2 is recorded as reported, in one fresh private window;
+  - the three comments asserting Access are left unedited, and are now true.
+
+**CP-1 — THE MERGE.**
+- The head was read from the API as `43ce55a563023681154c55463a94ea0c5c7a48d6`, and #82 merged as a merge commit with `--match-head-commit` on that value.
+- MERGED was read back: **`9f91d91a5b0185430e65c0baaec9f20e3e1f9bf1`**, with parents `389cd10606add5ed1ee900a2abdf9049d8636b12` and `43ce55a563023681154c55463a94ea0c5c7a48d6`.
+- As a separate step, after MERGED was read, `record-h6` was deleted on the remote and locally. Both were read back as gone.
+- Cowork later read: the merge tree equals `43ce55a`'s; the branch is a 404 on the API; `origin/main` is `9f91d91`.
+
+**CP-2:** nothing hosted. The next hosted step was named as the backup restore drill.
+
+**The drill's planning notes** (Cowork, 2026-09-25, a HOLD block without an id; carried here because they were the drill's design):
+- **Supabase platform claims (Cowork's reading; not checked by the implementer):**
+  - "Restore to a new project" is on paid plans with physical backups;
+  - it copies the schema, data, roles and auth users, but not storage, edge functions, auth settings, API keys or realtime settings;
+  - the source is unaffected;
+  - pg_cron and pg_net run on the clone with no pause.
+- **Repository claims, checked by the implementer, and each holds:**
+  - no migration uses pg_net (a grep of `database/migrations`, with a `cron.schedule` control that matched);
+  - the only cron jobs are 017's two, at `017_snapshot_schedule.sql:227-228`, both inside the database;
+  - 23 forward migrations, so a backup from before 022 and 023 would read 21.
+- **The design:** never restore in place; compare against the known history at the backup's timestamp; delete the clone after the reading.
+
+### R-2026-09-25-115 — backups proven: the restore drill passed and the -45 gate is clear; the stray login removed
+
+_Issued as R-PROVISIONAL-2026-09-25-CQ, by Cowork on 2026-09-25. It lands with -114 in one change. Number assigned on landing: R-2026-09-25-114 plus one. Next provisional letter: CR._
+
+**CQ-1 — STEP 4, BACKUPS AND PITR** (the founder's dashboard screenshots for project `klrlpxysjsjpdkeqdhvl`, read by Cowork; not step 4's curl):
+- **Box 1: MET.** Daily **physical** backups are listed at about 06:55 UTC: 25 Sep 06:54:11, 24 Sep 06:57:25, 23 Sep 06:57:50, 22 Sep 06:55:45, 21 Sep 06:54:35, 20 Sep 06:57:41, 19 Sep 06:55:44, 18 Sep 06:57:09, and earlier.
+- **Box 2: PITR is OFF.** The founder declines the add-on, on cost (2026-09-25).
+  - The recovery point is the last daily backup, so up to about 24 hours of writes can be lost. In v1 that is operator data, recoverable from the signed originals, and ward status, which wards republish.
+  - Revisit at the first data-loss event, or when re-entering a day's operator writes stops being practical, on the founder's word.
+- **Box 3: MET.** The 25 Sep 06:54:11 UTC backup was restored via "Restore to a new project" into `openbed-restore-drill` (eu-west-1). Click-to-ready took about 10 minutes (the founder's estimate).
+  - The same query was read on both. Live: 23 | 2026-09-24 23:29:53.3062+00 | 0 | 1 | 2 | 2026-09-25 07:55:58.035448+00. Clone: 23 | 2026-09-24 23:29:53.3062+00 | 0 | 0 | 1 | 2026-09-14 16:14:43.813421+00.
+  - **PASS:** the clone equals live as at 06:54:11 UTC, and the operator, created after the backup, is correctly absent.
+  - The clone was deleted (founder-confirmed).
+- **Recorded as safety notes in step 4:** never restore in place; a clone runs pg_cron, but the only jobs are in-database and no migration uses pg_net; the clone is deleted after reading.
+
+**CQ-2 — STEP 4b: THE GATE IS CLEAR, AND ITS WORDING IS RESTATED.**
+- Row 5 is CLOSED on 2026-09-25, and all five rows read CLOSED. **The -45 gate is clear.**
+- **The trigger and the check now count ward accounts only** (`role <> 'PLATFORM_ADMIN'`), with the old text kept. The operator's row (`4459e348-098a-4e2f-89e4-fec261c1e58e`, 07:55:58 UTC, H6 step 5) came before the gate cleared, as BY-1 intended.
+- **The 2026-09-25 reading:** facility 0, ward_account 1 (the operator), ward accounts other than the operator 0.
+- §12.4 is blocked by CJ-2 alone.
+
+**CQ-3 — THE STRAY AUTH IDENTITY, REMOVED.**
+- **The identity:** the disclosure address's test login from §9's run (created 2026-09-14 16:14:43 UTC, last signed in 16:27:26 UTC), with no `app.ward_account` row. It is recorded by that description only.
+- **Removed by the founder on 2026-09-25**, in the dashboard (Authentication -> Users -> Delete user). Read back: `auth.users` with no `app.ward_account` row returns 0 rows.
+- **Why:** it served no purpose, and it was the only Auth user at a published address. OTP requests for it could spend the project-wide 30 emails an hour.
+- **§9 now says so,** and it says that future hosted probes use an `example.invalid` address or remove their identity in the same sitting.
+
+**CQ-4 — OPEN ITEMS:**
+- **The project-wide 30 emails an hour** can be spent by OTP requests for any known address. The fix is to revisit the limit, or to throttle per address at the Worker. **Trigger: the second facility, or the first 429 a ward sees.** Recorded in §12.1.
+- **Carried from -113 CO-3,** both before facility one: the production CSP without `http://127.0.0.1:54321`, and a masked address in `provision_ward_account.mjs`. Cowork will send them as their own ruling (CR) for one small code PR.
+
+**AS BUILT, with the implementer's premise notes:**
+- **Derived, not read:** "ward accounts other than the operator: 0". Live `ward_account` read 1 at the drill, and H6 step 5's count of active PLATFORM_ADMIN rows read 1.
+- **`<>` is safe here:** `app.ward_account.role` is `app.app_role NOT NULL` (003), so the restated count cannot drop a row with a NULL role.
+- **The restated check was demonstrated on a fresh local database, in a transaction that was rolled back:**
+  - the seed alone read `8|0` under both queries;
+  - with a PLATFORM_ADMIN row, the old query read `8|1` and the restated one `8|0`;
+  - with a WARD_STAFF row as well, the restated one read `8|1`.
+  - **It has not been run on hosted.**
+- **Three statements the ruling did not name went false when the gate cleared. Each is restated, comment and runbook text only, with its old text kept:**
+  - the `scripts/provision_ward_account.mjs` header, which step 4b says carries the same block ("the gate has not cleared");
+  - the gloss "which means before step 4b's gate clears", in runbook §5's 020 note and in `scripts/readback_public_output.sh`. The comparison is valid while no ward account exists, which still holds;
+  - the runbook's order-table row 12, "NOT YET RUN", stale since #82. That was the implementer's miss.
+- **The disclosure address already appears** in §9's observed output from 2026-09-14. That is a dated observation of a published contact address, and it is unchanged. Nothing new names it.
+
+**CQ-5:** the checks are reported in this change's pull request. No SQL and no migration; nothing hosted was run by Claude Code.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -5121,6 +5202,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | CM | R-2026-09-25-111 | 2026-09-25 | **H6 step 1 lacked the Service Auth policy:** an issued Access token passes nothing without it, and step 2 would STOP on a correct deploy. Held out of #81; landed as amended by CN, whose step order supersedes CM's. |
 | CN | R-2026-09-25-112 | 2026-09-25 | **#81 merged at `389cd10`** (parents `5786626`, `e7c7c69`); `record-h5` deleted. **No Access application existed before 2026-09-25** (BQ-2 superseded in part): H6 step 1 restated to a) to e), creating the application, with the Service Auth policy. |
 | CO | R-2026-09-25-113 | 2026-09-25 | **H6 done on hosted: admin.openbed.ng is LIVE.** Steps 1 to 8 PASS: the read-back at `5786626`, the widened sweep on hosted for the first time, the operator bootstrapped (count 1), `redirect_to` exact, and the fragment survives Access in both orders. HASH refused by the read-backs; step 3, §6 and step 6 fixed. Facility one blocked by the -45 gate AND CJ-2. Three open items with triggers. |
+| CP | R-2026-09-25-114 | 2026-09-25 | **#82 merged at `9f91d91`** (parents `389cd10`, `43ce55a`); `record-h6` deleted. All four of #82's departures accepted. Carries the restore drill's design notes (Cowork's HOLD block); the repository claims in them checked and holding. |
+| CQ | R-2026-09-25-115 | 2026-09-25 | **Backups proven; the -45 gate is clear.** Daily physical backups; PITR off, the add-on declined; the 25 Sep 06:54:11 UTC backup restored to a new project, equal to live, the clone deleted. Step 4b's trigger and check count ward accounts only (not the operator). Facility one waits on CJ-2 alone. The 2026-09-14 test login removed. Open item: the project-wide email limit. |
 
 ## Method notes — how rulings reach the implementer
 

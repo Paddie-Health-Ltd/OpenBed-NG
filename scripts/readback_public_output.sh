@@ -26,10 +26,13 @@
 # rows in sorted order. The queries are the Q_ literals below. tests/db runs those
 # exact literals against a real database, so what hosted runs is what was tested.
 #
-# VALID ONLY WHILE NO WARD CAN PUBLISH (R-2026-09-24-74 BB-3), which means before
-# runbook step 4b's gate clears. Once wards publish, a status changing between the
-# two readings is a real change, and this reads it as STOP. An apply after go-live
-# needs a different reading, designed then.
+# VALID ONLY WHILE NO WARD CAN PUBLISH (R-2026-09-24-74 BB-3), which means while no
+# ward account exists: no app.ward_account row with role <> 'PLATFORM_ADMIN' (runbook
+# step 4b's restated check). Once wards publish, a status changing between the two
+# readings is a real change, and this reads it as STOP. An apply after go-live needs
+# a different reading, designed then. RESTATED 2026-09-25 (R-2026-09-25-115): until
+# then the gloss read "which means before runbook step 4b's gate clears", and the
+# gate cleared that day while no ward account existed.
 #
 # EMPTY IS NOT EVIDENCE. If every count is 0 before and after, the apply created no
 # public row, and nothing more can be said: there was nothing for it to change. The
