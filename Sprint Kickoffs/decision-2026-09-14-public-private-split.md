@@ -5129,7 +5129,7 @@ _Issued as R-PROVISIONAL-2026-09-25-CR, by Cowork on 2026-09-25, as its check of
     - -67 B3 (a staffed ward line, which carries -66's "operator contact number");
     - -55 C (the magic-link host);
     - -54 B (the sensor bundle);
-    - -19-23 D2, D3, D4 and D5, which -56 A9 made "before facility one" items (D2's scope cell still reads "to be completed" in the processor-obligations table, and no later ruling closes D3, D4 or D5);
+    - -23 D2, D3, D4 and D5 (R-2026-09-19-23; this line read "-19-23" until corrected by -117 CS-5), which -56 A9 made "before facility one" items (D2's scope cell still reads "to be completed" in the processor-obligations table, and no later ruling closes D3, D4 or D5);
     - -36 A5 with -27 C5 (discoverability at facility one).
   - **Not in Cowork's list, found by the search:** D2 to D5, and -36 A5 / -27 C5. Each is listed as OPEN because no ruling closing it was found.
   - **Left off, with the evidence:**
@@ -5164,6 +5164,66 @@ _Issued as R-PROVISIONAL-2026-09-25-CR, by Cowork on 2026-09-25, as its check of
 - -115's "Next provisional letter: CR" now reads "CR (a correction to this change; see -116)".
 - CQ-4's "(CR)" now reads "(CS; renumbered from "CR" by -116)".
 - Comments and runbook text only. No SQL, no migration, nothing hosted. The checks are reported in #83.
+
+### R-2026-09-25-117 — #83 merged; a production CSP with no local origin, and a provisioning script that never prints a full address
+
+_Issued as R-PROVISIONAL-2026-09-25-CS, by Cowork on 2026-09-25, as its check of #83 at `0378f6bbd3b0c3b9c1eba0937e671b4099ac717d`. **Pasting it was the founder's merge word for #83.** It lands in the code pull request it describes, branched from #83's merge commit. Number assigned on landing: R-2026-09-25-116 plus one. Next provisional letter: CT._
+
+**VERIFIED BY COWORK** (2026-09-25, GitHub API):
+- #83 OPEN at `0378f6b`, whose one parent is `4c6e06e` (a plain push); base `9f91d91`; clean; 2 commits, 4 files; seven check runs success; no address on any line `0378f6b` adds.
+- CR-1 a) was applied at every named site. The checklist holds 13 boxes, none ticked, and CR-2's reading and 12.4 step 1 agree.
+- ACCEPTED: the five items found beyond Cowork's list, and every item left off, on the evidence given.
+- Two slips were fixed here (CS-5).
+
+**CS-1 — THE MERGE.**
+- The head was read from the API as `0378f6bbd3b0c3b9c1eba0937e671b4099ac717d`, and #83 merged as a merge commit with `--match-head-commit` on that value.
+- MERGED was read back: **`574e423a1f190cd5e1e4bf26d89dd9937e019fb2`**, with parents `9f91d91a5b0185430e65c0baaec9f20e3e1f9bf1` and `0378f6bbd3b0c3b9c1eba0937e671b4099ac717d`.
+- As a separate step, after MERGED was read, `record-backups-drill` was deleted on the remote and locally, and both were read back as gone.
+- This change is branched from `574e423`.
+- **One operational note.** `git pull --ff-only` refused ("Cannot fast-forward to multiple branches"). `main` was checked, and then fast-forwarded with `git merge --ff-only origin/main`. Nothing was lost.
+
+**CS-2 — THE PRODUCTION CSP NAMES NO LOCAL ORIGIN (checklist box 2).**
+- **`scripts/render_headers.mjs`** takes a required `--target production|local` and fills only that target's API origin. A missing or unknown target is exit 2 with its own message; there is no default. `origins.json` keeps both origins, and runtime selection by hostname is unchanged.
+- **Each app's `npm run build`** renders `--target production`. Admin and the ward console gain `npm run build:local` (`--target local`).
+- **The callers found, and each one's target:**
+  - `apps/admin`, `apps/ward-console` and `apps/public-dashboard` `npm run build`, which is what is deployed (also CI and the gate): **production**.
+  - `npx wrangler pages dev apps/admin/dist` and `readback_admin.sh --local` (the admin runbook's §3), and the local real-browser walk before a `_headers` change (both deploy runbooks): **local**, via `build:local`. This is the only caller that serves a built bundle, with `_headers` applied, against the local stack.
+    - **Observed:** a `build:local` admin served by `wrangler pages dev` answered `connect-src 'self' http://127.0.0.1:54321`.
+    - `readback_admin.sh --local` read that CSP line `ok`. Its one WRONG was `dirty: true` from an uncommitted tree, which is correct.
+  - `vite preview` (each app's `preview` script): **none needed.** **Observed:** it served the ward console with no `Content-Security-Policy` header at all, while the `dist/_headers` it serves from holds one. It does not read Cloudflare's `_headers`.
+  - `tests/e2e` and `scripts/run_e2e.sh`: none. No dist, wrangler or preview use was found.
+  - `scripts/readback_common.sh` `rb_tracked_header`: **production** for every hosted read-back; **local** only under `readback_admin.sh --local`.
+- **A premise that holds only in part (CS-2 c):** "rb_tracked_header renders production, since it reads hosted" holds for every hosted path. `--local` reads a local server serving a local build, so the function takes the target as an argument, and `--local` passes `local`.
+- **Red first (method note 23):** "the built `_headers` names no local host in any header value" was run against the build as it stood, and failed for admin and the ward console on `127.0.0.1`; the public dashboard passed, as a control. After the fix and a rebuild, all three pass. The built CSPs now read `connect-src 'self' https://api.openbed.ng` (admin and ward console) and `connect-src 'self'` (dashboard).
+- **Tests** (`tests/compliance/security_headers.test.ts`):
+  - production and local renderings of every app;
+  - the production rendering names no host from `origins.json`'s `localHosts`, which is read, not retyped;
+  - the local rendering names exactly `api.local`;
+  - a missing target and an unknown target are refused;
+  - the built `_headers` equals the production rendering and names no local host.
+- **Tests** (`tests/compliance/readback_scripts.test.ts`): renders per target, plus a plant showing the pre-CS ward-console deploy, whose CSP names both origins, reading WRONG on the CSP line. That is the redeploy's failing half.
+- **Comments restated,** old text kept: the renderer's header, both apps' `_headers`, `readback_common.sh`, `security_headers.test.ts`, and both deploy runbooks.
+- **Each deploy runbook gains §5, "Redeploy after the CSP change",** with its read-back and its expected failing half. **Box 2 is NOT ticked by this merge.** It closes when both apps are redeployed from the merged `main` and each read-back reads PASS.
+- **NOT DONE: the real-browser walk under the new headers** (R-2026-09-24-93 BU-2 e). No browser was reachable from this session, and the built-in browser cannot open a local server the implementer starts. It is a founder step: `npm run build:local`, then `wrangler pages dev`, load the app in a browser, check the console, walk the sign-in against the local stack. The production header is then read on hosted by §5's read-back.
+
+**CS-3 — THE PROVISIONING SCRIPT NEVER PRINTS A FULL ADDRESS (checklist box 3).**
+- `scripts/provision_ward_account.mjs` gains `mask()` (the first character, "…", and "@" plus the domain) and `scrub()`, which replaces every case-insensitive occurrence of the full address with the mask.
+- They apply to the provisioned, reactivated and catch-all failure lines, and to every line that prints `e.message`, where a GoTrue body or a database error can echo the address.
+- The other output lines print only refusal codes, the host-check reason or the usage line, and none of those carries the address. The static message text is unchanged, so the script's legs do not move.
+- **Tests** (`tests/db/provision_script.test.ts`):
+  - **every** run is held by `run()` to output that never contains the full address, case-insensitively, beside the existing token guard. That covers the provisioned, reactivated, already-complete, refusal and failure paths.
+  - The provisioned, reactivated and database-failure lines assert the masked form.
+  - A new plant: a GoTrue refusal body that echoes the address, in upper case, prints only the mask.
+- **Red first:** the `run()` guard failed against the unchanged script on the `provisioned` line ("the script printed the full address").
+- **Box 3 closes on this pull request's merge.** It is not ticked here.
+
+**CS-4 — THE CHECKLIST:** box 2 names its closing condition (the two redeploys, read PASS), and box 3 names its own (this merge). Nothing is ticked.
+
+**CS-5 — THE TWO SLIPS:** -116's "-19-23" now reads "-23 (R-2026-09-19-23 …)", with a note; 12.4 step 1's variants gain "before go-live" and "before launch".
+
+**Legs:** the renderer's usage leg is renamed, and two are new (no target, an unknown target), all three reached; the retired usage leg is removed. `legs_total` 313 -> 315, reached 287 -> 289, registered unchanged at 26, measured.
+
+**CS-6:** the checks are reported in this change's pull request. No SQL and no migration; nothing hosted was run by Claude Code.
 
 ## The provisional ledger
 
@@ -5272,6 +5332,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | CP | R-2026-09-25-114 | 2026-09-25 | **#82 merged at `9f91d91`** (parents `389cd10`, `43ce55a`); `record-h6` deleted. All four of #82's departures accepted. Carries the restore drill's design notes (Cowork's HOLD block); the repository claims in them checked and holding. |
 | CQ | R-2026-09-25-115 | 2026-09-25 | **Backups proven; the -45 gate is clear.** Daily physical backups; PITR off, the add-on declined; the 25 Sep 06:54:11 UTC backup restored to a new project, equal to live, the clone deleted. Step 4b's trigger and check count ward accounts only (not the operator). Facility one waits on CJ-2 (the one hosted gate) and on every "before facility one" item (corrected by -116). The 2026-09-14 test login removed. Open item: the project-wide email limit. |
 | CR | R-2026-09-25-116 | 2026-09-25 | **#83 corrected, in #83:** facility one waits on CJ-2 (the one hosted gate) AND 13 open "before facility one" items, now a checklist at runbook 12.4 step 1 (four of -23's items and the discoverability item found beyond Cowork's list). Step 4b's check restated so a non-zero reading stops nothing after facility one. The code PR renumbered CS. |
+| CS | R-2026-09-25-117 | 2026-09-25 | **#83 merged at `574e423`** (parents `9f91d91`, `0378f6b`). **The CO-3 code PR:** the renderer takes a required `--target`, so the deployed admin and ward-console CSPs name no local origin (box 2 closes only on both redeploys reading PASS); the provisioning script masks the address on every line (box 3 closes on this merge). Both shown red first. The real-browser walk is NOT DONE, and is a founder step. -116's two slips fixed. |
 
 ## Method notes — how rulings reach the implementer
 

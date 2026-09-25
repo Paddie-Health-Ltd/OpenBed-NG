@@ -119,9 +119,12 @@ nosniff`. Step 3's three header lines compare what the deployment serves on `/` 
 changed a header reads `WRONG`.
 
 **The CSP's API origins are not in the file** (R-2026-09-24-94 BV-2). Its `connect-src` names
-`@API_ORIGINS@`, and `npm run build` fills that from `packages/origins/origins.json` (`api`,
-production and local: the pair `apiOrigin()` chooses between) with `scripts/render_headers.mjs`.
-The read-back renders the tracked file the same way before comparing. So a build that
+`@API_ORIGINS@`, and `npm run build` fills that from `packages/origins/origins.json` with
+`scripts/render_headers.mjs --target production`: **the production API origin only**.
+`npm run build:local` fills the local one only, for a local server (R-2026-09-25-117 CS-2).
+The read-back renders the tracked file for production before comparing. *Restated
+2026-09-25.* Until then this read "fills that from `packages/origins/origins.json` (`api`,
+production and local: the pair `apiOrigin()` chooses between)", and every build named both. So a build that
 skipped the render step ships `@API_ORIGINS@` literally, which a browser ignores, leaving
 `'self'` only and the sign-in broken; step 3 reads that as `WRONG`. Build with `npm run
 build`, never a bare `vite build`.
@@ -133,7 +136,9 @@ The page may render half-working, every curl-level check above still reads `ok`,
 the browser. So:
 
 - **Before any change to `_headers` is reported,** the app is built and served locally
-  under its headers with `npx wrangler pages dev apps/ward-console/dist`. That is a local
+  under its headers: `npm run build:local -w apps/ward-console`, then
+  `npx wrangler pages dev apps/ward-console/dist`. A plain `npm run build` names only the
+  production API, so its sign-in would be refused against the local stack. That is a local
   server: it deploys nothing and needs no Cloudflare login. The app is then loaded in a
   real browser, the console is checked for a CSP violation, and the sign-in is walked end
   to end against the local stack: request a link, open it from the local mail catcher, and
@@ -143,3 +148,19 @@ the browser. So:
   console open. A `WRONG` on any header line, or a CSP violation in that console, is a
   STOP.
 
+## 5. Redeploy after the CSP change (R-2026-09-25-117 CS-2 f)
+
+**Until this step reads PASS, the deployed ward console's CSP still names
+`http://127.0.0.1:54321`**, because it was built before the renderer took a target. So
+before the redeploy, step 3's `content-security-policy` line reads **WRONG** against this
+checkout's production rendering. **That WRONG is the expected failing half**: it shows
+the read-back tells the old header from the new one.
+
+1. Refresh the deploy checkout to the merged `main` and deploy, exactly as section 1
+   says. `npm run build` now renders `--target production`.
+2. Run the read-back, exactly as section 2 says.
+3. **PASS:** every line is `ok`, and `step 3 content-security-policy` reads
+   `connect-src 'self' https://api.openbed.ng` with no local origin.
+
+This, together with the admin runbook's section 5, is the closing condition of the
+facility-one checklist's CSP box (the Supabase runbook, 12.4 step 1).

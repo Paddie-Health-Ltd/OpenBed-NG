@@ -82,9 +82,14 @@ if [ -z "$PROJECT" ]; then
 fi
 
 # The page's security headers, read from this checkout's tracked _headers as rendered.
-CSP_WANT="$(rb_tracked_header admin content-security-policy)"
-REFERRER_WANT="$(rb_tracked_header admin referrer-policy)"
-SNIFF_WANT="$(rb_tracked_header admin x-content-type-options)"
+# The build target the served headers were rendered for: a hosted deploy is
+# `npm run build` (production); --local serves `npm run build:local` (local).
+# R-2026-09-25-117 CS-2.
+TARGET=production
+if [ "$LOCAL" = 1 ]; then TARGET=local; fi
+CSP_WANT="$(rb_tracked_header admin content-security-policy "$TARGET")"
+REFERRER_WANT="$(rb_tracked_header admin referrer-policy "$TARGET")"
+SNIFF_WANT="$(rb_tracked_header admin x-content-type-options "$TARGET")"
 
 # access_gate LABEL -- the last response must be Access's, never the app's.
 access_gate() {

@@ -3720,15 +3720,24 @@ through the admin app.
    2026-09-25 by searching
    `Sprint Kickoffs/decision-2026-09-14-public-private-split.md` for "before facility
    one" and its variants ("for facility one", "facility one", "first facility",
-   "onboarding blocker"), and reading each hit in context. An item is ticked only by a
+   "onboarding blocker", "before go-live", "before launch"), and reading each hit in
+   context. *The last two were searched but missing from this list until R-2026-09-25-117
+   CS-5 added them.* An item is ticked only by a
    ruling that closes it. **None is closed here.**
 
    - [ ] **The email provider's processor agreement:** s.29 agreement, s.41 transfer
      basis, retention. **The one remaining hosted gate.** (R-2026-09-25-108 CJ-2)
-   - [ ] The production admin CSP without `http://127.0.0.1:54321` in `connect-src`.
-     (R-2026-09-25-113 CO-3; to be built in the code PR CS)
-   - [ ] `scripts/provision_ward_account.mjs` prints a masked address, the first
-     character and the domain. (R-2026-09-25-113 CO-3; CS)
+   - [ ] The production CSP names no local origin: admin AND the ward console, whose
+     `connect-src` both carried `http://127.0.0.1:54321`. (R-2026-09-25-113 CO-3; built
+     by R-2026-09-25-117 CS-2.) **Closes only when** the founder has redeployed admin
+     AND the ward console from the merged `main`, and each read-back reads the new CSP as
+     PASS: section 5 of `docs/runbook-admin-deploy.md` and of
+     `docs/runbook-ward-console-deploy.md`. The merge alone does not close it.
+   - [ ] `scripts/provision_ward_account.mjs` never prints a full address; it shows the
+     first character, "…", and the domain. (R-2026-09-25-113 CO-3; built by
+     R-2026-09-25-117 CS-3.) **Closes on the merge of the pull request that lands
+     R-2026-09-25-117,** because the script runs from the checkout. Tick it with that
+     merge's commit.
    - [ ] The clinicians confirm the freshness thresholds AND the public wording, which
      removes the PROVISIONAL label. (R-2026-09-23-67 A7, extended by R-2026-09-23-68
      C3)
@@ -3784,7 +3793,10 @@ through the admin app.
    so a pasted output carries it too (BQ-1). It is to print a masked form instead: the
    first character and the domain. **Trigger: the first ward-account provisioning,
    and before facility one.** Until then, mask the address by hand in anything pasted
-   back.
+   back. *Since R-2026-09-25-117 CS-3 the script masks it itself,* on every line that
+   would show it, including text from Auth or the database. That holds from the merge of
+   the pull request carrying it. A checkout older than that still prints it, so mask by
+   hand there.
 6. **List** the facility in the admin app. The List button is enabled only once the
    contact, the agreement and a category exist. The database refuses it otherwise
    (021:273-285).

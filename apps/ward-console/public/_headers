@@ -1,11 +1,16 @@
 # Response headers for every static asset of the ward console (Cloudflare Pages
 # `_headers`; R-2026-09-24-88 BP-10, PR 3.4b-app B). tests/compliance/security_headers.test.ts
-# holds this file to its rule. connect-src is 'self' plus exactly the API origins
-# packages/origins/origins.json gives apiOrigin() -- production and local, because the
-# origin is chosen at run time by hostname -- and never the direct *.supabase.co origin:
-# the emailed sign-in link opens there as a navigation, which connect-src does not govern.
+# holds this file to its rule. connect-src is 'self' plus exactly THE BUILD TARGET'S API
+# origin from packages/origins/origins.json -- `npm run build`, which is what is
+# deployed, names the production origin only, and `npm run build:local`, for a local
+# `wrangler pages dev`, the local one only (R-2026-09-25-117 CS-2) -- and never the
+# direct *.supabase.co origin: the emailed sign-in link opens there as a navigation,
+# which connect-src does not govern. Until 2026-09-25 this read "the API origins
+# origins.json gives apiOrigin() -- production and local, because the origin is chosen
+# at run time by hostname", and every build named both. Runtime selection by hostname
+# is unchanged; this is the header, not the bundle.
 # The origins are NOT typed here (R-2026-09-24-94 BV-2): the placeholder in connect-src
-# is filled from origins.json by scripts/render_headers.mjs when the app is built.
+# is filled from origins.json by scripts/render_headers.mjs --target when the app is built.
 # Referrer-Policy no-referrer: the sign-in lands with tokens in the URL fragment.
 /*
   Content-Security-Policy: default-src 'self'; connect-src 'self' @API_ORIGINS@; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'

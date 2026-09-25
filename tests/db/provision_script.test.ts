@@ -132,8 +132,16 @@ async function run(args: string[], env: Record<string, string> = {}): Promise<Ru
   child.stderr.on('data', (d: Buffer) => (out += d.toString()));
   const status = await new Promise<number>((resolve) => child.on('close', (c) => resolve(c ?? -1)));
   expect(out, `the script printed GoTrue's token (args ${args.join(' ')})`).not.toContain(TOKEN);
+  // NEVER THE FULL ADDRESS, on any path (R-2026-09-25-117 CS-3; BQ-1). A pasted output
+  // carries whatever the script printed, so every run is held to this, not a chosen few.
+  const email = args[args.indexOf('--email') + 1];
+  if (args.includes('--email') && email) {
+    expect(out.toLowerCase(), `the script printed the full address (args ${args.join(' ')})`).not.toContain(email.toLowerCase());
+  }
   return { status, out };
 }
+/** The form the script shows instead of an address: its first character, an ellipsis, and the domain. */
+const masked = (email: string): string => `${email[0]}…@${email.split('@')[1]}`;
 const ward = (fac: string, category = 'ICU_ADULT') => ['--email', 'ward-role@example.invalid', '--facility', fac, '--category', category];
 const operator = (email = 'operator-role@example.invalid') => ['--email', email, '--role', 'PLATFORM_ADMIN'];
 
@@ -214,7 +222,7 @@ describe('the happy path, and J4', () => {
     handler = gotrue({ newId: user });
     const r = await run(ward(FAC_OK));
     expect(r.status, r.out).toBe(0);
-    expect(r.out).toContain(`provisioned WARD_STAFF ward-role@example.invalid -> account ${user}`);
+    expect(r.out).toContain(`provisioned WARD_STAFF ${masked(ward(FAC_OK)[1] as string)} -> account ${user}`);
     expect(r.out).toContain('auth user: created, confirmed');
     expect(requests).toEqual(['POST /auth/v1/admin/users']);
     expect(await account(user)).toEqual({ role: 'WARD_STAFF', facility_id: FAC_OK, ward_category: 'ICU_ADULT', is_active: true });
@@ -340,7 +348,7 @@ describe('retry-safe from every point of failure (BP-6 3)', () => {
   test('a database that cannot be reached fails loudly, before any Auth request', async () => {
     const r = await run(ward(FAC_OK), { DATABASE_URL: 'postgresql://postgres:postgres@127.0.0.1:59998/postgres' });
     expect(r.status, r.out).toBe(1);
-    expect(r.out).toContain('provisioning failed for ward-role@example.invalid');
+    expect(r.out).toContain(`provisioning failed for ${masked(ward(FAC_OK)[1] as string)}`);
     expect(requests).toEqual([]);
   });
 });
@@ -358,7 +366,7 @@ describe('022 through the script (R-2026-09-24-90 BR-1 e)', () => {
     requests = [];
     const r = await run(ward(FAC_OK));
     expect(r.status, r.out).toBe(0);
-    expect(r.out).toContain(`reactivated WARD_STAFF ward-role@example.invalid -> account ${user}`);
+    expect(r.out).toContain(`reactivated WARD_STAFF ${masked(ward(FAC_OK)[1] as string)} -> account ${user}`);
     expect(requests, 'the existing user was not found by create then lookup').toHaveLength(2);
     expect((await account(user))?.is_active).toBe(true);
     expect(await audits(), 'the reactivation did not write exactly one audit row of its own').toBe(before + 1);
@@ -481,6 +489,18 @@ describe('A.2 — the auth user is made CONFIRMED through the admin API (R-2026-
     const r = await run(ward(FAC_OK));
     expect(r.status, r.out).toBe(1);
     expect(r.out).toContain('admin/users lookup failed (HTTP 500)');
+  });
+
+  // GoTrue's body can echo the address, and the script prints that body inside
+  // e.message. It is scrubbed to the masked form, whatever the case it came back in
+  // (R-2026-09-25-117 CS-3). run() already refuses any output holding the full address.
+  test('plant — a refusal body that echoes the address prints only its masked form', async () => {
+    const email = ward(FAC_OK)[1] as string;
+    handler = answers([403, { msg: `refused ${email.toUpperCase()}` }]);
+    const r = await run(ward(FAC_OK));
+    expect(r.status, r.out).toBe(1);
+    expect(r.out).toContain('admin/users refused the account (HTTP 403)');
+    expect(r.out, 'the echoed address was not replaced by its masked form').toContain(`refused ${masked(email)}`);
   });
 
   test('a create refused for another reason than email_exists is named with its status', async () => {

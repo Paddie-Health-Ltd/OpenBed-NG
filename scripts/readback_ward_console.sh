@@ -42,9 +42,9 @@ rb_head "$ROOT"
 
 echo "=== step 2: $SITE/version.json, against this checkout's HEAD $RB_HEAD ==="
 # The page's security headers, read from this checkout's tracked _headers (BP-10).
-CSP_WANT="$(rb_tracked_header ward-console content-security-policy)"
-REFERRER_WANT="$(rb_tracked_header ward-console referrer-policy)"
-SNIFF_WANT="$(rb_tracked_header ward-console x-content-type-options)"
+CSP_WANT="$(rb_tracked_header ward-console content-security-policy production)"
+REFERRER_WANT="$(rb_tracked_header ward-console referrer-policy production)"
+SNIFF_WANT="$(rb_tracked_header ward-console x-content-type-options production)"
 
 site_probe GET /version.json
 rb_stamp

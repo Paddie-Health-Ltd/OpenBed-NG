@@ -6,7 +6,8 @@
   "description": "The admin app (admin.openbed.ng). The operator signs in with a magic link, sees every facility and what it still needs, and makes the operator_* writes under the operator's own session (R-2026-09-24-97).",
   "scripts": {
     "dev": "vite",
-    "build": "node ../../scripts/stamp_build.mjs ./public/version.json && vite build && node ../../scripts/render_headers.mjs --write dist/_headers",
+    "build": "node ../../scripts/stamp_build.mjs ./public/version.json && vite build && node ../../scripts/render_headers.mjs --write --target production dist/_headers",
+    "build:local": "node ../../scripts/stamp_build.mjs ./public/version.json && vite build && node ../../scripts/render_headers.mjs --write --target local dist/_headers",
     "preview": "vite preview"
   },
   "dependencies": {
