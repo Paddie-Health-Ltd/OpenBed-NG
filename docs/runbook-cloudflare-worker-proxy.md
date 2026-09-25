@@ -97,11 +97,25 @@ deploy. Run with no URL, or a non-https one, it STOPs before sending anything.
 ## 3. Probe 4 — the deployed source equals the repository's
 
 Read by Cowork through the Cloudflare connector: the deployed `supabase-proxy` script
-contains `not forwarded by the OpenBed proxy`, `/__openbed/version`,
-`grant_type=refresh_token` and exactly the four `POST` paths and one `GET` path of
-`supabase-proxy/allow-list.json`'s `forward` list at the deployed commit. **Pass:** all
+contains `not forwarded by the OpenBed proxy`, `/__openbed/version` and
+`grant_type=refresh_token`, and its bundled allow-list equals
+`supabase-proxy/allow-list.json` **at the deployed commit, entry for entry**:
+- every `forward` entry: method, path and query, the `OPTIONS` preflights included;
+- its `direct_origin_exceptions`;
+- its `refusal_probes`.
+
+**The expected set is taken from that file at that commit, never from this page.** A
+count written here goes stale the next time an app gains a call. **Pass:** every entry
 present, and no other forwarded path. Nothing in the read-back script can stand in for
 this.
+
+On 2026-09-25, at `b056ad1` (H5, R-2026-09-25-110), `forward` was 12 `POST`, 1 `GET` and
+12 `OPTIONS`, and probe 4 read PASS.
+
+*Restated 2026-09-25 (R-2026-09-25-110).* Until then this read "exactly the four `POST`
+paths and one `GET` path of `supabase-proxy/allow-list.json`'s `forward` list at the
+deployed commit". It went stale when PR 3.4b-app C (#77) added sixteen entries, the
+eight operator calls and their eight preflights, and did not restate it.
 
 ## What stays true after this deploy, and what does not
 
