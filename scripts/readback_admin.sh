@@ -186,7 +186,9 @@ if [ "$LOCAL" = 1 ]; then
     echo "  NOT RUN (local): the live and dead key halves -- the local stack answers /auth/v1/settings with 200 for ANY key (observed 2026-09-24), so neither half could fail here"
     echo "  NOT RUN (local): the Worker probe -- there is no Worker in front of the local API"
     echo
-    echo "LOCAL RUN: step 1, the token half, both key halves and the Worker probe were NOT RUN. This is not a production verdict: admin is not live until H6 steps 2, 6 and 7 read as they must."
+    # Restated 2026-09-25 (R-2026-09-25-113): admin went live that day, at H6. Until
+    # then this line ended "admin is not live until H6 steps 2, 6 and 7 read as they must."
+    echo "LOCAL RUN: step 1, the token half, both key halves and the Worker probe were NOT RUN. This is not a production verdict, and a local PASS is never evidence of what hosted admin serves: only the hosted read-back (H6 step 2) is."
     rb_verdict "LOCAL -- the local build's stamp names this checkout, and it ships this checkout's rendered headers and the tracked production key."
 fi
 

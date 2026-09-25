@@ -2408,6 +2408,7 @@ output of the first.
 
 ```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
 BEGIN;
 GRANT SELECT ON app.facility TO anon;
@@ -2418,6 +2419,7 @@ SELECT grantee, table_name, privilege_type
  ORDER BY grantee, table_name, privilege_type;
 ROLLBACK;
 SQL
+unset DATABASE_URL
 ```
 
 Expect **exactly one row**: `anon | facility | SELECT`. The `ROLLBACK` is what
@@ -2429,6 +2431,7 @@ half 2 means nothing.**
 
 ```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
 SELECT grantee, table_name, privilege_type
   FROM information_schema.table_privileges
@@ -2440,6 +2443,7 @@ SELECT count(*) AS app_tables_enumerated
   FROM information_schema.tables
  WHERE table_schema = 'app' AND table_type = 'BASE TABLE';
 SQL
+unset DATABASE_URL
 ```
 
 **The second query is the anti-vacuity half and it is not optional.** An empty
@@ -2456,6 +2460,24 @@ stale silently, in the direction that reports clean.
 
 **Record the result under this heading with the date and the project ref**, in the
 same shape as the 2026-09-13 reading: both halves' output, not a summary of them.
+
+**Each half reads the connection string itself and removes it again** (step P's
+rule; R-2026-09-25-113 CO-2). The `read -rs` line waits silently for it. *Restated
+2026-09-25.* Until then both blocks read `$DATABASE_URL` from whatever shell they were
+pasted into and left it exported. At H6 step 4 Cowork added the two lines by hand.
+Both blocks already carried step P's PATH line first, and they still do.
+
+**Result, 2026-09-25, project `klrlpxysjsjpdkeqdhvl`** (H6 step 4, R-2026-09-25-113).
+Both halves were run in one sitting, the failing half first, and read by Cowork from
+the founder's terminal:
+
+- **Half 1:** `BEGIN`; `GRANT`; exactly one row, `anon | facility | SELECT`;
+  `ROLLBACK`. The query sees a grant when one exists.
+- **Half 2:** the grant query returned **(0 rows)**, and `app_tables_enumerated`
+  read **17**, the count the local test pins.
+- **PASS.** No client role (`anon`, `authenticated` or `PUBLIC`) holds any privilege
+  on any of the 17 tables in `app` on hosted. This is the first hosted run of the
+  widened sweep.
 
 ---
 
@@ -2917,8 +2939,12 @@ call was used.
 **Entered on 2026-09-25** by the founder in the Supabase dashboard, as part of H3,
 exactly as listed below and with no wildcards, on the founder's report and dashboard
 screenshots read by Cowork (R-2026-09-25-108). Custom SMTP was configured in the same
-sitting, through Proton (§12.1's checkbox). **The `redirect_to` reading below is still
-OPEN:** it is taken at H6 step 6, by script, never by eye.
+sitting, through Proton (§12.1's checkbox). **The `redirect_to` reading below is
+CLOSED: PASS on 2026-09-25**, at H6 step 6, by script (R-2026-09-25-113). The operator's
+link read `https://admin.openbed.ng/`, both as sent and decoded, and its host was this
+project's own Auth host. It was also the first real email through Proton. *Restated
+2026-09-25 (R-2026-09-25-113).* Until then this sentence read "**The `redirect_to`
+reading below is still OPEN:** it is taken at H6 step 6, by script, never by eye."
 
 **The processor agreement is not done, and it gates facility one, not H6**
 (R-2026-09-25-108 CJ-2). Proton's s.29 agreement, the s.41 transfer basis and log
@@ -3183,10 +3209,13 @@ is the same exists-then-compare shape as the two queries above. The
 
 ## 12. Operating the service: H3, H5, H6, the operator, facilities, withdrawal and erasure
 
-Written by PR 3.4b-app C (R-2026-09-24-88 BP-13, as amended by R-2026-09-24-97). **NOT YET
-RUN.** Every step below is a founder step, and nothing is run until Cowork has read its
-text. The operator's own sign-in address is **never written here**. It is "the
-operator's sign-in address", typed at run time (R-2026-09-24-89 BQ-1).
+Written by PR 3.4b-app C (R-2026-09-24-88 BP-13, as amended by R-2026-09-24-97). **H3
+(12.1), H5 (12.2) and H6 (12.3) have run on hosted, all on 2026-09-25**
+(R-2026-09-25-108, -110 and -113). **12.4 to 12.6 have NOT YET RUN.** Every step below is
+a founder step, and nothing is run until Cowork has read its text. The operator's own
+sign-in address is **never written here**. It is "the operator's sign-in address",
+typed at run time (R-2026-09-24-89 BQ-1). *Restated 2026-09-25 (R-2026-09-25-113).*
+Until then the second sentence read "**NOT YET RUN.**"
 
 **The hosted order, in full** (R-2026-09-25-103 CE-2):
 1. 022 and 023, applied together in one run (section 5, six fences): **done on
@@ -3195,8 +3224,16 @@ operator's sign-in address", typed at run time (R-2026-09-24-89 BQ-1).
 3. H3 (section 9's entry, plus 12.1 below): **entered on 2026-09-25** (R-2026-09-25-108),
    and 12.1's minimum interval read as 60 seconds on 2026-09-25 (R-2026-09-25-110);
 4. H5, the Worker redeploy (12.2): **done on 2026-09-25** (R-2026-09-25-110);
-5. H6 (12.3), which ends with the operator bootstrap and an empty register;
-6. and only when step 4b reads CLOSED on every row: facility creation (12.4).
+5. H6 (12.3), which ends with the operator bootstrap and an empty register: **done on
+   2026-09-25** (R-2026-09-25-113). **The admin app is live at `admin.openbed.ng`;**
+6. facility creation (12.4), which is **BLOCKED by two gates, both open**:
+   (a) the -45 gate, step 4b, whose row 5, the backup restore drill, has never run; and
+   (b) R-2026-09-25-108 CJ-2, the email provider's s.29 processor agreement, not yet
+   approved. Either one alone blocks it.
+
+*Restated 2026-09-25 (R-2026-09-25-113).* Until then items 5 and 6 read: "5. H6 (12.3),
+which ends with the operator bootstrap and an empty register; 6. and only when step 4b
+reads CLOSED on every row: facility creation (12.4)."
 
 *Restated 2026-09-25 (R-2026-09-25-105), per R-2026-09-25-103 CE-2.* Until then the
 order read: 1. 022's apply; 2. H2; 3. H3; 4. PR C merged; 5. 023's apply; 6. H5; 7. H6;
@@ -3287,14 +3324,47 @@ needs.
 
 **Then, in this order (R-2026-09-24-97 BY-1). Each step's STOP stops everything below it.**
 
-**Step 1 — the project, the hosts, Access and the service token** (founder, in the
-Cloudflare dashboard):
-- create the admin Pages project and `admin.openbed.ng`;
-- add the project's pages.dev hostnames to the Access application, **both** the
-  production alias and the preview deployments (R-2026-09-24-89 BQ-2 a);
-- issue the Access service token.
+**Step 1 — the project, the hosts, Access and the service token** (founder; the first
+command from the deploy checkout, the rest in the Cloudflare dashboard), in this order
+(R-2026-09-25-111 CM, as amended by R-2026-09-25-112 CN):
+
+a) Create the Pages project, from the deploy checkout:
+
+```bash
+npx wrangler pages project create openbed-admin --production-branch main
+```
+
+b) In Zero Trust, add the login method **GitHub**: the founder's account, with
+   two-factor on. Test it from the dashboard before going on.
+
+c) **Create** a self-hosted Access application named "OpenBed admin":
+   - hostnames `admin.openbed.ng`, `openbed-admin.pages.dev` and
+     `*.openbed-admin.pages.dev`, so that the production alias and every preview
+     deployment are behind it too (R-2026-09-24-89 BQ-2 a);
+   - login methods: GitHub only, with the one-time PIN **off**;
+   - policy "Founder": Allow, Include the founder's identity email only. That address
+     is never written in this repository.
+
+d) Issue the service token `openbed-admin-readback`. Its Client ID and Secret go into
+   the founder's password manager and nowhere else. Then add a **second policy** to
+   the application: **Service Auth**, Include that token only. **Without this policy an
+   issued token passes nothing:** the read-back's token half is refused by Access, and
+   step 2 reads STOP on a correct deploy.
+
+e) Add `admin.openbed.ng` as the Pages project's custom domain. Delete any placeholder
+   `admin` DNS record first.
 
 The token goes into the shell only when step 2 runs, and never into a file here.
+
+*Restated 2026-09-25 (R-2026-09-25-112 CN).* Until then this step read: "create the
+admin Pages project and `admin.openbed.ng`; add the project's pages.dev hostnames to
+the Access application, **both** the production alias and the preview deployments
+(R-2026-09-24-89 BQ-2 a); issue the Access service token." That text assumed an Access
+application already stood in front of `admin.openbed.ng` from 2026-09-24 (BQ-2). **It
+did not.** The founder reports that Zero Trust held no application until 2026-09-25.
+Cowork's outside read before setup: `admin.openbed.ng` resolved (proxied) and answered
+522 with no Access redirect, and `openbed-admin.pages.dev` answered 522, so nothing was
+served. The old text also issued a token with no policy admitting it (CM).
 
 **Step 2 — deploy, and read back, failing half first:** `docs/runbook-admin-deploy.md`
 sections 1 and 2. The token is read silently into the environment for the read-back and
@@ -3306,6 +3376,13 @@ read -rs OPENBED_ACCESS_CLIENT_SECRET && export OPENBED_ACCESS_CLIENT_SECRET
 bash scripts/readback_admin.sh https://HASH.openbed-admin.pages.dev
 unset OPENBED_ACCESS_CLIENT_ID OPENBED_ACCESS_CLIENT_SECRET
 ```
+
+**`HASH` is a placeholder.** Replace it with the deployment's own label, the one in the
+URL the deploy printed, before running the block. Since 2026-09-25 the read-back refuses
+a URL still holding `HASH` with `ERROR:` and exit 2, before any request
+(R-2026-09-25-113 CO-2). That is never a verdict about the deploy. At H6 the block was
+first run unchanged: the HASH-host lines read WRONG, against a deployment that does
+not exist, and the run ended in STOP.
 
 **Stop condition:** the last line reads `PASS:`. **Any `step 1` line reading `200` is
 STOP**: a host serves the page around Access.
@@ -3319,12 +3396,18 @@ the key goes to curl on its standard input, never on its command line:
 
 ```bash
 read -rs SUPABASE_SERVICE_ROLE_KEY && export SUPABASE_SERVICE_ROLE_KEY
-printf 'apikey: %s\nAuthorization: Bearer %s\n' "$SUPABASE_SERVICE_ROLE_KEY" "$SUPABASE_SERVICE_ROLE_KEY" | curl -s --max-time 12 -o /dev/null -w "real key: HTTP %{http_code}\n" -H @- "https://klrlpxysjsjpdkeqdhvl.supabase.co/auth/v1/admin/users?per_page=1"
-printf 'apikey: %sx\nAuthorization: Bearer %sx\n' "$SUPABASE_SERVICE_ROLE_KEY" "$SUPABASE_SERVICE_ROLE_KEY" | curl -s --max-time 12 -o /dev/null -w "wrong key: HTTP %{http_code}\n" -H @- "https://klrlpxysjsjpdkeqdhvl.supabase.co/auth/v1/admin/users?per_page=1"
+printf 'apikey: %s\nAuthorization: Bearer %s\n' "$SUPABASE_SERVICE_ROLE_KEY" "$SUPABASE_SERVICE_ROLE_KEY" | curl -o /dev/null -s --max-time 12 -w "real key: HTTP %{http_code}\n" -H @- "https://klrlpxysjsjpdkeqdhvl.supabase.co/auth/v1/admin/users?per_page=1"
+printf 'apikey: %sx\nAuthorization: Bearer %sx\n' "$SUPABASE_SERVICE_ROLE_KEY" "$SUPABASE_SERVICE_ROLE_KEY" | curl -o /dev/null -s --max-time 12 -w "wrong key: HTTP %{http_code}\n" -H @- "https://klrlpxysjsjpdkeqdhvl.supabase.co/auth/v1/admin/users?per_page=1"
 unset SUPABASE_SERVICE_ROLE_KEY
 ```
 
 The wrong key is the real one with one character appended, so no key value is written here.
+
+**`-o /dev/null` comes first in both commands** (R-2026-09-25-113 CO-2). At H6 the
+founder's paste read `--max-time 12-o /dev/null`, with a space lost. No body appeared
+that time, but a mangled `--max-time` must never be able to displace the one flag that
+keeps a real user record off the screen. *Restated 2026-09-25.* Until then both
+commands read `curl -s --max-time 12 -o /dev/null -w …`.
 
 - **PASS:** `real key: HTTP 200` and `wrong key: HTTP 401`.
 - **`real key` reading 401 or 403 is a STOP.** It is never a retry by hand with another
@@ -3380,6 +3463,20 @@ unset DATABASE_URL
 pbpaste | node scripts/readback_signin_link.mjs --mode admin --project-ref klrlpxysjsjpdkeqdhvl
 ```
 
+**How to copy the link's address without opening it** (R-2026-09-25-113 CO-2). The
+email comes through Proton (sender `support@openbed.ng`):
+- **In a browser (mail.proton.me):** right-click the sign-in link and choose **Copy
+  Link** (Safari) or **Copy link address** (Chrome, Firefox).
+- **In the Proton desktop app:** open the same message at mail.proton.me in a browser
+  instead, and copy it there.
+- **Fallback:** open the message's source (the "View headers" / message source view)
+  and copy the `https://…/auth/v1/verify?…` address from it.
+
+**`STOP: the input is not an https link` means the COPY is wrong, not the link.** The
+clipboard holds something else. At H6 it held the terminal command itself, 42
+characters. Copy the address again and re-run the command. No new link is needed, and
+the frequency window does not apply, because nothing was requested.
+
 **PASS:** `PASS: this project's Auth link, and redirect_to is exactly https://admin.openbed.ng/`.
 Anything else is STOP. **Do not open that link.**
 
@@ -3399,9 +3496,77 @@ replacing its **[unverified]** paragraph.
 with "No facility exists yet." **No facility or ward login may be created on hosted
 until step 4b reads CLOSED on every row** (the -45 gate).
 
-- [ ] H6: preconditions 1-7 read; steps 1-8 as above (date, Cowork's reading of each step)
+- [x] H6: preconditions 1-7 read; steps 1-8 as above (date, Cowork's reading of each step)
+  - **On 2026-09-25, all eight steps read as they must, and the admin app is LIVE**
+    (R-2026-09-25-113). All commands ran from `~/Desktop/OpenBed-NG-deploy` at
+    `5786626a100c3f05e9aa42eb3bc0907b04b43959`. Cowork read back each step from the
+    founder's terminal and from outside. Preconditions 1-7 were all met on hosted,
+    as recorded in R-2026-09-25-105 to -110.
+  - **Step 1.**
+    - `wrangler`: "Successfully created the 'openbed-admin' project."
+    - Founder-reported: the application "OpenBed admin" with the three hostnames,
+      GitHub login only, and the policies "Founder" (Allow) and Service Auth
+      (`openbed-admin-readback`). The existing `admin` DNS record was kept, not
+      deleted. Step 2's `admin.openbed.ng commit` reading proves the host serves this
+      project.
+    - Cowork's outside read: `admin.openbed.ng/`, `admin.openbed.ng/version.json`,
+      `openbed-admin.pages.dev/` and `abc123.openbed-admin.pages.dev/` each answered
+      302 to `https://openbedng.cloudflareaccess.com/cdn-cgi/access/login/<host>`. The
+      Access login page offers GitHub only.
+  - **Step 2.**
+    - `bash scripts/deploy_pages.sh --branch main admin`: stamp `5786626`, clean; 5
+      files plus `_headers`; deployment `https://c8fc4bf8.openbed-admin.pages.dev`.
+    - The first read-back ran against the literal `https://HASH.openbed-admin.pages.dev`,
+      the placeholder pasted unchanged. Step 1's six lines read ok (302), and step 2's
+      `admin.openbed.ng commit` read ok. The HASH-host lines read WRONG, because no such
+      deployment exists. STOP: correct, and not about the deploy. The script now
+      refuses `HASH` itself (CO-2).
+    - Re-run against `https://c8fc4bf8.openbed-admin.pages.dev`:
+      - step 1: all six host lines 302 to Access;
+      - step 2: commit `5786626`, dirty false, `admin.openbed.ng` commit `5786626`;
+        CSP `default-src 'self'; connect-src 'self' https://api.openbed.ng http://127.0.0.1:54321; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
+        referrer-policy `no-referrer`, x-content-type-options `nosniff`; 1 bundle
+        (`assets/index-C6J4gRcB.js`), 1 publishable key;
+      - step 3: live half 200 `{"external":…`, dead half 401 `Invalid API key`,
+        operator call 401 `forwarded`.
+      - **PASS.**
+  - **Step 3.** `real key: HTTP 200`, `wrong key: HTTP 401`. **PASS.** The founder's
+    paste showed `--max-time 12-o /dev/null`, with a space missing. No body appeared.
+    The flags are reordered (CO-2).
+  - **Step 4.** The WIDENED grant sweep, both halves in one sitting. **PASS.** The
+    reading is recorded under section 6's heading.
+  - **Step 5.**
+    - `provision_ward_account.mjs --role PLATFORM_ADMIN --project-ref klrlpxysjsjpdkeqdhvl`:
+      "provisioned PLATFORM_ADMIN [the operator's sign-in address] -> account
+      `4459e348-098a-4e2f-89e4-fec261c1e58e` (the operator)", then "auth user: created,
+      confirmed". No `REFUSED`.
+    - The count read-back: `1`.
+    - **PASS.**
+    - The script printed the address in full, so it is masked here (CO-3; see 12.4
+      step 5).
+  - **Step 6.**
+    - The first attempt read "STOP: the input is not an https link, and no verdict was
+      reached": the clipboard held the terminal command, 42 characters.
+    - Re-copied, it read:
+      - `link (token redacted): https://klrlpxysjsjpdkeqdhvl.supabase.co/auth/v1/verify?token=<redacted>&type=magiclink&redirect_to=https://admin.openbed.ng/`;
+      - `redirect_to` as sent, and decoded: both `https://admin.openbed.ng/`.
+    - **PASS.** This was the first real email through custom SMTP (Proton, sender
+      `support@openbed.ng`). It closes section 9's H3 `redirect_to` reading.
+  - **Step 7.** Both orders signed in, and the register loaded. **The fragment
+    survives the Access bounce.** Recorded in `docs/runbook-admin-deploy.md` section 4.
+  - **Step 8.** "Facilities", "Reload", "New facility", "No facility exists yet."
+    **PASS.**
 
 ### 12.4 Creating a facility
+
+**BLOCKED, by two gates, both open on 2026-09-25** (R-2026-09-25-113 CO-1). Either one
+alone stops this section:
+- **(a) The -45 gate.** Step 4b must read CLOSED on every row. Its row 5, the backup
+  restore drill, has never been run.
+- **(b) The email provider's processor agreement** (R-2026-09-25-108 CJ-2). Proton's
+  s.29 written processor agreement, the s.41 transfer basis and retention are not yet
+  approved. They are tracked in the founder's paperwork register, outside this
+  repository. Until they are approved, no hospital or ward address is sent a link.
 
 **This is new.** No facility-creation step existed before PR 3.4b-app C (-45 B). It
 replaces the plan at `Sprint Kickoffs/sprint-kickoff-bundle3-operator-path-2026-09-22.md`
@@ -3431,6 +3596,13 @@ through the admin app.
 
    The three plain reads wait, in order, for the ward's role address, the facility id
    (shown in the admin app), and the category code, such as `MATERNITY`.
+
+   **Open item (R-2026-09-25-113 CO-3):** the script prints the full address on its
+   `provisioned` line. At H6 step 5 that line carried the operator's sign-in address,
+   so a pasted output carries it too (BQ-1). It is to print a masked form instead: the
+   first character and the domain. **Trigger: the first ward-account provisioning,
+   and before facility one.** Until then, mask the address by hand in anything pasted
+   back.
 6. **List** the facility in the admin app. The List button is enabled only once the
    contact, the agreement and a category exist. The database refuses it otherwise
    (021:273-285).
@@ -3538,7 +3710,7 @@ Note what was found.
 |---|---|
 | Region pin | Assertable via the Management API, declined on credential-surface grounds |
 | Hosted exposed-schemas list | A dashboard setting with no in-database representation — **but not unobservable.** Discharged by hand probe on 2026-09-13: the live project's `PGRST106` body carries `hint: "Only the following schemas are exposed: public, graphql_public"` (step 2). No test carries it, because the suite never targets hosted (step 6). `extra_search_path` is a separate setting, discharged by its own single-field probe on 2026-09-13 (step 2): `public, extensions`, the untouched Supabase default |
-| Hosted Auth Site URL and redirect allowlist | A dashboard setting with no in-database representation, the same idiom as the exposed-schemas list. Decided 2026-09-14 (`Sprint Kickoffs/decision-2026-09-14-public-private-split.md`, D2): the Site URL is on `app.openbed.ng`, and `openbed.ng` is never an auth redirect target. **The Site URL is exactly `https://app.openbed.ng`, and the redirect list is exactly `https://app.openbed.ng/` and `https://admin.openbed.ng/`**: the strings the apps send (R-2026-09-23-71 D, amending D2's "confined to it"; slashes by R-2026-09-23-72 AZ-1). A redirect that does not match falls back silently to the Site URL, and that is a STOP. The strings and their read-back are under "Entering the Site URL and redirect URLs" above. **Observed 2026-09-14 (step 9): the hosted Site URL is still http://localhost:3000, the Supabase default.** It arrives as `redirect_to` in every link examined, so a ward clicking a real link today is sent to their own machine. It becomes https://app.openbed.ng when the app exists. Record the exact hosted strings here when they are entered. **On 2026-09-25 they were entered (H3, R-2026-09-25-108): Site URL `https://app.openbed.ng`; redirect URLs `https://app.openbed.ng/` and `https://admin.openbed.ng/`, exact, no wildcards** (the founder's entry, read by Cowork from dashboard screenshots). The observed `redirect_to` is still open: it is read at H6 step 6, by script. The values in `supabase/config.toml` are local-only |
+| Hosted Auth Site URL and redirect allowlist | A dashboard setting with no in-database representation, the same idiom as the exposed-schemas list. Decided 2026-09-14 (`Sprint Kickoffs/decision-2026-09-14-public-private-split.md`, D2): the Site URL is on `app.openbed.ng`, and `openbed.ng` is never an auth redirect target. **The Site URL is exactly `https://app.openbed.ng`, and the redirect list is exactly `https://app.openbed.ng/` and `https://admin.openbed.ng/`**: the strings the apps send (R-2026-09-23-71 D, amending D2's "confined to it"; slashes by R-2026-09-23-72 AZ-1). A redirect that does not match falls back silently to the Site URL, and that is a STOP. The strings and their read-back are under "Entering the Site URL and redirect URLs" above. **Observed 2026-09-14 (step 9): the hosted Site URL is still http://localhost:3000, the Supabase default.** It arrives as `redirect_to` in every link examined, so a ward clicking a real link today is sent to their own machine. It becomes https://app.openbed.ng when the app exists. Record the exact hosted strings here when they are entered. **On 2026-09-25 they were entered (H3, R-2026-09-25-108): Site URL `https://app.openbed.ng`; redirect URLs `https://app.openbed.ng/` and `https://admin.openbed.ng/`, exact, no wildcards** (the founder's entry, read by Cowork from dashboard screenshots). **The observed `redirect_to`, 2026-09-25 (H6 step 6, by script, R-2026-09-25-113): `https://admin.openbed.ng/`, as sent and decoded. PASS.** *Restated 2026-09-25;* until then this read "The observed `redirect_to` is still open: it is read at H6 step 6, by script." The values in `supabase/config.toml` are local-only |
 | Hosted role attributes | A property of Supabase-managed roles; no migration can assert it and a platform upgrade or project restore can change it. **Observed 2026-09-15 by Cowork, read-only:** hosted `postgres` and `service_role` are both `rolsuper f`, `rolbypassrls t`, identical to local. The old row said the local role graph differs from the hosted one; on these attributes it does not. Re-observe after any Supabase platform change |
 | Hosted auth session bounds (`timebox`, `inactivity_timeout`) | A dashboard setting with no in-database representation. Both bounds ARE proved locally in `tests/db/auth_refresh_live.test.ts`; the hosted values are step 3 |
 | Magic-link single-use and expiry | Enforced by Supabase auth, not by this schema, since `app.invite` no longer holds a token. Step 9 is the hand check, partly closed on 2026-09-14. Closing it needs custom SMTP, which is recorded once, as the email-provider row of the open processor obligations in `Sprint Kickoffs/decision-2026-09-14-public-private-split.md` |

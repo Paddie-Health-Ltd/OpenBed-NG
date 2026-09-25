@@ -4180,6 +4180,8 @@ _Issued as R-PROVISIONAL-2026-09-24-BQ, by Cowork on 2026-09-24, relaying the fo
 - **PR B:** the contacts test widens to "every @openbed.ng address anywhere in the tracked tree, outside Sprint Kickoffs/ and docs/handoff*, is one of the contacts file's three". Plant: a fourth address in an app's source reds it. This keeps the operator address out of the repository without naming it.
 
 **BQ-2 — CLOUDFLARE ACCESS IS IN FRONT OF admin.openbed.ng** (founder, 2026-09-24). **Founder-reported, not yet read back.**
+
+> **SUPERSEDED IN PART by R-2026-09-25-112 CN, by note rather than by rewriting (method note 8).** The heading's claim did not hold on 2026-09-24. The founder reports that Zero Trust held no Access application until 2026-09-25, and Cowork's outside read before setup found `admin.openbed.ng` answering 522 with no Access redirect. Access has stood in front of the admin hosts since 2026-09-25, read back from outside by Cowork at H6 step 1 (R-2026-09-25-113). The rest of BQ-2 (what Access does and does not do, the probes, the token and the sign-in order) stands. (c)'s `[unverified]` sign-in order was observed at H6 step 7: the fragment survives the bounce, in both orders.
 - The login method is an identity provider with two-factor (GitHub or Google). The one-time-PIN method is off, because a PIN to the operator's own inbox would be the same factor twice. The policy admits the founder's identity only.
 - **What Access does NOT do,** stated in the admin deploy runbook: it does not protect the operator RPCs, which are reached with a JWT through api.openbed.ng or the direct origin. The operator's mailbox stays the factor that guards the data.
 - **Consequences for PR C:**
@@ -4911,6 +4913,110 @@ _Issued as R-PROVISIONAL-2026-09-25-CL, by Cowork on 2026-09-25. It lands with -
 
 **CL-3** — no SQL, nothing hosted run by Claude Code.
 
+### R-2026-09-25-111 — H6 step 1 lacked the Service Auth policy (held; landed as amended by -112)
+
+_Issued as R-PROVISIONAL-2026-09-25-CM, by Cowork on 2026-09-25, after #81 had been reported. It was held for the next record change, not added to #81, and it lands here as amended by -112 CN. **The evidence kind:** Cowork's block was not kept in the repository. The text below is the implementer's held summary of it, and CN restates its steps. Number assigned on landing: R-2026-09-25-110 plus one. Next provisional letter: CN._
+
+**CM-1 — the gap.** H6 step 1 said "issue the Access service token" and never added an Access policy admitting it: Action **Service Auth**, Include that token only. Without that policy the token passes nothing, `readback_admin.sh`'s token half is refused, and H6 step 2 reads STOP on a correct deploy.
+
+**CM-2 — as held:**
+- restate §12.3 step 1 and `docs/runbook-admin-deploy.md` §0, keeping the old text as dated restatements;
+- the steps: (a) `npx wrangler pages project create openbed-admin --production-branch main`; (b) the custom domain `admin.openbed.ng`; (c) Access gains the hosts `openbed-admin.pages.dev` and `*.openbed-admin.pages.dev`; (d) the token `openbed-admin-readback`, in the password manager only, plus the Service Auth policy, with the IdP policy unchanged;
+- record step 1's readings (the wrangler output, the hostnames and the policies, with no secret) when they arrive.
+
+**Superseded in its step list by -112 CN.** CM's (c) and (d) assumed an Access application already in front of `admin.openbed.ng`, which did not exist. CN reorders the step into a) to e), creating the application rather than adding hosts to it. CM-1's finding stands, and it is CN's step (d).
+
+### R-2026-09-25-112 — #81 merged; H6 step 1 restated: no Access application existed before 2026-09-25
+
+_Issued as R-PROVISIONAL-2026-09-25-CN, by Cowork on 2026-09-25. **Pasting it was the founder's merge word for #81.** It lands with -111 and -113 in one change, branched from `389cd10`. Number assigned on landing: R-2026-09-25-111 plus one. Next provisional letter: CO._
+
+**VERIFIED BY COWORK** (2026-09-25, GitHub API):
+- #81 was OPEN at `e7c7c69101806ddaec7ded244368f052b3df9a30`, base `5786626a100c3f05e9aa42eb3bc0907b04b43959`, and clean; 1 commit, 3 files; seven check runs success.
+- The operator's sign-in address appears 0 times in #81's diff.
+- Re-read after H6: still open at `e7c7c69`, clean, and `origin/main` still `5786626`.
+
+**Re-read by the implementer before the merge** (`gh pr view 81`, the check-runs API, `git ls-remote`): OPEN, head `e7c7c69101806ddaec7ded244368f052b3df9a30`, base `5786626a…`, MERGEABLE and CLEAN, 1 commit, 3 files; compliance-tests, golden-path, bundle-guards, secret-scan, db-tests, migration-lint and repo-lint all completed/success; `main` at `5786626a…`. Every premise held.
+
+**CN-1 — THE MERGE.**
+- The head was read from the API as `e7c7c69101806ddaec7ded244368f052b3df9a30`, and #81 merged as a merge commit with `--match-head-commit` on that value.
+- MERGED was read back: **`389cd10606add5ed1ee900a2abdf9049d8636b12`**, with parents `5786626a100c3f05e9aa42eb3bc0907b04b43959` and `e7c7c69101806ddaec7ded244368f052b3df9a30` (`git rev-list --parents`).
+- As a separate step, after MERGED was read, `record-h5` was deleted on the remote and locally. Both were read back as gone.
+
+**CN-2:** this change is branched from the new `main`, `389cd10`.
+
+**CM AS AMENDED — H6 STEP 1 RESTATED.**
+- **The premise that failed:** the record said Access was in front of `admin.openbed.ng` from 2026-09-24 (-89 BQ-2, founder-reported and not read back), and `docs/runbook-admin-deploy.md` said so in the present tense.
+- **It was not.** The founder reports that Zero Trust held no application until 2026-09-25.
+- **Cowork's outside read before setup:** `admin.openbed.ng` resolved (proxied) and answered 522, with no Access redirect; `openbed-admin.pages.dev` answered 522. Nothing was served.
+- **The order, now §12.3 step 1 and the admin runbook's §0** (method note 8, the old text kept):
+  - a) `npx wrangler pages project create openbed-admin --production-branch main`, from the deploy checkout;
+  - b) the Zero Trust login method GitHub (the founder's account, two-factor on), tested;
+  - c) CREATE the self-hosted Access application "OpenBed admin" for `admin.openbed.ng`, `openbed-admin.pages.dev` and `*.openbed-admin.pages.dev`, with GitHub the only login method, one-time PIN off, and the policy "Founder": Allow, Include the founder's identity email only (never written in the repository);
+  - d) the service token `openbed-admin-readback` (Client ID and Secret in the founder's password manager only), and a second policy, Service Auth, Include that token only;
+  - e) `admin.openbed.ng` as the Pages project's custom domain, deleting any placeholder `admin` DNS record first.
+- **Restated as built:**
+  - runbook §12.3 step 1;
+  - the admin runbook's opening sentence about Access, and §0;
+  - a SUPERSEDED-IN-PART note on BQ-2 above, which is not rewritten.
+- **Deliberately not edited.** Three code comments say Access sits in front of the admin hosts: `apps/admin/public/_headers`, `apps/admin/wrangler.toml` and `scripts/readback_admin.sh`'s header. They are true from 2026-09-25. Editing `apps/admin/public/_headers` would also fire -113 CO-3's CSP trigger, and this change carries no app code.
+
+### R-2026-09-25-113 — H6 done on hosted: admin.openbed.ng is LIVE
+
+_Issued as R-PROVISIONAL-2026-09-25-CO, by Cowork on 2026-09-25. It lands with -111 and -112 in one change. Number assigned on landing: R-2026-09-25-112 plus one. Next provisional letter: CP._
+
+**H6 AS RUN, 2026-09-25.** All steps ran from `~/Desktop/OpenBed-NG-deploy` at `5786626a100c3f05e9aa42eb3bc0907b04b43959`, and Cowork read back each one. Preconditions 1–7 were all met on hosted, as recorded in -105 to -110. The full readings are in the runbook's §12.3 checkbox; in short:
+1. **Step 1:**
+   - wrangler: "Successfully created the 'openbed-admin' project."
+   - Founder-reported: the application, its three hostnames, GitHub only, and the policies "Founder" and Service Auth. The existing `admin` DNS record was kept; step 2's `admin.openbed.ng commit` reading proves it serves this project.
+   - Cowork's outside read: four hosts each answered 302 to `openbedng.cloudflareaccess.com`, and the login page offers GitHub only.
+2. **Step 2:**
+   - The deploy: stamp `5786626`, clean; deployment `https://c8fc4bf8.openbed-admin.pages.dev`.
+   - The first read-back ran against the literal HASH placeholder and read STOP. That was correct, and not about the deploy.
+   - Re-run against the deployment: **PASS**. Every step 1 host read 302; the commit `5786626` on both hosts, dirty false; the headers as rendered; 1 bundle and 1 key; live 200, dead 401, operator call 401 `forwarded`.
+3. **Step 3:** `real key: HTTP 200`, `wrong key: HTTP 401`. **PASS.** The paste showed `--max-time 12-o /dev/null`, and no body appeared.
+4. **Step 4, the WIDENED grant sweep,** project `klrlpxysjsjpdkeqdhvl`, both halves in one sitting (Cowork added the `read -rs` / `unset` lines):
+   - Half 1: one row, `anon | facility | SELECT`, then ROLLBACK.
+   - Half 2: (0 rows), and `app_tables_enumerated` 17.
+   - **PASS.** Recorded under §6's heading.
+5. **Step 5:** provisioned PLATFORM_ADMIN [the operator's sign-in address] -> account `4459e348-098a-4e2f-89e4-fec261c1e58e` (the operator); "auth user: created, confirmed"; no REFUSED; count read-back 1. **PASS.**
+6. **Step 6:**
+   - The first attempt was "not an https link": the clipboard held the command.
+   - Re-copied: `redirect_to` as sent and decoded, both `https://admin.openbed.ng/`. **PASS.**
+   - This was the first real email through Proton, and it closes §9's H3 `redirect_to` reading.
+7. **Step 7:**
+   - Order 1, with an Access session: signed in, and the register loaded.
+   - Order 2, a fresh private window: a GitHub server error at the Access login; on retry, signed in, and the register loaded.
+   - **The fragment survives the Access bounce.**
+8. **Step 8:** "Facilities", "Reload", "New facility", "No facility exists yet." **PASS.**
+
+**CO-1 — RECORDED:**
+- §12.3's H6 checkbox is ticked with the readings. **Admin is LIVE on 2026-09-25.**
+- "The admin app is NOT live" is restated in `docs/runbook-admin-deploy.md` with its old text, and so is the tail of `readback_admin.sh`'s LOCAL line ("admin is not live until H6 …").
+- §12's header no longer reads NOT YET RUN for 12.1–12.3.
+- §12's hosted order: H6 done. Facility creation (12.4) is BLOCKED by both gates, named in 12.4's head: (a) the -45 gate (step 4b row 5, the restore drill, never run) and (b) CJ-2 (the processor agreement, not approved).
+- §9's H3 entry and the Site URL row record the observed `redirect_to`.
+- The admin runbook's §4 `[unverified]` paragraph is replaced with step 7's result, and the old text is kept.
+
+**CO-2 — RUNBOOK FIXES** (method note 8 throughout):
+- **`rb_require_url` in `scripts/readback_common.sh`** refuses a URL whose first label is literally `HASH` with ERROR and exit 2, before any request. It is shared by every read-back, and inert for the two that take fixed origins.
+  - The plant is in `tests/compliance/readback_scripts.test.ts`, over the pages, ward console and admin read-backs. It asserts ERROR, no STOP, no PASS and no request.
+  - It was run red against the unchanged script first (4 of 4 failed: the scripts went on to probe the placeholder host), then green.
+  - One new leg, reached: `legs_total` 313, reached 287, measured.
+- **§12.3 step 3:** `-o /dev/null` comes first in both curls.
+- **§6's WIDENED sweep:** both halves read and unset `DATABASE_URL`.
+- **§12.3 step 6:** how to copy the link's address from Proton, and that "not an https link" means the copy.
+
+**One premise did not hold, and the fix survives it.** CO-2 asked the WIDENED sweep to "carry step P's PATH line". Both halves already did, as their first line, which is what `tests/compliance/runbook_psql_path.test.ts` requires. Only the `read -rs` / `unset` lines were missing, and the PATH line stays first.
+
+**A reading note, not a correction.** H6 step 7's order 2, as written, opens the link in a second fresh private window. CO reports one fresh private window. It is recorded exactly as reported, and nothing is inferred about a second window.
+
+**CO-3 — OPEN ITEMS, NOT FIXES** (method note 22):
+- **The production admin CSP carries `http://127.0.0.1:54321` in `connect-src`,** rendered from `packages/origins/origins.json`, whose `api` entry lists a local origin beside the production one (re-read on landing). The fix: render `connect-src` per build target, with a test that a production `_headers` names no `127.0.0.1` or `localhost`. **Trigger: the next change that touches `apps/*/public/_headers` or `scripts/render_headers.mjs`, and before facility one.** Recorded in the admin runbook's §4.
+- **`provision_ward_account.mjs` prints the full address on its output line,** so a pasted output carries it (BQ-1). The fix: print a masked form (the first character and the domain). **Trigger: the first ward-account provisioning, and before facility one.** Recorded at 12.4 step 5.
+- **The paperwork gate:** the email provider's processor agreement, transfer basis and retention (CJ-2) are tracked in the founder's paperwork register, outside the repository. Facility one waits on it.
+
+**CO-4:** the checks are reported in this change's pull request. No SQL and no migration; nothing hosted was run by Claude Code.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -5012,6 +5118,9 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | CJ | R-2026-09-25-108 | 2026-09-25 | **H3 entered on hosted:** the Site URL and redirects exact, Proton SMTP, the rate limits read. The processor agreement gates facility one, not H6. **The minimum interval arrived blank, so §12.1 is unticked and precondition 4 NOT met;** CJ-2's address is not written (BQ-1). |
 | CK | R-2026-09-25-109 | 2026-09-25 | **#80 merged at `5786626`** (parents `b056ad1`, `1a22685`); `ch-h2-pending` and the #80 branch deleted. The BQ-1 wording accepted. The interval is read as 60 seconds, held out of #80. |
 | CL | R-2026-09-25-110 | 2026-09-25 | **H5 done on hosted:** the Worker at `b056ad1`, live version `895ae17d…`, read-back PASS, and probe 4's bundle equal to `allow-list.json` entry for entry. §12.1 complete at 60 seconds; preconditions 4 and 6 met; H6 may start before this merges. Probe 4's stale "four POST" text restated. |
+| CM | R-2026-09-25-111 | 2026-09-25 | **H6 step 1 lacked the Service Auth policy:** an issued Access token passes nothing without it, and step 2 would STOP on a correct deploy. Held out of #81; landed as amended by CN, whose step order supersedes CM's. |
+| CN | R-2026-09-25-112 | 2026-09-25 | **#81 merged at `389cd10`** (parents `5786626`, `e7c7c69`); `record-h5` deleted. **No Access application existed before 2026-09-25** (BQ-2 superseded in part): H6 step 1 restated to a) to e), creating the application, with the Service Auth policy. |
+| CO | R-2026-09-25-113 | 2026-09-25 | **H6 done on hosted: admin.openbed.ng is LIVE.** Steps 1 to 8 PASS: the read-back at `5786626`, the widened sweep on hosted for the first time, the operator bootstrapped (count 1), `redirect_to` exact, and the fragment survives Access in both orders. HASH refused by the read-backs; step 3, §6 and step 6 fixed. Facility one blocked by the -45 gate AND CJ-2. Three open items with triggers. |
 
 ## Method notes — how rulings reach the implementer
 
