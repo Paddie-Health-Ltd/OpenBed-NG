@@ -130,6 +130,8 @@ exactly that: never a PASS.** Paste the whole output back.
 | `step 2 admin.openbed.ng commit` | **this checkout's HEAD** |
 | `step 2 content-security-policy` / `referrer-policy` / `x-content-type-options` | exactly what **this checkout's** `apps/admin/public/_headers` sets on `/*`, as rendered by `scripts/render_headers.mjs` |
 | `step 2 bundles the page loads` / `publishable keys in the deployed bundle` | **`1`** / **`1`** |
+| `step 2 scripts` / `admin.openbed.ng scripts` | **every script is this host's own**. One `script:` line per `<script>` is printed above it. Any inline script, or one from another host (such as `static.cloudflareinsights.com`), is **WRONG** (R-2026-09-25-119 CU-5) |
+| `admin.openbed.ng content-security-policy` / `referrer-policy` / `x-content-type-options` / `bundles the page loads` | the same values as step 2's, read on the custom domain with the token, where zone settings apply |
 | `step 3 live half status` / `body` | **`200`** / begins **`{"external":`** |
 | `step 3 dead half status` / `body` | **`401`** / contains **`"message":"Invalid API key"`** |
 | `step 3 operator call status` / `x-openbed-proxy` | **`401`** / **`forwarded`** |
@@ -237,6 +239,52 @@ expected failing half.**
    deployment's URL.
 3. **PASS:** every line is `ok`, and `step 2 content-security-policy` reads
    `connect-src 'self' https://api.openbed.ng` with no local origin.
+4. **The browser check** (R-2026-09-25-118 CT-2, which waives R-2026-09-24-93 BU-2 e's
+   local walk for this change only; BU-2 e stands for any later `_headers` change).
+   - Open a fresh private window, with the developer console open before the page
+     loads.
+   - Open `admin.openbed.ng`, pass Access, and sign in as the operator through the magic
+     link.
+   - **PASS:** signed in, on the register, and no red line in the console.
+   - **A Content-Security-Policy violation in the console is a STOP.** Roll the
+     `openbed-admin` Pages project back to its previous deployment in the dashboard,
+     then read back again.
+
+**Run on 2026-09-25, from the deploy checkout at `dd59c7f`** (R-2026-09-25-119 CU-1;
+the founder's terminal and browser, read back by Cowork):
+- **Two deploy attempts failed before upload.** Both builds were good and stamped
+  `dd59c7f`. Then wrangler's first API call, `GET /accounts`, got **429 Too Many
+  Requests** with an HTML body (Ray IDs `a40a4ed129b3724f-LOS` and
+  `a40a67277aa5724f-LOS`). Nothing was uploaded, and the live admin was unchanged. Read
+  as a transient edge block on the founder's network, not the account.
+  - **Open item:** on a second occurrence, evaluate setting `CLOUDFLARE_ACCOUNT_ID` in
+    the deploy environment, so wrangler skips `GET /accounts`.
+- **The third attempt deployed** `https://4fc4ffd3.openbed-admin.pages.dev`.
+- **Read-back PASS.** Step 1 read 302 to Access on all six host and path pairs. Step 2
+  read commit `dd59c7f`, dirty false, and `admin.openbed.ng` commit `dd59c7f`. The CSP
+  read `connect-src 'self' https://api.openbed.ng`, with no-referrer, nosniff, one
+  bundle and one key. Step 3 read live 200, dead 401, and operator call 401
+  `forwarded`.
+- **Browser check:** signed in and landed on the register.
+  - The console first showed ONE violation, of `script-src`: Cloudflare Web Analytics'
+    beacon, `https://static.cloudflareinsights.com/beacon.min.js/…`, blocked by
+    `script-src 'self'`.
+  - It was injected by a zone setting, not by our build (CU-4 a).
+  - Once the founder switched that off and reloaded: **no red line. PASS.**
 
 This, together with the ward-console runbook's section 5, is the closing condition of
 the facility-one checklist's CSP box (the Supabase runbook, 12.4 step 1).
+
+**THE PAGE CHECKS SEE WHAT A BROWSER SEES, ON THE CUSTOM DOMAIN TOO (R-2026-09-25-119
+CU-5).** Since 2026-09-26 every page fetch presents as a browser (a browser User-Agent,
+and `Accept: text/html`). Every `<script>` the page carries is listed, and any script
+that is inline or from another host reads WRONG. The same checks then run on the custom
+domain. **Why (CU-4):** on 2026-09-25 two Cloudflare zone settings for `openbed.ng`
+were changing what we served, and no read-back saw either:
+- Web Analytics injected a beacon `<script>` into the HTML **only for a browser-like
+  request**;
+- a managed `robots.txt` was prepended **only on the custom domain**.
+
+A plain curl against the deployment URL saw a clean page. *Restated 2026-09-26:* until
+then the page was fetched once, as plain curl, on the deployment URL, and only its
+bundle was counted.

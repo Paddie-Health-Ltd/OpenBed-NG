@@ -79,6 +79,8 @@ failing half of H4's false STOP.
 | `step 2 commit` / `step 2 dirty` | **this checkout's HEAD** / **`false`** |
 | `step 3 bundles the page loads` | **`1`** |
 | `step 3 publishable keys in the deployed bundle` | **`1`** |
+| `step 3 scripts` / `app.openbed.ng scripts` | **every script is this host's own**. One `script:` line per `<script>` is printed above it. Any inline script, or one from another host (such as `static.cloudflareinsights.com`), is **WRONG** (R-2026-09-25-119 CU-5) |
+| `app.openbed.ng content-security-policy` / `referrer-policy` / `x-content-type-options` / `bundles the page loads` | the same values as step 3's, read on the custom domain, where zone settings apply |
 | `step 3 content-security-policy` / `referrer-policy` / `x-content-type-options` | exactly what **this checkout's** `apps/ward-console/public/_headers` sets on `/*`, as rendered by `scripts/render_headers.mjs` (section 4) |
 | `step 3 live half status` / `body` | **`200`** / begins **`{"external":`** |
 | `step 3 dead half status` / `body` | **`401`** / contains **`"message":"Invalid API key"`** |
@@ -161,6 +163,48 @@ the read-back tells the old header from the new one.
 2. Run the read-back, exactly as section 2 says.
 3. **PASS:** every line is `ok`, and `step 3 content-security-policy` reads
    `connect-src 'self' https://api.openbed.ng` with no local origin.
+4. **The browser check** (R-2026-09-25-118 CT-2, which waives R-2026-09-24-93 BU-2 e's
+   local walk for this change only; BU-2 e stands for any later `_headers` change).
+   - Open a fresh private window, with the developer console open before the page
+     loads.
+   - Open `app.openbed.ng`, and request a sign-in link for an address on the reserved
+     `example.invalid` domain. Sign-ups are off, so no user is made and no email is
+     sent, but the request still goes to `api.openbed.ng`.
+   - **PASS:** the page shows "If this address belongs to a ward, a sign-in link is on
+     its way to it. Open it on this handset. …", and there is no red line in the
+     console. The page shows the same sentence whatever the API answered, by design, so
+     that a refusal cannot reveal whether an address exists
+     (`apps/ward-console/src/main.ts`, `SIGNIN_ANSWERED`).
+   - **A CSP block shows "The request could not be sent. Check this handset is online,
+     then try again."** That, or a Content-Security-Policy violation in the console, is
+     a STOP. Roll the `openbed-ward-console` Pages project back to its previous
+     deployment in the dashboard, then read back again.
+
+**Run on 2026-09-25, from the deploy checkout at `dd59c7f`** (R-2026-09-25-119 CU-2;
+the founder's terminal and browser, read back by Cowork):
+- **Deployed** `https://20de9ab4.openbed-ward-console.pages.dev`.
+- **Read-back PASS.** Commit `dd59c7f`, dirty false. The CSP read `connect-src 'self'
+  https://api.openbed.ng`, with no-referrer, nosniff, one bundle
+  (`assets/index-BOfXUqtX.js`) and one key. Live 200, dead 401.
+- **Cowork, with a browser User-Agent:** `app.openbed.ng` serves `/version.json` commit
+  `dd59c7f`, with the same CSP.
+- **Browser check on `app.openbed.ng`:** the page showed the uniform sentence, which
+  ends by naming the ward-facing support address, and the console had no red line.
+  **PASS.**
 
 This, together with the admin runbook's section 5, is the closing condition of the
 facility-one checklist's CSP box (the Supabase runbook, 12.4 step 1).
+
+**THE PAGE CHECKS SEE WHAT A BROWSER SEES, ON THE CUSTOM DOMAIN TOO (R-2026-09-25-119
+CU-5).** Since 2026-09-26 every page fetch presents as a browser (a browser User-Agent,
+and `Accept: text/html`). Every `<script>` the page carries is listed, and any script
+that is inline or from another host reads WRONG. The same checks then run on the custom
+domain. **Why (CU-4):** on 2026-09-25 two Cloudflare zone settings for `openbed.ng`
+were changing what we served, and no read-back saw either:
+- Web Analytics injected a beacon `<script>` into the HTML **only for a browser-like
+  request**;
+- a managed `robots.txt` was prepended **only on the custom domain**.
+
+A plain curl against the deployment URL saw a clean page. *Restated 2026-09-26:* until
+then the page was fetched once, as plain curl, on the deployment URL, and only its
+bundle was counted.
