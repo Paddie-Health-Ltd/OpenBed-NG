@@ -44,6 +44,17 @@
 // ONE ITEM IS STILL OPEN: no backup of the hosted project has ever been restored
 // (R-2026-09-24-74 BB-4). So the gate has not cleared.
 //
+// RESTATED 2026-09-25 (R-2026-09-25-115 CQ-2). THE GATE IS CLEAR: a backup was
+// restored to a new project and read equal to live (runbook step 4, box 3), so
+// step 4b reads CLOSED on every row. The two paragraphs above are kept as what they
+// said. And the trigger counts WARD ACCOUNTS, not every app.ward_account row: the
+// operator's PLATFORM_ADMIN row came first, at H6 step 5, before the gate cleared,
+// as R-2026-09-24-97 BY-1 intended. What still stands before the first ward login is
+// the one remaining HOSTED gate, the email provider's processor agreement
+// (R-2026-09-25-108 CJ-2), AND every open item in the decision record whose trigger
+// is "before facility one" (R-2026-09-25-116 CR-1). Both are listed at runbook 12.4
+// step 1.
+//
 // THIS IS A NAMED HUMAN STEP. NOTHING IN THIS SCRIPT ENFORCES IT -- there is no
 // check below that reads the list above, and a reader must not infer one
 // (Clause 4 of .claude/rules/code-pipeline.md). A mechanical guard is PROPOSED

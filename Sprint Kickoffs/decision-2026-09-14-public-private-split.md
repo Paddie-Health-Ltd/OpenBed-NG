@@ -5017,6 +5017,154 @@ _Issued as R-PROVISIONAL-2026-09-25-CO, by Cowork on 2026-09-25. It lands with -
 
 **CO-4:** the checks are reported in this change's pull request. No SQL and no migration; nothing hosted was run by Claude Code.
 
+### R-2026-09-25-114 — #82 checked and merged; the restore drill planned
+
+_Issued as R-PROVISIONAL-2026-09-25-CP, by Cowork on 2026-09-25, as its check of #82 at `43ce55a`. **Pasting it was the founder's merge word for #82.** Record-only; it was held, and it lands with -115 in one change, branched from `9f91d91`. Number assigned on landing: R-2026-09-25-113 plus one. Next provisional letter: CQ._
+
+**VERIFIED BY COWORK** (2026-09-25, GitHub API and git, on the founder's machine):
+- **#81:** closed and merged; merge commit `389cd10606add5ed1ee900a2abdf9049d8636b12`, parents `5786626` and `e7c7c69`.
+- **#82:** OPEN at `43ce55a563023681154c55463a94ea0c5c7a48d6`, base `389cd10`; clean; 1 commit, 7 files; seven check runs success. The operator's sign-in address occurs 0 times in the diff.
+- **The script diff, read in full:** `readback_common.sh` refuses `https://HASH…` with ERROR, exit 2, before any request. `readback_admin.sh`'s local-run line is restated, and the old text is kept as a comment.
+- **All four of the implementer's departures accepted:**
+  - the PATH line was already present;
+  - the ERROR wording applies to HASH only, and the other refusals are unchanged;
+  - step 7's order 2 is recorded as reported, in one fresh private window;
+  - the three comments asserting Access are left unedited, and are now true.
+
+**CP-1 — THE MERGE.**
+- The head was read from the API as `43ce55a563023681154c55463a94ea0c5c7a48d6`, and #82 merged as a merge commit with `--match-head-commit` on that value.
+- MERGED was read back: **`9f91d91a5b0185430e65c0baaec9f20e3e1f9bf1`**, with parents `389cd10606add5ed1ee900a2abdf9049d8636b12` and `43ce55a563023681154c55463a94ea0c5c7a48d6`.
+- As a separate step, after MERGED was read, `record-h6` was deleted on the remote and locally. Both were read back as gone.
+- Cowork later read: the merge tree equals `43ce55a`'s; the branch is a 404 on the API; `origin/main` is `9f91d91`.
+
+**CP-2:** nothing hosted. The next hosted step was named as the backup restore drill.
+
+**The drill's planning notes** (Cowork, 2026-09-25, a HOLD block without an id; carried here because they were the drill's design):
+- **Supabase platform claims (Cowork's reading; not checked by the implementer):**
+  - "Restore to a new project" is on paid plans with physical backups;
+  - it copies the schema, data, roles and auth users, but not storage, edge functions, auth settings, API keys or realtime settings;
+  - the source is unaffected;
+  - pg_cron and pg_net run on the clone with no pause.
+- **Repository claims, checked by the implementer, and each holds:**
+  - no migration uses pg_net (a grep of `database/migrations`, with a `cron.schedule` control that matched);
+  - the only cron jobs are 017's two, at `017_snapshot_schedule.sql:227-228`, both inside the database;
+  - 23 forward migrations, so a backup from before 022 and 023 would read 21.
+- **The design:** never restore in place; compare against the known history at the backup's timestamp; delete the clone after the reading.
+
+### R-2026-09-25-115 — backups proven: the restore drill passed and the -45 gate is clear; the stray login removed
+
+_Issued as R-PROVISIONAL-2026-09-25-CQ, by Cowork on 2026-09-25. It lands with -114 in one change. Number assigned on landing: R-2026-09-25-114 plus one. Next provisional letter: CR (a correction to this change; see -116)._
+
+**CQ-1 — STEP 4, BACKUPS AND PITR** (the founder's dashboard screenshots for project `klrlpxysjsjpdkeqdhvl`, read by Cowork; not step 4's curl):
+- **Box 1: MET.** Daily **physical** backups are listed at about 06:55 UTC: 25 Sep 06:54:11, 24 Sep 06:57:25, 23 Sep 06:57:50, 22 Sep 06:55:45, 21 Sep 06:54:35, 20 Sep 06:57:41, 19 Sep 06:55:44, 18 Sep 06:57:09, and earlier.
+- **Box 2: PITR is OFF.** The founder declines the add-on, on cost (2026-09-25).
+  - The recovery point is the last daily backup, so up to about 24 hours of writes can be lost. In v1 that is operator data, recoverable from the signed originals, and ward status, which wards republish.
+  - Revisit at the first data-loss event, or when re-entering a day's operator writes stops being practical, on the founder's word.
+- **Box 3: MET.** The 25 Sep 06:54:11 UTC backup was restored via "Restore to a new project" into `openbed-restore-drill` (eu-west-1). Click-to-ready took about 10 minutes (the founder's estimate).
+  - The same query was read on both. Live: 23 | 2026-09-24 23:29:53.3062+00 | 0 | 1 | 2 | 2026-09-25 07:55:58.035448+00. Clone: 23 | 2026-09-24 23:29:53.3062+00 | 0 | 0 | 1 | 2026-09-14 16:14:43.813421+00.
+  - **PASS:** the clone equals live as at 06:54:11 UTC, and the operator, created after the backup, is correctly absent.
+  - The clone was deleted (founder-confirmed).
+- **Recorded as safety notes in step 4:** never restore in place; a clone runs pg_cron, but the only jobs are in-database and no migration uses pg_net; the clone is deleted after reading.
+
+**CQ-2 — STEP 4b: THE GATE IS CLEAR, AND ITS WORDING IS RESTATED.**
+- Row 5 is CLOSED on 2026-09-25, and all five rows read CLOSED. **The -45 gate is clear.**
+- **The trigger and the check now count ward accounts only** (`role <> 'PLATFORM_ADMIN'`), with the old text kept. The operator's row (`4459e348-098a-4e2f-89e4-fec261c1e58e`, 07:55:58 UTC, H6 step 5) came before the gate cleared, as BY-1 intended.
+- **The 2026-09-25 reading:** facility 0, ward_account 1 (the operator), ward accounts other than the operator 0.
+- §12.4 is blocked by the one remaining hosted gate, CJ-2, **and** by every open item in this record with the trigger "before facility one", listed at the runbook's 12.4 step 1. *As issued, this line read "§12.4 is blocked by CJ-2 alone"; corrected by -116 CR-1.*
+
+**CQ-3 — THE STRAY AUTH IDENTITY, REMOVED.**
+- **The identity:** the disclosure address's test login from §9's run (created 2026-09-14 16:14:43 UTC, last signed in 16:27:26 UTC), with no `app.ward_account` row. It is recorded by that description only.
+- **Removed by the founder on 2026-09-25**, in the dashboard (Authentication -> Users -> Delete user). Read back: `auth.users` with no `app.ward_account` row returns 0 rows.
+- **Why:** it served no purpose, and it was the only Auth user at a published address. OTP requests for it could spend the project-wide 30 emails an hour.
+- **§9 now says so,** and it says that future hosted probes use an `example.invalid` address or remove their identity in the same sitting.
+
+**CQ-4 — OPEN ITEMS:**
+- **The project-wide 30 emails an hour** can be spent by OTP requests for any known address. The fix is to revisit the limit, or to throttle per address at the Worker. **Trigger: the second facility, or the first 429 a ward sees.** Recorded in §12.1.
+- **Carried from -113 CO-3,** both before facility one: the production CSP without `http://127.0.0.1:54321`, and a masked address in `provision_ward_account.mjs`. Cowork will send them as their own ruling (CS; renumbered from "CR" by -116) for one small code PR.
+
+**AS BUILT, with the implementer's premise notes:**
+- **Derived, not read:** "ward accounts other than the operator: 0". Live `ward_account` read 1 at the drill, and H6 step 5's count of active PLATFORM_ADMIN rows read 1.
+- **`<>` is safe here:** `app.ward_account.role` is `app.app_role NOT NULL` (003), so the restated count cannot drop a row with a NULL role.
+- **The restated check was demonstrated on a fresh local database, in a transaction that was rolled back:**
+  - the seed alone read `8|0` under both queries;
+  - with a PLATFORM_ADMIN row, the old query read `8|1` and the restated one `8|0`;
+  - with a WARD_STAFF row as well, the restated one read `8|1`.
+  - **It has not been run on hosted.**
+- **Three statements the ruling did not name went false when the gate cleared. Each is restated, comment and runbook text only, with its old text kept:**
+  - the `scripts/provision_ward_account.mjs` header, which step 4b says carries the same block ("the gate has not cleared");
+  - the gloss "which means before step 4b's gate clears", in runbook §5's 020 note and in `scripts/readback_public_output.sh`. The comparison is valid while no ward account exists, which still holds;
+  - the runbook's order-table row 12, "NOT YET RUN", stale since #82. That was the implementer's miss.
+- **The disclosure address already appears** in §9's observed output from 2026-09-14. That is a dated observation of a published contact address, and it is unchanged. Nothing new names it.
+
+**CQ-5:** the checks are reported in this change's pull request. No SQL and no migration; nothing hosted was run by Claude Code.
+
+### R-2026-09-25-116 — #83 corrected: facility one waits on more than CJ-2; step 4b's check no longer stops facility two
+
+_Issued as R-PROVISIONAL-2026-09-25-CR, by Cowork on 2026-09-25, as its check of #83 at `4c6e06e28be24265452ddaa7805da5d3937a3147`. **Not the merge word.** It lands in #83 as a second commit on the same branch, with no force-push and no rebase. Number assigned on landing: R-2026-09-25-115 plus one. Next provisional letter: **CS**, the small code PR that -115 CQ-4 called "CR"._
+
+**VERIFIED BY COWORK** (2026-09-25, GitHub API):
+- #83 OPEN at `4c6e06e`, base `9f91d91` (= main); clean; 1 commit, 4 files, +248/−35; seven check runs success.
+- No email address on any added line. The operator's user id already stands on main.
+- The diff was read in full, and all four of the implementer's departures are ACCEPTED: the three extra restatements; "ward accounts other than the operator: 0" marked derived; the local-only demonstration of the restated check; and §9's dated line left as written.
+
+**CR-1 — "FACILITY ONE WAITS ON CJ-2 ALONE" WAS FALSE.** The error was Cowork's, in CQ-2's last line, and #83 carried it into several places. CJ-2 is the one remaining HOSTED gate, but this record also holds open items with the trigger "before facility one".
+- **a) Corrected, each to "the one remaining hosted gate is CJ-2, AND every open item with the trigger 'before facility one'":**
+  - the runbook order-table row 12;
+  - step 4b's "THE GATE IS CLEAR" paragraph;
+  - §12's order item 6;
+  - 12.3 step 8's note;
+  - 12.4's head and step 1;
+  - the `scripts/provision_ward_account.mjs` header;
+  - -115 CQ-2's last line, landed corrected with its as-issued text;
+  - ledger row CQ.
+  
+  A sweep of #83's added lines for "alone", "waits on", "still stands" and "one gate" found no other site.
+- **b) The checklist "Open before facility one"** is now at runbook 12.4 step 1, with one blank box per item and none closed. It was compiled by searching this record for "before facility one" and its variants ("for facility one", "facility one", "first facility", "onboarding blocker", "before go-live", "before launch"), about 64 hits, each read in context.
+  - **Listed as OPEN (13):**
+    - -108 CJ-2 (the hosted gate);
+    - -113 CO-3's production CSP;
+    - -113 CO-3's masked address;
+    - -67 A7 extended by -68 C3 (the thresholds and the public wording);
+    - -66 C4 (each public number answered 24/7; its own wording is "FOR FACILITY ONE");
+    - -67 B3 (a staffed ward line, which carries -66's "operator contact number");
+    - -55 C (the magic-link host);
+    - -54 B (the sensor bundle);
+    - -19-23 D2, D3, D4 and D5, which -56 A9 made "before facility one" items (D2's scope cell still reads "to be completed" in the processor-obligations table, and no later ruling closes D3, D4 or D5);
+    - -36 A5 with -27 C5 (discoverability at facility one).
+  - **Not in Cowork's list, found by the search:** D2 to D5, and -36 A5 / -27 C5. Each is listed as OPEN because no ruling closing it was found.
+  - **Left off, with the evidence:**
+    - -36 A6's infrastructure inventory: -56 ("the infrastructure review CLOSES");
+    - -44 E and -45's defects and invite gate: step 4b rows 1–4 CLOSED (-75 BC-2, -88);
+    - -45 G's missing procedure: runbook §12.4 (PR C, -88 BP-13);
+    - -67 A's count age: shipped in PR 3.2b (-68);
+    - -74 BB-4's restore: -115;
+    - -68's H2 and H3: -106, -108 and -110;
+    - -66 G's operator contact number: superseded by -67 B (B1 and B2 satisfied by the ward-facing support address; B3 listed);
+    - the low-count trigger near line 269: it fires only after a facility publishes;
+    - -115 CQ-4: its trigger is the second facility;
+    - line 1167 and -71 C: prose mentions, not items;
+    - -34/-35 A5 and method note 22: a scope rule;
+    - -70 C3: no facility-one trigger.
+
+**CR-2 — STEP 4b'S CHECK WOULD HAVE STOPPED FACILITY TWO.** Its stop condition read "`0|0` … anything else … report that rather than continuing", and 12.4 step 1 required it.
+- **Restated** (method note 8): before facility one it reads `0|0`; after that it records the counts, and a non-zero reading stops nothing, because every row is CLOSED.
+- **12.4 step 1:** read the check and record it; for facility one it reads `0|0`.
+- **Traced, every other invocation, all reading correctly:**
+  - §5's 020 note ("none may be created on hosted until step 4b reads clear"): a dated conditional, now satisfied;
+  - §5's gloss and the `scripts/readback_public_output.sh` header: keyed to "no ward account" since -115;
+  - `readback_public_output.sh`'s `0|0/0)` is an unrelated `case` pattern;
+  - `scripts/provision_target.mjs`: "never WHETHER step 4b is clear";
+  - the `provision_ward_account.mjs` header, after CR-1;
+  - row 12's "needs step 4b CLOSED on every row": true;
+  - 12.3 step 8's conditional: true;
+  - 4b's 2026-09-21 "passing reading `0|0`": dated;
+  - the 021, 022 and 023 migration comments: frozen and dated, not edited.
+
+**CR-3 — RECORD-KEEPING.**
+- -115's "Next provisional letter: CR" now reads "CR (a correction to this change; see -116)".
+- CQ-4's "(CR)" now reads "(CS; renumbered from "CR" by -116)".
+- Comments and runbook text only. No SQL, no migration, nothing hosted. The checks are reported in #83.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -5121,6 +5269,9 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | CM | R-2026-09-25-111 | 2026-09-25 | **H6 step 1 lacked the Service Auth policy:** an issued Access token passes nothing without it, and step 2 would STOP on a correct deploy. Held out of #81; landed as amended by CN, whose step order supersedes CM's. |
 | CN | R-2026-09-25-112 | 2026-09-25 | **#81 merged at `389cd10`** (parents `5786626`, `e7c7c69`); `record-h5` deleted. **No Access application existed before 2026-09-25** (BQ-2 superseded in part): H6 step 1 restated to a) to e), creating the application, with the Service Auth policy. |
 | CO | R-2026-09-25-113 | 2026-09-25 | **H6 done on hosted: admin.openbed.ng is LIVE.** Steps 1 to 8 PASS: the read-back at `5786626`, the widened sweep on hosted for the first time, the operator bootstrapped (count 1), `redirect_to` exact, and the fragment survives Access in both orders. HASH refused by the read-backs; step 3, §6 and step 6 fixed. Facility one blocked by the -45 gate AND CJ-2. Three open items with triggers. |
+| CP | R-2026-09-25-114 | 2026-09-25 | **#82 merged at `9f91d91`** (parents `389cd10`, `43ce55a`); `record-h6` deleted. All four of #82's departures accepted. Carries the restore drill's design notes (Cowork's HOLD block); the repository claims in them checked and holding. |
+| CQ | R-2026-09-25-115 | 2026-09-25 | **Backups proven; the -45 gate is clear.** Daily physical backups; PITR off, the add-on declined; the 25 Sep 06:54:11 UTC backup restored to a new project, equal to live, the clone deleted. Step 4b's trigger and check count ward accounts only (not the operator). Facility one waits on CJ-2 (the one hosted gate) and on every "before facility one" item (corrected by -116). The 2026-09-14 test login removed. Open item: the project-wide email limit. |
+| CR | R-2026-09-25-116 | 2026-09-25 | **#83 corrected, in #83:** facility one waits on CJ-2 (the one hosted gate) AND 13 open "before facility one" items, now a checklist at runbook 12.4 step 1 (four of -23's items and the discoverability item found beyond Cowork's list). Step 4b's check restated so a non-zero reading stops nothing after facility one. The code PR renumbered CS. |
 
 ## Method notes — how rulings reach the implementer
 
