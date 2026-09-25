@@ -246,6 +246,29 @@ describe('scripts/readback_common.sh — a URL that is missing or not https:// i
       expect(r.calls).toEqual([]);
     });
   });
+
+  // THE RUNBOOK'S PLACEHOLDER, PASTED UNCHANGED (R-2026-09-25-113 CO-2). At H6 step 2
+  // the fence's literal https://HASH.openbed-admin.pages.dev was run as written: step 1
+  // read ok, the HASH-host lines read WRONG against a deployment that does not exist,
+  // and the verdict was STOP -- a verdict about a deploy nobody named. A placeholder is
+  // not a deployment, so it is an ERROR with no verdict, and nothing is fetched. The
+  // token is set, so the missing-token ERROR cannot stand in for this one.
+  test.each([
+    ['readback_pages.sh', 'https://HASH.openbed-public-dashboard.pages.dev'],
+    ['readback_ward_console.sh', 'https://HASH.openbed-ward-console.pages.dev'],
+    ['readback_admin.sh', 'https://HASH.openbed-admin.pages.dev'],
+    ['readback_admin.sh', 'https://HASH.openbed-admin.pages.dev/'],
+  ])("plant — %s refuses the runbook's HASH placeholder %s with ERROR, exit 2, and probes nothing", (name, url) => {
+    withScratch((root) => {
+      const work = repo(root);
+      const r = run(root, join(REPO_ROOT, 'scripts', name), [url, work], {}, ACCESS_ENV);
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain(`ERROR: '${url}' still holds the runbook's placeholder HASH -- paste the deployment URL wrangler printed in its place. Nothing was probed, so this read-back has no verdict`);
+      expect(r.out, 'a placeholder read as a verdict about a deploy').not.toContain('STOP:');
+      expect(r.out).not.toContain('PASS:');
+      expect(r.calls, 'a request was made to the placeholder host').toEqual([]);
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

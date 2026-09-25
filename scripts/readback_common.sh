@@ -20,6 +20,11 @@
 #   - A MISSING, EMPTY OR NON-https URL IS REFUSED with a STOP line and exit 2
 #     BEFORE ANY REQUEST IS MADE. This is the failing half of H4's false STOP, where
 #     an empty host was probed and the answer was read as the deployment's.
+#   - A URL WHOSE FIRST LABEL IS STILL THE RUNBOOK'S PLACEHOLDER `HASH` IS AN ERROR,
+#     exit 2, before any request (R-2026-09-25-113 CO-2). At H6 step 2 the fence was
+#     run as written, and the HASH-host lines read WRONG against a deployment that
+#     does not exist: a STOP about a deploy nobody named. A placeholder is not a
+#     deployment, so there is no verdict to give.
 #   - EVERY CHECK PRINTS WHAT IT OBSERVED, then `ok` or `WRONG` with the value it
 #     must have. The last line is exactly one verdict: `PASS:` (exit 0) or `STOP:`
 #     (exit 1).
@@ -61,6 +66,9 @@ rb_require_url() {
         https://|*[[:space:]]*)
             echo "STOP: '$url' is not a usable https:// URL, so nothing was probed."
             echo "  Usage: bash scripts/$script $example"
+            exit 2 ;;
+        https://HASH|https://HASH[./:]*)
+            echo "ERROR: '$url' still holds the runbook's placeholder HASH -- paste the deployment URL wrangler printed in its place. Nothing was probed, so this read-back has no verdict"
             exit 2 ;;
         https://*) ;;
         *)
