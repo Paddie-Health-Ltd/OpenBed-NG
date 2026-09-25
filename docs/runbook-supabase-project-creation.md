@@ -42,7 +42,7 @@ kickoff is a historical record that does not get rewritten.
 | 9 | Magic-link single-use *(was §5b)* | Needs hosted auth reachable; independent of the tables. **Partly closed 2026-09-14**; the remainder needs custom SMTP. |
 | 10 | Realtime publication *(was §6)* | The publication is created by the migrations. |
 | 11 | Keys *(was §7)* | Storage hygiene; no dependency, last because nothing waits on it. |
-| 12 | Operating: H3, H5, H6, the operator, facilities, withdrawal, erasure | Needs everything above; facility creation needs step 4b CLOSED on every row. Written by PR 3.4b-app C. **H3, H5 and H6 ran on 2026-09-25; step 4b reads CLOSED since 2026-09-25; facility creation waits on CJ-2 alone** (R-2026-09-25-113, -115). *Restated 2026-09-25;* until then this cell ended "NOT YET RUN." |
+| 12 | Operating: H3, H5, H6, the operator, facilities, withdrawal, erasure | Needs everything above; facility creation needs step 4b CLOSED on every row. Written by PR 3.4b-app C. **H3, H5 and H6 ran on 2026-09-25; step 4b reads CLOSED since 2026-09-25.** Facility creation waits on the one remaining hosted gate, CJ-2, **and** on every open item in the decision record with the trigger "before facility one" (the checklist at 12.4 step 1) (R-2026-09-25-113, -115, -116). *Restated 2026-09-25;* until then this cell ended "NOT YET RUN." |
 
 ### Read the rotation runbook before step 6
 
@@ -780,7 +780,9 @@ open, the backup restore, so the gate has NOT cleared.** The gate itself is unch
 **THE GATE IS CLEAR, since 2026-09-25** (R-2026-09-25-115 CQ-2). Row 5 closed when a
 backup was restored and read (step 4, box 3), so **all five rows read CLOSED.** What
 still stands between hosted and facility one is not this gate. It is the email
-provider's processor agreement (R-2026-09-25-108 CJ-2; section 12.4).
+provider's processor agreement (R-2026-09-25-108 CJ-2), which is the one remaining
+hosted gate. It is also every open item in the decision record whose trigger is
+"before facility one" (R-2026-09-25-116 CR-1). Both are listed at section 12.4 step 1.
 
 **The trigger counts WARD accounts, not the operator's row** (R-2026-09-25-115 CQ-2).
 Until 2026-09-25 this section said "the first `app.ward_account` row", and its check
@@ -824,16 +826,23 @@ export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 psql "$DATABASE_URL" -tAc "select (select count(*) from app.facility) as facility, (select count(*) from app.ward_account where role <> 'PLATFORM_ADMIN') as ward_account"
 ```
 
-**Stop condition:** `0|0`. **Anything else means the gate has already passed and
-every item above still OPEN is LIVE**, not pending — report that rather than
-continuing. The second count is **ward accounts only**, so the operator's row is not
+**Reading it, since every row above is CLOSED** (R-2026-09-25-116 CR-2):
+- **Before facility one, it reads `0|0`.** Record it at 12.4 step 1.
+- **After that, it records the counts, and a non-zero reading stops nothing,** because
+  no item above is open to become live. Facility two reads `1|…` at its own step 1,
+  which is correct, and it goes on.
+
+*Restated 2026-09-25 (R-2026-09-25-116 CR-2).* Until then this read "**Stop condition:**
+`0|0`. **Anything else means the gate has already passed and every item above still
+OPEN is LIVE**, not pending — report that rather than continuing." With every row
+CLOSED, that would STOP facility two on a correct reading.
+
+The second count is **ward accounts only**, so the operator's row is not
 counted. `role` is `app.app_role NOT NULL`
 (`database/migrations/003_app_facility_and_identity_tables.sql`), so `<>` cannot drop a
 row with a NULL role. *Restated 2026-09-25 (R-2026-09-25-115 CQ-2).* Until then the
 second count was `(select count(*) from app.ward_account)`, which reads `1` once the
-operator exists. **Since the gate cleared, every item reads CLOSED.** This check now
-records when facility one and the first ward account arrive, and nothing it reads
-makes an open item live.
+operator exists.
 
 **BOTH READINGS OF THIS CHECK ARE DEMONSTRATED** (method note 23 — a probe nobody
 has seen fail is not evidence). Pasted into `zsh -f -i`, 2026-09-21:
@@ -3327,9 +3336,12 @@ Until then the second sentence read "**NOT YET RUN.**"
 4. H5, the Worker redeploy (12.2): **done on 2026-09-25** (R-2026-09-25-110);
 5. H6 (12.3), which ends with the operator bootstrap and an empty register: **done on
    2026-09-25** (R-2026-09-25-113). **The admin app is live at `admin.openbed.ng`;**
-6. facility creation (12.4), which is **BLOCKED by one gate:** R-2026-09-25-108 CJ-2,
-   the email provider's s.29 processor agreement, not yet approved. The -45 gate (step
-   4b) is **clear since 2026-09-25**: the backup restore drill passed (R-2026-09-25-115).
+6. facility creation (12.4), which is **BLOCKED** by the one remaining **hosted** gate,
+   R-2026-09-25-108 CJ-2 (the email provider's s.29 processor agreement, not yet
+   approved), **and** by every open item in the decision record with the trigger "before
+   facility one". Both are listed at 12.4 step 1 (R-2026-09-25-116 CR-1). The -45 gate
+   (step 4b) is **clear since 2026-09-25**: the backup restore drill passed
+   (R-2026-09-25-115).
 
 *Restated 2026-09-25 (R-2026-09-25-115).* Until then item 6 read: "facility creation
 (12.4), which is **BLOCKED by two gates, both open**: (a) the -45 gate, step 4b, whose
@@ -3606,8 +3618,9 @@ replacing its **[unverified]** paragraph.
 **Step 8 — the register loads, empty.** Signed in, the admin app shows **Facilities**,
 with "No facility exists yet." **No facility or ward login may be created on hosted
 until step 4b reads CLOSED on every row** (the -45 gate). *Since 2026-09-25 step 4b
-reads CLOSED on every row (R-2026-09-25-115). Facility and ward logins now wait on CJ-2
-alone (section 12.4).*
+reads CLOSED on every row (R-2026-09-25-115). Facility and ward logins now wait on the
+one remaining hosted gate, CJ-2, and on every open item with the trigger "before
+facility one" (section 12.4 step 1, R-2026-09-25-116).*
 
 - [x] H6: preconditions 1-7 read; steps 1-8 as above (date, Cowork's reading of each step)
   - **On 2026-09-25, all eight steps read as they must, and the admin app is LIVE**
@@ -3672,12 +3685,17 @@ alone (section 12.4).*
 
 ### 12.4 Creating a facility
 
-**BLOCKED by one gate: the email provider's processor agreement** (R-2026-09-25-108
-CJ-2; R-2026-09-25-115 CQ-2). Proton's s.29 written processor agreement, the s.41
-transfer basis and retention are not yet approved. They are tracked in the founder's
-paperwork register, outside this repository. Until they are approved, no hospital or
-ward address is sent a link. **The -45 gate is clear since 2026-09-25:** step 4b reads
-CLOSED on every row, now that the backup restore drill has passed.
+**BLOCKED** (R-2026-09-25-116 CR-1), by two things. Both are listed at step 1:
+- **the one remaining HOSTED gate, the email provider's processor agreement**
+  (R-2026-09-25-108 CJ-2). Proton's s.29 written processor agreement, the s.41
+  transfer basis and retention are not yet approved. They are tracked in the founder's
+  paperwork register, outside this repository. Until they are approved, no hospital or
+  ward address is sent a link;
+- **every open item in the decision record whose trigger is "before facility one"**,
+  whether it is on hosted or not.
+
+**The -45 gate is clear since 2026-09-25:** step 4b reads CLOSED on every row, now that
+the backup restore drill has passed.
 
 *Restated 2026-09-25 (R-2026-09-25-115).* Until then this read: "**BLOCKED, by two
 gates, both open on 2026-09-25** (R-2026-09-25-113 CO-1). Either one alone stops this
@@ -3690,12 +3708,57 @@ line 173, whose `agreement_accepted_at` line that kickoff already marks supersed
 line 190: 021 removed that column. The agreement and the contact are now recorded
 through the admin app.
 
-1. **The stop conditions first.** Step 4b must read CLOSED on every row, and its
-   count check must read as its stop condition says. **Step 4b is clear since
-   2026-09-25** (R-2026-09-25-115). **CJ-2 is not: until the processor agreement is
-   approved, this step STOPS here.** *Restated 2026-09-25.* Until then this item was
-   headed "The -45 stop condition first", and it ended "**Today step 4b's row 5, the
-   backup restore, is OPEN, so this step STOPS here.**"
+1. **The stop conditions first.**
+   - **Step 4b** reads CLOSED on every row, since 2026-09-25 (R-2026-09-25-115).
+     **Read its count check and record the reading here.** For facility one it reads
+     `0|0`. For a later facility, it records the counts and stops nothing (step 4b,
+     R-2026-09-25-116 CR-2).
+   - **Every box below must be ticked**, each with the ruling that closes it. **Until
+     then, this step STOPS here.**
+
+   **Open before facility one** (R-2026-09-25-116 CR-1 b). This list was compiled on
+   2026-09-25 by searching
+   `Sprint Kickoffs/decision-2026-09-14-public-private-split.md` for "before facility
+   one" and its variants ("for facility one", "facility one", "first facility",
+   "onboarding blocker"), and reading each hit in context. An item is ticked only by a
+   ruling that closes it. **None is closed here.**
+
+   - [ ] **The email provider's processor agreement:** s.29 agreement, s.41 transfer
+     basis, retention. **The one remaining hosted gate.** (R-2026-09-25-108 CJ-2)
+   - [ ] The production admin CSP without `http://127.0.0.1:54321` in `connect-src`.
+     (R-2026-09-25-113 CO-3; to be built in the code PR CS)
+   - [ ] `scripts/provision_ward_account.mjs` prints a masked address, the first
+     character and the domain. (R-2026-09-25-113 CO-3; CS)
+   - [ ] The clinicians confirm the freshness thresholds AND the public wording, which
+     removes the PROVISIONAL label. (R-2026-09-23-67 A7, extended by R-2026-09-23-68
+     C3)
+   - [ ] Each facility's public number is answered 24/7 by someone who can confirm bed
+     status, with a test call. (R-2026-09-23-66 C4)
+   - [ ] A staffed phone or WhatsApp line for wards, with honest hours, in the facility
+     agreement and the onboarding pack. The ward-facing support address is the interim contact.
+     This also carries -66's "an operator contact number". (R-2026-09-23-67 B3)
+   - [ ] Where the magic-link emails point: the verify link is on `*.supabase.co`, and
+     the custom-domain decision is needed. (R-2026-09-22-55 C)
+   - [ ] The sensor bundle, sequenced after Bundle 3 and before facility one. Not
+     started. (R-2026-09-22-54 B)
+   - [ ] The NDPA sub-processor scope cell for Cloudflare, still "to be completed" in
+     the processor-obligations table. (R-2026-09-19-23 D2, made a facility-one item by
+     R-2026-09-22-56 A9)
+   - [ ] The proxy's surface: methods, services reached, websocket upgrades,
+     `Location` under `redirect: "manual"`, and CORS. (R-2026-09-19-23 D3, by
+     R-2026-09-22-56 A9)
+   - [ ] Attribution: which client address Supabase sees. (R-2026-09-19-23 D4, by
+     R-2026-09-22-56 A9)
+   - [ ] Availability of the proxy on the clinical path. (R-2026-09-19-23 D5, by
+     R-2026-09-22-56 A9)
+   - [ ] Discoverability at facility one: `robots.txt` disallows everything today, and
+     the `noindex` decision. (R-2026-09-20-36 A5, with R-2026-09-20-27 C5)
+
+   *Restated 2026-09-25 (R-2026-09-25-115, then -116).* Until 2026-09-25 this item was
+   headed "The -45 stop condition first". It read: "Step 4b must read CLOSED on every
+   row, and its count check must read as its stop condition says. **Today step 4b's row
+   5, the backup restore, is OPEN, so this step STOPS here.**" #83 then named CJ-2 as
+   the only thing left. That was wrong, and -116 CR-1 corrects it.
 2. **Create** the facility in the admin app: name, LGA, state, latitude, longitude,
    public phone. The phone is shown in international form before it is saved.
 3. **Record the contact and the agreement** in the facility's detail view.

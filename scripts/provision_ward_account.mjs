@@ -50,7 +50,10 @@
 // said. And the trigger counts WARD ACCOUNTS, not every app.ward_account row: the
 // operator's PLATFORM_ADMIN row came first, at H6 step 5, before the gate cleared,
 // as R-2026-09-24-97 BY-1 intended. What still stands before the first ward login is
-// the email provider's processor agreement (R-2026-09-25-108 CJ-2; runbook 12.4).
+// the one remaining HOSTED gate, the email provider's processor agreement
+// (R-2026-09-25-108 CJ-2), AND every open item in the decision record whose trigger
+// is "before facility one" (R-2026-09-25-116 CR-1). Both are listed at runbook 12.4
+// step 1.
 //
 // THIS IS A NAMED HUMAN STEP. NOTHING IN THIS SCRIPT ENFORCES IT -- there is no
 // check below that reads the list above, and a reader must not infer one
