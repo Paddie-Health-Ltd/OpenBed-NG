@@ -589,7 +589,12 @@ nothing about the hosted session-bound **values**, which remain this step's.
 
 ### Sign-ups off (H2, R-2026-09-24-92 BT-2 d, R-2026-09-24-93 BU-1 c)
 
-**NOT YET RUN. A founder step, and only after PR 3.4b-app A.2 has merged on a PASS.**
+**Run on 2026-09-25** by the founder from a checkout at `06fe479`, each step read back
+by Cowork (R-2026-09-25-106). All four read as they must; the readings are in the
+checkbox at the end of this section. The steps are kept below as the procedure that was
+run. *Restated 2026-09-25 (R-2026-09-25-106).* Until then this read "NOT YET RUN. A
+founder step, and only after PR 3.4b-app A.2 has merged on a PASS."
+
 From A.2, `scripts/provision_ward_account.mjs` makes every login a CONFIRMED user
 through the admin API, so an open sign-up has no legitimate caller. Until this step
 runs, sign-ups stay on: an address can create an Auth user, but with no
@@ -683,7 +688,7 @@ The second waits silently for the connection string.)
   The second count must read `0`. Then return to step 2: the switch is not in force,
   and nothing here may be ticked.
 
-- [ ] H2 read back: step 1 `0`; step 3 PASS; step 4 `HTTP 422` and `0` (date, and Cowork's reading)
+- [x] On 2026-09-25, H2 read back (the founder's terminal output from a checkout at `06fe479`, Cowork's reading, R-2026-09-25-106): step 1 `0` unconfirmed active accounts; step 2 "Allow new users to sign up" switched off and saved, the Email provider toggle not touched; step 3 `key obtained`, then `PASS: sign-ups are off and email sign-in is on`; step 4 probe `h2-probe-1790293376@example.invalid`, `POST /auth/v1/otp` with `create_user` true answered `HTTP 422`, and `auth.users` held `0` rows for that address. PASS: no user was created, so no removal step ran.
 
 ---
 
@@ -2909,9 +2914,24 @@ call was used.
 
 ### Entering the Site URL and redirect URLs (H3, R-2026-09-23-71 D, amended by R-2026-09-23-72 AZ-1)
 
-**Not done yet.** Entered by the founder in the Supabase dashboard, as part of H3,
-together with custom SMTP and its processor agreement. Until all three are done, no
-ward and no operator can receive a working sign-in link.
+**Entered on 2026-09-25** by the founder in the Supabase dashboard, as part of H3,
+exactly as listed below and with no wildcards, on the founder's report and dashboard
+screenshots read by Cowork (R-2026-09-25-108). Custom SMTP was configured in the same
+sitting, through Proton (§12.1's checkbox). **The `redirect_to` reading below is still
+OPEN:** it is taken at H6 step 6, by script, never by eye.
+
+**The processor agreement is not done, and it gates facility one, not H6**
+(R-2026-09-25-108 CJ-2). Proton's s.29 agreement, the s.41 transfer basis and log
+retention are pending the founder's approval (the email-provider row of the open
+processor obligations in `Sprint Kickoffs/decision-2026-09-14-public-private-split.md`).
+Until that agreement is approved, no hospital or ward address is sent a link. H6 may
+run before it: at H6 the only address Proton sends to is the operator's sign-in
+address, Paddie Health's own role address in a mailbox Proton already hosts.
+
+*Restated 2026-09-25 (R-2026-09-25-108).* Until then this read: "**Not done yet.**
+Entered by the founder in the Supabase dashboard, as part of H3, together with custom
+SMTP and its processor agreement. Until all three are done, no ward and no operator can
+receive a working sign-in link."
 
 Enter **exactly these strings**, with no wildcards:
 
@@ -3171,8 +3191,9 @@ operator's sign-in address", typed at run time (R-2026-09-24-89 BQ-1).
 **The hosted order, in full** (R-2026-09-25-103 CE-2):
 1. 022 and 023, applied together in one run (section 5, six fences): **done on
    2026-09-25** (R-2026-09-25-105);
-2. H2, sign-ups off (section 3);
-3. H3 (section 9's entry, plus 12.1 below);
+2. H2, sign-ups off (section 3): **done on 2026-09-25** (R-2026-09-25-106);
+3. H3 (section 9's entry, plus 12.1 below): **entered on 2026-09-25** (R-2026-09-25-108),
+   with 12.1's minimum interval still to be read;
 4. H5, the Worker redeploy (12.2);
 5. H6 (12.3), which ends with the operator bootstrap and an empty register;
 6. and only when step 4b reads CLOSED on every row: facility creation (12.4).
@@ -3196,6 +3217,10 @@ interval between emails to one address. Locally the interval is 1 second. **The 
 value is [unverified]** until this reading is recorded:
 
 - [ ] Hosted rate limits and email frequency window, as read (date, values, Cowork's reading)
+  - **On 2026-09-25, read in part** (the founder's report and dashboard screenshots, Cowork's reading, R-2026-09-25-108):
+    - **Rate limits,** Dashboard -> Authentication -> Rate Limits: emails 30 per hour (project); SMS 30 per hour (greyed, unused); token refreshes 150 per 5 minutes per IP; token verifications 30 per 5 minutes per IP; anonymous sign-ins 30 per hour per IP (greyed, unused); sign-ups and sign-ins 30 per 5 minutes per IP; Web3 30 per 5 minutes per IP (greyed, unused).
+    - **Custom SMTP, via Proton:** host `smtp.protonmail.ch`, port 587, sender and username `support@openbed.ng`, sender name OpenBed. The password is a Proton SMTP token named `supabase-auth`, and it is recorded nowhere.
+    - **The minimum interval between emails: NOT YET READ.** The relayed reading carried a blank the founder was to fill in before pasting, and it arrived unfilled. **This box stays unticked, and "[unverified]" above stands, until the number is read.** A number is never inferred here: the waiting rule below takes its window from it.
 
 **The waiting rule, which H6 relies on.** After any sign-in request, and after H2's step
 4 probe, **wait out that frequency window before asking again for the same address.** A
@@ -3225,8 +3250,17 @@ that does not hold:**
 1. PR 3.4b-app A.2 is merged (`78f1e00`: met on 2026-09-24).
 2. 022 is applied on hosted, with its six fences read as they must (section 5): met on
    2026-09-25, together with 023 (R-2026-09-25-105).
-3. H2 is done: sign-ups off, with its checkbox ticked and Cowork's reading.
+3. H2 is done: sign-ups off, with its checkbox ticked and Cowork's reading: met on
+   2026-09-25 (R-2026-09-25-106).
 4. H3 is done: the Site URL, the redirect URLs, custom SMTP, and 12.1's reading.
+   **Met in part on 2026-09-25 (R-2026-09-25-108):** the Site URL, the redirect URLs and
+   custom SMTP are entered, and 12.1's rate limits are read. **12.1's minimum interval is
+   not yet read, so this precondition is NOT met.** The `redirect_to` reading is H6 step
+   6's, not this precondition's.
+   **The email provider's processor agreement does not gate H6** (R-2026-09-25-108
+   CJ-2): at H6 the only address Proton sends to is the operator's sign-in address,
+   Paddie Health's own role address in a mailbox Proton already hosts. It gates facility
+   one: no hospital or ward address is sent a link until it is approved.
 5. PR 3.4b-app C is merged (`4e28cdb`: met on 2026-09-24, R-2026-09-24-99).
 6. H5 is done (12.2).
 7. 023 is applied on hosted, with its six fences read as they must (section 5,
@@ -3486,7 +3520,7 @@ Note what was found.
 |---|---|
 | Region pin | Assertable via the Management API, declined on credential-surface grounds |
 | Hosted exposed-schemas list | A dashboard setting with no in-database representation — **but not unobservable.** Discharged by hand probe on 2026-09-13: the live project's `PGRST106` body carries `hint: "Only the following schemas are exposed: public, graphql_public"` (step 2). No test carries it, because the suite never targets hosted (step 6). `extra_search_path` is a separate setting, discharged by its own single-field probe on 2026-09-13 (step 2): `public, extensions`, the untouched Supabase default |
-| Hosted Auth Site URL and redirect allowlist | A dashboard setting with no in-database representation, the same idiom as the exposed-schemas list. Decided 2026-09-14 (`Sprint Kickoffs/decision-2026-09-14-public-private-split.md`, D2): the Site URL is on `app.openbed.ng`, and `openbed.ng` is never an auth redirect target. **The Site URL is exactly `https://app.openbed.ng`, and the redirect list is exactly `https://app.openbed.ng/` and `https://admin.openbed.ng/`**: the strings the apps send (R-2026-09-23-71 D, amending D2's "confined to it"; slashes by R-2026-09-23-72 AZ-1). A redirect that does not match falls back silently to the Site URL, and that is a STOP. The strings and their read-back are under "Entering the Site URL and redirect URLs" above. **Observed 2026-09-14 (step 9): the hosted Site URL is still http://localhost:3000, the Supabase default.** It arrives as `redirect_to` in every link examined, so a ward clicking a real link today is sent to their own machine. It becomes https://app.openbed.ng when the app exists. Record the exact hosted strings here when they are entered. The values in `supabase/config.toml` are local-only |
+| Hosted Auth Site URL and redirect allowlist | A dashboard setting with no in-database representation, the same idiom as the exposed-schemas list. Decided 2026-09-14 (`Sprint Kickoffs/decision-2026-09-14-public-private-split.md`, D2): the Site URL is on `app.openbed.ng`, and `openbed.ng` is never an auth redirect target. **The Site URL is exactly `https://app.openbed.ng`, and the redirect list is exactly `https://app.openbed.ng/` and `https://admin.openbed.ng/`**: the strings the apps send (R-2026-09-23-71 D, amending D2's "confined to it"; slashes by R-2026-09-23-72 AZ-1). A redirect that does not match falls back silently to the Site URL, and that is a STOP. The strings and their read-back are under "Entering the Site URL and redirect URLs" above. **Observed 2026-09-14 (step 9): the hosted Site URL is still http://localhost:3000, the Supabase default.** It arrives as `redirect_to` in every link examined, so a ward clicking a real link today is sent to their own machine. It becomes https://app.openbed.ng when the app exists. Record the exact hosted strings here when they are entered. **On 2026-09-25 they were entered (H3, R-2026-09-25-108): Site URL `https://app.openbed.ng`; redirect URLs `https://app.openbed.ng/` and `https://admin.openbed.ng/`, exact, no wildcards** (the founder's entry, read by Cowork from dashboard screenshots). The observed `redirect_to` is still open: it is read at H6 step 6, by script. The values in `supabase/config.toml` are local-only |
 | Hosted role attributes | A property of Supabase-managed roles; no migration can assert it and a platform upgrade or project restore can change it. **Observed 2026-09-15 by Cowork, read-only:** hosted `postgres` and `service_role` are both `rolsuper f`, `rolbypassrls t`, identical to local. The old row said the local role graph differs from the hosted one; on these attributes it does not. Re-observe after any Supabase platform change |
 | Hosted auth session bounds (`timebox`, `inactivity_timeout`) | A dashboard setting with no in-database representation. Both bounds ARE proved locally in `tests/db/auth_refresh_live.test.ts`; the hosted values are step 3 |
 | Magic-link single-use and expiry | Enforced by Supabase auth, not by this schema, since `app.invite` no longer holds a token. Step 9 is the hand check, partly closed on 2026-09-14. Closing it needs custom SMTP, which is recorded once, as the email-provider row of the open processor obligations in `Sprint Kickoffs/decision-2026-09-14-public-private-split.md` |

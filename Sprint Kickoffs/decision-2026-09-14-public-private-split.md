@@ -375,7 +375,7 @@ entry points to its source; nothing is copied.**
 |---|---|---|---|
 | Cloudflare | Every public visitor's IP, at the edge for `openbed.ng` | s.29 written agreement; s.41 transfer basis; retention | R3, this record |
 | Cloudflare — **Data Sub-Processor for API traffic** via `api.openbed.ng`, under its standard DPA (the founder's decision, 2026-09-19) | **Scope to be completed from the proxy review's findings, not written ahead of them:** the fields that traverse the Worker and whether any are patient-identifying or patient-adjacent; whether the platform retains request metadata; the processing regions | Sub-processor listing under the standard DPA; the s.41 transfer basis is a distinct instrument | R-2026-09-19-23 D2 |
-| Email provider(s): **custom SMTP and its written processor agreement, ONE item** | Magic-link and escalation mail | **A prerequisite for facility one** (2026-09-14). Custom SMTP must be configured, AND the NDPA s.29 written processor agreement executed with whichever provider it uses. They are one item because whatever sends the links is the processor (v2:323), so configuring the sender is choosing the processor. The built-in sender returned HTTP 429 on the fourth OTP request of a single sitting, so it cannot carry even the runbook's own verification procedure. The s.41 transfer basis and log retention are as recorded at clauseX:123 | Runbook step 9, run on 2026-09-14 (`docs/runbook-supabase-project-creation.md`); v2:322/323; clauseX:123 |
+| Email provider: **Proton (Proton AG, Switzerland)**, sender `support@openbed.ng`. **Custom SMTP and its written processor agreement, ONE item** | Magic-link and escalation mail | **Restated 2026-09-25 (R-2026-09-25-108):** custom SMTP is configured, through Proton (H3). **Still open:** the s.29 written processor agreement, the s.41 transfer basis and log retention, all PENDING the founder's approval. They are tracked in the founder's paperwork register, items 1 and 4, which is outside this repository. **The gate (CJ-2):** the agreement gates facility one, so no hospital or ward address is sent a link until it is approved. It does not gate H6: at H6 the only address Proton sends to is the operator's sign-in address, Paddie Health's own role address in a mailbox Proton already hosts. **Until 2026-09-25 this cell read:** **A prerequisite for facility one** (2026-09-14). Custom SMTP must be configured, AND the NDPA s.29 written processor agreement executed with whichever provider it uses. They are one item because whatever sends the links is the processor (v2:323), so configuring the sender is choosing the processor. The built-in sender returned HTTP 429 on the fourth OTP request of a single sitting, so it cannot carry even the runbook's own verification procedure. The s.41 transfer basis and log retention are as recorded at clauseX:123 | Runbook step 9, run on 2026-09-14 (`docs/runbook-supabase-project-creation.md`); v2:322/323; clauseX:123 |
 | Supabase (the database, Auth and PostgREST, project `klrlpxysjsjpdkeqdhvl`, region `eu-west-1`) | Every row the system holds, including the one named person per facility in `app.facility_contact`, and the login addresses in `auth.users` | s.29 written processor agreement; s.41 transfer basis; retention | Added 2026-09-24 (R-2026-09-24-76 BD-4, on BC-7's check): until this row Supabase was named as a processor nowhere in the record or in any tracked file |
 
 ### Hosted objects this repository does not create — this record is where the list lives
@@ -4750,6 +4750,106 @@ The runbook's checkbox carries the corrected label.
 
 **CG-2** — no SQL, no migration, nothing hosted run by Claude Code.
 
+### R-2026-09-25-106 — H2 done on hosted: sign-ups off
+
+_Issued as R-PROVISIONAL-2026-09-25-CH, by Cowork on 2026-09-25. Added to the change that records 022's and 023's apply (this one), not a new pull request. Number assigned on landing: R-2026-09-25-105 plus one. Next provisional letter: CI._
+
+**READ BACK BY COWORK** (2026-09-25; the founder's terminal, from the checkout at `06fe479`, runbook §3 "Sign-ups off (H2 …)"):
+1. **Unconfirmed active accounts:** `0`.
+2. **The switch:** Dashboard -> Authentication -> Sign In / Providers -> "Allow new users to sign up" off, saved. The Email provider toggle was not touched.
+3. **Settings:** `get_publishable_key.sh` printed `key obtained`, and the settings read-back printed `PASS: sign-ups are off and email sign-in is on`.
+4. **The failing half:** probe `h2-probe-1790293376@example.invalid`.
+   - `POST /auth/v1/otp` with `create_user` true answered `HTTP 422`.
+   - `auth.users` held `0` rows for that address.
+   - PASS. No user was created, so no removal step ran.
+
+**Re-read on landing against the runbook's H2 section.** Each reading is the one that step names as passing:
+- step 1's stop condition, `0`;
+- step 3's `PASS:` line;
+- step 4's `HTTP 422` with a count of `0`.
+
+The probe address is on the reserved `example.invalid` domain, as step 4 prescribes. It is not the operator's sign-in address (BQ-1).
+
+**CH-1 — AS BUILT:**
+- §3's H2 section is marked run on 2026-09-25, and its checkbox is ticked with the four readings, the date and Cowork's reading.
+- H6 precondition 3 reads met on 2026-09-25, citing this entry.
+- §12's hosted order marks step 2 (H2) done, as step 1 is marked. CH did not list this; it keeps the order true.
+
+**CH-2** — no SQL, nothing hosted run by Claude Code.
+
+**How CH landed.** CH arrived while #79 was being built. Its commit (`8872709`) was made on #79's branch but never pushed, and CI then re-routed it (-107, CI-2). It was kept on a local branch, `ch-h2-pending`, through #79's merge. It was carried onto this change by cherry-pick, and the resulting tree is byte-identical to `8872709`'s. That branch is deleted only after this change merges.
+
+### R-2026-09-25-107 — #79 merged; CH re-routed
+
+_Issued as R-PROVISIONAL-2026-09-25-CI, by Cowork on 2026-09-25, as its check of #79 at `2c75150`. **Pasting it was the founder's merge word for #79.** Record-only; it lands in this change. Number assigned on landing: R-2026-09-25-106 plus one. Next provisional letter: CJ._
+
+**VERIFIED BY COWORK** (2026-09-25, GitHub API and git, on the founder's machine):
+- #79 was OPEN at `2c75150ca8065308d1a02d7674e3eab6439c35cc`, base `06fe479f9858332e770ff6bbfed6b0a338919135`, mergeable and clean, with 1 commit and 4 files. Seven check runs on `2c75150` were completed/success.
+- `applied-hosted.json` reads observed 2026-09-25, ruling R-2026-09-25-105, `ledger_rows` 23. Cowork recomputed 022's and 023's sha256 from `06fe479`'s bytes, and they are identical. No migration file changed.
+- The test diff restates the step-5 literals from two pending to zero, and every plant still bites. Accepted.
+- All three departures were accepted, including the corrected label for 022:278.
+
+**THE MERGE (CI-1).**
+- The head was read from the API as `2c75150`, and #79 merged as a merge commit with `--match-head-commit`.
+- MERGED was read back: **`b056ad1cf5e864ebab3bff3f95e0fdf023ff8d22`**, with parents `06fe479` and `2c75150`.
+- `record-022-023-apply` was deleted as a separate step afterwards, remote and local, and read back as gone.
+
+**CI-2 — CH re-routed:** CH was not added to #79. It lands here, with H3's record.
+
+**CI-3 — after the merge, STOP.** Nothing hosted.
+
+### R-2026-09-25-108 — H3 done on hosted, in part: the Site URL, the redirects and Proton SMTP; the processor gate ruled
+
+_Issued as R-PROVISIONAL-2026-09-25-CJ, by Cowork on 2026-09-25. It lands with -106 (CH) and -107 (CI) in one change, branched from `b056ad1`. Number assigned on landing: R-2026-09-25-107 plus one. Next provisional letter: CK._
+
+**READ BACK BY COWORK** (2026-09-25; the founder's report and dashboard screenshots):
+1. **Auth URL configuration,** entered by the founder:
+   - Site URL `https://app.openbed.ng`;
+   - redirect URLs `https://app.openbed.ng/` and `https://admin.openbed.ng/`, exact, with no wildcards.
+
+   The `redirect_to` read-back stays at H6 step 6, by script.
+2. **Custom SMTP, via Proton:**
+   - host `smtp.protonmail.ch`, port 587;
+   - sender and username `support@openbed.ng`, sender name OpenBed;
+   - a Proton SMTP token named `supabase-auth` as the password, recorded nowhere;
+   - "Minimum interval between emails: ___ seconds (founder fills in before pasting)."
+3. **§12.1's reading,** Authentication -> Rate Limits:
+   - emails 30/h (project);
+   - SMS 30/h (greyed, unused);
+   - token refreshes 150 per 5 min per IP;
+   - token verifications 30 per 5 min per IP;
+   - anonymous sign-ins 30/h per IP (greyed, unused);
+   - sign-ups and sign-ins 30 per 5 min per IP;
+   - Web3 30 per 5 min per IP (greyed, unused).
+
+**Two premises did not hold on landing. Each is recorded rather than worked around:**
+- **The minimum interval arrived as a blank.** CJ-1 asks for §12.1's checkbox to be ticked with it, and for the waiting rule's "[unverified]" to be replaced by it. **Neither is done: a number is never inferred.**
+  - §12.1's checkbox stays unticked, carrying the parts that were read.
+  - "[unverified]" stands.
+  - H6 precondition 4 reads met IN PART and **NOT met**, because it names 12.1's reading.
+  - The number, once read, is one line in each of those three places.
+- **CJ-2 names the address Proton sends to at H6. That address is not written here.** At H6 the only mail sent is the operator's sign-in link, so the address CJ-2 names is the operator's sign-in address. BQ-1 (R-2026-09-24-89) keeps that address out of the repository: "no page, doc, runbook, fixture, test, script default or commit message".
+  - The address appears in no tracked file today.
+  - The gate is recorded by its substance: "the operator's sign-in address, Paddie Health's own role address in a mailbox Proton already hosts."
+  - The ruling's reasoning is unchanged by the omission.
+
+**CJ-1 — AS BUILT:**
+- **§9, "Entering the Site URL and redirect URLs (H3 …)":**
+  - marked entered on 2026-09-25, with the exact strings;
+  - the `redirect_to` reading still open, at H6;
+  - the old "Not done yet" paragraph kept as a restatement.
+- **The Site URL row** of the un-automatable table records the entered strings and the date. The runbook asked for them there as well.
+- **§12.1:** the rate limits and the SMTP settings are recorded under its checkbox, as read. The interval is marked NOT YET READ, and the box is unticked.
+- **§12.3, precondition 4:** met in part and NOT met, as above, with CJ-2's gate beside it.
+- **§12's hosted order:** step 3 (H3) reads entered, with the interval still to be read.
+- **The email-provider row** of the open processor obligations names Proton (Proton AG, Switzerland) and the sender `support@openbed.ng`.
+  - The s.29 agreement, the s.41 transfer basis and log retention are PENDING the founder's approval, tracked in the founder's paperwork register, items 1 and 4. That register is outside this repository, and no path to it is cited.
+  - The row's earlier text is kept inside it. The list is live, so the row is amended (method note 8), not superseded.
+
+**CJ-2 — THE PROCESSOR GATE, RULED.** The Proton processor agreement gates facility one: no hospital or ward address is sent a link until it is approved. It does not gate H6, because at H6 Proton sends only to Paddie Health's own role address, in a mailbox Proton already hosts. Recorded in the email-provider row, in §9's H3 entry and at §12.3's precondition 4.
+
+**CJ-3** — no SQL, nothing hosted run by Claude Code. `ch-h2-pending` is deleted only after this change merges.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -4846,6 +4946,9 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | CE | R-2026-09-25-103 | 2026-09-25 | **022 and 023 applied together, in one run.** The runner cannot apply one file alone. CE-1's six-fence expectations; the hosted order restated to 022+023, H2, H3, H5, H6. The one-file fences were the implementer's miss in BZ. |
 | CF | R-2026-09-25-104 | 2026-09-25 | **The runbook is corrected after the apply, not before.** CE-1 was the live instruction for the run; backstop: any earlier merge would have carried CE-3 first. |
 | CG | R-2026-09-25-105 | 2026-09-25 | **022 and 023 applied on hosted, recorded.** All six fences read as they must; the frozen boundary at 23; step 5 at 0 pending; the one-file fences superseded; §12's order restated; the expectation guard's pins restated to the zero state. |
+| CH | R-2026-09-25-106 | 2026-09-25 | **H2 done on hosted: sign-ups off.** 0 unconfirmed active accounts; the switch saved, the Email provider untouched; settings PASS; the probe answered 422 and created no user. H6 precondition 3 met. |
+| CI | R-2026-09-25-107 | 2026-09-25 | **#79 merged at `b056ad1`** (parents `06fe479`, `2c75150`). CH re-routed out of #79, to land with H3's record. |
+| CJ | R-2026-09-25-108 | 2026-09-25 | **H3 entered on hosted:** the Site URL and redirects exact, Proton SMTP, the rate limits read. The processor agreement gates facility one, not H6. **The minimum interval arrived blank, so §12.1 is unticked and precondition 4 NOT met;** CJ-2's address is not written (BQ-1). |
 
 ## Method notes — how rulings reach the implementer
 
