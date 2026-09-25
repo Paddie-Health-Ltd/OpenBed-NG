@@ -741,7 +741,7 @@ the whole of its safety.** Read on this project **2026-09-21 16:58 UTC:
 | 1 | `'(unknown facility)'` rendered beside a **real** bed count when a ward references a facility absent from the payload | a count with no callable identity, rendered as if actionable — it tells someone routing an ambulance that beds exist somewhere they cannot ring | **CLOSED** (R-2026-09-23-66). The ward is dropped, not explained: `callableIdentity()` at `apps/public-dashboard/src/main.ts:221-228` decides, and returns null without a name and a number to call. Held by `tests/compliance/dashboard_identity_and_call.test.ts` ("a count renders only beside a callable facility"). 019 makes the case unreachable at source (`tests/db/snapshot_single_read.test.ts`) |
 | 2 | `wardRowFrom` **defaulted** a clinical claim (`offering ?? 'NOT_OFFERED'`) and a concurrency token (`version ?? 0`, which became `p_expected_version`) | it asserted to a ward something the server never said, and turned optimistic concurrency into a guess | **CLOSED**. `wardRowFrom` at `apps/ward-console/src/main.ts:219-245` refuses the row instead: `offering` must be OFFERED or NOT_OFFERED (line 225), `version` a positive integer (line 227), and so on for every field. Held by `tests/compliance/ward_console_render.test.ts` ("B2 — a malformed ward row is refused, never defaulted") |
 | 3 | the publish screen echoed **raw server text** to a ward user on an unrecognised status (R-2026-09-20-30 D1) | a clinical user mid-emergency should not be reading a database error, and server text can carry internals | **CLOSED**. `wardMessageFor` at `apps/ward-console/src/main.ts:167-180` maps a refusal to a fixed sentence, or to `UNRECOGNISED`, and only logs the body. Held by `tests/compliance/ward_console_render.test.ts` ("D1 — no raw server text reaches the screen") |
-| 4 | the invite gate: no invite for a facility without a contact and a recorded agreement | a login handed to a facility that never accepted the agreement | **CLOSED by PR A** (3.4b-app; R-2026-09-24-88 BP-6, R-2026-09-24-90 BR-1). The gate is `app.provision_begin`, and since PR A the one path that creates a login goes through it: `scripts/provision_ward_account.mjs` calls `app.provision_begin` first and `app.provision_complete` last, writes no `app.*` table itself, and makes no Auth call on a refusal. The refusals are at `database/migrations/022_one_operator_and_reactivation.sql:121`, `:124` and `:127` (`NO_FACILITY_CONTACT`, `AGREEMENT_NOT_RECORDED`, `AGREEMENT_WITHDRAWN`); on hosted, until 022 is applied, the same three are 021's, at `database/migrations/021_facility_agreement_and_contact_write.sql:341`, `:344` and `:347`. Held by `tests/db/provision_script.test.ts` ("the script refuses at app.provision_begin, and makes ZERO Auth requests", counted at a stub GoTrue), `tests/compliance/provision_ward_account.test.ts` ("the gates have one implementation, in SQL"), and `tests/db/provisioning_gates.test.ts` for the functions themselves. *Restated 2026-09-24 (R-2026-09-24-88).* Until PR A this row read CLOSED on the SQL alone, and cited `021:313-322`, which is the role parse: the script called `generate_link` first and inserted the invite and the account itself, so no gate ran on the path that creates logins (the 3.4b-app kickoff's finding). |
+| 4 | the invite gate: no invite for a facility without a contact and a recorded agreement | a login handed to a facility that never accepted the agreement | **CLOSED by PR A** (3.4b-app; R-2026-09-24-88 BP-6, R-2026-09-24-90 BR-1). The gate is `app.provision_begin`, and since PR A the one path that creates a login goes through it: `scripts/provision_ward_account.mjs` calls `app.provision_begin` first and `app.provision_complete` last, writes no `app.*` table itself, and makes no Auth call on a refusal. The refusals are at `database/migrations/022_one_operator_and_reactivation.sql:121`, `:124` and `:127` (`NO_FACILITY_CONTACT`, `AGREEMENT_NOT_RECORDED`, `AGREEMENT_WITHDRAWN`), on hosted since 022's apply on 2026-09-25 (R-2026-09-25-105). *Restated 2026-09-25 (R-2026-09-25-105).* Until then this read "on hosted, until 022 is applied, the same three are 021's", at `database/migrations/021_facility_agreement_and_contact_write.sql:341`, `:344` and `:347`. Held by `tests/db/provision_script.test.ts` ("the script refuses at app.provision_begin, and makes ZERO Auth requests", counted at a stub GoTrue), `tests/compliance/provision_ward_account.test.ts` ("the gates have one implementation, in SQL"), and `tests/db/provisioning_gates.test.ts` for the functions themselves. *Restated 2026-09-24 (R-2026-09-24-88).* Until PR A this row read CLOSED on the SQL alone, and cited `021:313-322`, which is the role parse: the script called `generate_link` first and inserted the invite and the account itself, so no gate ran on the path that creates logins (the 3.4b-app kickoff's finding). |
 | 5 | **a backup has never been restored** (R-2026-09-24-74 BB-4) | the backups are a setting that has been seen, not a restore that has been shown to work | **OPEN.** The checkbox is in step 4. A named human step; no script checks it |
 
 
@@ -840,13 +840,18 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions.
 Restated 2026-09-14: until then this read `exactly 13 migration(s) pending.`, and
 migration 014 made that wrong.
 
-- **The hosted project today** holds 001 through 021 (see step 7), and the
-  repository holds 022 and 023. Every file up to and including
-  `021_facility_agreement_and_contact_write.sql` must read `already applied`;
-  there must be exactly two `WOULD APPLY` lines, naming
-  `022_one_operator_and_reactivation.sql` and then
-  `023_operator_register_location_and_phone.sql`; and the dry run must end
-  `2 migration(s) pending.`
+- **The hosted project today** holds 001 through 023 (see step 7), and so does the
+  repository. Every file up to and including
+  `023_operator_register_location_and_phone.sql` must read `already applied`;
+  there must be no `WOULD APPLY` line; and the dry run must end
+  `0 migration(s) pending.`
+- **Restated 2026-09-25 (R-2026-09-25-105), in the change that records 022's and 023's
+  hosted apply.** Until then this expected 001 through 021, exactly two `WOULD APPLY`
+  lines naming `022_one_operator_and_reactivation.sql` and then
+  `023_operator_register_location_and_phone.sql`, and `2 migration(s) pending.` The
+  founder's dry run printed exactly that on 2026-09-25, and the one run that followed
+  applied both and took the ledger to 23 (R-2026-09-25-103: the runner applies every
+  pending file, so 022 and 023 were applied together).
 - **Restated 2026-09-24 (R-2026-09-24-98 BZ-2 c), in the change that ADDS 023.**
   Read, not assumed: `database/migrations/applied-hosted.json` records 21, and no
   entry in the record says 022 has been applied on hosted, so both are pending. Until
@@ -913,10 +918,14 @@ migration 014 made that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line OTHER than the two named above, or any count other
-  than `2 migration(s) pending.`: stop and report.** Another file pending means
+- **Any `WOULD APPLY` line AT ALL, or any count other than
+  `0 migration(s) pending.`: stop and report.** Another file pending means
   either a migration reached the repository after the list was last restated, or
   hosted is not where this document says it is.
+  - *Restated 2026-09-25 (R-2026-09-25-105), in the change that records 022's and
+    023's hosted apply. Until then this bullet read "Any `WOULD APPLY` line OTHER than
+    the two named above, or any count other than `2 migration(s) pending.`", which was
+    right from 023's merge until the apply.*
   - *Restated 2026-09-24 (R-2026-09-24-98 BZ-2 c), in the change that adds 023. Until
     then this bullet read "Any `WOULD APPLY` line OTHER than the one named above, or
     any count other than `1 migration(s) pending.`", which was right from 022's merge
@@ -1537,6 +1546,7 @@ node scripts/freeze_applied_migrations.mjs 19 YYYY-MM-DD R-YYYY-MM-DD-NN
 - [x] Frozen boundary recorded, 2026-09-16: 16 migrations, `001_app_schema_and_migration_ledger.sql` first, `016_snapshot.sql` last
 - [x] Frozen boundary recorded, 2026-09-17: 17 migrations, `001_app_schema_and_migration_ledger.sql` first, `017_snapshot_schedule.sql` last (R-2026-09-17-01), with the frozen_migrations placeholder moved to 018 in the same change
 - [x] Frozen boundary recorded, 2026-09-22: 18 migrations, `001_app_schema_and_migration_ledger.sql` first, `018_close_mirror_read_and_push_surfaces.sql` last (R-2026-09-22-52), with the frozen_migrations placeholder moved to 019 in the same change. `ledger_rows: 18`, matching the `18` read from hosted `app.schema_migrations` in the apply session; the recorder would have refused any other number.
+- [x] Frozen boundary recorded, 2026-09-25: 23 migrations, `001_app_schema_and_migration_ledger.sql` first, `023_operator_register_location_and_phone.sql` last (R-2026-09-25-105), recorded by `node scripts/freeze_applied_migrations.mjs 23 2026-09-25 R-2026-09-25-105`. `ledger_rows: 23`, matching the twenty-three `already applied` lines of the founder's second dry run (fence 5 of the one run that applied 022 and 023 together, R-2026-09-25-103). 022's and 023's sha256 are the tracked files' at `06fe479`, the checkout the founder ran from.
 - [x] Frozen boundary recorded, 2026-09-24: 21 migrations, `001_app_schema_and_migration_ledger.sql` first, `021_facility_agreement_and_contact_write.sql` last (R-2026-09-24-85). `ledger_rows: 21`, matching the twenty-one `already applied` lines of the founder's second dry run (fence 5 of "021's apply").
 - [x] Frozen boundary recorded, 2026-09-24: 20 migrations, `001_app_schema_and_migration_ledger.sql` first, `020_operator_functions_and_listing.sql` last (R-2026-09-24-77). `ledger_rows: 20`, matching the twenty `already applied` lines of the founder's second dry run (fence 5). That dry run is BB-1's replacement for a `count(*)`, so this is read from the ledger through the runner, not counted directly.
 - [x] Frozen boundary recorded, 2026-09-23: 19 migrations, `001_app_schema_and_migration_ledger.sql` first, `019_snapshot_single_read_and_mirror_integrity.sql` last (R-2026-09-23-69). `ledger_rows: 19`, matching the `19` the founder read from hosted `app.schema_migrations` after the apply. No placeholder was moved by hand: since R-2026-09-22-53 `tests/compliance/frozen_migrations.test.ts` derives it from this boundary, so it is now 020.
@@ -1710,8 +1720,19 @@ this apply.
 
 ### 022's apply — the same six fences; required before the operator bootstrap (R-2026-09-24-90 BR-1 f)
 
-**NOT YET RUN. A founder step after PR A (3.4b-app) merges, and it must be complete
-before H6's operator bootstrap:** the bootstrap goes through 022's
+**Run on 2026-09-25, TOGETHER WITH 023 IN ONE RUN** (R-2026-09-25-103 CE-1), by the
+founder from a checkout at `06fe479`, each fence read back by Cowork (R-2026-09-25-105).
+All six read as they must; the readings are in the checkbox at the end of this step. The
+fences are kept below as the procedure that was run, with the three that expected 022
+alone marked superseded.
+
+**Why together:** `scripts/run_migrations.sh` takes only `--dry-run` and a root, and
+applies EVERY pending file in order, each in its own transaction. It cannot apply 022
+alone, so with 022 and 023 both pending, fence 1 below would have stopped a correct
+project. **That contradiction was mine:** the change that added 023 (R-2026-09-24-98 BZ-2 c)
+restated step 5's list to two pending and left fence 1 below expecting one file.
+
+It had to be complete before H6's operator bootstrap: the bootstrap goes through 022's
 `app.provision_begin`, and on 021's body a re-run of it would open a second operator
 invite. The -45 gate is unaffected: 022 creates no facility and no ward_account row.
 
@@ -1726,6 +1747,10 @@ changes:
 
 1. **The dry run:** the list at the top of this step, which names exactly one file,
    `022_one_operator_and_reactivation.sql`. Anything else: stop and report.
+   *Restated 2026-09-25 (R-2026-09-25-105): superseded by R-2026-09-25-103 CE-1, and
+   kept as written.* With 023 in the repository the correct dry run named two files,
+   022 and then 023, and this fence would have stopped it. The run followed CE-1:
+   twenty-one `already applied` lines, the two `WOULD APPLY` lines, and a count of two.
 2. **The before-reading:** as for 020. Keep the `FINGERPRINT` line. The before/after
    comparison still holds, because no ward can publish yet (-74 BB-3).
 3. **The apply:** as for 020. 022's pre-check refuses to apply, naming the count
@@ -1739,6 +1764,10 @@ changes:
    line as 020's fence 5, saying nothing is pending. Not "the list at the top of this
    step": that list is restated only in the change that records this apply, so when
    this fence runs it still names 022. Anything else: stop and report.
+   *Restated 2026-09-25 (R-2026-09-25-105): superseded by R-2026-09-25-103 CE-1, and
+   kept as written.* One run applied 022 and 023, so the second dry run read
+   twenty-three `already applied` lines, 001 through 023, as 023's fence 5 below
+   expects; twenty-two was never a state hosted was in.
 6. **Who can execute what:** as for 020, run after the apply for the same order as
    every other apply. **Unlike 021, it reads the same before and after:** 022 adds
    no function and changes no grant, and a replaced function keeps its ACL, so
@@ -1752,12 +1781,17 @@ while an active `PLATFORM_ADMIN` exists (`OPERATOR_INDEX_IN_USE`, R-2026-09-24-9
 because from then on the index is the only guard against a second operator.
 
 **Afterwards:** the frozen boundary is recorded with `22`, in the change that records
-this apply.
+this apply. *Restated 2026-09-25 (R-2026-09-25-105): superseded. The boundary went from
+21 to 23 in one step, recorded with `23` in that change.*
 
 ### 023's apply — the same six fences; after 022's, and required before H6 (R-2026-09-24-98 BZ-2 d)
 
-**NOT YET RUN. A founder step after PR C (3.4b-app) merges, after 022's apply above, and
-before H6** (section 12): the admin app's edit form prefills a facility's latitude,
+**Run on 2026-09-25, in the same run as 022** (R-2026-09-25-103 CE-1; see 022's apply
+above), each fence read back by Cowork (R-2026-09-25-105). The readings are in the
+checkbox at the end of this step. The fences are kept below as the procedure; fence 1,
+which expected 023 alone, is marked superseded.
+
+It had to be applied before H6 (section 12): the admin app's edit form prefills a facility's latitude,
 longitude and public phone from `public.operator_register()`, and on 021's body those
 three keys are absent, so every register row reads as unreadable. The -45 gate is
 unaffected: 023 writes no row.
@@ -1775,6 +1809,10 @@ expectations for 023.** Only what each must read changes:
    `023_operator_register_location_and_phone.sql`, because 022 was applied first.
    If 022 is still pending, stop: apply 022 first, by its own section. Anything else:
    stop and report.
+   *Restated 2026-09-25 (R-2026-09-25-105): this fence and its "If 022 is still
+   pending, stop" are superseded by R-2026-09-25-103 CE-1, and kept as written.* 022
+   could not be applied first by its own section, because the runner applies every
+   pending file. The one run's dry run named 022 and then 023.
 2. **The before-reading:** as for 020. Keep the `FINGERPRINT` line.
 3. **The apply:** as for 020. 023 has no pre-check; it replaces one function.
 4. **The after-reading:** as for 020. `PASS (VACUOUS FOR B1)` is expected while
@@ -1795,19 +1833,24 @@ expectations for 023.** Only what each must read changes:
 021's body, and the admin app's edit form would then read every facility as unreadable.
 
 **Afterwards:** the frozen boundary is recorded with `23`, in the change that records
-this apply.
+this apply. On 2026-09-25 it was (R-2026-09-25-105).
 
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 021 applied, 022 and 023 in the
-repository and not yet applied), the dry run prints twenty-one `already applied` lines
-and:
+**On the hosted project today** (001 through 023 applied, and the repository ending
+at 023), the dry run prints twenty-three `already applied` lines and:
 
 ```
-  WOULD APPLY     : 022_one_operator_and_reactivation.sql   <- dry run
-  WOULD APPLY     : 023_operator_register_location_and_phone.sql
-2 migration(s) pending.
+0 migration(s) pending.
 ```
+
+*Restated 2026-09-25 (R-2026-09-25-105), in the change that records 022's and 023's
+hosted apply.* Until then this block described the state BEFORE that apply:
+twenty-one `already applied` lines, two WOULD APPLY lines naming
+`022_one_operator_and_reactivation.sql` and then
+`023_operator_register_location_and_phone.sql`, and a count of two. That is exactly
+what the founder's dry run printed on 2026-09-25, and it is kept below with the other
+dated runs rather than overwritten.
 
 *Restated 2026-09-24 (R-2026-09-24-98 BZ-2 c), in the change that adds 023.* Until then
 this block showed one WOULD APPLY line, naming 022, and `1 migration(s) pending.`,
@@ -1859,6 +1902,20 @@ other dated runs rather than overwritten.
 **The second dry run is part of an apply, not an optional extra.** It is the
 reading recorded in the checkbox at the end of this section, and it is the half
 that says the apply did what the first dry run promised.
+
+**On 2026-09-25, when 022 and 023 were pending,** the same two commands printed this
+(the founder's terminal output from a checkout at `06fe479`, relayed by Cowork, run per
+R-2026-09-25-103 CE-1; the twenty-one `already applied` lines are omitted). The apply's
+echo was 022's `DO`, `CREATE INDEX`, `CREATE FUNCTION`, `CREATE FUNCTION`, `DO`,
+`INSERT 0 1`, `INSERT 0 0`, then 023's `CREATE FUNCTION`, `DO`, `INSERT 0 1`,
+`INSERT 0 0`: each file's own ledger row, then the runner's `ON CONFLICT` no-op.
+
+```
+  WOULD APPLY     : 022_one_operator_and_reactivation.sql   <- dry run
+  WOULD APPLY     : 023_operator_register_location_and_phone.sql
+2 migration(s) pending.
+Migrations complete (2 applied this run).                    <- apply
+```
 
 **On 2026-09-24, when 021 was pending,** the same two commands printed this (the
 founder's terminal output relayed by Cowork, fences 1 and 3 of "021's apply" above;
@@ -1970,8 +2027,11 @@ twenty-three as pending. The two numbers are measuring different things.
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `21`, with `2 migration(s) pending.` from the
-dry run** -- 022 and 023 are in the repository and not yet applied.
+THAT PROJECT. **On hosted today that is `23`, with `0 migration(s) pending.` from the
+dry run** -- the founder's second dry run after the one run that applied 022 and 023,
+on 2026-09-25, read twenty-three `already applied` lines, 001 through 023.
+*Restated 2026-09-25 (R-2026-09-25-105), in the change that records that apply; until
+then it read `21` with `2 migration(s) pending.`*
 *Restated 2026-09-24 (R-2026-09-24-98 BZ-2 c), in the change that adds 023; until then
 it read `21` with `1 migration(s) pending.`, right while the repository ended at 022.*
 *Restated 2026-09-24
@@ -2033,6 +2093,11 @@ On 2026-09-24, observed on hosted `klrlpxysjsjpdkeqdhvl`, after the apply of 021
 founder's terminal output relayed by Cowork, R-2026-09-24-85): the second dry run read
 twenty-one `already applied` lines and `0 migration(s) pending.`
 
+On 2026-09-25, observed on hosted `klrlpxysjsjpdkeqdhvl`, after the one run that
+applied 022 and 023 (the founder's terminal output relayed by Cowork,
+R-2026-09-25-105): the second dry run read twenty-three `already applied` lines and
+`0 migration(s) pending.`
+
 ### What happens if it dies partway -- documented, not discovered
 
 Each migration is applied with **both** `--single-transaction` and
@@ -2069,6 +2134,7 @@ ones.
 - [x] On 2026-09-16, every forward migration applied, `016_snapshot.sql` last: ledger 16 rows, and the second dry run reported `0 migration(s) pending.`
 - [x] On 2026-09-17, 017 applied, `017_snapshot_schedule.sql` last: dry run one `WOULD APPLY 017_snapshot_schedule.sql` and `1 migration(s) pending.`; apply `Migrations complete (1 applied this run).`; ledger 17 rows, and the second dry run reported `0 migration(s) pending.`
 - [x] On 2026-09-22, 018 applied, `018_close_mirror_read_and_push_surfaces.sql` last, **2026-09-22 05:40:40 UTC**: ledger 17 rows before; dry run one `WOULD APPLY     : 018_close_mirror_read_and_push_surfaces.sql` and `1 migration(s) pending.`; apply echoed `DO`, `DO`, `INSERT 0 1`, `INSERT 0 0` then `Migrations complete (1 applied this run).`; ledger 18 rows, and the second dry run reported `0 migration(s) pending.` **The two `DO` blocks are 018's idempotent publication drop and its per-role revoke; `INSERT 0 1` is the migration ledgering itself and `INSERT 0 0` the runner's belt-and-braces `ON CONFLICT DO NOTHING`, which is a no-op precisely because the file had already ledgered itself.** This is the apply that closed the accumulation boundary (R-2026-09-22-52).
+- [x] On 2026-09-25, 022 and 023 applied TOGETHER in one run, `023_operator_register_location_and_phone.sql` last (the founder's terminal output from a checkout at `06fe479`, read back by Cowork fence by fence, R-2026-09-25-105; run per R-2026-09-25-103 CE-1, not per the fences of "022's apply" and "023's apply" that expected one file each). Fence 1: twenty-one `already applied` lines (001-021), `WOULD APPLY` `022_one_operator_and_reactivation.sql` then `023_operator_register_location_and_phone.sql`, `2 migration(s) pending.`; fence 2: `beds.json` `0/0:543f06c0b0c4`, `facility_public`, `ward_public` and `lga_rollup` each `0:d41d8cd98f00`, the `FINGERPRINT` line `beds.json=0/0:543f06c0b0c4,facility_public=0:d41d8cd98f00,ward_public=0:d41d8cd98f00,lga_rollup=0:d41d8cd98f00`, `RECORDED`; fence 3: 022 echoed `DO`, `CREATE INDEX`, `CREATE FUNCTION`, `CREATE FUNCTION`, `DO`, `INSERT 0 1`, `INSERT 0 0` (matched by Cowork to 022's pre-check `DO` at :58, the index at :73, `provision_begin` at :81, `provision_complete` at :176, the grant block's `DO` at :278 (owner-only EXECUTE re-stated; the relay called it a post-check), its own ledger row at :300, then the runner's no-op), and 023 echoed `CREATE FUNCTION`, `DO`, `INSERT 0 1`, `INSERT 0 0` (its function at :44, its grant block's `DO` at :117, its own ledger row at :136, then the runner's no-op), then `Migrations complete (2 applied this run).`, so 022's `PLATFORM_ADMIN_DUPLICATES` pre-check passed; fence 4: all four parts ok, `NOTE: every count, before and after, is 0.`, `PASS (VACUOUS FOR B1)`; fence 5: twenty-three `already applied` lines (001-023), no `WOULD APPLY` line, `0 migration(s) pending.`; fence 6: against `packages/fixtures/function-grants.json` at `06fe479`, 29 lines, all ok, including `app.provision_begin(uuid, text, text)` and `app.provision_complete(uuid, uuid)` `EXECUTE: none`, `public.operator_register()` `EXECUTE: authenticated` and `public.rls_auto_enable()` ok under `(hosted-only)`, and the `PASS:` line. The -45 gate is unaffected: no facility and no ward_account row exists.
 - [x] On 2026-09-24, 021 applied, `021_facility_agreement_and_contact_write.sql` last (the founder's terminal output from a deploy checkout at `f6889d4`, relayed by Cowork, R-2026-09-24-85): the six fences of "021's apply" above. Fence 1: twenty `already applied` lines (001-020), one `WOULD APPLY     : 021_facility_agreement_and_contact_write.sql`, `1 migration(s) pending.`; fence 2: `beds.json` 0/0 and `facility_public`, `ward_public`, `lga_rollup` each 0 rows, `RECORDED`; fence 3: 021 applied, the echo including two NOTICEs (`trg_facility_contact_version` and `trg_facility_agreement_project` do not exist, skipping, from their `DROP TRIGGER IF EXISTS`), `INSERT 0 1`, `INSERT 0 0` and `Migrations complete (1 applied this run).`; fence 4: all four parts ok against fence 2's fingerprint, `PASS (VACUOUS FOR B1)`; fence 5: twenty-one `already applied` lines (001-021), no `WOULD APPLY` line, `0 migration(s) pending.`; fence 6: 29 lines, all ok, `app.bump_row_version()` none, `operator_get_contact`, `operator_record_agreement`, `operator_record_contact` and `operator_register` each authenticated, `operator_list_facilities` absent, `public.rls_auto_enable()` ok (hosted-only), and the `PASS:` line.
 - [x] On 2026-09-24, 020 applied, `020_operator_functions_and_listing.sql` last (the founder's terminal output from a deploy checkout at `4a6a9e9`, read back by Cowork, R-2026-09-24-77): the six fences of "020's apply" above. Dry run nineteen `already applied` lines and one `WOULD APPLY     : 020_operator_functions_and_listing.sql`, `1 migration(s) pending.`; before-reading `beds.json` 0/0 and every table 0 rows; apply `Migrations complete (1 applied this run).`; after-reading `PASS (VACUOUS FOR B1)`; second dry run twenty `already applied` lines and `0 migration(s) pending.`; fence 6 read 24 functions ok and ONE `WRONG`, `public.rls_auto_enable()`, Supabase's own event-trigger function, ruled hosted-only and inert by R-2026-09-24-77 BE-1. **Fence 6 is re-run once this change merges, and must read PASS.** Re-run 2026-09-24 from the deploy checkout at `f1d3a1f` (the founder's terminal output, relayed by Cowork, R-2026-09-24-80): 25 lines, all `ok`, including `ok public.rls_auto_enable() (hosted-only): anon,authenticated,service_role owner=postgres returns=event_trigger definer=true`, and last `PASS: every function in app, graphql_public and public is executable by exactly the roles packages/fixtures/function-grants.json names.` **020's apply is complete.**
 - [x] On 2026-09-23, 019 applied, `019_snapshot_single_read_and_mirror_integrity.sql` last (the founder's terminal output, R-2026-09-23-69): ledger 18 rows before; dry run one `WOULD APPLY     : 019_snapshot_single_read_and_mirror_integrity.sql` and `1 migration(s) pending.`; apply echoed `DO`, `DO`, `DO`, `ALTER TABLE`, `CREATE FUNCTION`, `COMMENT`, `REVOKE`, `DO`, `INSERT 0 1`, `INSERT 0 0` then `Migrations complete (1 applied this run).`; ledger 19 rows, and the second dry run reported `0 migration(s) pending.` No `MIRROR_ORPHANS` and no `FACILITY_NAME_BLANK`. Read independently by Cowork the same day, read-only: 19 ledger rows, both constraints validated, the snapshot job succeeding every minute across the apply.
@@ -2411,13 +2477,17 @@ than a number that has to be maintained.)* This table
 previously recorded server versions only, which left the one tool every SQL
 result above passed through unrecorded.
 
-**Hosted now holds 001 through 021.** Migrations 014, 015 and 016 were applied on
+**Hosted now holds 001 through 023.** Migrations 014, 015 and 016 were applied on
 2026-09-16 (R-2026-09-16-02), 017 on 2026-09-17 (R-2026-09-17-01), **018 on
 2026-09-22 at 05:40:40 UTC (R-2026-09-22-52)**, **019 on 2026-09-23
-(R-2026-09-23-69)**, **020 on 2026-09-24 (R-2026-09-24-77)**, and **021 on 2026-09-24
-(R-2026-09-24-85)**; step 5 carries each run's output, its post-apply probe, the
+(R-2026-09-23-69)**, **020 on 2026-09-24 (R-2026-09-24-77)**, **021 on 2026-09-24
+(R-2026-09-24-85)**, and **022 and 023 together, in one run, on 2026-09-25
+(R-2026-09-25-105)**; step 5 carries each run's output, its post-apply probe, the
 owners read, the reader-policy read, 017's jobs read, 018's pre-apply reading and
 read-back, and the frozen-boundary record.
+
+*Restated 2026-09-25 (R-2026-09-25-105), in the change that records 022's and 023's
+hosted apply.* Until then this read *"Hosted now holds 001 through 021."*
 
 *Restated 2026-09-24 (R-2026-09-24-85), in the change that records 021's hosted
 apply.* Until then this read *"Hosted now holds 001 through 020."*
@@ -3098,15 +3168,22 @@ RUN.** Every step below is a founder step, and nothing is run until Cowork has r
 text. The operator's own sign-in address is **never written here**. It is "the
 operator's sign-in address", typed at run time (R-2026-09-24-89 BQ-1).
 
-**The hosted order, in full:**
-1. 022's apply (section 5, six fences);
+**The hosted order, in full** (R-2026-09-25-103 CE-2):
+1. 022 and 023, applied together in one run (section 5, six fences): **done on
+   2026-09-25** (R-2026-09-25-105);
 2. H2, sign-ups off (section 3);
 3. H3 (section 9's entry, plus 12.1 below);
-4. PR C merged;
-5. 023's apply (section 5, six fences; R-2026-09-24-98 BZ-2 d);
-6. H5, the Worker redeploy (12.2);
-7. H6 (12.3), which ends with the operator bootstrap and an empty register;
-8. and only when step 4b reads CLOSED on every row: facility creation (12.4).
+4. H5, the Worker redeploy (12.2);
+5. H6 (12.3), which ends with the operator bootstrap and an empty register;
+6. and only when step 4b reads CLOSED on every row: facility creation (12.4).
+
+*Restated 2026-09-25 (R-2026-09-25-105), per R-2026-09-25-103 CE-2.* Until then the
+order read: 1. 022's apply; 2. H2; 3. H3; 4. PR C merged; 5. 023's apply; 6. H5; 7. H6;
+8. facility creation, only when step 4b reads CLOSED on every row. The runner cannot
+apply 022 alone, so 022 and 023 were applied together, and PR C had merged (`4e28cdb`,
+R-2026-09-24-99). Moving 023 ahead of H2 and H3 is safe: it only adds `lat`, `lng` and
+`public_phone_e164`, already public for a listed facility, to an operator-only read,
+and neither H2 nor H3 depends on its absence.
 
 ### 12.1 H3 — what C adds to it (R-2026-09-24-93 BU-1 e)
 
@@ -3146,14 +3223,15 @@ Redeploy through the Worker's wrapper, and read it back, exactly as
 that does not hold:**
 
 1. PR 3.4b-app A.2 is merged (`78f1e00`: met on 2026-09-24).
-2. 022 is applied on hosted, with its six fences read as they must (section 5).
+2. 022 is applied on hosted, with its six fences read as they must (section 5): met on
+   2026-09-25, together with 023 (R-2026-09-25-105).
 3. H2 is done: sign-ups off, with its checkbox ticked and Cowork's reading.
 4. H3 is done: the Site URL, the redirect URLs, custom SMTP, and 12.1's reading.
-5. PR 3.4b-app C is merged.
+5. PR 3.4b-app C is merged (`4e28cdb`: met on 2026-09-24, R-2026-09-24-99).
 6. H5 is done (12.2).
 7. 023 is applied on hosted, with its six fences read as they must (section 5,
    R-2026-09-24-98 BZ-2 d). Without it, the admin register reads every facility as
-   unreadable.
+   unreadable. Met on 2026-09-25, together with 022 (R-2026-09-25-105).
 
 **Then, in this order (R-2026-09-24-97 BY-1). Each step's STOP stops everything below it.**
 
