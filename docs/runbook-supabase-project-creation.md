@@ -3193,8 +3193,8 @@ operator's sign-in address", typed at run time (R-2026-09-24-89 BQ-1).
    2026-09-25** (R-2026-09-25-105);
 2. H2, sign-ups off (section 3): **done on 2026-09-25** (R-2026-09-25-106);
 3. H3 (section 9's entry, plus 12.1 below): **entered on 2026-09-25** (R-2026-09-25-108),
-   with 12.1's minimum interval still to be read;
-4. H5, the Worker redeploy (12.2);
+   and 12.1's minimum interval read as 60 seconds on 2026-09-25 (R-2026-09-25-110);
+4. H5, the Worker redeploy (12.2): **done on 2026-09-25** (R-2026-09-25-110);
 5. H6 (12.3), which ends with the operator bootstrap and an empty register;
 6. and only when step 4b reads CLOSED on every row: facility creation (12.4).
 
@@ -3214,16 +3214,20 @@ H3's Site URL, redirect URLs and custom SMTP are entered and read back as sectio
 **Read once, and record here: the hosted Auth rate limits and the email frequency
 window.** Dashboard -> Authentication -> Rate Limits, and the email provider's minimum
 interval between emails to one address. Locally the interval is 1 second. **The hosted
-value is [unverified]** until this reading is recorded:
+value is 60 seconds**, read on 2026-09-25 (R-2026-09-25-110). *Restated 2026-09-25
+(R-2026-09-25-110).* Until then this read "**The hosted value is [unverified]** until
+this reading is recorded".
 
-- [ ] Hosted rate limits and email frequency window, as read (date, values, Cowork's reading)
+- [x] Hosted rate limits and email frequency window, as read (date, values, Cowork's reading)
+  - **On 2026-09-25, read in full** (R-2026-09-25-110): the rate limits and SMTP settings below, and the minimum interval, 60 seconds.
   - **On 2026-09-25, read in part** (the founder's report and dashboard screenshots, Cowork's reading, R-2026-09-25-108):
     - **Rate limits,** Dashboard -> Authentication -> Rate Limits: emails 30 per hour (project); SMS 30 per hour (greyed, unused); token refreshes 150 per 5 minutes per IP; token verifications 30 per 5 minutes per IP; anonymous sign-ins 30 per hour per IP (greyed, unused); sign-ups and sign-ins 30 per 5 minutes per IP; Web3 30 per 5 minutes per IP (greyed, unused).
     - **Custom SMTP, via Proton:** host `smtp.protonmail.ch`, port 587, sender and username `support@openbed.ng`, sender name OpenBed. The password is a Proton SMTP token named `supabase-auth`, and it is recorded nowhere.
-    - **The minimum interval between emails: NOT YET READ.** The relayed reading carried a blank the founder was to fill in before pasting, and it arrived unfilled. **This box stays unticked, and "[unverified]" above stands, until the number is read.** A number is never inferred here: the waiting rule below takes its window from it.
+    - **The minimum interval between emails: 60 seconds.** Supabase's SMTP settings, "Minimum interval per user", read by the founder on 2026-09-25 and relayed by Cowork (R-2026-09-25-110). *Restated 2026-09-25 (R-2026-09-25-110).* Until then this line read: "The minimum interval between emails: NOT YET READ. The relayed reading carried a blank the founder was to fill in before pasting, and it arrived unfilled. This box stays unticked, and "[unverified]" above stands, until the number is read."
 
 **The waiting rule, which H6 relies on.** After any sign-in request, and after H2's step
-4 probe, **wait out that frequency window before asking again for the same address.** A
+4 probe, **wait out that frequency window, 60 seconds on hosted, before asking again for
+the same address.** A
 second request inside the window is refused with 429, and that refusal reads exactly
 like a broken sign-in. Since A.2, provisioning mints no link at all, so the only
 requests are the operator's own and H2's probe.
@@ -3240,7 +3244,12 @@ Redeploy through the Worker's wrapper, and read it back, exactly as
 2, `scripts/readback_admin.sh`'s last probe reads `x-openbed-proxy: forwarded` on
 `operator_register`. **`refused` there means this step has not landed.**
 
-- [ ] H5: Worker redeployed at the merged commit, and its read-back PASS (date, commit, Cowork's reading)
+- [x] H5: Worker redeployed at the merged commit, and its read-back PASS (date, commit, Cowork's reading)
+  - **On 2026-09-25** (the founder's terminal from the deploy checkout at `b056ad1cf5e864ebab3bff3f95e0fdf023ff8d22`, and the Cloudflare connector; Cowork's reading, R-2026-09-25-110). `b056ad1` is after PR C's merge, and `supabase-proxy/` is identical at the two commits.
+    - **The checkout:** refreshed to HEAD `b056ad1`, `npm ci` clean.
+    - **The deploy:** `bash scripts/deploy_worker.sh supabase-proxy` printed that HEAD is on `origin/main` and the tree is clean; stamp `b056ad1`, clean; wrangler 4.134.0; `DONE`, naming `b056ad1`, on attempt 1 of 12. It was run twice from the same checkout (a double paste), producing versions `89920e04-149c-49a1-99a7-1587ced00d59` and then **`895ae17d-d603-4f21-94b0-439cacf5c497`, the one live**. Same commit both times.
+    - **`bash scripts/readback_worker.sh https://api.openbed.ng`:** probe 1 `401`, `sb-project-ref` `klrlpxysjsjpdkeqdhvl`, `forwarded`; probe 2 GET `200` `forwarded`, HEAD `405` `forwarded`; probe 3 `404`, `refused`, body `{"message":"not forwarded by the OpenBed proxy"}`; the stamp: commit `b056ad1`, dirty false, HEAD `200` with `x-openbed-proxy: stamp`. `PASS`.
+    - **Probe 4, by Cowork** through the Cloudflare connector (`workers_get_worker_code`, `supabase-proxy`): the bundled `allow_list_default` equals `supabase-proxy/allow-list.json` at `b056ad1`, entry for entry. That is `forward`: 12 POST (otp; token with query `grant_type=refresh_token`; `my_facility_wards`; `publish_ward_status`; the eight `operator_*` calls), 1 GET (`/auth/v1/settings`) and 12 OPTIONS preflights; `direct_origin_exceptions` `snapshot_current` and `/auth/v1/verify`; `refusal_probes` `GET /rest/v1/`. The bundle contains `not forwarded by the OpenBed proxy`, `/__openbed/version` and `grant_type=refresh_token`, and `version_default` names `b056ad1`, dirty false. `PASS`.
 
 ### 12.3 H6 — the admin app goes live, and the operator exists
 
@@ -3253,19 +3262,28 @@ that does not hold:**
 3. H2 is done: sign-ups off, with its checkbox ticked and Cowork's reading: met on
    2026-09-25 (R-2026-09-25-106).
 4. H3 is done: the Site URL, the redirect URLs, custom SMTP, and 12.1's reading.
-   **Met in part on 2026-09-25 (R-2026-09-25-108):** the Site URL, the redirect URLs and
-   custom SMTP are entered, and 12.1's rate limits are read. **12.1's minimum interval is
-   not yet read, so this precondition is NOT met.** The `redirect_to` reading is H6 step
-   6's, not this precondition's.
+   **Met on 2026-09-25** (R-2026-09-25-108, completed by R-2026-09-25-110): the Site URL,
+   the redirect URLs and custom SMTP are entered, and 12.1's reading is complete,
+   including the minimum interval of 60 seconds. The `redirect_to` reading is H6 step
+   6's, not this precondition's. *Restated 2026-09-25 (R-2026-09-25-110).* Until then
+   this read "Met in part on 2026-09-25 (R-2026-09-25-108): … 12.1's minimum interval is
+   not yet read, so this precondition is NOT met."
    **The email provider's processor agreement does not gate H6** (R-2026-09-25-108
    CJ-2): at H6 the only address Proton sends to is the operator's sign-in address,
    Paddie Health's own role address in a mailbox Proton already hosts. It gates facility
    one: no hospital or ward address is sent a link until it is approved.
 5. PR 3.4b-app C is merged (`4e28cdb`: met on 2026-09-24, R-2026-09-24-99).
-6. H5 is done (12.2).
+6. H5 is done (12.2): met on 2026-09-25 (R-2026-09-25-110), live Worker version
+   `895ae17d-d603-4f21-94b0-439cacf5c497` at `b056ad1`.
 7. 023 is applied on hosted, with its six fences read as they must (section 5,
    R-2026-09-24-98 BZ-2 d). Without it, the admin register reads every facility as
    unreadable. Met on 2026-09-25, together with 022 (R-2026-09-25-105).
+
+**On 2026-09-25 every precondition above was met on hosted, and read by Cowork**
+(R-2026-09-25-110 CL-2): A.2, 022, H2, H3 including the interval, C, H5 and 023. **H6
+may begin while the pull request recording H5 is still open.** The runbook catches up
+when that pull request lands. The readings, not the merge, are what each precondition
+needs.
 
 **Then, in this order (R-2026-09-24-97 BY-1). Each step's STOP stops everything below it.**
 

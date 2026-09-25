@@ -4850,6 +4850,67 @@ _Issued as R-PROVISIONAL-2026-09-25-CJ, by Cowork on 2026-09-25. It lands with -
 
 **CJ-3** — no SQL, nothing hosted run by Claude Code. `ch-h2-pending` is deleted only after this change merges.
 
+### R-2026-09-25-109 — #80 merged; the interval read
+
+_Issued as R-PROVISIONAL-2026-09-25-CK, by Cowork on 2026-09-25, as its check of #80 at `1a22685`. **Pasting it was the founder's merge word for #80.** Record-only; it lands with H5's record (this change). Number assigned on landing: R-2026-09-25-108 plus one. Next provisional letter: CL._
+
+**VERIFIED BY COWORK** (2026-09-25, GitHub API and git, on the founder's machine):
+- **#79:** closed and merged; merge commit `b056ad1`, parents `06fe479` and `2c75150`; `origin/main` at `b056ad1`; `record-022-023-apply` gone on the remote.
+- **#80:** OPEN at `1a226851c892034f387f59788979e677d578eba7`, base `b056ad1cf5e864ebab3bff3f95e0fdf023ff8d22`; mergeable, clean; 2 commits, 2 files; seven check runs completed/success.
+- `a43ba58`'s tree is identical to `8872709`'s.
+- The runbook diff records H2 as run, H3 as entered, §12.1 as read in part, precondition 4 as NOT met, and CJ-2's gate, as ruled.
+- **CJ-2's address:** Cowork's block had named the operator's sign-in address, which BQ-1 bans from the repository. The implementer's wording ("the operator's sign-in address, Paddie Health's own role address in a mailbox Proton already hosts") is accepted, and Cowork will not name the address in a ruling again.
+
+**THE MERGE (CK-1).**
+- The head was read from the API as `1a22685`, and #80 merged as a merge commit with `--match-head-commit`.
+- MERGED was read back: **`5786626a100c3f05e9aa42eb3bc0907b04b43959`**, with parents `b056ad1` and `1a22685`.
+- As a separate step, `record-h2-h3` was deleted, remote and local, and `ch-h2-pending` locally. All read back as gone.
+- **One correction to CK-1's premise.** "Its commit is in #80" is true of the content, not of the commit. `8872709` itself is not in #80; its cherry-picked copy `a43ba58` is. Before the forced local delete, `a43ba58` was confirmed an ancestor of `main`, and its tree was confirmed identical to `ch-h2-pending`'s.
+
+**CK-2 — the interval:** Supabase's "Minimum interval per user", 60 seconds, read by the founder on 2026-09-25. It was held out of #80 and lands here (-110).
+
+### R-2026-09-25-110 — H5 done on hosted; the interval recorded; H6 may start
+
+_Issued as R-PROVISIONAL-2026-09-25-CL, by Cowork on 2026-09-25. It lands with -109 in one change, branched from `5786626`. Number assigned on landing: R-2026-09-25-109 plus one. Next provisional letter: CM._
+
+**READ BACK BY COWORK** (2026-09-25; the founder's terminal from the deploy checkout at `b056ad1cf5e864ebab3bff3f95e0fdf023ff8d22`, and the Cloudflare connector):
+1. **The deploy checkout:** refreshed to HEAD `b056ad1`, with `npm ci` clean.
+2. **`deploy_worker.sh supabase-proxy`:** "HEAD … is on origin/main and the tree is clean"; stamp `b056ad1`, clean; wrangler 4.134.0; "DONE … names b056ad1… (attempt 1 of 12)".
+   - It was run twice from the same checkout, a double paste: versions `89920e04-149c-49a1-99a7-1587ced00d59`, then `895ae17d-d603-4f21-94b0-439cacf5c497`, which is live.
+   - Both runs were from the same commit.
+3. **`readback_worker.sh https://api.openbed.ng`:**
+   - probe 1: `401`, `sb-project-ref` `klrlpxysjsjpdkeqdhvl`, forwarded;
+   - probe 2: GET `200` forwarded, HEAD `405` forwarded;
+   - probe 3: `404`, refused, body `{"message":"not forwarded by the OpenBed proxy"}`;
+   - the stamp: commit `b056ad1`, dirty false, HEAD `200` with `x-openbed-proxy: stamp`.
+   - PASS.
+4. **Probe 4,** by Cowork through the Cloudflare connector (`workers_get_worker_code`, `supabase-proxy`):
+   - the bundled `allow_list_default` equals `supabase-proxy/allow-list.json` at `b056ad1`, entry for entry;
+   - `forward` is 12 POST, 1 GET and 12 OPTIONS preflights;
+   - `direct_origin_exceptions` are `snapshot_current` and `/auth/v1/verify`, and `refusal_probes` is `GET /rest/v1/`;
+   - the markers are present, and `version_default` names `b056ad1`, dirty false.
+   - PASS.
+5. **The minimum interval,** "Minimum interval per user" in Supabase's SMTP settings: 60 seconds (the founder's reading, 2026-09-25).
+
+**Re-read on landing, at `5786626`:**
+- `allow-list.json`'s `forward` counts 12 POST, 1 GET and 12 OPTIONS. The names and the exceptions are as Cowork read them.
+- `supabase-proxy/` is identical at `4e28cdb` (PR C's merge), `b056ad1` (the deployed commit) and `5786626`. So the H5 checkbox's "at the merged commit" holds, although the deploy ran from a later commit.
+
+**Two premises needed a note:**
+- **Probe 4's text in `docs/runbook-cloudflare-worker-proxy.md` §3 had been stale since PR C,** which is mine. It said "exactly the four `POST` paths and one `GET` path". PR C (#77) added sixteen entries and did not restate it. It is restated to derive the expected set from the file at the deployed commit, with the old sentence kept.
+- **"[unverified]" was not in the waiting rule.** It was in §12.1's "Read once" paragraph ("The hosted value is [unverified]"). That sentence is restated to 60 seconds, and the waiting rule names the window, "60 seconds on hosted", so both carry the value.
+
+**CL-1 — AS BUILT:**
+- **§12.2:** the H5 checkbox is ticked with items 1–4, the live version id and Cowork's reading. The double paste is named.
+- **§12.1:** the box is ticked, and the reading is complete: the rate limits, the SMTP settings and the 60-second interval. "[unverified]" and the "NOT YET READ" line are restated, and their old text is kept.
+- **§12.3:** preconditions 4 and 6 are met on 2026-09-25, and precondition 4's "NOT met" text is kept as a restatement.
+- **§12's hosted order:** H3's interval is read, and H5 is done.
+- **The Worker runbook's probe 4:** as above.
+
+**CL-2 — H6 MAY START BEFORE THIS MERGES.** Every H6 precondition was met on hosted on 2026-09-25 and read by Cowork: A.2, 022, H2, H3 including the interval, C, H5 and 023. The founder may begin H6 while this change is open, and the runbook catches up when it lands. Recorded in §12.3.
+
+**CL-3** — no SQL, nothing hosted run by Claude Code.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -4949,6 +5010,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | CH | R-2026-09-25-106 | 2026-09-25 | **H2 done on hosted: sign-ups off.** 0 unconfirmed active accounts; the switch saved, the Email provider untouched; settings PASS; the probe answered 422 and created no user. H6 precondition 3 met. |
 | CI | R-2026-09-25-107 | 2026-09-25 | **#79 merged at `b056ad1`** (parents `06fe479`, `2c75150`). CH re-routed out of #79, to land with H3's record. |
 | CJ | R-2026-09-25-108 | 2026-09-25 | **H3 entered on hosted:** the Site URL and redirects exact, Proton SMTP, the rate limits read. The processor agreement gates facility one, not H6. **The minimum interval arrived blank, so §12.1 is unticked and precondition 4 NOT met;** CJ-2's address is not written (BQ-1). |
+| CK | R-2026-09-25-109 | 2026-09-25 | **#80 merged at `5786626`** (parents `b056ad1`, `1a22685`); `ch-h2-pending` and the #80 branch deleted. The BQ-1 wording accepted. The interval is read as 60 seconds, held out of #80. |
+| CL | R-2026-09-25-110 | 2026-09-25 | **H5 done on hosted:** the Worker at `b056ad1`, live version `895ae17d…`, read-back PASS, and probe 4's bundle equal to `allow-list.json` entry for entry. §12.1 complete at 60 seconds; preconditions 4 and 6 met; H6 may start before this merges. Probe 4's stale "four POST" text restated. |
 
 ## Method notes — how rulings reach the implementer
 
