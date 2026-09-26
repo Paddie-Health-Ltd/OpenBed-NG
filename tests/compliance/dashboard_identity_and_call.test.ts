@@ -200,7 +200,7 @@ describe('one tap-to-call link per facility', () => {
     const real = callTapTargetPx(css);
     expect(real.minHeight ?? 0, 'style.css declares no min-height of 44px or more on a.call').toBeGreaterThanOrEqual(44);
     expect(real.minWidth ?? 0, 'style.css declares no min-width of 44px or more on a.call').toBeGreaterThanOrEqual(44);
-    const planted = callTapTargetPx(css.replace(/min-height:\s*44px/, 'min-height: 40px'));
+    const planted = callTapTargetPx(css.replace(/min-height:\s*52px/, 'min-height: 40px'));
     expect(planted.minHeight, 'the plant did not reach the rule').toBe(40);
     expect(callTapTargetPx('<style>a.other { min-height: 44px }</style>'), 'a rule for another selector was read').toEqual({ minHeight: null, minWidth: null });
   });

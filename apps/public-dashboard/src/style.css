@@ -1,13 +1,160 @@
-/* The public dashboard's styles. Moved out of index.html's inline <style> by PR 3.4b-app B
-   (R-2026-09-24-93 BU-2 c): the CSP in public/_headers allows style-src 'self' only, with
-   no hash and no 'unsafe-inline', and an inline block would be blocked silently. */
+/* The public dashboard's styles (the design pass, D1). Imported by src/main.ts AFTER
+   @openbed/design's tokens and fonts, so every value here reads a design-system token.
+   Moved out of index.html's inline <style> by PR 3.4b-app B (R-2026-09-24-93 BU-2 c):
+   the CSP in public/_headers allows style-src 'self' only, with no hash and no
+   'unsafe-inline', and an inline block would be blocked silently.
 
-/* The call link's tap target: at least 44 x 44 CSS px (R-2026-09-23-66 C1).
-   tests/compliance/dashboard_identity_and_call.test.ts reads this rule. */
-a.call { display: inline-block; min-height: 44px; min-width: 44px; line-height: 44px; padding: 0 12px; }
+   Nothing here changes a word. Colour is never the only signal: every state the page
+   shows is carried by its words, as before the design pass. Nothing is sticky or fixed. */
 
-/* Age (R-2026-09-23-67 A2, A5): de-emphasis only. The words on each line carry the
-   band; nothing here is the only signal of anything. */
-li.age-aged, li.age-none, li.age-unknown, li.age-not-offered { opacity: 0.8; }
+/* The call link: the tile's one full-width primary action, 52 px tall (R-2026-09-23-66
+   C1 required at least 44 x 44; the design system's primary hit size is 52).
+   tests/compliance/dashboard_identity_and_call.test.ts parses LITERAL px from this rule,
+   so its sizes are written as numbers, never as var(--hit-primary). The label is centred
+   with flex, not line-height: the font shorthand resets line-height, and a label that
+   wraps on a narrow handset must stay inside the button. */
+a.call { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; column-gap: 0.3em; min-height: 52px; min-width: 44px; padding: 8px 16px; text-align: center; font: var(--text-subheading); background: var(--action-primary-bg); color: var(--action-primary-fg); border-radius: var(--radius-md); text-decoration: none; transition: var(--transition-control); }
+a.call:hover { background: var(--action-primary-bg-hover); color: var(--action-primary-fg); }
+a.call:active { background: var(--action-primary-bg-active); }
+a.call .phone { font: var(--text-phone); }
 
-.snapshot-banner { font-weight: bold; border: 2px solid; padding: 8px; }
+body { min-width: 0; }
+
+/* 1. The emergency strip: the single high-contrast object on the page. */
+#emergency-strip {
+  background: var(--ob-emergency-bg);
+  color: var(--ob-emergency-fg);
+  text-align: center;
+  padding: 0 var(--gutter-page);
+  font: var(--text-body-md);
+}
+#emergency-strip a {
+  display: inline-block;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-2);
+  color: var(--ob-emergency-fg);
+  font: var(--text-phone);
+  line-height: 44px; /* after the font shorthand, which would reset it */
+  text-underline-offset: 3px;
+}
+#emergency-strip a:focus-visible { outline-color: var(--ob-emergency-fg); }
+
+/* 2. The indicative banner. Persistent, never dismissible. */
+#indicative-banner {
+  background: var(--surface-accent-soft);
+  color: var(--ob-navy-800);
+  border-bottom: var(--border-width) solid var(--ob-navy-100);
+  text-align: center;
+  padding: var(--space-2) var(--gutter-page);
+  font: var(--text-body-md);
+}
+
+/* 3. The header: the mark at 28 px and the live-text lockup. */
+.site-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--surface-card);
+  border-bottom: var(--border-width) solid var(--border-default);
+  padding: var(--space-3) var(--gutter-page);
+}
+.site-header .mark { display: block; width: 28px; height: 28px; }
+.lockup { font: 700 20px/1 var(--font-sans); letter-spacing: -0.02em; }
+.lockup-open { color: var(--ob-navy-700); }
+.lockup-bed { color: var(--ob-teal-600); }
+
+/* 4 and 5. The snapshot banner and the tiles, in one column of at most 960 px. */
+main#app {
+  display: grid;
+  gap: var(--space-4);
+  max-width: var(--measure-app);
+  margin: 0 auto;
+  padding: var(--space-4) var(--gutter-page);
+}
+
+/* The empty, outage and snapshot-stale states are a Notice: a sunken panel with a
+   3 px left accent. The words are unchanged, and the snapshot banner keeps role=status. */
+.empty-state,
+.outage-state,
+.snapshot-banner {
+  margin: 0;
+  background: var(--surface-sunken);
+  border-left: var(--border-accent-width) solid var(--ob-navy-500);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  color: var(--text-strong);
+  font: var(--text-body-md);
+  max-width: var(--measure-content);
+}
+
+/* A facility tile: white, a 1 px border, 6 px radius, no shadow. */
+section.facility {
+  display: grid;
+  gap: var(--space-3);
+  background: var(--surface-card);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+section.facility h2 { margin: 0; font: var(--text-heading); color: var(--text-strong); }
+section.facility ul { list-style: none; margin: 0; padding: 0; }
+
+/* A ward row. The li holds the whole sentence; the spans only style pieces of it. */
+section.facility li {
+  border-top: var(--border-width) solid var(--border-hairline);
+  padding: var(--space-3) 0;
+  font: var(--text-body-md);
+  color: var(--text-body);
+}
+.ward-category { font: var(--text-subheading); color: var(--text-strong); }
+.ward-words { color: var(--ob-status-unknown); }
+
+/* The count badge. A status fill only while the claim is fresh (band GREEN): Available
+   is accepting with a count above 0, Full is not accepting or 0. Every other case is the
+   not-reporting fill. "Limited" is not used: no threshold for it has been ruled. */
+.badge {
+  display: inline-block;
+  font: var(--text-count-lg);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid;
+  border-radius: var(--radius-md);
+  vertical-align: middle;
+}
+.status-available { background: var(--ob-status-available-bg); border-color: var(--ob-status-available-line); color: var(--ob-status-available); }
+.status-full { background: var(--ob-status-full-bg); border-color: var(--ob-status-full-line); color: var(--ob-status-full); }
+.status-unknown { background: var(--ob-status-unknown-bg); border-color: var(--ob-status-unknown-line); color: var(--ob-status-unknown); }
+
+/* The age stamp takes its band's colour. The dot is static, and only on a fresh row. */
+.stamp { font: var(--text-stamp); }
+.stamp-green { color: var(--ob-fresh-green); }
+.stamp-yellow { color: var(--ob-fresh-yellow); }
+.stamp-grey { color: var(--ob-fresh-grey); }
+.stamp-green::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--space-1);
+  border-radius: var(--radius-chip);
+  background: var(--ob-fresh-green);
+  vertical-align: middle;
+}
+
+/* 6. The footer: the general-enquiries address, and nothing else. */
+#site-footer {
+  max-width: var(--measure-app);
+  margin: 0 auto;
+  padding: var(--space-4) var(--gutter-page) var(--space-8);
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+#site-footer a { display: inline-block; min-height: 44px; line-height: 44px; }
+
+@media (min-width: 720px) {
+  #emergency-strip,
+  #indicative-banner,
+  .site-header { padding-left: var(--gutter-page-wide); padding-right: var(--gutter-page-wide); }
+  main#app { padding: var(--space-6) var(--gutter-page-wide); }
+  #site-footer { padding-left: var(--gutter-page-wide); padding-right: var(--gutter-page-wide); }
+}

@@ -2,8 +2,12 @@ import { describe, expect, test } from 'vitest';
 import { runLint, withScratch, place, REPO_ROOT } from './_scratch.js';
 import { deployableApps, appsWithFunctions, outputDirOf } from './_apps.js';
 import { PLANT_SB_SECRET, PLANT_SERVICE_ROLE_JWT, PLANT_JWT, NOT_A_CREDENTIAL_PREFIX } from './_plants.js';
+import {
+  appliedViolations, appSource, builtCss, designSource, FONT_HOSTS, fontHostViolations, hasViewport,
+  indexHtml, inlineStyleViolations, TOKEN, VIEWPORT_CONTENT, type BuiltCss,
+} from './_design.js';
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync } from 'node:fs';
+import { chmodSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -793,6 +797,181 @@ describe('lint_no_third_party_fonts.sh', () => {
       const res = runLint(LINT, root);
       expect(res.status, res.stdout).toBe(2);
       expect(res.stdout).toContain('names no pages_build_output_dir, so its built output cannot be found');
+    });
+  });
+});
+
+/**
+ * THE DESIGN IS APPLIED (the design-pass kickoff, D1; the helpers and their reasons are
+ * in tests/compliance/_design.ts).
+ *
+ * Each app's state is CLASSIFIED below, and the classification is compared with the
+ * derived app set by identity, so a new app cannot slip past unclassified. A guard is
+ * either REAL for an app, or PENDING until the PR that applies the design to it:
+ *
+ *   PENDING (R-2026-09-26-125 DA-1). Not test.todo, which the attestation counts as
+ *   skipped, and not test.fails, which passes whenever the body throws for ANY reason
+ *   (a wrong path, a missing dist) while claiming the app still fails the guard. A
+ *   PENDING leg is a plain test asserting the app's CURRENT, specific state -- "has no
+ *   viewport meta" -- so it passes for the one reason it names, goes red the moment
+ *   D2 or D3 fixes the app, and its message says to replace it with the real guard in
+ *   that PR. A missing file or build output makes it ERROR, never pass (DA-2).
+ *
+ * The no-inline-style and no-Google-font-host guards are REAL for all three apps
+ * already: all three pass today.
+ */
+type DesignState = 'real' | 'pending D2' | 'pending D3';
+const DESIGN_STATE: Record<string, { viewport: DesignState; applied: DesignState }> = {
+  'public-dashboard': { viewport: 'real', applied: 'real' },
+  'ward-console': { viewport: 'pending D2', applied: 'pending D2' },
+  admin: { viewport: 'real', applied: 'pending D3' },
+};
+const FLIP = (pr: string): string =>
+  `this app now meets the guard — replace this leg with the real guard in this PR (${pr}; R-2026-09-26-125 DA)`;
+
+/** A pending viewport leg's verdict: null while the app still lacks it, the flip message once it has it. */
+export function pendingViewport(html: string, pr: string): string | null {
+  return hasViewport(html) ? FLIP(pr) : null;
+}
+
+/** A pending applied leg's verdict: null while the built CSS carries neither the token nor a font-face. */
+export function pendingApplied(css: BuiltCss, pr: string): string | null {
+  const anyToken = css.files.some((f) => f.text.includes(TOKEN));
+  const anyFace = css.files.some((f) => /@font-face/.test(f.text));
+  return anyToken || anyFace ? FLIP(pr) : null;
+}
+
+describe('the design is applied, and stays applied', () => {
+  const apps = deployableApps();
+
+  test('anti-vacuity — the guard sees apps, and every app is classified by identity', () => {
+    expect(apps.length, 'no deployable app found: a design guard over no app is not a pass').toBeGreaterThan(0);
+    expect(deployableApps(join(REPO_ROOT, 'tests')), 'the app discovery found apps where there are none').toEqual([]);
+    expect(Object.keys(DESIGN_STATE).sort(), 'an app is not classified as real or pending for the design guards').toEqual(apps);
+  });
+
+  for (const app of Object.keys(DESIGN_STATE).sort()) {
+    const state = DESIGN_STATE[app] as { viewport: DesignState; applied: DesignState };
+    if (state.viewport === 'real') {
+      test(`real apps/${app}/index.html has the viewport meta`, () => {
+        expect(hasViewport(indexHtml(app, REPO_ROOT)), `apps/${app}/index.html has no <meta name="viewport" content="${VIEWPORT_CONTENT}">`).toBe(true);
+      });
+    } else {
+      const pr = state.viewport.replace('pending ', '');
+      test(`PENDING ${pr}: apps/${app}/index.html has no viewport meta`, () => {
+        const verdict = pendingViewport(indexHtml(app, REPO_ROOT), pr);
+        expect(verdict, verdict ?? '').toBeNull();
+      });
+    }
+    if (state.applied === 'real') {
+      test(`real apps/${app} build carries the design tokens and self-hosted woff2 fonts`, () => {
+        const out = appliedViolations(builtCss(app, REPO_ROOT));
+        expect(out, out.join('\n')).toEqual([]);
+      });
+    } else {
+      const pr = state.applied.replace('pending ', '');
+      test(`PENDING ${pr}: apps/${app}'s built CSS carries neither ${TOKEN} nor an @font-face`, () => {
+        const verdict = pendingApplied(builtCss(app, REPO_ROOT), pr);
+        expect(verdict, verdict ?? '').toBeNull();
+      });
+    }
+  }
+
+  test('real — no app source carries an inline style (style=, .style, setAttribute(\'style\'))', () => {
+    const files = apps.flatMap((a) => appSource(a, REPO_ROOT));
+    for (const a of apps) expect(files, `apps/${a}/index.html is not in the corpus`).toContain(join(REPO_ROOT, 'apps', a, 'index.html'));
+    expect(files.filter((f) => f.endsWith('.ts')).length, 'no .ts source found: the corpus is empty').toBeGreaterThan(0);
+    const out = files.flatMap((f) => inlineStyleViolations(f.replace(`${REPO_ROOT}/`, ''), readFileSync(f, 'utf8')));
+    expect(out, out.join('\n')).toEqual([]);
+  });
+
+  test('real — no Google font host in any app\'s source or in packages/design', () => {
+    const design = designSource(REPO_ROOT);
+    for (const f of ['tokens.css', 'fonts.css', 'openbed-mark.svg', 'package.json']) {
+      expect(design, `packages/design/${f} is not in the corpus`).toContain(join(REPO_ROOT, 'packages', 'design', f));
+    }
+    const files = [...apps.flatMap((a) => appSource(a, REPO_ROOT)), ...design];
+    const out = files.flatMap((f) => fontHostViolations(f.replace(`${REPO_ROOT}/`, ''), readFileSync(f, 'utf8')));
+    expect(out, out.join('\n')).toEqual([]);
+  });
+
+  test.each([
+    ['no viewport at all', '<head><title>x</title></head>'],
+    ['a viewport only inside a comment', '<!-- <meta name="viewport" content="width=device-width, initial-scale=1"> -->'],
+    ['a viewport with another content', '<meta name="viewport" content="width=1024">'],
+  ])('plant — viewport: %s is rejected', (_name, html) => {
+    expect(hasViewport(html)).toBe(false);
+  });
+
+  test("the most ordinary viewport is accepted, in either quote style and admin's spacing", () => {
+    expect(hasViewport('<meta name="viewport" content="width=device-width, initial-scale=1" />')).toBe(true);
+    expect(hasViewport("<meta content='width=device-width,initial-scale=1' name='viewport'>")).toBe(true);
+  });
+
+  test.each([
+    ['no CSS at all', [], 'the build holds no CSS file at all'],
+    ['CSS without the token', [{ name: 'a.css', text: '@font-face{font-family:x;src:url(/assets/f.woff2) format("woff2")}' }], `no built CSS file carries the design token ${TOKEN}`],
+    ['the token without a font-face', [{ name: 'a.css', text: `:root{${TOKEN}:#1b3a5c}` }], 'no built CSS file holds an @font-face'],
+    ['a font-face from another origin', [{ name: 'a.css', text: `:root{${TOKEN}:#1b3a5c}@font-face{src:url(https://fonts.example.com/f.woff2)}` }], 'an @font-face src is not same-origin: https://fonts.example.com/f.woff2'],
+    ['a protocol-relative font-face', [{ name: 'a.css', text: `:root{${TOKEN}:#1b3a5c}@font-face{src:url(//cdn.example.com/f.woff2)}` }], 'an @font-face src is not same-origin: //cdn.example.com/f.woff2'],
+    ['a data: font-face', [{ name: 'a.css', text: `:root{${TOKEN}:#1b3a5c}@font-face{src:url(data:font/woff2;base64,AAAA)}` }], 'an @font-face src is not same-origin: data:font/woff2;base64,AAAA'],
+    ['a woff, not a woff2', [{ name: 'a.css', text: `:root{${TOKEN}:#1b3a5c}@font-face{src:url(/assets/f.woff)}` }], 'an @font-face src is not a woff2: /assets/f.woff'],
+    ['a font-face naming a file the build lacks', [{ name: 'a.css', text: `:root{${TOKEN}:#1b3a5c}@font-face{src:url('/assets/missing.woff2') format('woff2')}` }], 'an @font-face src names a file the build does not hold'],
+  ])('plant — applied: %s is rejected', (_name, files, message) => {
+    withScratch((root) => {
+      place(root, 'dist/assets/f.woff2', 'x');
+      const css: BuiltCss = { dist: join(root, 'dist'), files: (files as { name: string; text: string }[]).map((f) => ({ path: join(root, 'dist', 'assets', f.name), text: f.text })) };
+      expect(appliedViolations(css).join('\n')).toContain(message);
+    });
+  });
+
+  test('the most ordinary applied build is accepted', () => {
+    withScratch((root) => {
+      place(root, 'dist/assets/f.woff2', 'x');
+      const css: BuiltCss = { dist: join(root, 'dist'), files: [{ path: join(root, 'dist', 'assets', 'i.css'), text: `:root{${TOKEN}:#1b3a5c}@font-face{font-family:'Public Sans';src:url('/assets/f.woff2') format('woff2')}` }] };
+      expect(appliedViolations(css)).toEqual([]);
+    });
+  });
+
+  test.each([
+    ['index.html', '<div style="color:red">x</div>', 'a style= attribute'],
+    ['main.ts', "el.style.color = 'red';", 'a .style access'],
+    ['main.ts', "el['style'].color = 'red';", "a ['style'] access"],
+    ['main.ts', "el.setAttribute('style', 'color:red');", "setAttribute('style', ...)"],
+    ['main.ts', "root.innerHTML = '<p style=\"color:red\">x</p>';", 'markup with a style= attribute'],
+    ['main.ts', 'root.innerHTML = `<p style="color:${c}">x</p>`;', 'markup with a style= attribute'],
+  ])('plant — inline style in %s: %s is rejected', (file, text, message) => {
+    expect(inlineStyleViolations(file, text).join('\n')).toContain(message);
+  });
+
+  test('an ordinary module is accepted: a stylesheet import, a class name, and the word style in a comment', () => {
+    expect(inlineStyleViolations('main.ts', "import './style.css';\n// style= is set nowhere\nel.className = 'call';")).toEqual([]);
+  });
+
+  test.each(FONT_HOSTS)('plant — the font host %s in source is rejected', (host) => {
+    expect(fontHostViolations('fonts.css', `@import url("https://${host}/css2?family=X");`).join('\n')).toContain(`names ${host}`);
+  });
+
+  test('DA-2 — each PENDING leg fails with its flip message once its app meets the guard', () => {
+    expect(pendingViewport('<meta name="viewport" content="width=device-width, initial-scale=1">', 'D2')).toBe(FLIP('D2'));
+    expect(pendingViewport('<head></head>', 'D2')).toBeNull();
+    withScratch((root) => {
+      const dist = join(root, 'dist');
+      const withToken: BuiltCss = { dist, files: [{ path: join(dist, 'a.css'), text: `:root{${TOKEN}:#1b3a5c}` }] };
+      const withFace: BuiltCss = { dist, files: [{ path: join(dist, 'a.css'), text: "@font-face{src:url('/f.woff2')}" }] };
+      const bare: BuiltCss = { dist, files: [{ path: join(dist, 'a.css'), text: 'button{min-height:44px}' }] };
+      expect(pendingApplied(withToken, 'D3')).toBe(FLIP('D3'));
+      expect(pendingApplied(withFace, 'D3')).toBe(FLIP('D3'));
+      expect(pendingApplied(bare, 'D3')).toBeNull();
+      expect(pendingApplied({ dist, files: [] }, 'D2')).toBeNull();
+    });
+  });
+
+  test('DA-2 — a missing index.html or build output makes a leg ERROR, never pass', () => {
+    withScratch((root) => {
+      place(root, 'apps/zz-app/wrangler.toml', 'name = "zz"\npages_build_output_dir = "./dist"\n');
+      expect(() => indexHtml('zz-app', root)).toThrow('index.html is missing');
+      expect(() => builtCss('zz-app', root)).toThrow('has no built output');
     });
   });
 });

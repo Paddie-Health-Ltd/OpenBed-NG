@@ -63,43 +63,90 @@ export interface WardLine {
   readonly tone: 'fresh' | 'aged' | 'none' | 'not-reporting' | 'not-offered' | 'unknown';
 }
 
-/** The whole line for one ward: its claim, and how old that claim is. */
-export function wardLine(ward: DecodedRow, clock: ServeClock): WardLine {
+/**
+ * ONE PIECE OF A WARD LINE, FOR STYLING ONLY (the design pass, D1). The renderer wraps
+ * each piece that has a `role` in a span and appends the rest as plain text, so the
+ * row's textContent is the pieces joined -- which is wardLine(...).text, because
+ * wardLine is built from these same pieces. Nothing here adds a word.
+ */
+export interface WardLineSegment {
+  readonly text: string;
+  readonly role?: 'category' | 'badge' | 'words' | 'stamp';
+}
+
+/**
+ * THE COLOUR RULE (the design-pass kickoff, D1, "Cowork's call"). A count badge takes a
+ * status fill only while its claim is FRESH (band GREEN): a green badge on a stale count
+ * reads as "go". Available is accepting with a count above 0; Full is not accepting, or
+ * 0. Everything else -- YELLOW, GREY, SUPPRESSED, an unknown age, a null count, and every
+ * state that is not a claim -- is `unknown`. "Limited" is never used: no threshold for it
+ * has been ruled. The words carry everything; colour is never the only signal.
+ */
+export type WardStatus = 'available' | 'full' | 'unknown';
+
+export interface WardLineParts {
+  readonly tone: WardLine['tone'];
+  /** The freshness band, or null when there is no age to band (not a claim, or age unknown). */
+  readonly band: 'GREEN' | 'YELLOW' | 'GREY' | 'SUPPRESSED' | null;
+  readonly status: WardStatus;
+  readonly segments: readonly WardLineSegment[];
+}
+
+/** The whole line for one ward, in pieces: its claim, and how old that claim is. */
+export function wardLineParts(ward: DecodedRow, clock: ServeClock): WardLineParts {
   const category = categoryLabel(ward['category']);
+  const head: WardLineSegment[] = [{ text: category, role: 'category' }, { text: ': ' }];
   const p = precedence({
     monitoring_state: ward['monitoring_state'],
     offering: ward['offering'],
     source: ward['source'],
     state: ward['state'],
   });
-  if (p.kind === 'unknown') return { text: `${category}: ${p.words}`, tone: 'unknown' };
-  if (p.kind === 'not-reporting') return { text: `${category}: ${p.words}`, tone: 'not-reporting' };
-  if (p.kind === 'not-offered') return { text: `${category}: ${p.words}`, tone: 'not-offered' };
+  if (p.kind === 'unknown' || p.kind === 'not-reporting' || p.kind === 'not-offered') {
+    return { tone: p.kind, band: null, status: 'unknown', segments: [...head, { text: p.words, role: 'words' }] };
+  }
 
   const bedCount = ward['bed_count'];
-  const beds = bedCount === null ? 'not yet reporting' : `${String(bedCount)} beds`;
   const open = ward['accepting_effective'] === true;
   const reason = ward['gated_by'];
-  const claim = `${category}: ${beds}${open ? '' : ' — not accepting'}${reason === null || reason === undefined ? '' : ` (${reasonLabel(reason)})`}${p.qualifiers}`;
+  const count: WardLineSegment =
+    bedCount === null ? { text: 'not yet reporting', role: 'words' } : { text: `${String(bedCount)} beds`, role: 'badge' };
+  const rest = `${open ? '' : ' — not accepting'}${reason === null || reason === undefined ? '' : ` (${reasonLabel(reason)})`}${p.qualifiers}`;
+  const claim: WardLineSegment[] = rest === '' ? [...head, count] : [...head, count, { text: rest }];
+  const aged = (band: WardLineParts['band'], tone: WardLine['tone'], stamp: string, status: WardStatus = 'unknown'): WardLineParts => ({
+    tone,
+    band,
+    status,
+    segments: [...claim, { text: ' — ' }, { text: stamp, role: 'stamp' }],
+  });
 
   const updatedAt = typeof ward['updated_at'] === 'string' ? ward['updated_at'] : '';
   if (clock.servedAt === null || Number.isNaN(Date.parse(clock.servedAt)) || Number.isNaN(Date.parse(updatedAt))) {
-    return { text: `${claim} — age unknown — call to confirm`, tone: 'unknown' };
+    return aged(null, 'unknown', 'age unknown — call to confirm');
   }
 
   const f = freshnessBand(updatedAt, clock.servedAt, clock.elapsedMs);
   switch (f.band) {
-    case 'GREEN':
-      return { text: `${claim} — updated ${relative(f.ageMinutes)} ago`, tone: 'fresh' };
+    case 'GREEN': {
+      const status: WardStatus =
+        typeof bedCount !== 'number' ? 'unknown' : open && bedCount > 0 ? 'available' : 'full';
+      return aged('GREEN', 'fresh', `updated ${relative(f.ageMinutes)} ago`, status);
+    }
     case 'YELLOW':
-      return { text: `${claim} — last reported ${relative(f.ageMinutes)} ago — call to confirm`, tone: 'aged' };
+      return aged('YELLOW', 'aged', `last reported ${relative(f.ageMinutes)} ago — call to confirm`);
     case 'GREY':
-      return { text: `${claim} — last reported at ${lagosTime(updatedAt)} — call to confirm`, tone: 'aged' };
+      return aged('GREY', 'aged', `last reported at ${lagosTime(updatedAt)} — call to confirm`);
     case 'SUPPRESSED':
       // No count, no reported time, no reason: past the ceiling nothing about the
       // old claim is shown. The facility heading and its call link stay.
-      return { text: `${category}: ${UNKNOWN_STATUS}`, tone: 'none' };
+      return { tone: 'none', band: 'SUPPRESSED', status: 'unknown', segments: [...head, { text: UNKNOWN_STATUS, role: 'words' }] };
   }
+}
+
+/** The whole line for one ward as one string: the pieces above, joined. */
+export function wardLine(ward: DecodedRow, clock: ServeClock): WardLine {
+  const parts = wardLineParts(ward, clock);
+  return { text: parts.segments.map((s) => s.text).join(''), tone: parts.tone };
 }
 
 /** The page-level warning, or null when the snapshot is recent. Unknown age is a warning. */

@@ -1,0 +1,202 @@
+/* The OpenBed design system's tokens (the design pass, D1). Each section below is its
+   source file copied byte for byte, in the order of the design system's styles.css,
+   under a header naming the file and its sha256; tests/compliance/design_package.test.ts
+   re-hashes every section against its header, so a hand edit reds. The source's
+   fonts.css is NOT copied: it @imports Google Fonts, which BC-6 forbids, and
+   packages/design/fonts.css self-hosts the same two typefaces instead. To change a
+   token, re-copy the file from the design system and record the new sha256 in the
+   decision record. */
+
+/* ---- tokens/colors.css (sha256 f4eace8408c7e822547090ec45900f603f8087a12c04c1866d14128cc267a6c8) ---- */
+:root{
+  /* ---- Brand: institutional navy + muted teal. Never used to signal bed status. ---- */
+  --ob-navy-900:#12283f;
+  --ob-navy-800:#16314d;
+  --ob-navy-700:#1b3a5c;   /* brand primary */
+  --ob-navy-500:#2d5680;
+  --ob-navy-300:#8fa6bd;
+  --ob-navy-100:#dde5ee;
+  --ob-navy-050:#eef3f8;
+  --ob-teal-800:#1f6b67;
+  --ob-teal-600:#2f8f8a;   /* brand secondary */
+  --ob-teal-300:#8fc4c1;
+  --ob-teal-100:#dbebea;
+
+  /* ---- Neutrals: cool, paper-like, official ---- */
+  --ob-ink-900:#14181c;
+  --ob-ink-700:#333d47;
+  --ob-ink-500:#5a6672;
+  --ob-ink-400:#78838f;
+  --ob-line-strong:#b9c3cc;
+  --ob-line:#d7dde3;
+  --ob-line-soft:#e7ebef;
+  --ob-white:#ffffff;
+  --ob-paper:#f4f6f8;
+  --ob-paper-sunken:#eaeef2;
+
+  /* ---- Bed status: a separate, deliberately desaturated functional system ---- */
+  /* Darkened from the brand sheet's #3f7d58 / #a5741f so label text clears WCAG AA
+     on its own fill (4.21:1 and 3.49:1 before, 4.5:1+ after). Hue is unchanged and
+     separation from Full holds under deuteranopia/protanopia and a dim-screen model. */
+  --ob-status-available:#3c7653;
+  --ob-status-available-bg:#e7f0e9;
+  --ob-status-available-line:#bcd5c6;
+  --ob-status-limited:#8b621a;
+  --ob-status-limited-bg:#f5ecd9;
+  --ob-status-limited-line:#ddc9a0;
+  --ob-status-full:#a4423a;
+  --ob-status-full-bg:#f5e3e1;
+  --ob-status-full-line:#e3c0bc;
+  --ob-status-unknown:#5a6672;
+  --ob-status-unknown-bg:#eceff2;
+  --ob-status-unknown-line:#ced6dd;
+
+  /* ---- Freshness bands (packages/snapshot/src/freshness.ts) ---- */
+  --ob-fresh-green:var(--ob-status-available);
+  --ob-fresh-yellow:var(--ob-status-limited);
+  --ob-fresh-grey:var(--ob-ink-500);
+  --ob-fresh-suppressed:var(--ob-ink-500);
+
+  /* ---- Emergency: the permanent 112 / 767 strip. Highest-contrast object on the page. ---- */
+  --ob-emergency-bg:#2b1512;
+  --ob-emergency-fg:#ffffff;
+  --ob-emergency-accent:#e0a49d;
+
+  /* ================= Semantic aliases ================= */
+  --text-strong:var(--ob-ink-900);
+  --text-body:var(--ob-ink-700);
+  --text-muted:var(--ob-ink-500);
+  --text-faint:var(--ob-ink-400);
+  --text-on-dark:var(--ob-white);
+  --text-on-dark-muted:#b6c5d4;
+  --text-link:var(--ob-navy-700);
+  --text-link-hover:var(--ob-teal-800);
+
+  --surface-page:var(--ob-paper);
+  --surface-card:var(--ob-white);
+  --surface-sunken:var(--ob-paper-sunken);
+  --surface-inverse:var(--ob-navy-700);
+  --surface-inverse-deep:var(--ob-navy-900);
+  --surface-accent-soft:var(--ob-navy-050);
+
+  --border-hairline:var(--ob-line-soft);
+  --border-default:var(--ob-line);
+  --border-strong:var(--ob-line-strong);
+  --border-inverse:#2f5578;
+
+  --action-primary-bg:var(--ob-navy-700);
+  --action-primary-bg-hover:var(--ob-navy-800);
+  --action-primary-bg-active:var(--ob-navy-900);
+  --action-primary-fg:var(--ob-white);
+  --action-secondary-bg:var(--ob-white);
+  --action-secondary-fg:var(--ob-navy-700);
+  --action-secondary-border:var(--ob-line-strong);
+  --action-secondary-bg-hover:var(--ob-navy-050);
+  --action-quiet-fg:var(--ob-ink-700);
+  --focus-ring:var(--ob-teal-600);
+}
+
+/* ---- tokens/typography.css (sha256 066c39948bcc139779ce6e20197f1b1e893df9b41daca908c02c96c7455f0430) ---- */
+:root{
+  --font-sans:"Public Sans","Helvetica Neue",Arial,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+
+  /* Public Sans carries headlines and all UI text. */
+  --text-display:700 34px/1.15 var(--font-sans);
+  --text-title:600 24px/1.25 var(--font-sans);
+  --text-heading:600 18px/1.3 var(--font-sans);
+  --text-subheading:600 15px/1.35 var(--font-sans);
+  --text-body-lg:400 17px/1.55 var(--font-sans);
+  --text-body-md:400 15px/1.55 var(--font-sans);
+  --text-body-sm:400 13px/1.5 var(--font-sans);
+  --text-label:600 13px/1.3 var(--font-sans);
+
+  /* IBM Plex Mono carries every number the system asserts: bed counts,
+     timestamps, phone numbers, category codes. */
+  --text-count-xl:600 40px/1 var(--font-mono);
+  --text-count-lg:600 28px/1 var(--font-mono);
+  --text-count-md:500 18px/1.2 var(--font-mono);
+  --text-stamp:400 12px/1.4 var(--font-mono);
+  --text-phone:500 16px/1.2 var(--font-mono);
+
+  --tracking-caps:0.08em;
+  --tracking-tight:-0.01em;
+
+  /* Category and status labels are set in caps with mono tracking. */
+  --text-eyebrow:600 11px/1.2 var(--font-mono);
+}
+
+/* ---- tokens/spacing.css (sha256 2cf2ffddbaf9dafb2d55d0c9e844bdaf78bd374ad94e673cf28f19875467e65e) ---- */
+:root{
+  --space-1:4px;
+  --space-2:8px;
+  --space-3:12px;
+  --space-4:16px;
+  --space-5:20px;
+  --space-6:24px;
+  --space-8:32px;
+  --space-10:40px;
+  --space-12:48px;
+  --space-16:64px;
+
+  --gutter-page:16px;
+  --gutter-page-wide:24px;
+  --measure-content:680px;
+  --measure-app:960px;
+
+  /* Touch targets. The call button is the primary action on every tile and is
+     never smaller than this. */
+  --hit-min:44px;
+  --hit-primary:52px;
+}
+
+/* ---- tokens/surfaces.css (sha256 a31ddef7c358099de54aef5207490e042e6ce0b612b41229ca644ddcb56dbeaa) ---- */
+:root{
+  /* Squared-off institutional geometry. Nothing is pill-shaped except chips. */
+  --radius-none:0px;
+  --radius-sm:2px;
+  --radius-md:4px;
+  --radius-lg:6px;
+  --radius-chip:999px;
+
+  --border-width:1px;
+  --border-width-strong:2px;
+  /* The status accent on a tile is a left rule on a bordered card, not a bare
+     coloured edge floating on paper. */
+  --border-accent-width:3px;
+
+  /* Shadows are rare. A card is defined by its border; elevation appears only
+     on things that genuinely float (sticky bars, menus). */
+  --shadow-none:none;
+  --shadow-sticky:0 1px 0 rgba(20,24,28,.08);
+  --shadow-raised:0 1px 2px rgba(20,24,28,.10),0 2px 8px rgba(20,24,28,.06);
+  --shadow-overlay:0 8px 28px rgba(18,40,63,.18);
+  --shadow-inset-top:inset 0 1px 0 rgba(255,255,255,.06);
+
+  --focus-ring-width:2px;
+  --focus-ring-offset:2px;
+}
+
+/* ---- tokens/motion.css (sha256 e4979114e041e614bf05461f1a633f0ab6e3f2fa8786d984992f68c4f2a6cad4) ---- */
+:root{
+  /* Short, flat, unshowy. Nothing bounces; nothing pulses except the live dot,
+     and that only when a snapshot is genuinely current. */
+  --duration-instant:80ms; /* @kind other */
+  --duration-fast:120ms; /* @kind other */
+  --duration-base:180ms; /* @kind other */
+  --duration-slow:320ms; /* @kind other */
+  --ease-standard:cubic-bezier(.2,0,.2,1); /* @kind other */
+  --ease-out:cubic-bezier(0,0,.2,1); /* @kind other */
+  --transition-control:background-color var(--duration-fast) var(--ease-standard),border-color var(--duration-fast) var(--ease-standard),color var(--duration-fast) var(--ease-standard);
+  --press-scale:0.995; /* @kind other */
+}
+@media (prefers-reduced-motion:reduce){
+  :root{--duration-instant:0ms; /* @kind other */ --duration-fast:0ms; /* @kind other */ --duration-base:0ms; /* @kind other */ --duration-slow:0ms; /* @kind other */}
+}
+
+/* ---- tokens/base.css (sha256 af85fa2eb2be8a89d0def18247aa9292df3333a873cbfb7139fe10b20ebbd533) ---- */
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;font:var(--text-body-md);color:var(--text-body);background:var(--surface-page);-webkit-font-smoothing:antialiased}
+a{color:var(--text-link);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px}
+a:hover{color:var(--text-link-hover)}
+:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:var(--focus-ring-offset)}

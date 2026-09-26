@@ -9,7 +9,12 @@ import {
   type DecodedRow,
   type FetchMark,
 } from '@openbed/snapshot';
-import { snapshotBanner, wardLine, type ServeClock } from './age-view.js';
+import { HELLO_EMAIL } from '@openbed/origins/contacts';
+import { snapshotBanner, wardLineParts, type ServeClock, type WardLineParts } from './age-view.js';
+// The design system's tokens and self-hosted fonts first, then this app's own rules
+// (the design pass, D1). Vite emits all three as same-origin assets.
+import '@openbed/design/tokens.css';
+import '@openbed/design/fonts.css';
 import './style.css';
 
 /**
@@ -228,6 +233,48 @@ export function callableIdentity(facility: DecodedRow | undefined): CallableIden
   return { name: name.trim(), phone: phone.trim() };
 }
 
+/**
+ * ONE WARD ROW, IN PIECES (the design pass, D1). Its textContent is EXACTLY
+ * wardLine(ward, clock).text: every piece is appended in order, a piece with a role
+ * inside a span, the rest as plain text, and nothing is added between them
+ * (tests/compliance/dashboard_ward_row_identity.test.ts). The li keeps exactly one
+ * class, `age-<tone>`; the styling hooks sit on the spans. No class name carries a
+ * digit, because a suppressed row's markup must hold none (dashboard_age.test.ts).
+ */
+function renderWardLine(item: HTMLLIElement, parts: WardLineParts): void {
+  item.className = `age-${parts.tone}`;
+  for (const segment of parts.segments) {
+    if (segment.role === undefined) {
+      item.append(segment.text);
+      continue;
+    }
+    const span = document.createElement('span');
+    if (segment.role === 'category') span.className = 'ward-category';
+    else if (segment.role === 'badge') span.className = `badge status-${parts.status}`;
+    else if (segment.role === 'words') span.className = 'ward-words';
+    else span.className = `stamp stamp-${stampClass(parts.band)}`;
+    span.textContent = segment.text;
+    item.append(span);
+  }
+}
+
+/** The stamp takes its band's colour; an unknown age is grey, never green. */
+function stampClass(band: WardLineParts['band']): 'green' | 'yellow' | 'grey' {
+  if (band === 'GREEN') return 'green';
+  if (band === 'YELLOW') return 'yellow';
+  return 'grey';
+}
+
+/** The footer: the general-enquiries address, and nothing else (the design pass, D1). */
+function renderFooter(): void {
+  const footer = document.getElementById('site-footer');
+  if (!footer) return;
+  const mail = document.createElement('a');
+  mail.href = `mailto:${HELLO_EMAIL}`;
+  mail.textContent = HELLO_EMAIL;
+  footer.replaceChildren(mail);
+}
+
 function renderReal(root: HTMLElement, snapshot: Snapshot): void {
   const { facilities, wards } = snapshot;
   const clock: ServeClock = { servedAt: snapshot.servedAt, elapsedMs: elapsedSince(snapshot.mark) };
@@ -275,14 +322,17 @@ function renderReal(root: HTMLElement, snapshot: Snapshot): void {
     const call = document.createElement('a');
     call.className = 'call';
     call.href = `tel:${identity.phone}`;
-    call.textContent = `Call to confirm beds: ${identity.phone}`;
+    // The same words as before the design pass; the number sits in a span so it can be
+    // set in mono. The link's textContent is unchanged.
+    const phone = document.createElement('span');
+    phone.className = 'phone';
+    phone.textContent = identity.phone;
+    call.append('Call to confirm beds: ', phone);
 
     const list = document.createElement('ul');
     for (const ward of facilityWards) {
-      const line = wardLine(ward, clock);
       const item = document.createElement('li');
-      item.className = `age-${line.tone}`;
-      item.textContent = line.text;
+      renderWardLine(item, wardLineParts(ward, clock));
       list.appendChild(item);
     }
 
@@ -347,4 +397,5 @@ export async function render(): Promise<void> {
   }, POLL_MS);
 }
 
+renderFooter();
 void render();

@@ -940,6 +940,22 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    Cloudflare Web Analytics' injected beacon would now be caught. Read-back 7 is in the
    script too (above).
 
+   **Also in the script, from the design pass's D1** (R-2026-09-26-124; the favicon by
+   R-2026-09-26-122 CX-3):
+   - `/favicon.ico` on the deployment URL AND on `openbed.ng` must equal this
+     checkout's `apps/public-dashboard/public/favicon.ico` byte for byte, and its
+     content-type must not be `text/html`. Until D1 that path was answered by the SPA
+     fallback with `200 text/html`.
+   - the stylesheet the page links, and the first woff2 font it names, which must be
+     served as exactly `font/woff2`. A font served as anything else fails silently
+     under `X-Content-Type-Options: nosniff`.
+
+   Their first run against hosted is the first dashboard deploy after D1 merges.
+   **The browser check after that deploy** (the kickoff's D1, in a fresh private
+   window with DevTools open): the console shows no error and no CSP violation, and
+   the Network tab, filtered to `woff2`, shows the fonts loading from `openbed.ng`
+   itself, never another host.
+
    **Not in the script:** in a browser, read-backs 5 and 5b above and the polling check (`openbed.ng` with DevTools on the Network tab filtered to
    `beds.json`, **Disable cache left unticked**, two minutes with no reload: at least
    four rows about 30 s apart, each 200, none from disk or memory cache). *Restated

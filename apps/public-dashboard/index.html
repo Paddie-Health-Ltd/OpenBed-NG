@@ -8,6 +8,10 @@
          harassment vector. -->
     <meta name="robots" content="noindex, nofollow" />
     <title>OpenBed</title>
+    <!-- The mark as the favicon (the design pass, D1). Vite emits it as a hashed
+         same-origin asset; public/favicon.ico answers /favicon.ico for clients that
+         ask for it anyway, so that path is never the SPA's HTML (R-2026-09-26-122 CX-3). -->
+    <link rel="icon" type="image/svg+xml" href="../../packages/design/openbed-mark.svg" />
     <!-- The app's styles are in src/style.css, imported by src/main.ts, so Vite emits
          them as a same-origin asset: this page's CSP allows style-src 'self' only, and
          an inline <style> would be blocked silently (R-2026-09-24-93 BU-2 c). -->
@@ -24,7 +28,18 @@
       Indicative only — call the facility before you travel.
     </div>
 
+    <!-- The lockup is live text, never outlined: "Open" and "Bed" beside the 28 px mark.
+         The mark is decorative here (the words name the site), so its alt is empty. -->
+    <header class="site-header">
+      <img class="mark" src="../../packages/design/openbed-mark.svg" width="28" height="28" alt="" />
+      <span class="lockup"><span class="lockup-open">Open</span><span class="lockup-bed">Bed</span></span>
+    </header>
+
     <main id="app"></main>
+
+    <!-- The general-enquiries address and nothing else, filled by src/main.ts from
+         packages/origins/contacts.json so the address is never typed twice. -->
+    <footer id="site-footer"></footer>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

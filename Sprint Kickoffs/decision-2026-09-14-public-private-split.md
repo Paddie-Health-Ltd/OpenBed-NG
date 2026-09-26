@@ -5562,6 +5562,129 @@ _Issued as R-PROVISIONAL-2026-09-26-CX, by Cowork on 2026-09-26, as its check of
 
 No SQL and no migration. Nothing hosted was run by Claude Code; step 6's fence ran only against the local stack.
 
+### R-2026-09-26-123 — #86 re-checked and merged
+
+_Issued as R-PROVISIONAL-2026-09-26-CY, by Cowork on 2026-09-26, as its re-check of #86 at `d02ae7e68976d15e8af206c95d8752b7d18aeaba`. **Pasting it was the founder's merge word for #86.** Record-only. It was held, and it lands in D1's pull request. Number assigned on landing: R-2026-09-26-122 plus one. Next provisional letter: CZ._
+
+**VERIFIED BY COWORK** (2026-09-26, GitHub API, on the founder's machine):
+- #86 OPEN at `d02ae7e`, base `c20e635` (= main); clean; 2 commits.
+- The compare `78bdc61...d02ae7e` is 1 ahead and 0 behind, so there was no force-push.
+- The second commit touches 4 files, +218/−20, and was read in full. Seven check runs success on `d02ae7e`. No address on any added line.
+
+**ACCEPTED, all of CX as landed:**
+- box 16's citation as "(B1, recorded 2026-09-14; …)";
+- steps 6 and 9, the renumbering of 6–7 to 7–8, and the "does NOT prove HTTP reach" paragraph;
+- step 6's fence, demonstrated both ways and paste-tested before it was written;
+- the re-sweep's counts and dispositions;
+- CX-2's 14 rows, with the `scripts/` survey as one row of four;
+- CX-3, CX-4 and CX-5, including (e)'s mixed-box refinement;
+- `runbook_psql_path`'s pin moving from 32 to 33;
+- the counts, recomputed from the table: 59 rows (15 BOX, 33 TRIGGER, 11 VERSION), and 16 boxes, 2 ticked.
+
+**CY-1 — THE MERGE.**
+- The head was read from the API as `d02ae7e68976d15e8af206c95d8752b7d18aeaba`, and #86 merged as a merge commit with `--match-head-commit` on that value.
+- MERGED was read back: **`495ad0aba02d155ab0781ceaf089cd401ca5912f`**, with parents `c20e635169ac55e9efb2884c409407db2da132a2` and `d02ae7e68976d15e8af206c95d8752b7d18aeaba`.
+- As a separate step, after MERGED was read, `design-pass-d0` was deleted on the remote. The local `git branch -d` refused at first, because local `main` had not yet been fast-forwarded. After `git merge --ff-only origin/main` and a `merge-base --is-ancestor` check, it succeeded. No force-delete was used, and both sides read back as gone.
+
+**CY-2 — WHAT FOLLOWS:** D1 starts from the new `main`, per the kickoff, plus CX-3's favicon. The order is D1, then F, then D2, then D3. Nothing hosted for #86.
+
+### R-2026-09-26-124 — D1 may start; the design foundation and the public dashboard, as built
+
+_Issued as R-PROVISIONAL-2026-09-26-CZ, by Cowork on 2026-09-26, as its read-back of #86's merge. It lands in D1's pull request, which it starts. Number assigned on landing: R-2026-09-26-123 plus one. Next provisional letter: DA._
+
+**VERIFIED BY COWORK:**
+- #86 is merged, with merge commit `495ad0a` and parents `c20e635` and `d02ae7e`;
+- `design-pass-d0` reads 404, `main` is at `495ad0a`, and no PR is open.
+
+**ACCEPTED:** the local `-d` refusing before the fast-forward and succeeding after it.
+
+**CZ-1:** D1 starts from `main` at `495ad0a`, per the kickoff's bundle D1, plus CX-3's favicon for this app, with the test plan first.
+
+**CZ-2 — THE REMINDERS, AND WHAT LANDING DID WITH EACH:**
+- **Every visible sentence stays byte-identical.** `tests/compliance/dashboard_ward_row_identity.test.ts` renders the real page over one fixture holding every tone and band. It asserts that each row's `textContent` equals `wardLine(...).text` exactly. The existing exact-text dashboard tests pass unchanged. The only new visible text is what the kickoff requires: the "OpenBed" lockup and the footer's hello@ address.
+- **Fonts are self-hosted, and there is no Google origin.** They come from `@fontsource/public-sans` and `@fontsource/ibm-plex-mono` 5.3.0, both checked on the registry before they were added (OFL-1.1, the fontsource organisation, about 116k and 1.6M downloads a week; the lockfile's integrity matches the registry). The guards were shown red first. The ward console and admin legs are PENDING legs, not `todo` (-125 DA).
+- **The `packages/design` entry is deleted** from `PLANNED_ARTEFACTS`, in the change that creates the directory.
+- **`a.call` declares literal px** (`min-height: 52px`), and its plant now replaces `52px`.
+  - **A premise did not hold.** The kickoff's blast radius said a stale plant "plants nothing and passes vacuously". It does not: that test asserts that its plant reached the rule. Run against the new CSS with the old plant, it read RED: "the plant did not reach the rule: expected 52 to be 40". The instruction survives.
+- **No browser runner was added.** The screenshots use the Mac's installed Google Chrome, driven over the DevTools protocol by Node's built-in WebSocket. So -23-70 C3's trigger does not fire, and its register row is unchanged.
+- **The screenshots are in `.design-screens/D1/`,** gitignored and with an ESLint ignore to match.
+  - States: tiles covering every tone and band, unknown age, snapshot-stale, empty, and outage.
+  - Sizes: each at 360×740 and 1280×900, plus a full-page capture at each width.
+  - The harness that took them is beside them. It serves the real build with the tracked CSP applied, from synthetic fixtures only.
+
+**THE BUILD (what D1 landed):**
+- **`packages/design` (`@openbed/design`):**
+  - **`tokens.css`:** the design system's six token files, copied byte for byte in the order of its `styles.css`, each under a header naming it and its sha256. The sha256 of each source file, read from `~/Documents/Claude/Projects/BedSpace/Site/_ds/openbed-design-system-0bbddfb2-f166-4e0c-92b1-484a08440e3b/tokens/` on 2026-09-26:
+    - `colors.css` `f4eace8408c7e822547090ec45900f603f8087a12c04c1866d14128cc267a6c8`;
+    - `typography.css` `066c39948bcc139779ce6e20197f1b1e893df9b41daca908c02c96c7455f0430`;
+    - `spacing.css` `2cf2ffddbaf9dafb2d55d0c9e844bdaf78bd374ad94e673cf28f19875467e65e`;
+    - `surfaces.css` `a31ddef7c358099de54aef5207490e042e6ce0b612b41229ca644ddcb56dbeaa`;
+    - `motion.css` `e4979114e041e614bf05461f1a633f0ab6e3f2fa8786d984992f68c4f2a6cad4`;
+    - `base.css` `af85fa2eb2be8a89d0def18247aa9292df3333a873cbfb7139fe10b20ebbd533`.
+
+    Its `fonts.css`, which `@import`s Google Fonts, is not copied.
+  - **`fonts.css`:** six faces (Public Sans 400/600/700, IBM Plex Mono 400/500/600), woff2 only, the latin subset, `font-display: swap`.
+  - **`openbed-mark.svg`:** the kickoff's geometry. **A premise did not hold:** the kickoff says "the brand sheet's mark, verbatim", but no copy of the mark exists on disk. The design system's `assets/` folder is absent, and the path appears only in the kickoff. The kickoff's quoted geometry is therefore the source, and `tests/compliance/design_package.test.ts` pins it byte for byte.
+  - **`NOTICE`** gains both OFL-1.1 attributions.
+- **The public dashboard:**
+  - **The page order,** as ruled: the emergency strip (`--ob-emergency-bg`, `tel:` links 44 px), the indicative banner, the header (the mark at 28 px and the live-text lockup), the snapshot banner, the tiles, and the footer (the hello@ address only, read from `packages/origins/contacts.json` through a new `packages/origins/src/contacts.ts`).
+  - **The call link** is 52 px, full width, navy, with the number in mono.
+  - **Ward rows** hold the category, a count badge and the age stamp in mono.
+  - **The colour rule, exactly as ruled:** a status fill only while the band is GREEN. Available means accepting with a count above 0; Full means not accepting, or 0. Everything else takes the not-reporting fill, and "Limited" is never used. The stamp takes the band's colour, and there is a static dot on GREEN only.
+  - **Empty, outage and snapshot-stale** render as Notices, and the snapshot banner keeps `role="status"`. There is a focus ring on every interactive element.
+  - **`public/favicon.ico`** is a real ICO, generated from the mark with macOS `sips` (SVG to PNG to ICO, 32 px).
+  - **`assetsInlineLimit: 0`,** so that no asset is inlined as a `data:` URI, which the CSP would refuse for a font.
+- **Token names that did not exist, and their nearest real names:**
+  - there is no "amber" freshness token, so the YELLOW stamp uses `--ob-fresh-yellow`;
+  - there is no "not-reporting" status token, so that fill is `--ob-status-unknown*`.
+- **How the rows are split into pieces.** `wardLine` returned only `{text, tone}`. D1 adds `wardLineParts`, which returns the segments, band and status, and `wardLine` is now those segments joined. The li keeps exactly `age-<tone>` (`dashboard_age.test.ts` reads it). The styling hooks sit on spans whose class names carry no digit, because a suppressed row's markup must hold none.
+- **Caught by an existing guard while building:** `contacts.ts` first default-imported `contacts.json`. Vite bundles a JSON default import whole, so the ward-support address reached the dashboard's bundle. `tests/compliance/ward_support_contact.test.ts` read red ("the ward support address reached apps/public-dashboard"). It is now a named import of `hello` only. The built bundle carries `hello@` once and `support@` not at all.
+- **The dashboard's import closure now reaches `origins`, through `./contacts` only.** `packages/fixtures/per-app.json` records this, and its comment is restated with the old text kept. `tests/compliance/tracked_origins.test.ts` still holds the dashboard's bundle to no API origin, and it passes.
+
+**THE GUARDS, EACH SHOWN RED FIRST:**
+- **In `bundle_guards.test.ts`, "the design is applied, and stays applied"** (helpers in `tests/compliance/_design.ts`):
+  - **The checks:**
+    - the viewport meta, parsed by attributes;
+    - the built CSS carries `--ob-navy-700` and an `@font-face` whose every src is a same-origin woff2 that exists in the build;
+    - no inline style in any app's source (`style=`, `.style`, `setAttribute('style')`), with TypeScript parsed rather than grepped;
+    - no Google font host in any app's source or in `packages/design`.
+  - **Each app is classified real or PENDING,** and the classification is compared by identity with the derived app set.
+  - **Red on the real files,** each restored byte-identical:
+    - the dashboard's viewport removed;
+    - the dashboard built without the design imports ("no built CSS file holds an @font-face");
+    - `.style.color` set in the dashboard's `main.ts`.
+  - **A parser gap the plants found:** a `data:` URL carries `;` inside its `url()`, and the first parser cut the `src` value there. It now reads to the first `;` outside parentheses.
+- **`tests/compliance/dashboard_ward_row_identity.test.ts`:**
+  - red on the real renderer with one space added between the spans;
+  - red with a YELLOW claim coloured available: "a status fill on a claim that is not fresh -- a green badge on a stale count reads as \"go\"".
+- **`tests/compliance/design_package.test.ts`:** the token sections re-hashed against their headers, the six font faces, the mark, the exports map, the favicon's ICO bytes and their copy in the build, and NOTICE.
+- **`scripts/readback_pages.sh`:**
+  - `/favicon.ico` on both hosts must equal the tracked icon byte for byte, and must not be `text/html` (CX-3);
+  - the page's stylesheet and one woff2 it names must be served as exactly `font/woff2`.
+
+  The six new plants in `readback_scripts.test.ts` were red against the script as it stood on `main`. The Pages runbook says what the script now checks, and what the browser check after the first D1 deploy looks for.
+
+Nothing hosted was run by Claude Code. **The first hosted run of the favicon and font checks is the founder's deploy after this merges.**
+
+### R-2026-09-26-125 — the ward-console and admin guard legs are PENDING legs, not todo
+
+_Issued as R-PROVISIONAL-2026-09-26-DA, by Cowork on 2026-09-26, in answer to the implementer's question (a vitest `test.todo` is written to junit as skipped, and the SOP calls a net-new `.todo` in a guard the cardinal sin). It lands in D1's pull request. Number assigned on landing: R-2026-09-26-124 plus one. Next provisional letter: **DB**._
+
+- **DA-1: neither `test.todo` nor `test.fails`.** Each ward-console and admin leg is a plain test asserting the app's CURRENT, specific state, titled "PENDING D2:" or "PENDING D3:". Its failure message reads: "this app now meets the guard — replace this leg with the real guard in this PR".
+  - **Why not `test.fails`:** it passes whenever the test throws for ANY reason, so it can pass vacuously.
+  - **Landed:**
+    - `PENDING D2: apps/ward-console/index.html has no viewport meta`;
+    - `PENDING D2: apps/ward-console's built CSS carries neither --ob-navy-700 nor an @font-face`;
+    - `PENDING D3: apps/admin's built CSS carries neither --ob-navy-700 nor an @font-face`.
+  - Admin already has the viewport meta, so its viewport leg is real now.
+- **DA-2: each pending leg can still fail for the reason it names.** Shown on plants and on the real files:
+  - the ward console given a viewport meta read "this app now meets the guard — replace this leg with the real guard in this PR (D2; R-2026-09-26-125 DA)";
+  - admin's CSS given the token read the same, for D3.
+
+  A missing `index.html` or build output throws, which is an ERROR, never a pass. The attestation stays at skipped=0.
+- **DA-3:** the register gains two TRIGGER rows: the ward console's design guards, gated on D2's PR, and admin's, gated on D3's. After -125 the register holds 61 rows: 15 BOX, 35 TRIGGER and 11 VERSION, recomputed from the table. The favicon row stays until D3, and records that D1 is done.
+- **DA-4:** the kickoff's "marked todo" is superseded by reference, not edited.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -5675,6 +5798,9 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | CV | R-2026-09-26-120 | 2026-09-26 | **#85 merged at `c20e635`** (parents `dd59c7f`, `cdb86b1`); `redeploy-record-and-browser-readbacks` deleted and read back as gone. Cowork accepted the CU-3 sweep, the replaced PASS assertion and the recorded slip. It noted that the new custom-domain and script checks first run against hosted at the next deploy. Held, and landed with CW. |
 | CW | R-2026-09-26-121 | 2026-09-26 | **The design-pass kickoff's D0, committed unedited.** The design pass (box 14) and the launch paperwork (box 15) become facility-one boxes. -75 BC-7's gate had no observable event, so the pass fell out of every list: Cowork's miss. Every deferral names one gate (BOX, TRIGGER or VERSION), the record holds the register, and `tests/compliance/deferred_items.test.ts` holds it to the checklist. CW-7: CV's date is 2026-09-26, not the kickoff's -09-25. |
 | CX | R-2026-09-26-122 | 2026-09-26 | **#86 held once, amended in #86.** B1 becomes box 16, and its onboarding check becomes 12.4 steps 6 and 9: SQL as the real ward in a rolled-back transaction (the founder's mechanism, because the HTTP check could not run on hosted), and the first publish read back end to end. Every ungated deferral gains a gate. -21-38 D1, -21-41 B and -21-50 E2 become PR F; -21-43 C1 and -21-45 E are closed; C3 moves into box 4; the favicon goes into D1–D3. The guard gains (e). 59 rows; 16 boxes, 2 ticked. |
+| CY | R-2026-09-26-123 | 2026-09-26 | **#86 merged at `495ad0a`** (parents `c20e635`, `d02ae7e`); `design-pass-d0` deleted on both sides and read back as gone. All of CX accepted as landed. Held, and landed in D1's pull request. |
+| CZ | R-2026-09-26-124 | 2026-09-26 | **D1 started, and built:** `packages/design` (the tokens byte for byte, with each source's sha256; fonts self-hosted through @fontsource; the mark), and the public dashboard restyled with every sentence byte-identical, a favicon, and the colour rule. The guards were shown red first. No browser runner was added; the screenshots came from the installed Chrome. |
+| DA | R-2026-09-26-125 | 2026-09-26 | **The ward-console and admin design legs are PENDING legs:** plain tests asserting the app's current state, each red with a flip message once the app meets the guard. Not `test.todo` (it counts as skipped) and not `test.fails` (it passes on any throw). Two register rows gate them on D2's and D3's PRs. |
 
 ## Deferred items — this record is where the list lives
 
@@ -5747,13 +5873,15 @@ the record's own, except where CW-5 assigned one._
 | GoTrue's answers reveal whether an address has an account (an accepted risk) | R-2026-09-23-67 C | TRIGGER | Personal addresses are ever used as logins |
 | A uniform `/otp` answer at the Worker (option B) | R-2026-09-23-70 A | TRIGGER | -55 C lands |
 | `GET /auth/v1/verify` listed on the Worker | R-2026-09-23-70 C2 | TRIGGER | -55 C's custom domain is routed through the Worker |
-| `/favicon.ico` is answered by the SPA fallback | R-2026-09-23-70, founder step (a) note | TRIGGER | FIRED; resolved in D1–D3 (R-2026-09-26-122 CX-3): each app ships the SVG icon and a real `/favicon.ico`, and the read-back asserts `/favicon.ico` is not `text/html` |
+| `/favicon.ico` is answered by the SPA fallback | R-2026-09-23-70, founder step (a) note | TRIGGER | FIRED; resolved in D1–D3 (R-2026-09-26-122 CX-3): each app ships the SVG icon and a real `/favicon.ico`, and the read-back asserts `/favicon.ico` is not `text/html`. D1 done for the public dashboard (R-2026-09-26-124): a real `favicon.ico`, and `scripts/readback_pages.sh` checks it on both hosts; the ward console and admin remain, in D2 and D3 |
 | The before/after public-output comparison needs a new design once wards can publish | R-2026-09-24-74 BB-3 | TRIGGER | The first hosted migration apply after the -45 gate cleared (-115) |
 | Update requests | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | Freshest and nearest sorting | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | The public "who's on it" list | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | The facility-admin override | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | Duty-flag gating | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
+| The ward console's design guards: viewport, tokens, self-hosted fonts (the PENDING D2 legs in `tests/compliance/bundle_guards.test.ts`) | R-2026-09-26-125 DA-3 | TRIGGER | D2's PR: the PENDING D2 legs go red when the app meets the guard, and D2 replaces them with the real guard |
+| Admin's design guards: tokens, self-hosted fonts (the PENDING D3 leg in `tests/compliance/bundle_guards.test.ts`) | R-2026-09-26-125 DA-3 | TRIGGER | D3's PR: the PENDING D3 leg goes red when the app meets the guard, and D3 replaces it with the real guard |
 | B1's onboarding checks: the first ward account reads its own history as itself (12.4 step 6), and the first publish reads back from `/beds.json` (12.4 step 9) | R-2026-09-26-122 CX-1 (b) | TRIGGER | The first ward account at facility one |
 | `ward_reply` has a cap and no content validation (#63/#97) | R-2026-09-17-03 and -04 | TRIGGER | The first change that writes `app.referral.ward_reply` (referrals are unwired in v1; R-2026-09-26-122 CX-2) |
 | Gate 3's property test does not exist (#109) | R-2026-09-17-03 and -04 | TRIGGER | The next change under `packages/gate/` or `packages/snapshot/src/freshness.ts` (R-2026-09-26-122 CX-2) |

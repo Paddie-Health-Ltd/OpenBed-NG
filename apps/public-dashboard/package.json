@@ -10,7 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@openbed/design": "*",
     "@openbed/labels": "*",
+    "@openbed/origins": "*",
     "@openbed/snapshot": "*"
   }
 }
