@@ -1,0 +1,185 @@
+/* The ward console's styles (the design pass, D2). Imported by src/main.ts AFTER
+   @openbed/design's tokens and fonts, so every value here reads a design-system token,
+   except the sizes the guard compares. Never inline: the CSP in public/_headers allows
+   style-src 'self' only, and an inline style would be blocked silently.
+
+   Nothing here changes a word. Colour is never the only signal, and nothing is sticky
+   or fixed.
+
+   THE SIZES tests/compliance/ward_console_design.test.ts READS ARE LITERAL PX: the count
+   field and its steppers 64, Publish and the sign-in button 52, the sign-in field 44, and
+   the count's type 28 (--text-count-lg's size). A var() reads as null there, and null
+   fails, for the reason D1 gave for a.call. */
+
+/* `hidden` must win over every display rule below. The count row, the reason choice and
+   "Accepting" are hidden by attribute when they do not apply (a ward not offered sends no
+   count; a count above 0 needs no reason), and a display: grid or flex set here would
+   otherwise show them. */
+[hidden] { display: none !important; }
+
+body { min-width: 0; }
+
+/* The header: the mark at 28 px and the live-text lockup, in the same centred column as
+   the content, with the same gutter inside it (D1's DB-5 b rule, carried). */
+.site-header {
+  background: var(--surface-card);
+  border-bottom: var(--border-width) solid var(--border-default);
+  padding: var(--space-3) 0;
+}
+.site-header-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: var(--measure-content);
+  margin: 0 auto;
+  padding: 0 var(--gutter-page);
+}
+.site-header .mark { display: block; width: 28px; height: 28px; }
+.lockup { font: 700 20px/1 var(--font-sans); letter-spacing: -0.02em; }
+.lockup-open { color: var(--ob-navy-700); }
+.lockup-bed { color: var(--ob-teal-600); }
+
+/* One column, the same box as the header's. */
+main#app {
+  display: grid;
+  gap: var(--space-4);
+  max-width: var(--measure-content);
+  margin: 0 auto;
+  padding: var(--space-4) var(--gutter-page) var(--space-8);
+}
+#app > h1 { margin: 0; font: var(--text-title); color: var(--text-strong); }
+#app > p { margin: 0; }
+.lead { font: var(--text-body-lg); color: var(--text-body); }
+.who { font: var(--text-body-sm); color: var(--text-muted); overflow-wrap: anywhere; }
+
+/* A Notice: a sunken panel with a 3 px left accent, for every p.status and every refusal
+   (the signed-out screen's lead text excepted). The words are unchanged. A status line is
+   empty until there is something to say, and an empty Notice is not drawn. */
+.notice {
+  margin: 0;
+  background: var(--surface-sunken);
+  border-left: var(--border-accent-width) solid var(--ob-navy-500);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  color: var(--text-strong);
+  font: var(--text-body-md);
+  overflow-wrap: anywhere;
+}
+.notice:empty { display: none; }
+
+/* Sign-in: a single column. */
+form.signin-request { display: grid; gap: var(--space-3); }
+label.field { display: grid; gap: var(--space-1); font: var(--text-label); color: var(--text-strong); }
+label.field input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  font: var(--text-body-lg);
+  color: var(--text-strong);
+  background: var(--surface-card);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+
+/* The primary action: full width, 52 px, navy. Publish and the sign-in button. Busy is
+   the disabled state the code already sets while a request is in flight; the label does
+   not change. */
+button.primary {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  padding: var(--space-2) var(--space-4);
+  font: 600 17px/1.2 var(--font-sans);
+  color: var(--action-primary-fg);
+  background: var(--action-primary-bg);
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-control);
+}
+button.primary:hover { background: var(--action-primary-bg-hover); }
+button.primary:active { background: var(--action-primary-bg-active); }
+button.primary:disabled { background: var(--ob-status-unknown); cursor: progress; }
+
+/* Handover: each ward is a card. */
+ul.wards { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); }
+li.ward {
+  display: grid;
+  gap: var(--space-3);
+  background: var(--surface-card);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+.summary { margin: 0; font: var(--text-heading); color: var(--text-strong); overflow-wrap: anywhere; }
+
+/* The publish form. */
+form.publish { display: grid; gap: var(--space-3); }
+
+/* Both selects, styled and still selects: the offering, and the zero-beds reason. The
+   arrow is drawn with two gradients, so no image, and no data: URI, is needed. */
+select.select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-10) 0 var(--space-3);
+  font: var(--text-body-lg);
+  color: var(--text-strong);
+  background-color: var(--surface-card);
+  background-image: linear-gradient(45deg, transparent 50%, var(--ob-navy-700) 50%), linear-gradient(135deg, var(--ob-navy-700) 50%, transparent 50%);
+  background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  appearance: none;
+}
+
+/* The count: 64 px, mono, --text-count-lg's size, between − and +, each 64 px square. */
+.count-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) 64px; gap: var(--space-2); }
+input.count {
+  width: 100%;
+  min-width: 0;
+  height: 64px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--text-strong);
+  background: var(--surface-card);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  appearance: textfield;
+}
+input.count::-webkit-inner-spin-button,
+input.count::-webkit-outer-spin-button { appearance: none; margin: 0; }
+button.stepper {
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  font: 600 28px/1 var(--font-sans);
+  color: var(--action-secondary-fg);
+  background: var(--action-secondary-bg);
+  border: var(--border-width) solid var(--action-secondary-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-control);
+}
+button.stepper:hover { background: var(--action-secondary-bg-hover); }
+
+/* "Accepting": the whole line is the tap target, at least 44 px. */
+label.check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  font: var(--text-subheading);
+  color: var(--text-strong);
+  cursor: pointer;
+}
+label.check input { width: 24px; height: 24px; margin: 0; accent-color: var(--ob-navy-700); }
+
+@media (min-width: 720px) {
+  .site-header-inner { padding-left: var(--gutter-page-wide); padding-right: var(--gutter-page-wide); }
+  main#app { padding: var(--space-6) var(--gutter-page-wide) var(--space-10); }
+}

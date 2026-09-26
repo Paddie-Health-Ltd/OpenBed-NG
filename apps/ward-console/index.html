@@ -1,3 +1,27 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8" /><title>Ward console</title></head>
-<body><div id="app"></div><script type="module" src="/src/main.ts"></script></body></html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- The root-cause fix for the desktop-width rendering on a ward handset (the design
+         pass, D2): without it a phone lays the console out at desktop width. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ward console</title>
+    <!-- The mark as the favicon (D2, as D1). Vite emits it as a hashed same-origin asset;
+         public/favicon.ico answers /favicon.ico for clients that ask for it anyway, so that
+         path is never the SPA's HTML (R-2026-09-26-122 CX-3). The app's styles are imported
+         by src/main.ts, never inline: the CSP allows style-src 'self' only. -->
+    <link rel="icon" type="image/svg+xml" href="../../packages/design/openbed-mark.svg" />
+  </head>
+  <body>
+    <!-- The lockup is live text, never outlined: "Open" and "Bed" beside the 28 px mark.
+         The mark is decorative here (the words name the site), so its alt is empty. -->
+    <header class="site-header">
+      <div class="site-header-inner">
+        <img class="mark" src="../../packages/design/openbed-mark.svg" width="28" height="28" alt="" />
+        <span class="lockup"><span class="lockup-open">Open</span><span class="lockup-bed">Bed</span></span>
+      </div>
+    </header>
+    <main id="app"></main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

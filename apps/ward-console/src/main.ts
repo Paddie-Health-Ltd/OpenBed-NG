@@ -4,6 +4,11 @@ import { publishableKeyFor } from '@openbed/origins/keys';
 import { WARD_SUPPORT_EMAIL } from '@openbed/origins/support';
 import { categoryLabel, precedence, reasonLabel } from '@openbed/labels';
 import { NO_WARD, NO_WARD_HEADING, OFFERING_CHOICES, ZERO_REASONS } from '@openbed/labels/ward';
+// The design system's tokens and self-hosted fonts first, then this app's own rules
+// (the design pass, D2). Vite emits all three as same-origin assets.
+import '@openbed/design/tokens.css';
+import '@openbed/design/fonts.css';
+import './style.css';
 
 /**
  * THE WARD CONSOLE. Sign in with a magic link, see the wards at this account's
@@ -89,12 +94,18 @@ function appRoot(): HTMLElement | null {
   return document.querySelector<HTMLElement>('#app');
 }
 
-function show(heading: string, detail: string): void {
+/**
+ * A heading and one line. The line is a Notice (the design pass, D2: every refusal renders
+ * as one, its words unchanged), except the signed-out screen's instruction, which is the
+ * page's own lead text and refuses nothing.
+ */
+function show(heading: string, detail: string, kind: 'notice' | 'lead' = 'notice'): void {
   const root = appRoot();
   if (root === null) return;
   const h = document.createElement('h1');
   h.textContent = heading;
   const p = document.createElement('p');
+  p.className = kind;
   p.textContent = detail;
   root.replaceChildren(h, p);
 }
@@ -313,11 +324,30 @@ async function submitPublish(holder: SessionHolder, ward: WardRow, form: Publish
   return { ok: true, result };
 }
 
+/** The range 004's CHECK accepts for a bed count, which the steppers never leave. */
+export const COUNT_MIN = 0;
+export const COUNT_MAX = 500;
+
+/**
+ * THE STEPPERS' ONE RULE (the design pass, D2): the count field's next value after a tap
+ * on − (delta -1) or + (delta +1), clamped to COUNT_MIN..COUNT_MAX. A blank or unreadable
+ * field steps from 0, and a fraction steps from its whole part. It returns the text to put
+ * in the field and does nothing else: a stepper edits a field the ward already edits, and
+ * NEVER publishes. Publishing stays the ward's own tap on Publish.
+ */
+export function stepCount(value: string, delta: 1 | -1): string {
+  const n = Number(value);
+  const base = value.trim() === '' || !Number.isFinite(n) ? 0 : Math.trunc(n);
+  return String(Math.min(COUNT_MAX, Math.max(COUNT_MIN, base + delta)));
+}
+
 function publishFormFor(holder: SessionHolder, ward: WardRow, onUpdated: (updated: WardRow) => void): HTMLFormElement {
   const form = document.createElement('form');
+  form.className = 'publish';
 
   const offeringSelect = document.createElement('select');
   offeringSelect.name = 'offering';
+  offeringSelect.className = 'select';
   for (const [value, label] of OFFERING_CHOICES) {
     const option = document.createElement('option');
     option.value = value;
@@ -333,18 +363,40 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onUpdated: (update
   bedCountInput.max = '500';
   bedCountInput.step = '1';
   bedCountInput.value = ward.bedCount === null ? '' : String(ward.bedCount);
+  bedCountInput.className = 'count';
+
+  // − (U+2212) and +, beside the count (D2). type="button", never the default "submit",
+  // so a tap cannot send the form; each only rewrites the field and re-runs sync(), which
+  // shows the reason choice when the count reaches 0.
+  const stepper = (glyph: string, delta: 1 | -1): HTMLButtonElement => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'stepper';
+    b.textContent = glyph;
+    b.addEventListener('click', () => {
+      bedCountInput.value = stepCount(bedCountInput.value, delta);
+      sync();
+    });
+    return b;
+  };
+  const countRow = document.createElement('div');
+  countRow.className = 'count-row';
+  countRow.append(stepper('−', -1), bedCountInput, stepper('+', 1));
 
   const acceptingInput = document.createElement('input');
   acceptingInput.name = 'accepting';
   acceptingInput.type = 'checkbox';
   acceptingInput.checked = ward.accepting;
   const acceptingLabel = document.createElement('label');
+  acceptingLabel.className = 'check';
   acceptingLabel.append(acceptingInput, document.createTextNode('Accepting'));
 
   // THE REASON IS A CHOICE, NOT TEXT. The server casts it to app.zero_reason, so a
   // free-text box refused everything a ward would naturally type (R-2026-09-23-66).
+  // It stays a <select>, styled (the kickoff's logged call 2: chips are a v2 change).
   const reasonSelect = document.createElement('select');
   reasonSelect.name = 'reason';
+  reasonSelect.className = 'select';
   const blank = document.createElement('option');
   blank.value = '';
   blank.textContent = 'Why are there no beds?';
@@ -364,6 +416,7 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onUpdated: (update
   // accepting patients for.
   function sync(): void {
     const offered = offeringSelect.value === 'OFFERED';
+    countRow.hidden = !offered;
     bedCountInput.hidden = !offered;
     bedCountInput.required = offered;
     acceptingLabel.hidden = !offered;
@@ -377,10 +430,12 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onUpdated: (update
 
   const submitButton = document.createElement('button');
   submitButton.type = 'submit';
+  submitButton.className = 'primary';
   submitButton.textContent = 'Publish';
 
+  // A Notice (D2), empty until there is something to say; style.css hides it while empty.
   const status = document.createElement('p');
-  status.className = 'status';
+  status.className = 'status notice';
 
   let mutationId = newMutationId();
 
@@ -448,7 +503,7 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onUpdated: (update
     })();
   });
 
-  form.append(offeringSelect, bedCountInput, acceptingLabel, reasonSelect, submitButton, status);
+  form.append(offeringSelect, countRow, acceptingLabel, reasonSelect, submitButton, status);
   return form;
 }
 
@@ -477,18 +532,25 @@ function renderHandover(holder: SessionHolder, email: string | null, wards: (War
   const h = document.createElement('h1');
   h.textContent = 'Handover';
   const who = document.createElement('p');
+  who.className = 'who';
   who.textContent = email === null ? 'Signed in.' : `Signed in as ${email}.`;
 
+  // Each ward is a card (D2). The summary stays `li > p` and its words are summaryLine's,
+  // unchanged; it takes no status colour, because the line carries no age and a coloured
+  // claim with no freshness is the "go" signal D1 withholds (R-2026-09-26-126 DB-1).
   const list = document.createElement('ul');
+  list.className = 'wards';
   for (const ward of wards) {
     const li = document.createElement('li');
+    li.className = 'ward';
     const summary = document.createElement('p');
+    summary.className = 'summary';
 
     if (isRefusal(ward)) {
       // No form: a row that cannot be read cannot be published for, and must not
       // look like one that can.
       console.error('OpenBed ward console: a ward row was refused', ward);
-      summary.className = 'refused';
+      summary.className = 'refused notice';
       summary.textContent = `${ward.category === null ? 'A ward' : categoryLabel(ward.category)}: ${ROW_REFUSED}`;
       li.append(summary);
       list.append(li);
@@ -517,7 +579,9 @@ function renderHandover(holder: SessionHolder, email: string | null, wards: (War
 function signInRequestForm(): HTMLFormElement {
   const form = document.createElement('form');
   form.className = 'signin-request';
+  // A single column (D2): the label's words, a 44 px field under them, a 52 px button.
   const label = document.createElement('label');
+  label.className = 'field';
   label.textContent = "This ward's email address ";
   const email = document.createElement('input');
   email.type = 'email';
@@ -527,9 +591,10 @@ function signInRequestForm(): HTMLFormElement {
   label.append(email);
   const button = document.createElement('button');
   button.type = 'submit';
+  button.className = 'primary';
   button.textContent = 'Send a new sign-in link';
   const status = document.createElement('p');
-  status.className = 'status';
+  status.className = 'status notice';
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -562,8 +627,8 @@ function signInRequestForm(): HTMLFormElement {
 }
 
 /** A screen that also offers the ward a new link. */
-function showWithRequest(heading: string, detail: string): void {
-  show(heading, detail);
+function showWithRequest(heading: string, detail: string, kind: 'notice' | 'lead' = 'notice'): void {
+  show(heading, detail, kind);
   appRoot()?.append(signInRequestForm());
 }
 
@@ -591,7 +656,7 @@ export async function render(): Promise<void> {
   }
 
   if (session === null) {
-    showWithRequest('Ward console', 'Open the sign-in link sent to this ward’s address on this handset, or ask for a new one below.');
+    showWithRequest('Ward console', 'Open the sign-in link sent to this ward’s address on this handset, or ask for a new one below.', 'lead');
     return;
   }
 

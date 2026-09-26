@@ -30,5 +30,10 @@ export default defineConfig({
     // credential shapes, and a minifier that mangled a string would weaken a
     // guard whose whole job is reading that output.
     minify: false,
+    // Every asset is emitted as a same-origin file, never inlined as a data: URI (the
+    // design pass, D2, as D1 for the public dashboard). The CSP's font source is
+    // default-src 'self', which a data: font would fail silently, and the mark in
+    // index.html stays a file the browser caches.
+    assetsInlineLimit: 0,
   },
 });
