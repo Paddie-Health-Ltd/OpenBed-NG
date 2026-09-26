@@ -75,12 +75,15 @@ export interface WardLineSegment {
 }
 
 /**
- * THE COLOUR RULE (the design-pass kickoff, D1, "Cowork's call"). A count badge takes a
- * status fill only while its claim is FRESH (band GREEN): a green badge on a stale count
- * reads as "go". Available is accepting with a count above 0; Full is not accepting, or
- * 0. Everything else -- YELLOW, GREY, SUPPRESSED, an unknown age, a null count, and every
- * state that is not a claim -- is `unknown`. "Limited" is never used: no threshold for it
- * has been ruled. The words carry everything; colour is never the only signal.
+ * THE COLOUR RULE (the design-pass kickoff, D1, "Cowork's call"; tightened by
+ * R-2026-09-26-126 DB-2). A count badge takes a status fill only while its claim is FRESH
+ * (band GREEN) AND CARRIES NO QUALIFIER: a green badge on a stale count reads as "go", and
+ * so does one on a count no ward confirmed ("set by admin, not ward-confirmed", "under
+ * review"). Available is accepting with a count above 0; Full is not accepting, or 0.
+ * Everything else -- YELLOW, GREY, SUPPRESSED, an unknown age, a null count, a qualified
+ * claim, and every state that is not a claim -- is `unknown`. "Limited" is never used: no
+ * threshold for it has been ruled. The words carry everything; colour is never the only
+ * signal. The page-level rule (DB-1) is rowStyle, below.
  */
 export type WardStatus = 'available' | 'full' | 'unknown';
 
@@ -89,6 +92,8 @@ export interface WardLineParts {
   /** The freshness band, or null when there is no age to band (not a claim, or age unknown). */
   readonly band: 'GREEN' | 'YELLOW' | 'GREY' | 'SUPPRESSED' | null;
   readonly status: WardStatus;
+  /** Whether the row claims a count at all. A row that claims none gets no dot (DB-4). */
+  readonly hasCount: boolean;
   readonly segments: readonly WardLineSegment[];
 }
 
@@ -103,7 +108,7 @@ export function wardLineParts(ward: DecodedRow, clock: ServeClock): WardLinePart
     state: ward['state'],
   });
   if (p.kind === 'unknown' || p.kind === 'not-reporting' || p.kind === 'not-offered') {
-    return { tone: p.kind, band: null, status: 'unknown', segments: [...head, { text: p.words, role: 'words' }] };
+    return { tone: p.kind, band: null, status: 'unknown', hasCount: false, segments: [...head, { text: p.words, role: 'words' }] };
   }
 
   const bedCount = ward['bed_count'];
@@ -117,6 +122,7 @@ export function wardLineParts(ward: DecodedRow, clock: ServeClock): WardLinePart
     tone,
     band,
     status,
+    hasCount: bedCount !== null,
     segments: [...claim, { text: ' — ' }, { text: stamp, role: 'stamp' }],
   });
 
@@ -129,7 +135,7 @@ export function wardLineParts(ward: DecodedRow, clock: ServeClock): WardLinePart
   switch (f.band) {
     case 'GREEN': {
       const status: WardStatus =
-        typeof bedCount !== 'number' ? 'unknown' : open && bedCount > 0 ? 'available' : 'full';
+        typeof bedCount !== 'number' || p.qualifiers !== '' ? 'unknown' : open && bedCount > 0 ? 'available' : 'full';
       return aged('GREEN', 'fresh', `updated ${relative(f.ageMinutes)} ago`, status);
     }
     case 'YELLOW':
@@ -139,8 +145,25 @@ export function wardLineParts(ward: DecodedRow, clock: ServeClock): WardLinePart
     case 'SUPPRESSED':
       // No count, no reported time, no reason: past the ceiling nothing about the
       // old claim is shown. The facility heading and its call link stay.
-      return { tone: 'none', band: 'SUPPRESSED', status: 'unknown', segments: [...head, { text: UNKNOWN_STATUS, role: 'words' }] };
+      return { tone: 'none', band: 'SUPPRESSED', status: 'unknown', hasCount: false, segments: [...head, { text: UNKNOWN_STATUS, role: 'words' }] };
   }
+}
+
+/**
+ * HOW A ROW LOOKS, in one place (R-2026-09-26-126). The badge's fill and the stamp's
+ * colour; the freshness dot is CSS on the green stamp, so a stamp that is not green has
+ * no dot.
+ *   - DB-1: while the page itself says it may be out of date (snapshotBanner is not
+ *     null), NOTHING reads as live: every badge takes the not-reporting fill and every
+ *     stamp is neutral, whatever each row's own band. The design system: "The only living
+ *     element is the freshness dot, and it only exists when" a snapshot is current.
+ *   - DB-4: a row that claims no count gets a neutral stamp and no dot, whatever its band.
+ *   - otherwise the stamp takes the band's colour, and an unknown age is grey.
+ */
+export function rowStyle(parts: WardLineParts, pageStale: boolean): { badge: WardStatus; stamp: 'green' | 'yellow' | 'grey' } {
+  if (pageStale) return { badge: 'unknown', stamp: 'grey' };
+  const stamp = !parts.hasCount ? 'grey' : parts.band === 'GREEN' ? 'green' : parts.band === 'YELLOW' ? 'yellow' : 'grey';
+  return { badge: parts.status, stamp };
 }
 
 /** The whole line for one ward as one string: the pieces above, joined. */

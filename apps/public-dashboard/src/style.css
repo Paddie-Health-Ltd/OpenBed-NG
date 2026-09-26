@@ -16,7 +16,13 @@
 a.call { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; column-gap: 0.3em; min-height: 52px; min-width: 44px; padding: 8px 16px; text-align: center; font: var(--text-subheading); background: var(--action-primary-bg); color: var(--action-primary-fg); border-radius: var(--radius-md); text-decoration: none; transition: var(--transition-control); }
 a.call:hover { background: var(--action-primary-bg-hover); color: var(--action-primary-fg); }
 a.call:active { background: var(--action-primary-bg-active); }
-a.call .phone { font: var(--text-phone); }
+/* THE SIZE ORDER (v1:243, "the bed count is visually subordinate to the phone number";
+   R-2026-09-26-126 DB-3 with the founder's order): the facility name 24 > the number to
+   call 20 > the count 18. Declared as LITERAL px in these three rules, because
+   tests/compliance/dashboard_identity_and_call.test.ts compares them and cannot read a
+   var(). The values are the design system's --text-title, the phone at 600/20 and
+   --text-count-md. */
+a.call .phone { font-family: var(--font-mono); font-weight: 600; font-size: 20px; line-height: 1.2; }
 
 body { min-width: 0; }
 
@@ -50,14 +56,19 @@ body { min-width: 0; }
   font: var(--text-body-md);
 }
 
-/* 3. The header: the mark at 28 px and the live-text lockup. */
+/* 3. The header: the mark at 28 px and the live-text lockup, in the same 960 px centred
+   column as the content (DB-5 b); the bar itself stays full width. */
 .site-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
   background: var(--surface-card);
   border-bottom: var(--border-width) solid var(--border-default);
   padding: var(--space-3) var(--gutter-page);
+}
+.site-header-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: var(--measure-app);
+  margin: 0 auto;
 }
 .site-header .mark { display: block; width: 28px; height: 28px; }
 .lockup { font: 700 20px/1 var(--font-sans); letter-spacing: -0.02em; }
@@ -97,7 +108,7 @@ section.facility {
   border-radius: var(--radius-lg);
   padding: var(--space-4);
 }
-section.facility h2 { margin: 0; font: var(--text-heading); color: var(--text-strong); }
+section.facility h2 { margin: 0; font-family: var(--font-sans); font-weight: 600; font-size: 24px; line-height: 1.25; color: var(--text-strong); overflow-wrap: anywhere; }
 section.facility ul { list-style: none; margin: 0; padding: 0; }
 
 /* A ward row. The li holds the whole sentence; the spans only style pieces of it. */
@@ -110,12 +121,17 @@ section.facility li {
 .ward-category { font: var(--text-subheading); color: var(--text-strong); }
 .ward-words { color: var(--ob-status-unknown); }
 
-/* The count badge. A status fill only while the claim is fresh (band GREEN): Available
-   is accepting with a count above 0, Full is not accepting or 0. Every other case is the
-   not-reporting fill. "Limited" is not used: no threshold for it has been ruled. */
+/* The count badge. A status fill only while the claim is fresh (band GREEN) and carries
+   no qualifier, and never under the page's stale banner (DB-1, DB-2): Available is
+   accepting with a count above 0, Full is not accepting or 0. Every other case is the
+   not-reporting fill. "Limited" is not used: no threshold for it has been ruled. The
+   kickoff's --text-count-lg is superseded by DB-3: the count is subordinate to the phone. */
 .badge {
   display: inline-block;
-  font: var(--text-count-lg);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 1.2;
   padding: var(--space-1) var(--space-2);
   border: var(--border-width) solid;
   border-radius: var(--radius-md);
@@ -125,8 +141,14 @@ section.facility li {
 .status-full { background: var(--ob-status-full-bg); border-color: var(--ob-status-full-line); color: var(--ob-status-full); }
 .status-unknown { background: var(--ob-status-unknown-bg); border-color: var(--ob-status-unknown-line); color: var(--ob-status-unknown); }
 
-/* The age stamp takes its band's colour. The dot is static, and only on a fresh row. */
+/* The age stamp takes its band's colour. The dot is static, and only on a fresh row that
+   claims a count, on a page that is not itself stale (DB-1, DB-4). */
 .stamp { font: var(--text-stamp); }
+/* On a phone the stamp takes its own line under the claim, so it never breaks mid-phrase
+   at the end of a long claim (DB-5 a). The words are unchanged. */
+@media (max-width: 599px) {
+  .stamp { display: block; margin-top: var(--space-1); }
+}
 .stamp-green { color: var(--ob-fresh-green); }
 .stamp-yellow { color: var(--ob-fresh-yellow); }
 .stamp-grey { color: var(--ob-fresh-grey); }

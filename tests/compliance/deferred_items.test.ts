@@ -33,8 +33,9 @@ import { REPO_ROOT } from './_scratch.js';
  * A BOX row's Ruling must also be an R-YYYY-MM-DD-nn id, or (c) could not check it.
  *
  * STRICT PARSING. Both files are markdown, and a lenient parser fails open. A missing
- * section, a missing header or separator, a row without exactly four cells, an empty
- * register and a step 1 with no boxes are each a violation. None of them is skipped.
+ * section, a missing header or separator, a row without exactly four cells, a row after
+ * the table has ended (added by R-2026-09-26-126), an empty register and a step 1 with no
+ * boxes are each a violation. None of them is skipped.
  *
  * A ruling is matched with whitespace collapsed, because a box wraps its citation across
  * lines. It is also bounded on both sides, so R-2026-09-25-11 never matches inside
@@ -101,6 +102,14 @@ export function parseRegister(record: string): { rows: Row[]; errors: string[] }
     }
     const [item, ruling, kind, gate] = cells as [string, string, string, string];
     rows.push({ item, ruling, kind, gate, line: i + 1 });
+  }
+  // A line that is not a row ends the table. A row after that point would be silently
+  // dropped, so it is a violation, not a row (R-2026-09-26-126: DB-6 asked for a note
+  // "under" a row, and a note there would have cut every row below it out of the guard).
+  let tableEnd = header + 2;
+  while (tableEnd < end && (lines[tableEnd] ?? '').startsWith('|')) tableEnd += 1;
+  for (let i = tableEnd; i < end; i += 1) {
+    if ((lines[i] ?? '').startsWith('|')) errors.push(`line ${i + 1}: a table row after the table ended -- every row must be in one unbroken table, or it is not read at all`);
   }
   if (rows.length === 0 && errors.length === 0) errors.push('the register has no rows: a guard over an empty table is not a pass');
   return { rows, errors };
@@ -315,6 +324,11 @@ describe('the deferred-items register and the facility-one checklist hold each o
   test('plant — a row that does not end with "|" fails rather than being skipped', () => {
     const bad = plant(OK_RECORD, 'containing a digit |', 'containing a digit');
     expect(check(bad, OK_RUNBOOK).join('\n')).toContain('line 10: malformed register row (it does not end with "|")');
+  });
+
+  test('plant — a line inside the table ends it, and the rows after it are a violation, never silently dropped', () => {
+    const bad = plant(OK_RECORD, "| The second item |", "a note under the first row\n| The second item |");
+    expect(check(bad, OK_RUNBOOK).join('\n')).toContain('line 11: a table row after the table ended');
   });
 
   test('plant — a header with no separator under it fails', () => {

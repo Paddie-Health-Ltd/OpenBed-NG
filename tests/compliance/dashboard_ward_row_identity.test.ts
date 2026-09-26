@@ -24,7 +24,12 @@ import { REPO_ROOT } from './_scratch.js';
  *     above 0, Full when not accepting or 0 -- and every other row takes the
  *     not-reporting fill. "Limited" is never used. The expectation for each row is a
  *     LITERAL below, not derived from the code under test, so a change to the rule reds;
+ *   - DB-2 (R-2026-09-26-126): a QUALIFIED claim ("set by admin, not ward-confirmed",
+ *     "under review") takes the not-reporting fill even when fresh: no ward confirmed it;
  *   - the stamp takes its band's colour, and an unknown age is grey, never green;
+ *   - DB-4: a row that claims no count gets a neutral stamp and no dot, whatever its band;
+ *   - DB-1: under the page's stale or "can't confirm" banner NOTHING reads as live -- no
+ *     status fill, no dot, every stamp neutral -- and the words do not change;
  *   - the static dot exists only on a fresh stamp: style.css holds exactly one ::before,
  *     on .stamp-green (the dot is CSS, so it adds no text to the row).
  *
@@ -73,8 +78,14 @@ const CASES: readonly Case[] = [
   { name: 'fresh, accepting, 3 beds', row: { category: 'A_AND_E' }, tone: 'fresh', status: 'available', stamp: 'green' },
   { name: 'fresh, not accepting, with a reason', row: { category: 'THEATRE', accepting_effective: false, gated_by: 'NO_ANAESTHETIST_ON_DUTY' }, tone: 'fresh', status: 'full', stamp: 'green' },
   { name: 'fresh, 0 beds', row: { category: 'ICU_ADULT', bed_count: 0 }, tone: 'fresh', status: 'full', stamp: 'green' },
-  { name: 'fresh, never reported a count', row: { category: 'SURGICAL', bed_count: null }, tone: 'fresh', status: null, stamp: 'green' },
-  { name: 'fresh, set by admin and under review', row: { category: 'MEDICAL_ADULT', source: 'ADMIN', state: 'UNDER_REVIEW' }, tone: 'fresh', status: 'available', stamp: 'green' },
+  // DB-4 (R-2026-09-26-126): a row that claims no count gets no dot and a neutral stamp,
+  // whatever its band. Until DB this row's stamp was green, with the dot.
+  { name: 'fresh, never reported a count', row: { category: 'SURGICAL', bed_count: null }, tone: 'fresh', status: null, stamp: 'grey' },
+  // DB-2: a qualified claim is not coloured -- one row per qualifier value, and both.
+  // Until DB the both-qualifiers row read `available`.
+  { name: 'fresh, set by admin and under review', row: { category: 'MEDICAL_ADULT', source: 'ADMIN', state: 'UNDER_REVIEW' }, tone: 'fresh', status: 'unknown', stamp: 'green' },
+  { name: 'fresh, set by admin', row: { category: 'PAEDIATRIC', source: 'ADMIN' }, tone: 'fresh', status: 'unknown', stamp: 'green' },
+  { name: 'fresh, under review', row: { category: 'ICU_ADULT', state: 'UNDER_REVIEW', bed_count: 0 }, tone: 'fresh', status: 'unknown', stamp: 'green' },
   { name: 'ageing (YELLOW), 3 beds', row: { category: 'PAEDIATRIC', updated_at: ageMin(45) }, tone: 'aged', status: 'unknown', stamp: 'yellow' },
   { name: 'stale (GREY), 3 beds', row: { category: 'ICU_PAEDIATRIC', updated_at: ageMin(180) }, tone: 'aged', status: 'unknown', stamp: 'grey' },
   { name: 'past the ceiling (SUPPRESSED)', row: { category: 'NICU', updated_at: ageMin(13 * 60) }, tone: 'none', status: null, stamp: null },
@@ -92,11 +103,11 @@ const UNKNOWN_AGE_CASES: readonly Case[] = [
 
 const rows = (cases: readonly Case[]): unknown[][] => cases.map((c) => encode(wardColumns(), { ...base, ...c.row }));
 
-async function renderRows(encoded: unknown[][], withClock: boolean): Promise<HTMLLIElement[]> {
+async function renderRows(encoded: unknown[][], withClock: boolean, generatedAt: number = GEN): Promise<HTMLLIElement[]> {
   document.body.innerHTML = '<main id="app"></main>';
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (withClock) headers['x-openbed-served-at'] = iso(SERVED);
-  const payload = { v: 1, generated_at: iso(GEN), server_now: iso(GEN), facilities: [FACILITY], wards: encoded };
+  const payload = { v: 1, generated_at: iso(generatedAt), server_now: iso(generatedAt), facilities: [FACILITY], wards: encoded };
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(payload), { status: 200, headers })));
   const { render } = await import('../../apps/public-dashboard/src/main.js');
   await render();
@@ -128,6 +139,23 @@ export function rowViolations(li: HTMLLIElement, expectedText: string, c: Case):
     out.push(`${at}: expected one stamp-${c.stamp}, found ${Array.from(stamps).map((s) => s.className).join(', ') || 'none'}`);
   }
   if (/\d/.test(Array.from(li.querySelectorAll('*')).map((e) => e.className).join(' '))) out.push(`${at}: a class name carries a digit`);
+  return out;
+}
+
+/**
+ * DB-1 (R-2026-09-26-126): WHILE THE PAGE SAYS IT MAY BE OUT OF DATE, NOTHING ON IT READS
+ * AS LIVE. Under the stale or "can't confirm" banner no badge takes a status fill, no
+ * freshness dot renders, and every stamp is neutral, whatever each row's own band. The
+ * design system: "The only living element is the freshness dot, and it only exists when"
+ * a snapshot is genuinely current. The dot is CSS on .stamp-green, so no .stamp-green
+ * means no dot.
+ */
+export function stalePageViolations(app: Element): string[] {
+  const out: string[] = [];
+  if (app.querySelector('.snapshot-banner') === null) out.push('the page shows no snapshot banner: this leg is not looking at a stale page');
+  for (const el of Array.from(app.querySelectorAll('.status-available, .status-full'))) out.push(`a status fill under the stale banner: "${el.textContent ?? ''}"`);
+  for (const el of Array.from(app.querySelectorAll('.stamp-green'))) out.push(`a fresh stamp (and its dot) under the stale banner: "${el.textContent ?? ''}"`);
+  for (const el of Array.from(app.querySelectorAll('.stamp'))) if (!el.classList.contains('stamp-grey')) out.push(`a stamp that is not neutral under the stale banner: ${el.className}`);
   return out;
 }
 
@@ -163,6 +191,57 @@ describe('a ward row says exactly what wardLine says, and colours only a fresh c
     expect(new Set(all.map((c) => c.tone))).toEqual(new Set(['fresh', 'aged', 'none', 'not-reporting', 'not-offered', 'unknown']));
     expect(new Set(all.map((c) => c.stamp))).toEqual(new Set(['green', 'yellow', 'grey', null]));
     expect(new Set(all.map((c) => c.status))).toEqual(new Set(['available', 'full', 'unknown', null]));
+  });
+
+  test('DB-1 — a stale page asserts nothing as live: no status fill, no dot, every stamp neutral', async () => {
+    // Generated ten minutes before it was served: past snapshotBannerAfterMinutes. Every
+    // row is fresh by its OWN band, so before DB-1 they read green.
+    const lis = await renderRows(rows(CASES), true, SERVED - 10 * MIN);
+    expect(lis.length).toBe(CASES.length);
+    const app = document.querySelector('#app') as Element;
+    expect(app.querySelector('.stamp'), 'the stale page rendered no stamp at all: the leg would pass over nothing').not.toBeNull();
+    const out = stalePageViolations(app);
+    expect(out, out.join('\n')).toEqual([]);
+    const clock = { servedAt: iso(SERVED), elapsedMs: 0 };
+    const words = CASES.flatMap((c, i) => (lis[i]?.textContent === wardLine(decodeWard(rows([c])[0] as unknown[]), clock).text ? [] : [c.name]));
+    expect(words, 'a stale page changed the words of a row').toEqual([]);
+  });
+
+  test("DB-1 — the \"can't confirm\" page asserts nothing as live either", async () => {
+    await renderRows(rows(CASES), false);
+    const out = stalePageViolations(document.querySelector('#app') as Element);
+    expect(out, out.join('\n')).toEqual([]);
+  });
+
+  test('plant — a stale page with one fresh stamp is rejected', () => {
+    const app = document.createElement('main');
+    app.innerHTML = '<p class="snapshot-banner" role="status">x</p><ul><li class="age-fresh"><span class="badge status-unknown">4 beds</span> — <span class="stamp stamp-green">updated 5 min ago</span></li></ul>';
+    expect(stalePageViolations(app).join('\n')).toContain('a fresh stamp (and its dot) under the stale banner');
+  });
+
+  test('plant — a stale page with a status fill is rejected, and a page with no banner is not taken for a stale one', () => {
+    const app = document.createElement('main');
+    app.innerHTML = '<p class="snapshot-banner" role="status">x</p><ul><li class="age-fresh"><span class="badge status-available">4 beds</span> — <span class="stamp stamp-grey">updated 5 min ago</span></li></ul>';
+    expect(stalePageViolations(app).join('\n')).toContain('a status fill under the stale banner');
+    const fresh = document.createElement('main');
+    fresh.innerHTML = '<ul><li class="age-fresh"><span class="stamp stamp-grey">x</span></li></ul>';
+    expect(stalePageViolations(fresh).join('\n')).toContain('this leg is not looking at a stale page');
+  });
+
+  test('plant — a qualified fresh claim coloured available is rejected (DB-2)', () => {
+    const c = CASES.find((x) => x.name === 'fresh, set by admin') as Case;
+    const li = document.createElement('li');
+    li.className = 'age-fresh';
+    li.innerHTML = '<span class="ward-category">Paediatric</span>: <span class="badge status-available">3 beds</span> — set by admin, not ward-confirmed — <span class="stamp stamp-green">updated 5 min ago</span>';
+    expect(rowViolations(li, li.textContent ?? '', c).join('\n')).toContain('expected one badge with status-unknown');
+  });
+
+  test('plant — a row with no count stamped green (with the dot) is rejected (DB-4)', () => {
+    const c = CASES.find((x) => x.name === 'fresh, never reported a count') as Case;
+    const li = document.createElement('li');
+    li.className = 'age-fresh';
+    li.innerHTML = '<span class="ward-category">Surgical ward</span>: <span class="ward-words">not yet reporting</span> — <span class="stamp stamp-green">updated 5 min ago</span>';
+    expect(rowViolations(li, li.textContent ?? '', c).join('\n')).toContain('expected one stamp-grey');
   });
 
   test('plant — a renderer that adds one space between the spans is rejected', () => {

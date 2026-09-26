@@ -5685,6 +5685,77 @@ _Issued as R-PROVISIONAL-2026-09-26-DA, by Cowork on 2026-09-26, in answer to th
 - **DA-3:** the register gains two TRIGGER rows: the ward console's design guards, gated on D2's PR, and admin's, gated on D3's. After -125 the register holds 61 rows: 15 BOX, 35 TRIGGER and 11 VERSION, recomputed from the table. The favicon row stays until D3, and records that D1 is done.
 - **DA-4:** the kickoff's "marked todo" is superseded by reference, not edited.
 
+### R-2026-09-26-126 — #87 held once: a stale page asserts nothing as live; a qualified or countless claim is not coloured; the count is subordinate to the phone
+
+_Issued as R-PROVISIONAL-2026-09-26-DB, by Cowork on 2026-09-26, as its check of #87 at `1b4e299a4d9b52e404f47dcfa0f9e13d25ddb2bb` and of the screenshots on the founder's Mac. **Not the merge word.** It lands in #87 as a second commit on the same branch, with no force-push and no rebase. The founder's answer on DB-3's size order, relayed by Cowork the same day, lands with it. Number assigned on landing: R-2026-09-26-125 plus one. Next provisional letter: **DC**._
+
+**VERIFIED BY COWORK** (2026-09-26, GitHub API and the screenshots):
+- #87 OPEN at `1b4e299`, base `495ad0a` (= main); clean; 1 commit, 29 files, +1635/−47. Seven check runs success. No address beyond the three published ones.
+- Screenshots read:
+  - tiles at 360 full and at 1280;
+  - empty at 360;
+  - snapshot-stale at 360;
+  - outage at 1280;
+  - unknown-age at 360.
+
+**ACCEPTED:**
+- the token copy with its hashes;
+- @fontsource 5.3.0, OFL, NOTICE;
+- the page order;
+- the Notices for empty, outage and unknown, and the grey unknown-age rendering;
+- the identity test, the PENDING legs, and the favicon and woff2 read-back legs;
+- the contacts leak caught by the gate and fixed at its import;
+- -124's four premise corrections.
+
+**DB-1 — A STALE PAGE ASSERTS NOTHING AS LIVE (safety).**
+- **The rule.** While `snapshotBanner(...)` is not null, whether the page is stale or "can't confirm": every badge takes the not-reporting fill, no freshness dot renders, and every stamp is neutral, whatever the row's own band. No word changes.
+- **Why.** The "snapshot-stale" screenshot showed green badges, dots and stamps under a banner saying counts may be out of date. That is the contradiction the design system forbids (its readme, line 154: "The only living element is the freshness dot, and it only exists when" a snapshot is current).
+- **Landed as follows:**
+  - `renderReal` now computes the banner **before** the rows;
+  - one exported rule, `rowStyle(parts, pageStale)` in `apps/public-dashboard/src/age-view.ts`, decides each badge's fill and stamp colour;
+  - the dot is CSS on `.stamp-green` only, so a neutral stamp has no dot.
+- **Tests:** two legs render the stale page (generated ten minutes before it was served, every row fresh by its own band) and the can't-confirm page (no serve time). Each asserts no status fill, no `.stamp-green` and every stamp `stamp-grey`, with the words unchanged.
+- **Red first, on `1b4e299`'s renderer:**
+  - six "a status fill under the stale banner" lines;
+  - and "a fresh stamp (and its dot) under the stale banner" on every fresh row.
+
+**DB-2 — A QUALIFIED CLAIM IS NOT COLOURED.**
+- **The rule.** Available or Full now also requires `precedence(...).qualifiers` to be empty. The qualifiers come only from ADMIN ("set by admin, not ward-confirmed") and UNDER_REVIEW ("under review") in `packages/labels/src/index.ts`, so "any other" is covered by the empty-string test.
+- **Tests:** rows for ADMIN only, UNDER_REVIEW only (at 0 beds, which would otherwise be Full) and both.
+- **Red first:** "expected one badge with status-unknown, found badge status-available" (twice) and "… found badge status-full".
+
+**DB-3 — THE COUNT IS SUBORDINATE TO THE PHONE NUMBER** (v1:243: "The bed count is visually subordinate to the phone number"). The kickoff's `--text-count-lg` for the badge was Cowork's error, and it is superseded by reference; the kickoff is not edited.
+- **A slip, Cowork's, superseded by the founder's answer and not edited.** DB-3 said the phone "stays the largest text in the tile after the facility name". That contradicted its own 20px against the 18px `--text-heading` of the facility name.
+- **The founder's answer, via Cowork:** the name goes to `--text-title` (600 24px), the phone stays mono 600 at 20px, and the badge is `--text-count-md` (500 18px). **Name 24 > phone 20 > badge 18**, at both widths. The record's rule holds either way.
+- **Landed.** The three rules declare literal px (`font-size: 24px`, `20px`, `18px`), because the guard compares them and cannot read a `var()`.
+  - **The guard:** `sizeOrder` and `sizeOrderViolations` in `tests/compliance/dashboard_identity_and_call.test.ts` assert name > phone > badge.
+  - **Plants, one per inequality:** the count raised to 28px, the phone lowered to 16px, and the name lowered to 18px.
+  - **Anti-vacuity:** a size given through `var()` reads null and fails.
+  - **Red first on `1b4e299`'s CSS:** "a rule declares no literal font-size in px: name null, phone null, badge null".
+- **A long facility name wraps cleanly** (`overflow-wrap: anywhere`). "Synthetic Lagos State University Teaching Hospital" is in the screenshots, as the founder asked.
+
+**DB-4 — THE NO-COUNT ROW.**
+- A row that claims no count gets a neutral stamp and no dot, whatever its band. `WardLineParts` gains `hasCount`, and `rowStyle` reads it.
+- The non-claim rows (not reporting, not offered, unknown, suppressed) already had no stamp.
+- **Red first:** "row "fresh, never reported a count": expected one stamp-grey, found stamp stamp-green".
+- **Recorded, not ruled:** DB-2 removes the fill from a qualified fresh claim, but not its dot, because DB-2 names the fill only. A qualified fresh row therefore keeps its green stamp and dot. It is in the screenshots for Cowork to see.
+
+**DB-5 — LAYOUT.**
+- **(a)** Below 600px the stamp is `display: block` on its own line under the claim, so a short stamp never breaks mid-phrase. The textContent is unchanged, and the identity test proves it.
+  - **A limit that remains:** the longest GREY stamp ("last reported at 26 Sept, 11:12 (Lagos time) — call to confirm", about 64 mono characters, about 460px at 12px) is wider than the roughly 296px inside a 360px tile. It still wraps within its own line, at word boundaries. Removing that would mean shorter words or horizontal overflow.
+- **(b)** The header's contents sit in `.site-header-inner`, in the same 960px centred column as the content. The bar stays full width. No text change.
+
+**DB-6 — A WORDING NOTE FOR THE CLINICIANS' BOX,** with no word changed. "<ward>: not yet reporting — updated N min ago" reads as a contradiction.
+- **A premise that holds only in part.** The ruling said to add the note as "one line under that box's register row". A line there would end the table, and **`parseRegister` stopped at the first line that is not a row, so every register row below it would have been silently dropped from the guard.** That is a gap in the guard itself.
+- **The note** therefore sits inside the A7 row's Item cell.
+- **The parser is tightened:** any row after the table has ended is now a violation, "a table row after the table ended". Its plant, a note line under the first row, was shown red with the new check disabled, then green with it.
+
+**THE REGISTER:** 61 rows, unchanged in number (DB-6 is a note inside a row, not a row).
+
+**SCREENSHOTS** were re-taken from the new head's clean build, with the same harness and the real CSP, for every state at 360 and 1280 and full page. The fixture gains an ADMIN-only row, an UNDER_REVIEW-only row, and a third facility with the long name.
+
+No SQL and no migration; nothing hosted was run by Claude Code.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -5801,6 +5872,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | CY | R-2026-09-26-123 | 2026-09-26 | **#86 merged at `495ad0a`** (parents `c20e635`, `d02ae7e`); `design-pass-d0` deleted on both sides and read back as gone. All of CX accepted as landed. Held, and landed in D1's pull request. |
 | CZ | R-2026-09-26-124 | 2026-09-26 | **D1 started, and built:** `packages/design` (the tokens byte for byte, with each source's sha256; fonts self-hosted through @fontsource; the mark), and the public dashboard restyled with every sentence byte-identical, a favicon, and the colour rule. The guards were shown red first. No browser runner was added; the screenshots came from the installed Chrome. |
 | DA | R-2026-09-26-125 | 2026-09-26 | **The ward-console and admin design legs are PENDING legs:** plain tests asserting the app's current state, each red with a flip message once the app meets the guard. Not `test.todo` (it counts as skipped) and not `test.fails` (it passes on any throw). Two register rows gate them on D2's and D3's PRs. |
+| DB | R-2026-09-26-126 | 2026-09-26 | **#87 held once, amended in #87.** Under the stale banner nothing reads as live. A qualified or countless claim is not coloured. Name 24 > phone 20 > count 18, as literal px with a guard (the founder's order; DB-3's own slip recorded). The stamp takes its own line on a phone, and the header sits in the content column. A wording note is in the A7 row. The register parser now refuses a row after the table ends, a gap DB-6 would have hit. |
 
 ## Deferred items — this record is where the list lives
 
@@ -5837,7 +5909,7 @@ the record's own, except where CW-5 assigned one._
 | Item | Ruling | Gate kind | Gate |
 |---|---|---|---|
 | The email provider's processor agreement: s.29 agreement, s.41 transfer basis, retention | R-2026-09-25-108 CJ-2 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
-| The clinicians confirm the freshness thresholds and the public wording (with -68 C3) | R-2026-09-23-67 A7 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
+| The clinicians confirm the freshness thresholds and the public wording (with -68 C3). Wording note, R-2026-09-26-126 DB-6: "not yet reporting — updated N min ago" reads as a contradiction | R-2026-09-23-67 A7 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 | Each facility's public number answered 24/7, with a test call | R-2026-09-23-66 C4 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 | A staffed phone or WhatsApp line for wards, with honest hours | R-2026-09-23-67 B3 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 | Where the magic-link emails point (the custom-domain decision) | R-2026-09-22-55 C | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
