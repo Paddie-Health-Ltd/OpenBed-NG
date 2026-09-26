@@ -6036,6 +6036,88 @@ _Issued as R-PROVISIONAL-2026-09-26-DH, by Cowork on 2026-09-26, as its re-check
 
 No SQL and no migration. Nothing hosted was run by Claude Code.
 
+### R-2026-09-26-133 — #89 amended once: a publish updates its own card only; the Notice tones are the design system's; the controls have names
+
+_Issued as R-PROVISIONAL-2026-09-26-DI, by Cowork on 2026-09-26, as its check of #89 at `bbb8173eb62795970eaec2b77eee83b8193a7a12` and of every screenshot on the founder's Mac. **Not the merge word.** It lands in #89 as a second commit on `design-pass-d2`, with no force-push and no rebase. Number assigned on landing: R-2026-09-26-132 plus one. Next provisional letter: **DJ**._
+
+**VERIFIED BY COWORK** (2026-09-26, GitHub API and the screenshots):
+- #88 is MERGED as `2586d29` (parents `5be63d4`, `5b94fb6`), `main` = `2586d29`, and `pr-f-fired-guards` reads 404.
+- #89 OPEN at `bbb8173`, base `2586d29` (= main), clean; 1 commit, 14 files, +849/−19. Seven check runs success.
+- The diff was read in full.
+- All 35 states were read at 360×740 and 1280×900, plus `handover-360xfull`.
+
+**ACCEPTED:** D2 as built, the PENDING D2 flip, the favicon and font read-back, the size and wording guards, and both self-caught plant slips as recorded. -132 as landed.
+
+**DI-1 — A PUBLISH UPDATES ITS OWN CARD ONLY.** This answers -132's "found, not fixed", which is not edited.
+- **The root cause, confirmed:** `onUpdated` called `renderHandover`, which rebuilt every card. That erased the published card's "Published." and every other card's unsent values and Notices.
+- **Landed in `apps/ward-console/src/main.ts`:**
+  - `publishFormFor` holds `current`, the row the form now stands for. On success or replay it:
+    1. sets `current` to the updated row;
+    2. mints a new mutation id;
+    3. calls `onPublished`, which rewrites that card's summary to `summaryLine(updated)` and touches nothing else;
+    4. only then says "Published." or "Already published (replay).", the existing strings, in its own Notice.
+  - The next publish sends `current`'s version as `p_expected_version`.
+  - `clearOutcome()` empties the Notice:
+    - on each field's `input` or `change`, listened for on the field itself so it does not depend on the event bubbling;
+    - on a stepper tap, whose programmatic value change fires no event;
+    - at the next submit.
+  - `renderHandover` is now called only from `render()`, at load.
+- **A premise that did not hold (DI-1 e):** the console has no explicit reload. VERSION_CONFLICT's "Reload the handover list" means a page reload, which runs `render()`, so the load path is the only path.
+- **Tests,** in `tests/compliance/ward_console_design.test.ts`. Red first against `bbb8173`'s `main.ts` and `style.css` (11 of 48 red):
+  - after success A reads exactly "Published.", and after replay "Already published (replay).", and A's summary is `summaryLine(updated)`;
+  - with two wards, B's `li` is the same node after A publishes, and B's unsent 9 and its Notice survive;
+  - editing A's count after "Published." clears it, and so does a stepper tap;
+  - **two publishes in a row,** with the second carrying the first result's version and a new mutation id. **A premise that did not hold (DI-1 d):** this leg cannot be red against `bbb8173`. There, the full re-render built a new form from the updated row, which gave version 5 and a fresh id, so the leg passed. It guards the new in-place code instead. A plant on that code, sending the closure's original row in place of `current`, turned it red.
+- **The ruling's own plant, the full re-render restored on the real file,** turned five legs red, the B-survives and Notice-visible legs among them. The file was restored byte-identical.
+- **A premise that held only in part (DI-5), and a finding:**
+  - **The finding.** A zero-with-no-reason tap cannot give B its Notice, because the browser's own validation stops the submit. The reason select is `required` at 0, and a blank count is `required`, both since before D2. The browser then shows its own bubble, "Please select an item in the list.", and never our sentence.
+  - **What the two-ward case uses instead:** the server's refusal of a publish for a ward that is not the handset's own (WARD_SCOPE_DENIED), which is how a second card gets a Notice in real use.
+  - **What D2 showed:** the `publish-invalid` and `publish-zero-no-reason` screenshots show the browser's bubble. -132 listed them without saying so.
+  - **What this means for the two sentences.** "Enter the number of free beds, from 0 to 500." and ZERO_REQUIRES_REASON are fallbacks that a browser pre-empts. Their tone legs reach them by dispatching `submit`, as `ward_console_render.test.ts` does. **Reported, not ruled:** whether the browser's words, in the handset's language, are acceptable there.
+
+**DI-2 — THE NOTICE TONES ARE THE DESIGN SYSTEM'S.**
+- **A premise that held only in part:** `components/core/Notice.jsx` is not a file on disk. It exists inside the design system's `_ds_bundle.js` on the founder's Mac, which names it as its `sourcePath`. The tones there are exactly as ruled.
+  - info: `--surface-accent-soft`, `--ob-navy-500`, `--ob-navy-800`;
+  - caution: `--ob-status-limited-bg`, `--ob-status-limited`, `#6d4c12`;
+  - the shape: a 1px `--border-default` border, a 3px left accent and `--radius-md`.
+- **The prototype's Published Notice is `tone: "info"`,** which holds.
+- **No token carries `#6d4c12`.** The nearest is `--ob-status-limited`, `#8b621a`. `style.css` uses the design system's own literal, with a comment naming it the one colour there that no token carries.
+- **Landed:**
+  - `say(p, text, tone)` sets a status line's words and its tone;
+  - info: "Published.", the replay line, and the link-sent sentence;
+  - caution:
+    - every `wardMessageFor` outcome, the CHECK sentence and UNRECOGNISED;
+    - the two client-side fallbacks;
+    - session ended, the handover-load refusal, no ward, and a refused row;
+    - link unreachable and bad link;
+  - the signed-out instruction stays lead text;
+  - every `p.status` carries `role="status"`;
+  - there is no green anywhere in the console.
+- **Tests, red first on `bbb8173`:**
+  - a table of 27 outcomes, each checked for exactly one tone, the expected one, and unchanged words (`toneViolations`). Its plants are a refusal in the info tone, a Notice with both tones, one with neither, and changed words;
+  - the Notice CSS rules against the design system's values, with the console naming no green token. Its plants are caution in the info colours, a green success tone, and no accent width;
+  - `role="status"` on every status line, in both forms.
+- **On the real file:**
+  - a publish refusal said in the info tone turned the tone leg red;
+  - `role` dropped turned its leg red.
+
+  Both were restored.
+- One existing assertion is tightened: `p.className` `toBe('notice')` becomes `toBe('notice notice-caution')`.
+
+**DI-3 — ACCESSIBLE NAMES.**
+- **Landed:** − is "Fewer beds", + is "More beds", and the count field is "Beds", asserted exactly. Red on `bbb8173`, and red on the real file with one label changed.
+- **The wording box.** The runbook's 12.4 step 1 box for the clinicians' wording (-67 A7) now lists the three labels for the clinicians to confirm or change. No register row is added; **the register stays at 58.**
+
+**DI-4:** − on a blank field giving 0 is accepted as is. This answers -132's third "reported, not ruled"; DI-2 answers its second.
+
+**DI-5 — THE SCREENSHOTS** are re-taken into `.design-screens/D2/`: 111 files, 37 states at 360×740, 360 full page and 1280×900.
+- **Two states are new:**
+  - `two-wards-after-publish`: A reads "Published." under "Maternity: 37 beds", and B keeps its unsent 9 and its caution Notice;
+  - `edited-after-publish`: A's Notice is cleared after its count changes to 12.
+- **What the harness saw:** no horizontal overflow, the lockup aligned in every state, and no CSP violation. The browser's log shows only the planted refusals' network lines.
+
+**DI-6 — PROCESS:** one new commit on `design-pass-d2`, with no force-push and no rebase. -133 lands with its ledger row. The full suite runs on a fresh DB and the commit gate runs, then STOP at #89. Nothing hosted.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -6159,6 +6241,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | DF | R-2026-09-26-130 | 2026-09-26 | **PR F's terms.** F3 at full scope as `openbed/no-wall-clock`, with two exemptions pinned by file and reason. E2: any path under `database/migrations/`, and a bare "none" fails, checked by a repo-lint step with the body in env. With the auth-hook invariant, the three F rows leave the register. |
 | DG | R-2026-09-26-131 | 2026-09-26 | **#88 amended once.** F3 covers every spelling of the read (`Date()` without `new`, and `Date` through `globalThis`, `window` or `self`). E2 refuses the bare-"none" equivalents (`n/a`, `tbd`, `-` and the rest). The hosted hook setting gets a gate: a register row, and a founder step at D2's hosted deploy. |
 | DH | R-2026-09-26-132 | 2026-09-26 | **#88 merged at `2586d29`** (parents `5be63d4`, `5b94fb6`); `pr-f-fired-guards` deleted on both sides and read back as gone. Box 14 stays open. **D2 built:** the ward console's viewport, foundation, favicon, lockup, sign-in, handover cards, 64 px count with steppers that never publish, styled reason select and 52 px Publish, every sentence byte-identical. The PENDING D2 legs flipped, DA-3's D2 row removed (58 rows), and the ward read-back checks the favicon and a font. A pre-existing defect is reported: "Published." is erased by the re-render. |
+| DI | R-2026-09-26-133 | 2026-09-26 | **#89 amended once.** A publish updates its own card only: "Published." is finally seen, and other cards keep their unsent edits and Notices. The next publish sends the new version, and an edit clears a stale outcome. The Notice tones are the design system's (info for what went through, caution for every refusal, no green), and every status is announced. The steppers and count have names, which go on the clinicians' wording list. Found: a browser's own validation pre-empts the two client-side sentences. |
 
 ## Deferred items — this record is where the list lives
 

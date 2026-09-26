@@ -95,17 +95,33 @@ function appRoot(): HTMLElement | null {
 }
 
 /**
- * A heading and one line. The line is a Notice (the design pass, D2: every refusal renders
- * as one, its words unchanged), except the signed-out screen's instruction, which is the
- * page's own lead text and refuses nothing.
+ * A NOTICE'S TONE, FROM THE DESIGN SYSTEM'S OWN Notice (R-2026-09-26-133 DI-2): info for
+ * what went through ("Published.", the replay line, the link-sent sentence), caution for
+ * every refusal or failure. There is no green tone: nothing in the console reads as live
+ * (-126 DB-1). The words carry the meaning; the tone never does on its own.
  */
-function show(heading: string, detail: string, kind: 'notice' | 'lead' = 'notice'): void {
+type Tone = 'info' | 'caution';
+
+/** Writes a status line and its tone. Empty text clears both, and style.css hides the line. */
+function say(p: HTMLElement, text: string, tone: Tone): void {
+  p.textContent = text;
+  p.classList.remove('notice-info', 'notice-caution');
+  if (text !== '') p.classList.add(`notice-${tone}`);
+}
+
+/**
+ * A heading and one line. Every screen shown this way refuses something (a bad link, a load
+ * that failed, no ward, a session that ended), so its line is a caution Notice (D2; DI-2),
+ * words unchanged -- except the signed-out screen's instruction, which is the page's own
+ * lead text and refuses nothing.
+ */
+function show(heading: string, detail: string, kind: 'caution' | 'lead' = 'caution'): void {
   const root = appRoot();
   if (root === null) return;
   const h = document.createElement('h1');
   h.textContent = heading;
   const p = document.createElement('p');
-  p.className = kind;
+  p.className = kind === 'lead' ? 'lead' : 'notice notice-caution';
   p.textContent = detail;
   root.replaceChildren(h, p);
 }
@@ -341,7 +357,19 @@ export function stepCount(value: string, delta: 1 | -1): string {
   return String(Math.min(COUNT_MAX, Math.max(COUNT_MIN, base + delta)));
 }
 
-function publishFormFor(holder: SessionHolder, ward: WardRow, onUpdated: (updated: WardRow) => void): HTMLFormElement {
+/**
+ * One ward's publish form. A PUBLISH UPDATES ITS OWN CARD ONLY (R-2026-09-26-133 DI-1): on
+ * success this form keeps its DOM node and its fields, tells onPublished the new row (which
+ * rewrites the card's summary and nothing else), and only then says "Published." here.
+ * Until DI the handover was rebuilt on every publish, which erased that line the moment it
+ * was written, and every other card's unsent edits and Notices with it.
+ *
+ * `current` is the row this form now stands for. The next publish sends ITS version as
+ * p_expected_version, never the row the form was built from, which after one publish is
+ * stale and would be refused as a version conflict.
+ */
+function publishFormFor(holder: SessionHolder, ward: WardRow, onPublished: (updated: WardRow) => void): HTMLFormElement {
+  let current = ward;
   const form = document.createElement('form');
   form.className = 'publish';
 
@@ -364,24 +392,31 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onUpdated: (update
   bedCountInput.step = '1';
   bedCountInput.value = ward.bedCount === null ? '' : String(ward.bedCount);
   bedCountInput.className = 'count';
+  // Control labels (R-2026-09-26-133 DI-3), not messages; they are on the clinicians'
+  // wording list (runbook 12.4 step 1, the A7 box) to confirm or change.
+  bedCountInput.setAttribute('aria-label', 'Beds');
 
   // − (U+2212) and +, beside the count (D2). type="button", never the default "submit",
   // so a tap cannot send the form; each only rewrites the field and re-runs sync(), which
   // shows the reason choice when the count reaches 0.
-  const stepper = (glyph: string, delta: 1 | -1): HTMLButtonElement => {
+  const stepper = (glyph: string, delta: 1 | -1, label: string): HTMLButtonElement => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'stepper';
     b.textContent = glyph;
+    b.setAttribute('aria-label', label);
     b.addEventListener('click', () => {
       bedCountInput.value = stepCount(bedCountInput.value, delta);
+      // A programmatic value change fires no input event, so the stale outcome is
+      // cleared here too (DI-1 c).
+      clearOutcome();
       sync();
     });
     return b;
   };
   const countRow = document.createElement('div');
   countRow.className = 'count-row';
-  countRow.append(stepper('−', -1), bedCountInput, stepper('+', 1));
+  countRow.append(stepper('−', -1, 'Fewer beds'), bedCountInput, stepper('+', 1, 'More beds'));
 
   const acceptingInput = document.createElement('input');
   acceptingInput.name = 'accepting';
@@ -434,28 +469,39 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onUpdated: (update
   submitButton.textContent = 'Publish';
 
   // A Notice (D2), empty until there is something to say; style.css hides it while empty.
+  // role="status" so the outcome is announced (DI-2 d).
   const status = document.createElement('p');
   status.className = 'status notice';
+  status.setAttribute('role', 'status');
+
+  // AN OUTCOME NEVER OUTLIVES THE NEXT EDIT (DI-1 c): a "Published." beside a number the
+  // ward has since changed reads as though that number went out. Listened for on each
+  // field, not the form, so it does not depend on the event bubbling.
+  const clearOutcome = (): void => say(status, '', 'info');
+  offeringSelect.addEventListener('change', clearOutcome);
+  bedCountInput.addEventListener('input', clearOutcome);
+  acceptingInput.addEventListener('change', clearOutcome);
+  reasonSelect.addEventListener('change', clearOutcome);
 
   let mutationId = newMutationId();
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     void (async () => {
-      status.textContent = '';
+      clearOutcome();
       const offering = offeringSelect.value === 'NOT_OFFERED' ? 'NOT_OFFERED' : 'OFFERED';
       let bedCount: number | null = null;
       if (offering === 'OFFERED') {
         const n = Number(bedCountInput.value);
         if (bedCountInput.value.trim() === '' || !Number.isInteger(n) || n < 0 || n > 500) {
-          status.textContent = 'Enter the number of free beds, from 0 to 500.';
+          say(status, 'Enter the number of free beds, from 0 to 500.', 'caution');
           return;
         }
         bedCount = n;
       }
       const reason = offering === 'OFFERED' && bedCount === 0 && reasonSelect.value !== '' ? reasonSelect.value : null;
       if (offering === 'OFFERED' && bedCount === 0 && reason === null) {
-        status.textContent = WARD_MESSAGES['ZERO_REQUIRES_REASON'] as string;
+        say(status, WARD_MESSAGES['ZERO_REQUIRES_REASON'] as string, 'caution');
         return;
       }
 
@@ -463,21 +509,20 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onUpdated: (update
       try {
         const outcome = await submitPublish(
           holder,
-          ward,
+          current,
           { offering, bedCount, accepting: offering === 'OFFERED' ? acceptingInput.checked : false, reason },
           mutationId,
         );
         if (!outcome.ok) {
-          status.textContent = outcome.message;
+          say(status, outcome.message, 'caution');
           return;
         }
         // A fresh attempt gets a new mutation id; a retry of THIS attempt
         // would have reused `mutationId` above, never regenerating it on a
         // failure branch.
         mutationId = newMutationId();
-        status.textContent = outcome.result.replayed ? 'Already published (replay).' : 'Published.';
-        onUpdated({
-          category: ward.category,
+        const updated: WardRow = {
+          category: current.category,
           offering: outcome.result.claim_offering,
           bedCount: outcome.result.claim_bed_count,
           accepting: outcome.result.claim_accepting,
@@ -486,17 +531,21 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onUpdated: (update
           // What publish_ward_status's UPDATE does to the three states it does not
           // return (014:265-276): source becomes WARD, PENDING becomes ACTIVE and any
           // other monitoring state is kept, and `state` is never written.
-          monitoringState: ward.monitoringState === 'PENDING' ? 'ACTIVE' : ward.monitoringState,
+          monitoringState: current.monitoringState === 'PENDING' ? 'ACTIVE' : current.monitoringState,
           source: 'WARD',
-          state: ward.state,
-        });
+          state: current.state,
+        };
+        current = updated;
+        onPublished(updated);
+        // Said AFTER the card is updated, so nothing the update does can erase it (DI-1 a).
+        say(status, outcome.result.replayed ? 'Already published (replay).' : 'Published.', 'info');
       } catch (e) {
         if (e instanceof SessionExpiredError) {
           show('Signed out', TAP_AGAIN);
           return;
         }
         console.error('OpenBed ward console: the publish did not complete', e);
-        status.textContent = UNRECOGNISED;
+        say(status, UNRECOGNISED, 'caution');
       } finally {
         submitButton.disabled = false;
       }
@@ -550,7 +599,7 @@ function renderHandover(holder: SessionHolder, email: string | null, wards: (War
       // No form: a row that cannot be read cannot be published for, and must not
       // look like one that can.
       console.error('OpenBed ward console: a ward row was refused', ward);
-      summary.className = 'refused notice';
+      summary.className = 'refused notice notice-caution';
       summary.textContent = `${ward.category === null ? 'A ward' : categoryLabel(ward.category)}: ${ROW_REFUSED}`;
       li.append(summary);
       list.append(li);
@@ -559,10 +608,12 @@ function renderHandover(holder: SessionHolder, email: string | null, wards: (War
 
     summary.textContent = summaryLine(ward);
 
+    // A publish rewrites THIS card's summary and nothing else (DI-1 a, e): the handover is
+    // rendered once, at load, and every other card keeps its node, its fields and its Notice.
     const form = publishFormFor(holder, ward, (updated) => {
       const index = wards.findIndex((w) => !isRefusal(w) && w.category === ward.category);
       if (index !== -1) wards[index] = updated;
-      renderHandover(holder, email, wards);
+      summary.textContent = summaryLine(updated);
     });
 
     li.append(summary, form);
@@ -595,12 +646,13 @@ function signInRequestForm(): HTMLFormElement {
   button.textContent = 'Send a new sign-in link';
   const status = document.createElement('p');
   status.className = 'status notice';
+  status.setAttribute('role', 'status');
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     void (async () => {
       button.disabled = true;
-      status.textContent = '';
+      say(status, '', 'info');
       try {
         const outcome = await requestSignInLink({
           apiUrl: API_URL,
@@ -611,10 +663,10 @@ function signInRequestForm(): HTMLFormElement {
         // The status goes to the log for whoever debugs it; the page says one thing.
         if (outcome.kind === 'answered') {
           if (outcome.status !== 200) console.error('OpenBed ward console: the sign-in request was answered', outcome.status);
-          status.textContent = SIGNIN_ANSWERED;
+          say(status, SIGNIN_ANSWERED, 'info');
         } else {
           console.error('OpenBed ward console: the sign-in request got no answer', outcome.error);
-          status.textContent = SIGNIN_UNREACHABLE;
+          say(status, SIGNIN_UNREACHABLE, 'caution');
         }
       } finally {
         button.disabled = false;
@@ -627,7 +679,7 @@ function signInRequestForm(): HTMLFormElement {
 }
 
 /** A screen that also offers the ward a new link. */
-function showWithRequest(heading: string, detail: string, kind: 'notice' | 'lead' = 'notice'): void {
+function showWithRequest(heading: string, detail: string, kind: 'caution' | 'lead' = 'caution'): void {
   show(heading, detail, kind);
   appRoot()?.append(signInRequestForm());
 }

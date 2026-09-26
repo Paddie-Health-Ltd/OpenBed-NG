@@ -52,20 +52,35 @@ main#app {
 .lead { font: var(--text-body-lg); color: var(--text-body); }
 .who { font: var(--text-body-sm); color: var(--text-muted); overflow-wrap: anywhere; }
 
-/* A Notice: a sunken panel with a 3 px left accent, for every p.status and every refusal
-   (the signed-out screen's lead text excepted). The words are unchanged. A status line is
-   empty until there is something to say, and an empty Notice is not drawn. */
+/* A Notice, in the design system's own shape and tones (components/core/Notice.jsx, read
+   from the design system's bundle; R-2026-09-26-133 DI-2): a 1 px border, a 3 px left
+   accent, the medium radius. Every p.status and every refusal is one (the signed-out
+   screen's lead text excepted), and the words are unchanged. A status line is empty until
+   there is something to say, and an empty Notice is not drawn.
+     info    -- what went through: "Published.", the replay line, the link-sent sentence;
+     caution -- every refusal or failure.
+   There is no green tone: nothing in the console reads as live (-126 DB-1). Caution's text
+   colour is the design system's own literal #6d4c12, the one colour here no token carries. */
 .notice {
   margin: 0;
-  background: var(--surface-sunken);
-  border-left: var(--border-accent-width) solid var(--ob-navy-500);
+  border: var(--border-width) solid var(--border-default);
+  border-left-width: var(--border-accent-width);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
-  color: var(--text-strong);
   font: var(--text-body-md);
   overflow-wrap: anywhere;
 }
 .notice:empty { display: none; }
+.notice-info {
+  background: var(--surface-accent-soft);
+  border-left-color: var(--ob-navy-500);
+  color: var(--ob-navy-800);
+}
+.notice-caution {
+  background: var(--ob-status-limited-bg);
+  border-left-color: var(--ob-status-limited);
+  color: #6d4c12;
+}
 
 /* Sign-in: a single column. */
 form.signin-request { display: grid; gap: var(--space-3); }

@@ -233,7 +233,7 @@ describe('the words are unchanged, and every refusal is a Notice', () => {
     await until(() => (document.body.textContent ?? '').includes('Could not load'));
     const p = document.querySelector('#app > p') as HTMLParagraphElement;
     expect(p.textContent).toBe(m.WARD_MESSAGES['NOT_A_MEMBER']);
-    expect(p.className).toBe('notice');
+    expect(p.className).toBe('notice notice-caution');
 
     await renderAt(sessionFragment(), (url) => (url.endsWith('my_facility_wards') ? json(200, [{ ...GOOD_ROW, version: 0 }]) : json(500, {})));
     await until(() => document.querySelector('p.refused') !== null);
@@ -360,5 +360,253 @@ describe('the sizes D2 requires, read as literal px from apps/ward-console/src/s
     expect(planted).not.toBe(CSS);
     expect(sizeViolations(planted).join('\n')).toContain('button.primary declares no literal min-height in px');
     expect(sizeViolations('')).toHaveLength(SIZES.length + 1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// R-2026-09-26-133 DI: a publish updates its own card only (DI-1), the Notice tones are the
+// design system's (DI-2), and the controls have accessible names (DI-3).
+// ---------------------------------------------------------------------------
+
+const ROW_B = { ...GOOD_ROW, category: 'SURGICAL', version: 7 };
+const result = (version: number, replayed = false) => [{ version, replayed, claim_offering: 'OFFERED', claim_bed_count: 37, claim_accepting: true, public_gated_by: null }];
+
+/** The console with `rows`, whose publishes answer from `publish`. Returns the fetch stub. */
+async function wards(rows: Record<string, unknown>[], publish: Route) {
+  const stub = await renderAt(sessionFragment(), (url, init) => {
+    if (url.endsWith('/rest/v1/rpc/my_facility_wards')) return json(200, rows);
+    if (url.endsWith('/rest/v1/rpc/publish_ward_status')) return publish(url, init);
+    return json(500, { message: 'unexpected call' });
+  });
+  await until(() => document.querySelectorAll('li.ward').length === rows.length);
+  return stub;
+}
+
+/** Card `i`'s parts, read from the page each time, never held across a publish. */
+function card(i: number) {
+  const li = document.querySelectorAll('li.ward')[i] as HTMLLIElement;
+  return {
+    li,
+    summary: li.querySelector('p.summary') as HTMLParagraphElement,
+    count: li.querySelector('input[name="bed_count"]') as HTMLInputElement,
+    status: li.querySelector('p.status') as HTMLParagraphElement,
+    publish: li.querySelector('button[type="submit"]') as HTMLButtonElement,
+    plus: li.querySelectorAll('button.stepper')[1] as HTMLButtonElement,
+  };
+}
+
+function setCount(input: HTMLInputElement, value: string): void {
+  input.value = value;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+const bodies = (stub: { mock: { calls: unknown[][] } }): Record<string, unknown>[] =>
+  stub.mock.calls.filter(([u]) => String(u).endsWith('/rest/v1/rpc/publish_ward_status')).map(([, init]) => JSON.parse(String((init as RequestInit).body)) as Record<string, unknown>);
+
+describe('DI-1 — a publish updates its own card only', () => {
+  test.each<[string, boolean, string]>([
+    ['a publish', false, 'Published.'],
+    ['a replay', true, 'Already published (replay).'],
+  ])('after %s the card says so, and its summary is summaryLine(updated)', async (_name, replayed, want) => {
+    const m = await import('../../apps/ward-console/src/main.js');
+    const stub = await wards([GOOD_ROW], () => json(200, result(5, replayed)));
+    setCount(card(0).count, '37');
+    card(0).publish.click();
+    await until(() => publishCalls(stub) === 1 && (card(0).summary.textContent ?? '').includes('37 beds'));
+    await settle();
+    expect(card(0).status.textContent, 'the outcome was not left on the card that published').toBe(want);
+    expect(card(0).summary.textContent).toBe(m.summaryLine({ category: 'MATERNITY', offering: 'OFFERED', bedCount: 37, accepting: true, version: 5, gatedBy: null, monitoringState: 'ACTIVE', source: 'WARD', state: 'OK' }));
+  });
+
+  test('with two wards, the other card is the SAME node after a publish, and its unsent count and its Notice survive', async () => {
+    const m = await import('../../apps/ward-console/src/main.js');
+    // This handset's ward is Maternity: the server refuses a publish for any other ward
+    // (WARD_SCOPE_DENIED), which is how a second card gets a Notice in real use.
+    const stub = await wards([GOOD_ROW, ROW_B], (_url, init) =>
+      (JSON.parse(String(init?.body)) as { p_category: string }).p_category === 'MATERNITY' ? json(200, result(5)) : json(400, { code: 'P0001', message: 'WARD_SCOPE_DENIED' }));
+    const b = card(1);
+    // B's unsent edit and its Notice: a refused publish, so the 9 never went out. DI-1 c
+    // clears a Notice on an edit, so the Notice comes after the edit.
+    setCount(b.count, '9');
+    b.publish.click();
+    await until(() => (b.status.textContent ?? '') !== '');
+    expect(b.status.textContent).toBe(m.WARD_MESSAGES['WARD_SCOPE_DENIED']);
+    setCount(card(0).count, '37');
+    card(0).publish.click();
+    await until(() => publishCalls(stub) === 2 && (card(0).summary.textContent ?? '').includes('37 beds'));
+    await settle();
+    expect(card(1).li, 'the other ward\'s card was rebuilt by a publish that was not its own').toBe(b.li);
+    expect(b.li.isConnected).toBe(true);
+    expect(card(1).count.value, 'the other ward\'s unsent count was lost').toBe('9');
+    expect(card(1).status.textContent, 'the other ward\'s Notice was lost').toBe(m.WARD_MESSAGES['WARD_SCOPE_DENIED']);
+  });
+
+  test('two publishes in a row: the second sends the first result\'s version and a new mutation id', async () => {
+    let version = 4;
+    const stub = await wards([GOOD_ROW], () => json(200, result((version += 1))));
+    setCount(card(0).count, '37');
+    card(0).publish.click();
+    await until(() => publishCalls(stub) === 1 && (card(0).summary.textContent ?? '').includes('37 beds'));
+    await settle();
+    setCount(card(0).count, '36');
+    card(0).publish.click();
+    await until(() => publishCalls(stub) === 2);
+    const [first, second] = bodies(stub);
+    expect(first?.['p_expected_version']).toBe(4);
+    expect(second?.['p_expected_version'], 'the second publish sent a stale version: optimistic concurrency would refuse it').toBe(5);
+    expect(second?.['p_client_mutation_id'], 'the second publish reused the first one\'s mutation id, so it would replay').not.toBe(first?.['p_client_mutation_id']);
+  });
+
+  test('the outcome clears on the ward\'s next edit, by typing or by a stepper', async () => {
+    const stub = await wards([GOOD_ROW], () => json(200, result(5)));
+    setCount(card(0).count, '37');
+    card(0).publish.click();
+    await until(() => publishCalls(stub) === 1 && (card(0).summary.textContent ?? '').includes('37 beds'));
+    await settle();
+    expect(card(0).status.textContent, 'precondition: the card says "Published."').toBe('Published.');
+    setCount(card(0).count, '12');
+    expect(card(0).status.textContent, 'a stale "Published." sits beside an unsent number').toBe('');
+    card(0).publish.click();
+    await until(() => publishCalls(stub) === 2);
+    await until(() => card(0).status.textContent === 'Published.');
+    card(0).plus.click();
+    expect(card(0).status.textContent, 'a stepper tap left a stale "Published."').toBe('');
+  });
+});
+
+type Tone = 'info' | 'caution';
+
+/** Why rendered outcomes do not carry exactly their expected tone and words, or []. */
+export function toneViolations(rows: { what: string; el: Element | null; text: string; tone: Tone }[]): string[] {
+  const out: string[] = [];
+  for (const r of rows) {
+    if (r.el === null) { out.push(`${r.what}: nothing rendered`); continue; }
+    if (r.el.textContent !== r.text) out.push(`${r.what}: the words changed`);
+    const tones = (['info', 'caution'] as const).filter((t) => r.el?.classList.contains(`notice-${t}`));
+    if (!r.el.classList.contains('notice')) out.push(`${r.what}: not a Notice`);
+    if (tones.length !== 1 || tones[0] !== r.tone) out.push(`${r.what}: tone ${tones.join('+') || 'none'}, not ${r.tone}`);
+  }
+  return out;
+}
+
+describe('DI-2 — every outcome is a Notice in the design system\'s tone, and every status is announced', () => {
+  // A blank or zero-with-no-reason count is stopped by the browser's own validation
+  // (`required`) before the form submits, so the console's two fallback sentences for them
+  // are reached here by dispatching submit, as ward_console_render.test.ts does.
+  const publishOutcome = async (answer: Route, count = '37') => {
+    const { form, status, publish, count: input } = await oneWard(GOOD_ROW, answer);
+    setCount(input, count);
+    if (count === '' || count === '0') form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    else publish.click();
+    await until(() => (status.textContent ?? '') !== '' || document.querySelector('#app > p.notice') !== null);
+    await settle();
+    return document.querySelector('li.ward p.status:not(:empty)') ?? document.querySelector('#app > p');
+  };
+  const signIn = async (route: Route) => {
+    await renderAt('', route);
+    const form = document.querySelector('form.signin-request') as HTMLFormElement;
+    (form.querySelector('input[name="email"]') as HTMLInputElement).value = 'ward@example.invalid';
+    (form.querySelector('button') as HTMLButtonElement).click();
+    await until(() => (form.querySelector('p.status')?.textContent ?? '') !== '');
+    return form.querySelector('p.status');
+  };
+
+  test('each sentence renders in its tone: info for what went through, caution for every refusal', async () => {
+    const m = await import('../../apps/ward-console/src/main.js');
+    vi.spyOn(Math, 'random').mockReturnValue(0.999);
+    const rows: { what: string; el: Element | null; text: string; tone: Tone }[] = [];
+    for (const code of Object.keys(m.WARD_MESSAGES)) {
+      const body = code === '23514' ? { code, message: 'new row violates check constraint' } : { code: 'P0001', message: `${code} detail` };
+      rows.push({ what: `publish refused ${code}`, el: await publishOutcome(() => json(400, body)), text: m.WARD_MESSAGES[code] as string, tone: 'caution' });
+    }
+    rows.push({ what: 'publish unrecognised', el: await publishOutcome(() => json(502, { message: 'upstream' })), text: m.UNRECOGNISED, tone: 'caution' });
+    rows.push({ what: 'a count that is not a number', el: await publishOutcome(() => json(200, result(5)), ''), text: 'Enter the number of free beds, from 0 to 500.', tone: 'caution' });
+    rows.push({ what: 'zero with no reason, before sending', el: await publishOutcome(() => json(200, result(5)), '0'), text: m.WARD_MESSAGES['ZERO_REQUIRES_REASON'] as string, tone: 'caution' });
+    rows.push({ what: 'published', el: await publishOutcome(() => json(200, result(5))), text: 'Published.', tone: 'info' });
+    rows.push({ what: 'replayed', el: await publishOutcome(() => json(200, result(5, true))), text: 'Already published (replay).', tone: 'info' });
+    rows.push({ what: 'session ended at publish', el: await publishOutcome(() => json(401, { message: 'JWT expired' })), text: 'Your session has ended. Tap the link on the ward handset again to sign back in.', tone: 'caution' });
+    rows.push({ what: 'sign-in answered', el: await signIn(() => json(200, {})), text: m.SIGNIN_ANSWERED, tone: 'info' });
+    rows.push({ what: 'sign-in unreachable', el: await signIn(() => { throw new TypeError('down'); }), text: m.SIGNIN_UNREACHABLE, tone: 'caution' });
+    await renderAt(sessionFragment(), (url) => (url.endsWith('my_facility_wards') ? json(403, { code: '42501', message: 'NOT_A_MEMBER' }) : json(500, {})));
+    await until(() => document.querySelector('#app > p') !== null);
+    rows.push({ what: 'handover load refused', el: document.querySelector('#app > p'), text: m.WARD_MESSAGES['NOT_A_MEMBER'] as string, tone: 'caution' });
+    await renderAt(sessionFragment(), (url) => (url.endsWith('my_facility_wards') ? json(200, []) : json(500, {})));
+    await until(() => document.querySelector('#app > p') !== null);
+    rows.push({ what: 'no ward', el: document.querySelector('#app > p'), text: m.NO_WARD_SESSION, tone: 'caution' });
+    await renderAt(sessionFragment(), (url) => (url.endsWith('my_facility_wards') ? json(200, [{ ...GOOD_ROW, version: 0 }]) : json(500, {})));
+    await until(() => document.querySelector('p.refused') !== null);
+    rows.push({ what: 'a refused row', el: document.querySelector('p.refused'), text: `Maternity: ${m.ROW_REFUSED}`, tone: 'caution' });
+    await renderAt('#error=access_denied&error_code=otp_expired', () => json(500, {}));
+    rows.push({ what: 'bad link', el: document.querySelector('#app > p'), text: m.BAD_LINK, tone: 'caution' });
+    expect(rows.length).toBe(Object.keys(m.WARD_MESSAGES).length + 12);
+    const out = toneViolations(rows);
+    expect(out, out.join('\n')).toEqual([]);
+  });
+
+  test('plant — a refusal in the info tone, a Notice with both tones, and one with none are each rejected', () => {
+    const p = (cls: string, text: string): Element => { const el = document.createElement('p'); el.className = cls; el.textContent = text; return el; };
+    expect(toneViolations([{ what: 'refusal', el: p('status notice notice-info', 'x'), text: 'x', tone: 'caution' }])).toEqual(['refusal: tone info, not caution']);
+    expect(toneViolations([{ what: 'both', el: p('notice notice-info notice-caution', 'x'), text: 'x', tone: 'info' }])).toEqual(['both: tone info+caution, not info']);
+    expect(toneViolations([{ what: 'none', el: p('notice', 'x'), text: 'x', tone: 'info' }])).toEqual(['none: tone none, not info']);
+    expect(toneViolations([{ what: 'words', el: p('notice notice-info', 'x '), text: 'x', tone: 'info' }])).toEqual(['words: the words changed']);
+  });
+
+  test('every p.status carries role="status", in the publish forms and the sign-in form', async () => {
+    await wards([GOOD_ROW, ROW_B], () => json(200, result(5)));
+    const statuses = Array.from(document.querySelectorAll('p.status'));
+    expect(statuses.length).toBe(2);
+    await renderAt('', () => json(500, {}));
+    statuses.push(...Array.from(document.querySelectorAll('p.status')));
+    expect(statuses.length).toBe(3);
+    for (const s of statuses) expect(s.getAttribute('role'), 'a status line is not announced').toBe('status');
+  });
+});
+
+/** Why style.css's Notice rules are not the design system's Notice, or the console shows green, or []. */
+export function noticeCssViolations(css: string): string[] {
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = (sel: string): string => (new RegExp(`(?:^|\\})\\s*${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`).exec(bare)?.[1] ?? '').replace(/\s+/g, ' ');
+  const want: [string, string][] = [
+    ['.notice', 'border: var(--border-width) solid var(--border-default)'],
+    ['.notice', 'border-left-width: var(--border-accent-width)'],
+    ['.notice', 'border-radius: var(--radius-md)'],
+    ['.notice-info', 'background: var(--surface-accent-soft)'],
+    ['.notice-info', 'border-left-color: var(--ob-navy-500)'],
+    ['.notice-info', 'color: var(--ob-navy-800)'],
+    ['.notice-caution', 'background: var(--ob-status-limited-bg)'],
+    ['.notice-caution', 'border-left-color: var(--ob-status-limited)'],
+    ['.notice-caution', 'color: #6d4c12'],
+  ];
+  const out = want.filter(([sel, decl]) => !rule(sel).includes(decl)).map(([sel, decl]) => `${sel} does not declare ${decl}`);
+  for (const green of ['--ob-status-available', '--ob-fresh-green']) if (bare.includes(green)) out.push(`the console names ${green}: no green anywhere in the console (-126 DB-1)`);
+  return out;
+}
+
+describe('DI-2 — the Notice rules are the design system\'s, and the console has no green', () => {
+  const CSS = readFileSync(join(SRC, 'style.css'), 'utf8');
+  test('real apps/ward-console/src/style.css is accepted', () => {
+    const out = noticeCssViolations(CSS);
+    expect(out, out.join('\n')).toEqual([]);
+  });
+  test.each<[string, (c: string) => string, string]>([
+    ['a caution Notice in the info colours', (c) => c.replace('color: #6d4c12', 'color: var(--ob-navy-800)'), '.notice-caution does not declare color: #6d4c12'],
+    ['a green success tone', (c) => `${c}\n.notice-ok { background: var(--ob-status-available-bg); }\n`, 'the console names --ob-status-available'],
+    ['no accent width', (c) => c.replace('border-left-width: var(--border-accent-width);', ''), '.notice does not declare border-left-width: var(--border-accent-width)'],
+  ])('plant — %s is rejected', (_name, plant, message) => {
+    const planted = plant(CSS);
+    expect(planted, 'the plant did not change the file').not.toBe(CSS);
+    expect(noticeCssViolations(planted).join('\n')).toContain(message);
+  });
+  test('anti-vacuity — an empty stylesheet has no Notice', () => {
+    expect(noticeCssViolations('')).toHaveLength(9);
+  });
+});
+
+describe('DI-3 — the steppers and the count have accessible names', () => {
+  test('− is "Fewer beds", + is "More beds", and the count is "Beds"', async () => {
+    const { minus, plus, count } = await oneWard();
+    expect(minus.getAttribute('aria-label')).toBe('Fewer beds');
+    expect(plus.getAttribute('aria-label')).toBe('More beds');
+    expect(count.getAttribute('aria-label')).toBe('Beds');
   });
 });
