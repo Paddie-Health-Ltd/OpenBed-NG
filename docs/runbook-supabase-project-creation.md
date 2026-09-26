@@ -3779,6 +3779,23 @@ through the admin app.
      off on 2026-09-25, and the served file now equals the tracked one byte for byte on
      both hosts. `scripts/readback_pages.sh` compares both (read-back 7). The `noindex`
      decision is still the founder's, so the box stays open.
+   - [ ] The design pass: the OpenBed design system applied to the public dashboard, the
+     ward console and admin; each deployed from merged `main`, read back PASS,
+     browser-checked at 360 px and desktop widths, and the look approved by the founder
+     in the browser. (R-2026-09-26-121 CW-1) **Closes only when** all three apps are
+     deployed and the founder approves. A merge alone does not close it.
+   - [ ] The founder's launch paperwork register reads Approved on every item. The
+     register is outside this repository. (R-2026-09-26-121 CW-2) It does not replace
+     the first box above.
+
+   *Added 2026-09-26 (R-2026-09-26-121 CW-1, CW-2):* the last two boxes. Since then
+   every deferral in the decision record names exactly one gate, BOX, TRIGGER or VERSION,
+   and its section "Deferred items — this record is where the list lives" holds them
+   all. **Every unticked box here has a BOX row there, and every BOX row there cites a
+   ruling that a box here carries.** `tests/compliance/deferred_items.test.ts` holds the
+   two to each other. *Restated 2026-09-26:* the list's head above says "**None is
+   closed here.**" That was true when the list was compiled. Boxes 2 and 3 have been
+   ticked since R-2026-09-25-119 CU-6, each by the ruling named in it.
 
    *Restated 2026-09-25 (R-2026-09-25-115, then -116).* Until 2026-09-25 this item was
    headed "The -45 stop condition first". It read: "Step 4b must read CLOSED on every
