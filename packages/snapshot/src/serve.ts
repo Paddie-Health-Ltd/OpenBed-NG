@@ -84,6 +84,14 @@
  * Sprint Kickoffs/sprint-kickoff-bedspace-v2-2026-09-10.md. A `Date.now()` added
  * to this file today would pass lint, CI and every compliance test. Building the
  * guard is an open item with a trigger, not this change.
+ *
+ * *Restated 2026-09-26 (R-2026-09-26-130, PR F):* THE RULE NOW EXISTS, and the paragraph
+ * above is kept as the record of when it did not. `openbed/no-wall-clock` in
+ * eslint.config.mjs refuses Date.now, Date.UTC, performance.timeOrigin and a no-argument
+ * `new Date()` across packages/snapshot/src and every app. This file's one deliberate
+ * clock read, the serve-time stamp below, carries a named exemption
+ * (OPENBED-CLOCK-READ, R-2026-09-23-67 A3), and tests/compliance/eslint_wall_clock.test.ts
+ * pins it: a second one would go red.
  */
 import { decodeFacility, decodeWard } from './codec.js';
 import { SERVED_AT_HEADER } from './headers.js';
@@ -465,6 +473,7 @@ export async function serveBedsCached(
     out.headers.set(EDGE_CACHE_HEADER, state);
     // The serve-time clock (see the header): minted here, per response, so a hit
     // carries THIS serve's time and the stored copy carries none.
+    // eslint-disable-next-line openbed/no-wall-clock -- OPENBED-CLOCK-READ: R-2026-09-23-67 A3, the Function's serve-time stamp, the one wall-clock read on the server
     out.headers.set(SERVED_AT_HEADER, new Date().toISOString());
     return out;
   };

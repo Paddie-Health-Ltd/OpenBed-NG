@@ -5792,6 +5792,115 @@ _Issued as R-PROVISIONAL-2026-09-26-DC, by Cowork on 2026-09-26, as its re-check
 
 No SQL and no migration; nothing hosted was run by Claude Code.
 
+### R-2026-09-26-128 — #87 re-checked and merged
+
+_Issued as R-PROVISIONAL-2026-09-26-DD, by Cowork on 2026-09-26, as its re-check of #87 at `b76d711c549efde3fccdbfb97550f8175bd9405e`. **Pasting it was the founder's merge word for #87.** Record-only. It was held, and it lands with PR F. Number assigned on landing: R-2026-09-26-127 plus one. Next provisional letter: DE._
+
+**VERIFIED BY COWORK** (2026-09-26, GitHub API and the screenshots):
+- #87 OPEN at `b76d711`, base `495ad0a` (= main); clean; 4 commits.
+- The compare `13e9e88...b76d711` is 1 ahead and 0 behind, so there was no force-push.
+- Seven check runs success. No new address.
+- The code change was read in full: `qualified` is derived from `precedence(...).qualifiers` and is false on the no-count and SUPPRESSED paths; `rowStyle` greys a qualified GREEN stamp and leaves YELLOW amber; `pageStale` still wins.
+- `tiles-1280xfull` was read: green, the dot and a green stamp appear only on the unqualified fresh counts.
+
+**ACCEPTED:** DC-1 as corrected, and -127's two premise notes.
+
+**DD-1 — THE MERGE.**
+- The head was read from the API as `b76d711c549efde3fccdbfb97550f8175bd9405e`, and #87 merged as a merge commit with `--match-head-commit` on that value.
+- MERGED was read back: **`5be63d4bf6d3a12f647e295bbcef1924f883a334`**, with parents `495ad0aba02d155ab0781ceaf089cd401ca5912f` and `b76d711c549efde3fccdbfb97550f8175bd9405e`.
+- As a separate step, after MERGED was read, local `main` was fast-forwarded with `git merge --ff-only origin/main`. `design-pass-d1` was then deleted on the remote and locally, and both read back as gone.
+
+**DD-2:** box 14 stays OPEN. It closes only after D2 and D3 are deployed and the founder approves all three in the browser.
+
+**DD-3:** nothing hosted by Claude Code. The founder deploys the public dashboard and runs its read-back and browser check (-129). Then PR F, then D2, then D3.
+
+### R-2026-09-26-129 — the public dashboard deployed at 5be63d4 and read back PASS; PR F starts
+
+_Issued as R-PROVISIONAL-2026-09-26-DE, by Cowork on 2026-09-26, from the founder's pasted terminal output, read in full. It lands in PR F. Number assigned on landing: R-2026-09-26-128 plus one. Next provisional letter: DF._
+
+**VERIFIED BY COWORK:**
+- **The checkout:** deployed from `~/Desktop/OpenBed-NG-deploy`, detached at `origin/main` `5be63d4`. `npm ci`: 0 vulnerabilities. The tree was clean, and the stamp read back `5be63d4`, clean.
+- **The deployment:** `https://f56ae2af.openbed-public-dashboard.pages.dev`, 12 files. No 429 at `GET /accounts`, so the wrangler-429 trigger ("a second occurrence") has NOT fired.
+- **`readback_pages.sh`: PASS**, covering:
+  - read-backs 4 (commit `5be63d4`, dirty false, ancestor 0), 6, 7 and 8;
+  - the page's headers and scripts on both hosts;
+  - the favicon on both hosts, byte for byte, `image/vnd.microsoft.icon`;
+  - a self-hosted font (6 woff2, the first `public-sans-latin-400`, 200, `font/woff2`);
+  - the serve-time stamp.
+- **The founder's browser check:** all checks passed.
+
+**DE-1 — THE DEPLOY IS RECORDED** in `docs/runbook-cloudflare-pages-beds-json.md`'s run records, as "Run on 2026-09-26".
+- **CLOSED:** the open item that the new read-back checks had not yet run against hosted (noted at -120 CV, and in that runbook's D1 paragraph, which is restated).
+- **The public dashboard's part of box 14 is DONE,** and runbook 12.4 box 14 gains a dated progress line. **Box 14 itself stays OPEN** until D2 and D3 are deployed and the founder approves all three.
+
+**DE-2 — PR F starts** from `main` at `5be63d4`, per R-2026-09-26-122 CX-3:
+- three guards, each shown red first on a plant AND on the real files where that applies;
+- each lands with its register row removed.
+
+**DE-3:** DD (-128) and DE (-129) land in F with their ledger rows. The full suite and the commit gate run, then STOP at the open PR. Nothing hosted.
+
+### R-2026-09-26-130 — PR F's terms: F3 at full scope with two named exemptions; E2's "touching" and "blank" defined
+
+_Issued as R-PROVISIONAL-2026-09-26-DF, by Cowork on 2026-09-26, in answer to the implementer's question on the F3 scope and the E2 terms. It lands in PR F. Number assigned on landing: R-2026-09-26-129 plus one. Next provisional letter: **DG**._
+
+**DF-1 — THE F3 ESLINT DATE GUARD (-21-38 D1): FULL SCOPE, TWO NAMED EXEMPTIONS.**
+- **The rule.** The spec (the v2 kickoff, "The F3 guard, specified to implement") bans `Date.now()`, a no-argument `new Date()`, `Date.UTC` and `performance.timeOrigin` in `apps/**/*.ts`, `apps/**/*.tsx` and `packages/snapshot/src/**/*.ts`. It was written on 2026-09-10, before two deliberate clock reads that sit inside that scope:
+  - the Function's `x-openbed-served-at` stamp in `packages/snapshot/src/serve.ts`;
+  - the ward console's `p_composed_at` in `apps/ward-console/src/main.ts`.
+- **Landed as `openbed/no-wall-clock`,** a local plugin rule in `eslint.config.mjs`, at severity error, scoped exactly as the spec writes it.
+  - **Why its own rule id.** Flat config replaces a rule's options per block. A second `no-restricted-syntax` block would have silently dropped F2's duty-flag selectors, and a line exemption naming `no-restricted-syntax` would switch F2 off on that line too.
+  - **The two exemptions** are `eslint-disable-next-line openbed/no-wall-clock -- OPENBED-CLOCK-READ: <ruling>`.
+- **A premise that did not hold.** DF-1 b said to cite "the ruling that set that window" for the ward console. No `R-` ruling set it: the symmetric STALE/FUTURE_MUTATION window was a task in the v2 kickoff's Stage 2 (its "A symmetric `composed_at` window"), built in migration 014. So the exemption cites **R-2026-09-26-130 DF-1 b**, the ruling that makes it an exemption, and names the window's real source in its reason.
+- **`tests/compliance/eslint_wall_clock.test.ts`:**
+  - **Plants, one per ban**, and the coercion form (`+new Date()`).
+  - **Positive controls:** `new Date(iso).toLocaleString('en-NG')`, `Date.parse` and `performance.now`.
+  - **Accept:** the real scope lints with no hit, and the linted files include `packages/snapshot/src/freshness.ts`.
+  - **Anti-vacuity:** a scratch tree with a control file lints one file and hits, then without it lints none.
+  - **DF-1 c, the pinning.** The exempted set must equal exactly the two, matched by FILE and REASON STRING and never by line. It is refused for:
+    - a third exemption;
+    - one without the marker or a ruling id;
+    - a disable naming another rule too, or naming none;
+    - a file-wide or block `eslint-disable`;
+    - an `eslint-disable-line`.
+
+    The comments come from a real TypeScript parse. A first draft used a bare scanner, which lost the ward console's comment behind a mis-tokenised stretch of `main.ts` (method note 17, observed).
+  - **DF-1 d, that CI lints these files:**
+    - repo-lint runs `npx eslint .`;
+    - no scoped file is ignored;
+    - the resolved config carries the rule as an error for each scoped file, and not for an unscoped one.
+- **Red first (DF-1 e), on the branch:**
+  - the rule on the real tree before the disables reported exactly the two call sites, `apps/ward-console/src/main.ts:299` and `packages/snapshot/src/serve.ts:468`;
+  - a third exemption planted in `apps/public-dashboard/src/main.ts` read "an exemption that is not one of the two DF-1 b rules", and the file was restored byte-identical.
+- **Comments made true,** with their old text kept: `serve.ts` ("THERE IS NO SUCH RULE"), `anchor.ts` ("the ESLint rule arriving in Stage 3") and `freshness_bands.test.ts` ("the Stage 3 ESLint rule's job").
+- **NOT ASSERTED, and reported:**
+  - an alias (`const D = Date; D.now()`, or `p.timeOrigin` after `const p = globalThis.performance`) evades an AST rule;
+  - `Date()` called without `new` also reads the clock, and the spec does not name it. DF-1 a keeps the bans exactly as written, so it is left for Cowork to rule.
+
+**DF-2 — THE E2 MIGRATION-TEMPLATE LINE (-21-50 E2): ANY PATH; A BARE "none" FAILS.**
+- **(a) Touching:** any added, modified, deleted or renamed path under `database/migrations/`, including `.down.sql` and `applied-hosted.json`.
+- **(b) Blank:** after stripping HTML comments, the line "Runbook expectations this migration changes:" is missing, has nothing after it, or is "none" without "because <reason>". A null or empty body on a touching PR is blank.
+- **(c) Triggers:** `pull_request` types `[opened, synchronize, reopened, edited]`. The body reaches the script only through env.
+- **Landed:**
+  - **`scripts/check_pr_migration_line.mjs`**, run as a step in repo-lint with `if: github.event_name == 'pull_request'` and `env: PR_BODY`. It is a step, not a new job, so the job set stays at seven, no job-level `if` is added, and there is no branch-protection change. repo-lint's checkout fetches two commits.
+  - **Why the script runs git itself** (`--from-git`, `git diff --name-only --no-renames HEAD^1 HEAD`) rather than reading a pipe: GitHub's default shell has no pipefail, so a failed `git diff | node` would hand it an empty list, and that would read as "not touching". A git that cannot run is an ERROR, exit 2.
+  - **`tests/compliance/pr_migration_line.test.ts`:**
+    - the plants from DF-2 b, and the `.down.sql`, `applied-hosted.json` and rename-out cases;
+    - accepted: sections, "none, because", and a non-touching PR with a blank body;
+    - the could-not-run and usage ERRORs;
+    - `ci.yml` pinned: the types, the step, `--from-git`, `fetch-depth: 2`, and no `${{ github.event.pull_request.body }}` in any `run:`.
+- **Red first (DF-2 d):** all but two of the test's legs failed before the script existed. Run directly against a touching change: the template's blank line read `FAIL: blank line …` (exit 1), a bare "none" read `FAIL: bare none …` (exit 1), and "none, because 024 changes no hosted reading" read `ok: … answered` (exit 0).
+- **Legs:** six new legs, all reached. `legs_total` 317 → 323, reached 291 → 297, registered 26. Two message drafts were rewritten so each leg has its own identity: two could-not-run messages had shared one tail, and "could not read" would have nested two lint scripts' legs.
+
+**AND THE THIRD F ITEM (-21-41 B), as scoped by CX-3: THE AUTH HOOKS STAY OFF,** now a guarded invariant.
+- `tests/compliance/auth_hooks_off.test.ts` reads `supabase/config.toml` with a reader that sees only uncommented table headers. Every live `[auth.hook.<name>]` must say `enabled = false`.
+- **Plants:** `custom_access_token` enabled, `before_user_created` enabled, and a live hook table with no `enabled` key.
+- **Red on the real file:** with the `custom_access_token` block uncommented, it read "[auth.hook.custom_access_token] is live with enabled = true"; the file was restored byte-identical.
+- It lives in compliance, not `config_drift` (db), because it needs only the file. `config_drift`'s header "four keys" is restated to six, with the old text kept.
+
+**THE REGISTER:** the three "FIRED; work in PR F" rows (-21-38 D1, -21-41 B and -21-50 E2) are removed in this change. **58 rows remain,** recomputed from the table.
+
+No SQL and no migration; nothing hosted was run by Claude Code.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -5910,6 +6019,9 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | DA | R-2026-09-26-125 | 2026-09-26 | **The ward-console and admin design legs are PENDING legs:** plain tests asserting the app's current state, each red with a flip message once the app meets the guard. Not `test.todo` (it counts as skipped) and not `test.fails` (it passes on any throw). Two register rows gate them on D2's and D3's PRs. |
 | DB | R-2026-09-26-126 | 2026-09-26 | **#87 held once, amended in #87.** Under the stale banner nothing reads as live. A qualified or countless claim is not coloured. Name 24 > phone 20 > count 18, as literal px with a guard (the founder's order; DB-3's own slip recorded). The stamp takes its own line on a phone, and the header sits in the content column. A wording note is in the A7 row. The register parser now refuses a row after the table ends, a gap DB-6 would have hit. |
 | DC | R-2026-09-26-127 | 2026-09-26 | **#87 amended once more.** A qualified claim is never shown as live: no dot, and a grey stamp in place of green. Amber stays on the YELLOW band, qualified or not (the founder's correction of DC-1's "coloured stamp", Cowork's slip). DD has not been issued, so it has no row. |
+| DD | R-2026-09-26-128 | 2026-09-26 | **#87 merged at `5be63d4`** (parents `495ad0a`, `b76d711`); `design-pass-d1` deleted on both sides and read back as gone. Box 14 stays open. Held, and landed with PR F. |
+| DE | R-2026-09-26-129 | 2026-09-26 | **The public dashboard deployed at `5be63d4`,** read back PASS, including the favicon and font checks' first hosted run, and browser-checked. Recorded in the Pages runbook. The dashboard's part of box 14 is done; the box stays open. PR F starts. |
+| DF | R-2026-09-26-130 | 2026-09-26 | **PR F's terms.** F3 at full scope as `openbed/no-wall-clock`, with two exemptions pinned by file and reason. E2: any path under `database/migrations/`, and a bare "none" fails, checked by a repo-lint step with the body in env. With the auth-hook invariant, the three F rows leave the register. |
 
 ## Deferred items — this record is where the list lives
 
@@ -5970,14 +6082,11 @@ the record's own, except where CW-5 assigned one._
 | The two regex readers, and their second task (-31 B) | R-2026-09-18-16 B | TRIGGER | Facility one is onboarded ("after facility one", -36 C's queue) |
 | Whether Pages Functions support scheduled handlers or cron triggers (re-pointed by -54 C) | R-2026-09-17-12 G | TRIGGER | The sensor bundle is scoped |
 | The failure path's headers observed at the edge, by a preview deployment against a non-production project | R-2026-09-20-32 B2 | TRIGGER | The failure path comes to carry data |
-| The F3 ESLint Date guard | R-2026-09-21-38 D1 | TRIGGER | FIRED; work in PR F (R-2026-09-26-122 CX-3). The trigger was the next change touching the build or lint config, and it fired at `8fd2ad7` |
 | An assertion tying `s-maxage` to `pollCadenceSeconds` | R-2026-09-21-38 D2 | TRIGGER | The next change touching either value |
 | `npx supabase start` hitting the Docker Hub pull limit in stack jobs | R-2026-09-21-38 D3 | TRIGGER | The next stack-job failure of that shape |
-| "The hook stays off" is a convention, not a guarded invariant | R-2026-09-21-41 B | TRIGGER | FIRED; work in PR F (R-2026-09-26-122 CX-3): made a guarded invariant over `supabase/config.toml`. The trigger fired at `f85d088` and `69e357a` |
 | The tautological column-name legs in the served-document test | R-2026-09-21-42 G | TRIGGER | The next change touching `packages/snapshot/src/codec.ts` or those legs |
 | Gate 2's 60-second clause could be revisited | R-2026-09-23-67 A7 | BOX | Subsumed by the clinicians' box: its threshold confirmation includes this clause (R-2026-09-26-122 CX-3). Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 | The from-allowlist lint extended to `.rpc(` call sites | R-2026-09-21-48 A2 | TRIGGER | The first `.from(` or `.rpc(` call site added under `apps/` |
-| A CI job failing a migration-touching pull request whose template line is blank | R-2026-09-21-50 E2 | TRIGGER | FIRED; work in PR F (R-2026-09-26-122 CX-3). The trigger was the next change to `.github/workflows/ci.yml`, and it fired at `f7407bd` |
 | The snapshot Function keeps its direct origin | R-2026-09-22-58 A6 | TRIGGER | -23 D5 closes (its box at runbook 12.4 step 1 is ticked) |
 | GoTrue's answers reveal whether an address has an account (an accepted risk) | R-2026-09-23-67 C | TRIGGER | Personal addresses are ever used as logins |
 | A uniform `/otp` answer at the Worker (option B) | R-2026-09-23-70 A | TRIGGER | -55 C lands |

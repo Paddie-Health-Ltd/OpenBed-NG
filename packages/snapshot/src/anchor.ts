@@ -34,6 +34,13 @@
  * variable nothing can distinguish a legitimate monotonic anchor from a
  * wall-clock read, so the ESLint rule arriving in Stage 3 bans the CALLS and
  * this marks the one place the ban is deliberately not in force.
+ *
+ * *Restated 2026-09-26 (R-2026-09-26-130, PR F):* the rule arrived as
+ * `openbed/no-wall-clock` in eslint.config.mjs. It bans the wall-clock reads -- Date.now,
+ * Date.UTC, performance.timeOrigin and a no-argument `new Date()` -- and NOT
+ * performance.now, which is monotonic and legal everywhere, so this file needs no
+ * exemption from it. This annotation still marks the one monotonic ANCHOR, which is a
+ * different claim from the rule's.
  */
 
 /** An opaque mark. Meaningless on its own; only differences of two marks matter. */

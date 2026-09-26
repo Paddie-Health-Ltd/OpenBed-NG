@@ -296,6 +296,7 @@ async function submitPublish(holder: SessionHolder, ward: WardRow, form: Publish
       p_reason: form.reason,
       p_expected_version: ward.version,
       p_client_mutation_id: mutationId,
+      // eslint-disable-next-line openbed/no-wall-clock -- OPENBED-CLOCK-READ: R-2026-09-26-130 DF-1 b, the device's composed_at for 014's symmetric STALE/FUTURE_MUTATION window (the v2 kickoff's Stage 2)
       p_composed_at: new Date().toISOString(),
     }),
   });

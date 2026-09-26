@@ -39,6 +39,10 @@ name: CI
 
 on:
   pull_request:
+    # `edited` as well as the defaults, so fixing a pull request's body re-runs the
+    # migration-line step in repo-lint (R-2026-09-26-130 DF-2 c). It re-runs every job;
+    # that is the cost of a check whose input is the body.
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
   # The recovery lever. A required check that cannot be re-run by hand turns a
@@ -68,6 +72,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Two commits: HEAD is the merge into the base, and HEAD^1 is the base, which
+          # the migration-line step diffs against.
+          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -75,8 +83,17 @@ jobs:
       - run: npm ci
       - name: Type-check
         run: npm run typecheck
-      - name: ESLint (includes the F2 duty-flag rule)
+      - name: ESLint (includes the F2 duty-flag rule and the F3 no-wall-clock rule)
         run: npx eslint .
+      # A migration pull request answers the runbook line (R-2026-09-21-50 E2; PR F,
+      # R-2026-09-26-130 DF-2). The body reaches the script ONLY through env: interpolating
+      # it into run: would let a pull request's text execute here.
+      # tests/compliance/pr_migration_line.test.ts pins this step and refuses that form.
+      - name: A migration pull request answers the runbook line
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node scripts/check_pr_migration_line.mjs --from-git
 
   migration-lint:
     name: migration-lint

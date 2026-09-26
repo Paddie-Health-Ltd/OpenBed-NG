@@ -23,7 +23,9 @@ import { markFetch, elapsedSince } from '../../packages/snapshot/src/anchor.js';
  * That is the Stage 3 ESLint rule's job -- it parses the AST, so it cannot fire
  * on a commented-out example or a string literal, which a grep would. This file
  * asserts the computation is correct GIVEN honest inputs; that one asserts the
- * inputs cannot be dishonest.
+ * inputs cannot be dishonest. *Since 2026-09-26 (R-2026-09-26-130, PR F)* that rule
+ * exists: `openbed/no-wall-clock` in eslint.config.mjs, pinned by
+ * tests/compliance/eslint_wall_clock.test.ts.
  */
 const B = SHAPE.freshnessBands;
 const iso = (msFromEpoch: number): string => new Date(msFromEpoch).toISOString();
