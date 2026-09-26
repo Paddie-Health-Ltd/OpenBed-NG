@@ -5954,6 +5954,207 @@ _Issued as R-PROVISIONAL-2026-09-26-DG, by Cowork on 2026-09-26, as its check of
 
 **DG-4 — PROCESS:** one new commit on `pr-f-fired-guards`, with no force-push and no rebase. -131 lands with its ledger row. The full suite runs on a fresh DB and the commit gate runs, then STOP at #88. Nothing hosted.
 
+### R-2026-09-26-132 — #88 merged; D2, the ward console, as built
+
+_Issued as R-PROVISIONAL-2026-09-26-DH, by Cowork on 2026-09-26, as its re-check of #88 at `5b94fb697f0d028f3fc9e4bfa820baa80e909383`. **Pasting it was the founder's merge word for #88, and D2's start word.** It was held, and it lands in D2's pull request. Number assigned on landing: R-2026-09-26-131 plus one. Next provisional letter: **DI**._
+
+**VERIFIED BY COWORK** (2026-09-26, GitHub API from the founder's Mac):
+- #88 OPEN at `5b94fb6`, base `5be63d4` (= main), mergeable clean; 2 commits, 16 files.
+- The compare `46169e6...5b94fb6` is 1 ahead and 0 behind, so there was no force-push and no rebase.
+- The latest run of each of the seven checks on `5b94fb6` is success (actions run 36265610165). An earlier run, 36265609336, was cancelled by the concurrency group when the push and the body edit fired together. That is the `edited` trigger working as DF-2 c intends, not a failure.
+- The DG diff was read in full, and no added line carries an address.
+
+**ACCEPTED:** DG-1 to DG-4 as landed, and both self-caught slips as recorded (the empty `--format unix` run, and the shortened assertion restored before the push).
+
+**DH-1 — THE MERGE.**
+- #88's head was read from the API as `5b94fb697f0d028f3fc9e4bfa820baa80e909383`, and #88 merged as a merge commit with `--match-head-commit` on that value.
+- MERGED was read back: **`2586d290c2ff3d8bdf97577b3e7c3d8fe7215dba`**, with parents `5be63d4bf6d3a12f647e295bbcef1924f883a334` and `5b94fb697f0d028f3fc9e4bfa820baa80e909383`.
+- As a separate step, after MERGED was read, local `main` was fast-forwarded with `git merge --ff-only origin/main`. `pr-f-fired-guards` was then deleted on the remote and locally, and both read back as gone, with `main` found by the same two reads as the control.
+
+**DH-2:** box 14 stays OPEN. PR F closed the three fired-trigger items only.
+
+**DH-3 — D2, THE WARD CONSOLE, AS BUILT** from `main` at `2586d29`, per the kickoff's D2, with -126 and -127 read alongside it.
+- **(a) What landed:**
+  - **the viewport meta,** the root-cause fix for the desktop-width rendering on a handset;
+  - **the foundation:** `@openbed/design`'s tokens and self-hosted fonts, imported by `apps/ward-console/src/main.ts` before the app's own new `src/style.css`, with `assetsInlineLimit: 0` as D1 has it. `package-lock.json` gains only the workspace link; no registry package is added;
+  - **the favicon:** the mark as the SVG icon, and `public/favicon.ico`, the dashboard's icon byte for byte (one mark, one icon);
+  - **the header:** the mark at 28 px and the live-text lockup, in the same centred column as the content, with the same gutter inside it (D1's DB-5 b rule). The harness measured the lockup's left edge against the first content block in every state: 16 px at 360 and 324 px at 1280;
+  - **sign-in:** a single column, a 44 px field and a 52 px primary button;
+  - **handover:** each ward is a card, its summary unchanged and still `li > p`. The summary takes no status colour. The line carries no age, and a coloured claim with no freshness is the "go" signal D1 withholds (-126 DB-1);
+  - **publish:**
+    - the count field is 64 px, mono, at `--text-count-lg`'s 28 px;
+    - − (U+2212) and + are 64 px steppers either side of it, each a `type="button"`. They change the field only, clamped 0 to 500 (004's CHECK range), and never publish;
+    - the zero-reason `<select>` stays a select, styled, with its arrow drawn in CSS and no image;
+    - Publish is the full-width 52 px primary. Busy is the disabled state the code already sets while a request is in flight, and the label does not change.
+  - **`[hidden]` is forced** to `display: none`. The count row, the reason choice and "Accepting" are hidden by attribute, and without this a styled `display` would show them.
+- **(b) The words.** Every `wardMessageFor` sentence is byte-identical, and every `p.status` and refusal renders as a Notice. The signed-out instruction is lead text, not a Notice, because it refuses nothing. "Within 30 seconds" appears nowhere. `apps/ward-console/src/main.ts` changes no string a ward reads. Its diff adds imports, class names, the stepper rule and comments.
+- **(c) The PENDING D2 legs are flipped.** Red first, on the real app:
+  - given the viewport meta, the PENDING viewport leg read "this app now meets the guard — replace this leg with the real guard in this PR (D2; R-2026-09-26-125 DA)";
+  - built with the design imports, the PENDING applied leg read the same;
+  - `DESIGN_STATE` then made both real, and each real leg was shown red on the real files: the viewport removed ("apps/ward-console/index.html has no <meta name="viewport" …>"), and a build without the design imports ("the build holds no CSS file at all"). Both files were restored byte-identical.
+
+  DA-3's D2 row, "The ward console's design guards", leaves the register. The favicon row records that D2 is done for the ward console, and admin remains, in D3. **The register holds 58 rows: 15 BOX, 32 TRIGGER and 11 VERSION**, recounted from the table.
+- **(d)** DG-3's row, "The hosted project's auth hooks are off", **stays**. It leaves in the pull request that records the founder's section 5 step 5 read after D2's hosted deploy.
+- **(e) The new guards, each shown red first on the real files:**
+  - **`tests/compliance/ward_console_design.test.ts`:**
+    - **the steppers:** twelve `stepCount` cases, including both clamps, a blank field and an unreadable one. Rendered, the field stops at 500 and at 0, and reaching 0 offers the reason choice. Forty-two taps send no `publish_ward_status`. A plant, a stepper made a submit button, publishes and is seen;
+    - **one request per publish:** two taps on Publish send one request, and the button is disabled in flight. A plant, the button re-enabled between the taps, sends two and is seen;
+    - **identity:** every `WARD_MESSAGES` sentence, the CHECK sentence and `UNRECOGNISED` each render exactly, as a Notice. So do the handover-load refusal and a refused row. Each card's summary is `summaryLine(...)` exactly;
+    - **"within 30 seconds":** scanned in the console's source, its `index.html` and its built bundle. The known-present control is "within 5 minutes", found in both the source and the bundle;
+    - **the sizes,** as literal px from `style.css`: the count field 64, its type 28 mono, the steppers 64 by 64, the primary button 52 and the sign-in field 44. There is one plant per size, and a size given through `var()` reads null and fails;
+    - **red on the real files:**
+      - a stepper made `type="submit"` turned three legs red;
+      - Publish no longer disabled in flight turned the double-tap leg red;
+      - a space added before the rendered sentence turned the identity leg red;
+      - the clamp widened to 600 turned three legs red;
+      - Publish at 44px in the real CSS turned the size leg red;
+      - "within 30 seconds" planted in a real sentence and built was named in both `main.ts` and the bundle.
+
+      Each file was restored byte-identical.
+  - **`tests/compliance/design_package.test.ts`:** the ward console's `favicon.ico` is an ICO, equal to the dashboard's, copied unchanged into the build, and `index.html` links the SVG icon. It was red with the icon removed, and red with the build's copy removed.
+    - **A plant of mine went red for the wrong reason.** The icon link was removed while the build's copy was still missing, so the leg stopped at the earlier check. The plant was re-run on a fresh build, and it read red on the link itself.
+  - **`scripts/readback_ward_console.sh`** now reads `/favicon.ico` on both hosts (byte for byte the tracked icon, never `text/html`), and one woff2 that the page's stylesheet names, which must be served as `font/woff2`. Both checks are as `scripts/readback_pages.sh` has them. In `tests/compliance/readback_scripts.test.ts`, the accept leg and six new plants were red against `main`'s script, 7 failed, and all 133 pass against the new one. The ward-console runbook's section 2 says what the script now reads, and gives the founder's phone check after D2's first deploy. Section 5 is unchanged by D2.
+- **(f) The screenshots** are in `.design-screens/D2/`, 105 files: 35 states, each at 360×740, 360 full page and 1280×900.
+  - **The states:**
+    - signed out; link sent; link unreachable; bad link;
+    - handover; no ward; a load refusal;
+    - the count at 0 with the reason choice, at 37, and at 500 by stepper;
+    - the reason select open; not offered;
+    - Publish idle, busy, success and replayed; invalid; zero with no reason; session ended;
+    - every `wardMessageFor` outcome, and `UNRECOGNISED`.
+  - **How they were taken:** from the real `build:local` output with its tracked CSP applied, with API calls answered from synthetic data by Chrome's DevTools Fetch interception, so nothing reached the local stack.
+  - **What the harness saw:** no horizontal overflow and no CSP violation in any of the 105. The browser's own log shows only the planted refusals' network lines.
+  - **One harness-only change:** a native select's open list is drawn by the operating system, and no page screenshot can capture it. For "reason select open" only, the harness sets `size=9` so the eight choices show as a list; the app never does this.
+  - **No browser runner was added,** so -23-70 C3's trigger does not fire.
+
+**FOUND, NOT FIXED — REPORTED FOR A RULING.** On a successful publish, the status line is set to "Published." (or "Already published (replay).") and then `onUpdated` re-renders the whole handover, which replaces it. A ward never sees either sentence, only the card's summary changing (the `publish-success` and `publish-replayed` screenshots). This is on `main`, not introduced by D2. Fixing it changes behaviour, so it is left for Cowork to rule.
+
+**REPORTED, NOT RULED:**
+- **The steppers carry no `aria-label`.** Words for them would be new wording, which waits on the clinicians' box, so each button's accessible name is its glyph.
+- **Every Notice is the same neutral navy.** A refusal and a success differ only in their words.
+- **− on a blank field gives 0,** which then offers the reason choice.
+
+No SQL and no migration. Nothing hosted was run by Claude Code.
+
+### R-2026-09-26-133 — #89 amended once: a publish updates its own card only; the Notice tones are the design system's; the controls have names
+
+_Issued as R-PROVISIONAL-2026-09-26-DI, by Cowork on 2026-09-26, as its check of #89 at `bbb8173eb62795970eaec2b77eee83b8193a7a12` and of every screenshot on the founder's Mac. **Not the merge word.** It lands in #89 as a second commit on `design-pass-d2`, with no force-push and no rebase. Number assigned on landing: R-2026-09-26-132 plus one. Next provisional letter: **DJ**._
+
+**VERIFIED BY COWORK** (2026-09-26, GitHub API and the screenshots):
+- #88 is MERGED as `2586d29` (parents `5be63d4`, `5b94fb6`), `main` = `2586d29`, and `pr-f-fired-guards` reads 404.
+- #89 OPEN at `bbb8173`, base `2586d29` (= main), clean; 1 commit, 14 files, +849/−19. Seven check runs success.
+- The diff was read in full.
+- All 35 states were read at 360×740 and 1280×900, plus `handover-360xfull`.
+
+**ACCEPTED:** D2 as built, the PENDING D2 flip, the favicon and font read-back, the size and wording guards, and both self-caught plant slips as recorded. -132 as landed.
+
+**DI-1 — A PUBLISH UPDATES ITS OWN CARD ONLY.** This answers -132's "found, not fixed", which is not edited.
+- **The root cause, confirmed:** `onUpdated` called `renderHandover`, which rebuilt every card. That erased the published card's "Published." and every other card's unsent values and Notices.
+- **Landed in `apps/ward-console/src/main.ts`:**
+  - `publishFormFor` holds `current`, the row the form now stands for. On success or replay it:
+    1. sets `current` to the updated row;
+    2. mints a new mutation id;
+    3. calls `onPublished`, which rewrites that card's summary to `summaryLine(updated)` and touches nothing else;
+    4. only then says "Published." or "Already published (replay).", the existing strings, in its own Notice.
+  - The next publish sends `current`'s version as `p_expected_version`.
+  - `clearOutcome()` empties the Notice:
+    - on each field's `input` or `change`, listened for on the field itself so it does not depend on the event bubbling;
+    - on a stepper tap, whose programmatic value change fires no event;
+    - at the next submit.
+  - `renderHandover` is now called only from `render()`, at load.
+- **A premise that did not hold (DI-1 e):** the console has no explicit reload. VERSION_CONFLICT's "Reload the handover list" means a page reload, which runs `render()`, so the load path is the only path.
+- **Tests,** in `tests/compliance/ward_console_design.test.ts`. Red first against `bbb8173`'s `main.ts` and `style.css` (11 of 48 red):
+  - after success A reads exactly "Published.", and after replay "Already published (replay).", and A's summary is `summaryLine(updated)`;
+  - with two wards, B's `li` is the same node after A publishes, and B's unsent 9 and its Notice survive;
+  - editing A's count after "Published." clears it, and so does a stepper tap;
+  - **two publishes in a row,** with the second carrying the first result's version and a new mutation id. **A premise that did not hold (DI-1 d):** this leg cannot be red against `bbb8173`. There, the full re-render built a new form from the updated row, which gave version 5 and a fresh id, so the leg passed. It guards the new in-place code instead. A plant on that code, sending the closure's original row in place of `current`, turned it red.
+- **The ruling's own plant, the full re-render restored on the real file,** turned five legs red, the B-survives and Notice-visible legs among them. The file was restored byte-identical.
+- **A premise that held only in part (DI-5), and a finding:**
+  - **The finding.** A zero-with-no-reason tap cannot give B its Notice, because the browser's own validation stops the submit. The reason select is `required` at 0, and a blank count is `required`, both since before D2. The browser then shows its own bubble, "Please select an item in the list.", and never our sentence.
+  - **What the two-ward case uses instead:** the server's refusal of a publish for a ward that is not the handset's own (WARD_SCOPE_DENIED), which is how a second card gets a Notice in real use.
+  - **What D2 showed:** the `publish-invalid` and `publish-zero-no-reason` screenshots show the browser's bubble. -132 listed them without saying so.
+  - **What this means for the two sentences.** "Enter the number of free beds, from 0 to 500." and ZERO_REQUIRES_REASON are fallbacks that a browser pre-empts. Their tone legs reach them by dispatching `submit`, as `ward_console_render.test.ts` does. **Reported, not ruled:** whether the browser's words, in the handset's language, are acceptable there.
+
+**DI-2 — THE NOTICE TONES ARE THE DESIGN SYSTEM'S.**
+- **A premise that held only in part:** `components/core/Notice.jsx` is not a file on disk. It exists inside the design system's `_ds_bundle.js` on the founder's Mac, which names it as its `sourcePath`. The tones there are exactly as ruled.
+  - info: `--surface-accent-soft`, `--ob-navy-500`, `--ob-navy-800`;
+  - caution: `--ob-status-limited-bg`, `--ob-status-limited`, `#6d4c12`;
+  - the shape: a 1px `--border-default` border, a 3px left accent and `--radius-md`.
+- **The prototype's Published Notice is `tone: "info"`,** which holds.
+- **No token carries `#6d4c12`.** The nearest is `--ob-status-limited`, `#8b621a`. `style.css` uses the design system's own literal, with a comment naming it the one colour there that no token carries.
+- **Landed:**
+  - `say(p, text, tone)` sets a status line's words and its tone;
+  - info: "Published.", the replay line, and the link-sent sentence;
+  - caution:
+    - every `wardMessageFor` outcome, the CHECK sentence and UNRECOGNISED;
+    - the two client-side fallbacks;
+    - session ended, the handover-load refusal, no ward, and a refused row;
+    - link unreachable and bad link;
+  - the signed-out instruction stays lead text;
+  - every `p.status` carries `role="status"`;
+  - there is no green anywhere in the console.
+- **Tests, red first on `bbb8173`:**
+  - a table of 27 outcomes, each checked for exactly one tone, the expected one, and unchanged words (`toneViolations`). Its plants are a refusal in the info tone, a Notice with both tones, one with neither, and changed words;
+  - the Notice CSS rules against the design system's values, with the console naming no green token. Its plants are caution in the info colours, a green success tone, and no accent width;
+  - `role="status"` on every status line, in both forms.
+- **On the real file:**
+  - a publish refusal said in the info tone turned the tone leg red;
+  - `role` dropped turned its leg red.
+
+  Both were restored.
+- One existing assertion is tightened: `p.className` `toBe('notice')` becomes `toBe('notice notice-caution')`.
+
+**DI-3 — ACCESSIBLE NAMES.**
+- **Landed:** − is "Fewer beds", + is "More beds", and the count field is "Beds", asserted exactly. Red on `bbb8173`, and red on the real file with one label changed.
+- **The wording box.** The runbook's 12.4 step 1 box for the clinicians' wording (-67 A7) now lists the three labels for the clinicians to confirm or change. No register row is added; **the register stays at 58.**
+
+**DI-4:** − on a blank field giving 0 is accepted as is. This answers -132's third "reported, not ruled"; DI-2 answers its second.
+
+**DI-5 — THE SCREENSHOTS** are re-taken into `.design-screens/D2/`: 111 files, 37 states at 360×740, 360 full page and 1280×900.
+- **Two states are new:**
+  - `two-wards-after-publish`: A reads "Published." under "Maternity: 37 beds", and B keeps its unsent 9 and its caution Notice;
+  - `edited-after-publish`: A's Notice is cleared after its count changes to 12.
+- **What the harness saw:** no horizontal overflow, the lockup aligned in every state, and no CSP violation. The browser's log shows only the planted refusals' network lines.
+
+**DI-6 — PROCESS:** one new commit on `design-pass-d2`, with no force-push and no rebase. -133 lands with its ledger row. The full suite runs on a fresh DB and the commit gate runs, then STOP at #89. Nothing hosted.
+
+### R-2026-09-26-134 — #89 amended once more: the publish form does its own validation
+
+_Issued as R-PROVISIONAL-2026-09-26-DJ, by Cowork on 2026-09-26, as its re-check of #89 at `daa38dfac74434b8de52a49bfd1e8eaf93b117ad`. **Not the merge word.** It lands in #89 as a third commit on `design-pass-d2`, with no force-push and no rebase. Number assigned on landing: R-2026-09-26-133 plus one. Next provisional letter: **DK**._
+
+**VERIFIED BY COWORK** (2026-09-26, GitHub API and the screenshots):
+- #89 OPEN at `daa38df`, base `2586d29` (= main), clean; 2 commits.
+- The compare `bbb8173...daa38df` is 1 ahead and 0 behind.
+- The latest run of each of the seven checks is success. A cancelled set is an earlier run on the same head, superseded.
+- No address is on any added line.
+- The DI diff was read in full.
+- All 111 screenshots were read.
+
+**ACCEPTED:** DI-1 to DI-5 as landed, and -133's three premise corrections.
+
+**DJ-1 — THE PUBLISH FORM DOES ITS OWN VALIDATION.** This answers -133's finding. Cowork missed the browser's bubble in `publish-invalid` and `publish-zero-no-reason` in both earlier reads, and owns that.
+- **Landed:**
+  - the publish form sets `noValidate`. The fields keep `required`, `min`, `max` and `step`, so assistive tech still reports them;
+  - the console's existing checks run and say their own sentences, unchanged, as caution Notices with `role="status"`: "Enter the number of free beds, from 0 to 500." and ZERO_REQUIRES_REASON;
+  - nothing is sent, and focus moves to the count or to the reason select;
+  - the sign-in form keeps the browser's validation, because the console has no sentence of its own for a malformed address.
+- **Tests,** in `tests/compliance/ward_console_design.test.ts`:
+  - the publish form reports `noValidate` true; the count keeps `required`, `min` 0, `max` 500 and `step` 1; the sign-in form reports `noValidate` false;
+  - a blank count, 501, 2.5, and 0 with no reason, each tapped through Publish. Each renders its exact sentence in the caution tone with `role="status"`, sends no `publish_ward_status`, and leaves focus on the named field.
+- **Red first against `daa38df`:** all five legs failed. The four tap legs read "the console's own sentence did not appear: the browser pre-empted it, or nothing ran: expected '' …".
+- **DJ-1 e's question, answered: jsdom does show the pre-emption.** It applies constraint validation to a click on a submit button, and it refused DI's first two-ward leg for exactly this reason. So the tap legs are behavioural evidence, not only the static leg.
+- **Plants on the real file, each restored byte-identical:**
+  - `noValidate` removed turned all five legs red;
+  - the reason select's focus call removed turned the zero leg red ("focus is not on the reason field").
+
+**DJ-2 — THE SCREENSHOTS.**
+- **Retaken, and only these:** `publish-invalid`, `publish-zero-no-reason` and the new `publish-count-over-500`, each at 360×740, 360 full page and 1280×900. That is 9 files, and the folder now holds 114.
+- **What they show:** each has the console's caution Notice under Publish and no browser bubble. The harness saw no browser log line at all, so no request went out.
+- **No focus ring is drawn in these shots.** The page moved focus to the field itself after a click, and Chrome's `:focus-visible` heuristics then leave the ring off. The tests assert focus through `document.activeElement`.
+- **One harness change:** state names given on its command line retake only those states.
+
+**DJ-3 — PROCESS:** one new commit on `design-pass-d2`, with no force-push and no rebase. -134 lands with its ledger row. The full suite runs on a fresh DB and the commit gate runs, then STOP at #89. Nothing hosted.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -6076,6 +6277,9 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | DE | R-2026-09-26-129 | 2026-09-26 | **The public dashboard deployed at `5be63d4`,** read back PASS, including the favicon and font checks' first hosted run, and browser-checked. Recorded in the Pages runbook. The dashboard's part of box 14 is done; the box stays open. PR F starts. |
 | DF | R-2026-09-26-130 | 2026-09-26 | **PR F's terms.** F3 at full scope as `openbed/no-wall-clock`, with two exemptions pinned by file and reason. E2: any path under `database/migrations/`, and a bare "none" fails, checked by a repo-lint step with the body in env. With the auth-hook invariant, the three F rows leave the register. |
 | DG | R-2026-09-26-131 | 2026-09-26 | **#88 amended once.** F3 covers every spelling of the read (`Date()` without `new`, and `Date` through `globalThis`, `window` or `self`). E2 refuses the bare-"none" equivalents (`n/a`, `tbd`, `-` and the rest). The hosted hook setting gets a gate: a register row, and a founder step at D2's hosted deploy. |
+| DH | R-2026-09-26-132 | 2026-09-26 | **#88 merged at `2586d29`** (parents `5be63d4`, `5b94fb6`); `pr-f-fired-guards` deleted on both sides and read back as gone. Box 14 stays open. **D2 built:** the ward console's viewport, foundation, favicon, lockup, sign-in, handover cards, 64 px count with steppers that never publish, styled reason select and 52 px Publish, every sentence byte-identical. The PENDING D2 legs flipped, DA-3's D2 row removed (58 rows), and the ward read-back checks the favicon and a font. A pre-existing defect is reported: "Published." is erased by the re-render. |
+| DI | R-2026-09-26-133 | 2026-09-26 | **#89 amended once.** A publish updates its own card only: "Published." is finally seen, and other cards keep their unsent edits and Notices. The next publish sends the new version, and an edit clears a stale outcome. The Notice tones are the design system's (info for what went through, caution for every refusal, no green), and every status is announced. The steppers and count have names, which go on the clinicians' wording list. Found: a browser's own validation pre-empts the two client-side sentences. |
+| DJ | R-2026-09-26-134 | 2026-09-26 | **#89 amended once more.** The publish form sets `noValidate`, so its own sentences, not the browser's bubble, answer a blank, out-of-range or fractional count and a zero with no reason. Each is a caution Notice, nothing is sent, and focus goes to the field. The fields keep `required`, and the sign-in form keeps the browser's validation. Three screenshot states retaken. |
 
 ## Deferred items — this record is where the list lives
 
@@ -6145,14 +6349,13 @@ the record's own, except where CW-5 assigned one._
 | GoTrue's answers reveal whether an address has an account (an accepted risk) | R-2026-09-23-67 C | TRIGGER | Personal addresses are ever used as logins |
 | A uniform `/otp` answer at the Worker (option B) | R-2026-09-23-70 A | TRIGGER | -55 C lands |
 | `GET /auth/v1/verify` listed on the Worker | R-2026-09-23-70 C2 | TRIGGER | -55 C's custom domain is routed through the Worker |
-| `/favicon.ico` is answered by the SPA fallback | R-2026-09-23-70, founder step (a) note | TRIGGER | FIRED; resolved in D1–D3 (R-2026-09-26-122 CX-3): each app ships the SVG icon and a real `/favicon.ico`, and the read-back asserts `/favicon.ico` is not `text/html`. D1 done for the public dashboard (R-2026-09-26-124): a real `favicon.ico`, and `scripts/readback_pages.sh` checks it on both hosts; the ward console and admin remain, in D2 and D3 |
+| `/favicon.ico` is answered by the SPA fallback | R-2026-09-23-70, founder step (a) note | TRIGGER | FIRED; resolved in D1–D3 (R-2026-09-26-122 CX-3): each app ships the SVG icon and a real `/favicon.ico`, and the read-back asserts `/favicon.ico` is not `text/html`. D1 done for the public dashboard (R-2026-09-26-124): a real `favicon.ico`, and `scripts/readback_pages.sh` checks it on both hosts. D2 done for the ward console (R-2026-09-26-132): the same icon, and `scripts/readback_ward_console.sh` checks it on both hosts. Admin remains, in D3 |
 | The before/after public-output comparison needs a new design once wards can publish | R-2026-09-24-74 BB-3 | TRIGGER | The first hosted migration apply after the -45 gate cleared (-115) |
 | Update requests | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | Freshest and nearest sorting | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | The public "who's on it" list | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | The facility-admin override | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | Duty-flag gating | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
-| The ward console's design guards: viewport, tokens, self-hosted fonts (the PENDING D2 legs in `tests/compliance/bundle_guards.test.ts`) | R-2026-09-26-125 DA-3 | TRIGGER | D2's PR: the PENDING D2 legs go red when the app meets the guard, and D2 replaces them with the real guard |
 | Admin's design guards: tokens, self-hosted fonts (the PENDING D3 leg in `tests/compliance/bundle_guards.test.ts`) | R-2026-09-26-125 DA-3 | TRIGGER | D3's PR: the PENDING D3 leg goes red when the app meets the guard, and D3 replaces it with the real guard |
 | The hosted project's auth hooks are off (the dashboard setting; config.toml is guarded by auth_hooks_off.test.ts) | R-2026-09-26-131 DG-3 | TRIGGER | D2's hosted deploy: the founder checks Authentication → Hooks (docs/runbook-ward-console-deploy.md section 5, step 5), and the row leaves in the pull request that records that read |
 | B1's onboarding checks: the first ward account reads its own history as itself (12.4 step 6), and the first publish reads back from `/beds.json` (12.4 step 9) | R-2026-09-26-122 CX-1 (b) | TRIGGER | The first ward account at facility one |

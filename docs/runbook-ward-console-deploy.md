@@ -56,6 +56,23 @@ bash scripts/readback_ward_console.sh https://HASH.openbed-ward-console.pages.de
 checkout's HEAD** (the commit the wrapper printed) with `"dirty": false`. Run it before
 refreshing the checkout.
 
+**Since the design pass's D2 (R-2026-09-26-132),** the same run also reads:
+- `/favicon.ico` on the deployment URL and on `app.openbed.ng`, which must equal this
+  checkout's `apps/ward-console/public/favicon.ico` byte for byte and must not be
+  `text/html` (the SPA fallback);
+- the stylesheet the page links, and one woff2 font it names, which must be served as
+  exactly `font/woff2`.
+
+**The browser check after D2's first deploy, on a phone** (the kickoff's D2 definition of
+done). Open `app.openbed.ng` on a phone in a private window. **PASS:** the page is laid
+out at the phone's width, with no sideways scroll; the header shows the mark and
+"OpenBed"; the text is in the design's typefaces, loaded from `app.openbed.ng` (a
+desktop browser's Network tab, at a phone-sized window, shows the woff2 files); and the
+console, read on a desktop browser, shows no Content-Security-Policy violation. A
+violation, or a font loaded from any other host, is a STOP. The founder approves the
+look there. That approval is one of the three that close box 14 of 12.4 step 1 in
+`docs/runbook-supabase-project-creation.md`.
+
 ## 3. The live-key probe — BOTH halves, run by the same script
 
 Step 3 reads the key **out of the deployed bundle**, never out of the repository:

@@ -3749,6 +3749,9 @@ through the admin app.
    - [ ] The clinicians confirm the freshness thresholds AND the public wording, which
      removes the PROVISIONAL label. (R-2026-09-23-67 A7, extended by R-2026-09-23-68
      C3)
+     The list includes the ward console's three control labels: "Fewer beds" (−), "More
+     beds" (+) and "Beds" (the count field), which the clinicians confirm or change
+     (R-2026-09-26-133 DI-3).
    - [ ] Each facility's public number is answered 24/7 by someone who can confirm bed
      status, with a test call. (R-2026-09-23-66 C4)
    - [ ] A staffed phone or WhatsApp line for wards, with honest hours, in the facility
