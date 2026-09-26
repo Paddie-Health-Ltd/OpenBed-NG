@@ -75,6 +75,7 @@ describe('scripts/check_pr_migration_line.mjs', () => {
     ['a sections answer', bodyWith('section 5 (the dry-run expectation) and section 6')],
     ['"none, because <reason>"', bodyWith('none, because this migration only adds a comment')],
     ['an answer on the lines under the line', TEMPLATE.replace(`${LINE}\n`, `${LINE}\n\nnone, because 024 changes no hosted reading\n`)],
+    ['an answer that begins "nothing" and gives a reason', bodyWith('nothing in sections 5 to 10, because 024 only adds a comment')],
   ])('real — a touching pull request with %s is accepted', (_name, body) => {
     const r = run(body, MIGRATION);
     expect(r.status, r.out).toBe(0);
@@ -89,8 +90,17 @@ describe('scripts/check_pr_migration_line.mjs', () => {
 
   test.each([
     ['the line left blank, as the template ships', TEMPLATE, 'the runbook-expectations line is blank'],
-    ['a bare "none"', bodyWith('none'), 'answers "none" without "because <reason>"'],
-    ['a bare "None." on the next line', TEMPLATE.replace(`${LINE}\n`, `${LINE}\n\nNone.\n`), 'answers "none" without "because <reason>"'],
+    ['a bare "none"', bodyWith('none'), 'answers "none", "n/a", "tbd" or "-" without "because <reason>"'],
+    ['a bare "None." on the next line', TEMPLATE.replace(`${LINE}\n`, `${LINE}\n\nNone.\n`), 'answers "none", "n/a", "tbd" or "-" without "because <reason>"'],
+    // DG-2 (R-2026-09-26-131): the bare-"none" equivalents fail too.
+    ['"N/A"', bodyWith('N/A'), 'answers "none", "n/a", "tbd" or "-" without "because <reason>"'],
+    ['"TBD."', bodyWith('TBD.'), 'answers "none", "n/a", "tbd" or "-" without "because <reason>"'],
+    ['"-"', bodyWith('-'), 'answers "none", "n/a", "tbd" or "-" without "because <reason>"'],
+    ['"—"', bodyWith('—'), 'answers "none", "n/a", "tbd" or "-" without "because <reason>"'],
+    ['"nothing"', bodyWith('nothing'), 'answers "none", "n/a", "tbd" or "-" without "because <reason>"'],
+    ['"no"', bodyWith('no'), 'answers "none", "n/a", "tbd" or "-" without "because <reason>"'],
+    ['"nil!"', bodyWith('nil!'), 'answers "none", "n/a", "tbd" or "-" without "because <reason>"'],
+    ['"na"', bodyWith('na'), 'answers "none", "n/a", "tbd" or "-" without "because <reason>"'],
     ['the line deleted', TEMPLATE.replace(`${LINE}\n`, ''), 'has no "Runbook expectations this migration changes:" line'],
     ['only the template\'s own comment mentioning it', '<!-- Runbook expectations this migration changes: none, because x -->\n', 'has no "Runbook expectations this migration changes:" line'],
     ['an empty body', '', 'has no "Runbook expectations this migration changes:" line'],

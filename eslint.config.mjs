@@ -67,7 +67,10 @@ const dutyFlagRules = [
  * ways to read wall-clock time: Date.now, Date.UTC, performance.timeOrigin (a monotonic
  * source recombined into wall-clock -- the sneaky one), and `new Date()` with no arguments.
  * `new Date(isoString)`, Date.parse and performance.now stay legal: formatting a stated
- * instant, and measuring elapsed time, read no clock.
+ * instant, and measuring elapsed time, read no clock. R-2026-09-26-131 DG-1 adds every
+ * other spelling of the same read: `Date(...)` called without `new` (any arguments; it
+ * ignores them), and each ban reached through globalThis, window or self, in dot or
+ * literal-bracket form.
  *
  * ITS OWN RULE ID, deliberately. Flat config replaces a rule's options per block rather
  * than merging them, so a second `no-restricted-syntax` block would silently drop F2's
@@ -85,23 +88,30 @@ const noWallClock = {
   meta: { type: 'problem', schema: [] },
   create(context) {
     const name = (node) => (node.type === 'Identifier' ? node.name : node.type === 'Literal' ? String(node.value) : null);
-    const isPerformance = (node) =>
-      (node.type === 'Identifier' && node.name === 'performance') ||
-      (node.type === 'MemberExpression' && name(node.property) === 'performance' &&
+    // `performance` or `Date`, bare or reached through globalThis, window or self, in dot or
+    // literal-bracket form (R-2026-09-26-131 DG-1: every spelling of the same read).
+    const globalRef = (node, want) =>
+      (node.type === 'Identifier' && node.name === want) ||
+      (node.type === 'MemberExpression' && name(node.property) === want &&
         node.object.type === 'Identifier' && ['globalThis', 'window', 'self'].includes(node.object.name));
     return {
       MemberExpression(node) {
         const prop = name(node.property);
-        if (node.object.type === 'Identifier' && node.object.name === 'Date' && (prop === 'now' || prop === 'UTC')) {
+        if ((prop === 'now' || prop === 'UTC') && globalRef(node.object, 'Date')) {
           context.report({ node, message: `Date.${prop} reads the device clock (F3). Ages come from served_at - updated_at + elapsed; see packages/snapshot/src/anchor.ts.` });
         }
-        if (prop === 'timeOrigin' && isPerformance(node.object)) {
+        if (prop === 'timeOrigin' && globalRef(node.object, 'performance')) {
           context.report({ node, message: 'performance.timeOrigin turns a monotonic clock back into wall-clock time (F3). Use performance.now() for elapsed time only.' });
         }
       },
       NewExpression(node) {
-        if (node.callee.type === 'Identifier' && node.callee.name === 'Date' && node.arguments.length === 0) {
+        if (globalRef(node.callee, 'Date') && node.arguments.length === 0) {
           context.report({ node, message: 'new Date() with no argument reads the device clock (F3). new Date(isoString) formats a stated instant and is fine.' });
+        }
+      },
+      CallExpression(node) {
+        if (globalRef(node.callee, 'Date')) {
+          context.report({ node, message: 'Date(...) called without new ignores its arguments and returns the current time as a string (F3).' });
         }
       },
     };

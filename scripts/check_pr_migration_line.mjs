@@ -17,6 +17,8 @@
 // BLANK (DF-2 b): after stripping HTML comments -- the template's own comment mentions the
 // line -- the line is missing, has nothing after it (on the line, or before the next
 // heading), or answers "none" without "because". An unset or empty PR_BODY is blank.
+// R-2026-09-26-131 DG-2: so is an answer that is only "n/a", "na", "nil", "nothing", "no",
+// "tbd", "-" or "—", once whitespace and trailing punctuation are trimmed.
 //
 // It runs git ITSELF (--from-git) rather than reading a pipe: GitHub's default shell has no
 // pipefail, so a failed `git diff | node` would hand this an empty list and "no path
@@ -85,8 +87,13 @@ if (answer === '') {
   console.error(`FAIL: blank line -- this pull request touches database/migrations/ and the runbook-expectations line is blank; answer it with the sections, or "none, because <reason>" ${where}`);
   process.exit(1);
 }
-if (/^none\b/i.test(answer) && !/\bbecause\b/i.test(answer)) {
-  console.error(`FAIL: bare none -- this pull request touches database/migrations/ and answers "none" without "because <reason>", which is the answer this line exists to refuse ${where}`);
+// A non-answer (R-2026-09-26-131 DG-2): after trimming whitespace and trailing punctuation,
+// the answer is ONLY one of these words or dashes, or it starts with "none" and gives no
+// reason. "nothing in sections 5 to 10, because ..." is an answer; "nothing." is not.
+const NON_ANSWERS = new Set(['none', 'n/a', 'na', 'nil', 'nothing', 'no', 'tbd', '-', '—']);
+const bare = answer.trim().replace(/[\s.,;:!?]+$/u, '').toLowerCase();
+if (NON_ANSWERS.has(bare) || (/^none\b/i.test(answer) && !/\bbecause\b/i.test(answer))) {
+  console.error(`FAIL: bare non-answer -- this pull request touches database/migrations/ and answers "none", "n/a", "tbd" or "-" without "because <reason>", which is the answer this line exists to refuse ${where}`);
   process.exit(1);
 }
 console.log(`ok: this pull request touches database/migrations/ and the runbook-expectations line is answered: ${answer.slice(0, 160)}`);

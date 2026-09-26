@@ -36,8 +36,13 @@ import { REPO_ROOT, place } from './_scratch.js';
  *   - a clock read arriving as data, or through an alias: `const p = globalThis.performance;
  *     p.timeOrigin` evades an AST rule, as `const D = Date; D.now()` does. anchor.ts aliases
  *     performance for .now(), which is legal;
- *   - `Date()` called without `new`, which also returns the current time: the spec does not
- *     name it and DF-1 a keeps the bans exactly as written. Reported for Cowork.
+ *     This is a limit of an AST rule, not deferred work, so it has no register row
+ *     (R-2026-09-26-131 DG-1 d).
+ *
+ * DG-1 (R-2026-09-26-131) WIDENED THE BANS TO EVERY SPELLING OF THE SAME READ: `Date(...)`
+ * called without `new` (with any arguments, which it ignores), and each ban reached through
+ * globalThis, window or self, in dot or literal-bracket form. Until DG this block said
+ * `Date()` was not asserted and was "Reported for Cowork"; DG answers it.
  */
 
 const RULE = 'openbed/no-wall-clock';
@@ -139,6 +144,15 @@ describe('F3 — no device clock in the display path (openbed/no-wall-clock)', (
     ['performance.timeOrigin recombined into wall-clock', 'export const now = (): number => performance.timeOrigin + performance.now();\n'],
     ['globalThis.performance.timeOrigin', 'export const origin = (): number => globalThis.performance.timeOrigin;\n'],
     ['Date.UTC', 'export const t = (): number => Date.UTC(2026, 0, 1);\n'],
+    // DG-1 (R-2026-09-26-131): every spelling of the same read.
+    ['Date() without new', 'export const s = (): string => Date();\n'],
+    ['Date(2026) without new, which ignores its argument', 'export const s = (): string => Date(2026);\n'],
+    ['globalThis.Date.now()', 'export const t = (): number => globalThis.Date.now();\n'],
+    ['window.Date.UTC', 'export const t = (): number => window.Date.UTC(2026, 0, 1);\n'],
+    ['new self.Date()', 'export const t = (): Date => new self.Date();\n'],
+    ["globalThis['Date']()", "export const s = (): string => globalThis['Date']();\n"],
+    ["new globalThis['Date']()", "export const t = (): Date => new globalThis['Date']();\n"],
+    ["Date['now']()", "export const t = (): number => Date['now']();\n"],
   ])('plant — %s is rejected', async (_name, code) => {
     const out = await hits(code);
     expect(out.length, `the F3 shape was accepted: ${JSON.stringify(out)}`).toBeGreaterThan(0);
@@ -149,6 +163,7 @@ describe('F3 — no device clock in the display path (openbed/no-wall-clock)', (
     ['formatting a stated instant', "export const shown = (row: { updated_at: string }): string => new Date(row.updated_at).toLocaleString('en-NG');\n"],
     ['Date.parse', 'export const at = (u: string): number => Date.parse(u);\n'],
     ['performance.now for elapsed time', 'export const elapsed = (m: number): number => performance.now() - m;\n'],
+    ['new globalThis.Date(iso), a stated instant', 'export const d = (iso: string): Date => new globalThis.Date(iso);\n'],
   ])('positive control — %s is accepted', async (_name, code) => {
     const out = await hits(code);
     expect(out, JSON.stringify(out)).toEqual([]);

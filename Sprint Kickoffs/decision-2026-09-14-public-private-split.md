@@ -5901,6 +5901,59 @@ _Issued as R-PROVISIONAL-2026-09-26-DF, by Cowork on 2026-09-26, in answer to th
 
 No SQL and no migration; nothing hosted was run by Claude Code.
 
+### R-2026-09-26-131 — #88 amended once: every spelling of a clock read; bare-"none" equivalents; the hosted hook setting given a gate
+
+_Issued as R-PROVISIONAL-2026-09-26-DG, by Cowork on 2026-09-26, as its check of #88 at `46169e65cc23c41307534d0aebd8bd9f152988af`. **Not the merge word.** It lands in #88 as a second commit on the same branch, with no force-push and no rebase. Number assigned on landing: R-2026-09-26-130 plus one. Next provisional letter: **DH**._
+
+**VERIFIED BY COWORK** (2026-09-26, GitHub API):
+- #87 is MERGED at `5be63d4`.
+- #88 OPEN at `46169e6`, base `5be63d4` (= main), mergeable clean; 1 commit, 15 files, +858/−9.
+- Seven check runs success. No address on any added line.
+- The diff was read in full.
+- The register holds 59 (after -122) + 2 (DA's rows) − 3 (the F rows) = 58, which matches.
+
+**ACCEPTED:**
+- `openbed/no-wall-clock` as its own rule id;
+- the ward-console citation to DF-1 b. DF-1 b's premise that an `R-` ruling had set the window was Cowork's slip;
+- `--from-git` over a pipe;
+- `auth_hooks_off.test.ts` as landed;
+- the two exemptions and their pinning;
+- -128, -129 and -130 as landed.
+
+**DG-1 — F3 COVERS EVERY SPELLING OF THE SAME CLOCK READ.**
+- **A slip, Cowork's.** DF-1 a's "exactly as written" was meant to forbid NARROWING the scope, not to leave an equivalent read open. -130's "left for Cowork to rule" on `Date()` is answered here; -130 is not edited.
+- **Landed.** The rule now also refuses:
+  - `Date(...)` called without `new`, with ANY arguments (it ignores them and returns the current time);
+  - each ban reached through `globalThis`, `window` or `self`, in dot and literal-bracket form, the way it already treated `performance`.
+
+  One helper, `globalRef`, now serves both `Date` and `performance`.
+- **The eight new plants** in `tests/compliance/eslint_wall_clock.test.ts`:
+  - `Date()` and `Date(2026)`;
+  - `globalThis.Date.now()` and `window.Date.UTC(…)`;
+  - `new self.Date()`;
+  - `globalThis['Date']()` and `new globalThis['Date']()`;
+  - `Date['now']()`.
+
+  `new globalThis.Date(iso)` joins the positive controls.
+- **Red first, against `46169e6`'s rule:** seven of the eight new plants were accepted. The eighth, `Date['now']()`, was already caught, because the rule already read a literal-bracket property's name.
+- **After the fix, on the real tree:** with both exemption comments temporarily removed, ESLint reported exactly two problems, `apps/ward-console/src/main.ts:299` and `packages/snapshot/src/serve.ts:476` (the same line as `:468`, moved down by its new comment). The files were restored byte-identical. There is no new read anywhere in scope.
+  - **A first run of this check printed nothing.** It used `--format unix`, a formatter ESLint 10 no longer ships, so it had failed rather than found nothing. It was re-run with the default formatter and ESLint's exit status shown (exit 1, "2 problems").
+- **DG-1 d:** aliasing (`const D = Date; D.now()`) stays NOT ASSERTED, as a limit of an AST rule rather than deferred work, so it has no register row. The test header's "Reported for Cowork" note on `Date()` is removed.
+
+**DG-2 — E2: BARE-"none" EQUIVALENTS FAIL TOO.**
+- **Landed.** After trimming whitespace and trailing punctuation, an answer that is only `none`, `n/a`, `na`, `nil`, `nothing`, `no`, `tbd`, `-` or `—` (case-insensitive) fails, as does one that starts with "none" and gives no "because".
+- **The leg is renamed "bare non-answer",** with its identity kept distinct and non-nesting. `leg-coverage.json` renames it too (a leg renamed, not added: 323 / 297 / 26), with a note.
+- **Plants:** "N/A", "TBD.", "-", "—", "nothing", "no", "nil!" and "na" are each refused.
+- **Still accepted:** "none, because …", a sections answer, an answer on the lines under the line, and "nothing in sections 5 to 10, because …".
+- **Red first:** all eight new plants were accepted by `46169e6`'s script.
+
+**DG-3 — THE HOSTED HOOK SETTING GETS A GATE.** It is the NOT ASSERTED in `auth_hooks_off.test.ts`, and a gap with no gate breaks the -121 rule.
+- **A Deferred items row:** "The hosted project's auth hooks are off", TRIGGER, "D2's hosted deploy". **The register goes from 58 to 59.**
+- **`docs/runbook-ward-console-deploy.md` §5 gains step 5:** open the hosted project's Authentication → Hooks and confirm no hook is enabled. The founder's word is recorded with the deploy run, and an enabled hook is a STOP. The row is removed in the pull request that records that read.
+- **`auth_hooks_off.test.ts`'s NOT ASSERTED paragraph** points at the row and the step.
+
+**DG-4 — PROCESS:** one new commit on `pr-f-fired-guards`, with no force-push and no rebase. -131 lands with its ledger row. The full suite runs on a fresh DB and the commit gate runs, then STOP at #88. Nothing hosted.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -6022,6 +6075,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | DD | R-2026-09-26-128 | 2026-09-26 | **#87 merged at `5be63d4`** (parents `495ad0a`, `b76d711`); `design-pass-d1` deleted on both sides and read back as gone. Box 14 stays open. Held, and landed with PR F. |
 | DE | R-2026-09-26-129 | 2026-09-26 | **The public dashboard deployed at `5be63d4`,** read back PASS, including the favicon and font checks' first hosted run, and browser-checked. Recorded in the Pages runbook. The dashboard's part of box 14 is done; the box stays open. PR F starts. |
 | DF | R-2026-09-26-130 | 2026-09-26 | **PR F's terms.** F3 at full scope as `openbed/no-wall-clock`, with two exemptions pinned by file and reason. E2: any path under `database/migrations/`, and a bare "none" fails, checked by a repo-lint step with the body in env. With the auth-hook invariant, the three F rows leave the register. |
+| DG | R-2026-09-26-131 | 2026-09-26 | **#88 amended once.** F3 covers every spelling of the read (`Date()` without `new`, and `Date` through `globalThis`, `window` or `self`). E2 refuses the bare-"none" equivalents (`n/a`, `tbd`, `-` and the rest). The hosted hook setting gets a gate: a register row, and a founder step at D2's hosted deploy. |
 
 ## Deferred items — this record is where the list lives
 
@@ -6100,6 +6154,7 @@ the record's own, except where CW-5 assigned one._
 | Duty-flag gating | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | The ward console's design guards: viewport, tokens, self-hosted fonts (the PENDING D2 legs in `tests/compliance/bundle_guards.test.ts`) | R-2026-09-26-125 DA-3 | TRIGGER | D2's PR: the PENDING D2 legs go red when the app meets the guard, and D2 replaces them with the real guard |
 | Admin's design guards: tokens, self-hosted fonts (the PENDING D3 leg in `tests/compliance/bundle_guards.test.ts`) | R-2026-09-26-125 DA-3 | TRIGGER | D3's PR: the PENDING D3 leg goes red when the app meets the guard, and D3 replaces it with the real guard |
+| The hosted project's auth hooks are off (the dashboard setting; config.toml is guarded by auth_hooks_off.test.ts) | R-2026-09-26-131 DG-3 | TRIGGER | D2's hosted deploy: the founder checks Authentication → Hooks (docs/runbook-ward-console-deploy.md section 5, step 5), and the row leaves in the pull request that records that read |
 | B1's onboarding checks: the first ward account reads its own history as itself (12.4 step 6), and the first publish reads back from `/beds.json` (12.4 step 9) | R-2026-09-26-122 CX-1 (b) | TRIGGER | The first ward account at facility one |
 | `ward_reply` has a cap and no content validation (#63/#97) | R-2026-09-17-03 and -04 | TRIGGER | The first change that writes `app.referral.ward_reply` (referrals are unwired in v1; R-2026-09-26-122 CX-2) |
 | Gate 3's property test does not exist (#109) | R-2026-09-17-03 and -04 | TRIGGER | The next change under `packages/gate/` or `packages/snapshot/src/freshness.ts` (R-2026-09-26-122 CX-2) |

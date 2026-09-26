@@ -179,6 +179,19 @@ the read-back tells the old header from the new one.
      then try again."** That, or a Content-Security-Policy violation in the console, is
      a STOP. Roll the `openbed-ward-console` Pages project back to its previous
      deployment in the dashboard, then read back again.
+5. **The hosted auth hooks are off** (R-2026-09-26-131 DG-3). Added 2026-09-26, and
+   first due at D2's hosted deploy.
+   - In the Supabase dashboard for project `klrlpxysjsjpdkeqdhvl`, open
+     Authentication → Hooks.
+   - **PASS:** no hook is enabled: neither the custom access token hook nor any other.
+     Roles are table lookups enforced in the database (R-2026-09-21-41 A), and a hook
+     that minted claims would be a second source of who may do what.
+   - Record the founder's word with this deploy's run, below. The local
+     `supabase/config.toml` is guarded by `tests/compliance/auth_hooks_off.test.ts`; the
+     hosted setting is not readable from this repository, so this step is its only
+     check. The register row "The hosted project's auth hooks are off" leaves the
+     decision record in the pull request that records this read.
+   - **An enabled hook is a STOP.** Report it before anything else is done.
 
 **Run on 2026-09-25, from the deploy checkout at `dd59c7f`** (R-2026-09-25-119 CU-2;
 the founder's terminal and browser, read back by Cowork):

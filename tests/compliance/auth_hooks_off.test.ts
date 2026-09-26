@@ -25,7 +25,10 @@ import { REPO_ROOT } from './_scratch.js';
  *
  * NOT ASSERTED HERE, deliberately: the HOSTED project's hook settings. Hooks on hosted are a
  * dashboard setting, and no key readable from this repository reaches them. That is a
- * founder's read on hosted, not a claim this file can make.
+ * founder's read on hosted, not a claim this file can make. Its gate (R-2026-09-26-131
+ * DG-3): step 5 of section 5 of docs/runbook-ward-console-deploy.md, first due at D2's
+ * hosted deploy. The register row "The hosted project's auth hooks are off", in the
+ * decision record's Deferred items, is removed by the pull request that records that read.
  */
 
 const CONFIG = join(REPO_ROOT, 'supabase', 'config.toml');
