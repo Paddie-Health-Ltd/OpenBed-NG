@@ -54,6 +54,70 @@ const dutyFlagRules = [
   },
 ];
 
+/**
+ * FINDING F3, THE DISPLAY PATH'S CLOCK (R-2026-09-21-38 D1; built by PR F, R-2026-09-26-130
+ * DF-1). Specified in `Sprint Kickoffs/sprint-kickoff-bedspace-v2-2026-09-10.md` ("The F3
+ * guard, specified to implement") and unbuilt until PR F.
+ *
+ * A device clock is wrong on a real handset -- hours off, a year off, set by hand -- and a
+ * freshness age computed from it lies in exactly the direction that sends a crew to a
+ * ward whose count is stale. Every age on the page is `served_at - updated_at + elapsed`
+ * (packages/snapshot/src/anchor.ts): the Function's serve time, the ward's own report time,
+ * and monotonic time since the fetch. So in the scope below this rule refuses the four
+ * ways to read wall-clock time: Date.now, Date.UTC, performance.timeOrigin (a monotonic
+ * source recombined into wall-clock -- the sneaky one), and `new Date()` with no arguments.
+ * `new Date(isoString)`, Date.parse and performance.now stay legal: formatting a stated
+ * instant, and measuring elapsed time, read no clock. R-2026-09-26-131 DG-1 adds every
+ * other spelling of the same read: `Date(...)` called without `new` (any arguments; it
+ * ignores them), and each ban reached through globalThis, window or self, in dot or
+ * literal-bracket form.
+ *
+ * ITS OWN RULE ID, deliberately. Flat config replaces a rule's options per block rather
+ * than merging them, so a second `no-restricted-syntax` block would silently drop F2's
+ * selectors above, and a line exemption naming `no-restricted-syntax` would switch F2 off
+ * on that line too. `openbed/no-wall-clock` is exempted, and disabled, alone.
+ *
+ * EXACTLY TWO CALL SITES ARE EXEMPT (DF-1 b), each with
+ * `eslint-disable-next-line openbed/no-wall-clock -- OPENBED-CLOCK-READ: <ruling>`:
+ * the Function's serve-time stamp in packages/snapshot/src/serve.ts, and the ward
+ * console's p_composed_at in apps/ward-console/src/main.ts. Both are deliberate clock
+ * reads, ruled after the spec was written. tests/compliance/eslint_wall_clock.test.ts pins
+ * that set by file and reason, and refuses any other disable of this rule in scope.
+ */
+const noWallClock = {
+  meta: { type: 'problem', schema: [] },
+  create(context) {
+    const name = (node) => (node.type === 'Identifier' ? node.name : node.type === 'Literal' ? String(node.value) : null);
+    // `performance` or `Date`, bare or reached through globalThis, window or self, in dot or
+    // literal-bracket form (R-2026-09-26-131 DG-1: every spelling of the same read).
+    const globalRef = (node, want) =>
+      (node.type === 'Identifier' && node.name === want) ||
+      (node.type === 'MemberExpression' && name(node.property) === want &&
+        node.object.type === 'Identifier' && ['globalThis', 'window', 'self'].includes(node.object.name));
+    return {
+      MemberExpression(node) {
+        const prop = name(node.property);
+        if ((prop === 'now' || prop === 'UTC') && globalRef(node.object, 'Date')) {
+          context.report({ node, message: `Date.${prop} reads the device clock (F3). Ages come from served_at - updated_at + elapsed; see packages/snapshot/src/anchor.ts.` });
+        }
+        if (prop === 'timeOrigin' && globalRef(node.object, 'performance')) {
+          context.report({ node, message: 'performance.timeOrigin turns a monotonic clock back into wall-clock time (F3). Use performance.now() for elapsed time only.' });
+        }
+      },
+      NewExpression(node) {
+        if (globalRef(node.callee, 'Date') && node.arguments.length === 0) {
+          context.report({ node, message: 'new Date() with no argument reads the device clock (F3). new Date(isoString) formats a stated instant and is fine.' });
+        }
+      },
+      CallExpression(node) {
+        if (globalRef(node.callee, 'Date')) {
+          context.report({ node, message: 'Date(...) called without new ignores its arguments and returns the current time as a string (F3).' });
+        }
+      },
+    };
+  },
+};
+
 export default tseslint.config(
   {
     // GENERATED AND TOOL-STATE DIRECTORIES. Linting them lints esbuild, wrangler or
@@ -92,6 +156,14 @@ export default tseslint.config(
     files: ['**/*.ts', '**/*.mts', '**/*.mjs'],
     rules: {
       'no-restricted-syntax': ['error', ...dutyFlagRules],
+    },
+  },
+  {
+    // F3 (above): the spec's scope, exactly (DF-1 a).
+    files: ['apps/**/*.ts', 'apps/**/*.tsx', 'packages/snapshot/src/**/*.ts'],
+    plugins: { openbed: { rules: { 'no-wall-clock': noWallClock } } },
+    rules: {
+      'openbed/no-wall-clock': 'error',
     },
   },
   {

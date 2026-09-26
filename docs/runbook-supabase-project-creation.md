@@ -3784,6 +3784,10 @@ through the admin app.
      browser-checked at 360 px and desktop widths, and the look approved by the founder
      in the browser. (R-2026-09-26-121 CW-1) **Closes only when** all three apps are
      deployed and the founder approves. A merge alone does not close it.
+     **Progress, 2026-09-26 (R-2026-09-26-129 DE-1): the public dashboard's part is DONE.**
+     It was deployed from `5be63d4` (`https://f56ae2af.openbed-public-dashboard.pages.dev`),
+     `readback_pages.sh` read PASS, and the founder checked it in the browser and approved
+     the look. The ward console (D2) and admin (D3) remain, so the box stays open.
    - [ ] The founder's launch paperwork register reads Approved on every item. The
      register is outside this repository. (R-2026-09-26-121 CW-2) It does not replace
      the first box above.

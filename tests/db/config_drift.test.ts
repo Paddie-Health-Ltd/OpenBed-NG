@@ -36,7 +36,8 @@ const REPO_ROOT = join(import.meta.dirname, '..', '..');
 /**
  * Minimal TOML reader for the handful of keys asserted below.
  *
- * A full TOML parser is not a dependency worth adding for four keys, and this
+ * A full TOML parser is not a dependency worth adding for six keys (four when this was
+ * written; restated 2026-09-26, R-2026-09-26-130), and this
  * reads only `key = value` lines inside a named `[table]` -- which is exactly the
  * shape supabase/config.toml uses for all of them. It deliberately does NOT
  * handle nested tables or multi-line arrays: if config.toml grows a key that this

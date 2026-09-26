@@ -951,6 +951,8 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
      under `X-Content-Type-Options: nosniff`.
 
    Their first run against hosted is the first dashboard deploy after D1 merges.
+   *Restated 2026-09-26 (R-2026-09-26-129):* that run happened on 2026-09-26, at `5be63d4`,
+   and read PASS. It is recorded under the run records below.
    **The browser check after that deploy** (the kickoff's D1, in a fresh private
    window with DevTools open): the console shows no error and no CSP violation, and
    the Network tab, filtered to `woff2`, shows the fonts loading from `openbed.ng`
@@ -994,6 +996,32 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
      memory cache.
      - One request failed with `net::ERR_CONNECTION_CLOSED` (10 ms, `fetchSnapshot`),
        and the next poll recovered. Read as the founder's connection, not the site.
+
+   **Run on 2026-09-26, from the deploy checkout at `5be63d4`** (R-2026-09-26-129 DE-1;
+   the founder's terminal output and browser, read back by Cowork). This is the first
+   deploy after the design pass's D1 (#87):
+   - **The checkout:** `~/Desktop/OpenBed-NG-deploy`, detached at `origin/main`
+     `5be63d4bf6d3a12f647e295bbcef1924f883a334`; `npm ci` reported 0 vulnerabilities.
+     `deploy_pages.sh` read the tree clean, and the stamp read back as `5be63d4`, clean.
+   - **Deployed** `https://f56ae2af.openbed-public-dashboard.pages.dev`, 12 files. There
+     was no 429 at `GET /accounts`, so the wrangler-429 trigger ("a second occurrence")
+     has not fired.
+   - **`readback_pages.sh`: PASS.**
+     - Read-back 4: commit `5be63d4`, dirty false, ancestor exit 0.
+     - Read-backs 6, 7 and 8.
+     - The page's CSP, Referrer-Policy and nosniff on the deployment and on
+       `openbed.ng`.
+     - The scripts on both hosts: one, `/assets/index-dq35X8iN.js`, the host's own.
+     - **The favicon on both hosts,** byte for byte the tracked icon, served as
+       `image/vnd.microsoft.icon`.
+     - **A self-hosted font:** 6 woff2 named, the first `public-sans-latin-400`, 200,
+       `font/woff2`.
+     - The serve-time stamp advancing.
+   - **The browser check** (the founder's word, 2026-09-26): all checks passed on
+       reviewing the site and the console.
+   - **CLOSED by this run:** the open item that the read-backs' custom-domain and script
+     checks (R-2026-09-25-119 CU-5) and D1's favicon and font checks had not yet run
+     against hosted.
 
 > **These read-backs are on the `*.pages.dev` deployment URL or alias. They do NOT
 > discharge the edge-headers step**, which is on the custom domain and is part of
