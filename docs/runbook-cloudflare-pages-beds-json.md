@@ -869,10 +869,16 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    success for a reason unrelated to what it guards — the shape this project keeps
    finding. Fixed here, and read-back 8 is what stops it recurring silently.
 
-7. **`/robots.txt` returning ROBOTS CONTENT, not the SPA fallback.** Fetch it and
-   paste the body. Before 2026-09-20 that path returned the site's `index.html` with
-   a 200, which tells a crawler nothing, so this is fetched and read rather than
-   inferred from the file being in `dist`.
+7. **`/robots.txt` returning ROBOTS CONTENT, not the SPA fallback.** **Since
+   2026-09-26 this is in the script** (R-2026-09-25-119 CU-5 c): its `read-back 7`
+   lines fetch `/robots.txt` as a browser, on the deployment URL AND on `openbed.ng`,
+   and each must equal this checkout's `apps/public-dashboard/public/robots.txt`
+   **byte for byte**. On 2026-09-25 Cloudflare's zone-wide managed robots.txt was
+   prepending its own `Allow: /` block on `openbed.ng` only (CU-4 b), which a
+   paste-and-read of the deployment URL could never see. *Restated 2026-09-26.* Until
+   then this read: "Fetch it and paste the body. Before 2026-09-20 that path returned
+   the site's `index.html` with a 200, which tells a crawler nothing, so this is
+   fetched and read rather than inferred from the file being in `dist`."
 8. **GET AND HEAD MUST BOTH RETURN THE FUNCTION'S OWN VALUES on `/beds.json`.** These
    are the script's `read-back 8 GET` and `read-back 8 HEAD` lines (under read-back 4
    above); it checks each method against the exact values, never the two against
@@ -926,10 +932,52 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    advance means the page is being answered from something other than the Function.
    Until this date the check existed only in a hand-over, with no block here to run.
 
-   **Not in the script:** read-back 7, which fetches `/robots.txt` and reads its body;
-   and, in a browser, read-backs 5 and 5b above and the polling check (`openbed.ng` with DevTools on the Network tab filtered to
+   **Also in the script, since 2026-09-26** (R-2026-09-25-119 CU-5): the page `/`,
+   fetched as a browser on the deployment URL AND on `openbed.ng`. Its CSP,
+   Referrer-Policy and nosniff must be what this checkout's
+   `apps/public-dashboard/public/_headers` sets, and every `<script>` it carries must
+   be this host's own. An inline script or another host's reads WRONG, which is how
+   Cloudflare Web Analytics' injected beacon would now be caught. Read-back 7 is in the
+   script too (above).
+
+   **Not in the script:** in a browser, read-backs 5 and 5b above and the polling check (`openbed.ng` with DevTools on the Network tab filtered to
    `beds.json`, **Disable cache left unticked**, two minutes with no reload: at least
-   four rows about 30 s apart, each 200, none from disk or memory cache).
+   four rows about 30 s apart, each 200, none from disk or memory cache). *Restated
+   2026-09-26:* until then this list began "read-back 7, which fetches `/robots.txt`
+   and reads its body;".
+
+   **Run on 2026-09-25, from the deploy checkout at `dd59c7f`** (R-2026-09-25-119 CU-3;
+   the founder's decision, the founder's terminal and browser, read back by Cowork):
+   - **Found first:** `openbed.ng` was still serving `2e62579`, built
+     2026-09-23T18:46:32Z. That is before PR 3.4b-app B (`f7407bd`), which added
+     `apps/public-dashboard/public/_headers`. **So until this deploy the live public
+     page served NO Content-Security-Policy**, Referrer-Policy
+     `strict-origin-when-cross-origin`, and was 11 files behind `main`. The tracked
+     file, the build and `tests/compliance/security_headers.test.ts` were all correct;
+     what was live was simply older than them.
+   - **Deployed** `https://d78e602d.openbed-public-dashboard.pages.dev`, with the
+     Functions bundle.
+   - **`readback_pages.sh`: PASS.**
+     - Read-back 4: commit `dd59c7f`, dirty false, ancestor 0.
+     - Read-back 6: 200, JSON, noindex, nosniff, body `{"v":12461,"wards":[],"facilities":[],…}`.
+     - Read-back 8: GET and HEAD exact.
+     - The page: CSP `default-src 'self'; connect-src 'self'; …`, no-referrer, nosniff.
+     - The serve-time stamp advanced, `22:18:26.726Z` to `22:18:32.095Z`.
+   - **Cowork:** `openbed.ng/version.json` reads `dd59c7f`, the CSP is present, and there
+     is no beacon.
+   - **Read-back 5, on `openbed.ng`:** "No facility has joined OpenBed yet, so there is
+     nothing to show. This is NOT a report that beds are unavailable — no hospital has
+     told us anything either way. Call the facility directly, or 112 / 767 in an
+     emergency."
+   - **Read-back 5b,** with `*/beds.json` blocked in DevTools: "Live bed information
+     can't be loaded right now. This is NOT a report that beds are unavailable — we
+     cannot see anything either way. Call the facility directly, or 112 / 767 in an
+     emergency." No counts.
+   - **The polling check,** about 3 minutes with Disable cache unticked: 7 `beds.json`
+     rows, each 200, about 30 s apart, all from the network (0.7 kB), none from disk or
+     memory cache.
+     - One request failed with `net::ERR_CONNECTION_CLOSED` (10 ms, `fetchSnapshot`),
+       and the next poll recovered. Read as the founder's connection, not the site.
 
 > **These read-backs are on the `*.pages.dev` deployment URL or alias. They do NOT
 > discharge the edge-headers step**, which is on the custom domain and is part of

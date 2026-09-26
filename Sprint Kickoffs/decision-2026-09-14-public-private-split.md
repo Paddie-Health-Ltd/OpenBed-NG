@@ -374,7 +374,7 @@ entry points to its source; nothing is copied.**
 | Processor | What it processes | Outstanding | Source |
 |---|---|---|---|
 | Cloudflare | Every public visitor's IP, at the edge for `openbed.ng` | s.29 written agreement; s.41 transfer basis; retention | R3, this record |
-| Cloudflare — **Data Sub-Processor for API traffic** via `api.openbed.ng`, under its standard DPA (the founder's decision, 2026-09-19) | **Scope to be completed from the proxy review's findings, not written ahead of them:** the fields that traverse the Worker and whether any are patient-identifying or patient-adjacent; whether the platform retains request metadata; the processing regions | Sub-processor listing under the standard DPA; the s.41 transfer basis is a distinct instrument | R-2026-09-19-23 D2 |
+| Cloudflare — **Data Sub-Processor for API traffic** via `api.openbed.ng`, under its standard DPA (the founder's decision, 2026-09-19) | **Scope to be completed from the proxy review's findings, not written ahead of them:** the fields that traverse the Worker and whether any are patient-identifying or patient-adjacent; whether the platform retains request metadata; the processing regions. **A second purpose, now ENDED (R-2026-09-25-119 CU-4 a):** Cloudflare **Web Analytics (RUM)** was enabled zone-wide on `openbed.ng`, and it collected page-view data from `openbed.ng` visitors. There, unlike on admin and the ward console, no CSP blocked its beacon (the public page shipped no CSP until 2026-09-25). **It was switched off by the founder on 2026-09-25. Its start date is NOT KNOWN** from anything in this repository. It is cookieless. With no facility listed, the visitors were almost certainly our own testing. **The dashboard offers no deletion of the collected data.** This feeds the founder's processor pack | Sub-processor listing under the standard DPA; the s.41 transfer basis is a distinct instrument | R-2026-09-19-23 D2; R-2026-09-25-119 CU-4 a |
 | Email provider: **Proton (Proton AG, Switzerland)**, sender `support@openbed.ng`. **Custom SMTP and its written processor agreement, ONE item** | Magic-link and escalation mail | **Restated 2026-09-25 (R-2026-09-25-108):** custom SMTP is configured, through Proton (H3). **Still open:** the s.29 written processor agreement, the s.41 transfer basis and log retention, all PENDING the founder's approval. They are tracked in the founder's paperwork register, items 1 and 4, which is outside this repository. **The gate (CJ-2):** the agreement gates facility one, so no hospital or ward address is sent a link until it is approved. It does not gate H6: at H6 the only address Proton sends to is the operator's sign-in address, Paddie Health's own role address in a mailbox Proton already hosts. **Until 2026-09-25 this cell read:** **A prerequisite for facility one** (2026-09-14). Custom SMTP must be configured, AND the NDPA s.29 written processor agreement executed with whichever provider it uses. They are one item because whatever sends the links is the processor (v2:323), so configuring the sender is choosing the processor. The built-in sender returned HTTP 429 on the fourth OTP request of a single sitting, so it cannot carry even the runbook's own verification procedure. The s.41 transfer basis and log retention are as recorded at clauseX:123 | Runbook step 9, run on 2026-09-14 (`docs/runbook-supabase-project-creation.md`); v2:322/323; clauseX:123 |
 | Supabase (the database, Auth and PostgREST, project `klrlpxysjsjpdkeqdhvl`, region `eu-west-1`) | Every row the system holds, including the one named person per facility in `app.facility_contact`, and the login addresses in `auth.users` | s.29 written processor agreement; s.41 transfer basis; retention | Added 2026-09-24 (R-2026-09-24-76 BD-4, on BC-7's check): until this row Supabase was named as a processor nowhere in the record or in any tracked file |
 
@@ -4352,6 +4352,7 @@ Both are accepted as designed, amended only by BU-1 and BU-2. The staff-engineer
 - **(b)** `contacts.json` REPLACES `ward-support.json`. Every tracked reference is moved before the build, and `no_phantom_paths` stays green.
 - **(c)** The dashboard's inline `<style>` moves to a CSS file: no hash, no `'unsafe-inline'`.
 - **(d)** `/beds.json` gains `X-Content-Type-Options: nosniff` UNCONDITIONALLY, in `packages/snapshot/src/serve.ts`, with a test and a plant. `readback_pages.sh` asserts it. The production reading is the founder's next dashboard deploy.
+  > **NOTE 2026-09-26 (R-2026-09-25-119 CU-3), by note rather than by rewriting (method note 8).** That next dashboard deploy did not come until **2026-09-25**, at `dd59c7f`. Until then `openbed.ng` served `2e62579`, built before PR B, so the live public page carried **none** of PR B's page headers: no CSP, and Referrer-Policy `strict-origin-when-cross-origin`. The production reading is recorded in -119 CU-3.
 - **(e)** A CSP that is too tight breaks a page silently. So each app is loaded in a real browser locally under its headers, and the console's sign-in is walked end to end locally under the CSP, before the report.
 - **(f)** The `_legs.ts` rule is CONFIRMED, including the sixth leg (`neuter_plant.mjs`, "PLANT DID NOT LAND — neuter"). The ten instrument legs are measured under the rule before it lands. A flip is made genuinely reached, never exempted.
 
@@ -5225,6 +5226,112 @@ _Issued as R-PROVISIONAL-2026-09-25-CS, by Cowork on 2026-09-25, as its check of
 
 **CS-6:** the checks are reported in this change's pull request. No SQL and no migration; nothing hosted was run by Claude Code.
 
+### R-2026-09-25-118 — #84 checked and merged; the redeploy's browser check
+
+_Issued as R-PROVISIONAL-2026-09-25-CT, by Cowork on 2026-09-25, as its check of #84 at `03a103e74e29d693e0b1e4475c6ebc3afbdfdd6a`. **Pasting it was the founder's merge word for #84.** Record-only; held, and landed with -119 in one change branched from #84's merge commit. Number assigned on landing: R-2026-09-25-117 plus one. Next provisional letter: CU._
+
+**VERIFIED BY COWORK** (2026-09-25, GitHub API):
+- #83 MERGED at `574e423`, and its branch is a 404.
+- #84 OPEN at `03a103e`, whose one parent is `574e423`; clean; 1 commit, 19 files; seven check runs success; no address on any added line.
+- The diff was read in full.
+- **ACCEPTED:**
+  - CS-2 c holding only in part (`--local` reads a local build, so the function takes the target);
+  - the caller survey, with `vite preview` observed serving no `_headers`;
+  - the `run()`-wide address guard, which is stronger than asked.
+
+**CT-1 — THE MERGE.**
+- The head was read from the API as `03a103e74e29d693e0b1e4475c6ebc3afbdfdd6a`, and #84 merged as a merge commit with `--match-head-commit` on that value.
+- MERGED was read back: **`dd59c7fac5de26137150f9c940dfed4074c4abda`**, with parents `574e423a1f190cd5e1e4bf26d89dd9937e019fb2` and `03a103e74e29d693e0b1e4475c6ebc3afbdfdd6a`.
+- As a separate step, after MERGED was read, `csp-and-masked-address` was deleted on the remote and locally, and both were read back as gone.
+- Local `main` was fast-forwarded with `git merge --ff-only origin/main`.
+
+**CT-2 — THE LOCAL BROWSER WALK IS WAIVED FOR CS ONLY; A HOSTED BROWSER CHECK REPLACES IT** (R-2026-09-24-93 BU-2 e).
+- **The reason:** BU-2 e guards against a CSP too tight to sign in, which curl cannot see. CS's local walk would have exercised only `build:local`, which never ships. The shipped header is read in a real browser on hosted, straight after each redeploy.
+- **(a)** Each deploy runbook's §5 gains step 4: a fresh private window with the console open.
+  - Admin: sign in as the operator.
+  - Ward console: request a link for an `example.invalid` address.
+  - PASS: no CSP violation, and the API answered.
+  - A violation is a STOP: roll back the Pages deployment, then read back.
+- **(b)** BU-2 e stands for later `_headers` changes. This waiver is for CS only.
+- **A premise that did not hold, and the instruction survives it.** CT-2 a said the ward console "shows its refusal message". It has none. A 200, a 422 and a 429 all show the same sentence, `SIGNIN_ANSWERED` (`apps/ward-console/src/main.ts`), by design, so a refusal cannot reveal whether an address exists. The step's PASS is that sentence; a CSP block shows `SIGNIN_UNREACHABLE`. Cowork accepted the correction in -119 CU-2.
+
+**CT-3:** checklist box 3 closes on this merge, and box 2 on both §5 read-backs and both browser checks. Both are ticked in -119.
+
+### R-2026-09-25-119 — the redeploys recorded; boxes 2 and 3 closed; two zone settings found and removed; the read-backs see what a browser sees
+
+_Issued as R-PROVISIONAL-2026-09-25-CU, by Cowork on 2026-09-25 (the founder's terminal and browser, read back by Cowork; Cowork's own curl from the founder's machine). It lands with -118 in one change, from `dd59c7f`. Number assigned on landing: R-2026-09-25-118 plus one. Next provisional letter: CV._
+
+**CU-1 — ADMIN REDEPLOYED** (admin runbook §5, where the full readings are recorded).
+- **The deploy checkout:** HEAD `dd59c7f`, clean.
+- **Two attempts failed before upload.** wrangler's `GET /accounts` got a 429 with an HTML body (Ray IDs `a40a4ed129b3724f-LOS` and `a40a67277aa5724f-LOS`).
+  - `/cdn-cgi/trace` read `loc=NG`, `colo=LOS`, `warp=off`. Later, an unauthenticated `GET /client/v4/accounts` read 403, matching Cowork's control from another network.
+  - Read as a transient edge block on the founder's network. **Open item:** trigger, a second occurrence; the fix to evaluate is `CLOUDFLARE_ACCOUNT_ID` in the deploy environment.
+- **The third attempt deployed** `https://4fc4ffd3.openbed-admin.pages.dev`.
+- **Read-back PASS:** every line ok, the CSP `connect-src 'self' https://api.openbed.ng`.
+- **Browser check:** signed in on the register.
+  - The console at first showed ONE `script-src` violation, Cloudflare's beacon (CU-4 a).
+  - After CU-4's fix, no red lines.
+
+**CU-2 — WARD CONSOLE REDEPLOYED** (ward-console runbook §5).
+- **Deployed** `https://20de9ab4.openbed-ward-console.pages.dev`.
+- **Read-back PASS.** Cowork, with a browser User-Agent, read `app.openbed.ng` at `dd59c7f` with the same CSP.
+- **Browser check:** the uniform sentence was shown, ending with the ward-facing support address, and the console was clean. The implementer's correction to CT-2 a was ACCEPTED.
+
+**CU-3 — PUBLIC DASHBOARD REDEPLOYED** (the founder's decision; recorded in the dashboard runbook's reporting section).
+- **FOUND:** `openbed.ng` was still at `2e62579`, which predates PR 3.4b-app B (`f7407bd`). So **the live public page served no CSP**, with Referrer-Policy `strict-origin-when-cross-origin`, and was 11 files behind `main`.
+- **Deployed** `https://d78e602d.openbed-public-dashboard.pages.dev`.
+- **`readback_pages.sh`: PASS.**
+- **In a browser:** read-backs 5 and 5b, and the polling check (7 rows about 30 s apart, all from the network).
+  - One `net::ERR_CONNECTION_CLOSED` recovered on the next poll. Read as the founder's connection.
+- **Every place in the record or runbooks that states or implies the public dashboard ships its `_headers`, as found by the implementer's sweep:**
+  - **-93 BU-2 (d):** "The production reading is the founder's next dashboard deploy". That deploy came only on 2026-09-25, so **a dated note is added** there.
+  - **The -94 BV-2 entry** ("each app's `npm run build`"), **-97 BY-2 g** ("`security_headers` pins it for all three apps"), the admin runbook §4 ("holds all three apps to it"), and **-117's** "the built CSPs now read … (dashboard)": each describes the tracked file, the test or the BUILD, and each is **true as written**. Reviewed; not restated.
+  - **The dashboard runbook:** it never stated that `_headers` ships. The finding is added in its 2026-09-25 run record.
+  - No other site was found. The sweep searched for `_headers`, "security headers", "ships its headers", "each/every/all three app(s) … header", "production reading", `nosniff` and `BU-2 (d)` across the record and every runbook, and read each hit in context.
+
+**CU-4 — TWO CLOUDFLARE ZONE SETTINGS FOR `openbed.ng` WERE CHANGING WHAT WE SERVE, INVISIBLY TO EVERY READ-BACK. BOTH ARE NOW OFF.**
+- **(a) Web Analytics (RUM), zone-wide.**
+  - It injected a beacon `<script>` into HTML only for a browser-like request, so every read-back's "bundles the page loads: 1" read ok.
+  - It was blocked by `script-src 'self'` on admin and the ward console. It was **not** blocked on `openbed.ng`, which had no CSP, so **it collected page-view data for `openbed.ng` visitors** until the founder switched it off on 2026-09-25.
+  - It is cookieless, and there is no deletion in the dashboard. Recorded in the processor-obligations table's Cloudflare row, with the start date marked NOT KNOWN.
+  - Cowork then read no `cloudflareinsights` on any of the four hosts.
+- **(b) Cloudflare managed robots.txt, zone-wide.**
+  - Its Content Signals block (`User-agent: *`, `Allow: /`) was prepended to our file on `openbed.ng` only, so under RFC 9309 crawlers MAY crawl. That defeats R-2026-09-20-29 F on the host that matters.
+  - It was switched off on 2026-09-25. Afterwards the served file's md5 was `d074e55701d37df045e01b26c6db830a` on `openbed.ng`, on the deployment URL, and in `git show dd59c7f:apps/public-dashboard/public/robots.txt`: identical.
+  - The discoverability box stays OPEN, with this finding under it.
+
+**CU-5 — THE READ-BACKS SEE WHAT A BROWSER SEES** (code).
+- **(a)** `scripts/readback_common.sh` defines the browser User-Agent and `Accept: text/html` once, and `page_probe` sends them on every page and `robots.txt` fetch in the admin, ward-console and dashboard read-backs.
+  - `rb_scripts` lists EVERY `<script>` element. Any `src` that is not same-origin with the host, and any inline script, reads WRONG, naming it. It handles double-quoted, single-quoted and unquoted `src`.
+  - "Bundles the page loads" keeps its meaning.
+- **(b)** The page checks (headers and scripts) run on the deployment URL AND on the custom domain: `admin.openbed.ng` with the token, `app.openbed.ng` and `openbed.ng`.
+- **(c)** `readback_pages.sh` automates read-back 7: `/robots.txt` on the deployment URL and on `openbed.ng` must equal `apps/public-dashboard/public/robots.txt` byte for byte (`rb_same_bytes`, with `cmp`'s exit codes separated by hand). The runbook's read-back 7 is restated, with the old text kept.
+- **(d)** Tests in `tests/compliance/readback_scripts.test.ts`, **each shown red first against the scripts as they stood:**
+  - a beacon `<script>` served ONLY under a browser User-Agent (all three read-backs);
+  - an inline `<script>`;
+  - a custom domain whose CSP differs from the deployment's (all three);
+  - a `/robots.txt` with Cloudflare's managed block prepended;
+  - a `/robots.txt` that differs only on `openbed.ng`.
+  - Also red first: an accept leg per read-back asserting every page fetch presented as a browser and the custom domain was read.
+  - All 12 failed as expected (each plant's STOP was a PASS), then passed after the change.
+- **(e)** The curl stub answers a browser-presenting request from a `… browser` fixture key in preference to the plain one.
+  - **Demonstrated:** with the User-Agent removed from `page_probe`, all three beacon plants FAIL (the page looks clean), and the file was restored byte-identical afterwards.
+- **Could-not-run legs, each planted:** node failing while listing the page's scripts (a stub failing only the marked call); `cmp` exiting 2; a checkout with no tracked `robots.txt`. Each is an ERROR, never a verdict.
+- **Legs:** two new, both reached; two new nested identity pairs, pinned. `legs_total` 315 -> 317, reached 289 -> 291, registered 26, measured.
+
+**CU-6 — THE CHECKLIST** (12.4 step 1):
+- **box 2 TICKED** (CU-1 and CU-2 read-backs PASS; both browser checks clean after CU-4 a);
+- **box 3 TICKED** on #84's merge `dd59c7fac5de26137150f9c940dfed4074c4abda`;
+- CU-4 b's finding added under the discoverability box, which stays open. Nothing else ticked.
+
+**CU-7 — THE RUNBOOKS:**
+- both §5s gain step 4 with the exact sentences, and their 2026-09-25 readings;
+- the read-back tables gain the script and custom-domain lines;
+- each deploy runbook says why the page checks now run on the custom domain with a browser User-Agent;
+- the dashboard runbook records the deploy, read-backs 5 and 5b and the polling check.
+
+No SQL and no migration; nothing hosted was run by Claude Code.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -5333,6 +5440,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | CQ | R-2026-09-25-115 | 2026-09-25 | **Backups proven; the -45 gate is clear.** Daily physical backups; PITR off, the add-on declined; the 25 Sep 06:54:11 UTC backup restored to a new project, equal to live, the clone deleted. Step 4b's trigger and check count ward accounts only (not the operator). Facility one waits on CJ-2 (the one hosted gate) and on every "before facility one" item (corrected by -116). The 2026-09-14 test login removed. Open item: the project-wide email limit. |
 | CR | R-2026-09-25-116 | 2026-09-25 | **#83 corrected, in #83:** facility one waits on CJ-2 (the one hosted gate) AND 13 open "before facility one" items, now a checklist at runbook 12.4 step 1 (four of -23's items and the discoverability item found beyond Cowork's list). Step 4b's check restated so a non-zero reading stops nothing after facility one. The code PR renumbered CS. |
 | CS | R-2026-09-25-117 | 2026-09-25 | **#83 merged at `574e423`** (parents `9f91d91`, `0378f6b`). **The CO-3 code PR:** the renderer takes a required `--target`, so the deployed admin and ward-console CSPs name no local origin (box 2 closes only on both redeploys reading PASS); the provisioning script masks the address on every line (box 3 closes on this merge). Both shown red first. The real-browser walk is NOT DONE, and is a founder step. -116's two slips fixed. |
+| CT | R-2026-09-25-118 | 2026-09-25 | **#84 merged at `dd59c7f`** (parents `574e423`, `03a103e`). BU-2 e's local browser walk waived for CS only; a hosted browser check after each redeploy replaces it. The ward console has no distinct refusal message: its PASS is the uniform `SIGNIN_ANSWERED` sentence. |
+| CU | R-2026-09-25-119 | 2026-09-25 | **Admin, the ward console and the public dashboard redeployed at `dd59c7f`, all PASS; boxes 2 and 3 ticked.** The dashboard had served no CSP until then. Two Cloudflare zone settings (Web Analytics' browser-only beacon, which collected `openbed.ng` page views; a managed robots.txt that allowed crawling) found and switched off. The read-backs now fetch as a browser, list every script, read the custom domain, and compare robots.txt byte for byte. |
 
 ## Method notes — how rulings reach the implementer
 

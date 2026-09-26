@@ -119,7 +119,8 @@ else
         SITE="$host"
         site_probe GET /version.json
         access_gate "step 1 $host/version.json"
-        site_probe GET /
+        # As a browser (R-2026-09-25-119 CU-5): what Access shows a person is what counts.
+        page_probe /
         access_gate "step 1 $host/"
     done
     SITE="$SITE_BEFORE"
@@ -157,15 +158,33 @@ if [ "$LOCAL" = 0 ]; then
     SITE="$SITE_BEFORE"
 fi
 
-site_probe GET / ${ACCESS[@]+"${ACCESS[@]}"}
+# Fetched as a browser (R-2026-09-25-119 CU-5): a zone setting that rewrites HTML for
+# browsers only is invisible to a plain client.
+page_probe / ${ACCESS[@]+"${ACCESS[@]}"}
 rb_expect "step 2 content-security-policy" "$(rb_header content-security-policy)" "$CSP_WANT"
 rb_expect "step 2 referrer-policy" "$(rb_header referrer-policy)" "$REFERRER_WANT"
 rb_expect "step 2 x-content-type-options" "$(rb_header x-content-type-options)" "$SNIFF_WANT"
+rb_scripts "step 2 scripts"
 rb_matches 'assets/index-[A-Za-z0-9_-]*\.js'
 BUNDLE="$RB_MATCHES"
 rb_expect "step 2 bundles the page loads" "$RB_COUNT" 1
 if [ "$RB_COUNT" != 1 ]; then rb_verdict "unreachable"; fi
 echo "  bundle: $BUNDLE"
+
+# THE CUSTOM DOMAIN, with the token (R-2026-09-25-119 CU-5 b). Zone settings apply only
+# there, so the page is read there too, as a browser, against the same expected values.
+if [ "$LOCAL" = 0 ]; then
+    SITE_BEFORE="$SITE"
+    SITE="https://admin.openbed.ng"
+    page_probe / ${ACCESS[@]+"${ACCESS[@]}"}
+    rb_expect "admin.openbed.ng content-security-policy" "$(rb_header content-security-policy)" "$CSP_WANT"
+    rb_expect "admin.openbed.ng referrer-policy" "$(rb_header referrer-policy)" "$REFERRER_WANT"
+    rb_expect "admin.openbed.ng x-content-type-options" "$(rb_header x-content-type-options)" "$SNIFF_WANT"
+    rb_scripts "admin.openbed.ng scripts"
+    rb_matches 'assets/index-[A-Za-z0-9_-]*\.js'
+    rb_expect "admin.openbed.ng bundles the page loads" "$RB_COUNT" 1
+    SITE="$SITE_BEFORE"
+fi
 
 site_probe GET "/$BUNDLE" ${ACCESS[@]+"${ACCESS[@]}"}
 rb_matches 'sb_publishable_[A-Za-z0-9_-]*'

@@ -114,6 +114,23 @@ site_probe() {
     rb_fetch "$method" "$SITE$path_part" "$@"
 }
 
+# THE READ-BACKS SEE WHAT A BROWSER SEES (R-2026-09-25-119 CU-5). On 2026-09-25 two
+# Cloudflare zone settings were changing what our hosts served, and every read-back
+# missed both: Web Analytics injected a beacon <script> into the HTML ONLY for a
+# browser-like request, so a plain curl saw a clean page; and a managed robots.txt
+# block was prepended on the custom domain only. So every page and robots.txt fetch
+# presents as a browser, and the page checks run on the custom domain as well as on
+# the deployment. The values are defined here, once.
+RB_BROWSER_UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
+RB_BROWSER_ACCEPT='text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+
+# page_probe PATH [curl arguments...] -- GET a page from the host under test, as a browser.
+page_probe() {
+    local path_part="$1"
+    shift
+    site_probe GET "$path_part" -H "User-Agent: $RB_BROWSER_UA" -H "Accept: $RB_BROWSER_ACCEPT" "$@"
+}
+
 # api_probe METHOD PATH [curl arguments...] -- a request to api.openbed.ng. Written one
 # per line with a literal path, because the allow-list guard reads these lines.
 api_probe() {
@@ -220,6 +237,65 @@ process.stdout.write(found.join("\n"));
     if [ -n "$RB_MATCHES" ]; then
         RB_COUNT="$(printf '%s\n' "$RB_MATCHES" | wc -l | tr -d ' ')"
     fi
+}
+
+# rb_scripts LABEL -- EVERY <script> element in the last body, listed. Any src that is
+# not same-origin with $SITE, and any inline script, reads WRONG naming it
+# (R-2026-09-25-119 CU-5 a). The page's own bundle is a same-origin src; nothing else
+# belongs there, because script-src is 'self'. The node code below carries the marker
+# OPENBED_RB_SCRIPTS so a test can fail this one call alone.
+rb_scripts() {
+    local label="$1" st=0 out line bad=""
+    out="$(node -e '
+// OPENBED_RB_SCRIPTS
+const fs = require("fs");
+const html = fs.readFileSync(process.argv[1], "utf8");
+const site = new URL(process.argv[2]).origin;
+const found = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)];
+for (const [, attrs, inner] of found) {
+  const src = /\bsrc\s*=\s*(?:"([^"]*)"|\x27([^\x27]*)\x27|([^\s>"\x27]+))/i.exec(attrs) || [];
+  const value = src[1] ?? src[2] ?? src[3];
+  if (value === undefined) { console.log("inline " + JSON.stringify(inner.trim().slice(0, 60))); continue; }
+  let origin;
+  try { origin = new URL(value, site + "/").origin; } catch { origin = "(unparseable)"; }
+  console.log((origin === site ? "same " : "other ") + value);
+}
+' "$RB_TMP/body" "$SITE")" || st=$?
+    if [ "$st" -ne 0 ]; then
+        echo "ERROR: node exited $st listing the page's scripts -- the check did not run, so this read-back has no verdict"
+        exit 2
+    fi
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        echo "  script: ${line#* }"
+        case "$line" in
+            same\ *) ;;
+            *) bad="${bad:+$bad, }${line#* }" ;;
+        esac
+    done <<< "$out"
+    if [ -z "$bad" ]; then
+        rb_ok "$label" "every script is this host's own"
+    else
+        rb_wrong "$label" "$bad" "must be none: every <script> must be a same-origin src (script-src 'self'), never inline or another host's"
+    fi
+}
+
+# rb_same_bytes LABEL FILE -- the last body must equal FILE byte for byte. cmp's three
+# exit codes are separated by hand: 1 is a difference, anything but 0 or 1 means the
+# comparison did not run (test-conventions, 2026-09-10).
+rb_same_bytes() {
+    local label="$1" file="$2" st=0
+    if [ ! -f "$file" ]; then
+        echo "ERROR: this checkout holds no $file to compare against -- the check did not run, so this read-back has no verdict"
+        exit 2
+    fi
+    cmp -s "$RB_TMP/body" "$file" || st=$?
+    case "$st" in
+        0) rb_ok "$label" "byte for byte this checkout's ${file#"$ROOT"/}" ;;
+        1) rb_wrong "$label" "$(head -c 120 "$RB_TMP/body" | tr '\n' ' ')…" "must equal this checkout's ${file#"$ROOT"/} byte for byte" ;;
+        *) echo "ERROR: cmp exited $st comparing a response body with $file -- the check did not run, so this read-back has no verdict"
+           exit 2 ;;
+    esac
 }
 
 rb_ok() { echo "  ok     $1: $2"; }

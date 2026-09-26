@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { withScratch, REPO_ROOT } from './_scratch.js';
@@ -91,6 +91,9 @@ function repo(root: string, opts: { pushed?: boolean; remote?: boolean; headers?
       copyFileSync(join(REPO_ROOT, 'apps', app, 'public', '_headers'), join(work, 'apps', app, 'public', '_headers'));
     }
   }
+  // The tracked robots.txt the dashboard read-back compares both hosts against, byte for
+  // byte (R-2026-09-25-119 CU-5 c).
+  if (opts.headers !== false) copyFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'public', 'robots.txt'), join(work, 'apps', 'public-dashboard', 'public', 'robots.txt'));
   // The admin read-back reads its Pages project name from here, never retyped.
   mkdirSync(join(work, 'apps', 'admin'), { recursive: true });
   copyFileSync(join(REPO_ROOT, 'apps', 'admin', 'wrangler.toml'), join(work, 'apps', 'admin', 'wrangler.toml'));
@@ -105,7 +108,14 @@ function repo(root: string, opts: { pushed?: boolean; remote?: boolean; headers?
   return work;
 }
 
-/** A curl stub that answers from the fixture by "METHOD URL", or "METHOD URL apikey=KEY" first. */
+/**
+ * A curl stub that answers from the fixture by "METHOD URL", or "METHOD URL apikey=KEY" first.
+ * A request that presents as a BROWSER -- a Mozilla/ User-Agent and an Accept naming
+ * text/html -- is logged and keyed with " browser" (before " access"), and a fixture keyed
+ * that way answers it in preference to the plain one (R-2026-09-25-119 CU-5). That is how a
+ * plant serves one page to a browser and another to a plain client, as Cloudflare's zone
+ * settings did: if a read-back stops presenting as a browser, it gets the plain page.
+ */
 function stubBin(root: string): string {
   const bin = join(root, 'bin');
   mkdirSync(bin, { recursive: true });
@@ -134,10 +144,13 @@ if (head) method = 'HEAD';
 for (const h of hdrs.filter((x) => x.startsWith('@'))) hdrs.push(...fs.readFileSync(h.slice(1), 'utf8').split('\\n').filter(Boolean));
 const access = hdrs.some((h) => /^CF-Access-Client-Id:\\s*\\S/i.test(h)) && hdrs.some((h) => /^CF-Access-Client-Secret:\\s*\\S/i.test(h));
 const apikey = (hdrs.map((h) => /^apikey:\\s*(.*)$/i.exec(h)).find(Boolean) || [])[1];
-fs.appendFileSync(process.env.STUB_LOG, method + ' ' + url + (apikey ? ' apikey=' + apikey : '') + (access ? ' access' : '') + '\\n');
+const browser = hdrs.some((h) => /^User-Agent:.*Mozilla\\//i.test(h)) && hdrs.some((h) => /^Accept:.*text\\/html/i.test(h));
+fs.appendFileSync(process.env.STUB_LOG, method + ' ' + url + (apikey ? ' apikey=' + apikey : '') + (browser ? ' browser' : '') + (access ? ' access' : '') + '\\n');
 const fx = JSON.parse(fs.readFileSync(process.env.STUB_FIXTURES, 'utf8'));
-const k = apikey && (method + ' ' + url + ' apikey=' + apikey) in fx ? method + ' ' + url + ' apikey=' + apikey
-  : access && (method + ' ' + url + ' access') in fx ? method + ' ' + url + ' access' : method + ' ' + url;
+const base = method + ' ' + url;
+const cands = (apikey ? [base + ' apikey=' + apikey] : [])
+  .concat(browser && access ? [base + ' browser access'] : [], browser ? [base + ' browser'] : [], access ? [base + ' access'] : [], [base]);
+const k = cands.find((c) => c in fx) || base;
 let ans = fx[k];
 if (ans === undefined) { process.stderr.write('curl: (6) Could not resolve host (no fixture for ' + k + ')\\n'); process.exit(6); }
 if (Array.isArray(ans)) {
@@ -308,6 +321,10 @@ const BEDS_HEADERS = {
   'x-content-type-options': 'nosniff',
 };
 const BEDS_BODY = '{"v":9371,"wards":[],"facilities":[]}';
+const DASH_DOMAIN = 'https://openbed.ng';
+const DASH_PAGE = '<!doctype html><script type="module" crossorigin src="/assets/index-iIcFdl6r.js"></script>';
+/** The tracked robots.txt, read, never retyped: what both hosts must serve byte for byte. */
+const ROBOTS_TXT = readFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'public', 'robots.txt'), 'utf8');
 
 function pagesFixtures(head: string): Fixtures {
   const beds = (servedAt: string): Answer => ({ status: 200, headers: { ...BEDS_HEADERS, 'x-openbed-served-at': servedAt }, body: BEDS_BODY });
@@ -316,7 +333,11 @@ function pagesFixtures(head: string): Fixtures {
     // read-back 6, read-back 8's GET, then the two serve-time reads.
     [`GET ${SITE}/beds.json`]: [beds('2026-09-23T18:48:44.001Z'), beds('2026-09-23T18:48:47.300Z'), beds('2026-09-23T18:48:50.582Z'), beds('2026-09-23T18:48:56.068Z')],
     [`HEAD ${SITE}/beds.json`]: { status: 200, headers: { ...BEDS_HEADERS, 'x-openbed-served-at': '2026-09-23T18:48:48.000Z' } },
-    [`GET ${SITE}/`]: { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('public-dashboard') }, body: '<!doctype html>' },
+    [`GET ${SITE}/`]: { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('public-dashboard') }, body: DASH_PAGE },
+    // The custom domain, where zone settings apply, and robots.txt on both hosts (CU-5 b, c).
+    [`GET ${DASH_DOMAIN}/`]: { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('public-dashboard') }, body: DASH_PAGE },
+    [`GET ${SITE}/robots.txt`]: { status: 200, headers: { 'content-type': 'text/plain' }, body: ROBOTS_TXT },
+    [`GET ${DASH_DOMAIN}/robots.txt`]: { status: 200, headers: { 'content-type': 'text/plain' }, body: ROBOTS_TXT },
   };
 }
 
@@ -355,7 +376,10 @@ describe('scripts/readback_pages.sh', () => {
       ]) {
         expect(r.out, `the check "${check}" never ran`).toContain(`  ok     ${check}: `);
       }
-      expect(r.out).toContain("PASS: read-backs 4, 6 and 8, the page's security headers and the serve-time stamp read as they must.");
+      expect(r.out).toContain("PASS: read-backs 4, 6, 7 and 8, the page's security headers and scripts on both hosts, and the serve-time stamp read as they must.");
+      for (const check of ['page scripts', 'openbed.ng content-security-policy', 'openbed.ng scripts', 'read-back 7 robots.txt', 'read-back 7 openbed.ng robots.txt']) {
+        expect(r.out, `the check "${check}" never ran`).toContain(`  ok     ${check}: `);
+      }
       expect(r.calls).toContain(`HEAD ${SITE}/beds.json`);
     });
   });
@@ -431,6 +455,7 @@ describe('scripts/readback_pages.sh', () => {
 // ---------------------------------------------------------------------------
 
 const WARD = 'https://6abd577d.openbed-ward-console.pages.dev';
+const WARD_DOMAIN = 'https://app.openbed.ng';
 const API = 'https://api.openbed.ng';
 const DEPLOYED_KEY = 'sb_publishable_DEPLOYED_KEY_IN_THE_BUNDLE';
 const WRONG_KEY = 'sb_publishable_DELIBERATELY_WRONG_FOR_THE_FAILING_HALF';
@@ -439,6 +464,8 @@ function wardFixtures(head: string): Fixtures {
   return {
     [`GET ${WARD}/version.json`]: { status: 200, body: stampOf(head) },
     [`GET ${WARD}/`]: { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('ward-console') }, body: '<!doctype html><script type="module" crossorigin src="/assets/index-B7kFspkD.js"></script>' },
+    // The custom domain serves the same deployment (R-2026-09-25-119 CU-5 b).
+    [`GET ${WARD_DOMAIN}/`]: { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('ward-console') }, body: '<!doctype html><script type="module" crossorigin src="/assets/index-B7kFspkD.js"></script>' },
     [`GET ${WARD}/assets/index-B7kFspkD.js`]: { status: 200, body: `const k="${DEPLOYED_KEY}";` },
     [`GET ${API}/auth/v1/settings apikey=${DEPLOYED_KEY}`]: { status: 200, headers: { 'x-openbed-proxy': 'forwarded' }, body: '{"external":{"email":true}}' },
     [`GET ${API}/auth/v1/settings apikey=${WRONG_KEY}`]: { status: 401, headers: { 'x-openbed-proxy': 'forwarded' }, body: '{"message":"Invalid API key","hint":"Double check your Supabase `anon` or `service_role` API key."}' },
@@ -1099,6 +1126,8 @@ function adminFixtures(head: string, site = ADMIN_SITE, withAccess = true): Fixt
   const tok = withAccess ? ' access' : '';
   f[`GET ${site}/version.json${tok}`] = { status: 200, body: stampOf(head) };
   f[`GET https://admin.openbed.ng/version.json${tok}`] = { status: 200, body: stampOf(head) };
+  // The custom domain's page, with the token (R-2026-09-25-119 CU-5 b).
+  f[`GET https://admin.openbed.ng/${tok}`] = { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('admin', withAccess ? 'production' : 'local') }, body: ADMIN_SHELL };
   // A hosted deploy serves the production rendering; the --local server (no Access) serves build:local's.
   f[`GET ${site}/${tok}`] = { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('admin', withAccess ? 'production' : 'local') }, body: ADMIN_SHELL };
   f[`GET ${site}/assets/index-Ad3m1nXy.js${tok}`] = { status: 200, body: `const k="${withAccess ? DEPLOYED_KEY : TRACKED_KEY}";` };
@@ -1234,6 +1263,145 @@ describe('readback_admin.sh — Access first, the token from the environment onl
         expect(r.out).toContain('could not read packages/origins/publishable-keys.json (node exited');
         expect(r.out).toContain('the key check did not run, so this read-back has no verdict');
       });
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// THE READ-BACKS SEE WHAT A BROWSER SEES (R-2026-09-25-119 CU-5). On 2026-09-25 two
+// Cloudflare zone settings changed what openbed.ng's hosts served, and no read-back saw
+// either: Web Analytics injected a beacon <script> into the HTML ONLY for a browser-like
+// request, and a managed robots.txt block was prepended on the custom domain only. Every
+// page is now fetched as a browser, every <script> is listed, the custom domain is read
+// as well as the deployment, and robots.txt is compared byte for byte.
+// ---------------------------------------------------------------------------
+
+const BEACON = '<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" data-cf-beacon=\'{"token":"PLANTED"}\'></script>';
+const MANAGED_ROBOTS = '# As a condition of accessing this website, you agree to abide by the following content signals:\nUser-agent: *\nContent-Signal: search=yes,ai-train=no,use=reference\nAllow: /\n\n';
+
+interface Target { name: string; script: string; site: string; page: string; domainPage: string; env: Record<string, string>; fixtures: (head: string) => Fixtures; scriptsLabel: string; domainLabel: string }
+const TARGETS: Target[] = [
+  { name: 'readback_ward_console.sh', script: SCRIPTS.ward, site: WARD, page: `GET ${WARD}/`, domainPage: `GET ${WARD_DOMAIN}/`, env: {}, fixtures: wardFixtures, scriptsLabel: 'step 3 scripts', domainLabel: 'app.openbed.ng' },
+  { name: ADMIN_NAME, script: SCRIPTS.admin, site: ADMIN_SITE, page: `GET ${ADMIN_SITE}/ access`, domainPage: 'GET https://admin.openbed.ng/ access', env: ACCESS_ENV, fixtures: (h) => adminFixtures(h), scriptsLabel: 'step 2 scripts', domainLabel: 'admin.openbed.ng' },
+  { name: 'readback_pages.sh', script: SCRIPTS.pages, site: SITE, page: `GET ${SITE}/`, domainPage: `GET ${DASH_DOMAIN}/`, env: {}, fixtures: pagesFixtures, scriptsLabel: 'page scripts', domainLabel: 'openbed.ng' },
+];
+
+/** The page a fixture serves at `key`, with `html` spliced in before its first <script>. */
+function withInPage(f: Fixtures, key: string, html: string, asKey = key): void {
+  const ans = f[key] as { status: number; headers?: Record<string, string>; body?: string };
+  f[asKey] = { ...ans, body: (ans.body ?? '').replace('<script', `${html}<script`) };
+}
+
+describe('the read-backs see what a browser sees (R-2026-09-25-119 CU-5)', () => {
+  test.each(TARGETS.map((t) => [t.name, t] as const))('real %s is accepted — every page fetched as a browser, the custom domain read, every script listed', (_name, t) => {
+    withScratch((root) => {
+      const work = repo(root);
+      const r = run(root, t.script, [t.site, work], t.fixtures(git(work, 'rev-parse', 'HEAD').trim()), t.env);
+      expect(r.status, r.out).toBe(0);
+      expect(r.out).toContain(`  ok     ${t.scriptsLabel}: `);
+      expect(r.out).toContain(`  ok     ${t.domainLabel} content-security-policy: `);
+      expect(r.out).toContain(`  ok     ${t.domainLabel} scripts: `);
+      const pageCalls = r.calls.filter((c) => /^GET https:\/\/[^ ]+\/( |$)/.test(c));
+      expect(pageCalls.length, 'no page was fetched').toBeGreaterThan(1);
+      for (const c of pageCalls) expect(c, 'a page was fetched without presenting as a browser').toContain(' browser');
+    });
+  });
+
+  // THE BEACON: served ONLY to a browser. If a read-back stops presenting as one, it is
+  // served the clean page, and this plant goes green by being blind (CU-5 e).
+  test.each(TARGETS.map((t) => [t.name, t] as const))('plant — %s: a beacon <script> injected only for a browser is a STOP naming it', (_name, t) => {
+    withScratch((root) => {
+      const work = repo(root);
+      const f = t.fixtures(git(work, 'rev-parse', 'HEAD').trim());
+      const asKey = t.page.endsWith(' access') ? t.page.replace(/ access$/, ' browser access') : `${t.page} browser`;
+      withInPage(f, t.page, BEACON, asKey);
+      const r = run(root, t.script, [t.site, work], f, t.env);
+      expectStopAt(r, t.scriptsLabel);
+      expect(r.out).toContain('https://static.cloudflareinsights.com/beacon.min.js/');
+    });
+  });
+
+  test('plant — an inline <script> is a STOP', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const f = wardFixtures(git(work, 'rev-parse', 'HEAD').trim());
+      withInPage(f, `GET ${WARD}/`, '<script>window.planted = 1</script>');
+      expectStopAt(run(root, SCRIPTS.ward, [WARD, work], f), 'step 3 scripts');
+    });
+  });
+
+  test.each(TARGETS.map((t) => [t.name, t] as const))('plant — %s: a custom domain whose CSP differs from the deployment is a STOP', (_name, t) => {
+    withScratch((root) => {
+      const work = repo(root);
+      const f = t.fixtures(git(work, 'rev-parse', 'HEAD').trim());
+      const ans = f[t.domainPage] as { status: number; headers: Record<string, string>; body: string };
+      f[t.domainPage] = { ...ans, headers: { ...ans.headers, 'content-security-policy': "default-src 'self'" } };
+      expectStopAt(run(root, t.script, [t.site, work], f, t.env), `${t.domainLabel} content-security-policy`);
+    });
+  });
+
+  test("plant — a /robots.txt with Cloudflare's managed block prepended is a STOP", () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const f = pagesFixtures(git(work, 'rev-parse', 'HEAD').trim());
+      f[`GET ${SITE}/robots.txt`] = { status: 200, headers: { 'content-type': 'text/plain' }, body: MANAGED_ROBOTS + ROBOTS_TXT };
+      expectStopAt(run(root, SCRIPTS.pages, [SITE, work], f), 'read-back 7 robots.txt');
+    });
+  });
+
+  test('plant — a /robots.txt that differs only on openbed.ng is a STOP', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const f = pagesFixtures(git(work, 'rev-parse', 'HEAD').trim());
+      f[`GET ${DASH_DOMAIN}/robots.txt`] = { status: 200, headers: { 'content-type': 'text/plain' }, body: MANAGED_ROBOTS + ROBOTS_TXT };
+      const r = run(root, SCRIPTS.pages, [SITE, work], f);
+      expectStopAt(r, 'read-back 7 openbed.ng robots.txt');
+      expect(r.out, 'the deployment copy was clean, so its line must read ok').toContain('  ok     read-back 7 robots.txt: ');
+    });
+  });
+});
+
+describe('CU-5 could-not-run legs: a check that cannot run is an ERROR, never a verdict', () => {
+  test('could not run — node failing while listing the page\'s scripts is an ERROR', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const bin = stubBin(root);
+      const realNode = process.execPath;
+      // The curl stub runs on the real node; the scripts' own node calls reach this stub,
+      // which fails ONLY the script listing (its code carries the marker) and delegates
+      // everything else, so the plant reaches the leg it is for.
+      writeFileSync(join(bin, 'curl'), readFileSync(join(bin, 'curl'), 'utf8').replace('#!/usr/bin/env node', `#!${realNode}`));
+      writeFileSync(join(bin, 'node'), `#!/usr/bin/env bash\ncase "$*" in *OPENBED_RB_SCRIPTS*) exit 9 ;; esac\nexec "${realNode}" "$@"\n`);
+      chmodSync(join(bin, 'node'), 0o755);
+      const r = run(root, SCRIPTS.ward, [WARD, work], wardFixtures(git(work, 'rev-parse', 'HEAD').trim()));
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain("ERROR: node exited 9 listing the page's scripts -- the check did not run, so this read-back has no verdict");
+      expect(r.out).not.toContain('PASS:');
+    });
+  });
+
+  test('could not run — cmp failing to compare robots.txt is an ERROR', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const bin = stubBin(root);
+      writeFileSync(join(bin, 'cmp'), '#!/usr/bin/env bash\nexit 2\n');
+      chmodSync(join(bin, 'cmp'), 0o755);
+      const r = run(root, SCRIPTS.pages, [SITE, work], pagesFixtures(git(work, 'rev-parse', 'HEAD').trim()));
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('ERROR: cmp exited 2 comparing a response body with');
+      expect(r.out).not.toContain('PASS:');
+    });
+  });
+
+  test('could not run — a checkout with no tracked robots.txt is an ERROR', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const head = git(work, 'rev-parse', 'HEAD').trim();
+      rmSync(join(work, 'apps', 'public-dashboard', 'public', 'robots.txt'));
+      const r = run(root, SCRIPTS.pages, [SITE, work], pagesFixtures(head));
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('to compare against -- the check did not run, so this read-back has no verdict');
+      expect(r.out).not.toContain('PASS:');
     });
   });
 });

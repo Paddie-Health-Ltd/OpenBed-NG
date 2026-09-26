@@ -28,6 +28,8 @@ ROOT="${2:-$(cd "$(dirname "$0")/.." && pwd)}"
 source "$(dirname "$0")/readback_common.sh"
 
 rb_require_url readback_pages.sh 'https://HASH.openbed-public-dashboard.pages.dev' "$SITE"
+# The dashboard's custom domain, where zone settings apply (R-2026-09-25-119 CU-5 b).
+DOMAIN='https://openbed.ng'
 SITE="${SITE%/}"
 PAUSE="${READBACK_SERVED_AT_SLEEP:-5}"
 rb_head "$ROOT"
@@ -81,12 +83,37 @@ for m in GET HEAD; do
 done
 
 echo
-echo "=== the page's security headers: GET $SITE/, against this checkout's tracked apps/public-dashboard/public/_headers ==="
-site_probe GET /
+echo "=== the page's security headers and scripts: GET $SITE/ as a browser, against this checkout's tracked apps/public-dashboard/public/_headers ==="
+# As a browser (R-2026-09-25-119 CU-5): Web Analytics injected its beacon only for one.
+page_probe /
 rb_expect "page status" "$RB_CODE" 200
 rb_expect "page content-security-policy" "$(rb_header content-security-policy)" "$CSP_WANT"
 rb_expect "page referrer-policy" "$(rb_header referrer-policy)" "$REFERRER_WANT"
 rb_expect "page x-content-type-options" "$(rb_header x-content-type-options)" "$SNIFF_WANT"
+rb_scripts "page scripts"
+
+echo
+echo "=== the same on the custom domain: GET $DOMAIN/ as a browser (zone settings apply only there) ==="
+SITE_BEFORE="$SITE"
+SITE="$DOMAIN"
+page_probe /
+rb_expect "openbed.ng status" "$RB_CODE" 200
+rb_expect "openbed.ng content-security-policy" "$(rb_header content-security-policy)" "$CSP_WANT"
+rb_expect "openbed.ng referrer-policy" "$(rb_header referrer-policy)" "$REFERRER_WANT"
+rb_expect "openbed.ng x-content-type-options" "$(rb_header x-content-type-options)" "$SNIFF_WANT"
+rb_scripts "openbed.ng scripts"
+SITE="$SITE_BEFORE"
+
+echo
+echo "=== read-back 7: /robots.txt on $SITE and on $DOMAIN, byte for byte this checkout's apps/public-dashboard/public/robots.txt ==="
+# Cloudflare's managed robots.txt prepended its own block on the custom domain only,
+# and its "Allow: /" won over our "Disallow: /" (R-2026-09-25-119 CU-4 b).
+page_probe /robots.txt
+rb_same_bytes "read-back 7 robots.txt" "$ROOT/apps/public-dashboard/public/robots.txt"
+SITE="$DOMAIN"
+page_probe /robots.txt
+rb_same_bytes "read-back 7 openbed.ng robots.txt" "$ROOT/apps/public-dashboard/public/robots.txt"
+SITE="$SITE_BEFORE"
 
 echo
 echo "=== the serve-time stamp: two GETs of $SITE/beds.json, ${PAUSE}s apart ==="
@@ -110,4 +137,4 @@ else
     rb_wrong "serve-time stamp advances" "$FIRST -> $SECOND" "the second must be later than the first"
 fi
 
-rb_verdict "read-backs 4, 6 and 8, the page's security headers and the serve-time stamp read as they must."
+rb_verdict "read-backs 4, 6, 7 and 8, the page's security headers and scripts on both hosts, and the serve-time stamp read as they must."

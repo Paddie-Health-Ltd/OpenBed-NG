@@ -3727,17 +3727,25 @@ through the admin app.
 
    - [ ] **The email provider's processor agreement:** s.29 agreement, s.41 transfer
      basis, retention. **The one remaining hosted gate.** (R-2026-09-25-108 CJ-2)
-   - [ ] The production CSP names no local origin: admin AND the ward console, whose
+   - [x] The production CSP names no local origin: admin AND the ward console, whose
      `connect-src` both carried `http://127.0.0.1:54321`. (R-2026-09-25-113 CO-3; built
      by R-2026-09-25-117 CS-2.) **Closes only when** the founder has redeployed admin
      AND the ward console from the merged `main`, and each read-back reads the new CSP as
      PASS: section 5 of `docs/runbook-admin-deploy.md` and of
      `docs/runbook-ward-console-deploy.md`. The merge alone does not close it.
-   - [ ] `scripts/provision_ward_account.mjs` never prints a full address; it shows the
+     **CLOSED on 2026-09-25** (R-2026-09-25-119 CU-6):
+     - both redeployed from `dd59c7f`: admin `https://4fc4ffd3.openbed-admin.pages.dev`,
+       and the ward console `https://20de9ab4.openbed-ward-console.pages.dev`;
+     - both read-backs PASS, each CSP reading `connect-src 'self' https://api.openbed.ng`;
+     - both browser checks were clean once Cloudflare Web Analytics was switched off
+       (CU-4 a).
+   - [x] `scripts/provision_ward_account.mjs` never prints a full address; it shows the
      first character, "…", and the domain. (R-2026-09-25-113 CO-3; built by
      R-2026-09-25-117 CS-3.) **Closes on the merge of the pull request that lands
      R-2026-09-25-117,** because the script runs from the checkout. Tick it with that
-     merge's commit.
+     merge's commit. **CLOSED on 2026-09-25** by the merge of #84,
+     `dd59c7fac5de26137150f9c940dfed4074c4abda` (R-2026-09-25-118 CT-3,
+     R-2026-09-25-119 CU-6).
    - [ ] The clinicians confirm the freshness thresholds AND the public wording, which
      removes the PROVISIONAL label. (R-2026-09-23-67 A7, extended by R-2026-09-23-68
      C3)
@@ -3762,6 +3770,15 @@ through the admin app.
      R-2026-09-22-56 A9)
    - [ ] Discoverability at facility one: `robots.txt` disallows everything today, and
      the `noindex` decision. (R-2026-09-20-36 A5, with R-2026-09-20-27 C5)
+     **Found on 2026-09-25, and still OPEN** (R-2026-09-25-119 CU-4 b): Cloudflare's
+     zone-wide *managed robots.txt* prepended its own block to ours on `openbed.ng`
+     only. That block was a `User-agent: *` group with `Allow: /` and Content Signals.
+     With two `User-agent: *` groups, `Allow: /` and `Disallow: /` match equally, and
+     under RFC 9309 the allow wins. So crawlers were told they MAY crawl `openbed.ng`,
+     which defeats R-2026-09-20-29 F on the host that matters. The founder switched it
+     off on 2026-09-25, and the served file now equals the tracked one byte for byte on
+     both hosts. `scripts/readback_pages.sh` compares both (read-back 7). The `noindex`
+     decision is still the founder's, so the box stays open.
 
    *Restated 2026-09-25 (R-2026-09-25-115, then -116).* Until 2026-09-25 this item was
    headed "The -45 stop condition first". It read: "Step 4b must read CLOSED on every

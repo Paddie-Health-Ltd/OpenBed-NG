@@ -37,6 +37,8 @@ API="https://api.openbed.ng"
 source "$(dirname "$0")/readback_common.sh"
 
 rb_require_url readback_ward_console.sh 'https://HASH.openbed-ward-console.pages.dev' "$SITE"
+# The ward console's custom domain, where zone settings apply (CU-5 b).
+DOMAIN='https://app.openbed.ng'
 SITE="${SITE%/}"
 rb_head "$ROOT"
 
@@ -53,17 +55,33 @@ rb_expect "step 2 dirty" "$RB_DIRTY" "false"
 
 echo
 echo "=== step 3: the live-key probe, both halves ==="
-site_probe GET /
+# Fetched as a browser (R-2026-09-25-119 CU-5): a zone setting that rewrites HTML for
+# browsers only is invisible to a plain client.
+page_probe /
 # The page's security headers, against this checkout's tracked _headers (BP-10), read
 # from the same response the bundle is found in.
 rb_expect "step 3 content-security-policy" "$(rb_header content-security-policy)" "$CSP_WANT"
 rb_expect "step 3 referrer-policy" "$(rb_header referrer-policy)" "$REFERRER_WANT"
 rb_expect "step 3 x-content-type-options" "$(rb_header x-content-type-options)" "$SNIFF_WANT"
+rb_scripts "step 3 scripts"
 rb_matches 'assets/index-[A-Za-z0-9_-]*\.js'
 BUNDLE="$RB_MATCHES"
 rb_expect "step 3 bundles the page loads" "$RB_COUNT" 1
 if [ "$RB_COUNT" != 1 ]; then rb_verdict "unreachable"; fi
 echo "  bundle: $BUNDLE"
+
+# THE CUSTOM DOMAIN (R-2026-09-25-119 CU-5 b). Zone settings apply only there, so the
+# page is read there too, as a browser, against the same expected values.
+SITE_BEFORE="$SITE"
+SITE="$DOMAIN"
+page_probe /
+rb_expect "app.openbed.ng content-security-policy" "$(rb_header content-security-policy)" "$CSP_WANT"
+rb_expect "app.openbed.ng referrer-policy" "$(rb_header referrer-policy)" "$REFERRER_WANT"
+rb_expect "app.openbed.ng x-content-type-options" "$(rb_header x-content-type-options)" "$SNIFF_WANT"
+rb_scripts "app.openbed.ng scripts"
+rb_matches 'assets/index-[A-Za-z0-9_-]*\.js'
+rb_expect "app.openbed.ng bundles the page loads" "$RB_COUNT" 1
+SITE="$SITE_BEFORE"
 
 site_probe GET "/$BUNDLE"
 rb_matches 'sb_publishable_[A-Za-z0-9_-]*'
