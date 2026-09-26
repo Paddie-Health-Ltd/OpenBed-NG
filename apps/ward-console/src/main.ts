@@ -372,6 +372,12 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onPublished: (upda
   let current = ward;
   const form = document.createElement('form');
   form.className = 'publish';
+  // THE FORM DOES ITS OWN VALIDATION (R-2026-09-26-134 DJ-1). With the browser's, a tap on
+  // Publish with a blank count or a zero with no reason showed the browser's own bubble, in
+  // the browser's words, and the console's sentences below never ran. The fields keep
+  // required, min, max and step, so assistive tech still reports them. The sign-in form
+  // keeps the browser's validation: the console has no sentence for a malformed address.
+  form.noValidate = true;
 
   const offeringSelect = document.createElement('select');
   offeringSelect.name = 'offering';
@@ -495,6 +501,7 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onPublished: (upda
         const n = Number(bedCountInput.value);
         if (bedCountInput.value.trim() === '' || !Number.isInteger(n) || n < 0 || n > 500) {
           say(status, 'Enter the number of free beds, from 0 to 500.', 'caution');
+          bedCountInput.focus();
           return;
         }
         bedCount = n;
@@ -502,6 +509,7 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onPublished: (upda
       const reason = offering === 'OFFERED' && bedCount === 0 && reasonSelect.value !== '' ? reasonSelect.value : null;
       if (offering === 'OFFERED' && bedCount === 0 && reason === null) {
         say(status, WARD_MESSAGES['ZERO_REQUIRES_REASON'] as string, 'caution');
+        reasonSelect.focus();
         return;
       }
 

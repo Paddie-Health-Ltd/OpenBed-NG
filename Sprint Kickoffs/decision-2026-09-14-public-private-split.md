@@ -6118,6 +6118,43 @@ _Issued as R-PROVISIONAL-2026-09-26-DI, by Cowork on 2026-09-26, as its check of
 
 **DI-6 — PROCESS:** one new commit on `design-pass-d2`, with no force-push and no rebase. -133 lands with its ledger row. The full suite runs on a fresh DB and the commit gate runs, then STOP at #89. Nothing hosted.
 
+### R-2026-09-26-134 — #89 amended once more: the publish form does its own validation
+
+_Issued as R-PROVISIONAL-2026-09-26-DJ, by Cowork on 2026-09-26, as its re-check of #89 at `daa38dfac74434b8de52a49bfd1e8eaf93b117ad`. **Not the merge word.** It lands in #89 as a third commit on `design-pass-d2`, with no force-push and no rebase. Number assigned on landing: R-2026-09-26-133 plus one. Next provisional letter: **DK**._
+
+**VERIFIED BY COWORK** (2026-09-26, GitHub API and the screenshots):
+- #89 OPEN at `daa38df`, base `2586d29` (= main), clean; 2 commits.
+- The compare `bbb8173...daa38df` is 1 ahead and 0 behind.
+- The latest run of each of the seven checks is success. A cancelled set is an earlier run on the same head, superseded.
+- No address is on any added line.
+- The DI diff was read in full.
+- All 111 screenshots were read.
+
+**ACCEPTED:** DI-1 to DI-5 as landed, and -133's three premise corrections.
+
+**DJ-1 — THE PUBLISH FORM DOES ITS OWN VALIDATION.** This answers -133's finding. Cowork missed the browser's bubble in `publish-invalid` and `publish-zero-no-reason` in both earlier reads, and owns that.
+- **Landed:**
+  - the publish form sets `noValidate`. The fields keep `required`, `min`, `max` and `step`, so assistive tech still reports them;
+  - the console's existing checks run and say their own sentences, unchanged, as caution Notices with `role="status"`: "Enter the number of free beds, from 0 to 500." and ZERO_REQUIRES_REASON;
+  - nothing is sent, and focus moves to the count or to the reason select;
+  - the sign-in form keeps the browser's validation, because the console has no sentence of its own for a malformed address.
+- **Tests,** in `tests/compliance/ward_console_design.test.ts`:
+  - the publish form reports `noValidate` true; the count keeps `required`, `min` 0, `max` 500 and `step` 1; the sign-in form reports `noValidate` false;
+  - a blank count, 501, 2.5, and 0 with no reason, each tapped through Publish. Each renders its exact sentence in the caution tone with `role="status"`, sends no `publish_ward_status`, and leaves focus on the named field.
+- **Red first against `daa38df`:** all five legs failed. The four tap legs read "the console's own sentence did not appear: the browser pre-empted it, or nothing ran: expected '' …".
+- **DJ-1 e's question, answered: jsdom does show the pre-emption.** It applies constraint validation to a click on a submit button, and it refused DI's first two-ward leg for exactly this reason. So the tap legs are behavioural evidence, not only the static leg.
+- **Plants on the real file, each restored byte-identical:**
+  - `noValidate` removed turned all five legs red;
+  - the reason select's focus call removed turned the zero leg red ("focus is not on the reason field").
+
+**DJ-2 — THE SCREENSHOTS.**
+- **Retaken, and only these:** `publish-invalid`, `publish-zero-no-reason` and the new `publish-count-over-500`, each at 360×740, 360 full page and 1280×900. That is 9 files, and the folder now holds 114.
+- **What they show:** each has the console's caution Notice under Publish and no browser bubble. The harness saw no browser log line at all, so no request went out.
+- **No focus ring is drawn in these shots.** The page moved focus to the field itself after a click, and Chrome's `:focus-visible` heuristics then leave the ring off. The tests assert focus through `document.activeElement`.
+- **One harness change:** state names given on its command line retake only those states.
+
+**DJ-3 — PROCESS:** one new commit on `design-pass-d2`, with no force-push and no rebase. -134 lands with its ledger row. The full suite runs on a fresh DB and the commit gate runs, then STOP at #89. Nothing hosted.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -6242,6 +6279,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | DG | R-2026-09-26-131 | 2026-09-26 | **#88 amended once.** F3 covers every spelling of the read (`Date()` without `new`, and `Date` through `globalThis`, `window` or `self`). E2 refuses the bare-"none" equivalents (`n/a`, `tbd`, `-` and the rest). The hosted hook setting gets a gate: a register row, and a founder step at D2's hosted deploy. |
 | DH | R-2026-09-26-132 | 2026-09-26 | **#88 merged at `2586d29`** (parents `5be63d4`, `5b94fb6`); `pr-f-fired-guards` deleted on both sides and read back as gone. Box 14 stays open. **D2 built:** the ward console's viewport, foundation, favicon, lockup, sign-in, handover cards, 64 px count with steppers that never publish, styled reason select and 52 px Publish, every sentence byte-identical. The PENDING D2 legs flipped, DA-3's D2 row removed (58 rows), and the ward read-back checks the favicon and a font. A pre-existing defect is reported: "Published." is erased by the re-render. |
 | DI | R-2026-09-26-133 | 2026-09-26 | **#89 amended once.** A publish updates its own card only: "Published." is finally seen, and other cards keep their unsent edits and Notices. The next publish sends the new version, and an edit clears a stale outcome. The Notice tones are the design system's (info for what went through, caution for every refusal, no green), and every status is announced. The steppers and count have names, which go on the clinicians' wording list. Found: a browser's own validation pre-empts the two client-side sentences. |
+| DJ | R-2026-09-26-134 | 2026-09-26 | **#89 amended once more.** The publish form sets `noValidate`, so its own sentences, not the browser's bubble, answer a blank, out-of-range or fractional count and a zero with no reason. Each is a caution Notice, nothing is sent, and focus goes to the field. The fields keep `required`, and the sign-in form keeps the browser's validation. Three screenshot states retaken. |
 
 ## Deferred items — this record is where the list lives
 

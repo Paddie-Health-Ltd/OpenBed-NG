@@ -610,3 +610,42 @@ describe('DI-3 — the steppers and the count have accessible names', () => {
     expect(count.getAttribute('aria-label')).toBe('Beds');
   });
 });
+
+// ---------------------------------------------------------------------------
+// R-2026-09-26-134 DJ-1: the publish form does its own validation. The browser's own
+// bubble ("Please select an item in the list.") pre-empted the console's two sentences,
+// because the fields are `required`, with min and max. The form now sets noValidate, keeps
+// those attributes for assistive tech, says its own sentence as a caution Notice, sends
+// nothing, and moves focus to the field to fix. jsdom applies constraint validation to a
+// click on a submit button (it refused DI's first two-ward leg for exactly this), so these
+// legs tap Publish rather than dispatching submit, and reach the pre-emption if it returns.
+// ---------------------------------------------------------------------------
+
+describe('DJ-1 — the publish form does its own validation, in its own words', () => {
+  test('the publish form sets noValidate; the sign-in form keeps the browser\'s validation', async () => {
+    const { form, count } = await oneWard();
+    expect(form.noValidate, 'the browser\'s bubble would pre-empt the console\'s own sentence').toBe(true);
+    expect(count.required, 'the count lost `required`, which assistive tech reports').toBe(true);
+    expect([count.min, count.max, count.step]).toEqual(['0', '500', '1']);
+    await renderAt('', () => json(500, {}));
+    expect((document.querySelector('form.signin-request') as HTMLFormElement).noValidate, 'the sign-in form has no sentence of its own for a malformed address').toBe(false);
+  });
+
+  test.each<[string, string, string, 'count' | 'reason']>([
+    ['a blank count', '', 'Enter the number of free beds, from 0 to 500.', 'count'],
+    ['a count of 501', '501', 'Enter the number of free beds, from 0 to 500.', 'count'],
+    ['a fraction', '2.5', 'Enter the number of free beds, from 0 to 500.', 'count'],
+    ['0 with no reason', '0', 'Publishing zero beds as offered needs a reason.', 'reason'],
+  ])('a tap on Publish with %s says its sentence as a caution Notice, sends nothing, and focuses the field', async (_name, value, sentence, field) => {
+    const { stub, count, reason, publish, status } = await oneWard();
+    setCount(count, value);
+    if (field === 'reason') expect(reason.required, 'the reason lost `required` at 0').toBe(true);
+    publish.click();
+    await settle();
+    expect(status.textContent, 'the console\'s own sentence did not appear: the browser pre-empted it, or nothing ran').toBe(sentence);
+    expect(toneViolations([{ what: sentence, el: status, text: sentence, tone: 'caution' }])).toEqual([]);
+    expect(status.getAttribute('role')).toBe('status');
+    expect(publishCalls(stub), 'a refused count was sent').toBe(0);
+    expect(document.activeElement, `focus is not on the ${field} field`).toBe(field === 'count' ? count : reason);
+  });
+});
