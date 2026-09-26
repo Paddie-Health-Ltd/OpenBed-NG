@@ -61,14 +61,17 @@ body { min-width: 0; }
 .site-header {
   background: var(--surface-card);
   border-bottom: var(--border-width) solid var(--border-default);
-  padding: var(--space-3) var(--gutter-page);
+  padding: var(--space-3) 0;
 }
+/* The same box as main#app -- 960 px, centred, with the same gutter INSIDE it -- so the
+   lockup's left edge is the tiles' left edge at every width. */
 .site-header-inner {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   max-width: var(--measure-app);
   margin: 0 auto;
+  padding: 0 var(--gutter-page);
 }
 .site-header .mark { display: block; width: 28px; height: 28px; }
 .lockup { font: 700 20px/1 var(--font-sans); letter-spacing: -0.02em; }
@@ -176,7 +179,7 @@ section.facility li {
 @media (min-width: 720px) {
   #emergency-strip,
   #indicative-banner,
-  .site-header { padding-left: var(--gutter-page-wide); padding-right: var(--gutter-page-wide); }
+  .site-header-inner { padding-left: var(--gutter-page-wide); padding-right: var(--gutter-page-wide); }
   main#app { padding: var(--space-6) var(--gutter-page-wide); }
   #site-footer { padding-left: var(--gutter-page-wide); padding-right: var(--gutter-page-wide); }
 }

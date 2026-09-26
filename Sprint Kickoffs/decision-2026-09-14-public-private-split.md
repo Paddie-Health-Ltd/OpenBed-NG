@@ -5743,7 +5743,9 @@ _Issued as R-PROVISIONAL-2026-09-26-DB, by Cowork on 2026-09-26, as its check of
 **DB-5 — LAYOUT.**
 - **(a)** Below 600px the stamp is `display: block` on its own line under the claim, so a short stamp never breaks mid-phrase. The textContent is unchanged, and the identity test proves it.
   - **A limit that remains:** the longest GREY stamp ("last reported at 26 Sept, 11:12 (Lagos time) — call to confirm", about 64 mono characters, about 460px at 12px) is wider than the roughly 296px inside a 360px tile. It still wraps within its own line, at word boundaries. Removing that would mean shorter words or horizontal overflow.
-- **(b)** The header's contents sit in `.site-header-inner`, in the same 960px centred column as the content. The bar stays full width. No text change.
+- **(b)** The header's contents sit in `.site-header-inner`, in the same 960px centred column as the content, with the same gutter inside it. The bar stays full width. No text change.
+  - **The first attempt was 24px off at desktop width.** It gave the box its width but not `main`'s inner gutter. I found this reading my own 1280 screenshot, before any review, and fixed it in a third commit.
+  - **Measured by the harness, not judged by eye:** the lockup's left edge equals the first content block's, at 16px at 360 and 184px at 1280, in every state.
 
 **DB-6 — A WORDING NOTE FOR THE CLINICIANS' BOX,** with no word changed. "<ward>: not yet reporting — updated N min ago" reads as a contradiction.
 - **A premise that holds only in part.** The ruling said to add the note as "one line under that box's register row". A line there would end the table, and **`parseRegister` stopped at the first line that is not a row, so every register row below it would have been silently dropped from the guard.** That is a gap in the guard itself.
