@@ -67,8 +67,10 @@ const RUNBOOKS = [
  * H6's operator count read-back, the three agreement-withdrawal steps and the contact
  * erasure. Its two provisioning-script blocks do not call psql (the script uses
  * postgres.js) and carry no PATH line.
+ * 32 -> 33 on 2026-09-26 (R-2026-09-26-122 CX-1 b): 12.4 step 6, B1's check, reads
+ * ward_status_history as the first ward account through psql, carrying step P's PATH line.
  */
-const GOVERNED_TODAY = 32;
+const GOVERNED_TODAY = 33;
 
 export interface Fence {
   /** Which runbook it came from. */

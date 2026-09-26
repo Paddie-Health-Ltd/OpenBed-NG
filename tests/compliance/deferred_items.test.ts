@@ -5,7 +5,7 @@ import { REPO_ROOT } from './_scratch.js';
 
 /**
  * GUARD: THE DEFERRED-ITEMS REGISTER AND THE FACILITY-ONE CHECKLIST HOLD EACH OTHER
- * (R-2026-09-26-121 CW-6).
+ * (R-2026-09-26-121 CW-6; (e) added by R-2026-09-26-122 CX-5).
  *
  * THE DEFECT. R-2026-09-24-75 BC-7 deferred the public-site and ward-console design pass
  * until it "waits for Cowork's brief". That gate had no observable event and no checklist
@@ -24,8 +24,12 @@ import { REPO_ROOT } from './_scratch.js';
  *   (a) a Gate kind that is not exactly BOX, TRIGGER or VERSION;
  *   (b) an empty Gate, or one reading TBD, ? or pending;
  *   (c) a BOX row whose ruling no box at 12.4 step 1 carries;
- *   (d) an unticked box at 12.4 step 1 that no BOX row names.
+ *   (d) an unticked box at 12.4 step 1 that no BOX row names;
+ *   (e) a BOX row whose every box is TICKED (R-2026-09-26-122 CX-5): a closed item leaves
+ *       the register in the ruling that closes it.
  * (c) and (d) are the two directions of one consistency, so neither side can drift alone.
+ * (e) is the third: a row cannot outlive its box. A ruling carried by a ticked box AND an
+ * unticked one is still open, so (e) needs every box that carries it ticked.
  * A BOX row's Ruling must also be an R-YYYY-MM-DD-nn id, or (c) could not check it.
  *
  * STRICT PARSING. Both files are markdown, and a lenient parser fails open. A missing
@@ -40,9 +44,6 @@ import { REPO_ROOT } from './_scratch.js';
  *   - that a gate is TRUE, or that a TRIGGER names an event someone can observe. Both are
  *     judgements about what a sentence means, made by reading (CW-5's sweep), not by a
  *     parser. A check that a trigger merely has words in it would pass "waits for X".
- *   - that a BOX row whose box is TICKED has left the register. CW-6 does not ask for
- *     it, and it is reported for Cowork to rule. Until then, a closed item's row can
- *     outlive its box without going red.
  *   - that the register is COMPLETE. No parser can find a deferral that no one wrote
  *     down as one. The sweep that seeded the register is recorded in CW's entry.
  */
@@ -162,6 +163,8 @@ export function registerViolations(rows: readonly Row[], boxes: readonly Box[]):
         out.push(`(c) ${where}: BOX row's Ruling "${r.ruling}" is not an R-YYYY-MM-DD-nn id, so no box can be matched to it`);
       } else if (!boxes.some((b) => carries(b.text, r.ruling))) {
         out.push(`(c) ${where}: BOX row cites ${r.ruling}, and no box at runbook 12.4 step 1 carries it`);
+      } else if (boxes.filter((b) => carries(b.text, r.ruling)).every((b) => b.ticked)) {
+        out.push(`(e) ${where}: BOX row cites ${r.ruling}, and every box carrying it is ticked: a closed item leaves the register`);
       }
     }
   }
@@ -281,6 +284,19 @@ describe('the deferred-items register and the facility-one checklist hold each o
   test('plant (d) — a box whose BOX row became a TRIGGER is rejected', () => {
     const bad = plant(OK_RECORD, '| R-2026-01-01-01 A1 | BOX |', '| R-2026-01-01-01 A1 | TRIGGER |');
     expect(check(bad, OK_RUNBOOK).join('\n')).toContain('(d) an unticked box at runbook 12.4 step 1 has no BOX row in the register: "The first item');
+  });
+
+  test('plant (e) — a BOX row whose only box is TICKED is rejected: a closed item leaves the register', () => {
+    const bad = plant(OK_RUNBOOK, '   - [ ] The first item', '   - [x] The first item');
+    const out = check(OK_RECORD, bad).join('\n');
+    expect(out).toContain('(e) line 9, "The first item": BOX row cites R-2026-01-01-01 A1, and every box carrying it is ticked: a closed item leaves the register');
+    expect(out, 'a ticked box must not also read as (d)').not.toContain('(d)');
+  });
+
+  test('a ruling carried by one ticked and one unticked box is accepted — (e) needs every carrier ticked', () => {
+    const both = plant(OK_RUNBOOK, '   - [x] A closed item. (R-2026-01-01-09 Z)', '   - [x] A closed item. (R-2026-01-01-09 Z, R-2026-01-01-01 A1)');
+    const out = check(OK_RECORD, both);
+    expect(out, out.join('\n')).toEqual([]);
   });
 
   test('plant — an empty Ruling cell is rejected', () => {

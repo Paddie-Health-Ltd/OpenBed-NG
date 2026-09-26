@@ -5376,6 +5376,7 @@ _Issued as R-PROVISIONAL-2026-09-26-CW, by Cowork on 2026-09-26, inside `Sprint 
 - **CW-3: the root cause, as Cowork's miss.** BC-7's gate was an action with no observable event and no checklist box. The checklist at 12.4 step 1 was compiled by searching for "before facility one" and its variants, and BC-7 contained none of them. So the pass fell out of every list that drives work. **-75 BC-7's "waits for Cowork's brief" is superseded by CW-1, by reference only.** BC-7's text is not edited.
 - **CW-4: the rule.** Every deferral names exactly one gate: BOX, TRIGGER or VERSION. "Waits for X to do Y" is not a gate. Method note 22 is amended to say so.
 - **CW-5: the register.** The section "Deferred items — this record is where the list lives" now stands between the provisional ledger and the method notes. It has 45 rows: 13 BOX, 27 TRIGGER and 5 VERSION.
+  - *Note 2026-09-26 (R-2026-09-26-122):* after -122 the register holds 59 rows: 15 BOX, 33 TRIGGER and 11 VERSION. The 45 above were the count when this entry landed.
 - **CW-6: the guard.** `tests/compliance/deferred_items.test.ts`.
 - **CW-7 — a dating slip, Cowork's.** The kickoff (and the 2026-09-26 handoff it drew on) said CV lands as "R-2026-09-25-120". CV was issued on 2026-09-26, as #85's merge word (#85 merged at c20e635, 2026-09-26T07:26:30+01:00), so it is R-2026-09-26-120. The kickoff's "-09-25" is superseded by this line and is not edited. Read "CU plus one" as the number 120 only; it does not fix the date.
 
@@ -5454,6 +5455,112 @@ _Issued as R-PROVISIONAL-2026-09-26-CW, by Cowork on 2026-09-26, inside `Sprint 
 **ALSO IN THIS CHANGE:** `packages/design`, which the kickoff cites and D1 builds, is registered as a planned artefact in `tests/compliance/no_phantom_paths.test.ts`. That entry retires itself: its anti-rot leg reds when D1 creates the directory.
 
 No SQL and no migration; nothing hosted was run by Claude Code.
+
+### R-2026-09-26-122 — #86 held once: B1 becomes box 16, every deferral gains a gate, the fired triggers are ruled, and the guard gains (e)
+
+_Issued as R-PROVISIONAL-2026-09-26-CX, by Cowork on 2026-09-26, as its check of #86 at `78bdc614968e136e4debf2a394252e42b2bf476e`. **Not the merge word.** It lands in #86 as a second commit on the same branch, with no force-push and no rebase. The founder's answer on CX-1 (b)'s mechanism, relayed by Cowork on the same day, lands with it. Number assigned on landing: R-2026-09-26-121 plus one. Next provisional letter: **CY**._
+
+**VERIFIED BY COWORK** (2026-09-26, GitHub API, on the founder's machine):
+- #86 OPEN at `78bdc61`, base `c20e635` (= main); clean; 5 files, +759/−3. Seven check runs success on `78bdc61`. No address on any added line.
+- The committed kickoff's sha256 (`ef9f29be…91ee1`) and 17577 bytes equal Cowork's own copy.
+- The diff was read in full.
+- **ACCEPTED:**
+  - the sweep's method;
+  - the FIRED marking;
+  - both premise corrections (there was no count to restate, and no test read 12.4);
+  - the `no_phantom_paths` entry that retires itself in D1.
+
+**CX-1 — B1 BECOMES BOX 16.** Cowork agrees with the finding and its cause.
+- **(a) Box 16** is added at 12.4 step 1 in Cowork's words, with a register row of kind BOX.
+  - Its citation reads "(B1, recorded 2026-09-14; made a box by R-2026-09-26-122 CX-1)". The ruling as issued had "R-2026-09-14 B1", which is not an id in this record's form: B1 is a section item recorded on 2026-09-14, not a numbered ruling. Written as an R- id, it would read like one that does not exist.
+  - "Paperwork register item 8" is Cowork's statement about a register outside this repository, and the box says so.
+- **(b) B1's onboarding check is two numbered 12.4 steps, not a box.** Its register row is TRIGGER, "the first ward account at facility one", and names both steps.
+  - **The mechanism as issued could not run.** On hosted, "a real ward session reads `ward_status_history` over HTTP and gets 200" fails on three counts:
+    - `api.openbed.ng`'s Worker does not forward `/rest/v1/rpc/ward_status_history`, so the call gets the Worker's own 404;
+    - no app calls the function;
+    - a ward's session is held only in the console's memory, so the founder never holds a ward's token.
+  - **The founder's answer, via Cowork: SQL as the real ward.** Quoted in substance:
+    - one transaction that ends in `rollback`: `set local role authenticated`, the JWT claims set to the new ward's account id (never its address), then a read from `public.ward_status_history`;
+    - PASS is rows or an empty set with no 42501. FAIL is 42501 or any other error;
+    - the id comes from the provisioning script's output, or from `app.ward_account` by facility and category, never from `auth.users` by address;
+    - the check states in its own text that it does not prove HTTP reach;
+    - **B1's 2026-09-15 wording is superseded by reference**, and the allow-list is NOT widened for a check;
+    - **a second check** runs the real path end to end once facility one is listed.
+  - **Landed as 12.4 step 6 (B1's check) and step 9 (the real path).** The old steps 6 and 7 become 7 and 8, and nothing cited them by number.
+  - **Step 6's fence, demonstrated before it was written** (method note 23), on the local stack in a scratch run that removed its own row afterwards:
+    - a ward account at its own facility read `claims_set t`, `history_rows 0` and `ROLLBACK`, exit 0;
+    - an id with no account read `ERROR:  NOT_A_MEMBER`, which is 42501 (011:97), exit 1.
+  - **The fence as written was then pasted into `zsh -f -i`,** with the `interactivecomments` counter-control: the same reading both ways, the sentinel reached, and every variable unset.
+  - **Step 6 is a new psql fence,** so `tests/compliance/runbook_psql_path.test.ts`'s pinned count moves from 32 to 33, with a dated line in its header.
+- **(c) The re-sweep, for the spellings the first pass missed.** Each hit was read in context.
+  - Counts: "facility-one" 17; "facility #1" 0; "facility 1" 0; "first real facility" 1; "go-live" 6; "golive" 0; "launch" 13.
+  - **B1 (section "Blocks facility-one onboarding" and its head's "before the first real facility"):** now box 16.
+  - **-30 D1, the raw-echo "blocker for facility-one onboarding":** closed by -75 BC-2 (step 4b rows 1–4).
+  - **-44 E, "must-fix before facility one … not post-facility-one":** closed by BC-2.
+  - **-66's "the one change to insist on before launch", the count age:** shipped before facility one by -67 (PR 3.2b).
+  - **-27's "product-safety rather than launch-polish":** the empty-city hazard, whose control shipped under -29 E2.
+  - **Prose, with nothing deferred:**
+    - -17-05's "launch cost";
+    - -45's heading, "the go-live trigger becomes a row", which became step 4b and was closed by BC-2;
+    - -100 CB-2's "first post-launch sprint kickoff", already the backstop of a TRIGGER row;
+    - -116 CR-1 b and -117 CS-5's lists of variants;
+    - -116's "no facility-one trigger";
+    - -121's own text;
+    - the ledger rows and the change log.
+  - **No new "before facility one" item was found.**
+
+**CX-2 — GATES FOR THE DEFERRALS THAT HAD NONE.** Each is now a register row with Cowork's gate:
+- **TRIGGER:**
+  - #63/#97;
+  - #109;
+  - the `scripts/` survey items;
+  - -23-65 E;
+  - -23-70 C3;
+  - -23-71 C;
+  - -24-97 BY-2 (e);
+  - -19-19 B.
+- **VERSION (v2 scoping):**
+  - O2;
+  - D4;
+  - #115;
+  - #71;
+  - -20-30 A5;
+  - -23-66 C2.
+- **Premises checked:**
+  - `app.referral.ward_reply` exists (005), and no app or package code touches referrals.
+  - `packages/gate/`, `packages/snapshot/src/freshness.ts`, `scripts/lint_no_secrets.sh` and the `secret-scan` job all exist.
+  - #115 is the strings module for the Yoruba/Pidgin pass (the v1 kickoff's item 5).
+- **One row where the ruling gave a group.** "The `scripts/` survey items" are four in this record:
+  - the PR evidence tables;
+  - the digest's grants and RLS flags;
+  - item 1, `<> 'NO'`;
+  - item 2, SQL quoted in prose.
+
+  Cowork's parenthetical named only the digest, so the one row names all four under the ruled gate.
+
+**CX-3 — THE FIRED TRIGGERS, RULED.**
+- **-21-38 D1, -21-41 B and -21-50 E2 are WORK,** in one small PR, **"F"**, after D1 and before D2, with each guard shown red first. -21-41 B becomes a guarded invariant over `supabase/config.toml`. Each row reads "FIRED; work in PR F" until F lands and removes it.
+- **-21-43 C1 is CLOSED by this ruling.** The EVIDENCE gate was lifted by -47, and step 6 ran on its stated evidence. The row is removed.
+- **-21-43 C3 is SUBSUMED by the clinicians' box (-67 A7),** whose threshold confirmation includes it. Its row becomes BOX, Ruling `R-2026-09-23-67 A7`.
+- **-21-45 E is CLOSED by this ruling.** Its substance is carried by -71 C's host check and the SQL gates in 020–022, which are named here as the controls. The row is removed.
+- **The favicon is resolved in D1, D2 and D3.** Each app ships the SVG icon AND a real `/favicon.ico` (or a `_redirects` or `_headers` rule, so that `/favicon.ico` is never the SPA's HTML), and the read-back asserts `/favicon.ico` is not `text/html`. This adds to the kickoff's D1–D3 scope, which is not edited. The row reads "FIRED; resolved in D1–D3".
+
+**CX-4 — WHERE THE RECORD'S WORDS WIN OVER CW-5's:**
+- **PITR:** -115 CQ-1's three limbs, verbatim. *The row already cited CQ-1, not CQ-4. Only its gate text changed.*
+- **Agreement history:** gains "or earlier on the founder's word".
+- **The contact-read audit:** "the first ruling or migration that permits a second PLATFORM_ADMIN; the audit row lands in that same change". The old trigger could never fire, because 022 refuses a second operator.
+- **Per-ward rows vs the rollup:** CW-5's "30 days after facility one is listed" STANDS. "Until dispatcher validation" was a waits-for with no event.
+- **The out-of-v1 list:** CW-5 stands.
+
+**CX-5 — THE FIFTH ASSERTION.** `tests/compliance/deferred_items.test.ts` gains (e): a BOX row whose every box is TICKED fails, because a closed item leaves the register in the ruling that closes it. A ruling carried by one ticked box and one unticked box is still open, and is accepted. This supersedes -121's "Offered, not built", item 5.
+- **Red first:** the plant (a fixture box ticked) failed against the guard before (e) existed, then read (e) and not (d).
+- **On the real files:** box 1 ticked read `(e) … BOX row cites R-2026-09-25-108 CJ-2, and every box carrying it is ticked`, and the runbook was restored byte-identical (sha256 checked).
+- **Also red first, on box 16 itself:** before its register row existed, the real files read (d) for it.
+- The register's head now lists (e), with its old text kept.
+
+**THE COUNTS.** They are recomputed from the table after the edit, not composed. The register holds **59 rows: 15 BOX, 33 TRIGGER, 11 VERSION**. The checklist holds **16 boxes, 2 ticked**; 12.4 gains a dated line saying so. The note of 2026-09-26 carried no count before. -121's CW-5 line gains a dated note and is not edited.
+
+No SQL and no migration. Nothing hosted was run by Claude Code; step 6's fence ran only against the local stack.
 
 ## The provisional ledger
 
@@ -5567,6 +5674,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | CU | R-2026-09-25-119 | 2026-09-25 | **Admin, the ward console and the public dashboard redeployed at `dd59c7f`, all PASS; boxes 2 and 3 ticked.** The dashboard had served no CSP until then. Two Cloudflare zone settings (Web Analytics' browser-only beacon, which collected `openbed.ng` page views; a managed robots.txt that allowed crawling) found and switched off. The read-backs now fetch as a browser, list every script, read the custom domain, and compare robots.txt byte for byte. |
 | CV | R-2026-09-26-120 | 2026-09-26 | **#85 merged at `c20e635`** (parents `dd59c7f`, `cdb86b1`); `redeploy-record-and-browser-readbacks` deleted and read back as gone. Cowork accepted the CU-3 sweep, the replaced PASS assertion and the recorded slip. It noted that the new custom-domain and script checks first run against hosted at the next deploy. Held, and landed with CW. |
 | CW | R-2026-09-26-121 | 2026-09-26 | **The design-pass kickoff's D0, committed unedited.** The design pass (box 14) and the launch paperwork (box 15) become facility-one boxes. -75 BC-7's gate had no observable event, so the pass fell out of every list: Cowork's miss. Every deferral names one gate (BOX, TRIGGER or VERSION), the record holds the register, and `tests/compliance/deferred_items.test.ts` holds it to the checklist. CW-7: CV's date is 2026-09-26, not the kickoff's -09-25. |
+| CX | R-2026-09-26-122 | 2026-09-26 | **#86 held once, amended in #86.** B1 becomes box 16, and its onboarding check becomes 12.4 steps 6 and 9: SQL as the real ward in a rolled-back transaction (the founder's mechanism, because the HTTP check could not run on hosted), and the first publish read back end to end. Every ungated deferral gains a gate. -21-38 D1, -21-41 B and -21-50 E2 become PR F; -21-43 C1 and -21-45 E are closed; C3 moves into box 4; the favicon goes into D1–D3. The guard gains (e). 59 rows; 16 boxes, 2 ticked. |
 
 ## Deferred items — this record is where the list lives
 
@@ -5583,11 +5691,14 @@ leaves this table when the ruling that closes its item lands. A trigger marked *
 has happened with no record of it, and is Cowork's to rule; it is not work until then
 (method note 22)._
 
-_`tests/compliance/deferred_items.test.ts` refuses four things:_
+_`tests/compliance/deferred_items.test.ts` refuses five things:_
 - _a Gate kind that is not BOX, TRIGGER or VERSION;_
 - _an empty Gate, or one reading TBD, ? or pending;_
 - _a BOX row whose ruling no box carries;_
-- _an unticked box with no BOX row._
+- _an unticked box with no BOX row;_
+- _a BOX row whose every box is ticked, because a closed item leaves this table in the
+  ruling that closes it (added by R-2026-09-26-122 CX-5; until then this list read
+  "refuses four things")._
 
 _It parses this table strictly, and a malformed row fails the test rather than being
 skipped._
@@ -5612,38 +5723,52 @@ the record's own, except where CW-5 assigned one._
 | Discoverability at facility one: `robots.txt` and the `noindex` decision (O1; with -27 C5) | R-2026-09-20-36 A5 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 | The design pass: the design system on all three apps, deployed, read back and approved (supersedes -75 BC-7's "waits for Cowork's brief") | R-2026-09-26-121 CW-1 | BOX | Its box at runbook 12.4 step 1, ticked only after all three deploys and the founder's approval |
 | The founder's launch paperwork register reads Approved on every item | R-2026-09-26-121 CW-2 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
-| Agreement history: re-agreement after withdrawal, and correcting a mistaken agreement record | R-2026-09-24-100 CB-2 | TRIGGER | The first withdrawn facility that asks to return, or the first mistaken agreement record (backstop: the first post-launch sprint kickoff) |
+| The facility agreement grants the facility's permission to publish its live capacity (B1, recorded 2026-09-14) | R-2026-09-26-122 CX-1 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
+| Agreement history: re-agreement after withdrawal, and correcting a mistaken agreement record | R-2026-09-24-100 CB-2 | TRIGGER | The first withdrawn facility that asks to return, or the first mistaken agreement record, or earlier on the founder's word (backstop: the first post-launch sprint kickoff; R-2026-09-26-122 CX-4) |
 | The ward console's code pattern cannot read a code containing a digit | R-2026-09-24-98 BZ | TRIGGER | The first ward-path code containing a digit |
-| No audit row on reading a contact | R-2026-09-24-76 BD-2 1 | TRIGGER | A second PLATFORM_ADMIN account (since 022 the database refuses one: -90 BR-1 a) |
+| No audit row on reading a contact | R-2026-09-24-76 BD-2 1 | TRIGGER | The first ruling or migration that permits a second PLATFORM_ADMIN; the audit row lands in that same change (R-2026-09-26-122 CX-4: the old trigger could never fire, because 022 refuses a second operator) |
 | The project-wide allowance of 30 emails an hour (runbook §12.1) | R-2026-09-25-115 CQ-4 | TRIGGER | The second facility, or the first 429 a ward sees |
-| PITR is off | R-2026-09-25-115 CQ-1 | TRIGGER | The first data-loss event |
+| PITR is off | R-2026-09-25-115 CQ-1 | TRIGGER | The first data-loss event, or when re-entering a day's operator writes stops being practical, on the founder's word (-115 CQ-1 verbatim; R-2026-09-26-122 CX-4) |
 | wrangler's 429 at `GET /accounts` (the fix to evaluate: `CLOUDFLARE_ACCOUNT_ID` in the deploy environment) | R-2026-09-25-119 CU-1 | TRIGGER | A second occurrence |
 | Per-ward rows versus a facility rollup on the public page | R-2026-09-24-76 BD-3 | TRIGGER | 30 days after facility one is listed (CW-5; the record read "until dispatcher validation") |
 | The granularity floor on a small published count | R1 (b) | TRIGGER | The first facility publishing a ward with offering OFFERED and a bed count of 2 or less |
 | The two regex readers, and their second task (-31 B) | R-2026-09-18-16 B | TRIGGER | Facility one is onboarded ("after facility one", -36 C's queue) |
 | Whether Pages Functions support scheduled handlers or cron triggers (re-pointed by -54 C) | R-2026-09-17-12 G | TRIGGER | The sensor bundle is scoped |
 | The failure path's headers observed at the edge, by a preview deployment against a non-production project | R-2026-09-20-32 B2 | TRIGGER | The failure path comes to carry data |
-| The F3 ESLint Date guard | R-2026-09-21-38 D1 | TRIGGER | The next change touching the build or lint config. **FIRED** at `8fd2ad7` (`eslint.config.mjs`, 2026-09-21), and nothing records it |
+| The F3 ESLint Date guard | R-2026-09-21-38 D1 | TRIGGER | FIRED; work in PR F (R-2026-09-26-122 CX-3). The trigger was the next change touching the build or lint config, and it fired at `8fd2ad7` |
 | An assertion tying `s-maxage` to `pollCadenceSeconds` | R-2026-09-21-38 D2 | TRIGGER | The next change touching either value |
 | `npx supabase start` hitting the Docker Hub pull limit in stack jobs | R-2026-09-21-38 D3 | TRIGGER | The next stack-job failure of that shape |
-| "The hook stays off" is a convention, not a guarded invariant | R-2026-09-21-41 B | TRIGGER | The next change touching `supabase/config.toml`'s auth section. **FIRED** at `f85d088` and `69e357a`, and nothing records it |
+| "The hook stays off" is a convention, not a guarded invariant | R-2026-09-21-41 B | TRIGGER | FIRED; work in PR F (R-2026-09-26-122 CX-3): made a guarded invariant over `supabase/config.toml`. The trigger fired at `f85d088` and `69e357a` |
 | The tautological column-name legs in the served-document test | R-2026-09-21-42 G | TRIGGER | The next change touching `packages/snapshot/src/codec.ts` or those legs |
-| Step 4 gating step 6 rests on the EVIDENCE gate's wording alone | R-2026-09-21-43 C1 | TRIGGER | Any rewording or discharge of the EVIDENCE gate. **FIRED**: the gate was discharged by -47, and nothing records it |
-| Gate 2's 60-second clause could be revisited | R-2026-09-21-43 C3 | TRIGGER | Bundle 4's freshness work. **FIRED?** Freshness shipped in PR 3.2b (-67, -68), outside Bundle 4, and nothing records it |
-| A mechanical guard: provisioning refuses hosted while a blocker is open | R-2026-09-21-45 E | TRIGGER | The invite gate is built, or someone first proposes running the provisioning script against hosted. **FIRED**: the script ran on hosted at H6 step 5 (-113). Its substance is carried by -71 C's host check and the SQL gates, but no ruling closes it by name |
+| Gate 2's 60-second clause could be revisited | R-2026-09-23-67 A7 | BOX | Subsumed by the clinicians' box: its threshold confirmation includes this clause (R-2026-09-26-122 CX-3). Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 | The from-allowlist lint extended to `.rpc(` call sites | R-2026-09-21-48 A2 | TRIGGER | The first `.from(` or `.rpc(` call site added under `apps/` |
-| A CI job failing a migration-touching pull request whose template line is blank | R-2026-09-21-50 E2 | TRIGGER | The next change to `.github/workflows/ci.yml`. **FIRED** at `f7407bd` (2026-09-24), and nothing records it |
+| A CI job failing a migration-touching pull request whose template line is blank | R-2026-09-21-50 E2 | TRIGGER | FIRED; work in PR F (R-2026-09-26-122 CX-3). The trigger was the next change to `.github/workflows/ci.yml`, and it fired at `f7407bd` |
 | The snapshot Function keeps its direct origin | R-2026-09-22-58 A6 | TRIGGER | -23 D5 closes (its box at runbook 12.4 step 1 is ticked) |
 | GoTrue's answers reveal whether an address has an account (an accepted risk) | R-2026-09-23-67 C | TRIGGER | Personal addresses are ever used as logins |
 | A uniform `/otp` answer at the Worker (option B) | R-2026-09-23-70 A | TRIGGER | -55 C lands |
 | `GET /auth/v1/verify` listed on the Worker | R-2026-09-23-70 C2 | TRIGGER | -55 C's custom domain is routed through the Worker |
-| `/favicon.ico` is answered by the SPA fallback | R-2026-09-23-70, founder step (a) note | TRIGGER | The next pull request that changes `apps/public-dashboard/`. **FIRED** at `f7407bd` and three later pull requests, and nothing records it |
+| `/favicon.ico` is answered by the SPA fallback | R-2026-09-23-70, founder step (a) note | TRIGGER | FIRED; resolved in D1–D3 (R-2026-09-26-122 CX-3): each app ships the SVG icon and a real `/favicon.ico`, and the read-back asserts `/favicon.ico` is not `text/html` |
 | The before/after public-output comparison needs a new design once wards can publish | R-2026-09-24-74 BB-3 | TRIGGER | The first hosted migration apply after the -45 gate cleared (-115) |
 | Update requests | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | Freshest and nearest sorting | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | The public "who's on it" list | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | The facility-admin override | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | Duty-flag gating | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
+| B1's onboarding checks: the first ward account reads its own history as itself (12.4 step 6), and the first publish reads back from `/beds.json` (12.4 step 9) | R-2026-09-26-122 CX-1 (b) | TRIGGER | The first ward account at facility one |
+| `ward_reply` has a cap and no content validation (#63/#97) | R-2026-09-17-03 and -04 | TRIGGER | The first change that writes `app.referral.ward_reply` (referrals are unwired in v1; R-2026-09-26-122 CX-2) |
+| Gate 3's property test does not exist (#109) | R-2026-09-17-03 and -04 | TRIGGER | The next change under `packages/gate/` or `packages/snapshot/src/freshness.ts` (R-2026-09-26-122 CX-2) |
+| The `scripts/` survey items: PR evidence tables generated from artefacts; the idempotency digest's grants and RLS flags; item 1, the duty-flag lint missing `<> 'NO'`; item 2, nothing validates SQL quoted in prose | Deferred to the `scripts/` survey; R-2026-09-15-06 and -07; R-2026-09-17-05; R-2026-09-17-08 D2 | TRIGGER | The next migration file added (024) (R-2026-09-26-122 CX-2) |
+| The test-title citation convention | R-2026-09-23-65 E | TRIGGER | The first cited test title found not to exist in its file (R-2026-09-26-122 CX-2) |
+| A real-browser refusal check in CI | R-2026-09-23-70 C3 | TRIGGER | The first PR that adds a browser runner (Playwright or similar) as a dependency. If D1's screenshots add one, it fires in D1 and the check lands in D2 (R-2026-09-26-122 CX-2) |
+| Provisioning as a Supabase Edge Function | R-2026-09-23-71 C | TRIGGER | The first proposal to move ward-account setup into an app (R-2026-09-26-122 CX-2) |
+| An idempotency key on `operator_edit_facility` | R-2026-09-24-97 BY-2 (e) | TRIGGER | The first duplicated or lost operator edit observed (R-2026-09-26-122 CX-2) |
+| Push protection's coverage of this repository's key formats (OWED) | R-2026-09-19-19 B | TRIGGER | The next change to `scripts/lint_no_secrets.sh` or the `secret-scan` job; the documentation check is done in that change (R-2026-09-26-122 CX-2) |
+| A third tier for emergency dispatch | O2 (Open — questions) | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
+| "Alphabetical within last-used LGA" | D4 (Decided) | VERSION | Out of v1: location and sorting are out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
+| The strings module, for the Yoruba/Pidgin pass (#115) | R-2026-09-17-03 and -04 | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
+| `publish_ward_status` enqueues to `app.notification_outbox` (#71) | R-2026-09-17-03 and -04 | VERSION | Out of v1: escalation notifications are not in v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
+| Pages Git integration as the root fix for deploys | R-2026-09-20-30 A5 | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
+| Phone features: the tile, call tracking, WhatsApp/SMS | R-2026-09-23-66 C2 | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
 
 ## Method notes — how rulings reach the implementer
 
