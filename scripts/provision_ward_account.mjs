@@ -218,6 +218,9 @@ const SENTENCES = {
   WARD_ALREADY_HAS_AN_ACCOUNT: "this ward already has an active account; replacing its address means deactivating that account first (a founder SQL step)",
   OPERATOR_ALREADY_EXISTS: 'an active operator account already exists; a second one needs its own ruling (BD-2 1)',
   INVITE_ALREADY_ACCEPTED: 'another run completed this invite first; re-run the same command to read the result',
+  // R-2026-09-26-136 DL-2 b: the retention schedule erased this login (024), and an
+  // erased login is never reactivated. The database's hint, in the founder's words.
+  LOGIN_ERASED: 'this login was erased under the retention schedule and cannot be reactivated; provision a new login',
 };
 
 /** A gate's refusal: PL/pgSQL `RAISE EXCEPTION '<CODE>'` arrives as SQLSTATE P0001 with the code as its message. */

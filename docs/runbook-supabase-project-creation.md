@@ -753,6 +753,11 @@ curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
   jobs are 017's `openbed_regenerate_snapshot` and `openbed_refresh_lga_rollup`, both
   inside the database, and no migration uses `pg_net`. A clone therefore makes no
   outbound call.
+  *Restated 2026-09-27 (R-2026-09-26-136 DL-2 e): from 024's apply there are also 024's
+  two retention jobs, `openbed_erase_lapsed_ward_logins` and
+  `openbed_prune_ended_auth_sessions`. They too run inside the database and make no
+  outbound call, but in a clone they delete `auth` rows by age, so read a clone before
+  02:17 UTC or expect those rows gone.*
 - **A clone holds a copy of the Auth identities, so delete it once it has been read.**
 
 **Covered by tests: nothing** — same class as the region pin. Assertable via the
@@ -937,11 +942,14 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions.
 Restated 2026-09-14: until then this read `exactly 13 migration(s) pending.`, and
 migration 014 made that wrong.
 
-- **The hosted project today** holds 001 through 023 (see step 7), and so does the
-  repository. Every file up to and including
+- **The hosted project today** holds 001 through 023 (see step 7), and the
+  repository ends at 024. Every file up to and including
   `023_operator_register_location_and_phone.sql` must read `already applied`;
-  there must be no `WOULD APPLY` line; and the dry run must end
-  `0 migration(s) pending.`
+  there must be exactly one `WOULD APPLY` line, naming `024_retention_jobs.sql`; and
+  the dry run must end `1 migration(s) pending.` Apply it by "024's apply" below.
+- **Restated 2026-09-27 (R-2026-09-26-136 DL-2), in the change that ADDS 024.**
+  Until then this expected no `WOULD APPLY` line and `0 migration(s) pending.`,
+  which was right from 023's hosted apply while the repository ended at 023.
 - **Restated 2026-09-25 (R-2026-09-25-105), in the change that records 022's and 023's
   hosted apply.** Until then this expected 001 through 021, exactly two `WOULD APPLY`
   lines naming `022_one_operator_and_reactivation.sql` and then
@@ -1015,10 +1023,14 @@ migration 014 made that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line AT ALL, or any count other than
-  `0 migration(s) pending.`: stop and report.** Another file pending means
+- **Any `WOULD APPLY` line OTHER than the one named above, or any count other than
+  `1 migration(s) pending.`: stop and report.** Another file pending means
   either a migration reached the repository after the list was last restated, or
   hosted is not where this document says it is.
+  - *Restated 2026-09-27 (R-2026-09-26-136 DL-2), in the change that adds 024. Until
+    then this bullet read "Any `WOULD APPLY` line AT ALL, or any count other than
+    `0 migration(s) pending.`", which was right from 023's hosted apply until 024's
+    merge.*
   - *Restated 2026-09-25 (R-2026-09-25-105), in the change that records 022's and
     023's hosted apply. Until then this bullet read "Any `WOULD APPLY` line OTHER than
     the two named above, or any count other than `2 migration(s) pending.`", which was
@@ -1333,6 +1345,11 @@ openbed_refresh_lga_rollup | */5 * * * * | select app.refresh_lga_rollup() | pos
 openbed_regenerate_snapshot | * * * * * | select app.regenerate_snapshot() | postgres | active=true
 refresh_lga_rollup search_path="",row_security=off
 ```
+
+*Restated 2026-09-27 (R-2026-09-26-136 DL-2 e): from 024's apply the first query also
+lists 024's two jobs, `openbed_erase_lapsed_ward_logins` and
+`openbed_prune_ended_auth_sessions`, so a correct project then reads five lines here,
+not three. 024's jobs are read in "024's apply", fence B.*
 
 Then **wait at least five minutes**, so both jobs have had a tick, and read the
 runs. This block only reads.
@@ -1936,14 +1953,127 @@ expectations for 023.** Only what each must read changes:
 **Afterwards:** the frozen boundary is recorded with `23`, in the change that records
 this apply. On 2026-09-25 it was (R-2026-09-25-105).
 
+### 024's apply — the retention jobs; two auth readings around the same six fences (R-2026-09-26-136 DL-2 i)
+
+**Not yet run.** The founder runs it after the pull request that adds 024 merges, first
+in DL's after-merge order, before any redeploy. Claude Code runs nothing hosted.
+
+**What 024 changes** (its header says why). It adds `app.ward_account.login_erased_at`,
+with a CHECK that an erased row is never active. It adds a CHECK on `app.audit_log` so
+that an erasure's row names the ward and never the account. It adds two owner-only
+functions, `app.erase_lapsed_ward_logins()` and `app.prune_ended_auth_sessions()`, and
+two pg_cron jobs that run them daily as `postgres`: `openbed_erase_lapsed_ward_logins`
+at 02:17 UTC and `openbed_prune_ended_auth_sessions` at 02:27 UTC. It adds the
+`LOGIN_ERASED` refusal to `app.provision_complete`, and restates the comment on
+`app.facility_contact` for G1. It writes no public row. The -45 gate is unaffected:
+024 creates no facility and no ward_account row.
+
+**What the jobs delete, and why these readings come first.** The first job deletes the
+`auth.users` row, with its sessions and refresh tokens, of a ward account deactivated
+more than 30 days ago. The second deletes every sign-in session that ended more than
+30 days ago. On hosted today the one `auth.users` row is the operator's, which is
+never erased. So the count must read 1 before the apply and 1 after it.
+
+**A. The auth reading, before.** It only reads. **It must read, in this order:** `1`;
+`0`; `t|t|t`; `auth.identities|c`; `auth.one_time_tokens|c`.
+
+- The first line is the number of `auth.users` rows: the operator alone.
+- The second is `auth.audit_log_entries`. That table stores IP addresses and prunes
+  nothing, and it is off on hosted (Cowork's reading, 2026-09-26: 0 rows while the
+  operator has signed in). **Any value other than `0` is a STOP to report.** 024 does
+  not prune that table.
+- The third is `postgres`'s DELETE on `auth.users`, `auth.sessions` and
+  `auth.refresh_tokens`, which the jobs need. Cowork observed all three held on
+  2026-09-26. This line reads them again, on the day.
+- The last two say that `auth.identities` and `auth.one_time_tokens` go with their
+  user by `ON DELETE CASCADE` (`c`). Both carry the address. 024 deletes refresh tokens
+  and sessions explicitly, and relies on this cascade for these two alone.
+- **Any other reading: stop and report, and do not apply.**
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select count(*) from auth.users"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select count(*) from auth.audit_log_entries"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select has_table_privilege('postgres', 'auth.users', 'DELETE'), has_table_privilege('postgres', 'auth.sessions', 'DELETE'), has_table_privilege('postgres', 'auth.refresh_tokens', 'DELETE')"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select conrelid::regclass, confdeltype from pg_constraint where confrelid = 'auth.users'::regclass and conrelid in ('auth.identities'::regclass, 'auth.one_time_tokens'::regclass) order by 1"
+unset DATABASE_URL
+```
+
+**Then run the six fences of "020's apply" above, in the same order, with these
+expectations for 024.** Only what each must read changes:
+
+1. **The dry run:** exactly one `WOULD APPLY` line, naming `024_retention_jobs.sql`,
+   and the count the list at the top of this step states. Anything else: stop and
+   report.
+2. **The before-reading:** as for 020. Keep the `FINGERPRINT` line.
+3. **The apply:** as for 020. 024 has no pre-check. It schedules two jobs, and they are
+   live from the moment it commits.
+4. **The after-reading:** as for 020. `PASS (VACUOUS FOR B1)` is expected while hosted
+   lists no facility. 024 writes no projected table.
+5. **The second dry run:** twenty-four `already applied` lines, naming
+   `001_app_schema_and_migration_ledger.sql` through `024_retention_jobs.sql`, no
+   `WOULD APPLY` line, and the same last line as 020's fence 5, saying nothing is
+   pending. Anything else: stop and report.
+6. **Who can execute what:** as for 020, run after the apply. Two lines are new:
+   `app.erase_lapsed_ward_logins() EXECUTE: none` and
+   `app.prune_ended_auth_sessions() EXECUTE: none`, because
+   `packages/fixtures/function-grants.json` gains both, owner-only. Every other line
+   reads as before, and `public.rls_auto_enable()` reads `ok` under `(hosted-only)`.
+   Anything else: stop and report.
+
+**B. The auth reading and the jobs, after.** **It must read `1`,** the same count as
+fence A, and then exactly these four lines:
+
+```
+openbed_erase_lapsed_ward_logins|17 2 * * *|select app.erase_lapsed_ward_logins()|postgres|t
+openbed_prune_ended_auth_sessions|27 2 * * *|select app.prune_ended_auth_sessions()|postgres|t
+openbed_refresh_lga_rollup|*/5 * * * *|select app.refresh_lga_rollup()|postgres|t
+openbed_regenerate_snapshot|* * * * *|select app.regenerate_snapshot()|postgres|t
+```
+
+**Any other count, a missing or doubled job, or a job not active: stop and report.**
+Two rows under one job name is 017's Condition F failing. A fifth row is a job this
+repository does not schedule.
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select count(*) from auth.users"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select jobname, schedule, command, username, active from cron.job where jobname like 'openbed_%' order by jobname"
+unset DATABASE_URL
+```
+
+**A missed withdrawal step shows only in the Postgres log.** The erasure job counts any
+account still active at a facility withdrawn more than 30 days ago, which means 12.5
+step 2 was missed. It raises that count as a WARNING and deletes nothing for those
+accounts. Observed locally on 2026-09-27: a WARNING raised inside a pg_cron job reaches
+the Postgres server log, and `cron.job_run_details` records the run as `succeeded` with
+no trace of it. No facility is withdrawn today, so this is recorded here and not given
+a fence.
+
+**Its down migration is never applied here on anyone's own authority.** It refuses
+while any login is marked erased (`LOGINS_ERASED`), because from the first erasure the
+column and its CHECK are the only guard against reactivating an erased login.
+
+**Afterwards:** the frozen boundary is recorded with `24`, in the change that records
+this apply.
+
+- [ ] 024 applied (the date, the checkout's commit, and each fence's reading: A, 1 to 6, B)
+
 ### Expected output, including the one line that looks like a failure and is not
 
 **On the hosted project today** (001 through 023 applied, and the repository ending
-at 023), the dry run prints twenty-three `already applied` lines and:
+at 024), the dry run prints twenty-three `already applied` lines and:
 
 ```
-0 migration(s) pending.
+  WOULD APPLY     : 024_retention_jobs.sql   <- dry run
+1 migration(s) pending.
 ```
+
+*Restated 2026-09-27 (R-2026-09-26-136 DL-2), in the change that adds 024.* Until then
+this block showed twenty-three `already applied` lines, no WOULD APPLY line, and a
+count of zero -- right from 023's apply while the repository ended at 023.
 
 *Restated 2026-09-25 (R-2026-09-25-105), in the change that records 022's and 023's
 hosted apply.* Until then this block described the state BEFORE that apply:
@@ -2090,9 +2220,14 @@ Migrations complete (3 applied this run).   <- apply
 second is lower:
 
 ```
-23 migration(s) pending.          <- dry run
-Migrations complete (22 applied this run).   <- apply
+24 migration(s) pending.          <- dry run
+Migrations complete (23 applied this run).   <- apply
 ```
+
+*Restated 2026-09-27 (R-2026-09-26-136 DL-2), in the change that adds 024. This block
+read `23` and `22` -- right while the repository ended at 023. Observed on the local
+stack in this change: a fresh `db:reset` printed `Migrations complete (23 applied this
+run).`*
 
 *Restated 2026-09-24 (R-2026-09-24-98 BZ-2 c), in the change that adds 023. This block
 read `22` and `21` -- right while the repository ended at 022. Observed on the local
@@ -2116,21 +2251,26 @@ so from that merge it named a count one lower than a correct virgin run prints. 
 not one of the hosted expectations the guard parses; it was found by reading the
 section for this restatement.*
 
-**Twenty-two is correct there. Nothing was skipped.** Migration 001 creates the `app`
+**Twenty-three is correct there. Nothing was skipped.** Migration 001 creates the `app`
 schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
 recorded by a ledger that does not exist yet. The runner applies and ledgers it
 in a separate **bootstrap** step, and the apply loop then counts only what it
-applied itself -- 002 through 023, which is twenty-two. The dry run has no bootstrap
+applied itself -- 002 through 024, which is twenty-three. The dry run has no bootstrap
 branch: `is_applied` returns 0 while the ledger is absent, so it counts all
-twenty-three as pending. The two numbers are measuring different things.
+twenty-four as pending. The two numbers are measuring different things.
+*Restated 2026-09-27 (R-2026-09-26-136 DL-2), in the change that adds 024; until then
+this paragraph read twenty-two, 002 through 023, and twenty-three.*
 
 **Confirm it by the ledger, which is the artefact that matters, not by the
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `23`, with `0 migration(s) pending.` from the
-dry run** -- the founder's second dry run after the one run that applied 022 and 023,
-on 2026-09-25, read twenty-three `already applied` lines, 001 through 023.
+THAT PROJECT. **On hosted today that is `23`, with `1 migration(s) pending.` from the
+dry run**, naming `024_retention_jobs.sql` -- the founder's second dry run after the one
+run that applied 022 and 023, on 2026-09-25, read twenty-three `already applied` lines,
+001 through 023.
+*Restated 2026-09-27 (R-2026-09-26-136 DL-2), in the change that adds 024; until then
+it read `23` with `0 migration(s) pending.`, right while the repository ended at 023.*
 *Restated 2026-09-25 (R-2026-09-25-105), in the change that records that apply; until
 then it read `21` with `2 migration(s) pending.`*
 *Restated 2026-09-24 (R-2026-09-24-98 BZ-2 c), in the change that adds 023; until then

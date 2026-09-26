@@ -4,11 +4,13 @@ import type { TransactionSql } from 'postgres';
 import { withRole, sql, scheduledJobPauseViolations, SCHEDULED_JOBS, PAUSE_SCHEDULED_JOBS_SQL } from '../setup/db.js';
 
 /**
- * THE PAUSE ON 017's pg_cron JOBS IS REAL, AND ITS CHECKER CAN FAIL (R-2026-09-16-11).
+ * THE PAUSE ON 017's AND 024's pg_cron JOBS IS REAL, AND ITS CHECKER CAN FAIL
+ * (R-2026-09-16-11; 024's two jobs by R-2026-09-26-136 DL-2 e).
  *
- * THE CONTROL. database/local/pause_scheduled_jobs.sql pauses
- * openbed_refresh_lga_rollup and openbed_regenerate_snapshot and waits out any run
- * in flight. scripts/seed.sh applies it straight after the migrations; the db and
+ * THE CONTROL. database/local/pause_scheduled_jobs.sql pauses every job in
+ * SCHEDULED_JOBS (tests/setup/db.ts) -- 017's openbed_refresh_lga_rollup and
+ * openbed_regenerate_snapshot, and 024's openbed_erase_lapsed_ward_logins and
+ * openbed_prune_ended_auth_sessions -- and waits out any run in flight. scripts/seed.sh applies it straight after the migrations; the db and
  * e2e test setups apply it again and then check the result with
  * scheduledJobPauseViolations() (tests/setup/db.ts). The golden path's
  * snapshot-regenerates step calls the same checker before relying on the pause.
@@ -19,8 +21,8 @@ import { withRole, sql, scheduledJobPauseViolations, SCHEDULED_JOBS, PAUSE_SCHED
  * WHAT IS ASSERTED.
  *   - The checker: the ambient rows of this run read paused (real); a reactivated
  *     job and an unscheduled job are each reported by name (plants); with no
- *     pg_cron rows at all it reports both missing, never nothing (anti-vacuity).
- *   - The file: it pauses two active jobs (real); it raises
+ *     pg_cron rows at all it reports every one missing, never nothing (anti-vacuity).
+ *   - The file: it pauses every active job (real); it raises
  *     OPENBED_JOBS_NOT_PAUSED when pg_cron is absent, when a job is missing, and
  *     when a run is still in flight at its deadline (plants); a `running` row
  *     older than its recency window does not hold it (positive control).
@@ -64,8 +66,8 @@ async function activeByName(tx: TransactionSql): Promise<Record<string, boolean>
   return Object.fromEntries(rows.map((r) => [r.jobname, r.active]));
 }
 
-describe('the 017 pg_cron jobs are paused for the run — R-2026-09-16-11', () => {
-  test('real — the db run\'s two jobs are paused', async () => {
+describe('the 017 and 024 pg_cron jobs are paused for the run — R-2026-09-16-11', () => {
+  test('real — the db run\'s scheduled jobs are paused', async () => {
     expect(await scheduledJobPauseViolations(sql()), 'the db run is racing a live pg_cron job').toEqual([]);
   });
 
@@ -85,14 +87,14 @@ describe('the 017 pg_cron jobs are paused for the run — R-2026-09-16-11', () =
     expect(r.v).toContain(`${name} is not scheduled`);
   });
 
-  test('anti-vacuity — with no pg_cron rows the checker reports both jobs missing, not nothing', async () => {
+  test('anti-vacuity — with no pg_cron rows the checker reports every job missing, not nothing', async () => {
     const v = await withRole('postgres', null, (tx) => scheduledJobPauseViolations(tx), async (tx) => {
       for (const name of SCHEDULED_JOBS) await tx.unsafe('select cron.unschedule($1)', [name] as never[]);
     });
     expect(v).toEqual(SCHEDULED_JOBS.map((n) => `${n} is not scheduled`));
   });
 
-  test('real — the pause file pauses two active jobs', async () => {
+  test('real — the pause file pauses every active job', async () => {
     const r = await withRole('postgres', null, async (tx) => {
       const before = await activeByName(tx);
       await applyPauseFile(tx);
@@ -100,8 +102,10 @@ describe('the 017 pg_cron jobs are paused for the run — R-2026-09-16-11', () =
     }, async (tx) => {
       await tx.unsafe(`select cron.alter_job(jobid, active := true) from cron.job where jobname like 'openbed_%'`);
     });
-    expect(r.before, 'the plant did not land: the jobs were not both active before the file ran').toEqual({ openbed_refresh_lga_rollup: true, openbed_regenerate_snapshot: true });
-    expect(r.after).toEqual({ openbed_refresh_lga_rollup: false, openbed_regenerate_snapshot: false });
+    // Derived from SCHEDULED_JOBS, never restated: 024 added two jobs (R-2026-09-26-136
+    // DL-2 e), and every openbed_ job this reads must be one the pause file names.
+    expect(r.before, 'the plant did not land: the jobs were not all active before the file ran').toEqual(Object.fromEntries(SCHEDULED_JOBS.map((n) => [n, true])));
+    expect(r.after).toEqual(Object.fromEntries(SCHEDULED_JOBS.map((n) => [n, false])));
     expect(r.v).toEqual([]);
   });
 
@@ -124,7 +128,7 @@ describe('the 017 pg_cron jobs are paused for the run — R-2026-09-16-11', () =
     }, async (tx) => {
       await tx.unsafe(`select cron.unschedule('openbed_refresh_lga_rollup')`);
     });
-    expect(message).toContain('OPENBED_JOBS_NOT_PAUSED: expected openbed_refresh_lga_rollup, openbed_regenerate_snapshot paused, found openbed_regenerate_snapshot:active=false');
+    expect(message).toContain(`OPENBED_JOBS_NOT_PAUSED: expected ${SCHEDULED_JOBS.join(', ')} paused, found ${SCHEDULED_JOBS.filter((n) => n !== 'openbed_refresh_lga_rollup').map((n) => `${n}:active=false`).join(', ')}`);
   });
 
   test('plant — the pause file RAISES at its deadline while a run is in flight', async () => {

@@ -1,8 +1,9 @@
 -- ============================================================
 -- pause_scheduled_jobs.sql -- LOCAL AND CI DATABASES ONLY. NEVER HOSTED.
 -- ============================================================
--- Pauses the two pg_cron jobs migration 017 schedules, and waits until neither
--- has a run in flight. Ruling R-2026-09-16-11.
+-- Pauses the pg_cron jobs migrations 017 and 024 schedule, and waits until none
+-- has a run in flight. Ruling R-2026-09-16-11; 024's two retention jobs added by
+-- R-2026-09-26-136 DL-2 e.
 --
 -- WHY. From the moment scripts/run_migrations.sh applies 017, both jobs are live.
 -- Live, they write while the repository is being checked:
@@ -18,6 +19,11 @@
 --     call within milliseconds and held without the pause (4 of 4 red with the
 --     call removed and a one-second job, observed 2026-09-16), so the pause there
 --     buys attributable evidence rather than rescuing a vacuous step.
+--   - openbed_erase_lapsed_ward_logins and openbed_prune_ended_auth_sessions (024)
+--     delete auth.users and auth.sessions rows by age. They run once a day, but a
+--     run landing inside a test would delete rows the test planted, so they are
+--     paused with the rest; tests/db/retention_jobs.test.ts calls the functions
+--     itself, inside rolled-back transactions.
 --
 -- WHERE IT RUNS, AND WHY THERE. scripts/seed.sh applies it after its local-only
 -- host check and before any seed file. seed.sh is the one script that
@@ -45,7 +51,7 @@
 
 DO $$
 DECLARE
-    v_jobs  text[] := ARRAY['openbed_refresh_lga_rollup', 'openbed_regenerate_snapshot'];
+    v_jobs  text[] := ARRAY['openbed_erase_lapsed_ward_logins', 'openbed_prune_ended_auth_sessions', 'openbed_refresh_lga_rollup', 'openbed_regenerate_snapshot'];
     v_state text;
     v_n     integer;
 BEGIN
@@ -70,7 +76,7 @@ END $$;
 
 DO $$
 DECLARE
-    v_jobs     text[] := ARRAY['openbed_refresh_lga_rollup', 'openbed_regenerate_snapshot'];
+    v_jobs     text[] := ARRAY['openbed_erase_lapsed_ward_logins', 'openbed_prune_ended_auth_sessions', 'openbed_refresh_lga_rollup', 'openbed_regenerate_snapshot'];
     v_settle   numeric := coalesce(nullif(current_setting('openbed.pause_settle_seconds', true), ''), '2')::numeric;
     v_deadline timestamptz := clock_timestamp()
                  + make_interval(secs => coalesce(nullif(current_setting('openbed.pause_deadline_seconds', true), ''), '30')::numeric);

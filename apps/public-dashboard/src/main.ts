@@ -10,6 +10,7 @@ import {
   type FetchMark,
 } from '@openbed/snapshot';
 import { HELLO_EMAIL } from '@openbed/origins/contacts';
+import { PRIVACY_NOTICE_URL } from '@openbed/origins/privacy';
 import { rowStyle, snapshotBanner, wardLineParts, type ServeClock, type WardLineParts } from './age-view.js';
 // The design system's tokens and self-hosted fonts first, then this app's own rules
 // (the design pass, D1). Vite emits all three as same-origin assets.
@@ -259,14 +260,21 @@ function renderWardLine(item: HTMLLIElement, parts: WardLineParts, pageStale: bo
   }
 }
 
-/** The footer: the general-enquiries address, and nothing else (the design pass, D1). */
-function renderFooter(): void {
+/**
+ * The footer: the general-enquiries address (the design pass, D1) and the privacy
+ * notice's link (R-2026-09-26-136 DL-1 d), and nothing else. Exported so
+ * tests/compliance/privacy_links.test.ts can render it and read the DOM.
+ */
+export function renderFooter(): void {
   const footer = document.getElementById('site-footer');
   if (!footer) return;
   const mail = document.createElement('a');
   mail.href = `mailto:${HELLO_EMAIL}`;
   mail.textContent = HELLO_EMAIL;
-  footer.replaceChildren(mail);
+  const privacy = document.createElement('a');
+  privacy.href = PRIVACY_NOTICE_URL;
+  privacy.textContent = 'Privacy notice';
+  footer.replaceChildren(mail, privacy);
 }
 
 function renderReal(root: HTMLElement, snapshot: Snapshot): void {

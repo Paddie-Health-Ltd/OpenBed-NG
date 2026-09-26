@@ -882,6 +882,9 @@ describe('the design is applied, and stays applied', () => {
   test('real — no app source carries an inline style (style=, .style, setAttribute(\'style\'))', () => {
     const files = apps.flatMap((a) => appSource(a, REPO_ROOT));
     for (const a of apps) expect(files, `apps/${a}/index.html is not in the corpus`).toContain(join(REPO_ROOT, 'apps', a, 'index.html'));
+    // The second HTML entry (R-2026-09-26-136 DL-1), asserted by identity so the corpus
+    // cannot shrink back to index.html alone without this leg going red.
+    expect(files, 'apps/public-dashboard/privacy.html is not in the corpus').toContain(join(REPO_ROOT, 'apps', 'public-dashboard', 'privacy.html'));
     expect(files.filter((f) => f.endsWith('.ts')).length, 'no .ts source found: the corpus is empty').toBeGreaterThan(0);
     const out = files.flatMap((f) => inlineStyleViolations(f.replace(`${REPO_ROOT}/`, ''), readFileSync(f, 'utf8')));
     expect(out, out.join('\n')).toEqual([]);

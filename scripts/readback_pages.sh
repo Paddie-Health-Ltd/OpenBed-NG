@@ -2,7 +2,8 @@
 # ============================================================
 # scripts/readback_pages.sh
 # ============================================================
-# THE PUBLIC DASHBOARD'S DEPLOY READ-BACKS 4, 6 AND 8, AND THE SERVE-TIME STAMP
+# THE PUBLIC DASHBOARD'S DEPLOY READ-BACKS 4, 6 AND 8, THE PRIVACY NOTICE AT /privacy
+# (R-2026-09-26-136 DL-1 e), AND THE SERVE-TIME STAMP
 # (docs/runbook-cloudflare-pages-beds-json.md, "Reporting back"). Until the
 # R-2026-09-23-70 H4 note these were pasted fences; why they are a script now, and
 # the contract every read-back keeps, is in scripts/readback_common.sh.
@@ -161,6 +162,34 @@ else
 fi
 
 echo
+echo "=== the privacy notice: GET /privacy on $SITE and on $DOMAIN, as a browser -- the notice, never the SPA index (R-2026-09-26-136 DL-1 e) ==="
+# Pages serves privacy.html at /privacy. A deployment without it answers /privacy with the
+# SPA fallback: 200 text/html, the dashboard's index. So a 200 proves nothing here; the
+# body must be the notice (its controller and its version) and must NOT carry the
+# index's #app root, and the notice page carries no script at all.
+for host in "$SITE_BEFORE" "$DOMAIN"; do
+    SITE="$host"
+    label="privacy"
+    [ "$host" = "$DOMAIN" ] && label="openbed.ng privacy"
+    page_probe /privacy
+    rb_expect "$label status" "$RB_CODE" 200
+    ct="$(rb_header content-type)"
+    case "$ct" in
+        text/html*) rb_ok "$label content-type" "$ct" ;;
+        *) rb_wrong "$label content-type" "$ct" "must be text/html" ;;
+    esac
+    rb_matches 'Paddie Health Ltd'
+    if [ "$RB_COUNT" -gt 0 ]; then rb_ok "$label controller" "Paddie Health Ltd"; else rb_wrong "$label controller" "(absent)" "the notice names Paddie Health Ltd"; fi
+    rb_matches 'Version 1[.]0'
+    if [ "$RB_COUNT" -gt 0 ]; then rb_ok "$label version" "Version 1.0"; else rb_wrong "$label version" "(absent)" "the notice states Version 1.0"; fi
+    rb_matches 'id="app"'
+    if [ "$RB_COUNT" -eq 0 ]; then rb_ok "$label is not the SPA index" "no #app root"; else rb_wrong "$label is not the SPA index" "id=\"app\"" "that is the dashboard's index answering for a missing page"; fi
+    rb_matches '<script'
+    if [ "$RB_COUNT" -eq 0 ]; then rb_ok "$label scripts" "none"; else rb_wrong "$label scripts" "<script" "the notice page carries no script"; fi
+done
+SITE="$SITE_BEFORE"
+
+echo
 echo "=== the serve-time stamp: two GETs of $SITE/beds.json, ${PAUSE}s apart ==="
 site_probe GET /beds.json
 FIRST="$(rb_header x-openbed-served-at)"
@@ -182,4 +211,4 @@ else
     rb_wrong "serve-time stamp advances" "$FIRST -> $SECOND" "the second must be later than the first"
 fi
 
-rb_verdict "read-backs 4, 6, 7 and 8, the page's security headers and scripts on both hosts, the favicon on both hosts, a self-hosted font, and the serve-time stamp read as they must."
+rb_verdict "read-backs 4, 6, 7 and 8, the page's security headers and scripts on both hosts, the favicon on both hosts, the privacy notice on both hosts, a self-hosted font, and the serve-time stamp read as they must."

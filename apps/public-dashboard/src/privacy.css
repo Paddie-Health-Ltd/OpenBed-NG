@@ -1,0 +1,50 @@
+/* The privacy notice's styles (R-2026-09-26-136 DL-1 b). Linked from privacy.html, which
+   carries no script, so the design system's tokens and fonts are imported HERE rather
+   than from a module; Vite resolves the imports and emits one same-origin stylesheet.
+   style.css brings the emergency strip and the lockup exactly as the index draws them.
+
+   Nothing here adds a word. A stacked table row's label is the column's own header,
+   shown from the cell's data-label attribute, and is not part of the page's text. */
+@import '@openbed/design/tokens.css';
+@import '@openbed/design/fonts.css';
+@import './style.css';
+
+main#notice {
+  max-width: var(--measure-app);
+  margin: 0 auto;
+  padding: var(--space-4) var(--gutter-page) var(--space-8);
+  color: var(--text-body);
+  font: var(--text-body-md);
+  overflow-wrap: anywhere;
+}
+main#notice h1 { margin: 0 0 var(--space-2); font-family: var(--font-sans); font-weight: 700; font-size: 24px; line-height: 1.25; color: var(--text-strong); }
+main#notice h2 { margin: var(--space-6) 0 var(--space-2); font: var(--text-subheading); color: var(--text-strong); }
+main#notice p,
+main#notice ul { margin: 0 0 var(--space-3); max-width: var(--measure-content); }
+main#notice ul { padding-left: var(--space-5); }
+main#notice li { margin-bottom: var(--space-1); }
+main#notice a { color: var(--text-link); }
+main#notice a:hover { color: var(--text-link-hover); }
+
+main#notice table { width: 100%; border-collapse: collapse; margin: 0 0 var(--space-4); font: var(--text-body-sm); }
+main#notice th,
+main#notice td { text-align: left; vertical-align: top; padding: var(--space-2); border-top: var(--border-width) solid var(--border-hairline); }
+main#notice th { color: var(--text-strong); font-weight: 600; border-top: 0; border-bottom: var(--border-width) solid var(--border-default); }
+
+/* Narrow screens: each row becomes a card, each cell labelled with its column's header,
+   so no table ever scrolls sideways. */
+@media (max-width: 719px) {
+  main#notice thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  main#notice table,
+  main#notice tbody,
+  main#notice tr,
+  main#notice td { display: block; width: auto; }
+  main#notice tr { border: var(--border-width) solid var(--border-default); border-radius: var(--radius-lg); background: var(--surface-card); margin-bottom: var(--space-3); padding: var(--space-1) var(--space-3); }
+  main#notice td { border-top: var(--border-width) solid var(--border-hairline); padding: var(--space-2) 0; }
+  main#notice td:first-child { border-top: 0; }
+  main#notice td::before { content: attr(data-label); display: block; font-weight: 600; color: var(--text-muted); }
+}
+
+@media (min-width: 720px) {
+  main#notice { padding: var(--space-6) var(--gutter-page-wide) var(--space-8); }
+}

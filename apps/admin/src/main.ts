@@ -1,6 +1,7 @@
 import { SessionExpiredError, SessionHolder, requestSignInLink, sessionFromUrlFragment } from '@openbed/auth';
 import { apiOrigin } from '@openbed/origins';
 import { publishableKeyFor } from '@openbed/origins/keys';
+import { PRIVACY_NOTICE_URL } from '@openbed/origins/privacy';
 import { categoryLabel } from '@openbed/labels';
 import { ADMIN_FIXED, ADMIN_SCREENS as W, WARD_CATEGORIES } from '@openbed/labels/admin';
 import { elapsedSince, freshnessBand, lagosTime, markFetch, type FetchMark, type FreshnessBand } from '@openbed/snapshot';
@@ -651,9 +652,22 @@ function requestForm(): HTMLFormElement {
   return f;
 }
 
+/**
+ * The privacy notice's link, under the sign-in form (R-2026-09-26-136 DL-1 d). Its URL is
+ * the one tracked constant; tests/compliance/privacy_links.test.ts asserts it on every
+ * sign-in screen. D3 restyles this screen and keeps the link.
+ */
+function privacyLink(): HTMLParagraphElement {
+  const p = el('p', undefined, 'privacy');
+  const a = el('a', W.PRIVACY_LINK);
+  a.href = PRIVACY_NOTICE_URL;
+  p.append(a);
+  return p;
+}
+
 function signedOut(detail: string = W.ACCESS_ORDER): void {
   show(W.SIGNED_OUT, detail);
-  appRoot()?.append(el('p', W.ACCESS_ORDER), requestForm());
+  appRoot()?.append(el('p', W.ACCESS_ORDER), requestForm(), privacyLink());
 }
 
 /** Exported so a test can call it and read the DOM, as the ward console's is. */
@@ -664,12 +678,12 @@ export async function render(): Promise<void> {
   } catch {
     console.error('OpenBed admin: the sign-in link was refused');
     show(W.BAD_LINK_HEADING, W.BAD_LINK);
-    appRoot()?.append(requestForm());
+    appRoot()?.append(requestForm(), privacyLink());
     return;
   }
   if (session === null) {
     show(W.TITLE, W.ACCESS_ORDER);
-    appRoot()?.append(requestForm());
+    appRoot()?.append(requestForm(), privacyLink());
     return;
   }
   // The tokens leave the address bar at once.

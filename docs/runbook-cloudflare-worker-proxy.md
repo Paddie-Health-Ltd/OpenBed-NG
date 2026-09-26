@@ -117,6 +117,22 @@ paths and one `GET` path of `supabase-proxy/allow-list.json`'s `forward` list at
 deployed commit". It went stale when PR 3.4b-app C (#77) added sixteen entries, the
 eight operator calls and their eight preflights, and did not restate it.
 
+## 4. Worker request logging is off (R-2026-09-26-136 DL-3)
+
+`supabase-proxy/wrangler.json` carries `"observability": { "enabled": false }`, pinned by
+`tests/compliance/worker_observability.test.ts`. Every call to the database crosses
+this Worker: sign-in requests carrying an address, access tokens, and every visitor's
+IP address and headers. The privacy notice says OpenBed keeps no copy of a visitor's
+request details, so the Worker keeps no request logs (the record of processing, G4).
+
+**The setting reaches Cloudflare only on a deploy.** The founder's step, after the pull
+request that sets it merges: redeploy with `bash scripts/deploy_worker.sh supabase-proxy`
+by section 1 above, then run `bash scripts/readback_worker.sh` by section 2. Both must
+read as those sections say. The Worker's logging state in Cloudflare's dashboard is not
+readable from this repository, so nothing here asserts the deployed setting.
+
+- [ ] Redeployed with logging off, and read back (the date, the commit, and the read-back's last line)
+
 ## What stays true after this deploy, and what does not
 
 - **The emailed sign-in link is NOT consumed through this Worker.** It opens

@@ -372,6 +372,23 @@ describe('022 through the script (R-2026-09-24-90 BR-1 e)', () => {
     expect(await audits(), 'the reactivation did not write exactly one audit row of its own').toBe(before + 1);
   });
 
+  test('an ERASED login is never reactivated and never reported complete: LOGIN_ERASED, with its hint (R-2026-09-26-136 DL-2 b)', async () => {
+    // The ward's old login was erased under the retention schedule (024). GoTrue then
+    // answers with that same id -- the only way the erased row can be reached -- and
+    // the script must stop, name the refusal and say what to do, and print no success.
+    const user = randomUUID();
+    await sql()`insert into app.ward_account (id, facility_id, ward_category, role, is_active, deactivated_at, login_erased_at)
+                values (${user}::uuid, ${FAC_OK}::uuid, 'ICU_ADULT', 'WARD_STAFF', false, now() - interval '40 days', now())`;
+    handler = gotrue({ existing: { id: user, confirmed: true } });
+    const r = await run(ward(FAC_OK));
+    expect(r.status, r.out).toBe(1);
+    expect(r.out).toContain('REFUSED by app.provision_complete: LOGIN_ERASED — this login was erased under the retention schedule and cannot be reactivated; provision a new login');
+    expect(r.out).not.toContain('provisioned WARD_STAFF');
+    expect(r.out).not.toContain('reactivated WARD_STAFF');
+    expect(r.out).not.toContain('already complete');
+    expect(await account(user)).toEqual({ role: 'WARD_STAFF', facility_id: FAC_OK, ward_category: 'ICU_ADULT', is_active: false });
+  });
+
   test("a withdrawn facility's deactivated ward is refused AGREEMENT_WITHDRAWN at begin, with ZERO Auth requests", async () => {
     const user = randomUUID();
     await sql()`insert into app.ward_account (id, facility_id, ward_category, role, is_active, deactivated_at)
