@@ -30,5 +30,9 @@ export default defineConfig({
     // would still match a minified identifier, an unminified bundle makes a
     // failure legible to whoever has to fix it.
     minify: false,
+    // Every asset is emitted as a same-origin file, never inlined as a data: URI (the
+    // design pass, D1). The CSP's font source is default-src 'self', which a data: font
+    // would fail silently, and the mark in index.html stays a file the browser caches.
+    assetsInlineLimit: 0,
   },
 });

@@ -84,6 +84,7 @@ export default tseslint.config(
       'supabase/.branches/**',
       'supabase/.temp/**',
       'packages/fixtures/**',
+      '**/.design-screens/**',
     ],
   },
   ...tseslint.configs.recommended,

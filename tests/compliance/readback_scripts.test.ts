@@ -51,7 +51,7 @@ const SCRIPTS = {
   admin: join(REPO_ROOT, 'scripts', ADMIN_NAME),
 };
 
-type Answer = { status: number; headers?: Record<string, string>; body?: string } | { fail: number } | { out: string };
+type Answer = { status: number; headers?: Record<string, string>; body?: string; bodyBase64?: string } | { fail: number } | { out: string };
 type Fixtures = Record<string, Answer | Answer[]>;
 
 interface Run {
@@ -94,6 +94,8 @@ function repo(root: string, opts: { pushed?: boolean; remote?: boolean; headers?
   // The tracked robots.txt the dashboard read-back compares both hosts against, byte for
   // byte (R-2026-09-25-119 CU-5 c).
   if (opts.headers !== false) copyFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'public', 'robots.txt'), join(work, 'apps', 'public-dashboard', 'public', 'robots.txt'));
+  // And the tracked favicon, which both hosts must serve byte for byte (R-2026-09-26-122 CX-3).
+  if (opts.headers !== false) copyFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'public', 'favicon.ico'), join(work, 'apps', 'public-dashboard', 'public', 'favicon.ico'));
   // The admin read-back reads its Pages project name from here, never retyped.
   mkdirSync(join(work, 'apps', 'admin'), { recursive: true });
   copyFileSync(join(REPO_ROOT, 'apps', 'admin', 'wrangler.toml'), join(work, 'apps', 'admin', 'wrangler.toml'));
@@ -163,7 +165,7 @@ if (Array.isArray(ans)) {
 if (ans.fail) { process.stderr.write('curl: (' + ans.fail + ') planted failure\\n'); process.exit(ans.fail); }
 const text = 'HTTP/2 ' + ans.status + '\\r\\n' + Object.entries(ans.headers || {}).map(([h, v]) => h + ': ' + v + '\\r\\n').join('') + '\\r\\n';
 if (dump) fs.writeFileSync(dump, text);
-const body = head ? text : (ans.body || '');
+const body = head ? text : (ans.bodyBase64 ? Buffer.from(ans.bodyBase64, 'base64') : (ans.body || ''));
 if (out) fs.writeFileSync(out, body); else process.stdout.write(body);
 if (fmt) process.stdout.write(fmt.replace('%{http_code}', String(ans.status)));
 `,
@@ -322,7 +324,12 @@ const BEDS_HEADERS = {
 };
 const BEDS_BODY = '{"v":9371,"wards":[],"facilities":[]}';
 const DASH_DOMAIN = 'https://openbed.ng';
-const DASH_PAGE = '<!doctype html><script type="module" crossorigin src="/assets/index-iIcFdl6r.js"></script>';
+const DASH_PAGE = '<!doctype html><script type="module" crossorigin src="/assets/index-iIcFdl6r.js"></script><link rel="stylesheet" crossorigin href="/assets/index-DTILzLDb.css">';
+/** The tracked favicon, read, never retyped: what both hosts must serve byte for byte (R-2026-09-26-122 CX-3). */
+const FAVICON = readFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'public', 'favicon.ico'));
+const FAVICON_ANSWER: Answer = { status: 200, headers: { 'content-type': 'image/x-icon' }, bodyBase64: FAVICON.toString('base64') };
+const DASH_CSS = "@font-face{font-family:'Public Sans';src:url('/assets/public-sans-latin-400-normal-8Rpg0ruU.woff2') format('woff2')}";
+const FONT_PATH = '/assets/public-sans-latin-400-normal-8Rpg0ruU.woff2';
 /** The tracked robots.txt, read, never retyped: what both hosts must serve byte for byte. */
 const ROBOTS_TXT = readFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'public', 'robots.txt'), 'utf8');
 
@@ -338,6 +345,11 @@ function pagesFixtures(head: string): Fixtures {
     [`GET ${DASH_DOMAIN}/`]: { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('public-dashboard') }, body: DASH_PAGE },
     [`GET ${SITE}/robots.txt`]: { status: 200, headers: { 'content-type': 'text/plain' }, body: ROBOTS_TXT },
     [`GET ${DASH_DOMAIN}/robots.txt`]: { status: 200, headers: { 'content-type': 'text/plain' }, body: ROBOTS_TXT },
+    // The favicon on both hosts, and one self-hosted font through the page's stylesheet (D1).
+    [`GET ${SITE}/favicon.ico`]: FAVICON_ANSWER,
+    [`GET ${DASH_DOMAIN}/favicon.ico`]: FAVICON_ANSWER,
+    [`GET ${SITE}/assets/index-DTILzLDb.css`]: { status: 200, headers: { 'content-type': 'text/css; charset=utf-8' }, body: DASH_CSS },
+    [`GET ${SITE}${FONT_PATH}`]: { status: 200, headers: { 'content-type': 'font/woff2' }, body: 'wOF2' },
   };
 }
 
@@ -376,8 +388,12 @@ describe('scripts/readback_pages.sh', () => {
       ]) {
         expect(r.out, `the check "${check}" never ran`).toContain(`  ok     ${check}: `);
       }
-      expect(r.out).toContain("PASS: read-backs 4, 6, 7 and 8, the page's security headers and scripts on both hosts, and the serve-time stamp read as they must.");
-      for (const check of ['page scripts', 'openbed.ng content-security-policy', 'openbed.ng scripts', 'read-back 7 robots.txt', 'read-back 7 openbed.ng robots.txt']) {
+      expect(r.out).toContain("PASS: read-backs 4, 6, 7 and 8, the page's security headers and scripts on both hosts, the favicon on both hosts, a self-hosted font, and the serve-time stamp read as they must.");
+      for (const check of [
+        'page scripts', 'openbed.ng content-security-policy', 'openbed.ng scripts', 'read-back 7 robots.txt', 'read-back 7 openbed.ng robots.txt',
+        'favicon.ico status', 'favicon.ico', 'favicon.ico content-type', 'openbed.ng favicon.ico status', 'openbed.ng favicon.ico', 'openbed.ng favicon.ico content-type',
+        'page stylesheet', 'stylesheet fonts', 'font status', 'font content-type',
+      ]) {
         expect(r.out, `the check "${check}" never ran`).toContain(`  ok     ${check}: `);
       }
       expect(r.calls).toContain(`HEAD ${SITE}/beds.json`);
@@ -397,6 +413,13 @@ describe('scripts/readback_pages.sh', () => {
     ['/beds.json without nosniff (BU-2 d)', (f) => { f[`HEAD ${SITE}/beds.json`] = { status: 200, headers: without(BEDS_HEADERS, 'x-content-type-options') }; }, 'read-back 8 HEAD x-content-type-options'],
     ['a page CSP that differs from the tracked one', (f) => { f[`GET ${SITE}/`] = { status: 200, headers: { ...trackedHeaders('public-dashboard'), 'content-security-policy': "default-src *" } }; }, 'page content-security-policy'],
     ['a page with no Referrer-Policy', (f) => { f[`GET ${SITE}/`] = { status: 200, headers: without(trackedHeaders('public-dashboard'), 'referrer-policy') }; }, 'page referrer-policy'],
+    // The design pass (D1; R-2026-09-26-122 CX-3): the favicon is never the SPA's HTML, on either host.
+    ['/favicon.ico answered by the SPA fallback', (f) => { f[`GET ${SITE}/favicon.ico`] = { status: 200, headers: { 'content-type': 'text/html' }, body: DASH_PAGE }; }, 'favicon.ico content-type'],
+    ['/favicon.ico answered by the SPA fallback on openbed.ng only', (f) => { f[`GET ${DASH_DOMAIN}/favicon.ico`] = { status: 200, headers: { 'content-type': 'text/html' }, body: DASH_PAGE }; }, 'openbed.ng favicon.ico content-type'],
+    ['a favicon that is not the tracked icon', (f) => { f[`GET ${SITE}/favicon.ico`] = { status: 200, headers: { 'content-type': 'image/x-icon' }, bodyBase64: Buffer.from('not the icon').toString('base64') }; }, 'favicon.ico'],
+    ['a font served as application/octet-stream', (f) => { f[`GET ${SITE}${FONT_PATH}`] = { status: 200, headers: { 'content-type': 'application/octet-stream' }, body: 'wOF2' }; }, 'font content-type'],
+    ['a stylesheet that names no woff2', (f) => { f[`GET ${SITE}/assets/index-DTILzLDb.css`] = { status: 200, headers: { 'content-type': 'text/css' }, body: 'body{margin:0}' }; }, 'stylesheet fonts'],
+    ['a page that links no stylesheet', (f) => { const page = { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('public-dashboard') }, body: '<!doctype html><script type="module" crossorigin src="/assets/index-iIcFdl6r.js"></script>' }; f[`GET ${SITE}/`] = page; }, 'page stylesheet'],
   ])('plant — %s is a STOP', (_label, plant, check) => {
     withScratch((root) => {
       const work = repo(root);

@@ -116,6 +116,51 @@ rb_same_bytes "read-back 7 openbed.ng robots.txt" "$ROOT/apps/public-dashboard/p
 SITE="$SITE_BEFORE"
 
 echo
+echo "=== /favicon.ico on $SITE and on $DOMAIN: byte for byte this checkout's apps/public-dashboard/public/favicon.ico, and never the SPA's HTML ==="
+# Until the design pass the SPA fallback answered /favicon.ico with 200 text/html
+# (R-2026-09-23-70; resolved by R-2026-09-26-122 CX-3). The byte comparison is the exact
+# signal: the page's HTML can never equal the tracked icon. The content-type check is
+# CX-3's own wording.
+for host in "$SITE_BEFORE" "$DOMAIN"; do
+    SITE="$host"
+    label="favicon.ico"
+    [ "$host" = "$DOMAIN" ] && label="openbed.ng favicon.ico"
+    site_probe GET /favicon.ico
+    rb_expect "$label status" "$RB_CODE" 200
+    rb_same_bytes "$label" "$ROOT/apps/public-dashboard/public/favicon.ico"
+    ct="$(rb_header content-type)"
+    case "$ct" in
+        text/html*) rb_wrong "$label content-type" "$ct" "must not be text/html: that is the SPA fallback, not the icon" ;;
+        *) rb_ok "$label content-type" "$ct" ;;
+    esac
+done
+SITE="$SITE_BEFORE"
+
+echo
+echo "=== a self-hosted font: the stylesheet $SITE/ links, and one woff2 it names, served as font/woff2 ==="
+# The design pass's fonts are woff2 files the build copies into /assets (D1). A font
+# served as anything but font/woff2 fails silently under X-Content-Type-Options: nosniff.
+page_probe /
+rb_matches '/assets/[A-Za-z0-9_.-]+[.]css'
+if [ "$RB_COUNT" -eq 0 ]; then
+    rb_wrong "page stylesheet" "(none)" "the page must link its built stylesheet"
+else
+    css_path="${RB_MATCHES%%$'\n'*}"
+    rb_ok "page stylesheet" "$css_path"
+    site_probe GET "$css_path"
+    rb_matches '/assets/[A-Za-z0-9_.-]+[.]woff2'
+    if [ "$RB_COUNT" -eq 0 ]; then
+        rb_wrong "stylesheet fonts" "(none)" "the stylesheet must name its self-hosted woff2 fonts"
+    else
+        font_path="${RB_MATCHES%%$'\n'*}"
+        rb_ok "stylesheet fonts" "$RB_COUNT woff2, first $font_path"
+        site_probe GET "$font_path"
+        rb_expect "font status" "$RB_CODE" 200
+        rb_expect "font content-type" "$(rb_header content-type)" "font/woff2"
+    fi
+fi
+
+echo
 echo "=== the serve-time stamp: two GETs of $SITE/beds.json, ${PAUSE}s apart ==="
 site_probe GET /beds.json
 FIRST="$(rb_header x-openbed-served-at)"
@@ -137,4 +182,4 @@ else
     rb_wrong "serve-time stamp advances" "$FIRST -> $SECOND" "the second must be later than the first"
 fi
 
-rb_verdict "read-backs 4, 6, 7 and 8, the page's security headers and scripts on both hosts, and the serve-time stamp read as they must."
+rb_verdict "read-backs 4, 6, 7 and 8, the page's security headers and scripts on both hosts, the favicon on both hosts, a self-hosted font, and the serve-time stamp read as they must."

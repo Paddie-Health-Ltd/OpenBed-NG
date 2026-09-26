@@ -118,11 +118,6 @@ const PLANNED_ARTEFACTS: Record<string, { stage: number | string }> = {
   'scripts/lint_referral_ward_to_ward.sh': { stage: 5 },
   'tests/compliance/referral_ward_to_ward.test.ts': { stage: 5 },
   'tests/db/referral_column_list.test.ts': { stage: 5 },
-  // The design-pass kickoff (R-2026-09-26-121, committed byte-identical) specifies the
-  // shared design foundation, which its bundle D1 builds. Numbered stages above are the
-  // v2 kickoff's; this one is the design pass's bundle label. The anti-rot leg reds the
-  // moment D1 creates the directory, so D1 must delete this entry.
-  'packages/design': { stage: 'D1' },
 };
 
 /**

@@ -60,3 +60,9 @@ apps/ward-console/public/version.json
 supabase-proxy/version.json
 
 .DS_Store
+
+# Screenshots of each design-pass bundle, for Cowork's review from the founder's Mac, with
+# the harness that took them (the design-pass kickoff, D1). Never committed: they are
+# review evidence, and they would otherwise dirty the tree the deploy wrapper and the
+# build stamp both refuse.
+.design-screens/

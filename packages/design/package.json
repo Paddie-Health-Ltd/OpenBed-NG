@@ -1,0 +1,16 @@
+{
+  "name": "@openbed/design",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The OpenBed design system's tokens, its two typefaces self-hosted through each app's bundle, and the mark. CSS and SVG only: no TypeScript, so importing it adds nothing to an app's import closure (tests/compliance/tracked_client_keys.test.ts follows .ts only).",
+  "exports": {
+    "./tokens.css": "./tokens.css",
+    "./fonts.css": "./fonts.css",
+    "./openbed-mark.svg": "./openbed-mark.svg"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@fontsource/public-sans": "5.3.0"
+  }
+}

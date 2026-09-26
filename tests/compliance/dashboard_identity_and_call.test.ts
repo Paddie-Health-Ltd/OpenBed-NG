@@ -95,6 +95,32 @@ export function callTapTargetPx(css: string): { minHeight: number | null; minWid
   return { minHeight: px('min-height'), minWidth: px('min-width') };
 }
 
+/**
+ * THE COUNT IS SUBORDINATE TO THE PHONE NUMBER (v1:243; R-2026-09-26-126 DB-3, with the
+ * founder's size order): the facility name, then the number to call, then the count --
+ * 24 > 20 > 18 px. Read as the LITERAL font-size of three rules in style.css, the same
+ * reason callTapTargetPx reads literal px: a var() cannot be compared here. A rule that
+ * declares no literal font-size reads null, and null fails.
+ */
+export function sizeOrder(css: string): { name: number | null; phone: number | null; badge: number | null } {
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const size = (selector: string): number | null => {
+    const rule = new RegExp(`(?:^|\\})\\s*${selector}\\s*\\{([^}]*)\\}`).exec(bare)?.[1] ?? '';
+    const m = /font-size\s*:\s*(\d+)px/.exec(rule);
+    return m === null ? null : Number(m[1]);
+  };
+  return { name: size('section\\.facility h2'), phone: size('a\\.call \\.phone'), badge: size('\\.badge') };
+}
+
+export function sizeOrderViolations(css: string): string[] {
+  const { name, phone, badge } = sizeOrder(css);
+  const out: string[] = [];
+  if (name === null || phone === null || badge === null) return [`a rule declares no literal font-size in px: name ${String(name)}, phone ${String(phone)}, badge ${String(badge)}`];
+  if (!(name > phone)) out.push(`the facility name (${name}px) is not larger than the phone number (${phone}px)`);
+  if (!(phone > badge)) out.push(`the phone number (${phone}px) is not larger than the count (${badge}px): the count must be subordinate to the number to call`);
+  return out;
+}
+
 const GOOD = facility('f1', 'Synthetic General Hospital');
 const GOOD_WARD = ward('f1', 'A_AND_E', 3);
 const SECRET_COUNT = 47;
@@ -200,9 +226,32 @@ describe('one tap-to-call link per facility', () => {
     const real = callTapTargetPx(css);
     expect(real.minHeight ?? 0, 'style.css declares no min-height of 44px or more on a.call').toBeGreaterThanOrEqual(44);
     expect(real.minWidth ?? 0, 'style.css declares no min-width of 44px or more on a.call').toBeGreaterThanOrEqual(44);
-    const planted = callTapTargetPx(css.replace(/min-height:\s*44px/, 'min-height: 40px'));
+    const planted = callTapTargetPx(css.replace(/min-height:\s*52px/, 'min-height: 40px'));
     expect(planted.minHeight, 'the plant did not reach the rule').toBe(40);
     expect(callTapTargetPx('<style>a.other { min-height: 44px }</style>'), 'a rule for another selector was read').toEqual({ minHeight: null, minWidth: null });
+  });
+
+  test('real style.css holds the size order name > phone > count, as literal px (DB-3)', () => {
+    const css = readFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'src', 'style.css'), 'utf8');
+    const out = sizeOrderViolations(css);
+    expect(out, `${out.join('\n')} -- read ${JSON.stringify(sizeOrder(css))}`).toEqual([]);
+  });
+
+  test.each([
+    ['the count raised above the phone', '.badge { font-size: 28px; }', 'is not larger than the count'],
+    ['the phone lowered below the count', 'a.call .phone { font-size: 16px; }', 'is not larger than the count'],
+    ['the name lowered below the phone', 'section.facility h2 { font-size: 18px; }', 'is not larger than the phone number'],
+  ])('plant — %s is rejected', (_name, override, message) => {
+    const base = 'section.facility h2 { font-size: 24px; }\na.call .phone { font-size: 20px; }\n.badge { font-size: 18px; }\n';
+    expect(sizeOrderViolations(base), 'the ordinary valid order must be accepted').toEqual([]);
+    const sel = override.slice(0, override.indexOf('{')).trim();
+    const planted = base.split('\n').map((l) => (l.startsWith(sel + ' ') ? override : l)).join('\n');
+    expect(planted, 'the plant did not change the rules').not.toBe(base);
+    expect(sizeOrderViolations(planted).join('\n')).toContain(message);
+  });
+
+  test('anti-vacuity — a size declared through var() reads as null and fails', () => {
+    expect(sizeOrderViolations('section.facility h2 { font: var(--text-title); }\na.call .phone { font-size: 20px; }\n.badge { font-size: 18px; }').join('\n')).toContain('declares no literal font-size');
   });
 
   test('index.html carries NO inline <style>, which the CSP would block silently, and main.ts imports the stylesheet', () => {
