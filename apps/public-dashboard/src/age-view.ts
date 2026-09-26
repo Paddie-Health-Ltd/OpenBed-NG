@@ -94,6 +94,8 @@ export interface WardLineParts {
   readonly status: WardStatus;
   /** Whether the row claims a count at all. A row that claims none gets no dot (DB-4). */
   readonly hasCount: boolean;
+  /** Whether the claim carries a qualifier ("set by admin…", "under review"). A qualified claim is never shown as live (DC-1). */
+  readonly qualified: boolean;
   readonly segments: readonly WardLineSegment[];
 }
 
@@ -108,7 +110,7 @@ export function wardLineParts(ward: DecodedRow, clock: ServeClock): WardLinePart
     state: ward['state'],
   });
   if (p.kind === 'unknown' || p.kind === 'not-reporting' || p.kind === 'not-offered') {
-    return { tone: p.kind, band: null, status: 'unknown', hasCount: false, segments: [...head, { text: p.words, role: 'words' }] };
+    return { tone: p.kind, band: null, status: 'unknown', hasCount: false, qualified: false, segments: [...head, { text: p.words, role: 'words' }] };
   }
 
   const bedCount = ward['bed_count'];
@@ -123,6 +125,7 @@ export function wardLineParts(ward: DecodedRow, clock: ServeClock): WardLinePart
     band,
     status,
     hasCount: bedCount !== null,
+    qualified: p.qualifiers !== '',
     segments: [...claim, { text: ' — ' }, { text: stamp, role: 'stamp' }],
   });
 
@@ -145,7 +148,7 @@ export function wardLineParts(ward: DecodedRow, clock: ServeClock): WardLinePart
     case 'SUPPRESSED':
       // No count, no reported time, no reason: past the ceiling nothing about the
       // old claim is shown. The facility heading and its call link stay.
-      return { tone: 'none', band: 'SUPPRESSED', status: 'unknown', hasCount: false, segments: [...head, { text: UNKNOWN_STATUS, role: 'words' }] };
+      return { tone: 'none', band: 'SUPPRESSED', status: 'unknown', hasCount: false, qualified: false, segments: [...head, { text: UNKNOWN_STATUS, role: 'words' }] };
   }
 }
 
@@ -158,11 +161,21 @@ export function wardLineParts(ward: DecodedRow, clock: ServeClock): WardLinePart
  *     stamp is neutral, whatever each row's own band. The design system: "The only living
  *     element is the freshness dot, and it only exists when" a snapshot is current.
  *   - DB-4: a row that claims no count gets a neutral stamp and no dot, whatever its band.
- *   - otherwise the stamp takes the band's colour, and an unknown age is grey.
+ *   - DC-1 (R-2026-09-26-127), as the founder corrected it: "The status fill, the dot and
+ *     a GREEN stamp appear only on a GREEN-band, unqualified row with a count, on a page
+ *     with no stale banner. Amber marks the YELLOW band wherever the page is not stale.
+ *     Everything else is neutral." So a qualified GREEN claim is grey; a YELLOW one,
+ *     qualified or not, is amber, because amber warns and never signals "live".
  */
 export function rowStyle(parts: WardLineParts, pageStale: boolean): { badge: WardStatus; stamp: 'green' | 'yellow' | 'grey' } {
   if (pageStale) return { badge: 'unknown', stamp: 'grey' };
-  const stamp = !parts.hasCount ? 'grey' : parts.band === 'GREEN' ? 'green' : parts.band === 'YELLOW' ? 'yellow' : 'grey';
+  const stamp = !parts.hasCount
+    ? 'grey'
+    : parts.band === 'GREEN'
+      ? parts.qualified ? 'grey' : 'green'
+      : parts.band === 'YELLOW'
+        ? 'yellow'
+        : 'grey';
   return { badge: parts.status, stamp };
 }
 

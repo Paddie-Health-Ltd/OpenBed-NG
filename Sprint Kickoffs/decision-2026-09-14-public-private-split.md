@@ -5758,6 +5758,40 @@ _Issued as R-PROVISIONAL-2026-09-26-DB, by Cowork on 2026-09-26, as its check of
 
 No SQL and no migration; nothing hosted was run by Claude Code.
 
+### R-2026-09-26-127 — #87 once more: a qualified claim is not shown as live; amber stays
+
+_Issued as R-PROVISIONAL-2026-09-26-DC, by Cowork on 2026-09-26, as its re-check of #87 at `13e9e88fc80677950e3cd05ef0461c02457bcec2` and of the screenshots on the founder's Mac. **Not the merge word.** It lands in #87 as a fourth commit on the same branch, with no force-push. The founder's answer on the stamp colours, relayed by Cowork the same day, lands with it. Number assigned on landing: R-2026-09-26-126 plus one. Next provisional letter: **DD**._
+
+**VERIFIED BY COWORK** (2026-09-26, GitHub API and the screenshots):
+- #87 OPEN at `13e9e88`, base `495ad0a` (= main); clean; 3 commits.
+- The compare `1b4e299...13e9e88` is 2 ahead and 0 behind, so there was no force-push.
+- Seven check runs success. No address beyond the three published ones.
+- Screenshots read: tiles at 360 full and at 1280, and snapshot-stale at 360 full.
+
+**ACCEPTED:**
+- DB-1 to DB-5 as landed, including the header measured at 16px and 184px;
+- DB-6's note inside the A7 row;
+- **the register parser now refusing a table cut short by a non-table line.** Cowork recorded this as a real fail-open in CW-6's guard, found and fixed at its cause, and as the implementer's finding;
+- the long-name fixture;
+- long stamps wrapping at word breaks on their own line at 360, as is.
+
+**DC-1 — A QUALIFIED CLAIM IS NOT SHOWN AS LIVE.**
+- **The rule, as corrected by the founder via Cowork:** "The status fill, the dot and a GREEN stamp appear only on a GREEN-band, unqualified row with a count, on a page with no stale banner. Amber marks the YELLOW band wherever the page is not stale. Everything else is neutral."
+- **A slip, Cowork's.** As issued, DC-1 restated the rule with "a coloured stamp". Read literally, that would also have greyed every amber YELLOW stamp, which neither the kickoff's D1 ("green, amber or grey") nor DC-1's own first sentence said. The implementer asked, and the founder answered **amber stays**. A qualified YELLOW row keeps amber too, because amber warns and never signals "live". The line above supersedes the wording; it is not edited.
+- **Landed.** `WardLineParts` gains `qualified`. `rowStyle` gives a qualified GREEN claim a grey stamp, and so no dot. A YELLOW claim stays amber, qualified or not. DB-1 is unchanged: under the stale banner every stamp is grey, amber included, and the stale-page leg already asserts it.
+- **Tests:**
+  - the three qualified GREEN rows now expect a grey stamp;
+  - a new row, "ageing (YELLOW), set by admin", expects amber and the not-reporting fill;
+  - a plant, a qualified fresh claim stamped green, is rejected.
+- **Red first, on `13e9e88`'s renderer:** "expected one stamp-grey, found stamp stamp-green" for "fresh, set by admin and under review", "fresh, set by admin" and "fresh, under review". The qualified YELLOW row already read amber.
+
+**DC-2 — THE LEDGER.**
+- DB's row is already here (-126), and DC's lands as -127.
+- **A premise that did not hold:** DC-2 names "DD's ledger row". DD has not been issued, so it has no row to land. By the ledger's own rule, a letter with no row has not arrived. If DD is issued before #87 merges, its row lands then.
+- The tiles screenshots were re-taken at both widths from the new head's clean build; the harness re-takes every state.
+
+No SQL and no migration; nothing hosted was run by Claude Code.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -5875,6 +5909,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | CZ | R-2026-09-26-124 | 2026-09-26 | **D1 started, and built:** `packages/design` (the tokens byte for byte, with each source's sha256; fonts self-hosted through @fontsource; the mark), and the public dashboard restyled with every sentence byte-identical, a favicon, and the colour rule. The guards were shown red first. No browser runner was added; the screenshots came from the installed Chrome. |
 | DA | R-2026-09-26-125 | 2026-09-26 | **The ward-console and admin design legs are PENDING legs:** plain tests asserting the app's current state, each red with a flip message once the app meets the guard. Not `test.todo` (it counts as skipped) and not `test.fails` (it passes on any throw). Two register rows gate them on D2's and D3's PRs. |
 | DB | R-2026-09-26-126 | 2026-09-26 | **#87 held once, amended in #87.** Under the stale banner nothing reads as live. A qualified or countless claim is not coloured. Name 24 > phone 20 > count 18, as literal px with a guard (the founder's order; DB-3's own slip recorded). The stamp takes its own line on a phone, and the header sits in the content column. A wording note is in the A7 row. The register parser now refuses a row after the table ends, a gap DB-6 would have hit. |
+| DC | R-2026-09-26-127 | 2026-09-26 | **#87 amended once more.** A qualified claim is never shown as live: no dot, and a grey stamp in place of green. Amber stays on the YELLOW band, qualified or not (the founder's correction of DC-1's "coloured stamp", Cowork's slip). DD has not been issued, so it has no row. |
 
 ## Deferred items — this record is where the list lives
 

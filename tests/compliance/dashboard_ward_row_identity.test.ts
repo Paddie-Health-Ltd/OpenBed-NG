@@ -28,6 +28,10 @@ import { REPO_ROOT } from './_scratch.js';
  *     "under review") takes the not-reporting fill even when fresh: no ward confirmed it;
  *   - the stamp takes its band's colour, and an unknown age is grey, never green;
  *   - DB-4: a row that claims no count gets a neutral stamp and no dot, whatever its band;
+ *   - DC-1 (R-2026-09-26-127, as corrected by the founder): "The status fill, the dot and a
+ *     GREEN stamp appear only on a GREEN-band, unqualified row with a count, on a page
+ *     with no stale banner. Amber marks the YELLOW band wherever the page is not stale.
+ *     Everything else is neutral.";
  *   - DB-1: under the page's stale or "can't confirm" banner NOTHING reads as live -- no
  *     status fill, no dot, every stamp neutral -- and the words do not change;
  *   - the static dot exists only on a fresh stamp: style.css holds exactly one ::before,
@@ -82,11 +86,15 @@ const CASES: readonly Case[] = [
   // whatever its band. Until DB this row's stamp was green, with the dot.
   { name: 'fresh, never reported a count', row: { category: 'SURGICAL', bed_count: null }, tone: 'fresh', status: null, stamp: 'grey' },
   // DB-2: a qualified claim is not coloured -- one row per qualifier value, and both.
-  // Until DB the both-qualifiers row read `available`.
-  { name: 'fresh, set by admin and under review', row: { category: 'MEDICAL_ADULT', source: 'ADMIN', state: 'UNDER_REVIEW' }, tone: 'fresh', status: 'unknown', stamp: 'green' },
-  { name: 'fresh, set by admin', row: { category: 'PAEDIATRIC', source: 'ADMIN' }, tone: 'fresh', status: 'unknown', stamp: 'green' },
-  { name: 'fresh, under review', row: { category: 'ICU_ADULT', state: 'UNDER_REVIEW', bed_count: 0 }, tone: 'fresh', status: 'unknown', stamp: 'green' },
+  // Until DB the both-qualifiers row read `available`. DC-1 (R-2026-09-26-127): nor is it
+  // shown as live -- no dot, a grey stamp in place of green. Until DC these read `green`.
+  { name: 'fresh, set by admin and under review', row: { category: 'MEDICAL_ADULT', source: 'ADMIN', state: 'UNDER_REVIEW' }, tone: 'fresh', status: 'unknown', stamp: 'grey' },
+  { name: 'fresh, set by admin', row: { category: 'PAEDIATRIC', source: 'ADMIN' }, tone: 'fresh', status: 'unknown', stamp: 'grey' },
+  { name: 'fresh, under review', row: { category: 'ICU_ADULT', state: 'UNDER_REVIEW', bed_count: 0 }, tone: 'fresh', status: 'unknown', stamp: 'grey' },
   { name: 'ageing (YELLOW), 3 beds', row: { category: 'PAEDIATRIC', updated_at: ageMin(45) }, tone: 'aged', status: 'unknown', stamp: 'yellow' },
+  // DC-1 as corrected by the founder: amber warns and never signals "live", so a qualified
+  // YELLOW row keeps its amber stamp, with no dot.
+  { name: 'ageing (YELLOW), set by admin', row: { category: 'SURGICAL', source: 'ADMIN', updated_at: ageMin(45) }, tone: 'aged', status: 'unknown', stamp: 'yellow' },
   { name: 'stale (GREY), 3 beds', row: { category: 'ICU_PAEDIATRIC', updated_at: ageMin(180) }, tone: 'aged', status: 'unknown', stamp: 'grey' },
   { name: 'past the ceiling (SUPPRESSED)', row: { category: 'NICU', updated_at: ageMin(13 * 60) }, tone: 'none', status: null, stamp: null },
   { name: 'not reporting (PENDING)', row: { category: 'MATERNITY', monitoring_state: 'PENDING' }, tone: 'not-reporting', status: null, stamp: null },
@@ -234,6 +242,14 @@ describe('a ward row says exactly what wardLine says, and colours only a fresh c
     li.className = 'age-fresh';
     li.innerHTML = '<span class="ward-category">Paediatric</span>: <span class="badge status-available">3 beds</span> — set by admin, not ward-confirmed — <span class="stamp stamp-green">updated 5 min ago</span>';
     expect(rowViolations(li, li.textContent ?? '', c).join('\n')).toContain('expected one badge with status-unknown');
+  });
+
+  test('plant — a qualified fresh claim stamped green, with the dot, is rejected (DC-1)', () => {
+    const c = CASES.find((x) => x.name === 'fresh, set by admin') as Case;
+    const li = document.createElement('li');
+    li.className = 'age-fresh';
+    li.innerHTML = '<span class="ward-category">Paediatric</span>: <span class="badge status-unknown">3 beds</span> — set by admin, not ward-confirmed — <span class="stamp stamp-green">updated 5 min ago</span>';
+    expect(rowViolations(li, li.textContent ?? '', c).join('\n')).toContain('expected one stamp-grey, found stamp stamp-green');
   });
 
   test('plant — a row with no count stamped green (with the dot) is rejected (DB-4)', () => {
