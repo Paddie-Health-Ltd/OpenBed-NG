@@ -112,12 +112,17 @@ const DELIBERATE_ABSENCES: Record<string, string> = {
  * from a script, a rule file, a test or a workflow reds regardless -- those are
  * executable artefacts, and a reader of one has no reason to expect a plan.
  */
-const PLANNED_ARTEFACTS: Record<string, { stage: number }> = {
+const PLANNED_ARTEFACTS: Record<string, { stage: number | string }> = {
   'docs/runbook-snapshot-stopped.md': { stage: 1 },
   'packages/fixtures/referral-columns.json': { stage: 5 },
   'scripts/lint_referral_ward_to_ward.sh': { stage: 5 },
   'tests/compliance/referral_ward_to_ward.test.ts': { stage: 5 },
   'tests/db/referral_column_list.test.ts': { stage: 5 },
+  // The design-pass kickoff (R-2026-09-26-121, committed byte-identical) specifies the
+  // shared design foundation, which its bundle D1 builds. Numbered stages above are the
+  // v2 kickoff's; this one is the design pass's bundle label. The anti-rot leg reds the
+  // moment D1 creates the directory, so D1 must delete this entry.
+  'packages/design': { stage: 'D1' },
 };
 
 /**
@@ -185,7 +190,7 @@ function collectCitations(): Citation[] {
  */
 export function phantomViolations(
   citations: Citation[],
-  planned: Record<string, { stage: number }>,
+  planned: Record<string, { stage: number | string }>,
   exists: (path: string) => boolean,
 ): string[] {
   const sites = new Map<string, string[]>();
@@ -224,7 +229,7 @@ export function phantomViolations(
  * it, and a registered path nobody cites is dead weight widening the surface.
  */
 export function staleRegisterEntries(
-  planned: Record<string, { stage: number }>,
+  planned: Record<string, { stage: number | string }>,
   exists: (path: string) => boolean,
   citedPaths: Set<string>,
 ): string[] {

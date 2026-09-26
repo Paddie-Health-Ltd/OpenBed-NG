@@ -3779,6 +3779,34 @@ through the admin app.
      off on 2026-09-25, and the served file now equals the tracked one byte for byte on
      both hosts. `scripts/readback_pages.sh` compares both (read-back 7). The `noindex`
      decision is still the founder's, so the box stays open.
+   - [ ] The design pass: the OpenBed design system applied to the public dashboard, the
+     ward console and admin; each deployed from merged `main`, read back PASS,
+     browser-checked at 360 px and desktop widths, and the look approved by the founder
+     in the browser. (R-2026-09-26-121 CW-1) **Closes only when** all three apps are
+     deployed and the founder approves. A merge alone does not close it.
+   - [ ] The founder's launch paperwork register reads Approved on every item. The
+     register is outside this repository. (R-2026-09-26-121 CW-2) It does not replace
+     the first box above.
+   - [ ] The facility agreement grants the facility's permission to publish its live
+     capacity (Blocks facility-one onboarding, B1): the clause is drafted, is in the
+     agreement version the facility accepts, and is approved by the founder. It is
+     drafted as part of the founder's paperwork register item 8. (B1, recorded
+     2026-09-14; made a box by R-2026-09-26-122 CX-1) *The item number is Cowork's
+     statement about a register outside this repository.*
+
+   *Added 2026-09-26 (R-2026-09-26-121 CW-1, CW-2):* the last two boxes. Since then
+   every deferral in the decision record names exactly one gate, BOX, TRIGGER or VERSION,
+   and its section "Deferred items — this record is where the list lives" holds them
+   all. **Every unticked box here has a BOX row there, and every BOX row there cites a
+   ruling that a box here carries.** `tests/compliance/deferred_items.test.ts` holds the
+   two to each other. *Restated 2026-09-26:* the list's head above says "**None is
+   closed here.**" That was true when the list was compiled. Boxes 2 and 3 have been
+   ticked since R-2026-09-25-119 CU-6, each by the ruling named in it.
+
+   *Added 2026-09-26 (R-2026-09-26-122 CX-1):* the last box, B1's clause, which the
+   first compile missed because it never searched for the hyphenated "facility-one". On
+   2026-09-26 the checklist holds 16 boxes, 2 ticked. B1's onboarding check is not a box,
+   because it cannot run before a ward account exists. It is steps 6 and 9 below.
 
    *Restated 2026-09-25 (R-2026-09-25-115, then -116).* Until 2026-09-25 this item was
    headed "The -45 stop condition first". It read: "Step 4b must read CLOSED on every
@@ -3814,11 +3842,55 @@ through the admin app.
    would show it, including text from Auth or the database. That holds from the merge of
    the pull request carrying it. A checkout older than that still prints it, so mask by
    hand there.
-6. **List** the facility in the admin app. The List button is enabled only once the
+6. **B1's check: the first ward account reads its own history** (B1, recorded
+   2026-09-14; R-2026-09-26-122 CX-1 b). Run it once, straight after facility one's first
+   ward account is provisioned in step 5. It reads as that ward, inside one transaction
+   that ends in `rollback`, so it changes nothing.
+
+   The three reads wait, in order, for the database URL, the ward's **account id**, and
+   its category code. Take the id from step 5's own output (the `-> account <id>` part of
+   its `provisioned` line), or from `app.ward_account` by facility and category. **Never
+   look it up in `auth.users` by address.** The check prints no address.
+
+   ```bash
+   export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+   read -rs DATABASE_URL && export DATABASE_URL
+   read -r WARD_USER_ID
+   read -r CATEGORY
+   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "begin; select set_config('request.jwt.claims', json_build_object('sub', '$WARD_USER_ID', 'role', 'authenticated')::text, true) is not null as claims_set; set local role authenticated; select count(*) as history_rows from public.ward_status_history('$CATEGORY'); rollback;"
+   unset DATABASE_URL WARD_USER_ID CATEGORY
+   ```
+
+   **PASS:** `claims_set` reads `t`, a `history_rows` count comes back (0 is a pass: no
+   status has been published yet), and the last line is `ROLLBACK`. **FAIL:** `ERROR:
+   NOT_A_MEMBER` or `NOT_AUTHENTICATED`, which are both 42501, or any other error. Stop
+   and report it. Observed on the local stack on 2026-09-26: a ward account at its own
+   facility read `history_rows 0` and `ROLLBACK`; an id with no account read
+   `ERROR:  NOT_A_MEMBER`.
+
+   **What this does NOT prove: HTTP reach.** It runs the function's membership check as
+   the real account on hosted, but not through PostgREST. The transport is proved by
+   `tests/db/rpc_over_http_live.test.ts` locally, where a GoTrue token calls the function
+   through PostgREST and reads 200, and by step 5's post-apply probe on hosted.
+   **Superseded by reference, not edited:** B1's 2026-09-15 wording, "a real ward session
+   reads `ward_status_history` over HTTP and gets 200". That cannot be run on hosted. The
+   path is closed at `api.openbed.ng` on purpose: the Worker's allow-list does not
+   forward it, and no app calls it. The allow-list is not widened for a check. The real
+   path is checked end to end at step 9.
+7. **List** the facility in the admin app. The List button is enabled only once the
    contact, the agreement and a category exist. The database refuses it otherwise
    (021:273-285).
-7. **Read back `/beds.json`:** the facility appears within the snapshot's regeneration
+8. **Read back `/beds.json`:** the facility appears within the snapshot's regeneration
    interval. Use `bash scripts/readback_pages.sh`, as its runbook says.
+9. **The real path, end to end** (B1; R-2026-09-26-122 CX-1 b). Run it only once
+   facility one is listed. The first publish from facility one's ward console, through
+   `api.openbed.ng`, must succeed: the console says it was published. The count it
+   published must then read back from `/beds.json` for that ward, read as step 8 reads
+   it, within the snapshot's regeneration interval. **FAIL:** a refused publish, or a
+   `/beds.json` that does not show that count. Stop and report it.
+
+   *Renumbered 2026-09-26 (R-2026-09-26-122):* steps 6 and 9 are new, and the old steps 6
+   (List) and 7 (Read back) are now 7 and 8. Nothing cited them by number.
 
 ### 12.5 Withdrawing an agreement
 
