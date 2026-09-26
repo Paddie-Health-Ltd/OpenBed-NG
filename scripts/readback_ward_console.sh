@@ -4,7 +4,8 @@
 # ============================================================
 # THE WARD CONSOLE'S DEPLOY READ-BACK: the stamp (step 2) and the live-key probe
 # with both of its halves (step 3) of docs/runbook-ward-console-deploy.md
-# (R-2026-09-23-64). Until the R-2026-09-23-70 H4 note these were pasted fences, and
+# (R-2026-09-23-64), and since the design pass's D2 (R-2026-09-26-132) the favicon on
+# both hosts and one self-hosted font, as scripts/readback_pages.sh reads them. Until the R-2026-09-23-70 H4 note these were pasted fences, and
 # on H4 the paste produced a false STOP. Why they are a script now, and the contract
 # every read-back keeps, is in scripts/readback_common.sh.
 #
@@ -83,6 +84,50 @@ rb_matches 'assets/index-[A-Za-z0-9_-]*\.js'
 rb_expect "app.openbed.ng bundles the page loads" "$RB_COUNT" 1
 SITE="$SITE_BEFORE"
 
+echo
+echo "=== /favicon.ico on $SITE and on $DOMAIN: byte for byte this checkout's apps/ward-console/public/favicon.ico, and never the SPA's HTML ==="
+# The design pass (D2; R-2026-09-26-122 CX-3), as scripts/readback_pages.sh does for the
+# public dashboard: until D2 the SPA fallback answered /favicon.ico with the page. The
+# byte comparison is the exact signal, since the page's HTML can never equal the icon.
+for host in "$SITE_BEFORE" "$DOMAIN"; do
+    SITE="$host"
+    label="favicon.ico"
+    [ "$host" = "$DOMAIN" ] && label="app.openbed.ng favicon.ico"
+    site_probe GET /favicon.ico
+    rb_expect "$label status" "$RB_CODE" 200
+    rb_same_bytes "$label" "$ROOT/apps/ward-console/public/favicon.ico"
+    ct="$(rb_header content-type)"
+    case "$ct" in
+        text/html*) rb_wrong "$label content-type" "$ct" "must not be text/html: that is the SPA fallback, not the icon" ;;
+        *) rb_ok "$label content-type" "$ct" ;;
+    esac
+done
+SITE="$SITE_BEFORE"
+
+echo
+echo "=== a self-hosted font: the stylesheet $SITE/ links, and one woff2 it names, served as font/woff2 ==="
+# The design pass's fonts are woff2 files the build copies into /assets (D2, as D1). A font
+# served as anything but font/woff2 fails silently under X-Content-Type-Options: nosniff.
+page_probe /
+rb_matches '/assets/[A-Za-z0-9_.-]+[.]css'
+if [ "$RB_COUNT" -eq 0 ]; then
+    rb_wrong "page stylesheet" "(none)" "the page must link its built stylesheet"
+else
+    css_path="${RB_MATCHES%%$'\n'*}"
+    rb_ok "page stylesheet" "$css_path"
+    site_probe GET "$css_path"
+    rb_matches '/assets/[A-Za-z0-9_.-]+[.]woff2'
+    if [ "$RB_COUNT" -eq 0 ]; then
+        rb_wrong "stylesheet fonts" "(none)" "the stylesheet must name its self-hosted woff2 fonts"
+    else
+        font_path="${RB_MATCHES%%$'\n'*}"
+        rb_ok "stylesheet fonts" "$RB_COUNT woff2, first $font_path"
+        site_probe GET "$font_path"
+        rb_expect "font status" "$RB_CODE" 200
+        rb_expect "font content-type" "$(rb_header content-type)" "font/woff2"
+    fi
+fi
+
 site_probe GET "/$BUNDLE"
 rb_matches 'sb_publishable_[A-Za-z0-9_-]*'
 DEPLOYED_KEY="$RB_MATCHES"
@@ -99,4 +144,4 @@ DEAD_CODE="$RB_CODE"
 rb_expect "step 3 dead half status" "$DEAD_CODE" 401
 rb_expect_contains "step 3 dead half body" "$(rb_body 200)" '"message":"Invalid API key"'
 
-rb_verdict "the stamp names this checkout, the deployed key is accepted at the edge, and a wrong key is refused."
+rb_verdict "the stamp names this checkout, the favicon on both hosts and a self-hosted font are served as they must be, the deployed key is accepted at the edge, and a wrong key is refused."

@@ -23,7 +23,8 @@ import { REPO_ROOT } from './_scratch.js';
  *   - the exports map names every file an app imports, and every file it names exists
  *     (tests/compliance/tracked_client_keys.test.ts resolves subpaths through it).
  *   - the public dashboard ships a real /favicon.ico (R-2026-09-26-122 CX-3): an ICO,
- *     copied unchanged into the build, so that path is never the SPA's HTML.
+ *     copied unchanged into the build, so that path is never the SPA's HTML. The ward
+ *     console ships the same icon since D2 (R-2026-09-26-132 DH-3).
  *   - NOTICE carries both fonts' OFL-1.1 attributions.
  */
 
@@ -151,6 +152,21 @@ describe('packages/design ships what the design system and the kickoff specify',
     expect(existsSync(built), 'dist/favicon.ico is missing: run npm run build').toBe(true);
     expect(readFileSync(built).equals(src), 'dist/favicon.ico differs from public/favicon.ico').toBe(true);
     const html = readFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'index.html'), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+    expect(html).toMatch(/<link rel="icon" type="image\/svg\+xml" href="[^"]*openbed-mark\.svg" \/>/);
+  });
+
+  // D2 (R-2026-09-26-132 DH-3): the ward console, the same way. One mark, so one icon: its
+  // favicon.ico is the dashboard's, byte for byte.
+  test('the ward console ships a real /favicon.ico, the dashboard\'s icon, copied unchanged into the build, and links the SVG icon', () => {
+    const src = readFileSync(join(REPO_ROOT, 'apps', 'ward-console', 'public', 'favicon.ico'));
+    expect(Array.from(src.subarray(0, 4)), 'apps/ward-console/public/favicon.ico is not an ICO (magic 00 00 01 00)').toEqual([0, 0, 1, 0]);
+    expect(src.readUInt16LE(4), 'apps/ward-console/public/favicon.ico holds no image').toBeGreaterThan(0);
+    const dashboard = readFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'public', 'favicon.ico'));
+    expect(src.equals(dashboard), 'the ward console\'s favicon.ico is not the dashboard\'s: one mark, one icon').toBe(true);
+    const built = join(REPO_ROOT, 'apps', 'ward-console', 'dist', 'favicon.ico');
+    expect(existsSync(built), 'apps/ward-console/dist/favicon.ico is missing: run npm run build').toBe(true);
+    expect(readFileSync(built).equals(src), 'apps/ward-console/dist/favicon.ico differs from its public/favicon.ico').toBe(true);
+    const html = readFileSync(join(REPO_ROOT, 'apps', 'ward-console', 'index.html'), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
     expect(html).toMatch(/<link rel="icon" type="image\/svg\+xml" href="[^"]*openbed-mark\.svg" \/>/);
   });
 

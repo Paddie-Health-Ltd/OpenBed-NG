@@ -823,7 +823,9 @@ describe('lint_no_third_party_fonts.sh', () => {
 type DesignState = 'real' | 'pending D2' | 'pending D3';
 const DESIGN_STATE: Record<string, { viewport: DesignState; applied: DesignState }> = {
   'public-dashboard': { viewport: 'real', applied: 'real' },
-  'ward-console': { viewport: 'pending D2', applied: 'pending D2' },
+  // Real since D2 (R-2026-09-26-132 DH-3 c): its PENDING legs read their flip message on
+  // the real app, then were replaced by these, in the PR that applied the design.
+  'ward-console': { viewport: 'real', applied: 'real' },
   admin: { viewport: 'real', applied: 'pending D3' },
 };
 const FLIP = (pr: string): string =>

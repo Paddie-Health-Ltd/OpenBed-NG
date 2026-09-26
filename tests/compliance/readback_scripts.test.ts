@@ -96,6 +96,8 @@ function repo(root: string, opts: { pushed?: boolean; remote?: boolean; headers?
   if (opts.headers !== false) copyFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'public', 'robots.txt'), join(work, 'apps', 'public-dashboard', 'public', 'robots.txt'));
   // And the tracked favicon, which both hosts must serve byte for byte (R-2026-09-26-122 CX-3).
   if (opts.headers !== false) copyFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'public', 'favicon.ico'), join(work, 'apps', 'public-dashboard', 'public', 'favicon.ico'));
+  // The ward console's, since D2 (R-2026-09-26-132 DH-3).
+  if (opts.headers !== false) copyFileSync(join(REPO_ROOT, 'apps', 'ward-console', 'public', 'favicon.ico'), join(work, 'apps', 'ward-console', 'public', 'favicon.ico'));
   // The admin read-back reads its Pages project name from here, never retyped.
   mkdirSync(join(work, 'apps', 'admin'), { recursive: true });
   copyFileSync(join(REPO_ROOT, 'apps', 'admin', 'wrangler.toml'), join(work, 'apps', 'admin', 'wrangler.toml'));
@@ -483,12 +485,22 @@ const API = 'https://api.openbed.ng';
 const DEPLOYED_KEY = 'sb_publishable_DEPLOYED_KEY_IN_THE_BUNDLE';
 const WRONG_KEY = 'sb_publishable_DELIBERATELY_WRONG_FOR_THE_FAILING_HALF';
 
+/** The ward console's page since D2: its one module script and its built stylesheet. */
+const WARD_PAGE = '<!doctype html><script type="module" crossorigin src="/assets/index-B7kFspkD.js"></script><link rel="stylesheet" crossorigin href="/assets/index-Dzzg2EAS.css">';
+/** The ward console's tracked favicon, read, never retyped (D2; R-2026-09-26-122 CX-3). */
+const WARD_FAVICON: Answer = { status: 200, headers: { 'content-type': 'image/x-icon' }, bodyBase64: readFileSync(join(REPO_ROOT, 'apps', 'ward-console', 'public', 'favicon.ico')).toString('base64') };
+
 function wardFixtures(head: string): Fixtures {
   return {
     [`GET ${WARD}/version.json`]: { status: 200, body: stampOf(head) },
-    [`GET ${WARD}/`]: { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('ward-console') }, body: '<!doctype html><script type="module" crossorigin src="/assets/index-B7kFspkD.js"></script>' },
+    [`GET ${WARD}/`]: { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('ward-console') }, body: WARD_PAGE },
     // The custom domain serves the same deployment (R-2026-09-25-119 CU-5 b).
-    [`GET ${WARD_DOMAIN}/`]: { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('ward-console') }, body: '<!doctype html><script type="module" crossorigin src="/assets/index-B7kFspkD.js"></script>' },
+    [`GET ${WARD_DOMAIN}/`]: { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('ward-console') }, body: WARD_PAGE },
+    // The favicon on both hosts, and one self-hosted font through the page's stylesheet (D2).
+    [`GET ${WARD}/favicon.ico`]: WARD_FAVICON,
+    [`GET ${WARD_DOMAIN}/favicon.ico`]: WARD_FAVICON,
+    [`GET ${WARD}/assets/index-Dzzg2EAS.css`]: { status: 200, headers: { 'content-type': 'text/css; charset=utf-8' }, body: DASH_CSS },
+    [`GET ${WARD}${FONT_PATH}`]: { status: 200, headers: { 'content-type': 'font/woff2' }, body: 'wOF2' },
     [`GET ${WARD}/assets/index-B7kFspkD.js`]: { status: 200, body: `const k="${DEPLOYED_KEY}";` },
     [`GET ${API}/auth/v1/settings apikey=${DEPLOYED_KEY}`]: { status: 200, headers: { 'x-openbed-proxy': 'forwarded' }, body: '{"external":{"email":true}}' },
     [`GET ${API}/auth/v1/settings apikey=${WRONG_KEY}`]: { status: 401, headers: { 'x-openbed-proxy': 'forwarded' }, body: '{"message":"Invalid API key","hint":"Double check your Supabase `anon` or `service_role` API key."}' },
@@ -514,10 +526,14 @@ describe('scripts/readback_ward_console.sh', () => {
         'step 3 live half body',
         'step 3 dead half status',
         'step 3 dead half body',
+        // D2 (R-2026-09-26-132 DH-3): the favicon on both hosts, and a self-hosted font.
+        'favicon.ico status', 'favicon.ico', 'favicon.ico content-type',
+        'app.openbed.ng favicon.ico status', 'app.openbed.ng favicon.ico', 'app.openbed.ng favicon.ico content-type',
+        'page stylesheet', 'stylesheet fonts', 'font status', 'font content-type',
       ]) {
         expect(r.out, `the check "${check}" never ran`).toContain(`  ok     ${check}: `);
       }
-      expect(r.out).toContain('PASS: the stamp names this checkout, the deployed key is accepted at the edge, and a wrong key is refused.');
+      expect(r.out).toContain('PASS: the stamp names this checkout, the favicon on both hosts and a self-hosted font are served as they must be, the deployed key is accepted at the edge, and a wrong key is refused.');
       expect(r.calls, 'the key was not read out of the DEPLOYED bundle').toContain(`GET ${API}/auth/v1/settings apikey=${DEPLOYED_KEY}`);
       expect(r.calls, 'the failing half was never sent').toContain(`GET ${API}/auth/v1/settings apikey=${WRONG_KEY}`);
     });
@@ -533,6 +549,13 @@ describe('scripts/readback_ward_console.sh', () => {
     ['a console page served with no CSP', (f) => { f[`GET ${WARD}/`] = { status: 200, headers: without(trackedHeaders('ward-console'), 'content-security-policy'), body: '<!doctype html><script type="module" crossorigin src="/assets/index-B7kFspkD.js"></script>' }; }, 'step 3 content-security-policy'],
     // THE PRE-CS DEPLOY (R-2026-09-25-117 CS-2 f): its CSP names the local origin beside the production one. Held to the
     // production rendering, it reads WRONG, which is the failing half of the ward console's redeploy step.
+    // The design pass (D2; R-2026-09-26-122 CX-3): the favicon is never the SPA's HTML, on either host, and the fonts are self-hosted woff2.
+    ['/favicon.ico answered by the SPA fallback', (f) => { f[`GET ${WARD}/favicon.ico`] = { status: 200, headers: { 'content-type': 'text/html' }, body: WARD_PAGE }; }, 'favicon.ico content-type'],
+    ['/favicon.ico answered by the SPA fallback on app.openbed.ng only', (f) => { f[`GET ${WARD_DOMAIN}/favicon.ico`] = { status: 200, headers: { 'content-type': 'text/html' }, body: WARD_PAGE }; }, 'app.openbed.ng favicon.ico content-type'],
+    ['a favicon that is not the tracked icon', (f) => { f[`GET ${WARD}/favicon.ico`] = { status: 200, headers: { 'content-type': 'image/x-icon' }, bodyBase64: Buffer.from('not the icon').toString('base64') }; }, 'favicon.ico'],
+    ['a font served as application/octet-stream', (f) => { f[`GET ${WARD}${FONT_PATH}`] = { status: 200, headers: { 'content-type': 'application/octet-stream' }, body: 'wOF2' }; }, 'font content-type'],
+    ['a stylesheet that names no woff2', (f) => { f[`GET ${WARD}/assets/index-Dzzg2EAS.css`] = { status: 200, headers: { 'content-type': 'text/css' }, body: 'body{margin:0}' }; }, 'stylesheet fonts'],
+    ['a page that links no stylesheet', (f) => { const page = { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('ward-console') }, body: '<!doctype html><script type="module" crossorigin src="/assets/index-B7kFspkD.js"></script>' }; f[`GET ${WARD}/`] = page; f[`GET ${WARD_DOMAIN}/`] = page; }, 'page stylesheet'],
     ['the pre-CS deployment, whose CSP also names the local origin', (f) => { const h = trackedHeaders('ward-console'); f[`GET ${WARD}/`] = { status: 200, headers: { ...h, 'content-security-policy': (h['content-security-policy'] as string).replace(ORIGINS_JSON.api.production, `${ORIGINS_JSON.api.production} ${ORIGINS_JSON.api.local}`) }, body: '<!doctype html><script type="module" crossorigin src="/assets/index-B7kFspkD.js"></script>' }; }, 'step 3 content-security-policy'],
   ])('plant — %s is a STOP', (_label, plant, check) => {
     withScratch((root) => {

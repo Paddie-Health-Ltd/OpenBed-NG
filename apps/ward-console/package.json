@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@openbed/auth": "*",
+    "@openbed/design": "*",
     "@openbed/labels": "*",
     "@openbed/origins": "*"
   }
