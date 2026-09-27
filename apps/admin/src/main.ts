@@ -3,8 +3,10 @@ import { apiOrigin } from '@openbed/origins';
 import { publishableKeyFor } from '@openbed/origins/keys';
 import { PRIVACY_NOTICE_URL } from '@openbed/origins/privacy';
 import { categoryLabel } from '@openbed/labels';
-import { ADMIN_FIXED, ADMIN_SCREENS as W, WARD_CATEGORIES } from '@openbed/labels/admin';
+import { ADMIN_CODES, ADMIN_FIXED, ADMIN_SCREENS as W, WARD_CATEGORIES } from '@openbed/labels/admin';
 import { elapsedSince, freshnessBand, lagosTime, markFetch, type FetchMark, type FreshnessBand } from '@openbed/snapshot';
+import '@openbed/design/tokens.css';
+import '@openbed/design/fonts.css';
 import './style.css';
 import {
   RPC,
@@ -69,6 +71,20 @@ import { adminMessageFor, type Refusal } from './messages.js';
  * number the public page shows for an emergency call -- is never sent on the Save press:
  * it needs an explicit confirm, and Cancel sends nothing. A latitude or longitude change
  * is shown the same way, without a confirm; the database CHECK is the backstop.
+ *
+ * THE DESIGN PASS, D3 (R-2026-09-27-139 DO-4, DO-5). Every status line is a Notice with
+ * role="status", in the design system's two tones: info for what went through, caution
+ * for every refusal or failure; the words are unchanged. The operator forms do their own
+ * validation (noValidate), in their own sentences, with focus on the field that needs
+ * fixing; the sign-in form keeps the browser's, as the ward console's does (-134 DJ).
+ *
+ * AN UPDATE CHANGES ONLY WHAT IT UPDATED (DO-4 d; the ward console's -133 DI-1). A write
+ * in one section of a facility's view re-reads the facility and patches the lines that
+ * show saved state; it never rebuilds a form that holds another write's unsent input or
+ * Notice. A form with unsent input keeps the saved row it was filled from, so its Save is
+ * still checked against what the operator saw: the edit sends THAT version, never one a
+ * later read brought in. A section is rebuilt only when what it offers changes (an
+ * agreement recorded, a facility become listable or listed).
  */
 
 const API_URL = apiOrigin(window.location.hostname);
@@ -87,8 +103,37 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, classN
   return e;
 }
 
-function show(heading: string, detail: string): void {
-  appRoot()?.replaceChildren(el('h1', heading), el('p', detail));
+/**
+ * A NOTICE'S TONE, FROM THE DESIGN SYSTEM'S OWN Notice (D3, as the ward console's -133
+ * DI-2): info for what went through (a facility created, saved or listed, a ward category
+ * added, a contact saved, an agreement recorded, the link-sent sentence), caution for
+ * every refusal or failure. There is no green tone. The words carry the meaning; the tone
+ * never does on its own.
+ */
+type Tone = 'info' | 'caution';
+
+/** Writes a status line and its tone. Empty text clears both, and style.css hides the line. */
+function say(p: HTMLElement, text: string, tone: Tone): void {
+  p.textContent = text;
+  p.classList.remove('notice-info', 'notice-caution');
+  if (text !== '') p.classList.add(`notice-${tone}`);
+}
+
+/** A status line: a Notice, announced by assistive tech, empty until there is something to say. */
+function statusLine(text = '', tone: Tone = 'info'): HTMLParagraphElement {
+  const p = el('p', undefined, 'status notice');
+  p.setAttribute('role', 'status');
+  say(p, text, tone);
+  return p;
+}
+
+/**
+ * A heading and one line. Every screen shown this way refuses something (a bad link, a
+ * load that failed, a stop, a session that ended), so its line is a caution Notice, words
+ * unchanged -- except the signed-out landing's instruction, the page's own lead text.
+ */
+function show(heading: string, detail: string, kind: 'caution' | 'lead' = 'caution'): void {
+  appRoot()?.replaceChildren(el('h1', heading), el('p', detail, kind === 'lead' ? 'lead' : 'notice notice-caution'));
 }
 
 // ------------------------------------------------------------------ calls
@@ -219,7 +264,8 @@ function renderRegister(holder: SessionHolder, reg: Register, mark: FetchMark, n
   const create = el('button', 'New facility');
   create.type = 'button';
   create.addEventListener('click', () => openCreate(holder));
-  const status = el('p', notice ?? '', 'status');
+  // The one message this screen is given is a facility created (openCreate).
+  const status = statusLine(notice ?? '', 'info');
   const list = el('ul', undefined, 'register');
 
   // In the order the server returned (021: ORDER BY name, id). Never re-sorted, never
@@ -227,32 +273,45 @@ function renderRegister(holder: SessionHolder, reg: Register, mark: FetchMark, n
   for (const f of reg.facilities) {
     const card = el('li', undefined, 'facility');
     if (f.kind === 'unreadable') {
-      card.append(el('p', "This facility's record could not be read. Reload the page."));
+      card.append(el('p', "This facility's record could not be read. Reload the page.", 'notice notice-caution'));
       list.append(card);
       continue;
     }
     card.dataset['facilityId'] = f.facilityId;
-    card.append(el('h2', f.name), el('p', `${f.lga}, ${f.state}`), el('p', f.listedAt === null ? W.NOT_LISTED : W.LISTED, 'listed'));
-    if (!f.isActive) card.append(el('p', W.SWITCHED_OFF, 'warning'));
-    if (f.listedAt !== null && !f.hasContact) card.append(el('p', W.NO_CONTACT_WARNING, 'warning'));
-    if (f.agreementState === 'withdrawn') card.append(el('p', W.WITHDRAWN_WARNING, 'warning'));
-    card.append(checklist(f));
+    // FIVE CELLS, IN THE ORDER THE CARD HAS ALWAYS READ (D3): a card on a narrow screen,
+    // a row of a table at 960 px and wider (style.css). The same elements and words; the
+    // cells only group them for the table's columns.
+    const who = el('div', undefined, 'cell cell-facility');
+    who.append(el('h2', f.name), el('p', `${f.lga}, ${f.state}`));
+    const standing = el('div', undefined, 'cell cell-listed');
+    standing.append(el('p', f.listedAt === null ? W.NOT_LISTED : W.LISTED, 'listed'));
+    if (!f.isActive) standing.append(el('p', W.SWITCHED_OFF, 'warning notice notice-caution'));
+    if (f.listedAt !== null && !f.hasContact) standing.append(el('p', W.NO_CONTACT_WARNING, 'warning notice notice-caution'));
+    if (f.agreementState === 'withdrawn') standing.append(el('p', W.WITHDRAWN_WARNING, 'warning notice notice-caution'));
+    const needs = el('div', undefined, 'cell cell-checklist');
+    needs.append(checklist(f));
+    const wardsCell = el('div', undefined, 'cell cell-wards');
     const bands = f.categories.map((w) => wardBand(w, reg, mark)).filter((b): b is FreshnessBand => b !== null);
     if (bands.length > 0) {
       const worst = bands.reduce((a, b) => (BAND_ORDER.indexOf(b) > BAND_ORDER.indexOf(a) ? b : a));
-      card.append(el('p', `Worst ward: ${BAND_WORD[worst]}`, 'worst'));
+      wardsCell.append(el('p', `Worst ward: ${BAND_WORD[worst]}`, 'worst'));
     }
     const wards = el('ul', undefined, 'wards');
     for (const w of f.categories) wards.append(wardLine(w, reg, mark));
+    wardsCell.append(wards);
     const open = el('button', 'Open');
     open.type = 'button';
     open.addEventListener('click', () => guarded(openFacility(holder, f.facilityId)));
-    card.append(wards, open);
+    const action = el('div', undefined, 'cell cell-open');
+    action.append(open);
+    card.append(who, standing, needs, wardsCell, action);
     list.append(card);
   }
 
-  root.replaceChildren(el('h1', W.REGISTER_HEADING), reload, create, status);
-  if (reg.facilities.length === 0) root.append(el('p', W.REGISTER_EMPTY));
+  const actions = el('div', undefined, 'actions');
+  actions.append(reload, create);
+  root.replaceChildren(el('h1', W.REGISTER_HEADING), actions, status);
+  if (reg.facilities.length === 0) root.append(el('p', W.REGISTER_EMPTY, 'lead'));
   root.append(list);
 }
 
@@ -280,7 +339,7 @@ async function loadRegister(holder: SessionHolder, notice?: string): Promise<Reg
 // ------------------------------------------------------------------ forms
 
 function field(label: string, name: string, value = '', type = 'text'): { wrap: HTMLLabelElement; input: HTMLInputElement } {
-  const wrap = el('label', `${label} `);
+  const wrap = el('label', `${label} `, type === 'checkbox' ? 'check' : 'field');
   const input = el('input');
   input.name = name;
   input.type = type;
@@ -304,8 +363,8 @@ function phoneField(label: string, name: string, value = ''): { wrap: HTMLLabelE
 }
 
 function select(label: string, name: string, options: readonly (readonly [string, string])[]): { wrap: HTMLLabelElement; input: HTMLSelectElement } {
-  const wrap = el('label', `${label} `);
-  const input = el('select');
+  const wrap = el('label', `${label} `, 'field');
+  const input = el('select', undefined, 'select');
   input.name = name;
   // No default: an empty first choice the operator must replace.
   const none = el('option', 'Choose');
@@ -320,23 +379,29 @@ function select(label: string, name: string, options: readonly (readonly [string
   return { wrap, input };
 }
 
-/** A form whose submit button is disabled while its request is in flight. */
+/**
+ * A form whose submit button is disabled while its request is in flight. IT DOES ITS OWN
+ * VALIDATION (R-2026-09-27-139 DO-4 c, DO-5 a): with the browser's, a malformed email or
+ * date showed the browser's own bubble, in the browser's words. Every check the browser
+ * made is made by the form itself (see refuse), so nothing it caught is now let through.
+ */
 function form(name: string, submitText: string, parts: HTMLElement[], onSubmit: (status: HTMLParagraphElement) => Promise<void>): HTMLFormElement {
-  const f = el('form', undefined, name);
-  const button = el('button', submitText);
+  const f = el('form', undefined, `${name} operator-form`);
+  f.noValidate = true;
+  const button = el('button', submitText, 'primary');
   button.type = 'submit';
-  const status = el('p', '', 'status');
+  const status = statusLine();
   f.addEventListener('submit', (event) => {
     event.preventDefault();
     if (button.disabled) return;
     button.disabled = true;
-    status.textContent = '';
+    say(status, '', 'info');
     void onSubmit(status)
       .catch((e: unknown) => {
         if (e instanceof SessionExpiredError) signedOut(W.SIGNED_OUT);
         else {
           console.error('OpenBed admin: a form failed');
-          status.textContent = ADMIN_FIXED.UNRECOGNISED;
+          say(status, ADMIN_FIXED.UNRECOGNISED, 'caution');
         }
       })
       .finally(() => {
@@ -347,6 +412,15 @@ function form(name: string, submitText: string, parts: HTMLElement[], onSubmit: 
   return f;
 }
 
+/** A value this page cannot send: its own sentence, as a caution Notice, and focus on the field to fix. */
+function refuse(status: HTMLParagraphElement, sentence: string, input: HTMLInputElement | HTMLSelectElement): void {
+  say(status, sentence, 'caution');
+  input.focus();
+}
+
+/** The check the browser made on an email field, made here in this page's own words (DO-4 c). */
+const EMAIL_UNREADABLE = 'That email address is not in a form this page can read. Check it for a missing @ or a space.';
+
 function facilityFieldsFrom(parts: {
   name: HTMLInputElement;
   lga: HTMLInputElement;
@@ -354,13 +428,14 @@ function facilityFieldsFrom(parts: {
   lat: HTMLInputElement;
   lng: HTMLInputElement;
   phone: () => string | null;
-}): FacilityFields | string {
+  phoneInput: HTMLInputElement;
+}): FacilityFields | { readonly sentence: string; readonly input: HTMLInputElement } {
   const lat = Number(parts.lat.value.trim());
   const lng = Number(parts.lng.value.trim());
-  if (parts.lat.value.trim() === '' || !Number.isFinite(lat)) return 'Enter the latitude as a number, such as 6.5244.';
-  if (parts.lng.value.trim() === '' || !Number.isFinite(lng)) return 'Enter the longitude as a number, such as 3.3792.';
+  if (parts.lat.value.trim() === '' || !Number.isFinite(lat)) return { sentence: 'Enter the latitude as a number, such as 6.5244.', input: parts.lat };
+  if (parts.lng.value.trim() === '' || !Number.isFinite(lng)) return { sentence: 'Enter the longitude as a number, such as 3.3792.', input: parts.lng };
   const phone = parts.phone();
-  if (phone === null) return 'The public phone is not in international form (+234...). Check the preview.';
+  if (phone === null) return { sentence: 'The public phone is not in international form (+234...). Check the preview.', input: parts.phoneInput };
   // Sent exactly as typed, apostrophes, hyphens and diacritics included.
   return { name: parts.name.value, lga: parts.lga.value, state: parts.state.value, lat, lng, publicPhoneE164: phone };
 }
@@ -402,20 +477,20 @@ function openCreate(holder: SessionHolder): void {
   back.type = 'button';
   back.addEventListener('click', () => guarded(loadRegister(holder)));
   const f = form('create-facility', 'Create', [i.name.wrap, i.lga.wrap, i.state.wrap, i.lat.wrap, i.lng.wrap, i.phone.wrap], async (status) => {
-    const fields = facilityFieldsFrom({ name: i.name.input, lga: i.lga.input, state: i.state.input, lat: i.lat.input, lng: i.lng.input, phone: i.phone.value });
-    if (typeof fields === 'string') {
-      status.textContent = fields;
+    const fields = facilityFieldsFrom({ name: i.name.input, lga: i.lga.input, state: i.state.input, lat: i.lat.input, lng: i.lng.input, phone: i.phone.value, phoneInput: i.phone.input });
+    if ('sentence' in fields) {
+      refuse(status, fields.sentence, fields.input);
       return;
     }
     const r = await write(holder, 'createFacility', createFacilityBody(id, fields));
     if (r.kind === 'unreachable') {
       // The facility may or may not exist now. Pressing Create again sends the SAME id,
       // so the second answer says which -- a created=false is shown as created.
-      status.textContent = `${ADMIN_FIXED.UNREACHABLE} Press Create again: it will not make a second facility.`;
+      say(status, `${ADMIN_FIXED.UNREACHABLE} Press Create again: it will not make a second facility.`, 'caution');
       return;
     }
     if (r.kind === 'refused') {
-      if (!stopFor(r.refusal)) status.textContent = r.refusal.sentence;
+      if (!stopFor(r.refusal)) say(status, r.refusal.sentence, 'caution');
       return;
     }
     await loadRegister(holder, ADMIN_FIXED.CREATED);
@@ -425,103 +500,190 @@ function openCreate(holder: SessionHolder): void {
 
 // ------------------------------------------------------------------ detail
 
+/** What one facility's view is drawn from: one register read and one contact read. */
+interface Detail {
+  readonly reg: Register;
+  readonly mark: FetchMark;
+  readonly f: Facility;
+  readonly view: ContactView | null;
+  /** The sentence shown in place of the contact when it could not be read; null when it was. */
+  readonly contactProblem: string | null;
+}
+
 /**
- * One facility, with its contact. The contact lives in this function's scope and in
- * the DOM this view builds; going back replaces the whole view, so it is gone.
+ * Reads one facility and its contact. The contact lives in the view built from this, and
+ * in the DOM that view builds; going back replaces the whole view, so it is gone. Null
+ * when a screen saying why has been shown instead.
  */
-async function openFacility(holder: SessionHolder, facilityId: string, notice?: string): Promise<void> {
+async function readDetail(holder: SessionHolder, facilityId: string): Promise<Detail | null> {
   const reg = await read(holder, 'register', registerBody());
   const mark = markFetch();
   if (reg.kind !== 'ok') {
-    if (reg.kind === 'refused' && stopFor(reg.refusal)) return;
+    if (reg.kind === 'refused' && stopFor(reg.refusal)) return null;
     show(W.REGISTER_HEADING, reg.kind === 'refused' ? reg.refusal.sentence : ADMIN_FIXED.UNREACHABLE);
-    return;
+    return null;
   }
   const parsed = parseRegister(reg.data);
-  const fac = parsed?.facilities.find((x): x is Facility => x.kind === 'facility' && x.facilityId === facilityId);
-  if (parsed === null || fac === undefined) {
+  const f = parsed?.facilities.find((x): x is Facility => x.kind === 'facility' && x.facilityId === facilityId);
+  if (parsed === null || f === undefined) {
     show(W.REGISTER_HEADING, ADMIN_FIXED.UNRECOGNISED);
-    return;
+    return null;
   }
   const c = await read(holder, 'getContact', getContactBody(facilityId));
-  if (c.kind === 'refused' && stopFor(c.refusal)) return;
+  if (c.kind === 'refused' && stopFor(c.refusal)) return null;
   const view: ContactView | null = c.kind === 'ok' ? parseContact(c.data) : null;
-  renderDetail(holder, parsed, mark, fac, view, c.kind === 'ok' ? (view === null ? ADMIN_FIXED.UNRECOGNISED : null) : c.kind === 'refused' ? c.refusal.sentence : ADMIN_FIXED.UNREACHABLE, notice);
+  const contactProblem = c.kind === 'ok' ? (view === null ? ADMIN_FIXED.UNRECOGNISED : null) : c.kind === 'refused' ? c.refusal.sentence : ADMIN_FIXED.UNREACHABLE;
+  return { reg: parsed, mark, f, view, contactProblem };
 }
 
-function renderDetail(
-  holder: SessionHolder,
-  reg: Register,
-  mark: FetchMark,
-  f: Facility,
-  view: ContactView | null,
-  contactProblem: string | null,
-  notice?: string,
-): void {
+async function openFacility(holder: SessionHolder, facilityId: string): Promise<void> {
+  const d = await readDetail(holder, facilityId);
+  if (d !== null) renderDetail(holder, d);
+}
+
+/** How a write's answer left the view: it went through, the view was re-read and says why, or its form says why. */
+type After = 'ok' | 'reloaded' | 'refused';
+
+/** A section that is rebuilt only when what it offers changes, never when only its data does. */
+function modal(className: string, heading: string, modeOf: () => string, build: () => HTMLElement[]): { node: HTMLElement; patch: () => void } {
+  const node = el('section', undefined, className);
+  let mode = modeOf();
+  node.append(el('h2', heading), ...build());
+  return {
+    node,
+    patch: () => {
+      const next = modeOf();
+      if (next === mode) return;
+      mode = next;
+      node.replaceChildren(el('h2', heading), ...build());
+    },
+  };
+}
+
+/**
+ * One facility, built ONCE (DO-4 d). A write re-reads the facility with refresh(), which
+ * runs every section's patch: the lines that show saved state are rewritten, and a form
+ * is never rebuilt while another write's unsent input or Notice sits in it.
+ */
+function renderDetail(holder: SessionHolder, first: Detail): void {
   const root = appRoot();
   if (root === null) return;
+  let d = first;
+  const heading = el('h1', d.f.name);
   const back = el('button', 'Back');
   back.type = 'button';
   back.addEventListener('click', () => guarded(loadRegister(holder)));
-  const status = el('p', notice ?? '', 'status');
-  const reopen = (message?: string): Promise<void> => openFacility(holder, f.facilityId, message);
+  const status = statusLine();
+  const patches: (() => void)[] = [];
 
-  /** What a refused or unanswered write does, the same for every form. */
-  const after = async (r: CallResult, formStatus: HTMLParagraphElement, onDropped: string | null): Promise<boolean> => {
-    if (r.kind === 'ok') return true;
-    if (r.kind === 'unreachable') {
-      if (onDropped !== null) await reopen(onDropped);
-      else formStatus.textContent = ADMIN_FIXED.UNREACHABLE;
-      return false;
-    }
-    if (stopFor(r.refusal)) return false;
-    if (r.refusal.key === 'VERSION_CONFLICT') await reopen(r.refusal.sentence);
-    else formStatus.textContent = r.refusal.sentence;
-    return false;
+  /** Re-reads the facility and patches what changed; the outcome goes to the page's status line. */
+  const refresh = async (message: string, tone: Tone): Promise<void> => {
+    const next = await readDetail(holder, d.f.facilityId);
+    if (next === null) return;
+    d = next;
+    heading.textContent = d.f.name;
+    for (const patch of patches) patch();
+    say(status, message, tone);
   };
 
-  // The facility, and its edit form.
+  /** What a refused or unanswered write does, the same for every form. */
+  const after = async (r: CallResult, formStatus: HTMLParagraphElement, onDropped: string | null): Promise<After> => {
+    if (r.kind === 'ok') return 'ok';
+    if (r.kind === 'unreachable') {
+      if (onDropped === null) {
+        say(formStatus, ADMIN_FIXED.UNREACHABLE, 'caution');
+        return 'refused';
+      }
+      await refresh(onDropped, 'caution');
+      return 'reloaded';
+    }
+    if (stopFor(r.refusal)) return 'refused';
+    if (r.refusal.key === 'VERSION_CONFLICT') {
+      await refresh(r.refusal.sentence, 'caution');
+      return 'reloaded';
+    }
+    say(formStatus, r.refusal.sentence, 'caution');
+    return 'refused';
+  };
+
+  // The facility: its saved state, patched in place, and its edit form.
   const facility = el('section', undefined, 'facility-detail');
-  facility.append(el('h2', f.name), el('p', `${f.lga}, ${f.state}`), el('p', f.listedAt === null ? W.NOT_LISTED : `${W.LISTED} (${lagosTime(f.listedAt)})`), checklist(f));
-  // All six fields prefilled from the register row loaded with this version (023, BZ-3 a).
-  const e = facilityInputs({ name: f.name, lga: f.lga, state: f.state, lat: f.lat, lng: f.lng, publicPhoneE164: f.publicPhoneE164 });
+  const name = el('h2', d.f.name);
+  const place = el('p', `${d.f.lga}, ${d.f.state}`);
+  const listedLine = (): string => (d.f.listedAt === null ? W.NOT_LISTED : `${W.LISTED} (${lagosTime(d.f.listedAt)})`);
+  const listed = el('p', listedLine());
+  let list = checklist(d.f);
+  facility.append(name, place, listed, list);
+  patches.push(() => {
+    name.textContent = d.f.name;
+    place.textContent = `${d.f.lga}, ${d.f.state}`;
+    listed.textContent = listedLine();
+    const fresh = checklist(d.f);
+    list.replaceWith(fresh);
+    list = fresh;
+  });
+
+  // THE EDIT FORM'S BASE is the saved row its fields were filled from, and its Save sends
+  // THAT row's version (023, BZ-3 a; 020 J1). It moves to a newer row only when the form
+  // holds nothing unsent, or after the form's own Save or a conflict.
+  let base = d.f;
+  const e = facilityInputs({ name: base.name, lga: base.lga, state: base.state, lat: base.lat, lng: base.lng, publicPhoneE164: base.publicPhoneE164 });
+  const typed = () => ({ name: e.name.input.value, lga: e.lga.input.value, state: e.state.input.value, lat: e.lat.input.value, lng: e.lng.input.value, phone: e.phone.value() });
   const changes = el('ul', undefined, 'changes');
   const showChanges = (): void => {
-    const lines = changesFrom(f, { name: e.name.input.value, lga: e.lga.input.value, state: e.state.input.value, lat: e.lat.input.value, lng: e.lng.input.value, phone: e.phone.value() });
-    changes.replaceChildren(...lines.map((l) => el('li', l)));
+    changes.replaceChildren(...changesFrom(base, typed()).map((l) => el('li', l)));
   };
   for (const input of [e.name.input, e.lga.input, e.state.input, e.lat.input, e.lng.input, e.phone.input]) input.addEventListener('input', showChanges);
   const confirmPanel = el('div', undefined, 'phone-confirm');
   confirmPanel.hidden = true;
+  const closeConfirm = (): void => {
+    confirmPanel.hidden = true;
+    confirmPanel.replaceChildren();
+  };
+  const rebase = (): void => {
+    base = d.f;
+    e.name.input.value = base.name;
+    e.lga.input.value = base.lga;
+    e.state.input.value = base.state;
+    e.lat.input.value = String(base.lat);
+    e.lng.input.value = String(base.lng);
+    e.phone.input.value = base.publicPhoneE164;
+    e.phone.input.dispatchEvent(new Event('input'));
+    closeConfirm();
+    showChanges();
+  };
+  patches.push(() => {
+    if (changesFrom(base, typed()).length === 0 && confirmPanel.hidden) rebase();
+  });
 
   /** The edit, sent ONCE. A dropped answer reloads and says so; it is never re-sent (BY-2 e). */
   const send = async (fields: FacilityFields, s: HTMLParagraphElement): Promise<void> => {
-    const r = await write(holder, 'editFacility', editFacilityBody(f.facilityId, f.version, fields));
-    if (await after(r, s, ADMIN_FIXED.EDIT_DROPPED)) await reopen('Saved.');
+    const r = await write(holder, 'editFacility', editFacilityBody(base.facilityId, base.version, fields));
+    const outcome = await after(r, s, ADMIN_FIXED.EDIT_DROPPED);
+    if (outcome === 'ok') await refresh('Saved.', 'info');
+    if (outcome === 'refused') closeConfirm();
+    else rebase();
   };
 
   const editForm = form('edit-facility', 'Save facility', [e.name.wrap, e.lga.wrap, e.state.wrap, e.lat.wrap, e.lng.wrap, e.phone.wrap, el('p', W.CHANGES, 'note'), changes], async (s) => {
-    const fields = facilityFieldsFrom({ name: e.name.input, lga: e.lga.input, state: e.state.input, lat: e.lat.input, lng: e.lng.input, phone: e.phone.value });
-    if (typeof fields === 'string') {
-      s.textContent = fields;
+    const fields = facilityFieldsFrom({ name: e.name.input, lga: e.lga.input, state: e.state.input, lat: e.lat.input, lng: e.lng.input, phone: e.phone.value, phoneInput: e.phone.input });
+    if ('sentence' in fields) {
+      refuse(s, fields.sentence, fields.input);
       return;
     }
-    if (fields.publicPhoneE164 === f.publicPhoneE164) {
+    if (fields.publicPhoneE164 === base.publicPhoneE164) {
       await send(fields, s);
       return;
     }
     // A PHONE CHANGE IS NEVER SENT ON THE SAVE PRESS (BZ-3 b): the emergency number the
     // public page shows. It waits for an explicit confirm; Cancel sends nothing.
-    const confirm = el('button', W.CONFIRM_PHONE);
+    const confirm = el('button', W.CONFIRM_PHONE, 'primary');
     confirm.type = 'button';
     const cancel = el('button', W.CANCEL);
     cancel.type = 'button';
-    confirmPanel.replaceChildren(el('p', `Public phone: ${f.publicPhoneE164} → ${fields.publicPhoneE164}`), el('p', W.PHONE_CHANGE_CONFIRM), confirm, cancel);
+    confirmPanel.replaceChildren(el('p', `Public phone: ${base.publicPhoneE164} → ${fields.publicPhoneE164}`), el('p', W.PHONE_CHANGE_CONFIRM), confirm, cancel);
     confirmPanel.hidden = false;
-    cancel.addEventListener('click', () => {
-      confirmPanel.hidden = true;
-      confirmPanel.replaceChildren();
-    });
+    cancel.addEventListener('click', closeConfirm);
     confirm.addEventListener('click', () => {
       confirm.disabled = true;
       cancel.disabled = true;
@@ -533,7 +695,11 @@ function renderDetail(
   // The wards, and the add-category form.
   const wards = el('section', undefined, 'wards-detail');
   const wl = el('ul', undefined, 'wards');
-  for (const w of f.categories) wl.append(wardLine(w, reg, mark));
+  const drawWards = (): void => {
+    wl.replaceChildren(...d.f.categories.map((w) => wardLine(w, d.reg, d.mark)));
+  };
+  drawWards();
+  patches.push(drawWards);
   const cat = select('Ward category', 'category', WARD_CATEGORIES.map((k) => [k, categoryLabel(k)] as const));
   const off = select('Offering', 'offering', [['OFFERED', 'Offered'], ['NOT_OFFERED', 'Not offered']]);
   wards.append(
@@ -541,80 +707,122 @@ function renderDetail(
     wl,
     form('add-category', 'Add ward category', [cat.wrap, off.wrap], async (s) => {
       if (cat.input.value === '' || off.input.value === '') {
-        s.textContent = 'Choose a ward category and whether it is offered.';
+        refuse(s, 'Choose a ward category and whether it is offered.', cat.input.value === '' ? cat.input : off.input);
         return;
       }
-      const r = await write(holder, 'addCategory', addCategoryBody(f.facilityId, cat.input.value, off.input.value as 'OFFERED' | 'NOT_OFFERED'));
-      if (await after(r, s, null)) await reopen('Ward category added.');
+      const r = await write(holder, 'addCategory', addCategoryBody(d.f.facilityId, cat.input.value, off.input.value as 'OFFERED' | 'NOT_OFFERED'));
+      if ((await after(r, s, null)) !== 'ok') return;
+      cat.input.value = '';
+      off.input.value = '';
+      await refresh('Ward category added.', 'info');
     }),
   );
 
-  // The contact: fetched when this view opened, held only here.
-  const contact = el('section', undefined, 'contact-detail');
-  contact.append(el('h2', 'Contact'));
-  if (contactProblem !== null) contact.append(el('p', contactProblem));
-  else {
-    const current = view?.contact ?? null;
-    contact.append(el('p', current === null ? W.NO_CONTACT_WARNING : `${current.fullName}, ${current.jobTitle}`));
-    const name = field('Full name', 'full_name', current?.fullName ?? '');
-    const title = field('Job title', 'job_title', current?.jobTitle ?? '');
-    const email = field('Email', 'email', current?.email ?? '', 'email');
-    const mobile = phoneField('Mobile', 'mobile', current?.mobileE164 ?? '');
+  // The contact: fetched when this view opened, held only here. Its form is rebuilt only
+  // when the contact becomes readable or stops being so; contactPatch is the live form's.
+  let contactPatch: () => void = () => undefined;
+  const contact = modal('contact-detail', 'Contact', () => (d.contactProblem === null ? 'form' : `problem:${d.contactProblem}`), () => {
+    if (d.contactProblem !== null) return [el('p', d.contactProblem, 'notice notice-caution')];
+    let saved = d.view?.contact ?? null;
+    const summary = (): string => (saved === null ? W.NO_CONTACT_WARNING : `${saved.fullName}, ${saved.jobTitle}`);
+    const line = el('p', summary(), saved === null ? 'notice notice-caution' : undefined);
+    const fullName = field('Full name', 'full_name', saved?.fullName ?? '');
+    const title = field('Job title', 'job_title', saved?.jobTitle ?? '');
+    const email = field('Email', 'email', saved?.email ?? '', 'email');
+    const mobile = phoneField('Mobile', 'mobile', saved?.mobileE164 ?? '');
     const sms = field('SMS opt-in', 'sms_opt_in', '', 'checkbox');
-    sms.input.checked = current?.smsOptIn ?? false;
+    sms.input.checked = saved?.smsOptIn ?? false;
     sms.wrap.append(el('span', W.SMS_OPT_IN_NOTE, 'note'));
-    contact.append(
-      form('record-contact', 'Save contact', [name.wrap, title.wrap, email.wrap, mobile.wrap, sms.wrap], async (s) => {
-        const typedMobile = mobile.input.value.trim();
-        const mobileE164 = typedMobile === '' ? null : mobile.value();
-        if (typedMobile !== '' && mobileE164 === null) {
-          s.textContent = 'That mobile number is not in international form (+234...). Check the preview.';
-          return;
-        }
-        const body = recordContactBody(
-          f.facilityId,
-          { fullName: name.input.value, jobTitle: title.input.value, email: email.input.value.trim() === '' ? null : email.input.value, mobileE164, smsOptIn: sms.input.checked },
-          current?.version ?? null,
-        );
-        const r = await write(holder, 'recordContact', body);
-        if (await after(r, s, null)) await reopen('Contact saved.');
-      }),
-    );
-  }
+    // Unsent input keeps the contact the form was filled from, and its version (BN-2).
+    let dirty = false;
+    for (const input of [fullName.input, title.input, email.input, mobile.input, sms.input]) input.addEventListener('input', () => (dirty = true));
+    sms.input.addEventListener('change', () => (dirty = true));
+    const rebase = (): void => {
+      saved = d.view?.contact ?? null;
+      line.textContent = summary();
+      line.className = saved === null ? 'notice notice-caution' : '';
+      fullName.input.value = saved?.fullName ?? '';
+      title.input.value = saved?.jobTitle ?? '';
+      email.input.value = saved?.email ?? '';
+      mobile.input.value = saved?.mobileE164 ?? '';
+      mobile.input.dispatchEvent(new Event('input'));
+      sms.input.checked = saved?.smsOptIn ?? false;
+      dirty = false;
+    };
+    contactPatch = () => {
+      if (!dirty) rebase();
+    };
+    const recordForm = form('record-contact', 'Save contact', [fullName.wrap, title.wrap, email.wrap, mobile.wrap, sms.wrap], async (s) => {
+      if (email.input.value.trim() !== '' && email.input.validity.typeMismatch) {
+        refuse(s, EMAIL_UNREADABLE, email.input);
+        return;
+      }
+      const typedMobile = mobile.input.value.trim();
+      const mobileE164 = typedMobile === '' ? null : mobile.value();
+      if (typedMobile !== '' && mobileE164 === null) {
+        refuse(s, 'That mobile number is not in international form (+234...). Check the preview.', mobile.input);
+        return;
+      }
+      const body = recordContactBody(
+        d.f.facilityId,
+        { fullName: fullName.input.value, jobTitle: title.input.value, email: email.input.value.trim() === '' ? null : email.input.value, mobileE164, smsOptIn: sms.input.checked },
+        saved?.version ?? null,
+      );
+      const r = await write(holder, 'recordContact', body);
+      const outcome = await after(r, s, null);
+      if (outcome === 'ok') await refresh('Contact saved.', 'info');
+      if (outcome !== 'refused') rebase();
+    });
+    return [line, recordForm];
+  });
+  patches.push(() => {
+    contact.patch();
+    contactPatch();
+  });
 
   // The agreement: recorded once, never edited or withdrawn here (BD-2 2, BN-4).
-  const agreement = el('section', undefined, 'agreement-detail');
-  agreement.append(el('h2', 'Agreement'));
-  const a = view?.agreement ?? null;
-  if (a !== null) {
-    agreement.append(el('p', `Version ${a.version}, accepted ${a.acceptedOn}${a.signatoryRole === null ? '' : ` by the ${a.signatoryRole}`}${a.withdrawnOn === null ? '' : `; withdrawn ${a.withdrawnOn}`}`));
-  } else if (contactProblem === null) {
+  const agreementLine = (): string | null => {
+    const a = d.view?.agreement ?? null;
+    return a === null ? null : `Version ${a.version}, accepted ${a.acceptedOn}${a.signatoryRole === null ? '' : ` by the ${a.signatoryRole}`}${a.withdrawnOn === null ? '' : `; withdrawn ${a.withdrawnOn}`}`;
+  };
+  const agreement = modal('agreement-detail', 'Agreement', () => agreementLine() ?? (d.contactProblem === null ? 'form' : 'none'), () => {
+    const line = agreementLine();
+    if (line !== null) return [el('p', line)];
+    if (d.contactProblem !== null) return [];
     const on = field('Accepted on', 'accepted_on', '', 'date');
     const version = field('Agreement version', 'version');
     const role = field("Signatory's role", 'signatory_role');
-    agreement.append(
+    return [
       form('record-agreement', 'Record agreement', [on.wrap, version.wrap, role.wrap], async (s) => {
-        const r = await write(holder, 'recordAgreement', recordAgreementBody(f.facilityId, on.input.value, version.input.value, role.input.value.trim() === '' ? null : role.input.value));
-        if (await after(r, s, null)) await reopen('Agreement recorded.');
+        // A date the field itself cannot read is refused here, in the server's own words
+        // for a missing date, rather than sent as blank.
+        if (on.input.validity.badInput) {
+          refuse(s, ADMIN_CODES['INVALID_ARGUMENT:p_accepted_on'] ?? ADMIN_FIXED.UNRECOGNISED, on.input);
+          return;
+        }
+        const r = await write(holder, 'recordAgreement', recordAgreementBody(d.f.facilityId, on.input.value, version.input.value, role.input.value.trim() === '' ? null : role.input.value));
+        if ((await after(r, s, null)) === 'ok') await refresh('Agreement recorded.', 'info');
       }),
-    );
-  }
+    ];
+  });
+  patches.push(agreement.patch);
 
   // Listing: in the app. Unlisting and withdrawal are founder steps, never here (BC-6).
-  const listing = el('section', undefined, 'listing');
-  listing.append(el('h2', 'Listing'));
-  if (f.listedAt !== null) listing.append(el('p', `${W.LISTED} since ${lagosTime(f.listedAt)}.`));
-  else if (!canList(f)) listing.append(el('p', W.CANNOT_LIST_UNTIL));
-  else {
-    listing.append(
+  // The List press sends the facility's LATEST version: the form holds nothing typed, and
+  // the checklist beside it is the row that version stands for.
+  const listing = modal('listing', 'Listing', () => (d.f.listedAt !== null ? `listed:${d.f.listedAt}` : canList(d.f) ? 'can' : 'cannot'), () => {
+    if (d.f.listedAt !== null) return [el('p', `${W.LISTED} since ${lagosTime(d.f.listedAt)}.`)];
+    if (!canList(d.f)) return [el('p', W.CANNOT_LIST_UNTIL)];
+    return [
       form('list-facility', 'List this facility', [], async (s) => {
-        const r = await write(holder, 'setListed', setListedBody(f.facilityId, f.version));
-        if (await after(r, s, null)) await reopen('Listed.');
+        const r = await write(holder, 'setListed', setListedBody(d.f.facilityId, d.f.version));
+        if ((await after(r, s, null)) === 'ok') await refresh('Listed.', 'info');
       }),
-    );
-  }
+    ];
+  });
+  patches.push(listing.patch);
 
-  root.replaceChildren(el('h1', f.name), back, status, facility, wards, contact, agreement, listing);
+  root.replaceChildren(heading, back, status, facility, wards, contact.node, agreement.node, listing.node);
 }
 
 // ------------------------------------------------------------------ sign-in
@@ -623,25 +831,28 @@ function requestForm(): HTMLFormElement {
   const email = field(W.REQUEST_LABEL, 'email', '', 'email');
   email.input.required = true;
   email.input.autocomplete = 'email';
+  // THE SIGN-IN FORM KEEPS THE BROWSER'S VALIDATION (R-2026-09-27-139 DO-5; -134 DJ), as
+  // the ward console's does: this page has no sentence for a malformed address. It is the
+  // one form here without noValidate.
   const f = el('form', undefined, 'signin-request');
-  const button = el('button', W.REQUEST_BUTTON);
+  const button = el('button', W.REQUEST_BUTTON, 'primary');
   button.type = 'submit';
-  const status = el('p', '', 'status');
+  const status = statusLine();
   f.addEventListener('submit', (event) => {
     event.preventDefault();
     void (async () => {
       button.disabled = true;
-      status.textContent = '';
+      say(status, '', 'info');
       try {
         const outcome = await requestSignInLink({ apiUrl: API_URL, anonKey: PUBLISHABLE_KEY, email: email.input.value, redirectTo: `${window.location.origin}/` });
         // The status to the log; one sentence on the page, whatever it was, because
         // each status would say whether the address exists.
         if (outcome.kind === 'answered') {
           if (outcome.status !== 200) console.error('OpenBed admin: the sign-in request was answered', outcome.status);
-          status.textContent = W.REQUEST_ANSWERED;
+          say(status, W.REQUEST_ANSWERED, 'info');
         } else {
           console.error('OpenBed admin: the sign-in request got no answer');
-          status.textContent = W.REQUEST_UNREACHABLE;
+          say(status, W.REQUEST_UNREACHABLE, 'caution');
         }
       } finally {
         button.disabled = false;
@@ -655,7 +866,7 @@ function requestForm(): HTMLFormElement {
 /**
  * The privacy notice's link, under the sign-in form (R-2026-09-26-136 DL-1 d). Its URL is
  * the one tracked constant; tests/compliance/privacy_links.test.ts asserts it on every
- * sign-in screen. D3 restyles this screen and keeps the link.
+ * sign-in screen. D3 restyled it (body-sm, muted, a 44 px target) and kept it.
  */
 function privacyLink(): HTMLParagraphElement {
   const p = el('p', undefined, 'privacy');
@@ -667,7 +878,7 @@ function privacyLink(): HTMLParagraphElement {
 
 function signedOut(detail: string = W.ACCESS_ORDER): void {
   show(W.SIGNED_OUT, detail);
-  appRoot()?.append(el('p', W.ACCESS_ORDER), requestForm(), privacyLink());
+  appRoot()?.append(el('p', W.ACCESS_ORDER, 'lead'), requestForm(), privacyLink());
 }
 
 /** Exported so a test can call it and read the DOM, as the ward console's is. */
@@ -682,7 +893,7 @@ export async function render(): Promise<void> {
     return;
   }
   if (session === null) {
-    show(W.TITLE, W.ACCESS_ORDER);
+    show(W.TITLE, W.ACCESS_ORDER, 'lead');
     appRoot()?.append(requestForm(), privacyLink());
     return;
   }

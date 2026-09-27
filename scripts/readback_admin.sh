@@ -19,7 +19,9 @@
 #   STEP 2 -- WITH THE SERVICE TOKEN. The stamp on the deployment and on
 #   admin.openbed.ng names this checkout's HEAD; the page's security headers are what
 #   this checkout's tracked _headers sets, as rendered; the page loads one bundle,
-#   holding one publishable key.
+#   holding one publishable key; and since the design pass's D3 (R-2026-09-27-139), the
+#   favicon on each host is this checkout's, and a self-hosted font is served as
+#   font/woff2.
 #
 #   STEP 3 -- THE API. The deployed key is accepted and a wrong one refused (the ward
 #   console's two halves), and the Worker FORWARDS an operator call: with no key,
@@ -186,6 +188,55 @@ if [ "$LOCAL" = 0 ]; then
     SITE="$SITE_BEFORE"
 fi
 
+# THE DESIGN PASS, D3 (R-2026-09-27-139 DO-4), as scripts/readback_ward_console.sh does for
+# D2: the favicon on every host this run reads, and one self-hosted font. With the token,
+# since Access answers everything without it.
+FAVICON_HOSTS=("$SITE")
+if [ "$LOCAL" = 0 ]; then FAVICON_HOSTS+=("https://admin.openbed.ng"); fi
+echo
+echo "=== step 2: /favicon.ico on ${FAVICON_HOSTS[*]}: byte for byte this checkout's apps/admin/public/favicon.ico, and never the SPA's HTML ==="
+# Until D3 the SPA fallback answered /favicon.ico with the page (R-2026-09-26-122 CX-3).
+# The byte comparison is the exact signal, since the page's HTML can never equal the icon.
+SITE_BEFORE="$SITE"
+for host in "${FAVICON_HOSTS[@]}"; do
+    SITE="$host"
+    label="step 2 favicon.ico"
+    [ "$host" = "https://admin.openbed.ng" ] && label="admin.openbed.ng favicon.ico"
+    site_probe GET /favicon.ico ${ACCESS[@]+"${ACCESS[@]}"}
+    rb_expect "$label status" "$RB_CODE" 200
+    rb_same_bytes "$label" "$ROOT/apps/admin/public/favicon.ico"
+    ct="$(rb_header content-type)"
+    case "$ct" in
+        text/html*) rb_wrong "$label content-type" "$ct" "must not be text/html: that is the SPA fallback, not the icon" ;;
+        *) rb_ok "$label content-type" "$ct" ;;
+    esac
+done
+SITE="$SITE_BEFORE"
+
+echo
+echo "=== step 2: a self-hosted font: the stylesheet $SITE/ links, and one woff2 it names, served as font/woff2 ==="
+# The fonts are woff2 files the build copies into /assets (D3, as D1 and D2). A font served
+# as anything but font/woff2 fails silently under X-Content-Type-Options: nosniff.
+page_probe / ${ACCESS[@]+"${ACCESS[@]}"}
+rb_matches '/assets/[A-Za-z0-9_.-]+[.]css'
+if [ "$RB_COUNT" -eq 0 ]; then
+    rb_wrong "step 2 page stylesheet" "(none)" "the page must link its built stylesheet"
+else
+    css_path="${RB_MATCHES%%$'\n'*}"
+    rb_ok "step 2 page stylesheet" "$css_path"
+    site_probe GET "$css_path" ${ACCESS[@]+"${ACCESS[@]}"}
+    rb_matches '/assets/[A-Za-z0-9_.-]+[.]woff2'
+    if [ "$RB_COUNT" -eq 0 ]; then
+        rb_wrong "step 2 stylesheet fonts" "(none)" "the stylesheet must name its self-hosted woff2 fonts"
+    else
+        font_path="${RB_MATCHES%%$'\n'*}"
+        rb_ok "step 2 stylesheet fonts" "$RB_COUNT woff2, first $font_path"
+        site_probe GET "$font_path" ${ACCESS[@]+"${ACCESS[@]}"}
+        rb_expect "step 2 font status" "$RB_CODE" 200
+        rb_expect "step 2 font content-type" "$(rb_header content-type)" "font/woff2"
+    fi
+fi
+
 site_probe GET "/$BUNDLE" ${ACCESS[@]+"${ACCESS[@]}"}
 rb_matches 'sb_publishable_[A-Za-z0-9_-]*'
 DEPLOYED_KEY="$RB_MATCHES"
@@ -213,7 +264,7 @@ if [ "$LOCAL" = 1 ]; then
     # Restated 2026-09-25 (R-2026-09-25-113): admin went live that day, at H6. Until
     # then this line ended "admin is not live until H6 steps 2, 6 and 7 read as they must."
     echo "LOCAL RUN: step 1, the token half, both key halves and the Worker probe were NOT RUN. This is not a production verdict, and a local PASS is never evidence of what hosted admin serves: only the hosted read-back (H6 step 2) is."
-    rb_verdict "LOCAL -- the local build's stamp names this checkout, and it ships this checkout's rendered headers and the tracked production key."
+    rb_verdict "LOCAL -- the local build's stamp names this checkout, and it ships this checkout's rendered headers, favicon, a self-hosted font and the tracked production key."
 fi
 
 api_probe GET /auth/v1/settings -H "apikey: $DEPLOYED_KEY"
@@ -232,4 +283,4 @@ api_probe POST /rest/v1/rpc/operator_register -H 'Content-Type: application/json
 rb_expect "step 3 operator call status" "$RB_CODE" 401
 rb_expect "step 3 operator call x-openbed-proxy" "$(rb_header x-openbed-proxy)" "forwarded"
 
-rb_verdict "Access answers every host without the token; with it, the stamp names this checkout and the page ships this checkout's headers and key; the key is accepted, a wrong one refused, and the Worker forwards the operator calls."
+rb_verdict "Access answers every host without the token; with it, the stamp names this checkout and the page ships this checkout's headers, favicon, a self-hosted font and key; the key is accepted, a wrong one refused, and the Worker forwards the operator calls."

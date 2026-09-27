@@ -1,13 +1,251 @@
-/* The admin app's only styles. A file, not an inline <style>: the CSP is style-src 'self'
-   with no 'unsafe-inline' and no hash (R-2026-09-24-93 BU-2 c, carried to admin). */
-body { font-family: system-ui, sans-serif; margin: 0 auto; max-width: 48rem; padding: 1rem; line-height: 1.4; }
-button { min-height: 44px; min-width: 44px; padding: 0 12px; margin: 4px 4px 4px 0; }
-label { display: block; margin: 8px 0; }
-input, select { min-height: 44px; font-size: 1rem; }
-.warning { font-weight: bold; }
-.preview, .note { display: block; font-size: 0.9rem; }
-.facility { border-top: 1px solid #999; padding: 8px 0; list-style: none; }
-.register { padding: 0; }
-/* The privacy notice's link under the sign-in form (R-2026-09-26-136 DL-1 d): a 44 px tap
-   target. D3 restyles this screen and keeps the link. */
-.privacy a { display: inline-block; min-height: 44px; line-height: 44px; }
+/* The admin app's styles (the design pass, D3). Imported by src/main.ts AFTER
+   @openbed/design's tokens and fonts, so every value here reads a design-system token,
+   except the sizes a guard compares. Never inline: the CSP in public/_headers allows
+   style-src 'self' only, and an inline style would be blocked silently.
+
+   Nothing here changes a word. Colour is never the only signal, and nothing is sticky
+   or fixed. Nothing is stored client-side either (BP-3): this file holds no state.
+
+   THE SIZES THE GUARDS READ ARE LITERAL PX: every button and control 44
+   (tests/compliance/admin_render.test.ts and admin_design.test.ts), the privacy link's
+   44 (privacy_links.test.ts), and the table threshold 960. A var() reads as null there,
+   and null fails, for the reason D1 gave for a.call. */
+
+/* `hidden` must win over every display rule below: the phone-change confirm is hidden by
+   attribute until a Save needs it. */
+[hidden] { display: none !important; }
+
+body { min-width: 0; }
+
+/* The header: the mark at 28 px, the live-text lockup and "Platform admin", in the same
+   centred box as the content, with the same gutter inside it (D1's DB-5 b rule, carried).
+   The box is --measure-app (960), not the ward console's 680: this app holds a table. */
+.site-header {
+  background: var(--surface-card);
+  border-bottom: var(--border-width) solid var(--border-default);
+  padding: var(--space-3) 0;
+}
+.site-header-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: var(--measure-app);
+  margin: 0 auto;
+  padding: 0 var(--gutter-page);
+}
+.site-header .mark { display: block; width: 28px; height: 28px; }
+.lockup { font: 700 20px/1 var(--font-sans); letter-spacing: -0.02em; }
+.lockup-open { color: var(--ob-navy-700); }
+.lockup-bed { color: var(--ob-teal-600); }
+.lockup-role {
+  margin-left: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: var(--border-width) solid var(--border-default);
+  font: var(--text-label);
+  color: var(--text-muted);
+}
+
+/* One column, the same box as the header's. */
+main#app {
+  display: grid;
+  gap: var(--space-4);
+  max-width: var(--measure-app);
+  margin: 0 auto;
+  padding: var(--space-4) var(--gutter-page) var(--space-8);
+}
+#app > h1 { margin: 0; font: var(--text-title); color: var(--text-strong); overflow-wrap: anywhere; }
+#app > p { margin: 0; }
+.lead { font: var(--text-body-lg); color: var(--text-body); }
+h2 { margin: 0; font: var(--text-heading); color: var(--text-strong); overflow-wrap: anywhere; }
+p { margin: 0; overflow-wrap: anywhere; }
+
+/* The privacy notice's link under the sign-in form (R-2026-09-26-136 DL-1 d), in the D2
+   manner: body-sm in the muted text colour, no new colour; a 44 px tap target, written as
+   a literal so a test can read it. line-height after the font shorthand, which would
+   reset it. */
+.privacy { margin: var(--space-4) 0 0; font: var(--text-body-sm); color: var(--text-muted); }
+.privacy a { display: inline-block; min-height: 44px; line-height: 44px; color: inherit; }
+
+/* A Notice, in the design system's own shape and tones (components/core/Notice.jsx, as
+   the ward console's; -133 DI-2): a 1 px border, a 3 px left accent, the medium radius.
+   Every p.status, every refusal and every .warning is one, and the words are unchanged.
+   A status line is empty until there is something to say, and an empty Notice is not
+   drawn.
+     info    -- what went through: created, saved, added, recorded, listed, link sent;
+     caution -- every refusal or failure, and the register's warnings.
+   There is no green tone. Caution's text colour is the design system's own literal
+   #6d4c12, the one colour here no token carries. */
+.notice {
+  margin: 0;
+  border: var(--border-width) solid var(--border-default);
+  border-left-width: var(--border-accent-width);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  font: var(--text-body-md);
+  overflow-wrap: anywhere;
+}
+.notice:empty { display: none; }
+.notice-info {
+  background: var(--surface-accent-soft);
+  border-left-color: var(--ob-navy-500);
+  color: var(--ob-navy-800);
+}
+.notice-caution {
+  background: var(--ob-status-limited-bg);
+  border-left-color: var(--ob-status-limited);
+  color: #6d4c12;
+}
+
+/* EVERY BUTTON IS A 44 px TAP TARGET (admin_render.test.ts reads this rule's literal
+   min-height and min-width). The secondary look is the default: Reload, New facility,
+   Open, Back and Cancel. */
+button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-4);
+  font: 600 15px/1.2 var(--font-sans);
+  color: var(--action-secondary-fg);
+  background: var(--action-secondary-bg);
+  border: var(--border-width) solid var(--action-secondary-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-control);
+}
+button:hover { background: var(--action-secondary-bg-hover); }
+button:disabled { cursor: progress; opacity: 0.6; }
+
+/* A form's own action: navy, 44 px like every control here (the kickoff's D3). Busy is
+   the disabled state the code already sets while a request is in flight; the label does
+   not change. */
+button.primary {
+  color: var(--action-primary-fg);
+  background: var(--action-primary-bg);
+  border-color: var(--action-primary-bg);
+}
+button.primary:hover { background: var(--action-primary-bg-hover); }
+button.primary:active { background: var(--action-primary-bg-active); }
+button.primary:disabled { background: var(--ob-status-unknown); border-color: var(--ob-status-unknown); opacity: 1; }
+
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* Forms: a single column of 44 px controls, never wider than a field needs. */
+form { display: grid; gap: var(--space-3); max-width: 560px; }
+form > button { justify-self: start; }
+label.field { display: grid; gap: var(--space-1); font: var(--text-label); color: var(--text-strong); }
+label.field input,
+select.select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  font: var(--text-body-lg);
+  color: var(--text-strong);
+  background-color: var(--surface-card);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+/* Still a select: the arrow is drawn with two gradients, so no image and no data: URI. */
+select.select {
+  padding-right: var(--space-10);
+  background-image: linear-gradient(45deg, transparent 50%, var(--ob-navy-700) 50%), linear-gradient(135deg, var(--ob-navy-700) 50%, transparent 50%);
+  background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  appearance: none;
+}
+/* The SMS opt-in: the whole line is the tap target, at least 44 px; its note below. */
+label.check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  min-height: 44px;
+  font: var(--text-label);
+  color: var(--text-strong);
+  cursor: pointer;
+}
+label.check input { width: 24px; height: 24px; margin: 0; accent-color: var(--ob-navy-700); }
+.preview, .note { display: block; flex-basis: 100%; font: var(--text-body-sm); color: var(--text-muted); }
+.preview { font-family: var(--font-mono); }
+ul.changes { margin: 0; padding-left: var(--space-5); font: var(--text-body-sm); color: var(--text-strong); }
+ul.changes:empty { display: none; }
+
+/* The phone-change confirm, as built (BZ-3 b): the old and new number, the sentence, and
+   Confirm beside Cancel. Neither Notice tone: nothing has gone through and nothing was
+   refused, so its accent is the neutral strong border. */
+.phone-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  max-width: 560px;
+  padding: var(--space-4);
+  background: var(--surface-sunken);
+  border: var(--border-width) solid var(--border-default);
+  border-left-width: var(--border-accent-width);
+  border-left-color: var(--border-strong);
+  border-radius: var(--radius-md);
+}
+.phone-confirm p { flex-basis: 100%; font: var(--text-body-md); color: var(--text-strong); }
+
+/* The checklist and the ward lines: the words as they always were. */
+ul.checklist, ul.wards { list-style: none; margin: 0; padding: 0; font: var(--text-body-sm); color: var(--text-body); }
+ul.checklist li { padding: 2px 0; }
+ul.wards li { padding: var(--space-2) 0; border-top: var(--border-width) solid var(--border-hairline); overflow-wrap: anywhere; }
+ul.wards li:first-child { border-top: 0; }
+.worst { font: var(--text-label); color: var(--text-strong); }
+
+/* THE REGISTER. Below 960 px each facility is a card; at 960 px and wider the same
+   elements are the rows of a table (the kickoff's D3), five columns in the card's own
+   reading order: the facility, Listed / Not listed with any warning, the checklist, the
+   wards, and Open. No header row: every cell's words already name what they are. */
+ul.register { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); }
+/* An empty register draws nothing, so the table's frame never shows under "No facility exists yet." */
+ul.register:empty { display: none; }
+li.facility {
+  display: grid;
+  gap: var(--space-3);
+  background: var(--surface-card);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+.cell { display: grid; gap: var(--space-2); align-content: start; min-width: 0; }
+.cell-facility p { font: var(--text-body-sm); color: var(--text-muted); }
+.listed { font: var(--text-label); color: var(--text-strong); }
+.cell-open button { width: 100%; }
+
+/* One facility's view: each section a card. */
+.facility-detail, .wards-detail, .contact-detail, .agreement-detail, .listing {
+  display: grid;
+  gap: var(--space-3);
+  background: var(--surface-card);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+#app > button { justify-self: start; }
+
+@media (min-width: 720px) {
+  .site-header-inner { padding-left: var(--gutter-page-wide); padding-right: var(--gutter-page-wide); }
+  main#app { padding: var(--space-6) var(--gutter-page-wide) var(--space-10); }
+}
+
+@media (min-width: 960px) {
+  ul.register {
+    gap: 0;
+    background: var(--surface-card);
+    border: var(--border-width) solid var(--border-default);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  li.facility {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 2fr) auto;
+    gap: var(--space-4);
+    background: none;
+    border: 0;
+    border-top: var(--border-width) solid var(--border-default);
+    border-radius: 0;
+  }
+  li.facility:first-child { border-top: 0; }
+  .cell-open button { width: auto; }
+}

@@ -826,7 +826,9 @@ const DESIGN_STATE: Record<string, { viewport: DesignState; applied: DesignState
   // Real since D2 (R-2026-09-26-132 DH-3 c): its PENDING legs read their flip message on
   // the real app, then were replaced by these, in the PR that applied the design.
   'ward-console': { viewport: 'real', applied: 'real' },
-  admin: { viewport: 'real', applied: 'pending D3' },
+  // Real since D3 (R-2026-09-27-139 DO-4 f): its PENDING applied leg read its flip message
+  // on the real app, then was replaced by this, in the PR that applied the design.
+  admin: { viewport: 'real', applied: 'real' },
 };
 const FLIP = (pr: string): string =>
   `this app now meets the guard — replace this leg with the real guard in this PR (${pr}; R-2026-09-26-125 DA)`;

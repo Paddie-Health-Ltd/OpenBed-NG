@@ -132,6 +132,8 @@ exactly that: never a PASS.** Paste the whole output back.
 | `step 2 bundles the page loads` / `publishable keys in the deployed bundle` | **`1`** / **`1`** |
 | `step 2 scripts` / `admin.openbed.ng scripts` | **every script is this host's own**. One `script:` line per `<script>` is printed above it. Any inline script, or one from another host (such as `static.cloudflareinsights.com`), is **WRONG** (R-2026-09-25-119 CU-5) |
 | `admin.openbed.ng content-security-policy` / `referrer-policy` / `x-content-type-options` / `bundles the page loads` | the same values as step 2's, read on the custom domain with the token, where zone settings apply |
+| `step 2 favicon.ico` and `admin.openbed.ng favicon.ico`, each with `status` and `content-type` | **`200`**, **byte for byte this checkout's** `apps/admin/public/favicon.ico`, and a content-type that is **not `text/html`** (that is the SPA fallback answering for the icon). Since the design pass's D3 (R-2026-09-27-139 DO-4) |
+| `step 2 page stylesheet` / `stylesheet fonts` / `font status` / `font content-type` | the stylesheet the page links, at least one woff2 it names, **`200`**, and exactly **`font/woff2`**: a font served as anything else fails silently under nosniff. Since D3 |
 | `step 3 live half status` / `body` | **`200`** / begins **`{"external":`** |
 | `step 3 dead half status` / `body` | **`401`** / contains **`"message":"Invalid API key"`** |
 | `step 3 operator call status` / `x-openbed-proxy` | **`401`** / **`forwarded`** |
@@ -288,3 +290,10 @@ were changing what we served, and no read-back saw either:
 A plain curl against the deployment URL saw a clean page. *Restated 2026-09-26:* until
 then the page was fetched once, as plain curl, on the deployment URL, and only its
 bundle was counted.
+
+*Added 2026-09-27 (R-2026-09-27-139 DO-1 b):* a third zone setting did the same on
+2026-09-27. Email Address Obfuscation (Scrape Shield) rewrote the addresses on the
+dashboard's /privacy and injected a script there, on `openbed.ng` only, and
+`scripts/readback_pages.sh` read it WRONG. It is off, and all three zone settings that
+must stay off are listed in `docs/runbook-cloudflare-pages-beds-json.md`. Admin's host
+is in the same zone, so the same three apply to `admin.openbed.ng`.
