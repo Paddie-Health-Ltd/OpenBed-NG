@@ -6362,6 +6362,200 @@ _Issued as R-PROVISIONAL-2026-09-27-DM, by Cowork on 2026-09-27, as its check of
 
 **DM-5 — PROCESS:** one new commit on `pr-p-privacy-retention`, with no force-push and no rebase. -137 lands with its ledger row. The full suite runs on a fresh DB and the commit gate runs, then STOP at #90 for Cowork's re-check. Nothing hosted. Next letter: **DN**, the deploy read-back and D3's start word.
 
+### R-2026-09-27-138 — #90 merged; the founder's decision that Cloudflare's DPA reaches NDPA data; the transfer sentence gated on box 15
+
+_Issued as R-PROVISIONAL-2026-09-27-DN, by Cowork on 2026-09-27, as its re-check of #90 at `410866d6f2aae1d7c9d694b1712c5660229bbb52`. **Pasting it was the founder's merge word for #90.** Held under its own DN-4, and landed in D3's pull request after -137, as -139 DO-2 directs. Number assigned on landing: R-2026-09-27-137 plus one. Next provisional letter: **DO**._
+
+**VERIFIED BY COWORK** (2026-09-27, GitHub API from the founder's Mac):
+- #90 OPEN, head `410866d`, base `19e28be` (= main), clean, 2 commits. Compare `a39d3cd...410866d`: ahead 1, behind 0, so no force-push and no rebase. Seven check runs succeeded on `410866d`.
+- The DM diff was read in full:
+  - both thresholds are 29 days, with the comments restated;
+  - `app.check_withdrawn_facility_accounts()` raises EXCEPTION and deletes nothing, is owner-only, and is scheduled `37 2 * * *`;
+  - the erasure no longer warns;
+  - the pause list, the down file (three jobs, three functions) and the fixture are updated;
+  - `docs/legal/README.md` quotes Supabase cl. 12.1 and Sched. 2 para 2.3, and Cloudflare Self-Serve s.6.1 with its condition.
+- Cowork read Cloudflare's DPA v6.4 (effective 2026-04-03). It says:
+  - "This DPA applies where Cloudflare processes Personal Data as a Processor ... on behalf of Customer ... and such Personal Data is subject to Applicable Data Protection Laws";
+  - "Applicable Data Protection Laws" = "All laws and regulations that are applicable to the processing of Personal Data under the Main Agreement, including European Data Protection Laws and the United States Data Protection Laws";
+  - "This Data Processing Addendum ... forms part of the Main Agreement."
+
+**ACCEPTED:** DM-1 to DM-5 as landed, and -137's correction of -136's screenshot count to eleven.
+
+**DN-1 — THE FOUNDER'S WRITTEN DECISION UNDER DM-3 d (2026-09-27).**
+- **The decision:** Cloudflare's DPA applies, by its own scope, to personal data subject to the NDPA.
+  - Its definition of Applicable Data Protection Laws is inclusive ("including").
+  - The DPA states that it forms part of the Main Agreement, which includes the Self-Serve Subscription Agreement.
+  - Self-Serve s.6.1 is read as an express incorporation for EU/UK and CCPA data, not a limit on the DPA's own scope.
+- The notice's "each bound by a written data-processing agreement" stands for Cloudflare, and /privacy deploys as Version 1.0.
+- **Landed:** one line under `docs/legal/README.md`'s "What this table does not establish". It records the decision as the founder's, citing this item, and not as something the table establishes.
+
+**DN-2 — AN OPEN ITEM WITH ITS GATE.**
+- **The item:** the notice's transfer sentence for Cloudflare. Its SCCs are stated for European data, and its Global CBPR mechanism needs the originating country to recognise it. The basis for transfers out of Nigeria is the founder's transfer pack.
+- **The gate:** BOX 15, the paperwork register approved in full, whose transfer memo covers it.
+- **Landed:** one Deferred items row, with this item as its source and BOX 15 as its gate.
+  - Box 15's text at runbook 12.4 step 1 now cites R-2026-09-27-138 DN-2. Rule (c) of `tests/compliance/deferred_items.test.ts` refuses a BOX row whose ruling no box carries. That is the correction -139 DO-2 accepted.
+  - **Shown red first:** with the citation planted out of box 15, rule (c) read "BOX row cites R-2026-09-27-138 DN-2, and no box at runbook 12.4 step 1 carries it".
+  - The register count is in -139, recounted from the table once both rulings' rows had changed.
+
+**DN-3 — THE MERGE.**
+- **Landed:** #90's head was read from the API as `410866d6f2aae1d7c9d694b1712c5660229bbb52`. It was merged as a merge commit with `--match-head-commit` on that value, and read back MERGED at 2026-09-27T08:06:33Z.
+- The merge commit is `3623d2b3dac12c8966e52ff4ebf73956e8436b65`, with parents `19e28becc593edd9fe9b35e7c26df86831b5f451` and `410866d6f2aae1d7c9d694b1712c5660229bbb52`. All three were read back from git and `gh pr view 90` in the change that lands this entry.
+- Only then was local main fast-forwarded. `pr-p-privacy-retention` was deleted on the remote and locally, and both read back as gone. On landing, `git ls-remote` shows no such ref, and there is no local branch.
+
+**DN-4 — NOTHING HOSTED BY CLAUDE CODE.**
+- After DN-3, Claude Code stopped and reported the merge commit.
+- The founder ran the deploy pass, which Cowork read back as DO: -139.
+- **Corrected by -139 DO-2:** DN-4 said "DK, DL-era held rulings and DN land in D3's PR". Only DN was held. DK and DL landed in #90, as -135 and -136.
+
+### R-2026-09-27-139 — The deploy pass at `3623d2b` read back; the ward console's part of box 14 done; a Publish that can only fail, gated; D3 built
+
+_Issued as R-PROVISIONAL-2026-09-27-DO, by Cowork on 2026-09-27: its read-back of the founder's deploy pass, from the deploy checkout at `3623d2b3dac12c8966e52ff4ebf73956e8436b65` (main, #90's merge). **This was D3's start word.** Held, and landed in D3's pull request after -138. Amended the same day by Cowork with DO-5 and DO-6, with no new letter. Number assigned on landing: R-2026-09-27-138 plus one. Next provisional letter: **DP**._
+
+**VERIFIED BY COWORK** (the founder's pasted terminal output, read in full):
+- **024's apply** ("024's apply" in `docs/runbook-supabase-project-creation.md`):
+  - A: `1` | `0` | `t|t|t` | `auth.identities|c` | `auth.one_time_tokens|c`.
+  - Fence 1: 23 already applied, WOULD APPLY `024_retention_jobs.sql`, "1 migration(s) pending."
+  - Fence 2: FINGERPRINT `beds.json=0/0:543f06c0b0c4,facility_public=0:d41d8cd98f00,ward_public=0:d41d8cd98f00,lga_rollup=0:d41d8cd98f00` (RECORDED; taken twice, identical).
+  - Fence 3: "Applying 024_retention_jobs.sql" ..., then two expected DROP-IF-EXISTS NOTICEs, `cron.schedule` ids 3, 4 and 5, and "Migrations complete (1 applied this run)."
+  - Fence 4: all four ok, "PASS (VACUOUS FOR B1)".
+  - Fence 5: 24 already applied (001-024), "0 migration(s) pending."
+  - Fence 6: PASS. `app.check_withdrawn_facility_accounts()`, `app.erase_lapsed_ward_logins()` and `app.prune_ended_auth_sessions()` read EXECUTE: none, and `public.rls_auto_enable()` reads ok (hosted-only).
+  - B: 1, then exactly the five jobs: the three retention jobs at `37`/`17`/`27 2 * * *` and 017's two, all `postgres`, all active.
+- **The public dashboard:**
+  - Deployed `https://963e53f5.openbed-public-dashboard.pages.dev` from `3623d2b`: stamp clean, 6 uploaded, 9 already present, no 429.
+  - The first `readback_pages.sh` read STOP on one line: "openbed.ng privacy scripts" WRONG.
+  - **The cause, which Cowork read from the live HTML:** the zone setting Email Address Obfuscation (Scrape Shield) had rewritten every address on openbed.ng/privacy to "[email protected]" links, and injected Cloudflare's email-decode script. The `pages.dev` host was clean.
+  - The founder turned Email Address Obfuscation OFF for the `openbed.ng` zone, with no redeploy. The re-run read PASS on every line, on both hosts.
+- **The Worker:**
+  - `deploy_worker.sh supabase-proxy` from `3623d2b`: Current Version ID `ea32b1ae-3107-4f9a-a406-7f3d361a91cb`, the stamp confirmed on attempt 1.
+  - `readback_worker.sh`: PASS on probes 1-3 and the stamp.
+  - Probe 4, read by Cowork through the Cloudflare connector: the deployed source is the proxy handler with the tracked allow-list, and `version.json` reads commit `3623d2b`, dirty false.
+- **The ward console:**
+  - Deployed `https://f6429a29.openbed-ward-console.pages.dev` from `3623d2b`.
+  - `readback_ward_console.sh`: PASS. That covers the stamp, the CSP and scripts on both hosts, the favicon on both hosts, a self-hosted font, the live key 200 and the wrong key 401.
+- **The founder, 2026-09-27:**
+  - On a phone at `app.openbed.ng`: "fits well, everything works". The look is approved, and the privacy link is present and opens the notice.
+  - Desktop DevTools: no CSP messages, and woff2 served from `app.openbed.ng`.
+  - Supabase Authentication → Hooks: no hooks enabled.
+
+**DO-1 — THE PASS, RECORDED.** Each item below records Cowork's reading of the founder's output. None is Claude Code's observation.
+- **a. 024's apply.**
+  - **Landed:**
+    - "Not yet run" became a dated run.
+    - The checkbox is ticked with the date, `3623d2b` and every fence's reading as above. Fence 1 carries a dated note: the list at the top of step 5 now states the state after this apply.
+    - The frozen boundary is at 24, recorded by `node scripts/freeze_applied_migrations.mjs 24 2026-09-27 R-2026-09-27-139`. `ledger_rows: 24` matches fence 5's twenty-four `already applied` lines. 024's sha256 is the tracked file's at `3623d2b`, read on landing: `9a5d2196…`.
+  - **Restated at every site `tests/compliance/runbook_migration_expectation.test.ts` reads**, as `2c75150` did for 023:
+    - step 5 now reads **001 through 024, 0 pending**, with a dated restatement bullet;
+    - the STOP bullet, the expected-output block, the ledger sentence (`24`, `0 migration(s) pending.`) and step 7;
+    - the 2026-09-27 one-pending dry run is kept as a dated fence.
+  - **That guard's pinned legs were restated to the zero state one for one.** A literal restatement to the new fact, not a weakening:
+    - each changed `expect` is paired with its replacement and a dated comment;
+    - each re-aimed plant still asserts that it changed the text and that the parser read the planted value;
+    - the "dated historical fences" leg is re-aimed at the new 2026-09-27 fence.
+- **b. The dashboard.**
+  - **Landed:** the run record for `963e53f5` in `docs/runbook-cloudflare-pages-beds-json.md`, with the STOP, its cause and the fix.
+  - Also a list, "The `openbed.ng` zone settings that must stay OFF": Web Analytics and the managed robots.txt (CU-4), and Email Address Obfuscation (this item). None is switched back on unread.
+  - The ward-console and admin runbooks each gained a dated paragraph pointing to it, because their hosts are in the same zone.
+- **c. The Worker, completed by DO-6.**
+  - **Landed:** section 4's box in `docs/runbook-cloudflare-worker-proxy.md` is ticked with the date, `3623d2b`, the Version ID and PASS.
+  - The read-back's last line is quoted from `scripts/readback_worker.sh` at `3623d2b`, **marked as the script's text, not the founder's terminal.** DO did not carry the line verbatim, and the premise rule forbids composing it.
+- **d. The ward console.**
+  - **Landed:** the run record for `f6429a29` in `docs/runbook-ward-console-deploy.md`: the read-back, the phone check, the desktop check, and section 5 step 5 read as no hooks enabled.
+- **e. The register and box 14.**
+  - DG-3's row "The hosted project's auth hooks are off" leaves, because its read passed.
+  - Box 14 at runbook 12.4 step 1 gains a dated progress note: the ward console's part is DONE (deployed, read back, approved on a phone). Admin (D3) remains, and **the box stays open.**
+
+**DO-2 — DN LANDS HERE, WITH TWO CORRECTIONS, both Claude Code's and accepted:**
+- DN-4's "DK, DL-era held rulings and DN land in D3's PR" is wrong: only DN was held.
+- DN-2's BOX 15 row needs box 15 to cite R-2026-09-27-138. **Landed** as -138 above.
+
+**DO-3 — A DEFECT FOUND, WITH ITS GATE.**
+- **The defect:**
+  - `my_facility_wards()` returns every ward at the caller's facility, and the ward console renders a Publish form on each.
+  - `publish_ward_status` admits only the caller's own ward (WARD_SCOPE_DENIED).
+  - A WARD_STAFF login therefore sees Publish buttons that can only fail.
+- **Its fix depends on the founder's pending decision on the reporting model:** per-ward logins, a facility-level reporter, or both per facility. The facility-admin override row (R-2026-09-24-75 BC-7) may be re-gated by that decision.
+- **Landed:** one Deferred items row, source this item, gate **TRIGGER: facility one's first ward account is provisioned** (no ward login exists until then).
+- **The premise was checked, and it holds:**
+  - `011_read_rpcs_capped.sql` filters `my_facility_wards()` on `facility_id` alone;
+  - `014_publish_ward_status.sql` raises `WARD_SCOPE_DENIED` when the category differs from the login's ward.
+- **Reported alongside:** the ward console's own header, in `apps/ward-console/src/main.ts` under "WHY A PUBLISH FORM PER ROW", records the form on every row as a deliberate choice. Nothing in the RPC's return identifies the login's ward, so the server was left the sole authority. This item rules that choice a defect. It was not newly discovered. The console's code and header are unchanged here.
+- **The register, recounted from the table after -138 and -139: 59 → 59** (16 BOX, 32 TRIGGER, 11 VERSION):
+  - plus DN-2's row and DO-3's row;
+  - minus DG-3's row and DA-3's D3 row;
+  - the same count at `3623d2b` read 59 (15 BOX, 33 TRIGGER, 11 VERSION), matching the recorded 59.
+  - The favicon row stays, with its gate restated: D3 is done in code, and `scripts/readback_admin.sh` now checks admin's icon on both hosts. The row leaves in the pull request that records D3's hosted read-back, the first observation of that icon on a host.
+
+**DO-4 — D3, from main at `3623d2b`, per the design-pass kickoff's D3, carrying what D2 established.**
+- **a. Built.**
+  - Admin takes `@openbed/design`'s tokens and self-hosted fonts, the favicon (the dashboard's icon, byte for byte), and the header lockup with "Platform admin" beside it. The header is aligned to the content at every width (the harness measured 16 px at 360, 24 px at 960 and 184 px at 1280). The box is `--measure-app`, because admin holds a table.
+  - The register is cards below 960 px, and a five-column table at 960 px and wider, on the same elements. **No header row was added, because that would be new words.** Flagged for Cowork at the screenshot read.
+  - "Listed" / "Not listed" appear as words, and "Paused" appears nowhere.
+  - Every control is 44 px.
+  - Nothing is stored client-side.
+- **b. Notices.**
+  - Every `p.status` is a Notice with `role="status"`.
+  - Info is for what went through: created, Saved., Ward category added., Contact saved., Agreement recorded., Listed., and the link-sent sentence.
+  - Caution is for every refusal, failure and validation sentence, and for the register's `.warning` lines.
+  - The signed-out landing's instruction is lead text. The words are unchanged.
+- **c. The operator forms do their own validation** (as corrected by DO-5 a), in their own sentences, with focus on the field to fix. The existing sentences move unchanged.
+  - The one check only the browser made, an email field's form, is made by the contact form itself, reading the input's own `validity`. It needed one new sentence: "That email address is not in a form this page can read. Check it for a missing @ or a space."
+  - **Why it had to be kept:** 021 checks no email's form, so `noValidate` alone would have let a typo reach the saved contact.
+  - A date the field cannot read is refused in the server's own sentence for a missing date.
+- **d. An update changes only what it updated.** The detail view is built once.
+  - A write re-reads the facility and patches the lines that show saved state. A section is rebuilt only when what it offers changes: an agreement recorded, or a facility becoming listable or listed.
+  - **The mechanism choice:** a form holding unsent input keeps the saved row it was filled from, and its version. So an edit typed before another change to the facility is still sent against the row the operator saw, and the server can refuse it. A form holding nothing unsent moves to the newest row. `trg_facility_version` bumps the version on every facility UPDATE (020), so a form that followed every re-read would have turned a real conflict into a silent overwrite.
+  - **Proved by three tests:**
+    - two other forms keep their nodes, unsent input and Notice across a third form's write;
+    - an untouched edit form follows the version that listing bumped;
+    - an edit typed before listing is sent at the old version.
+  - **Shown red first against admin at `3623d2b`.** The two-form test read "the edit form was rebuilt by a write that was not its own", and the typed-before test read "the unsent edit was overwritten by the re-read". A plant sending the newest version reads "a lost update".
+- **e. The privacy link** is on every sign-in state, restyled in the D2 manner (body-sm, muted, 44 px). `privacy_links.test.ts` stays green.
+- **f. The PENDING D3 leg in `tests/compliance/bundle_guards.test.ts` read its flip message on the real app** ("this app now meets the guard — replace this leg with the real guard in this PR (D3; R-2026-09-26-125 DA)"), and was replaced by the real guard. DA-3's D3 register row is removed.
+- **g. Screenshots:**
+  - 134 in .design-screens/D3/ (gitignored), from the local build with synthetic data only. 34 states at 360×740, 360 full page, 960×800 and 1280×900. DO-5 d's two states are at 360×740 and 1280×900 only.
+  - The harness reported no horizontal overflow, no misalignment and no CSP message.
+  - Headless Chrome did paint the sign-in form's validation bubble, once focus emulation was on, so DO-5 d's shot is the real bubble.
+  - **Every image was read before the PR opened.** All 134 were read by a review agent inside this session, and the flagged states and a sample were read by the implementer. Four findings were fixed:
+    - the register's unreadable-row line is now a caution Notice (a failure), with a tone row and its red;
+    - the phone-change confirm moved off the navy accent, which read as info, to the neutral strong border;
+    - an empty register no longer draws the table's frame at 960 px and wider;
+    - the harness now answers a write's re-read with the written state, so no outcome line contradicts the page under it.
+  - The set was then retaken in full.
+- **h. The new guards**, each shown red first:
+  - `tests/compliance/admin_design.test.ts`: the header, the tones, `role="status"`, own validation, DO-4 d, the words, and the literal-px sizes and the 960 px threshold;
+  - admin's favicon leg in `tests/compliance/design_package.test.ts`;
+  - admin's favicon and font probes in `scripts/readback_admin.sh`, with their legs in `tests/compliance/readback_scripts.test.ts`.
+  - The Notice checks D2 wrote are moved into `tests/compliance/_design.ts`, so both apps' tests import one copy.
+
+**DO-5 — THE SIGN-IN FORM (the amendment, 2026-09-27).**
+- **a.** DO-4 c is corrected to read: "Operator forms do their own validation (noValidate) with their own sentences, focus to the field that needs fixing; no browser bubbles on operator forms. The admin sign-in form keeps browser validation, per -134 DJ, as the ward console does."
+- **b.** The admin sign-in has no `noValidate` and no new sign-in wording, the same behaviour as the ward console's sign-in form.
+- **c.** The mismatch was Cowork's slip: DO-4 c as first issued overrode -134 DJ without saying so, and DO-5 a restores it. It is not a Claude Code deviation. Claude Code asked before building, and did not choose.
+- **d.** Screenshots, at 360×740 and 1280×900:
+  - the admin sign-in with a malformed address submitted, the browser bubble showing;
+  - an operator form with a field it needs left empty (latitude, on New facility), our sentence showing and the field focused.
+
+**DO-6 — THE WORKER'S OBSERVABILITY, READ ON HOSTED (the amendment, 2026-09-27).**
+- **a.** The founder's read, 2026-09-27: Cloudflare dashboard, Workers & Pages > `supabase-proxy` > Settings > Observability: disabled.
+- **b.** **Landed** in section 4 of `docs/runbook-cloudflare-worker-proxy.md` as the hosted read for the `ea32b1ae` deploy, replacing DO-1 c's "pending". It matches `supabase-proxy/wrangler.json` `"observability": {"enabled": false}`.
+- **c.** DO-1 c is carried as complete, citing this item.
+
+**PREMISE CORRECTIONS AND MECHANISM CHOICES** (method notes 4 and 20):
+- **DO-1 b named "the zone settings the runbook lists as required".** `docs/runbook-cloudflare-pages-beds-json.md` held no such list. The two settings CU-4 turned off were named only in CU-4 and in the explanatory paragraphs of the ward-console and admin runbooks. The instruction survives, and the list was created (DO-1 b above).
+- **DO-1 c asked for "the read-back's last line".** DO carried PASS, not the line. The line is quoted from the script and marked as such (DO-1 c above).
+- **A server-side gap, reported for a ruling and not gated here:**
+  - `operator_record_contact` (021) checks no email's form; only the page does, now in its own words.
+  - The self-check's "every input validated server-side" does not hold for that field.
+  - Migrations are out of this sprint's scope, and **no gate is invented here.**
+- **Pre-existing, reported and not changed** (scope guard; found at the screenshot read):
+  - the register-unreachable screen names no Reload control;
+  - the two stop screens offer no next step;
+  - with the contact unreadable, the Agreement section is a heading alone;
+  - "1 beds", and "Listed (27 Sept, 12:49 (Lagos time))" with its nested brackets: wording, frozen this sprint.
+  - `tests/compliance/admin_render.test.ts` and `tests/db/admin_calls_live.test.ts` use "St. Nicholas' Hospital" as a fixture name, which is the name of a real Lagos hospital.
+  - This change's own test and harness use invented names only.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -6490,6 +6684,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | DK | R-2026-09-26-135 | 2026-09-26 | **#89 merged at `19e28be`** (parents `2586d29`, `8c23765`); `design-pass-d2` deleted on both sides and read back as gone. Pasting DK was the founder's merge word. Held, and landed in P's pull request by -136's "DK AMENDED". Box 14 stays open; DG-3's hooks row stays. |
 | DL | R-2026-09-26-136 | 2026-09-26 | **P built:** the privacy notice at /privacy from `docs/legal/privacy-notice-v1.0.md` (sha256 as issued), linked from the three sites by one constant; migration 024's two retention jobs, with the erasure's audit row ward-only by the database (DL-2 a, amended by the founder the same day); Worker logging off; the DPA evidence outside the repository; SECURITY.md. A re-issue of a draft lettered DF, whose letter and number were taken. Box 1 and box 9 not ticked. The `scripts/` survey TRIGGER fired at 024. |
 | DM | R-2026-09-27-137 | 2026-09-27 | **#90 amended once.** The retention jobs move to a 29-day threshold, so a daily run deletes within the notice's 30 days. A missed withdrawal step now fails its own job, `openbed_check_withdrawn_facility_accounts`, visibly in `cron.job_run_details`, where a WARNING reached only the server log. The DPA README quotes Supabase clause 12.1, and Cloudflare's Self-Serve section 6.1 (FOUND, conditional on EU/UK and CCPA data, reported). Register 58 → 59. -136's screenshot count corrected to eleven. Next letter DN. |
+| DN | R-2026-09-27-138 | 2026-09-27 | **#90 merged at `3623d2b`** (parents `19e28be`, `410866d`); `pr-p-privacy-retention` deleted on both sides and read back as gone. Pasting DN was the founder's merge word. The founder decides that Cloudflare's DPA reaches NDPA data (DN-1, a line in `docs/legal/README.md`); the transfer sentence is gated on box 15, which now cites it (DN-2). Held, and landed in D3's pull request by -139. |
+| DO | R-2026-09-27-139 | 2026-09-27 | **The deploy pass at `3623d2b` read back** (024 applied, the frozen boundary at 24, step 5 at 0 pending; the dashboard after an Email Address Obfuscation STOP, now off and listed with CU-4's two; the Worker, Observability read disabled by DO-6; the ward console, its part of box 14 done). DG-3's hooks row and DA-3's D3 row leave, DN-2's and DO-3's rows arrive: register 59 → 59. **D3 built:** admin in the design system, a table at 960 px, Notices in tone, operator forms validating in their own words (the sign-in keeps the browser's, DO-5), an update that changes only what it updated. 134 screenshots. Amended the same day with DO-5 and DO-6, no new letter. Next letter DP. |
 
 ## Deferred items — this record is where the list lives
 
@@ -6559,15 +6755,13 @@ the record's own, except where CW-5 assigned one._
 | GoTrue's answers reveal whether an address has an account (an accepted risk) | R-2026-09-23-67 C | TRIGGER | Personal addresses are ever used as logins |
 | A uniform `/otp` answer at the Worker (option B) | R-2026-09-23-70 A | TRIGGER | -55 C lands |
 | `GET /auth/v1/verify` listed on the Worker | R-2026-09-23-70 C2 | TRIGGER | -55 C's custom domain is routed through the Worker |
-| `/favicon.ico` is answered by the SPA fallback | R-2026-09-23-70, founder step (a) note | TRIGGER | FIRED; resolved in D1–D3 (R-2026-09-26-122 CX-3): each app ships the SVG icon and a real `/favicon.ico`, and the read-back asserts `/favicon.ico` is not `text/html`. D1 done for the public dashboard (R-2026-09-26-124): a real `favicon.ico`, and `scripts/readback_pages.sh` checks it on both hosts. D2 done for the ward console (R-2026-09-26-132): the same icon, and `scripts/readback_ward_console.sh` checks it on both hosts. Admin remains, in D3 |
+| `/favicon.ico` is answered by the SPA fallback | R-2026-09-23-70, founder step (a) note | TRIGGER | FIRED; resolved in D1–D3 (R-2026-09-26-122 CX-3): each app ships the SVG icon and a real `/favicon.ico`, and the read-back asserts `/favicon.ico` is not `text/html`. D1 done for the public dashboard (R-2026-09-26-124): a real `favicon.ico`, and `scripts/readback_pages.sh` checks it on both hosts. D2 done for the ward console (R-2026-09-26-132): the same icon, and `scripts/readback_ward_console.sh` checks it on both hosts. D3 done in code for admin (R-2026-09-27-139 DO-4): the same icon, and `scripts/readback_admin.sh` checks it on both hosts, with the service token. The row leaves in the pull request that records D3's hosted read-back, the first observation of admin's icon on a host |
 | The before/after public-output comparison needs a new design once wards can publish | R-2026-09-24-74 BB-3 | TRIGGER | The first hosted migration apply after the -45 gate cleared (-115) |
 | Update requests | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | Freshest and nearest sorting | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | The public "who's on it" list | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | The facility-admin override | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | Duty-flag gating | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
-| Admin's design guards: tokens, self-hosted fonts (the PENDING D3 leg in `tests/compliance/bundle_guards.test.ts`) | R-2026-09-26-125 DA-3 | TRIGGER | D3's PR: the PENDING D3 leg goes red when the app meets the guard, and D3 replaces it with the real guard |
-| The hosted project's auth hooks are off (the dashboard setting; config.toml is guarded by auth_hooks_off.test.ts) | R-2026-09-26-131 DG-3 | TRIGGER | D2's hosted deploy: the founder checks Authentication → Hooks (docs/runbook-ward-console-deploy.md section 5, step 5), and the row leaves in the pull request that records that read |
 | B1's onboarding checks: the first ward account reads its own history as itself (12.4 step 6), and the first publish reads back from `/beds.json` (12.4 step 9) | R-2026-09-26-122 CX-1 (b) | TRIGGER | The first ward account at facility one |
 | `ward_reply` has a cap and no content validation (#63/#97) | R-2026-09-17-03 and -04 | TRIGGER | The first change that writes `app.referral.ward_reply` (referrals are unwired in v1; R-2026-09-26-122 CX-2) |
 | Gate 3's property test does not exist (#109) | R-2026-09-17-03 and -04 | TRIGGER | The next change under `packages/gate/` or `packages/snapshot/src/freshness.ts` (R-2026-09-26-122 CX-2) |
@@ -6584,6 +6778,8 @@ the record's own, except where CW-5 assigned one._
 | Pages Git integration as the root fix for deploys | R-2026-09-20-30 A5 | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
 | Phone features: the tile, call tracking, WhatsApp/SMS | R-2026-09-23-66 C2 | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
 | A failed retention job run is only visible in `cron.job_run_details`: nothing tells the operator unless someone reads it (12.5 step 5 reads it after a withdrawal) | R-2026-09-27-137 DM-2 e | TRIGGER | Facility one's first ward account is provisioned. Until then there is no ward login to erase. By then, a failed run of the three retention jobs must surface where the operator looks |
+| The notice's transfer sentence for Cloudflare: its SCCs are stated for European data and its Global CBPR mechanism needs the originating country to recognise it; the basis for transfers out of Nigeria is the founder's transfer pack | R-2026-09-27-138 DN-2 | BOX | Box 15 at runbook 12.4 step 1 (the paperwork register approved in full, whose transfer memo covers it), ticked by a ruling that closes it |
+| The ward console offers Publish on wards the login cannot publish for: `my_facility_wards()` returns every ward at the caller's facility, and `publish_ward_status` admits only the login's own ward (WARD_SCOPE_DENIED). Its fix waits on the founder's decision on the reporting model (per-ward logins, a facility-level reporter, or both), which may re-gate the facility-admin override row (R-2026-09-24-75 BC-7) | R-2026-09-27-139 DO-3 | TRIGGER | Facility one's first ward account is provisioned. No ward login exists until then |
 
 ## Method notes — how rulings reach the implementer
 

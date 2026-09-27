@@ -131,7 +131,8 @@ by section 1 above, then run `bash scripts/readback_worker.sh` by section 2. Bot
 read as those sections say. The Worker's logging state in Cloudflare's dashboard is not
 readable from this repository, so nothing here asserts the deployed setting.
 
-- [ ] Redeployed with logging off, and read back (the date, the commit, and the read-back's last line)
+- [x] Redeployed with logging off, and read back (the date, the commit, and the read-back's last line). On 2026-09-27, from the deploy checkout at `3623d2b` (#90's merge; R-2026-09-27-139 DO-1 c, completed by DO-6): `deploy_worker.sh supabase-proxy`, Current Version ID `ea32b1ae-3107-4f9a-a406-7f3d361a91cb`, the stamp confirmed on attempt 1; `readback_worker.sh` read PASS on probes 1 to 3 and the stamp (Cowork's reading of the founder's output). Its last line is the script's success verdict, `PASS: probes 1 to 3 and the stamp read as they must. Probe 4, the deployed source, is Cowork's, read through the Cloudflare connector.`, quoted from `scripts/readback_worker.sh` at `3623d2b`, not from the founder's terminal. Probe 4, read by Cowork through the Cloudflare connector: the deployed source is the proxy handler with the tracked allow-list, and `version.json` reads commit `3623d2b`, dirty false.
+  - **The hosted setting, read by the founder on 2026-09-27** (R-2026-09-27-139 DO-6): Cloudflare dashboard, Workers & Pages → `supabase-proxy` → Settings → Observability reads **disabled**, for the `ea32b1ae` deploy. That matches `supabase-proxy/wrangler.json` `"observability": { "enabled": false }`. The connector cannot read this setting, so the founder's read is its only observation, and it is recorded here as that.
 
 ## What stays true after this deploy, and what does not
 
