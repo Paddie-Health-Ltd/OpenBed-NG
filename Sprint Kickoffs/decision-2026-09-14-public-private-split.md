@@ -6946,12 +6946,15 @@ _Issued as R-PROVISIONAL-2026-09-27-DT, by Cowork (sprint-push) on 2026-09-27: t
 - The refusal matrix, each row a db test: `tests/db/facility_reporter.test.ts`, and new blocks in `tests/db/provisioning_gates.test.ts`, `tests/db/retention_jobs.test.ts`, `tests/db/operator_functions.test.ts` and `tests/db/operator_contact_and_agreement.test.ts`. The race is two real connections, and asserts that the second **waited**.
 - The golden path gains four steps, all run locally: an operator onboards GAMMA (never listed), GAMMA's facility login is provisioned through the script, it reads `can_publish` true on both categories, and it publishes both.
 - The runbook gains "025 and 026's apply", with step 5 restated in its five places.
-- Three register rows leave, as DT's definition of done names them:
-  - DO-3, the console's Publish on every row, which Bundle 2 resolves (**between this merge and Bundle 2's, that defect is carried by DT's Bundle 2, not by the register**);
+- Two register rows leave:
   - DM-2 e, the retention alert, now in `operator_register`;
   - DP-2, the contact email's form, now in the database.
 
-  **Recounted from the table: 60 → 57** (15 BOX, 31 TRIGGER, 11 VERSION).
+  **DO-3's row stays until Bundle 2's pull request**, restated: the server half (`can_publish`) landed here, and the console half is Bundle 2's.
+
+  **Recounted from the table: 60 → 58** (15 BOX, 32 TRIGGER, 11 VERSION).
+
+  *Restated 2026-09-27 by R-2026-09-27-146 DV-1, in the same pull request, before it merged.* Until then this read: "Three register rows leave, as DT's definition of done names them: DO-3, the console's Publish on every row, which Bundle 2 resolves (between this merge and Bundle 2's, that defect is carried by DT's Bundle 2, not by the register); DM-2 e …; DP-2 …. Recounted from the table: 60 → 57 (15 BOX, 31 TRIGGER, 11 VERSION)."
 
 **PREMISE CORRECTIONS AND MECHANISM CHOICES** (method notes 4 and 20). Each was also in the pull request body:
 1. **"readback_worker.sh's leg".** The script had no per-RPC leg beyond probe 1, and the allow-list test reds an entry nothing calls.
@@ -7047,6 +7050,57 @@ The fixture that holds a PLATFORM_ADMIN's answer was renamed with it, from platf
 **DU-5:** landed. The two tests are in `tests/db/facility_reporter.test.ts` (after a fresh apply) and `tests/db/migration_idempotency.test.ts` (after the re-apply).
 
 Nothing hosted. Next letter: **DV**.
+
+### R-2026-09-27-146 — Cowork's check of #93: DO-3's row stays until Bundle 2, and fence A's re-run reading
+
+_Issued as R-PROVISIONAL-2026-09-27-DV, by Cowork on 2026-09-27, as its check of #93 at `8931cdf`. Lands in #93, after -143, -144 and -145. Number assigned on landing: R-2026-09-27-145 plus one. Next provisional letter: **DW**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-27-DV — Cowork's check of #93 (head 8931cdf): amend, then merge. Lands as -146 in #93, with a ledger row. Next letter: DW.
+>
+> VERIFIED BY COWORK (2026-09-27, GitHub API read through the founder's browser pane; code read from a clone of pr/93):
+> - #93 OPEN, one commit 8931cdf on base 1b506d6 = main, 54 files, mergeable_state clean.
+> - All seven check runs completed success: repo-lint, bundle-guards, db-tests, compliance-tests, migration-lint, golden-path, secret-scan.
+> - Read and accepted: 025 alone; 026's pre-checks, scope CHECK arms, ward_account_one_active_reporter, enforce_one_reporting_source (READ COMMITTED lock-then-read; REPEATABLE READ refused), assert_member, publish_ward_status (014's order kept; the reporter's facility comes from its own account), my_reporting_wards with can_publish per role, provision_begin's explicit branches with ELSE -> ROLE_NOT_PROVISIONED_IN_V1, provision_complete's REPORTER_ALREADY_EXISTS, the erasure CHECK's reporter arm, the rename's idempotency assertion, the allow-list entries with the named preflight exception, probe 1b, forbidden-columns.json carrying hefamaa_reg_no (the right guard for a column; accepted in place of DT k's wording), and 12.4 step 5's DU-4 b precondition.
+> - The four departures reported in the PR are accepted as reasoned.
+>
+> DV-1  DO-3 STAYS IN THE REGISTER UNTIL BUNDLE 2 MERGES. DT's definition of done said DO-3 leaves in Bundle 1. That is Cowork's slip: Bundle 1 fixes the server half (can_publish), but the console still offers Publish on every row until Bundle 2. A row leaving before its fix lands is a deferral carried only by a kickoff, which the standing rule forbids.
+>   a) Restore DO-3's row, restated. The server half landed in -144 (can_publish on my_reporting_wards). The console half is Bundle 2's. Its gate is unchanged: TRIGGER, facility one's first reporting login is provisioned.
+>   b) DT's Bundle 2 line "This resolves DO-3, whose row left in Bundle 1" is amended by this ruling to "whose row leaves in Bundle 2's PR". Record the amendment in -146; leave the kickoff text as committed.
+>   c) Recount from the table: 60 -> 58 (DM-2 e and DP-2 leave). State the per-gate split. Update -144's ledger row and every count site that tests/compliance/deferred_items.test.ts reads.
+>
+> DV-2  RUNBOOK, "025 and 026's apply", fence A. When 026 was refused after 025 committed and the apply is being run again, the third reading is 1, not 0. Add that case: on such a re-run the first two readings must still read 0 and the third reads 1; any other reading stops. Add a test leg if runbook_migration_expectation.test.ts pins fence A's readings.
+>
+> DV-3  ACCEPTED, no change: the three admin sentences in admin-labels.json stay in this PR. Bundle 3 renders them and does not add them again.
+>
+> DV-4  FOR BUNDLE 2 (the provisioning script), recorded now so it isn't lost. provision_begin's REPORTING_MODEL_CONFLICT check can race: two begins at one facility can both open invites, and the trigger then refuses the second at provision_complete, after generate_link has created an Auth user. The script must name REPORTING_MODEL_CONFLICT and REPORTER_ALREADY_EXISTS when they come back from complete. It must tell the operator that an Auth user was created with no account, show it masked, and say how to delete it. It must never retry. Test it with the Auth stub. Carried by DT's Bundle 2 scope, not a register row, because Bundle 2 is the next PR.
+>
+> Amend #93 with one commit (DV-1, DV-2 and -146 with its ledger row), re-run the attestation, and stop for Cowork's check. Nothing hosted.
+
+**Cowork's verified facts, read back from the API before this landed:** #93 has one commit, `8931cdf1fb881ec7dbfb2e0552b8aaa185f06895`, on base `1b506d68fd5d700d477d7005bb7a7ec2a37bb7cc`, with 54 changed files, and all seven check runs read `COMPLETED SUCCESS`. All hold.
+
+**LANDED IN #93** (a second commit on the same branch):
+- **DV-1 a.** DO-3's row is back in the register, in the place it left, with its item restated: the server half landed in -144 as `can_publish` on `my_reporting_wards()` (-145), and the console half is Bundle 2's, whose pull request the row leaves in. Its gate is unchanged.
+- **DV-1 b.** DT's Bundle 2 line now reads, by this ruling: "This resolves DO-3, whose row leaves in Bundle 2's PR." The kickoff's text in -144 is left as committed.
+- **DV-1 c.** **Recounted from the table: 60 → 58** (15 BOX, 32 TRIGGER, 11 VERSION). DM-2 e and DP-2 leave. -144's landed block and DT's ledger row are restated in place, each with the text it replaced.
+- **DV-2.** Fence A now states the re-run case: `0`; `0`; `1`, and any other reading stops. It also says that a `1` on a first run means 025 is already applied, which stops.
+- **DV-3.** No change.
+- **DV-4.** Recorded here; carried by DT's Bundle 2 scope.
+
+**PREMISE CORRECTIONS** (method notes 4 and 20):
+1. **DV-1 c: "every count site that `tests/compliance/deferred_items.test.ts` reads".** It reads no count. It parses the register's rows and the boxes at runbook 12.4 step 1, and checks their gate kinds and the rows against the boxes; no total appears in it. The count sites are prose, both in this record: -144's landed block and DT's ledger row. Both are restated. The guard parses the restored row as the fifty-eighth: it is a TRIGGER row, so rules (c) to (e), which bind BOX rows, do not reach it.
+2. **DV-2: "if `runbook_migration_expectation.test.ts` pins fence A's readings".** It does not. Its parsers read only step 5's current bullet and its fenced expected output, never "025 and 026's apply". So no test leg was added. The case is guarded by the runbook text alone, which is the form fence A's first-run readings already had.
+
+**Beyond DV-2, for Cowork to accept or strike.** The re-run DV-2 describes also changes two other readings in that section:
+- **Fence 1** expects exactly two `WOULD APPLY` lines. On the re-run it shows 025 as `already applied` and one `WOULD APPLY` line naming 026, and its last line's pending count agrees with that one line.
+- **Fence 3** says two were applied this run. On the re-run it says one.
+
+Left as they stood, a correct re-run would stop at fence 1 after fence A passed. The paragraph "If 026 refuses after 025 has committed" now lists all three readings that differ on a re-run, and says every other reading is as for a first run. That is the smallest change that makes the case DV-2 adds runnable end to end.
+
+**A guard caught my first wording.** It stated fence 1's re-run count as a literal pending line. `tests/compliance/runbook_migration_expectation.test.ts` refuses any count stated in the runbook outside step 5's guarded sites and outside a dated block, and it reddened four legs. The guard is right: a stated count goes stale. Step 5 says why: "The expectation is stated as **files, not a count**". The re-run line now names files, and says the last line's count must agree with them. The guard is unchanged.
+
+Nothing hosted. Next letter: **DW**.
 
 ## The provisional ledger
 
@@ -7182,8 +7236,9 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | DQ | R-2026-09-27-141 | 2026-09-27 | **#91 merged at `ba12ceb`** (parents `3623d2b`, `ed8189e`); `design-pass-d3` deleted on both sides and read back as gone. Pasting DQ was the founder's merge word. DQ-2's deploy commands corrected (Cowork's slip, caught before any run). The founder's reporting model recorded: one facility-level login or one per ward, by the hospital's nursing structure, one source per ward; facility one on one facility login, so the next bundle builds FACILITY_REPORTER first. Five register gates restated from a first ward account to a first reporting login. Held, and landed with -142. |
 | DR | R-2026-09-27-142 | 2026-09-27 | **D3 deployed and read back:** admin `0651ec07` from `ba12ceb`, `readback_admin.sh` PASS with the favicon on both hosts and a font, and the founder's desktop and phone checks. **Box 14 closed** (D1, D2 and D3 deployed, read back and approved; 16 boxes, 3 ticked). The favicon row leaves, and so does the design pass's BOX row, by rule (e): register 62 → 60. The facility view's first hosted sight is 12.4 step 2a. Amended once by DR-7: two autocomplete infos folded into DP-5 b's row. Next letter DS. |
 | DS | R-2026-09-27-143 | 2026-09-27 | **#92 merged at `1b506d6`** (parents `ba12ceb`, `b017272`); `records-dq-dr` deleted on both sides and read back as gone. Pasting DS was the founder's merge word. Held, and landed in the FACILITY_REPORTER bundle's first pull request. Next letter DT. |
-| DT | R-2026-09-27-144 | 2026-09-27 | **The FACILITY_REPORTER sprint's kickoff, five bundles; Bundle 1 landed:** 025 (the enum value alone, irreversible; the one-transaction refusal read locally) and 026 (the scope CHECKs, one reporter per facility, one reporting source per ward by trigger, assert_member and publish widened for the reporter, provision_begin's per-role branches, the erasure CHECK's reporter arm, the register's reporting model and retention alert, the contact email's form CHECK, and the operator-only HEFAMAA number with its RPC). The golden path runs a facility login publishing two wards. DO-3, DM-2 e and DP-2 leave: register 60 → 57. Next letter DU. |
+| DT | R-2026-09-27-144 | 2026-09-27 | **The FACILITY_REPORTER sprint's kickoff, five bundles; Bundle 1 landed:** 025 (the enum value alone, irreversible; the one-transaction refusal read locally) and 026 (the scope CHECKs, one reporter per facility, one reporting source per ward by trigger, assert_member and publish widened for the reporter, provision_begin's per-role branches, the erasure CHECK's reporter arm, the register's reporting model and retention alert, the contact email's form CHECK, and the operator-only HEFAMAA number with its RPC). The golden path runs a facility login publishing two wards. DM-2 e and DP-2 leave, and DO-3's row stays until Bundle 2, restated: register 60 → 58 (restated by -146 DV-1; until then "DO-3, DM-2 e and DP-2 leave: register 60 → 57"). Next letter DU. |
 | DU | R-2026-09-27-145 | 2026-09-27 | **DT (f) amended:** can_publish ships on `public.my_reporting_wards()`, and `my_facility_wards()` is dropped, as 021 renamed its list, because 011 re-applies over 026 and a return type cannot change in place (Cowork's slip, owned). Every live dependent renamed; the hosted window closed by a runbook line and a 12.4 step 5 precondition. Next letter DV. |
+| DV | R-2026-09-27-146 | 2026-09-27 | **Cowork's check of #93 at `8931cdf`: amend, then merge.** DO-3's row restored, restated: the server half (`can_publish`) landed in -144, the console half is Bundle 2's, and the row leaves in Bundle 2's pull request (Cowork's slip, owned). Register 60 → 58 (15 BOX, 32 TRIGGER, 11 VERSION). Fence A of "025 and 026's apply" states the re-run reading `0`; `0`; `1`, and fences 1 and 3's re-run readings are stated beside it. The three admin sentences stay. Bundle 2's provisioning script names both refusals from complete, never retries, and tells the operator about the orphaned Auth user. Next letter DW. |
 
 ## Deferred items — this record is where the list lives
 
@@ -7274,6 +7329,7 @@ the record's own, except where CW-5 assigned one._
 | Pages Git integration as the root fix for deploys | R-2026-09-20-30 A5 | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
 | Phone features: the tile, call tracking, WhatsApp/SMS | R-2026-09-23-66 C2 | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
 | The notice's transfer sentence for Cloudflare: its SCCs are stated for European data and its Global CBPR mechanism needs the originating country to recognise it; the basis for transfers out of Nigeria is the founder's transfer pack | R-2026-09-27-138 DN-2 | BOX | Box 15 at runbook 12.4 step 1 (the paperwork register approved in full, whose transfer memo covers it), ticked by a ruling that closes it |
+| The ward console offers Publish on wards the login cannot publish for: it renders a Publish form on every row `my_reporting_wards()` returns, and `publish_ward_status` admits a ward login only for its own ward (WARD_SCOPE_DENIED). **The server half landed in R-2026-09-27-144:** `can_publish` on `my_reporting_wards()` (R-2026-09-27-145), decided per role by the server. **The console half is DT's Bundle 2's:** render the form only where `can_publish` is true, and the row leaves in Bundle 2's pull request (restated 2026-09-27, R-2026-09-27-146 DV-1; until then: "`my_facility_wards()` returns every ward at the caller's facility, and `publish_ward_status` admits only the login's own ward (WARD_SCOPE_DENIED). Its fix waits on the founder's decision on the reporting model (per-ward logins, a facility-level reporter, or both), which may re-gate the facility-admin override row (R-2026-09-24-75 BC-7)") | R-2026-09-27-139 DO-3 | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned. No reporting login exists until then (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned. No ward login exists until then") |
 | "N beds" reads "1 beds" when N is 1, in all three apps: `apps/public-dashboard/src/age-view.ts`, `apps/ward-console/src/main.ts` and `apps/admin/src/main.ts`. Fixed as one change across the three, with a guard | R-2026-09-27-140 DP-5 a | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned: the first moment a real count can be shown (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned: the first moment a real count can be shown") |
 | Admin's operator-only rough edges: the register-unreachable screen has no Reload control; the two stop screens offer no next step; the Agreement section is a bare heading when the contact is unreadable; UNRECOGNISED's "Nothing was changed" is shown after a failed READ of the contact; the nested brackets in "Listed (… (Lagos time))"; admin's inputs carry no autocomplete attribute except the sign-in email (the Chrome Issues panel on admin.openbed.ng, 2026-09-27, reported two; the source has 14 such inputs (6 facility, 5 contact, 3 agreement) and two selects; the pair that fits is New facility's `name` and `phone`, inferred); set the right token on each (R-2026-09-27-142 DR-7 b) | R-2026-09-27-140 DP-5 b | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned") |
 

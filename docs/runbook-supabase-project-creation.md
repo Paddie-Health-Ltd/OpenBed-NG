@@ -2125,7 +2125,16 @@ facility or a ward_account row.
 
 **If 026 refuses after 025 has committed,** 025's value stays, unused, and nothing else
 changed. Correct what the refusal names, then run the apply again: the runner skips 025
-and applies 026 alone.
+and applies 026 alone. **On that re-run, three readings differ from a first run, and
+only these three** (R-2026-09-27-146 DV-2):
+- fence A's third reading is `1`, not `0` (below);
+- fence 1's dry run shows `025_facility_reporter_role.sql` as `already applied` and
+  exactly one `WOULD APPLY` line, naming `026_facility_reporter_and_checks.sql`, and its
+  last line's pending count agrees with that one line. Stated as files, not a count, as
+  step 5 states its own expectation;
+- fence 3's apply applies that one file and says one was applied this run.
+
+Every other reading is as for a first run, and anything else stops.
 
 **The window (R-2026-09-27-145 DU-4 a):** from this apply until the ward console is
 redeployed from a commit containing 026, the deployed console calls
@@ -2133,6 +2142,9 @@ redeployed from a commit containing 026, the deployed console calls
 12.4 step 5 provisions none until that redeploy reads back.
 
 **A. The before-reading.** It only reads. **It must read, in this order:** `0`; `0`; `0`.
+**On a re-run after 026 was refused** (above), it must read `0`; `0`; `1` instead: the
+first two must still read `0`, and the third reads `1` because 025's value committed
+(R-2026-09-27-146 DV-2).
 - The first line counts the `app.ward_account` and `app.invite` rows that fit no arm of
   026's scope CHECKs. It compares roles as text, because the value does not exist yet.
 - The second counts contact emails that 026's form CHECK would refuse.
@@ -2140,7 +2152,8 @@ redeployed from a commit containing 026, the deployed console calls
   before 025.
 - 026 refuses by name on the first two (`SCOPE_CHECK_VIOLATIONS`,
   `CONTACT_EMAIL_MALFORMED`). This reading shows them before anything is applied.
-- **Any other reading: stop and report, and do not apply.**
+- **Any other reading, first run or re-run: stop and report, and do not apply.** A
+  third reading of `1` on a first run means 025 is already applied: stop.
 
 ```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
