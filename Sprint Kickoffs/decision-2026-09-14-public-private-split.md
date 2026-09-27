@@ -6520,7 +6520,7 @@ _Issued as R-PROVISIONAL-2026-09-27-DO, by Cowork on 2026-09-27: its read-back o
     - the register's unreadable-row line is now a caution Notice (a failure), with a tone row and its red;
     - the phone-change confirm moved off the navy accent, which read as info, to the neutral strong border;
     - an empty register no longer draws the table's frame at 960 px and wider;
-    - the harness now answers a write's re-read with the written state, so no outcome line contradicts the page under it.
+    - the harness now answers a write's re-read with the written state, so no outcome line contradicts the page under it. *Corrected by R-2026-09-27-140 DP-1 b (Cowork's finding; the claim was Claude Code's):* that held for edit, contact, agreement and listing, and not for add-category, whose two states still showed the pre-write wards under "Ward category added." until DP-1 d.
   - The set was then retaken in full.
 - **h. The new guards**, each shown red first:
   - `tests/compliance/admin_design.test.ts`: the header, the tones, `role="status"`, own validation, DO-4 d, the words, and the literal-px sizes and the 960 px threshold;
@@ -6555,6 +6555,84 @@ _Issued as R-PROVISIONAL-2026-09-27-DO, by Cowork on 2026-09-27: its read-back o
   - "1 beds", and "Listed (27 Sept, 12:49 (Lagos time))" with its nested brackets: wording, frozen this sprint.
   - `tests/compliance/admin_render.test.ts` and `tests/db/admin_calls_live.test.ts` use "St. Nicholas' Hospital" as a fixture name, which is the name of a real Lagos hospital.
   - This change's own test and harness use invented names only.
+
+### R-2026-09-27-140 — #91 amended once: two screenshots that contradicted their page, the contact email gated, an invented hospital name, the frozen wording gated
+
+_Issued as R-PROVISIONAL-2026-09-27-DP, by Cowork on 2026-09-27, as its read of #91 at `3b94ae7ef48e70cc59cf289d368bca0deaefd324`. **Not the merge word.** It lands in #91 as a third commit on `design-pass-d3`, with no force-push and no rebase. Number assigned on landing: R-2026-09-27-139 plus one. Next provisional letter: **DQ**._
+
+**VERIFIED BY COWORK** (2026-09-27, from the founder's Mac):
+- #91 OPEN, head `3b94ae7`, mergeable_state clean. Seven check runs on `3b94ae7`, all success: db-tests, repo-lint, secret-scan, golden-path, bundle-guards, migration-lint, compliance-tests.
+- `origin/main..design-pass-d3` = `890e22e`, `3b94ae7`. The diff was read in full: 23 files, +1864 / −287.
+- All 134 screenshots in .design-screens/D3/ were read by Cowork (the full-page 360 shots in tiles), plus `_report.txt`:
+  - every shot aligned at 16 / 24 / 184 px;
+  - 0 CSP messages;
+  - console errors only the expected network ones for the unreachable, 401, 403 and 400 states.
+
+**ACCEPTED:**
+- D3 as built against DO-4 as corrected by DO-5:
+  - the header, cards below 960 px and the 5-column table at 960/1280;
+  - Notices in two tones: caution for every refusal and warning, info for what went through;
+  - operator forms with `noValidate`, their own sentence and focus (seen in edit-bad-phone, add-category-empty, contact-email-unreadable and new-facility-no-latitude);
+  - the sign-in keeping the browser bubble (signin-malformed-address: validity INVALID, focused true).
+- DO-4 d's mechanism, its three tests and their reds:
+  - the edit form's base row and version kept while it holds unsent input, and the untouched form rebasing;
+  - `send()` closing the confirm on a refusal and rebasing otherwise;
+  - the contact form's dirty tracking;
+  - `modal()` rebuilding only on a change of mode.
+- -138 and -139 as landed, including DO-6's text in section 4 of the Worker runbook, the zone-settings list and the frozen boundary at 24.
+- The three premise reports:
+  - the missing zone-settings list;
+  - the Worker's last line quoted from the script;
+  - DO-3 being a recorded trade-off ruled a defect. DO-3 stands as worded in -139.
+- The Standard P ledger, including its statement that four controls have no off-diff input. That is correct: their input is this diff by nature.
+
+**DP-1 — SCREENSHOTS THAT CONTRADICT THEIR PAGE (Cowork's finding).**
+- **a.** add-category-added and update-keeps-other-forms (all four sizes of each) showed the Notice "Ward category added." while the Wards list under it showed only the five seeded wards. The harness answered add-category's re-read with the pre-write register, because it had no `afterWrite` for `addCategory`.
+- **b.** That contradicts -139 DO-4 g's statement that the harness answers a write's re-read with the written state. **The finding is Cowork's, and the claim was Claude Code's.**
+  - -139's sentence is corrected in place, since -139 has not merged. It now says the statement held for edit, contact, agreement and listing, and not for add-category until this item.
+- **c.** The app was not at fault. `tests/compliance/admin_design.test.ts`'s DI-1 test proves the new ward appears after a third form's write.
+- **d. Landed:** the untracked harness now answers add-category's re-read with the register holding the added category (SURGICAL, OFFERED, as both states type it).
+  - Only those two states were retaken: 8 shots. Each is aligned at 16 / 24 / 184 px, with no overflow and no CSP message. update-keeps-other-forms logs only its planted edit refusal (400).
+  - The Surgical ward now shows under the Notice, and the unsent name, its refusal and the unsent title all stay.
+  - The retake is reported in #91, not committed.
+
+**DP-2 — THE CONTACT EMAIL IS CHECKED ONLY BY THE PAGE (-139's premise item 4). Gated, not fixed here.**
+- **a. Landed:** one Deferred items row: "`operator_record_contact` (021) checks no email's form; only admin's page does (R-2026-09-27-139 DO-4 c)".
+  - Source: this item.
+  - Gate: **TRIGGER, the next migration after 024.** That migration adds the form check at the database (at least one @, no whitespace, and a non-empty part on each side of the @), with its own db test shown red first. The row leaves in that pull request.
+- **b. The self-check line "Every input validated server-side, not only in the client" is corrected here.** It holds for every admin input except the contact's email address, whose form only the page checks, until the migration in (a). #91's self-check names that field as the one exception.
+
+**DP-3 — A REAL HOSPITAL NAME AS A FIXTURE (-139's pre-existing item). Fixed here.**
+- **a. Landed:** in `tests/compliance/admin_render.test.ts` (lines 85, 184, 324, 378, 385) and `tests/db/admin_calls_live.test.ts` (line 70), "St. Nicholas' Hospital" is now "St. Placeholder's Hospital", and "(Annex)" is kept where it appeared.
+  - The name still carries the apostrophe and the full stop.
+  - The db test keeps its em dash and diacritic suffix, which is what it exercises.
+- **b. Every assertion keeps its meaning:** sent exactly as typed, apostrophe and diacritics included. The one `expect` whose literal changed (`admin_render.test.ts:324`) asserts the same thing of the new name.
+- **A premise that did not hold, reported:** DP-3 b expected "zero hits outside the decision record". Tracked files outside `tests/`, `apps/`, `packages/` and `scripts/` still hold the old name in two more records, besides this one:
+  - `Sprint Kickoffs/pr-c-design-report-2026-09-24.md` (lines 105 and 438);
+  - `Sprint Kickoffs/sprint-kickoff-bundle3-3.4b-app-2026-09-24.md` (line 289).
+
+  Both record what was written on their day, and neither is edited. Code, tests, fixtures and scripts hold zero hits.
+
+**DP-4 — NO HEADER ROW (-139 DO-4 a). Accepted as built.** Every cell's words already say what they are ("Listed", "Contact on record: yes", "Worst ward: …"). The 1280 shot reads cleanly without one, and a header would add words during a word freeze. No row.
+
+**DP-5 — THE FROZEN WORDING, GATED.**
+- **a. Public-facing, and wider than -139 reported.** "N beds" reads "1 beds" when N is 1, in all three apps, not admin alone.
+  - The sites: `apps/public-dashboard/src/age-view.ts:120`, `apps/ward-console/src/main.ts:583` and `apps/admin/src/main.ts:236`. Each was read on landing and holds a bare `${…} beds`.
+  - **Landed:** one Deferred items row, source this item, gate **TRIGGER: facility one's first ward account is provisioned**, the first moment a real count can be shown. It is fixed as one change across all three apps, with a guard.
+- **b. Operator-only** (admin is behind Access for one operator, 022). **Landed:** one row, source this item, with the same TRIGGER. It lists:
+  - the register-unreachable screen has no Reload control;
+  - the two stop screens offer no next step;
+  - the Agreement section is a bare heading when the contact is unreadable;
+  - UNRECOGNISED's "Nothing was changed" is shown after a failed READ of the contact;
+  - the nested brackets in "Listed (… (Lagos time))".
+- **c. The register, recounted from the table after DP-2, DP-5 a and DP-5 b: 59 → 62** (16 BOX, 35 TRIGGER, 11 VERSION).
+
+**DP-6 — PROCESS.**
+- One new commit on `design-pass-d3`, with no force-push and no rebase. It carries DP-1 b's correction, DP-2, DP-3, DP-5, and this entry with its ledger row.
+- The screenshot retake (DP-1 d) is reported, not committed.
+- The full suite runs on a fresh DB and through the commit gate, then STOP at #91 for Cowork's re-check of the diff and the 8 retaken shots.
+- Nothing hosted. Cowork's re-check carries the merge word. After the merge, the founder deploys admin and runs `readback_admin.sh` with the Access token.
+- Next letter: **DQ**.
 
 ## The provisional ledger
 
@@ -6686,6 +6764,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | DM | R-2026-09-27-137 | 2026-09-27 | **#90 amended once.** The retention jobs move to a 29-day threshold, so a daily run deletes within the notice's 30 days. A missed withdrawal step now fails its own job, `openbed_check_withdrawn_facility_accounts`, visibly in `cron.job_run_details`, where a WARNING reached only the server log. The DPA README quotes Supabase clause 12.1, and Cloudflare's Self-Serve section 6.1 (FOUND, conditional on EU/UK and CCPA data, reported). Register 58 → 59. -136's screenshot count corrected to eleven. Next letter DN. |
 | DN | R-2026-09-27-138 | 2026-09-27 | **#90 merged at `3623d2b`** (parents `19e28be`, `410866d`); `pr-p-privacy-retention` deleted on both sides and read back as gone. Pasting DN was the founder's merge word. The founder decides that Cloudflare's DPA reaches NDPA data (DN-1, a line in `docs/legal/README.md`); the transfer sentence is gated on box 15, which now cites it (DN-2). Held, and landed in D3's pull request by -139. |
 | DO | R-2026-09-27-139 | 2026-09-27 | **The deploy pass at `3623d2b` read back** (024 applied, the frozen boundary at 24, step 5 at 0 pending; the dashboard after an Email Address Obfuscation STOP, now off and listed with CU-4's two; the Worker, Observability read disabled by DO-6; the ward console, its part of box 14 done). DG-3's hooks row and DA-3's D3 row leave, DN-2's and DO-3's rows arrive: register 59 → 59. **D3 built:** admin in the design system, a table at 960 px, Notices in tone, operator forms validating in their own words (the sign-in keeps the browser's, DO-5), an update that changes only what it updated. 134 screenshots. Amended the same day with DO-5 and DO-6, no new letter. Next letter DP. |
+| DP | R-2026-09-27-140 | 2026-09-27 | **#91 amended once.** The add-category screenshots answered from the written state and retaken (8 shots, reported, not committed); -139's claim that no outcome line contradicted its page corrected in place. The contact email's form, checked only by the page, gated on the next migration after 024 (DP-2). "St. Nicholas' Hospital" replaced by an invented name in two test files (DP-3). No header row (DP-4). "1 beds" in all three apps and five operator-only rough edges gated on facility one's first ward account (DP-5). Register 59 → 62. Next letter DQ. |
 
 ## Deferred items — this record is where the list lives
 
@@ -6780,6 +6859,9 @@ the record's own, except where CW-5 assigned one._
 | A failed retention job run is only visible in `cron.job_run_details`: nothing tells the operator unless someone reads it (12.5 step 5 reads it after a withdrawal) | R-2026-09-27-137 DM-2 e | TRIGGER | Facility one's first ward account is provisioned. Until then there is no ward login to erase. By then, a failed run of the three retention jobs must surface where the operator looks |
 | The notice's transfer sentence for Cloudflare: its SCCs are stated for European data and its Global CBPR mechanism needs the originating country to recognise it; the basis for transfers out of Nigeria is the founder's transfer pack | R-2026-09-27-138 DN-2 | BOX | Box 15 at runbook 12.4 step 1 (the paperwork register approved in full, whose transfer memo covers it), ticked by a ruling that closes it |
 | The ward console offers Publish on wards the login cannot publish for: `my_facility_wards()` returns every ward at the caller's facility, and `publish_ward_status` admits only the login's own ward (WARD_SCOPE_DENIED). Its fix waits on the founder's decision on the reporting model (per-ward logins, a facility-level reporter, or both), which may re-gate the facility-admin override row (R-2026-09-24-75 BC-7) | R-2026-09-27-139 DO-3 | TRIGGER | Facility one's first ward account is provisioned. No ward login exists until then |
+| `operator_record_contact` (021) checks no email's form; only admin's page does (R-2026-09-27-139 DO-4 c) | R-2026-09-27-140 DP-2 | TRIGGER | The next migration after 024. It adds the form check at the database (at least one @, no whitespace, a non-empty part on each side of it), with its own db test shown red first, and the row leaves in that pull request |
+| "N beds" reads "1 beds" when N is 1, in all three apps: `apps/public-dashboard/src/age-view.ts`, `apps/ward-console/src/main.ts` and `apps/admin/src/main.ts`. Fixed as one change across the three, with a guard | R-2026-09-27-140 DP-5 a | TRIGGER | Facility one's first ward account is provisioned: the first moment a real count can be shown |
+| Admin's operator-only rough edges: the register-unreachable screen has no Reload control; the two stop screens offer no next step; the Agreement section is a bare heading when the contact is unreadable; UNRECOGNISED's "Nothing was changed" is shown after a failed READ of the contact; the nested brackets in "Listed (… (Lagos time))" | R-2026-09-27-140 DP-5 b | TRIGGER | Facility one's first ward account is provisioned |
 
 ## Method notes — how rulings reach the implementer
 

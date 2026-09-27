@@ -82,7 +82,7 @@ function ward(category: string, over: Record<string, unknown> = {}): Record<stri
 function facility(id: string, over: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     facility_id: id,
-    name: "St. Nicholas' Hospital",
+    name: "St. Placeholder's Hospital",
     lga: 'Lagos Island',
     state: 'Lagos',
     lat: 6.45,
@@ -181,7 +181,7 @@ function submit(formClass: string): void {
 }
 
 function fillFacility(formClass: string): void {
-  setInput(formClass, 'name', "St. Nicholas' Hospital");
+  setInput(formClass, 'name', "St. Placeholder's Hospital");
   setInput(formClass, 'lga', 'Lagos Island');
   setInput(formClass, 'state', 'Lagos');
   setInput(formClass, 'lat', '6.45');
@@ -321,7 +321,7 @@ describe('writes are never re-sent', () => {
     expect(bodies).toHaveLength(2);
     expect(bodies[0]?.['p_id']).toBe(bodies[1]?.['p_id']);
     expect(bodies[0]?.['p_public_phone_e164']).toBe('+2348000000303');
-    expect(bodies[0]?.['p_name'], 'the name was not sent exactly as typed').toBe("St. Nicholas' Hospital");
+    expect(bodies[0]?.['p_name'], 'the name was not sent exactly as typed').toBe("St. Placeholder's Hospital");
   });
 
   test('edit: a dropped answer is NEVER re-sent -- the page reloads and says so', async () => {
@@ -375,14 +375,14 @@ describe('the edit form shows what is saved, and a phone change needs a confirm 
   test('all six fields are prefilled from the register row, the phone and location included', async () => {
     await openEdit();
     expect([value('name'), value('lga'), value('state'), value('lat'), value('lng'), value('phone')]).toEqual([
-      "St. Nicholas' Hospital", 'Lagos Island', 'Lagos', '6.45', '3.4', '+2348000000303',
+      "St. Placeholder's Hospital", 'Lagos Island', 'Lagos', '6.45', '3.4', '+2348000000303',
     ]);
     expect(text(), 'the retype note survived').not.toContain('Enter all three as they should be now');
   });
 
   test('a change that leaves the phone alone is sent on Save, once, with no confirm', async () => {
     const stub = await openEdit();
-    setInput('edit-facility', 'name', "St. Nicholas' Hospital (Annex)");
+    setInput('edit-facility', 'name', "St. Placeholder's Hospital (Annex)");
     submit('edit-facility');
     await until(() => calls(stub, 'operator_edit_facility').length === 1);
     expect(panel()?.hidden, 'a confirm appeared for a change that did not touch the phone').not.toBe(false);
