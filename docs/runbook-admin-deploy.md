@@ -274,6 +274,38 @@ the founder's terminal and browser, read back by Cowork):
   - It was injected by a zone setting, not by our build (CU-4 a).
   - Once the founder switched that off and reloaded: **no red line. PASS.**
 
+**Run on 2026-09-27, from the deploy checkout at `ba12ceb`** (R-2026-09-27-142 DR-1;
+the founder's terminal, desktop and phone, read back by Cowork). The first deploy of the
+design pass's D3:
+- **The checkout:** fetched, detached at `origin/main`
+  `ba12ceb14ff339a25c81648a30b584741560f2f9` (#91's merge); `npm ci` installed 223
+  packages with 0 vulnerabilities.
+- **`bash scripts/deploy_pages.sh --branch main admin`:** HEAD on `origin/main` with a
+  clean tree; the stamp read back as `ba12ceb`, clean; 12 files uploaded and 1 already
+  present; deployed `https://0651ec07.openbed-admin.pages.dev`. No 429.
+- **`readback_admin.sh`, with the Access service token in the environment: PASS.**
+  - Step 1: all six host and path pairs read 302 to Access.
+  - Step 2: commit `ba12ceb`, dirty false, and `admin.openbed.ng` commit `ba12ceb`. The
+    CSP read `connect-src 'self' https://api.openbed.ng` with the rest of the tracked
+    policy, no-referrer and nosniff; every script was the host's own, one bundle
+    (`assets/index-BUNoU7__.js`), on both hosts.
+  - **The favicon on both hosts:** 200, byte for byte `apps/admin/public/favicon.ico`,
+    served as `image/vnd.microsoft.icon`.
+  - **A self-hosted font:** the stylesheet `/assets/index-BMxr-KSG.css` names 6 woff2;
+    the first, `public-sans-latin-400`, read 200 and `font/woff2`. One publishable key.
+  - Step 3: live 200, dead 401 "Invalid API key", and the operator call 401 `forwarded`.
+  - The last line: "PASS: Access answers every host without the token; with it, the
+    stamp names this checkout and the page ships this checkout's headers, favicon, a
+    self-hosted font and key; the key is accepted, a wrong one refused, and the Worker
+    forwards the operator calls."
+- **Desktop, through Access and the magic link:** no red line in the console. The
+  Network tab, filtered to woff2, showed the three Public Sans weights, 200, initiated by
+  `index-BMxr-KSG.css`, the stylesheet the read-back named.
+- **Phone:** "all good", the founder's word.
+- **The hosted register is empty:** no facility exists, so the facility view was not
+  seen on hosted. Its first hosted sight is step 2a of 12.4 in
+  `docs/runbook-supabase-project-creation.md`.
+
 This, together with the ward-console runbook's section 5, is the closing condition of
 the facility-one checklist's CSP box (the Supabase runbook, 12.4 step 1).
 
