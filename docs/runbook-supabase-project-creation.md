@@ -3968,7 +3968,7 @@ through the admin app.
      off on 2026-09-25, and the served file now equals the tracked one byte for byte on
      both hosts. `scripts/readback_pages.sh` compares both (read-back 7). The `noindex`
      decision is still the founder's, so the box stays open.
-   - [ ] The design pass: the OpenBed design system applied to the public dashboard, the
+   - [x] The design pass: the OpenBed design system applied to the public dashboard, the
      ward console and admin; each deployed from merged `main`, read back PASS,
      browser-checked at 360 px and desktop widths, and the look approved by the founder
      in the browser. (R-2026-09-26-121 CW-1) **Closes only when** all three apps are
@@ -3981,6 +3981,13 @@ through the admin app.
      It was deployed from `3623d2b` (`https://f6429a29.openbed-ward-console.pages.dev`),
      `readback_ward_console.sh` read PASS, and the founder checked it on a phone at
      `app.openbed.ng` and approved the look. Admin (D3) remains, so the box stays open.
+     **CLOSED 2026-09-27 (R-2026-09-27-142 DR-2): all three apps are deployed, read back
+     PASS and approved by the founder in the browser.** D1, the public dashboard: `5be63d4`
+     (`f56ae2af`), then `963e53f5` at `3623d2b`. D2, the ward console: `f6429a29` at
+     `3623d2b`. D3, admin: `0651ec07` at `ba12ceb`, `readback_admin.sh` PASS with the
+     favicon on both hosts and a self-hosted font, and the founder's desktop and phone
+     checks. The facility view had not yet been seen on hosted, because the hosted register
+     is empty; its first sight is step 2a below.
    - [ ] The founder's launch paperwork register reads Approved on every item. The
      register is outside this repository. (R-2026-09-26-121 CW-2) It does not replace
      the first box above. Its transfer memo covers the notice's transfer sentence for
@@ -4006,6 +4013,8 @@ through the admin app.
    first compile missed because it never searched for the hyphenated "facility-one". On
    2026-09-26 the checklist holds 16 boxes, 2 ticked. B1's onboarding check is not a box,
    because it cannot run before a ward account exists. It is steps 6 and 9 below.
+   *Added 2026-09-27 (R-2026-09-27-142 DR-2):* the design pass's box is ticked, so on
+   2026-09-27 the checklist holds 16 boxes, 3 ticked.
 
    *Restated 2026-09-25 (R-2026-09-25-115, then -116).* Until 2026-09-25 this item was
    headed "The -45 stop condition first". It read: "Step 4b must read CLOSED on every
@@ -4014,6 +4023,12 @@ through the admin app.
    the only thing left. That was wrong, and -116 CR-1 corrects it.
 2. **Create** the facility in the admin app: name, LGA, state, latitude, longitude,
    public phone. The phone is shown in international form before it is saved.
+
+   2a. **Open the facility in admin on desktop and on a phone, and read the Console.**
+   PASS: the view reads as the D3 screenshots do, and there is no red line.
+   (R-2026-09-27-142 DR-4.) It is lettered, not numbered, so steps 3 to 9 keep the
+   numbers other records cite: the hosted register was empty at D3's deploy, so this is
+   the facility view's first hosted sight.
 3. **Record the contact and the agreement** in the facility's detail view.
 4. **Add the ward categories**, each with its offering stated. There is no default.
 5. **Provision each ward's login** with the script, one ward at a time. A gate refusal

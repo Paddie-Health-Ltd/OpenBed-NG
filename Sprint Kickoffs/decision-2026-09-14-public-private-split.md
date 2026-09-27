@@ -6634,6 +6634,127 @@ _Issued as R-PROVISIONAL-2026-09-27-DP, by Cowork on 2026-09-27, as its read of 
 - Nothing hosted. Cowork's re-check carries the merge word. After the merge, the founder deploys admin and runs `readback_admin.sh` with the Access token.
 - Next letter: **DQ**.
 
+### R-2026-09-27-141 — #91 merged; the reporting model follows the hospital's nursing structure; gates on a first ward account restated to a first reporting login
+
+_Issued as R-PROVISIONAL-2026-09-27-DQ, by Cowork on 2026-09-27, as its re-check of #91 at `ed8189ecd855a3f7321804d158967b21b79048ad`. **Pasting it was the founder's merge word for #91.** Held under its own DQ-1 d, and landed with -142 in the records-only pull request that records D3's hosted read-back. Number assigned on landing: R-2026-09-27-140 plus one. Next provisional letter: **DR**._
+
+**VERIFIED BY COWORK** (2026-09-27, from the founder's Mac):
+- #91 OPEN, head `ed8189e`, base `3623d2b` (= main), mergeable_state clean. `origin/main..design-pass-d3` = `890e22e`, `3b94ae7`, `ed8189e`: one ahead of `3b94ae7`, with no force-push and no rebase.
+- Seven check runs on `ed8189e` (suite 98348079261), all success. An earlier suite (98348076174) read cancelled across all seven. It was superseded by the push, and is not a failure.
+- `git diff 3b94ae7..ed8189e` was read in full: 3 files, +89 / −7.
+  - The record: DP-1 b's in-place correction, -140 with its ledger row, and three register rows.
+  - Name literals only in `tests/compliance/admin_render.test.ts` (5 lines) and `tests/db/admin_calls_live.test.ts` (1 line), each assertion unchanged in meaning.
+- `git grep "St. Nicholas"`: hits only in the decision record and the two dated kickoff records #91 names. Zero in code, tests, fixtures or scripts.
+- The 8 retaken shots:
+  - add-category-added shows "Surgical ward: Not yet reporting — No login" under "Ward category added." at every size;
+  - update-keeps-other-forms shows the same, and keeps the unsent name, its caution Notice and the unsent job title;
+  - both are aligned at 16 / 24 / 184 px.
+
+**ACCEPTED:**
+- DP-1 to DP-6 as landed.
+- The DP-3 premise report: the two dated kickoff records stay unedited, as records of their day.
+- The register at 62 (16 BOX, 35 TRIGGER, 11 VERSION).
+
+**DQ-1 — THE MERGE.**
+- **Landed:** #91's head was read from the API as `ed8189ecd855a3f7321804d158967b21b79048ad`. It was merged as a merge commit with `--match-head-commit` on that value, and read back MERGED at 2026-09-27T13:05:03Z.
+- The merge commit is `ba12ceb14ff339a25c81648a30b584741560f2f9`, with parents `3623d2b3dac12c8966e52ff4ebf73956e8436b65` and `ed8189ecd855a3f7321804d158967b21b79048ad`, read from git and `gh pr view 91`.
+- Only then was local main fast-forwarded. `design-pass-d3` was deleted on the remote and locally, and both read back as gone.
+- **Cowork read MERGED, merged_at and merge_commit_sha from the API, and ba12ceb's parents from git, and they agree** (-142 DR-5 a).
+
+**DQ-2 — THE FOUNDER'S DEPLOY OF ADMIN.** Run and read back as DR (-142).
+- **A correction, Cowork's slip** (-142 DR-5 b):
+  - DQ-2 as issued gave `deploy_pages.sh admin` without `--branch main`, which is a preview deploy on a direct-upload project;
+  - it gave `readback_admin.sh` without the deployment URL.
+- Claude Code caught both before the founder ran anything. The commands run were the admin runbook's:
+  - section 1's `bash scripts/deploy_pages.sh --branch main admin`;
+  - section 2's `bash scripts/readback_admin.sh https://<hash>.openbed-admin.pages.dev`.
+
+**DQ-3 — THE FOUNDER'S DECISION ON THE REPORTING MODEL (2026-09-27). Recorded, with no code.**
+- **a. Who reports follows the hospital's own nursing structure.** The operator's onboarding question is: "Does one nurse in charge know the beds for the whole hospital on each shift?"
+  - **Yes:** ONE facility-level login, reported by the nurse in charge of each shift.
+  - **No:** ONE login per ward, reported by that ward's matron or nurse on duty.
+  - **Either way, one reporting source per ward.** A mix of the two in one hospital is out of v1 (VERSION).
+- **b. Sign-in addresses.**
+  - Where there is no role mailbox, the hospital creates a dedicated Google account per login, named for the ward or the hospital.
+  - Where it runs its own domain, it may use that.
+  - OpenBed's setup instructions and FAQ carry the steps.
+  - Never a person's own address: the 2026-09-08 identity decision stands.
+- **c. Facility one is a small private hospital:** one facility-level login, signed in on the phone that stays with its nurses.
+- **d. Consequence: facility one cannot go live on today's model,** which has per-ward logins only.
+  - The next bundle builds the facility-level login BEFORE facility one's first login:
+    - a FACILITY_REPORTER role;
+    - one source per ward, enforced in the database;
+    - a server-decided can-publish flag per ward, which also resolves -139 DO-3.
+  - Cowork issues its kickoff after DR.
+  - The Board write-up, claude/boardroom-reporting-model-2026-09-27.md, is in the project: **Cowork's statement about a file outside this repository.**
+- **e. Restated gates. Landed:** every register gate on a first ward account is restated in place, dated, to "Facility one's first reporting login (ward or facility) is provisioned". Each keeps its old wording quoted in the cell.
+  - **The whole table was searched.** These five rows are all there are:
+    - **-122 CX-1 (b):** B1's onboarding checks. It read "The first ward account at facility one", a different wording from the others. DQ named it.
+    - **-137 DM-2 e:** a failed retention job run. Its trailing clause is now "no reporting login to erase".
+    - **-139 DO-3:** Publish on wards the login cannot publish for. Its trailing clause is now "No reporting login exists".
+    - **-140 DP-5 a:** "1 beds". Its trailing clause ("the first moment a real count can be shown") names no login kind, and is kept.
+    - **-140 DP-5 b:** admin's operator-only rough edges.
+  - Rule (c) stays green, and the count is unchanged by this item.
+  - **Reported:** CX-1 (b)'s **item** cell still reads "the first ward account reads its own history as itself (12.4 step 6)". DQ-3 e restates gates, and that step's wording belongs to the facility-level login bundle.
+
+### R-2026-09-27-142 — D3 deployed and read back; box 14 closed; the favicon row leaves; the facility view's first hosted sight becomes a step
+
+_Issued as R-PROVISIONAL-2026-09-27-DR, by Cowork on 2026-09-27: its read-back of the founder's admin deploy from `ba12ceb14ff339a25c81648a30b584741560f2f9` (#91's merge). Lands with -141 in one records-only pull request. Number assigned on landing: R-2026-09-27-141 plus one. Next provisional letter: **DS**._
+
+**VERIFIED BY COWORK** (the founder's pasted terminal output, read in full, and the founder's desktop and phone checks):
+- **The deploy checkout:** fetch, detach at `origin/main`, `npm ci` (223 packages, 0 vulnerabilities); `git rev-parse HEAD` = `ba12ceb14ff339a25c81648a30b584741560f2f9`.
+- **`bash scripts/deploy_pages.sh --branch main admin`:**
+  - "HEAD ba12ceb… is on origin/main and the tree is clean";
+  - the stamp reads back as `ba12ceb`, clean;
+  - "Uploaded 12 files (1 already uploaded)", deployed `https://0651ec07.openbed-admin.pages.dev`. No 429.
+- **`bash scripts/readback_admin.sh https://0651ec07.openbed-admin.pages.dev`**, with the Access service token in the environment (read with `read -rs` and unset after):
+  - Step 1: all six host and path pairs 302 to Access.
+  - Step 2:
+    - commit `ba12ceb`, dirty false, and `admin.openbed.ng` commit `ba12ceb`;
+    - the tracked CSP, no-referrer and nosniff;
+    - every script this host's own, and one bundle (`assets/index-BUNoU7__.js`), on both hosts;
+    - the favicon on both hosts: 200, byte for byte `apps/admin/public/favicon.ico`, `image/vnd.microsoft.icon`;
+    - the font: the stylesheet `/assets/index-BMxr-KSG.css`, 6 woff2, the first 200 `font/woff2`;
+    - 1 publishable key.
+  - Step 3: live 200, dead 401 "Invalid API key", and the operator call 401 forwarded.
+  - The last line: "PASS: Access answers every host without the token; with it, the stamp names this checkout and the page ships this checkout's headers, favicon, a self-hosted font and key; the key is accepted, a wrong one refused, and the Worker forwards the operator calls."
+- **The founder, 2026-09-27:**
+  - Desktop, through Access and the magic link: no red line in the console. The three Public Sans woff2, 200, initiated by `index-BMxr-KSG.css`.
+  - Phone: "all good".
+  - The hosted register is empty, so the facility view has not been seen on hosted.
+
+**DR-1 — THE RUN RECORD. Landed** in `docs/runbook-admin-deploy.md`: "Run on 2026-09-27, from the deploy checkout at `ba12ceb`".
+- It records the deploy, the read-back PASS with its favicon and font lines, and the founder's desktop and phone checks.
+- It states that the register was empty, so the facility view's first hosted sight is DR-4's step.
+
+**DR-2 — BOX 14 CLOSES. Landed:** box 14 at 12.4 step 1 in `docs/runbook-supabase-project-creation.md` is ticked, with the date and three deploys. Each has a read-back PASS and the founder's approval:
+- D1, the public dashboard: `5be63d4`, then `963e53f5` at `3623d2b`;
+- D2, the ward console: `f6429a29` at `3623d2b`;
+- D3, admin: `0651ec07` at `ba12ceb`.
+
+The checklist now holds 16 boxes, 3 ticked, which a dated line under its closing paragraph states.
+
+**DR-3 — THE FAVICON ROW LEAVES. Landed:** the row "`/favicon.ico` is answered by the SPA fallback" (R-2026-09-23-70) is removed. Admin's icon was observed byte for byte on both of its hosts, and admin was its last open app.
+
+**DR-4 — THE FACILITY VIEW'S FIRST HOSTED SIGHT. Landed** as step 2a of 12.4, directly after step 2, which creates the facility in admin: "Open the facility in admin on desktop and on a phone, and read the Console. PASS: the view reads as the D3 screenshots do, and there is no red line."
+
+**DR-5 — -141 LANDS FIRST**, with DQ-1's merge facts and Cowork's agreement, DQ-2's correction, and DQ-3 as issued with its restated gates.
+
+**DR-6 — PROCESS:**
+- one records-only pull request from main, touching the decision record, `docs/runbook-admin-deploy.md` and `docs/runbook-supabase-project-creation.md`, with no code and no migration;
+- ledger rows for DQ and DR;
+- the full suite on a fresh DB and the commit gate, then STOP for Cowork's check, which carries the merge word.
+
+Nothing hosted. Next letter: **DS**.
+
+**PREMISE CORRECTIONS AND MECHANISM CHOICES** (method notes 4 and 20):
+- **DR-3 expected the register to go 62 → 61. It went 62 → 60.**
+  - Ticking box 14 closes the design pass, and rule (e) of `tests/compliance/deferred_items.test.ts` refuses a BOX row whose every box is ticked. The row "The design pass: the design system on all three apps …" (R-2026-09-26-121 CW-1) is carried only by box 14. The runbook's other CW-1 citation is prose, not a box.
+  - So it leaves in this ruling, which closes it.
+  - **Shown red first:** with that row put back and box 14 ticked, rule (e) read "BOX row cites R-2026-09-26-121 CW-1, and every box carrying it is ticked: a closed item leaves the register".
+  - **Recounted from the table after -141 and -142: 60** (15 BOX, 34 TRIGGER, 11 VERSION). The same count at `ba12ceb` read 62 (16 BOX, 35 TRIGGER, 11 VERSION).
+- **DR-4's "one step directly after the step that creates facility one" is landed as a lettered step, 2a.** A new numbered step would have renumbered steps 3 to 9. Steps 6 and 9 are cited by the live register row CX-1 (b), by dated records and by a comment in `tests/compliance/runbook_psql_path.test.ts`. Renumbering would have made each of them name the wrong step.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -6765,6 +6886,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | DN | R-2026-09-27-138 | 2026-09-27 | **#90 merged at `3623d2b`** (parents `19e28be`, `410866d`); `pr-p-privacy-retention` deleted on both sides and read back as gone. Pasting DN was the founder's merge word. The founder decides that Cloudflare's DPA reaches NDPA data (DN-1, a line in `docs/legal/README.md`); the transfer sentence is gated on box 15, which now cites it (DN-2). Held, and landed in D3's pull request by -139. |
 | DO | R-2026-09-27-139 | 2026-09-27 | **The deploy pass at `3623d2b` read back** (024 applied, the frozen boundary at 24, step 5 at 0 pending; the dashboard after an Email Address Obfuscation STOP, now off and listed with CU-4's two; the Worker, Observability read disabled by DO-6; the ward console, its part of box 14 done). DG-3's hooks row and DA-3's D3 row leave, DN-2's and DO-3's rows arrive: register 59 → 59. **D3 built:** admin in the design system, a table at 960 px, Notices in tone, operator forms validating in their own words (the sign-in keeps the browser's, DO-5), an update that changes only what it updated. 134 screenshots. Amended the same day with DO-5 and DO-6, no new letter. Next letter DP. |
 | DP | R-2026-09-27-140 | 2026-09-27 | **#91 amended once.** The add-category screenshots answered from the written state and retaken (8 shots, reported, not committed); -139's claim that no outcome line contradicted its page corrected in place. The contact email's form, checked only by the page, gated on the next migration after 024 (DP-2). "St. Nicholas' Hospital" replaced by an invented name in two test files (DP-3). No header row (DP-4). "1 beds" in all three apps and five operator-only rough edges gated on facility one's first ward account (DP-5). Register 59 → 62. Next letter DQ. |
+| DQ | R-2026-09-27-141 | 2026-09-27 | **#91 merged at `ba12ceb`** (parents `3623d2b`, `ed8189e`); `design-pass-d3` deleted on both sides and read back as gone. Pasting DQ was the founder's merge word. DQ-2's deploy commands corrected (Cowork's slip, caught before any run). The founder's reporting model recorded: one facility-level login or one per ward, by the hospital's nursing structure, one source per ward; facility one on one facility login, so the next bundle builds FACILITY_REPORTER first. Five register gates restated from a first ward account to a first reporting login. Held, and landed with -142. |
+| DR | R-2026-09-27-142 | 2026-09-27 | **D3 deployed and read back:** admin `0651ec07` from `ba12ceb`, `readback_admin.sh` PASS with the favicon on both hosts and a font, and the founder's desktop and phone checks. **Box 14 closed** (D1, D2 and D3 deployed, read back and approved; 16 boxes, 3 ticked). The favicon row leaves, and so does the design pass's BOX row, by rule (e): register 62 → 60. The facility view's first hosted sight is 12.4 step 2a. Next letter DS. |
 
 ## Deferred items — this record is where the list lives
 
@@ -6811,7 +6934,6 @@ the record's own, except where CW-5 assigned one._
 | Attribution: which client address Supabase sees (by -56 A9) | R-2026-09-19-23 D4 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 | Availability of the proxy on the clinical path (by -56 A9) | R-2026-09-19-23 D5 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 | Discoverability at facility one: `robots.txt` and the `noindex` decision (O1; with -27 C5) | R-2026-09-20-36 A5 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
-| The design pass: the design system on all three apps, deployed, read back and approved (supersedes -75 BC-7's "waits for Cowork's brief") | R-2026-09-26-121 CW-1 | BOX | Its box at runbook 12.4 step 1, ticked only after all three deploys and the founder's approval |
 | The founder's launch paperwork register reads Approved on every item | R-2026-09-26-121 CW-2 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 | The facility agreement grants the facility's permission to publish its live capacity (B1, recorded 2026-09-14) | R-2026-09-26-122 CX-1 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 | Agreement history: re-agreement after withdrawal, and correcting a mistaken agreement record | R-2026-09-24-100 CB-2 | TRIGGER | The first withdrawn facility that asks to return, or the first mistaken agreement record, or earlier on the founder's word (backstop: the first post-launch sprint kickoff; R-2026-09-26-122 CX-4) |
@@ -6834,14 +6956,13 @@ the record's own, except where CW-5 assigned one._
 | GoTrue's answers reveal whether an address has an account (an accepted risk) | R-2026-09-23-67 C | TRIGGER | Personal addresses are ever used as logins |
 | A uniform `/otp` answer at the Worker (option B) | R-2026-09-23-70 A | TRIGGER | -55 C lands |
 | `GET /auth/v1/verify` listed on the Worker | R-2026-09-23-70 C2 | TRIGGER | -55 C's custom domain is routed through the Worker |
-| `/favicon.ico` is answered by the SPA fallback | R-2026-09-23-70, founder step (a) note | TRIGGER | FIRED; resolved in D1–D3 (R-2026-09-26-122 CX-3): each app ships the SVG icon and a real `/favicon.ico`, and the read-back asserts `/favicon.ico` is not `text/html`. D1 done for the public dashboard (R-2026-09-26-124): a real `favicon.ico`, and `scripts/readback_pages.sh` checks it on both hosts. D2 done for the ward console (R-2026-09-26-132): the same icon, and `scripts/readback_ward_console.sh` checks it on both hosts. D3 done in code for admin (R-2026-09-27-139 DO-4): the same icon, and `scripts/readback_admin.sh` checks it on both hosts, with the service token. The row leaves in the pull request that records D3's hosted read-back, the first observation of admin's icon on a host |
 | The before/after public-output comparison needs a new design once wards can publish | R-2026-09-24-74 BB-3 | TRIGGER | The first hosted migration apply after the -45 gate cleared (-115) |
 | Update requests | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | Freshest and nearest sorting | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | The public "who's on it" list | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | The facility-admin override | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | Duty-flag gating | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
-| B1's onboarding checks: the first ward account reads its own history as itself (12.4 step 6), and the first publish reads back from `/beds.json` (12.4 step 9) | R-2026-09-26-122 CX-1 (b) | TRIGGER | The first ward account at facility one |
+| B1's onboarding checks: the first ward account reads its own history as itself (12.4 step 6), and the first publish reads back from `/beds.json` (12.4 step 9) | R-2026-09-26-122 CX-1 (b) | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "The first ward account at facility one") |
 | `ward_reply` has a cap and no content validation (#63/#97) | R-2026-09-17-03 and -04 | TRIGGER | The first change that writes `app.referral.ward_reply` (referrals are unwired in v1; R-2026-09-26-122 CX-2) |
 | Gate 3's property test does not exist (#109) | R-2026-09-17-03 and -04 | TRIGGER | The next change under `packages/gate/` or `packages/snapshot/src/freshness.ts` (R-2026-09-26-122 CX-2) |
 | The `scripts/` survey items: PR evidence tables generated from artefacts; the idempotency digest's grants and RLS flags; item 1, the duty-flag lint missing `<> 'NO'`; item 2, nothing validates SQL quoted in prose | Deferred to the `scripts/` survey; R-2026-09-15-06 and -07; R-2026-09-17-05; R-2026-09-17-08 D2 | TRIGGER | The next migration file added (024) (R-2026-09-26-122 CX-2). FIRED at 024; work in PR S (R-2026-09-26-136 DL-6 c) |
@@ -6856,12 +6977,12 @@ the record's own, except where CW-5 assigned one._
 | `publish_ward_status` enqueues to `app.notification_outbox` (#71) | R-2026-09-17-03 and -04 | VERSION | Out of v1: escalation notifications are not in v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
 | Pages Git integration as the root fix for deploys | R-2026-09-20-30 A5 | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
 | Phone features: the tile, call tracking, WhatsApp/SMS | R-2026-09-23-66 C2 | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
-| A failed retention job run is only visible in `cron.job_run_details`: nothing tells the operator unless someone reads it (12.5 step 5 reads it after a withdrawal) | R-2026-09-27-137 DM-2 e | TRIGGER | Facility one's first ward account is provisioned. Until then there is no ward login to erase. By then, a failed run of the three retention jobs must surface where the operator looks |
+| A failed retention job run is only visible in `cron.job_run_details`: nothing tells the operator unless someone reads it (12.5 step 5 reads it after a withdrawal) | R-2026-09-27-137 DM-2 e | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned. Until then there is no reporting login to erase. By then, a failed run of the three retention jobs must surface where the operator looks (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned. Until then there is no ward login to erase. By then, a failed run of the three retention jobs must surface where the operator looks") |
 | The notice's transfer sentence for Cloudflare: its SCCs are stated for European data and its Global CBPR mechanism needs the originating country to recognise it; the basis for transfers out of Nigeria is the founder's transfer pack | R-2026-09-27-138 DN-2 | BOX | Box 15 at runbook 12.4 step 1 (the paperwork register approved in full, whose transfer memo covers it), ticked by a ruling that closes it |
-| The ward console offers Publish on wards the login cannot publish for: `my_facility_wards()` returns every ward at the caller's facility, and `publish_ward_status` admits only the login's own ward (WARD_SCOPE_DENIED). Its fix waits on the founder's decision on the reporting model (per-ward logins, a facility-level reporter, or both), which may re-gate the facility-admin override row (R-2026-09-24-75 BC-7) | R-2026-09-27-139 DO-3 | TRIGGER | Facility one's first ward account is provisioned. No ward login exists until then |
+| The ward console offers Publish on wards the login cannot publish for: `my_facility_wards()` returns every ward at the caller's facility, and `publish_ward_status` admits only the login's own ward (WARD_SCOPE_DENIED). Its fix waits on the founder's decision on the reporting model (per-ward logins, a facility-level reporter, or both), which may re-gate the facility-admin override row (R-2026-09-24-75 BC-7) | R-2026-09-27-139 DO-3 | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned. No reporting login exists until then (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned. No ward login exists until then") |
 | `operator_record_contact` (021) checks no email's form; only admin's page does (R-2026-09-27-139 DO-4 c) | R-2026-09-27-140 DP-2 | TRIGGER | The next migration after 024. It adds the form check at the database (at least one @, no whitespace, a non-empty part on each side of it), with its own db test shown red first, and the row leaves in that pull request |
-| "N beds" reads "1 beds" when N is 1, in all three apps: `apps/public-dashboard/src/age-view.ts`, `apps/ward-console/src/main.ts` and `apps/admin/src/main.ts`. Fixed as one change across the three, with a guard | R-2026-09-27-140 DP-5 a | TRIGGER | Facility one's first ward account is provisioned: the first moment a real count can be shown |
-| Admin's operator-only rough edges: the register-unreachable screen has no Reload control; the two stop screens offer no next step; the Agreement section is a bare heading when the contact is unreadable; UNRECOGNISED's "Nothing was changed" is shown after a failed READ of the contact; the nested brackets in "Listed (… (Lagos time))" | R-2026-09-27-140 DP-5 b | TRIGGER | Facility one's first ward account is provisioned |
+| "N beds" reads "1 beds" when N is 1, in all three apps: `apps/public-dashboard/src/age-view.ts`, `apps/ward-console/src/main.ts` and `apps/admin/src/main.ts`. Fixed as one change across the three, with a guard | R-2026-09-27-140 DP-5 a | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned: the first moment a real count can be shown (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned: the first moment a real count can be shown") |
+| Admin's operator-only rough edges: the register-unreachable screen has no Reload control; the two stop screens offer no next step; the Agreement section is a bare heading when the contact is unreadable; UNRECOGNISED's "Nothing was changed" is shown after a failed READ of the contact; the nested brackets in "Listed (… (Lagos time))" | R-2026-09-27-140 DP-5 b | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned") |
 
 ## Method notes — how rulings reach the implementer
 
