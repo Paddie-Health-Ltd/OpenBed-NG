@@ -72,8 +72,10 @@ const RUNBOOKS = [
  * 33 -> 35 on 2026-09-27 (R-2026-09-26-136 DL-2 i): "024's apply" adds two blocks that
  * call psql -- fence A, the auth reading before the apply, and fence B, the auth reading
  * and the jobs after it -- each carrying step P's PATH line.
+ * 35 -> 36 on 2026-09-27 (R-2026-09-27-137 DM-2 d): 12.5 step 5 reads the retention
+ * jobs' runs on the 31st day after a withdrawal through psql, carrying step P's PATH line.
  */
-const GOVERNED_TODAY = 35;
+const GOVERNED_TODAY = 36;
 
 export interface Fence {
   /** Which runbook it came from. */

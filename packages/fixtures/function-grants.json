@@ -7,6 +7,7 @@
     "app.assert_operator()": { "execute": [], "why": "020: the operator check the operator_* functions call" },
     "app.bump_facility_version()": { "execute": [], "why": "020: a trigger function (J1's row version)" },
     "app.bump_row_version()": { "execute": [], "why": "021: the facility_contact version trigger function" },
+    "app.check_withdrawn_facility_accounts()": { "execute": [], "why": "024: fails its daily pg_cron run while an account is still active at a facility withdrawn more than 30 days ago (R-2026-09-27-137 DM-2 a)" },
     "app.erase_lapsed_ward_logins()": { "execute": [], "why": "024: the retention schedule's login erasure, run daily by pg_cron as postgres (R-2026-09-26-136 DL-2 a, d)" },
     "app.gate(app.ward_category, app.tri_state, app.tri_state, app.tri_state)": { "execute": [], "why": "006: the gate rule, called by the projection" },
     "app.gate_for_facility(app.ward_category, uuid)": { "execute": [], "why": "006: the gate over a facility's duty flags, called by the projection" },

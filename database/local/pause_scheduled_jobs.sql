@@ -20,7 +20,9 @@
 --     call removed and a one-second job, observed 2026-09-16), so the pause there
 --     buys attributable evidence rather than rescuing a vacuous step.
 --   - openbed_erase_lapsed_ward_logins and openbed_prune_ended_auth_sessions (024)
---     delete auth.users and auth.sessions rows by age. They run once a day, but a
+--     delete auth.users and auth.sessions rows by age, and
+--     openbed_check_withdrawn_facility_accounts (024, R-2026-09-27-137 DM-2 b) fails
+--     on a planted withdrawn facility. They run once a day, but a
 --     run landing inside a test would delete rows the test planted, so they are
 --     paused with the rest; tests/db/retention_jobs.test.ts calls the functions
 --     itself, inside rolled-back transactions.
@@ -51,7 +53,7 @@
 
 DO $$
 DECLARE
-    v_jobs  text[] := ARRAY['openbed_erase_lapsed_ward_logins', 'openbed_prune_ended_auth_sessions', 'openbed_refresh_lga_rollup', 'openbed_regenerate_snapshot'];
+    v_jobs  text[] := ARRAY['openbed_check_withdrawn_facility_accounts', 'openbed_erase_lapsed_ward_logins', 'openbed_prune_ended_auth_sessions', 'openbed_refresh_lga_rollup', 'openbed_regenerate_snapshot'];
     v_state text;
     v_n     integer;
 BEGIN
@@ -76,7 +78,7 @@ END $$;
 
 DO $$
 DECLARE
-    v_jobs     text[] := ARRAY['openbed_erase_lapsed_ward_logins', 'openbed_prune_ended_auth_sessions', 'openbed_refresh_lga_rollup', 'openbed_regenerate_snapshot'];
+    v_jobs     text[] := ARRAY['openbed_check_withdrawn_facility_accounts', 'openbed_erase_lapsed_ward_logins', 'openbed_prune_ended_auth_sessions', 'openbed_refresh_lga_rollup', 'openbed_regenerate_snapshot'];
     v_settle   numeric := coalesce(nullif(current_setting('openbed.pause_settle_seconds', true), ''), '2')::numeric;
     v_deadline timestamptz := clock_timestamp()
                  + make_interval(secs => coalesce(nullif(current_setting('openbed.pause_deadline_seconds', true), ''), '30')::numeric);

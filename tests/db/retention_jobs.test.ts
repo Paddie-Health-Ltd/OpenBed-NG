@@ -17,25 +17,33 @@ import { dbUrl } from '../setup/local-keys.js';
  * pause_scheduled_jobs.sql), and a job's run is not something a test can wait for.
  *
  * WHAT IS ASSERTED.
- *   Erasure (DL-2 a): deactivated 31 days -> the Auth user and every auth row that
- *     carries the address or a session are gone, the row is marked, one audit row
- *     names the WARD; deactivated 29 days -> kept; a PLATFORM_ADMIN -> never; an
+ *   Erasure (DL-2 a; the threshold by R-2026-09-27-137 DM-1): deactivated 30 days ->
+ *     the Auth user and every auth row that carries the address or a session are gone,
+ *     the row is marked, one audit row names the WARD; deactivated 28 days -> kept; a
+ *     PLATFORM_ADMIN -> never; an
  *     active account -> never. Two erasures for one ward write two rows: the count is
  *     the evidence, not an identifier.
  *   The audit row is ward only (DL-2 a amended, d): the exact shape is accepted when
  *     written directly (the most ordinary valid input); the ward_account id inside
  *     new_value, a uuid smuggled as the role, and a session_id are each REFUSED by the
  *     database -- the jsonb loophole 005's column guards cannot see.
- *   The missed withdrawal step (DL-2 a): an active account at a facility withdrawn
- *     more than 30 days ago raises the WARNING with its count, deletes nothing and
- *     writes no audit row; with no such account, no WARNING.
+ *   The missed withdrawal step (DM-2, which moved it out of the erasure): an active
+ *     account at a facility withdrawn more than 30 days ago makes
+ *     app.check_withdrawn_facility_accounts() RAISE, so its pg_cron run is recorded
+ *     as failed; it deletes nothing; with no such account it does not raise; and the
+ *     erasure itself no longer raises or warns.
  *   No comeback (DL-2 b): provision_complete refuses an erased login with LOGIN_ERASED
  *     and its hint; a hand-run UPDATE reactivating one violates the CHECK.
- *   Sessions (DL-2 c): ended 31 days ago -> deleted with its refresh tokens; 29 days
+ *   Sessions (DL-2 c; the threshold by DM-1): ended 30 days ago -> deleted with its
+ *     refresh tokens; 28 days
  *     -> kept; both through the last-use path and the created_at + 24 h path; and the
  *     result does not move with the session's TimeZone (refreshed_at is timestamp
  *     without time zone).
- *   The jobs (DL-2 e): 024 applied twice leaves exactly one row per job name, on its
+ *   THE THRESHOLD IS 29 DAYS, AND THE JOBS RUN DAILY (DM-1). The notice promises
+ *     deletion WITHIN 30 days; a daily run at a 30-day threshold deleted on day 30 or
+ *     31. At 29 days every deletion lands within 30 days of the event. So the legs sit
+ *     one day either side of the promise: 30 days is gone, 28 days is kept.
+ *   The jobs (DL-2 e; the third by DM-2 b): 024 applied twice leaves exactly one row per job name, on its
  *     schedule, as postgres; a same-name job under a second role is reported (017's
  *     Condition F pattern).
  *   The G1 comment (DL-2 f), word for word.
@@ -119,6 +127,10 @@ async function authCounts(tx: Tx, id: string): Promise<AuthCounts> {
   return r;
 }
 
+/** Days either side of the 29-day threshold (DM-1): due, and not yet due. */
+const DUE = 30;
+const NOT_DUE = 28;
+
 const PLANTED: AuthCounts = { users: 1, identities: 1, one_time_tokens: 1, sessions: 1, refresh_tokens: 2 };
 const GONE: AuthCounts = { users: 0, identities: 0, one_time_tokens: 0, sessions: 0, refresh_tokens: 0 };
 
@@ -183,10 +195,10 @@ async function withNotices(fn: (tx: Tx) => Promise<void>): Promise<string[]> {
 }
 
 describe('the retention jobs erase lapsed logins, ward-level (R-2026-09-26-136 DL-2 a, b)', () => {
-  test('a login deactivated 31 days ago is erased: every auth row gone, the row marked, one ward-level audit row', async () => {
+  test('a login deactivated 30 days ago is erased: every auth row gone, the row marked, one ward-level audit row', async () => {
     const r = await asPostgres(async (tx) => {
       const w = await freeWard(tx);
-      const id = await plantLogin(tx, { ward: w, deactivatedDaysAgo: 31 });
+      const id = await plantLogin(tx, { ward: w, deactivatedDaysAgo: DUE });
       const before = await authCounts(tx, id);
       const n = await erase(tx);
       return { before, after: await authCounts(tx, id), n, at: await erasedAt(tx, id), rows: await eraseRows(tx, w) };
@@ -198,10 +210,10 @@ describe('the retention jobs erase lapsed logins, ward-level (R-2026-09-26-136 D
     expect(r.rows).toEqual([{ new_value: { role: 'WARD_STAFF' }, old_value: null, session_id: null, version: null }]);
   });
 
-  test('a login deactivated 29 days ago is kept, with no audit row', async () => {
+  test('a login deactivated 28 days ago is kept, with no audit row', async () => {
     const r = await asPostgres(async (tx) => {
       const w = await freeWard(tx);
-      const id = await plantLogin(tx, { ward: w, deactivatedDaysAgo: 29 });
+      const id = await plantLogin(tx, { ward: w, deactivatedDaysAgo: NOT_DUE });
       await erase(tx);
       return { after: await authCounts(tx, id), at: await erasedAt(tx, id), rows: await eraseRows(tx, w) };
     });
@@ -210,9 +222,9 @@ describe('the retention jobs erase lapsed logins, ward-level (R-2026-09-26-136 D
     expect(r.rows).toEqual([]);
   });
 
-  test('a PLATFORM_ADMIN deactivated 31 days ago is never erased', async () => {
+  test('a PLATFORM_ADMIN deactivated 30 days ago is never erased', async () => {
     const r = await asPostgres(async (tx) => {
-      const id = await plantLogin(tx, { role: 'PLATFORM_ADMIN', deactivatedDaysAgo: 31 });
+      const id = await plantLogin(tx, { role: 'PLATFORM_ADMIN', deactivatedDaysAgo: DUE });
       await erase(tx);
       return { after: await authCounts(tx, id), at: await erasedAt(tx, id) };
     });
@@ -236,7 +248,7 @@ describe('the retention jobs erase lapsed logins, ward-level (R-2026-09-26-136 D
   test('two logins erased for one ward write two rows, each ward-level', async () => {
     const r = await asPostgres(async (tx) => {
       const w = await freeWard(tx);
-      await plantLogin(tx, { ward: w, deactivatedDaysAgo: 31 });
+      await plantLogin(tx, { ward: w, deactivatedDaysAgo: DUE });
       await plantLogin(tx, { ward: w, deactivatedDaysAgo: 45 });
       await erase(tx);
       return eraseRows(tx, w);
@@ -250,7 +262,7 @@ describe('the retention jobs erase lapsed logins, ward-level (R-2026-09-26-136 D
   test('a second run erases nothing it already erased', async () => {
     const r = await asPostgres(async (tx) => {
       const w = await freeWard(tx);
-      await plantLogin(tx, { ward: w, deactivatedDaysAgo: 31 });
+      await plantLogin(tx, { ward: w, deactivatedDaysAgo: DUE });
       await erase(tx);
       await erase(tx);
       return eraseRows(tx, w);
@@ -287,29 +299,48 @@ describe('the erasure audit row is ward only, by the database (DL-2 a amended, d
   });
 });
 
-describe('a missed withdrawal step is said, not fixed (DL-2 a)', () => {
-  test('an active account at a facility withdrawn 31 days ago raises the WARNING with its count, and nothing is erased', async () => {
-    let seen: { after?: AuthCounts; audit?: number } = {};
-    const got = await withNotices(async (tx) => {
-      const w = await freeWard(tx);
-      const id = await plantLogin(tx, { ward: w, deactivatedDaysAgo: null });
-      await tx.unsafe(`insert into app.facility_agreement (facility_id, accepted_on, version, signatory_role) values ($1, current_date - 90, 'v1', 'CMD')
-                       on conflict (facility_id) do nothing`, [w.facility] as never[]);
-      await tx.unsafe(`update app.facility_agreement set accepted_on = least(accepted_on, current_date - 90), withdrawn_on = current_date - 31 where facility_id = $1`, [w.facility] as never[]);
-      await tx.unsafe('select app.erase_lapsed_ward_logins()');
+describe('a missed withdrawal step is SEEN: its own job fails (R-2026-09-27-137 DM-2)', () => {
+  /** Plants an active account at a facility whose agreement was withdrawn `days` ago. */
+  async function plantWithdrawn(tx: Tx, days: number): Promise<{ w: Ward; id: string }> {
+    const w = await freeWard(tx);
+    const id = await plantLogin(tx, { ward: w, deactivatedDaysAgo: null });
+    await tx.unsafe(`insert into app.facility_agreement (facility_id, accepted_on, version, signatory_role) values ($1, current_date - 90, 'v1', 'CMD')
+                     on conflict (facility_id) do nothing`, [w.facility] as never[]);
+    await tx.unsafe(`update app.facility_agreement set accepted_on = least(accepted_on, current_date - 90), withdrawn_on = current_date - $2::int where facility_id = $1`, [w.facility, days] as never[]);
+    return { w, id };
+  }
+
+  test('an active account at a facility withdrawn 31 days ago makes check_withdrawn_facility_accounts() RAISE, and nothing is deleted', async () => {
+    const r = await asPostgres(async (tx) => {
+      const { w, id } = await plantWithdrawn(tx, 31);
+      await tx.unsafe('savepoint before_check');
+      const e = await refusal(() => tx.unsafe('select app.check_withdrawn_facility_accounts()'));
+      await tx.unsafe('rollback to savepoint before_check');
       const [a] = await tx.unsafe<{ n: number }[]>(`select count(*)::int as n from app.audit_log where action = 'ward_account.login_erase' and facility_id = $1 and occurred_at = now()`, [w.facility] as never[]);
-      seen = { after: await authCounts(tx, id), audit: a?.n ?? -1 };
+      return { message: e.message, after: await authCounts(tx, id), audit: a?.n ?? -1 };
     });
-    expect(got.join('\n')).toMatch(/^WARNING: WITHDRAWN_FACILITY_ACTIVE_ACCOUNTS: 1 active account\(s\) at a facility whose agreement was withdrawn more than 30 days ago/m);
-    expect(seen.after, 'an active account at a withdrawn facility was erased').toEqual(PLANTED);
-    expect(seen.audit).toBe(0);
+    expect(r.message).toMatch(/^WITHDRAWN_FACILITY_ACTIVE_ACCOUNTS: 1 active account\(s\) at a facility whose agreement was withdrawn more than 30 days ago/);
+    expect(r.after, 'an active account at a withdrawn facility lost an auth row').toEqual(PLANTED);
+    expect(r.audit).toBe(0);
   });
 
-  test('control — with no such account, the run raises no WARNING', async () => {
-    const got = await withNotices(async (tx) => {
-      await tx.unsafe('select app.erase_lapsed_ward_logins()');
+  test('control — with no such account, check_withdrawn_facility_accounts() does not raise', async () => {
+    const n = await asPostgres(async (tx) => {
+      const [r] = await tx.unsafe<{ n: number }[]>('select app.check_withdrawn_facility_accounts() as n');
+      return r?.n;
     });
-    expect(got.filter((n) => n.includes('WITHDRAWN_FACILITY_ACTIVE_ACCOUNTS'))).toEqual([]);
+    expect(n).toBe(0);
+  });
+
+  test('the erasure no longer raises or warns for a withdrawn facility\'s active account', async () => {
+    let erased = -1;
+    const got = await withNotices(async (tx) => {
+      await plantWithdrawn(tx, 31);
+      const [r] = await tx.unsafe<{ n: number }[]>('select app.erase_lapsed_ward_logins() as n');
+      erased = r?.n ?? -1;
+    });
+    expect(erased, 'the erasure raised or returned nothing').toBeGreaterThanOrEqual(0);
+    expect(got.filter((n) => n.includes('WITHDRAWN_FACILITY_ACTIVE_ACCOUNTS')), 'the erasure still warns').toEqual([]);
   });
 });
 
@@ -317,7 +348,7 @@ describe('an erased login never comes back (DL-2 b)', () => {
   test('provision_complete refuses an erased login with LOGIN_ERASED and its hint', async () => {
     const e = await asPostgres(async (tx) => {
       const w = await freeWard(tx);
-      const id = await plantLogin(tx, { ward: w, deactivatedDaysAgo: 31 });
+      const id = await plantLogin(tx, { ward: w, deactivatedDaysAgo: DUE });
       await erase(tx);
       if ((await erasedAt(tx, id)) === null) throw new Error('the plant did not land: the login was not erased');
       const [inv] = await tx.unsafe<{ id: string }[]>(`insert into app.invite (facility_id, ward_category, role) values ($1, $2::app.ward_category, 'WARD_STAFF') returning id::text as id`, [w.facility, w.category] as never[]);
@@ -330,7 +361,7 @@ describe('an erased login never comes back (DL-2 b)', () => {
   test('a hand-run UPDATE reactivating an erased login violates ward_account_erased_never_active', async () => {
     const e = await asPostgres(async (tx) => {
       const w = await freeWard(tx);
-      const id = await plantLogin(tx, { ward: w, deactivatedDaysAgo: 31 });
+      const id = await plantLogin(tx, { ward: w, deactivatedDaysAgo: DUE });
       await erase(tx);
       return refusal(() => tx.unsafe('update app.ward_account set is_active = true, deactivated_at = null where id = $1', [id] as never[]));
     });
@@ -340,7 +371,7 @@ describe('an erased login never comes back (DL-2 b)', () => {
   test('control — a deactivated login that was NOT erased still reactivates', async () => {
     const status = await asPostgres(async (tx) => {
       const w = await freeWard(tx);
-      const id = await plantLogin(tx, { ward: w, deactivatedDaysAgo: 29 });
+      const id = await plantLogin(tx, { ward: w, deactivatedDaysAgo: NOT_DUE });
       const [inv] = await tx.unsafe<{ id: string }[]>(`insert into app.invite (facility_id, ward_category, role) values ($1, $2::app.ward_category, 'WARD_STAFF') returning id::text as id`, [w.facility, w.category] as never[]);
       const [r] = await tx.unsafe<{ status: string }[]>('select * from app.provision_complete($1::uuid, $2::uuid)', [inv?.id, id] as never[]);
       return r?.status;
@@ -349,7 +380,7 @@ describe('an erased login never comes back (DL-2 b)', () => {
   });
 });
 
-describe('sessions are deleted 30 days after they end (DL-2 c)', () => {
+describe('sessions are deleted within 30 days of their end (DL-2 c; DM-1)', () => {
   /** A session whose last use was `usedDaysAgo` days ago (UTC), created `createdDaysAgo` ago. */
   async function plantSession(tx: Tx, createdDaysAgo: number, usedDaysAgo: number | null): Promise<string> {
     const [{ id } = { id: '' }] = await tx.unsafe<{ id: string }[]>('select gen_random_uuid()::text as id');
@@ -373,10 +404,10 @@ describe('sessions are deleted 30 days after they end (DL-2 c)', () => {
   }
 
   test.each([
-    ['last used 31 days ago', 40, 31, { sessions: 0, refresh_tokens: 0 }],
-    ['last used 29 days ago', 40, 29, { sessions: 1, refresh_tokens: 1 }],
-    ['never refreshed, created 32 days ago (ended at created + 24 h, 31 days ago)', 32, null, { sessions: 0, refresh_tokens: 0 }],
-    ['never refreshed, created 30 days ago (ended 29 days ago)', 30, null, { sessions: 1, refresh_tokens: 1 }],
+    ['last used 30 days ago', 40, DUE, { sessions: 0, refresh_tokens: 0 }],
+    ['last used 28 days ago', 40, NOT_DUE, { sessions: 1, refresh_tokens: 1 }],
+    ['never refreshed, created 31 days ago (ended at created + 24 h, 30 days ago)', 31, null, { sessions: 0, refresh_tokens: 0 }],
+    ['never refreshed, created 29 days ago (ended 28 days ago)', 29, null, { sessions: 1, refresh_tokens: 1 }],
   ] as const)('a session %s', async (_name, created, used, want) => {
     const r = await asPostgres(async (tx) => {
       const sid = await plantSession(tx, created, used);
@@ -388,14 +419,15 @@ describe('sessions are deleted 30 days after they end (DL-2 c)', () => {
     expect(r.after).toEqual(want);
   });
 
-  test('the result does not move with the TimeZone: a session last used 29.75 days ago is kept at UTC+14', async () => {
+  test('the result does not move with the TimeZone: a session last used 28.75 days ago is kept at UTC+14', async () => {
     // refreshed_at is timestamp WITHOUT time zone, written in UTC. Read bare under a
-    // TimeZone of +14 it would look 14 hours older -- 30.33 days -- and be deleted.
+    // TimeZone of +14 it would look 14 hours older -- 29.33 days -- and be deleted.
+    // Re-pointed to the 29-day threshold by DM-1 b; at 30 days it planted 29.75.
     const r = await asPostgres(async (tx) => {
-      const sid = await plantSession(tx, 40, 29.75);
+      const sid = await plantSession(tx, 40, 28.75);
       await tx.unsafe(`set local timezone = 'Pacific/Kiritimati'`);
       const [bare] = await tx.unsafe<{ old: boolean }[]>(`
-        select greatest(created_at + interval '24 hours', coalesce(refreshed_at, updated_at, created_at)) < now() - interval '30 days' as old
+        select greatest(created_at + interval '24 hours', coalesce(refreshed_at, updated_at, created_at)) < now() - interval '29 days' as old
           from auth.sessions where id = $1::uuid`, [sid] as never[]);
       await tx.unsafe('select app.prune_ended_auth_sessions()');
       return { bareWouldDelete: bare?.old, after: await left(tx, sid) };
@@ -405,11 +437,12 @@ describe('sessions are deleted 30 days after they end (DL-2 c)', () => {
   });
 });
 
-describe('the two jobs, and the G1 comment (DL-2 e, f)', () => {
+describe('the three jobs, and the G1 comment (DL-2 e, f; DM-2 b)', () => {
   interface Job { jobname: string; schedule: string; command: string; username: string }
   const EXPECTED: Job[] = [
     { jobname: 'openbed_erase_lapsed_ward_logins', schedule: '17 2 * * *', command: 'select app.erase_lapsed_ward_logins()', username: 'postgres' },
     { jobname: 'openbed_prune_ended_auth_sessions', schedule: '27 2 * * *', command: 'select app.prune_ended_auth_sessions()', username: 'postgres' },
+    { jobname: 'openbed_check_withdrawn_facility_accounts', schedule: '37 2 * * *', command: 'select app.check_withdrawn_facility_accounts()', username: 'postgres' },
   ];
 
   async function applyTwiceFromEmpty(tx: Tx): Promise<void> {
@@ -455,7 +488,7 @@ describe('the two jobs, and the G1 comment (DL-2 e, f)', () => {
     expect(v).toContain(`${job.jobname} is scheduled 2 times (postgres, zz_cron_second)`);
   });
 
-  test('anti-vacuity — with both jobs unscheduled the checker reports them missing', async () => {
+  test('anti-vacuity — with every job unscheduled the checker reports each missing', async () => {
     const v = await withRole('postgres', null, async (tx) => (await Promise.all(EXPECTED.map((j) => violations(tx, j)))).flat(), async (tx) => {
       for (const j of EXPECTED) await tx.unsafe('select cron.unschedule(jobname) from cron.job where jobname = $1', [j.jobname] as never[]);
     });

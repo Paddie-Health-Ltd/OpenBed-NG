@@ -753,11 +753,12 @@ curl -s -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
   jobs are 017's `openbed_regenerate_snapshot` and `openbed_refresh_lga_rollup`, both
   inside the database, and no migration uses `pg_net`. A clone therefore makes no
   outbound call.
-  *Restated 2026-09-27 (R-2026-09-26-136 DL-2 e): from 024's apply there are also 024's
-  two retention jobs, `openbed_erase_lapsed_ward_logins` and
-  `openbed_prune_ended_auth_sessions`. They too run inside the database and make no
-  outbound call, but in a clone they delete `auth` rows by age, so read a clone before
-  02:17 UTC or expect those rows gone.*
+  *Restated 2026-09-27 (R-2026-09-26-136 DL-2 e; R-2026-09-27-137 DM-2): from 024's
+  apply there are also 024's three retention jobs, `openbed_erase_lapsed_ward_logins`,
+  `openbed_prune_ended_auth_sessions` and `openbed_check_withdrawn_facility_accounts`.
+  They too run inside the database and make no outbound call, but in a clone the first
+  two delete `auth` rows by age, so read a clone before 02:17 UTC or expect those rows
+  gone.*
 - **A clone holds a copy of the Auth identities, so delete it once it has been read.**
 
 **Covered by tests: nothing** — same class as the region pin. Assertable via the
@@ -1347,8 +1348,9 @@ refresh_lga_rollup search_path="",row_security=off
 ```
 
 *Restated 2026-09-27 (R-2026-09-26-136 DL-2 e): from 024's apply the first query also
-lists 024's two jobs, `openbed_erase_lapsed_ward_logins` and
-`openbed_prune_ended_auth_sessions`, so a correct project then reads five lines here,
+lists 024's three jobs, `openbed_erase_lapsed_ward_logins`,
+`openbed_prune_ended_auth_sessions` and `openbed_check_withdrawn_facility_accounts`
+(the third by R-2026-09-27-137 DM-2), so a correct project then reads six lines here,
 not three. 024's jobs are read in "024's apply", fence B.*
 
 Then **wait at least five minutes**, so both jobs have had a tick, and read the
@@ -1960,18 +1962,23 @@ in DL's after-merge order, before any redeploy. Claude Code runs nothing hosted.
 
 **What 024 changes** (its header says why). It adds `app.ward_account.login_erased_at`,
 with a CHECK that an erased row is never active. It adds a CHECK on `app.audit_log` so
-that an erasure's row names the ward and never the account. It adds two owner-only
-functions, `app.erase_lapsed_ward_logins()` and `app.prune_ended_auth_sessions()`, and
-two pg_cron jobs that run them daily as `postgres`: `openbed_erase_lapsed_ward_logins`
-at 02:17 UTC and `openbed_prune_ended_auth_sessions` at 02:27 UTC. It adds the
+that an erasure's row names the ward and never the account. It adds three owner-only
+functions, `app.erase_lapsed_ward_logins()`, `app.prune_ended_auth_sessions()` and
+`app.check_withdrawn_facility_accounts()`, and three pg_cron jobs that run them daily as
+`postgres`: `openbed_erase_lapsed_ward_logins` at 02:17 UTC,
+`openbed_prune_ended_auth_sessions` at 02:27 UTC, and
+`openbed_check_withdrawn_facility_accounts` at 02:37 UTC. It adds the
 `LOGIN_ERASED` refusal to `app.provision_complete`, and restates the comment on
 `app.facility_contact` for G1. It writes no public row. The -45 gate is unaffected:
 024 creates no facility and no ward_account row.
 
 **What the jobs delete, and why these readings come first.** The first job deletes the
 `auth.users` row, with its sessions and refresh tokens, of a ward account deactivated
-more than 30 days ago. The second deletes every sign-in session that ended more than
-30 days ago. On hosted today the one `auth.users` row is the operator's, which is
+more than 29 days ago. The second deletes every sign-in session that ended more than
+29 days ago. **A 29-day threshold with a daily run** means every deletion lands within
+30 days of the event, which is the privacy notice's promise. A 30-day threshold
+deleted on day 30 or 31 (R-2026-09-27-137 DM-1). The third job deletes nothing: it
+fails while an account is still active at a facility withdrawn more than 30 days ago. On hosted today the one `auth.users` row is the operator's, which is
 never erased. So the count must read 1 before the apply and 1 after it.
 
 **A. The auth reading, before.** It only reads. **It must read, in this order:** `1`;
@@ -2015,17 +2022,19 @@ expectations for 024.** Only what each must read changes:
    `001_app_schema_and_migration_ledger.sql` through `024_retention_jobs.sql`, no
    `WOULD APPLY` line, and the same last line as 020's fence 5, saying nothing is
    pending. Anything else: stop and report.
-6. **Who can execute what:** as for 020, run after the apply. Two lines are new:
+6. **Who can execute what:** as for 020, run after the apply. Three lines are new:
+   `app.check_withdrawn_facility_accounts() EXECUTE: none`,
    `app.erase_lapsed_ward_logins() EXECUTE: none` and
    `app.prune_ended_auth_sessions() EXECUTE: none`, because
-   `packages/fixtures/function-grants.json` gains both, owner-only. Every other line
+   `packages/fixtures/function-grants.json` gains all three, owner-only. Every other line
    reads as before, and `public.rls_auto_enable()` reads `ok` under `(hosted-only)`.
    Anything else: stop and report.
 
 **B. The auth reading and the jobs, after.** **It must read `1`,** the same count as
-fence A, and then exactly these four lines:
+fence A, and then exactly these five lines: the three retention jobs and 017's two.
 
 ```
+openbed_check_withdrawn_facility_accounts|37 2 * * *|select app.check_withdrawn_facility_accounts()|postgres|t
 openbed_erase_lapsed_ward_logins|17 2 * * *|select app.erase_lapsed_ward_logins()|postgres|t
 openbed_prune_ended_auth_sessions|27 2 * * *|select app.prune_ended_auth_sessions()|postgres|t
 openbed_refresh_lga_rollup|*/5 * * * *|select app.refresh_lga_rollup()|postgres|t
@@ -2033,8 +2042,9 @@ openbed_regenerate_snapshot|* * * * *|select app.regenerate_snapshot()|postgres|
 ```
 
 **Any other count, a missing or doubled job, or a job not active: stop and report.**
-Two rows under one job name is 017's Condition F failing. A fifth row is a job this
-repository does not schedule.
+Two rows under one job name is 017's Condition F failing. A sixth row is a job this
+repository does not schedule. *Restated 2026-09-27 (R-2026-09-27-137 DM-2 d): until then
+this read four lines, before the third retention job existed.*
 
 ```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
@@ -2044,13 +2054,13 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select jobname, schedule, command,
 unset DATABASE_URL
 ```
 
-**A missed withdrawal step shows only in the Postgres log.** The erasure job counts any
-account still active at a facility withdrawn more than 30 days ago, which means 12.5
-step 2 was missed. It raises that count as a WARNING and deletes nothing for those
-accounts. Observed locally on 2026-09-27: a WARNING raised inside a pg_cron job reaches
-the Postgres server log, and `cron.job_run_details` records the run as `succeeded` with
-no trace of it. No facility is withdrawn today, so this is recorded here and not given
-a fence.
+**A missed withdrawal step is seen in `cron.job_run_details` (R-2026-09-27-137 DM-2).**
+`openbed_check_withdrawn_facility_accounts` fails, naming the count, while any account
+is still active at a facility withdrawn more than 30 days ago; it deletes nothing.
+Observed locally on 2026-09-27: a pg_cron job that raises is recorded as `failed` with
+its message, while a WARNING reaches only the server log. It is read at 12.5 step 5.
+*Restated 2026-09-27: until DM-2 the erasure raised a WARNING for this, and this
+paragraph said the step showed only in the Postgres log.*
 
 **Its down migration is never applied here on anyone's own authority.** It refuses
 while any login is marked erased (`LOGINS_ERASED`), because from the first erasure the
@@ -4100,7 +4110,26 @@ agreement (`:282`).
 **4. Read back `/beds.json`:** the facility is gone from it. Use
 `bash scripts/readback_pages.sh`.
 
-- [ ] Withdrawal (facility id, date of each step, and each reading)
+**5. On the 31st day after `withdrawn_on`, after 02:37 UTC, read the retention jobs'
+runs.** *Added 2026-09-27 (R-2026-09-27-137 DM-2 d).* From that day,
+`openbed_check_withdrawn_facility_accounts` fails while any account at the facility is
+still active, which is how a missed step 2 is seen. The erasure and the session pruning
+must also have run. This block only reads.
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select j.jobname, count(d.runid) filter (where d.status = 'succeeded'), count(d.runid) filter (where d.status = 'failed') from cron.job j left join cron.job_run_details d on d.jobid = j.jobid and d.start_time > now() - interval '31 days' where j.jobname in ('openbed_check_withdrawn_facility_accounts', 'openbed_erase_lapsed_ward_logins', 'openbed_prune_ended_auth_sessions') group by j.jobname order by j.jobname"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select j.jobname, d.start_time, d.return_message from cron.job_run_details d join cron.job j on j.jobid = d.jobid where j.jobname in ('openbed_check_withdrawn_facility_accounts', 'openbed_erase_lapsed_ward_logins', 'openbed_prune_ended_auth_sessions') and d.status = 'failed' and d.start_time > now() - interval '31 days' order by d.start_time"
+unset DATABASE_URL
+```
+
+**Must read** three lines, one per job, each ending `|0`, and a first count of 1 or
+more. The second query must print nothing. **Any failed run is a STOP:** paste both
+outputs back. A `WITHDRAWN_FACILITY_ACTIVE_ACCOUNTS` message means step 2 was missed.
+Nothing is erased for an active account; deciding what to do with one is the founder's.
+
+- [ ] Withdrawal (facility id, date of each step, and each reading, step 5's included)
 
 ### 12.6 Erasing a contact
 

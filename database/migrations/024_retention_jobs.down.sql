@@ -1,8 +1,8 @@
 -- ============================================================
 -- 024_retention_jobs.down.sql
 -- ============================================================
--- FULL SYMMETRIC REVERSAL to the exact 023 state: both jobs unscheduled by name,
--- both retention functions dropped, 022's app.provision_complete returned VERBATIM
+-- FULL SYMMETRIC REVERSAL to the exact 023 state: the three jobs unscheduled by name,
+-- the three functions dropped (the third by R-2026-09-27-137 DM-2 b), 022's app.provision_complete returned VERBATIM
 -- (copied from 022's file, not retyped), the two CHECKs and the login_erased_at
 -- column dropped, 003's comment on app.facility_contact restored VERBATIM (copied
 -- from 003's file), and the ledger row removed.
@@ -41,13 +41,13 @@ END $$;
 
 
 -- ============================================================
--- 1. The two jobs, by name.
+-- 1. The three jobs, by name.
 -- ============================================================
 DO $$
 DECLARE j text;
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
-        FOREACH j IN ARRAY ARRAY['openbed_erase_lapsed_ward_logins', 'openbed_prune_ended_auth_sessions'] LOOP
+        FOREACH j IN ARRAY ARRAY['openbed_check_withdrawn_facility_accounts', 'openbed_erase_lapsed_ward_logins', 'openbed_prune_ended_auth_sessions'] LOOP
             IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = j AND username = current_user) THEN
                 PERFORM cron.unschedule(j);
             END IF;
@@ -57,8 +57,9 @@ END $$;
 
 
 -- ============================================================
--- 2. The two retention functions.
+-- 2. The three functions.
 -- ============================================================
+DROP FUNCTION IF EXISTS app.check_withdrawn_facility_accounts();
 DROP FUNCTION IF EXISTS app.erase_lapsed_ward_logins();
 DROP FUNCTION IF EXISTS app.prune_ended_auth_sessions();
 

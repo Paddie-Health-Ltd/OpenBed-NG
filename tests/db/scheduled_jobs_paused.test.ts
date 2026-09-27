@@ -9,8 +9,9 @@ import { withRole, sql, scheduledJobPauseViolations, SCHEDULED_JOBS, PAUSE_SCHED
  *
  * THE CONTROL. database/local/pause_scheduled_jobs.sql pauses every job in
  * SCHEDULED_JOBS (tests/setup/db.ts) -- 017's openbed_refresh_lga_rollup and
- * openbed_regenerate_snapshot, and 024's openbed_erase_lapsed_ward_logins and
- * openbed_prune_ended_auth_sessions -- and waits out any run in flight. scripts/seed.sh applies it straight after the migrations; the db and
+ * openbed_regenerate_snapshot, and 024's openbed_erase_lapsed_ward_logins,
+ * openbed_prune_ended_auth_sessions and openbed_check_withdrawn_facility_accounts --
+ * and waits out any run in flight. scripts/seed.sh applies it straight after the migrations; the db and
  * e2e test setups apply it again and then check the result with
  * scheduledJobPauseViolations() (tests/setup/db.ts). The golden path's
  * snapshot-regenerates step calls the same checker before relying on the pause.

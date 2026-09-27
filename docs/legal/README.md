@@ -9,8 +9,10 @@ a new version number, never an edit to this one.
 
 ## The data-processing agreements (register items 1–3; R-2026-09-26-136 DL-4)
 
-Each vendor's current published text was fetched on **2026-09-26 at 23:24 UTC**
-(00:24 WAT on 2026-09-27) with one GET, following the vendor's own redirects. It was
+Each vendor's current published text was fetched with one GET, following the vendor's
+own redirects: the three DPAs on **2026-09-26 at 23:24 UTC** (00:24 WAT on 2026-09-27),
+and Cloudflare's Self-Serve Subscription Agreement on **2026-09-27 at 07:09 UTC**
+(R-2026-09-27-137 DM-3 a). Each was
 saved byte for byte **outside this repository**, in the founder's folder
 ~/OpenBed-records/legal/, because this repository is public and the texts are the
 vendors'. The sha256 below is of the saved file. The page is saved as served, and the
@@ -20,15 +22,23 @@ later reading is a new row, not an edit to this one.
 | Vendor | URL fetched (and where it ended) | Version or date the page states | Date read | sha256 of the saved file | How it binds, in the text's own words |
 | --- | --- | --- | --- | --- | --- |
 | Proton AG | https://proton.me/legal/dpa (no redirect) | "Last modified: February 10, 2026" | 2026-09-26 | `8b97d15051f15badab7b3a8ee67df02239b1072238cce1aee5b6ea6dbf573d7a` | Through its terms: "This Data Processing Agreement ("Agreement") forms part of the Contract for Services under Proton AG's Terms and Conditions". |
-| Supabase (Supabase Pte. Ltd) | https://supabase.com/legal/dpa, redirected by Supabase to https://supabase.com/legal/customer-resources/data-processing-addendum | "Version 1 — August 1, 2026" | 2026-09-26 | `b69726bf80a33b19770316ddeeceb22c764fdcb117f36fadeaeb7b1859db8344` | Accepting the terms: the DPA "supplements and forms part of the Supabase Terms of Service", and the SCCs "are incorporated into this DPA in accordance with clause 12". The words "execution of this DPA shall have the same effect as signing" appear once, about the UK Approved Addendum. |
-| Cloudflare, Inc. | https://www.cloudflare.com/cloudflare-customer-dpa/ (no redirect) | "Version 6.4, effective April 3, 2026"; the page also links a PDF of v6.4, which was not fetched | 2026-09-26 | `c03c2d1deee10fc99dd70b53662c72207596ed79f6df364262873730df945ff4` | By reference: the DPA "forms part of the Main Agreement", defined as "an Enterprise Subscription Agreement, Self-Serve Subscription Agreement or other written or electronic agreement". |
+| Supabase (Supabase Pte. Ltd) | https://supabase.com/legal/dpa, redirected by Supabase to https://supabase.com/legal/customer-resources/data-processing-addendum | "Version 1 — August 1, 2026" | 2026-09-26 | `b69726bf80a33b19770316ddeeceb22c764fdcb117f36fadeaeb7b1859db8344` | Through its terms: the DPA "supplements and forms part of the Supabase Terms of Service". **The EU SCCs**, clause 12.1: "The Standard Contractual Clauses shall, as further set out in Schedule 2, apply to the transfer of any Covered Data from Customer to Supabase, and form part of this DPA, to the extent that: (a) the GDPR or Swiss Data Protection Laws apply to the Customer when making that transfer; or (b) the Applicable Data Protection Laws that apply to the Customer when making that transfer (the "Exporter Data Protection Laws") prohibit the transfer of Covered Data to Supabase under this DPA in the absence of a transfer mechanism implementing adequate safeguards …". **"Same effect as signing"** appears once, in Schedule 2 paragraph 2.3, and applies to **the UK Approved Addendum only**: "execution of this DPA shall have the same effect as signing the Approved Addendum". |
+| Cloudflare, Inc. | https://www.cloudflare.com/cloudflare-customer-dpa/ (no redirect) | "Version 6.4, effective April 3, 2026"; the page also links a PDF of v6.4, which was not fetched | 2026-09-26 | `c03c2d1deee10fc99dd70b53662c72207596ed79f6df364262873730df945ff4` | By reference, from both sides. The DPA "forms part of the Main Agreement", defined as "an Enterprise Subscription Agreement, Self-Serve Subscription Agreement or other written or electronic agreement". The Self-Serve Subscription Agreement (next row) incorporates it. |
+| Cloudflare, Inc.: the Self-Serve Subscription Agreement | https://www.cloudflare.com/terms/ (no redirect; the page is titled "Self-Serve Subscription Agreement \| Cloudflare") | "Last Updated September 12, 2025" | 2026-09-27 (07:09 UTC) | `27401c884349ad32674da8c934f70c3a331bf056efdda7db39a4cab950c5879a` | **FOUND**, section 6.1 (Data Processing): "…then Cloudflare is a data processor or sub-processor, as applicable, and Cloudflare will handle such Personal Data in compliance with Cloudflare's Data Processing Addendum ("Data Processing Addendum"), which is hereby incorporated by reference into this Agreement." The clause's condition, quoted: "If Customer Content includes the personal data of European data subjects as those terms are defined by EU and UK Data Protection Laws and all data defined as 'personal information' under the California Consumer Privacy Act". |
 | GitHub, Inc. | — | — | — | — | **No DPA.** GitHub hosts this public repository as an **independent controller**, under its own terms. It processes no personal data on OpenBed's behalf, and OpenBed commits none (see SECURITY.md). |
 
+**Corrected by R-2026-09-27-137 DM-3 b.** The Supabase row's first wording
+paraphrased the DPA as "accepting the terms has the effect of signing its SCCs". That
+paraphrase was the drafting session's, carried by Cowork, and the row now quotes what
+the text says. The Cloudflare row said the Self-Serve side was NOT CONFIRMED. It is
+now fetched and FOUND (DM-3 a).
+
 **What this table does not establish.**
-- **The Cloudflare row's other half.** The DPA text says it forms part of a
-  Self-Serve Subscription Agreement. The Self-Serve Subscription Agreement's own text
-  was not fetched, so the claim that those terms incorporate the DPA by reference is
-  **NOT CONFIRMED** here.
+- **Whether section 6.1's condition reaches OpenBed's data.** The condition names
+  European data subjects and California "personal information", and the incorporation
+  is stated for that case. Whether the DPA governs Nigerian data subjects' data under
+  the Self-Serve terms is a legal reading, recorded here as the text's words, not
+  decided.
 - **That the founder's accounts accepted these versions.** That is the founder's
   processor and transfer pack, outside this repository.
 - **The transfer basis for each vendor.** That is recorded in the same pack

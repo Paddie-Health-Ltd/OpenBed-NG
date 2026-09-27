@@ -3,11 +3,17 @@
 -- ============================================================
 -- THE RETENTION SCHEDULE'S TWO DATABASE JOBS, AND THE G1 COMMENT (R-2026-09-26-136
 -- DL-2, issued as R-PROVISIONAL-2026-09-26-DL; DL-2 a amended by the founder the same
--- day). The privacy notice (docs/legal/privacy-notice-v1.0.md) promises two things this
--- database must do on its own:
+-- day; amended by R-2026-09-27-137 DM-1 and DM-2). The privacy notice
+-- (docs/legal/privacy-notice-v1.0.md) promises two things this database must do on
+-- its own:
 --   * a ward's sign-in address is deleted within 30 days of its account being closed;
 --   * sign-in sessions are deleted 30 days after they end.
 -- Both are pg_cron jobs, run as postgres, as 017's are.
+--
+-- THE THRESHOLD IS 29 DAYS, AND THE RUN IS DAILY (DM-1). A daily job at a 30-day
+-- threshold deletes on day 30 or 31, which breaks the notice's "within 30 days". At
+-- 29 days, the first daily run after the threshold falls within 30 days of the event,
+-- so every deletion lands within 30 days of it.
 --
 -- Empirical state at base: 001-023 applied locally; hosted at 023
 -- (database/migrations/applied-hosted.json). Read locally 2026-09-27 (Supabase CLI
@@ -36,15 +42,17 @@
 --      refused by the database.
 --   3. app.erase_lapsed_ward_logins(): see its header.
 --   4. app.prune_ended_auth_sessions(): see its header.
+--   4b. app.check_withdrawn_facility_accounts() (DM-2): see its header.
 --   5. app.provision_complete: 022's body verbatim, with one refusal added ahead of
 --      the reactivate branch -- LOGIN_ERASED, hint 'provision a new login'.
---   6. Two pg_cron jobs, daily: openbed_erase_lapsed_ward_logins at 02:17 UTC and
---      openbed_prune_ended_auth_sessions at 02:27 UTC.
+--   6. Three pg_cron jobs, daily: openbed_erase_lapsed_ward_logins at 02:17 UTC,
+--      openbed_prune_ended_auth_sessions at 02:27 UTC and
+--      openbed_check_withdrawn_facility_accounts at 02:37 UTC.
 --   7. COMMENT ON TABLE app.facility_contact, restated for G1 (the founder's
 --      decision, 2026-09-26): legitimate interests, not contract. 003 is frozen, so
 --      the comment changes here; database/migrations/README.md notes it beside 003.
 --
--- GRANTS. Both new functions are owner-only: EXECUTE revoked from PUBLIC, anon,
+-- GRANTS. The three new functions are owner-only: EXECUTE revoked from PUBLIC, anon,
 -- authenticated and service_role, and packages/fixtures/function-grants.json lists
 -- them with execute []. provision_complete keeps 022's ACL (CREATE OR REPLACE keeps
 -- it; the revoke is re-run anyway).
@@ -56,7 +64,7 @@
 -- file deletes.
 --
 -- Idempotency: ADD COLUMN IF NOT EXISTS; each CHECK is dropped if it exists and
--- added again; CREATE OR REPLACE for the three functions; the revoke loop is
+-- added again; CREATE OR REPLACE for the four functions; the revoke loop is
 -- repeatable; cron.schedule upserts by name for the calling role and leaves
 -- `active` as it found it (017's observation) -- the duplicate case is asserted
 -- by tests/db/retention_jobs.test.ts, which applies this file twice in a
@@ -108,7 +116,7 @@ ALTER TABLE app.audit_log ADD CONSTRAINT audit_log_login_erase_ward_only
 -- 3. app.erase_lapsed_ward_logins()
 -- ============================================================
 -- For every app.ward_account below PLATFORM_ADMIN that has been deactivated for more
--- than 30 days and not yet erased: its Auth user is deleted, the row is marked
+-- than 29 days (DM-1: the daily run then deletes within 30) and not yet erased: its Auth user is deleted, the row is marked
 -- login_erased_at, and one audit row is written naming the ward. An active account
 -- is never touched, and neither is a PLATFORM_ADMIN.
 --
@@ -119,11 +127,10 @@ ALTER TABLE app.audit_log ADD CONSTRAINT audit_log_login_erase_ward_only
 -- ON DELETE CASCADE to auth.users, which the tests confirm locally and 024's
 -- runbook section reads on hosted before the apply.
 --
--- A MISSED WITHDRAWAL STEP IS SAID, NOT FIXED. An account still ACTIVE at a facility
--- whose agreement was withdrawn more than 30 days ago means runbook 12.5 step 2 (the
--- deactivation) was missed. It is counted and RAISEd as a WARNING; nothing is
--- deleted for it and no audit row is written, because erasing an active login is a
--- founder decision, not a job's.
+-- A missed withdrawal step is no longer reported here: until DM-2 this function
+-- RAISEd a WARNING for it, and a WARNING inside a pg_cron job reaches only the
+-- server log (observed 2026-09-27). It is app.check_withdrawn_facility_accounts()'s,
+-- whose failing run cron.job_run_details records.
 --
 -- Returns the number of logins erased in this run.
 CREATE OR REPLACE FUNCTION app.erase_lapsed_ward_logins()
@@ -136,14 +143,13 @@ AS $FN$
 DECLARE
     v_acct   record;
     v_erased integer := 0;
-    v_missed integer;
 BEGIN
     FOR v_acct IN
         SELECT u.id, u.facility_id, u.ward_category, u.role
           FROM app.ward_account u
          WHERE u.role <> 'PLATFORM_ADMIN'
            AND NOT u.is_active
-           AND u.deactivated_at < now() - interval '30 days'
+           AND u.deactivated_at < now() - interval '29 days'
            AND u.login_erased_at IS NULL
          ORDER BY u.deactivated_at
            FOR UPDATE
@@ -162,25 +168,16 @@ BEGIN
         v_erased := v_erased + 1;
     END LOOP;
 
-    SELECT count(*) INTO v_missed
-      FROM app.ward_account u
-      JOIN app.facility_agreement a ON a.facility_id = u.facility_id
-     WHERE u.is_active
-       AND a.withdrawn_on < ((now() - interval '30 days') AT TIME ZONE 'UTC')::date;
-    IF v_missed > 0 THEN
-        RAISE WARNING 'WITHDRAWN_FACILITY_ACTIVE_ACCOUNTS: % active account(s) at a facility whose agreement was withdrawn more than 30 days ago; runbook 12.5 step 2 was missed. Nothing was erased for them.', v_missed;
-    END IF;
-
     RETURN v_erased;
 END;
 $FN$;
 
 COMMENT ON FUNCTION app.erase_lapsed_ward_logins() IS
     'The retention schedule''s login erasure (024): deletes the Auth user of every '
-    'ward_account below PLATFORM_ADMIN deactivated more than 30 days ago, marks it '
-    'login_erased_at, and writes one ward-level audit row each. Warns, and deletes '
-    'nothing, for accounts still active at a facility withdrawn more than 30 days '
-    'ago. Run daily at 02:17 UTC by the pg_cron job openbed_erase_lapsed_ward_logins.';
+    'ward_account below PLATFORM_ADMIN deactivated more than 29 days ago, marks it '
+    'login_erased_at, and writes one ward-level audit row each. Run daily at 02:17 UTC '
+    'by the pg_cron job openbed_erase_lapsed_ward_logins, so every login is erased '
+    'within 30 days of its deactivation (R-2026-09-27-137 DM-1).';
 
 
 -- ============================================================
@@ -189,7 +186,8 @@ COMMENT ON FUNCTION app.erase_lapsed_ward_logins() IS
 -- A session ends within 24 hours of its creation (the timebox) or 8 hours after its
 -- last use (the inactivity timeout), but this does not rely on either setting
 -- (DL-2 c): a session's end is taken as the LATER of created_at + 24 hours and its
--- last use, and it is deleted once that is more than 30 days ago.
+-- last use, and it is deleted once that is more than 29 days ago -- so the daily run
+-- deletes it within 30 days of its end (DM-1).
 --
 -- refreshed_at IS timestamp WITHOUT time zone, and GoTrue writes it in UTC. It is
 -- read AT TIME ZONE 'UTC' so the comparison does not depend on the session's
@@ -216,7 +214,7 @@ BEGIN
       FROM auth.sessions s
      WHERE greatest(s.created_at + interval '24 hours',
                     coalesce(s.refreshed_at AT TIME ZONE 'UTC', s.updated_at, s.created_at))
-           < now() - interval '30 days';
+           < now() - interval '29 days';
 
     DELETE FROM auth.refresh_tokens t WHERE t.session_id = ANY (v_ids);
     DELETE FROM auth.sessions s WHERE s.id = ANY (v_ids);
@@ -228,8 +226,51 @@ $FN$;
 COMMENT ON FUNCTION app.prune_ended_auth_sessions() IS
     'The retention schedule''s session pruning (024): deletes every auth.sessions row '
     '(and its refresh tokens, explicitly) whose end -- the later of created_at + 24 '
-    'hours and its last use -- is more than 30 days ago. Run daily at 02:27 UTC by '
-    'the pg_cron job openbed_prune_ended_auth_sessions.';
+    'hours and its last use -- is more than 29 days ago. Run daily at 02:27 UTC by '
+    'the pg_cron job openbed_prune_ended_auth_sessions, so every session is deleted '
+    'within 30 days of its end (R-2026-09-27-137 DM-1).';
+
+
+-- ============================================================
+-- 4b. app.check_withdrawn_facility_accounts() (R-2026-09-27-137 DM-2 a)
+-- ============================================================
+-- A MISSED WITHDRAWAL STEP IS SEEN, NOT LOGGED. An account still ACTIVE at a facility
+-- whose agreement was withdrawn more than 30 days ago means runbook 12.5 step 2 (the
+-- deactivation) was missed. This RAISEs an EXCEPTION naming the count, so the pg_cron
+-- run is recorded in cron.job_run_details as `failed`, with the message. It deletes
+-- nothing and writes nothing: erasing an active login is a founder decision, not a
+-- job's. Until DM-2 this was a WARNING inside the erasure, and a WARNING in a pg_cron
+-- job reaches only the server log (observed locally, 2026-09-27).
+--
+-- Returns 0 when no such account exists.
+CREATE OR REPLACE FUNCTION app.check_withdrawn_facility_accounts()
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+SET row_security = off
+AS $FN$
+DECLARE
+    v_missed integer;
+BEGIN
+    SELECT count(*) INTO v_missed
+      FROM app.ward_account u
+      JOIN app.facility_agreement a ON a.facility_id = u.facility_id
+     WHERE u.is_active
+       AND a.withdrawn_on < ((now() - interval '30 days') AT TIME ZONE 'UTC')::date;
+    IF v_missed > 0 THEN
+        RAISE EXCEPTION 'WITHDRAWN_FACILITY_ACTIVE_ACCOUNTS: % active account(s) at a facility whose agreement was withdrawn more than 30 days ago; runbook 12.5 step 2 was missed. Nothing was erased for them.', v_missed;
+    END IF;
+    RETURN 0;
+END;
+$FN$;
+
+COMMENT ON FUNCTION app.check_withdrawn_facility_accounts() IS
+    'Fails, naming the count, while any account is still active at a facility whose '
+    'agreement was withdrawn more than 30 days ago (a missed runbook 12.5 step 2); '
+    'deletes nothing. Run daily at 02:37 UTC by the pg_cron job '
+    'openbed_check_withdrawn_facility_accounts, whose failed run cron.job_run_details '
+    'records (R-2026-09-27-137 DM-2).';
 
 
 -- ============================================================
@@ -346,13 +387,14 @@ BEGIN
 END;
 $FN$;
 
--- Owner only: the two new functions, and provision_complete as 022 left it.
+-- Owner only: the three new functions, and provision_complete as 022 left it.
 DO $$
 DECLARE
     f text;
     r text;
 BEGIN
     FOREACH f IN ARRAY ARRAY[
+        'app.check_withdrawn_facility_accounts()',
         'app.erase_lapsed_ward_logins()',
         'app.prune_ended_auth_sessions()',
         'app.provision_complete(uuid, uuid)'
@@ -368,10 +410,11 @@ END $$;
 
 
 -- ============================================================
--- 6. The two jobs. By-name cron.schedule upserts; see Idempotency above.
+-- 6. The three jobs. By-name cron.schedule upserts; see Idempotency above.
 -- ============================================================
 SELECT cron.schedule('openbed_erase_lapsed_ward_logins', '17 2 * * *', 'select app.erase_lapsed_ward_logins()');
 SELECT cron.schedule('openbed_prune_ended_auth_sessions', '27 2 * * *', 'select app.prune_ended_auth_sessions()');
+SELECT cron.schedule('openbed_check_withdrawn_facility_accounts', '37 2 * * *', 'select app.check_withdrawn_facility_accounts()');
 
 
 -- ============================================================

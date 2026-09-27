@@ -148,7 +148,7 @@ export async function withRole<T>(
  * guarantee. scheduledJobPauseViolations() is the independent check of the
  * result, planted in tests/db/scheduled_jobs_paused.test.ts.
  */
-export const SCHEDULED_JOBS = ['openbed_erase_lapsed_ward_logins', 'openbed_prune_ended_auth_sessions', 'openbed_refresh_lga_rollup', 'openbed_regenerate_snapshot'] as const;
+export const SCHEDULED_JOBS = ['openbed_check_withdrawn_facility_accounts', 'openbed_erase_lapsed_ward_logins', 'openbed_prune_ended_auth_sessions', 'openbed_refresh_lga_rollup', 'openbed_regenerate_snapshot'] as const;
 
 export const PAUSE_SCHEDULED_JOBS_SQL = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'database', 'local', 'pause_scheduled_jobs.sql');
 

@@ -10,9 +10,9 @@ import { withRole } from '../setup/db.js';
  *
  * The state compared, by value:
  *   - app.provision_complete's body: 024's text, and 022's after the down;
- *   - whether each retention function exists, and its EXECUTE grants (owner only);
+ *   - whether each of the three functions exists, and its EXECUTE grants (owner only);
  *   - the login_erased_at column and the two CHECKs;
- *   - the two job names in cron.job;
+ *   - the three job names in cron.job;
  *   - app.facility_contact's comment: G1's, and 003's verbatim after the down;
  *   - the ledger row.
  *
@@ -72,8 +72,9 @@ interface State {
   ledger: number;
 }
 
-const FNS = ['app.erase_lapsed_ward_logins()', 'app.prune_ended_auth_sessions()'];
-const JOBS = ['openbed_erase_lapsed_ward_logins', 'openbed_prune_ended_auth_sessions'];
+// The third function and job by R-2026-09-27-137 DM-2 a, b.
+const FNS = ['app.check_withdrawn_facility_accounts()', 'app.erase_lapsed_ward_logins()', 'app.prune_ended_auth_sessions()'];
+const JOBS = ['openbed_check_withdrawn_facility_accounts', 'openbed_erase_lapsed_ward_logins', 'openbed_prune_ended_auth_sessions'];
 
 async function state(tx: TransactionSql): Promise<State> {
   const [c] = await tx.unsafe<{ src: string }[]>(`select prosrc as src from pg_proc where oid = to_regprocedure('app.provision_complete(uuid, uuid)')`);
