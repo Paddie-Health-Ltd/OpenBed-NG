@@ -1,3 +1,27 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>OpenBed operator</title></head>
-<body><div id="app"></div><script type="module" src="/src/main.ts"></script></body></html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenBed operator</title>
+    <!-- The mark as the favicon (D3, as D1 and D2). Vite emits it as a hashed same-origin
+         asset; public/favicon.ico answers /favicon.ico for clients that ask for it anyway,
+         so that path is never the SPA's HTML (R-2026-09-26-122 CX-3). The app's styles are
+         imported by src/main.ts, never inline: the CSP allows style-src 'self' only. -->
+    <link rel="icon" type="image/svg+xml" href="../../packages/design/openbed-mark.svg" />
+  </head>
+  <body>
+    <!-- The lockup is live text, never outlined: "Open" and "Bed" beside the 28 px mark,
+         with "Platform admin" beside it (the design-pass kickoff, D3). The mark is
+         decorative here (the words name the site), so its alt is empty. -->
+    <header class="site-header">
+      <div class="site-header-inner">
+        <img class="mark" src="../../packages/design/openbed-mark.svg" width="28" height="28" alt="" />
+        <span class="lockup"><span class="lockup-open">Open</span><span class="lockup-bed">Bed</span></span>
+        <span class="lockup-role">Platform admin</span>
+      </div>
+    </header>
+    <main id="app"></main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

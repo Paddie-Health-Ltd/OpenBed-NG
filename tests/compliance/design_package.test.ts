@@ -170,6 +170,20 @@ describe('packages/design ships what the design system and the kickoff specify',
     expect(html).toMatch(/<link rel="icon" type="image\/svg\+xml" href="[^"]*openbed-mark\.svg" \/>/);
   });
 
+  // D3 (R-2026-09-27-139 DO-4): admin, the same way, and the same icon.
+  test('admin ships a real /favicon.ico, the dashboard\'s icon, copied unchanged into the build, and links the SVG icon', () => {
+    const src = readFileSync(join(REPO_ROOT, 'apps', 'admin', 'public', 'favicon.ico'));
+    expect(Array.from(src.subarray(0, 4)), 'apps/admin/public/favicon.ico is not an ICO (magic 00 00 01 00)').toEqual([0, 0, 1, 0]);
+    expect(src.readUInt16LE(4), 'apps/admin/public/favicon.ico holds no image').toBeGreaterThan(0);
+    const dashboard = readFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'public', 'favicon.ico'));
+    expect(src.equals(dashboard), 'admin\'s favicon.ico is not the dashboard\'s: one mark, one icon').toBe(true);
+    const built = join(REPO_ROOT, 'apps', 'admin', 'dist', 'favicon.ico');
+    expect(existsSync(built), 'apps/admin/dist/favicon.ico is missing: run npm run build').toBe(true);
+    expect(readFileSync(built).equals(src), 'apps/admin/dist/favicon.ico differs from its public/favicon.ico').toBe(true);
+    const html = readFileSync(join(REPO_ROOT, 'apps', 'admin', 'index.html'), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+    expect(html).toMatch(/<link rel="icon" type="image\/svg\+xml" href="[^"]*openbed-mark\.svg" \/>/);
+  });
+
   test('NOTICE carries both fonts\' OFL-1.1 attributions', () => {
     const notice = readFileSync(join(REPO_ROOT, 'NOTICE'), 'utf8').replace(/\s+/g, ' ');
     for (const s of ['SIL Open Font License, Version 1.1', '@fontsource/public-sans 5.3.0', 'The Public Sans Project Authors', '@fontsource/ibm-plex-mono 5.3.0', 'Copyright 2017 IBM Corp.']) {

@@ -222,6 +222,23 @@ the founder's terminal and browser, read back by Cowork):
   ends by naming the ward-facing support address, and the console had no red line.
   **PASS.**
 
+**Run on 2026-09-27, from the deploy checkout at `3623d2b`** (R-2026-09-27-139 DO-1 d;
+the founder's terminal, phone and browser, read back by Cowork). The first deploy of D2
+(the design pass) and P (the privacy link) together:
+- **Deployed** `https://f6429a29.openbed-ward-console.pages.dev` from `3623d2b`.
+- **`readback_ward_console.sh`: PASS.** The stamp; the CSP and the scripts on both
+  hosts; the favicon on both hosts; a self-hosted font; the live key 200 and the wrong
+  key 401.
+- **The phone check** (section 2), the founder's word: on a phone at `app.openbed.ng`,
+  "fits well, everything works". The look is approved, and the privacy link is present
+  and opens the notice. This is the ward console's part of box 14 of 12.4 step 1 in
+  `docs/runbook-supabase-project-creation.md`, done.
+- **Desktop, with DevTools open:** no CSP message in the console, and the woff2 fonts
+  load from `app.openbed.ng` itself.
+- **Section 5 step 5, Authentication → Hooks:** no hook enabled. **PASS.** The register
+  row "The hosted project's auth hooks are off" leaves the decision record in the pull
+  request that records this read (R-2026-09-27-139 DO-1 e).
+
 This, together with the admin runbook's section 5, is the closing condition of the
 facility-one checklist's CSP box (the Supabase runbook, 12.4 step 1).
 
@@ -238,3 +255,10 @@ were changing what we served, and no read-back saw either:
 A plain curl against the deployment URL saw a clean page. *Restated 2026-09-26:* until
 then the page was fetched once, as plain curl, on the deployment URL, and only its
 bundle was counted.
+
+*Added 2026-09-27 (R-2026-09-27-139 DO-1 b):* a third zone setting did the same on
+2026-09-27. Email Address Obfuscation (Scrape Shield) rewrote the addresses on the
+dashboard's /privacy and injected a script there, on `openbed.ng` only, and
+`scripts/readback_pages.sh` read it WRONG. It is off, and all three zone settings that
+must stay off are listed in `docs/runbook-cloudflare-pages-beds-json.md`. This
+console's host is in the same zone, so the same three apply to `app.openbed.ng`.

@@ -98,6 +98,8 @@ function repo(root: string, opts: { pushed?: boolean; remote?: boolean; headers?
   if (opts.headers !== false) copyFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'public', 'favicon.ico'), join(work, 'apps', 'public-dashboard', 'public', 'favicon.ico'));
   // The ward console's, since D2 (R-2026-09-26-132 DH-3).
   if (opts.headers !== false) copyFileSync(join(REPO_ROOT, 'apps', 'ward-console', 'public', 'favicon.ico'), join(work, 'apps', 'ward-console', 'public', 'favicon.ico'));
+  // And admin's, since D3 (R-2026-09-27-139 DO-4).
+  if (opts.headers !== false) copyFileSync(join(REPO_ROOT, 'apps', 'admin', 'public', 'favicon.ico'), join(work, 'apps', 'admin', 'public', 'favicon.ico'));
   // The admin read-back reads its Pages project name from here, never retyped.
   mkdirSync(join(work, 'apps', 'admin'), { recursive: true });
   copyFileSync(join(REPO_ROOT, 'apps', 'admin', 'wrangler.toml'), join(work, 'apps', 'admin', 'wrangler.toml'));
@@ -1181,7 +1183,10 @@ const ADMIN_HOSTS = ['https://admin.openbed.ng', 'https://openbed-admin.pages.de
 const ADMIN_LOCAL = 'http://127.0.0.1:8790';
 const ACCESS_LOGIN = { status: 302, headers: { location: 'https://openbed.cloudflareaccess.com/cdn-cgi/access/login/admin.openbed.ng' } };
 const ACCESS_ENV = { OPENBED_ACCESS_CLIENT_ID: 'access-id-PLANTED-7f3a.access', OPENBED_ACCESS_CLIENT_SECRET: 'access-secret-PLANTED-9c1e' };
-const ADMIN_SHELL = '<!doctype html><script type="module" crossorigin src="/assets/index-Ad3m1nXy.js"></script>';
+/** Admin's page since D3: its one module script and its built stylesheet. */
+const ADMIN_SHELL = '<!doctype html><script type="module" crossorigin src="/assets/index-Ad3m1nXy.js"></script><link rel="stylesheet" crossorigin href="/assets/index-Ad3mCss0.css">';
+/** Admin's tracked favicon, read, never retyped (D3; R-2026-09-26-122 CX-3). */
+const ADMIN_FAVICON: Answer = { status: 200, headers: { 'content-type': 'image/x-icon' }, bodyBase64: readFileSync(join(REPO_ROOT, 'apps', 'admin', 'public', 'favicon.ico')).toString('base64') };
 
 /** What admin's pages answer: Access without the token, the app with it. */
 function adminFixtures(head: string, site = ADMIN_SITE, withAccess = true): Fixtures {
@@ -1200,6 +1205,12 @@ function adminFixtures(head: string, site = ADMIN_SITE, withAccess = true): Fixt
   // A hosted deploy serves the production rendering; the --local server (no Access) serves build:local's.
   f[`GET ${site}/${tok}`] = { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('admin', withAccess ? 'production' : 'local') }, body: ADMIN_SHELL };
   f[`GET ${site}/assets/index-Ad3m1nXy.js${tok}`] = { status: 200, body: `const k="${withAccess ? DEPLOYED_KEY : TRACKED_KEY}";` };
+  // D3: the favicon on each host the run reads (both, hosted; the one, --local), and one
+  // self-hosted font through the page's stylesheet -- all with the token when there is one.
+  f[`GET ${site}/favicon.ico${tok}`] = ADMIN_FAVICON;
+  if (withAccess) f[`GET https://admin.openbed.ng/favicon.ico${tok}`] = ADMIN_FAVICON;
+  f[`GET ${site}/assets/index-Ad3mCss0.css${tok}`] = { status: 200, headers: { 'content-type': 'text/css; charset=utf-8' }, body: DASH_CSS };
+  f[`GET ${site}${FONT_PATH}${tok}`] = { status: 200, headers: { 'content-type': 'font/woff2' }, body: 'wOF2' };
   f[`GET ${API}/auth/v1/settings apikey=${DEPLOYED_KEY}`] = { status: 200, headers: { 'x-openbed-proxy': 'forwarded' }, body: '{"external":{"email":true}}' };
   f[`GET ${API}/auth/v1/settings apikey=${WRONG_KEY}`] = { status: 401, headers: { 'x-openbed-proxy': 'forwarded' }, body: '{"message":"Invalid API key"}' };
   f[`POST ${API}/rest/v1/rpc/operator_register`] = { status: 401, headers: { 'x-openbed-proxy': 'forwarded' }, body: '{"code":"42501"}' };
@@ -1216,6 +1227,12 @@ describe('readback_admin.sh — Access first, the token from the environment onl
       const r = runAdmin(root, work, adminFixtures(git(work, 'rev-parse', 'HEAD').trim()));
       expect(r.status, r.out).toBe(0);
       expect(r.out).toContain('PASS: Access answers every host without the token');
+      // D3 (R-2026-09-27-139 DO-4): the favicon on both hosts, and a self-hosted font, each read.
+      for (const label of [
+        'step 2 favicon.ico status', 'step 2 favicon.ico', 'step 2 favicon.ico content-type',
+        'admin.openbed.ng favicon.ico status', 'admin.openbed.ng favicon.ico', 'admin.openbed.ng favicon.ico content-type',
+        'step 2 page stylesheet', 'step 2 stylesheet fonts', 'step 2 font status', 'step 2 font content-type',
+      ]) expect(r.out, `the check "${label}" never ran`).toContain(`  ok     ${label}: `);
       // The FAILING HALF FIRST: every host was probed without the token before any with it.
       const firstToken = r.calls.findIndex((c) => c.endsWith(' access'));
       expect(r.calls.slice(0, firstToken).filter((c) => c.startsWith('GET ') && !c.includes(API))).toHaveLength(6);
@@ -1243,6 +1260,13 @@ describe('readback_admin.sh — Access first, the token from the environment onl
     ['admin.openbed.ng serving a different deployment', (f: Fixtures) => { f['GET https://admin.openbed.ng/version.json access'] = { status: 200, body: stampOf('1'.repeat(40)) }; }, 'step 2 admin.openbed.ng commit'],
     ['a page CSP that is not the tracked one', (f: Fixtures) => { f[`GET ${ADMIN_SITE}/ access`] = { status: 200, headers: { ...trackedHeaders('admin'), 'content-security-policy': "default-src *" }, body: ADMIN_SHELL }; }, 'step 2 content-security-policy'],
     ['the Worker refusing the operator call (H5 not landed)', (f: Fixtures) => { f[`POST ${API}/rest/v1/rpc/operator_register`] = { status: 404, headers: { 'x-openbed-proxy': 'refused' } }; }, 'step 3 operator call x-openbed-proxy'],
+    // The design pass (D3; R-2026-09-26-122 CX-3): the favicon is never the SPA's HTML, on either host, and the fonts are self-hosted woff2.
+    ['/favicon.ico answered by the SPA fallback', (f: Fixtures) => { f[`GET ${ADMIN_SITE}/favicon.ico access`] = { status: 200, headers: { 'content-type': 'text/html' }, body: ADMIN_SHELL }; }, 'step 2 favicon.ico content-type'],
+    ['/favicon.ico answered by the SPA fallback on admin.openbed.ng only', (f: Fixtures) => { f['GET https://admin.openbed.ng/favicon.ico access'] = { status: 200, headers: { 'content-type': 'text/html' }, body: ADMIN_SHELL }; }, 'admin.openbed.ng favicon.ico content-type'],
+    ['a favicon that is not the tracked icon', (f: Fixtures) => { f[`GET ${ADMIN_SITE}/favicon.ico access`] = { status: 200, headers: { 'content-type': 'image/x-icon' }, bodyBase64: Buffer.from('not the icon').toString('base64') }; }, 'step 2 favicon.ico'],
+    ['a page that links no stylesheet', (f: Fixtures) => { f[`GET ${ADMIN_SITE}/ access`] = { status: 200, headers: { 'content-type': 'text/html', ...trackedHeaders('admin') }, body: '<!doctype html><script type="module" crossorigin src="/assets/index-Ad3m1nXy.js"></script>' }; }, 'step 2 page stylesheet'],
+    ['a stylesheet that names no woff2', (f: Fixtures) => { f[`GET ${ADMIN_SITE}/assets/index-Ad3mCss0.css access`] = { status: 200, headers: { 'content-type': 'text/css' }, body: 'body{margin:0}' }; }, 'step 2 stylesheet fonts'],
+    ['a font served as text/plain', (f: Fixtures) => { f[`GET ${ADMIN_SITE}${FONT_PATH} access`] = { status: 200, headers: { 'content-type': 'text/plain' }, body: 'wOF2' }; }, 'step 2 font content-type'],
   ] as const)('plant — %s is a STOP', (_name, plant, check) => {
     withScratch((root) => {
       const work = repo(root);
@@ -1318,6 +1342,15 @@ describe('readback_admin.sh — Access first, the token from the environment onl
         const f = adminFixtures(git(work, 'rev-parse', 'HEAD').trim(), ADMIN_LOCAL, false);
         f[`GET ${ADMIN_LOCAL}/assets/index-Ad3m1nXy.js`] = { status: 200, body: 'const k="sb_publishable_SOME_OTHER_KEY";' };
         expectStopAt(runAdmin(root, work, f, {}, ['--local', ADMIN_LOCAL, work]), "step 3 the bundle's key is the tracked production key");
+      });
+    });
+
+    test('plant — a local favicon that is not the tracked icon is a STOP (D3)', () => {
+      withScratch((root) => {
+        const work = repo(root);
+        const f = adminFixtures(git(work, 'rev-parse', 'HEAD').trim(), ADMIN_LOCAL, false);
+        f[`GET ${ADMIN_LOCAL}/favicon.ico`] = { status: 200, headers: { 'content-type': 'text/html' }, body: ADMIN_SHELL };
+        expectStopAt(runAdmin(root, work, f, {}, ['--local', ADMIN_LOCAL, work]), 'step 2 favicon.ico');
       });
     });
 

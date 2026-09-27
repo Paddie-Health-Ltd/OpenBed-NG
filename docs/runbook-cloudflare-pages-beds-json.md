@@ -1023,6 +1023,40 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
      checks (R-2026-09-25-119 CU-5) and D1's favicon and font checks had not yet run
      against hosted.
 
+   **Run on 2026-09-27, from the deploy checkout at `3623d2b`** (R-2026-09-27-139 DO-1 b;
+   the founder's terminal output, read back by Cowork). The deploy after P (#90), which
+   carries the privacy notice at /privacy:
+   - **Deployed** `https://963e53f5.openbed-public-dashboard.pages.dev` from `3623d2b`,
+     the stamp clean; 6 files uploaded and 9 already present. No 429 at `GET /accounts`.
+   - **The first `readback_pages.sh` read STOP, on one line:** `openbed.ng privacy
+     scripts` read WRONG. That is the privacy notice's "carries no script" check, on the
+     custom domain.
+     - **The cause, read by Cowork from the live HTML:** the `openbed.ng` zone's Email
+       Address Obfuscation (Scrape Shield) had rewritten every address on the custom
+       domain's /privacy into a "[email protected]" link, and injected Cloudflare's
+       email-decode.min.js from its /cdn-cgi/scripts/ path. The `pages.dev` host was
+       clean, because a zone setting applies on the custom domain only.
+     - **The fix:** the founder turned Email Address Obfuscation OFF for the `openbed.ng`
+       zone. Nothing was redeployed.
+   - **The re-run of `readback_pages.sh`: PASS on every line, on both hosts.**
+   - A third zone setting changing what the custom domain serves, invisible from the
+     deployment URL, the same shape as CU-4's two. It was caught by a read-back, as
+     CU-5 made them able to, and not by a visitor.
+
+   **The `openbed.ng` zone settings that must stay OFF** (R-2026-09-25-119 CU-4;
+   R-2026-09-27-139 DO-1 b). Each one changed what the custom domain served, on that
+   host only, and each was found by a read-back on the custom domain:
+   - **Web Analytics (RUM), zone-wide** (CU-4 a). It injected a beacon `<script>` into
+     the HTML for a browser-like request. The page's script checks read it WRONG.
+   - **Cloudflare managed robots.txt, zone-wide** (CU-4 b). It prepended its own
+     `Allow: /` block to /robots.txt. Read-back 7 reads it WRONG.
+   - **Email Address Obfuscation, under Scrape Shield** (DO-1 b). It rewrote the
+     addresses on /privacy and injected a script. The privacy notice's script check
+     reads it WRONG.
+
+   None of the three is switched back on unread. A change to any of them is a change to
+   what the site serves, and the next `readback_pages.sh` run on both hosts is the check.
+
 > **These read-backs are on the `*.pages.dev` deployment URL or alias. They do NOT
 > discharge the edge-headers step**, which is on the custom domain and is part of
 > what Bundle 2 waits for. The two look alike in a report and are not the same

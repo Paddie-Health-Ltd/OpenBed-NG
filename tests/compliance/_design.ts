@@ -206,3 +206,43 @@ export function designSource(root: string): string[] {
 }
 
 export { deployableApps };
+
+// ------------------------------------------------------------------ Notices
+// The Notice checks, shared by the ward console's and admin's design tests: D2's, moved
+// here in D3 so tests/compliance/admin_design.test.ts imports them rather than holding a
+// second copy (importing them from a .test.ts would register that file's tests twice).
+
+export type Tone = 'info' | 'caution';
+
+/** Why rendered outcomes do not carry exactly their expected tone and words, or []. */
+export function toneViolations(rows: { what: string; el: Element | null; text: string; tone: Tone }[]): string[] {
+  const out: string[] = [];
+  for (const r of rows) {
+    if (r.el === null) { out.push(`${r.what}: nothing rendered`); continue; }
+    if (r.el.textContent !== r.text) out.push(`${r.what}: the words changed`);
+    const tones = (['info', 'caution'] as const).filter((t) => r.el?.classList.contains(`notice-${t}`));
+    if (!r.el.classList.contains('notice')) out.push(`${r.what}: not a Notice`);
+    if (tones.length !== 1 || tones[0] !== r.tone) out.push(`${r.what}: tone ${tones.join('+') || 'none'}, not ${r.tone}`);
+  }
+  return out;
+}
+
+/** Why style.css's Notice rules are not the design system's Notice, or the console shows green, or []. */
+export function noticeCssViolations(css: string, app = 'the console'): string[] {
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = (sel: string): string => (new RegExp(`(?:^|\\})\\s*${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`).exec(bare)?.[1] ?? '').replace(/\s+/g, ' ');
+  const want: [string, string][] = [
+    ['.notice', 'border: var(--border-width) solid var(--border-default)'],
+    ['.notice', 'border-left-width: var(--border-accent-width)'],
+    ['.notice', 'border-radius: var(--radius-md)'],
+    ['.notice-info', 'background: var(--surface-accent-soft)'],
+    ['.notice-info', 'border-left-color: var(--ob-navy-500)'],
+    ['.notice-info', 'color: var(--ob-navy-800)'],
+    ['.notice-caution', 'background: var(--ob-status-limited-bg)'],
+    ['.notice-caution', 'border-left-color: var(--ob-status-limited)'],
+    ['.notice-caution', 'color: #6d4c12'],
+  ];
+  const out = want.filter(([sel, decl]) => !rule(sel).includes(decl)).map(([sel, decl]) => `${sel} does not declare ${decl}`);
+  for (const green of ['--ob-status-available', '--ob-fresh-green']) if (bare.includes(green)) out.push(`${app} names ${green}: no green anywhere in ${app} (-126 DB-1)`);
+  return out;
+}

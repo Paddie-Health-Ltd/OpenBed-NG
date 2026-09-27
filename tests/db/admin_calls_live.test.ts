@@ -67,7 +67,7 @@ async function call(fn: string, body: unknown, session?: WardSession) {
 const refusal = (r: { status: number; body: unknown }) => adminMessageFor(r.status, null, JSON.stringify(r.body));
 
 const FIELDS: FacilityFields = {
-  name: `ADMIN_LIVE ${RUN} St. Nicholas' Hospital — Ọ̀dúnlá`,
+  name: `ADMIN_LIVE ${RUN} St. Placeholder's Hospital — Ọ̀dúnlá`,
   lga: 'Lagos Island',
   state: 'Lagos',
   lat: 6.45,

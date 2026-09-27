@@ -39,6 +39,12 @@ now fetched and FOUND (DM-3 a).
   is stated for that case. Whether the DPA governs Nigerian data subjects' data under
   the Self-Serve terms is a legal reading, recorded here as the text's words, not
   decided.
+- **The founder's written decision on that reading, 2026-09-27 (R-2026-09-27-138 DN-1),**
+  recorded as the founder's and not established by this table: the DPA applies by its
+  own scope to personal data subject to the NDPA, because its definition of Applicable
+  Data Protection Laws is inclusive ("including") and it forms part of the Main
+  Agreement, which includes the Self-Serve agreement; section 6.1 is read as an express
+  incorporation for EU/UK and CCPA data, not a limit on the DPA's own scope.
 - **That the founder's accounts accepted these versions.** That is the founder's
   processor and transfer pack, outside this repository.
 - **The transfer basis for each vendor.** That is recorded in the same pack

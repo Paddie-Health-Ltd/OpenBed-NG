@@ -943,11 +943,16 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions.
 Restated 2026-09-14: until then this read `exactly 13 migration(s) pending.`, and
 migration 014 made that wrong.
 
-- **The hosted project today** holds 001 through 023 (see step 7), and the
-  repository ends at 024. Every file up to and including
-  `023_operator_register_location_and_phone.sql` must read `already applied`;
-  there must be exactly one `WOULD APPLY` line, naming `024_retention_jobs.sql`; and
-  the dry run must end `1 migration(s) pending.` Apply it by "024's apply" below.
+- **The hosted project today** holds 001 through 024 (see step 7), and so does the
+  repository. Every file up to and including
+  `024_retention_jobs.sql` must read `already applied`;
+  there must be no `WOULD APPLY` line; and the dry run must end
+  `0 migration(s) pending.`
+- **Restated 2026-09-27 (R-2026-09-27-139 DO-1 a), in the change that records 024's
+  hosted apply.** Until then this expected 001 through 023, exactly one `WOULD APPLY`
+  line naming `024_retention_jobs.sql`, and `1 migration(s) pending.` The founder's
+  dry run printed exactly that on 2026-09-27, and the apply that followed took the
+  ledger to 24.
 - **Restated 2026-09-27 (R-2026-09-26-136 DL-2), in the change that ADDS 024.**
   Until then this expected no `WOULD APPLY` line and `0 migration(s) pending.`,
   which was right from 023's hosted apply while the repository ended at 023.
@@ -1024,10 +1029,14 @@ migration 014 made that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line OTHER than the one named above, or any count other than
-  `1 migration(s) pending.`: stop and report.** Another file pending means
+- **Any `WOULD APPLY` line AT ALL, or any count other than
+  `0 migration(s) pending.`: stop and report.** Another file pending means
   either a migration reached the repository after the list was last restated, or
   hosted is not where this document says it is.
+  - *Restated 2026-09-27 (R-2026-09-27-139 DO-1 a), in the change that records 024's
+    hosted apply. Until then this bullet read "Any `WOULD APPLY` line OTHER than the
+    one named above, or any count other than `1 migration(s) pending.`", which was
+    right from 024's merge until the apply.*
   - *Restated 2026-09-27 (R-2026-09-26-136 DL-2), in the change that adds 024. Until
     then this bullet read "Any `WOULD APPLY` line AT ALL, or any count other than
     `0 migration(s) pending.`", which was right from 023's hosted apply until 024's
@@ -1662,6 +1671,7 @@ node scripts/freeze_applied_migrations.mjs 19 YYYY-MM-DD R-YYYY-MM-DD-NN
 - [x] Frozen boundary recorded, 2026-09-16: 16 migrations, `001_app_schema_and_migration_ledger.sql` first, `016_snapshot.sql` last
 - [x] Frozen boundary recorded, 2026-09-17: 17 migrations, `001_app_schema_and_migration_ledger.sql` first, `017_snapshot_schedule.sql` last (R-2026-09-17-01), with the frozen_migrations placeholder moved to 018 in the same change
 - [x] Frozen boundary recorded, 2026-09-22: 18 migrations, `001_app_schema_and_migration_ledger.sql` first, `018_close_mirror_read_and_push_surfaces.sql` last (R-2026-09-22-52), with the frozen_migrations placeholder moved to 019 in the same change. `ledger_rows: 18`, matching the `18` read from hosted `app.schema_migrations` in the apply session; the recorder would have refused any other number.
+- [x] Frozen boundary recorded, 2026-09-27: 24 migrations, `001_app_schema_and_migration_ledger.sql` first, `024_retention_jobs.sql` last (R-2026-09-27-139 DO-1 a), recorded by `node scripts/freeze_applied_migrations.mjs 24 2026-09-27 R-2026-09-27-139`. `ledger_rows: 24`, matching the twenty-four `already applied` lines of the founder's second dry run (fence 5 of "024's apply"). 024's sha256 is the tracked file's at `3623d2b`, the checkout the founder ran from.
 - [x] Frozen boundary recorded, 2026-09-25: 23 migrations, `001_app_schema_and_migration_ledger.sql` first, `023_operator_register_location_and_phone.sql` last (R-2026-09-25-105), recorded by `node scripts/freeze_applied_migrations.mjs 23 2026-09-25 R-2026-09-25-105`. `ledger_rows: 23`, matching the twenty-three `already applied` lines of the founder's second dry run (fence 5 of the one run that applied 022 and 023 together, R-2026-09-25-103). 022's and 023's sha256 are the tracked files' at `06fe479`, the checkout the founder ran from.
 - [x] Frozen boundary recorded, 2026-09-24: 21 migrations, `001_app_schema_and_migration_ledger.sql` first, `021_facility_agreement_and_contact_write.sql` last (R-2026-09-24-85). `ledger_rows: 21`, matching the twenty-one `already applied` lines of the founder's second dry run (fence 5 of "021's apply").
 - [x] Frozen boundary recorded, 2026-09-24: 20 migrations, `001_app_schema_and_migration_ledger.sql` first, `020_operator_functions_and_listing.sql` last (R-2026-09-24-77). `ledger_rows: 20`, matching the twenty `already applied` lines of the founder's second dry run (fence 5). That dry run is BB-1's replacement for a `count(*)`, so this is read from the ledger through the runner, not counted directly.
@@ -1957,8 +1967,11 @@ this apply. On 2026-09-25 it was (R-2026-09-25-105).
 
 ### 024's apply — the retention jobs; two auth readings around the same six fences (R-2026-09-26-136 DL-2 i)
 
-**Not yet run.** The founder runs it after the pull request that adds 024 merges, first
-in DL's after-merge order, before any redeploy. Claude Code runs nothing hosted.
+**Run on 2026-09-27** by the founder from the deploy checkout at `3623d2b` (#90's merge),
+first in DL's after-merge order, before any redeploy; each reading was read back by
+Cowork from the founder's pasted terminal output (R-2026-09-27-139 DO-1 a). The readings
+are in the checkbox at the end of this step. Claude Code ran nothing hosted.
+*Restated 2026-09-27 (R-2026-09-27-139): until then this read "Not yet run."*
 
 **What 024 changes** (its header says why). It adds `app.ward_account.login_erased_at`,
 with a CHECK that an erased row is never active. It adds a CHECK on `app.audit_log` so
@@ -2013,6 +2026,10 @@ expectations for 024.** Only what each must read changes:
 1. **The dry run:** exactly one `WOULD APPLY` line, naming `024_retention_jobs.sql`,
    and the count the list at the top of this step states. Anything else: stop and
    report.
+   *Restated 2026-09-27 (R-2026-09-27-139 DO-1 a): run, and kept as written.* The list
+   at the top of this step now states the state after this apply; when this fence ran
+   it stated `1 migration(s) pending.`, which is what the fence read (the dated
+   2026-09-27 run below).
 2. **The before-reading:** as for 020. Keep the `FINGERPRINT` line.
 3. **The apply:** as for 020. 024 has no pre-check. It schedules two jobs, and they are
    live from the moment it commits.
@@ -2067,19 +2084,25 @@ while any login is marked erased (`LOGINS_ERASED`), because from the first erasu
 column and its CHECK are the only guard against reactivating an erased login.
 
 **Afterwards:** the frozen boundary is recorded with `24`, in the change that records
-this apply.
+this apply. On 2026-09-27 it was (R-2026-09-27-139).
 
-- [ ] 024 applied (the date, the checkout's commit, and each fence's reading: A, 1 to 6, B)
+- [x] On 2026-09-27, 024 applied, from the deploy checkout at `3623d2b` (#90's merge; Cowork's reading of the founder's pasted terminal output, read in full, R-2026-09-27-139 DO-1 a). A: `1` | `0` | `t|t|t` | `auth.identities|c` | `auth.one_time_tokens|c`. Fence 1: twenty-three `already applied`, `WOULD APPLY` `024_retention_jobs.sql`, "1 migration(s) pending." Fence 2: `FINGERPRINT beds.json=0/0:543f06c0b0c4,facility_public=0:d41d8cd98f00,ward_public=0:d41d8cd98f00,lga_rollup=0:d41d8cd98f00`, taken twice, identical. Fence 3: "Applying 024_retention_jobs.sql", the two expected DROP-IF-EXISTS NOTICEs, `cron.schedule` ids 3, 4 and 5, "Migrations complete (1 applied this run)." Fence 4: all four `ok`, "PASS (VACUOUS FOR B1)". Fence 5: twenty-four `already applied` (001 to 024), "0 migration(s) pending." Fence 6: PASS; `app.check_withdrawn_facility_accounts()`, `app.erase_lapsed_ward_logins()` and `app.prune_ended_auth_sessions()` read `EXECUTE: none`, and `public.rls_auto_enable()` reads `ok` (hosted-only). B: `1`, then exactly the five jobs -- the three retention jobs at `37 2 * * *`, `17 2 * * *` and `27 2 * * *`, and 017's two -- all `postgres`, all active.
 
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 023 applied, and the repository ending
-at 024), the dry run prints twenty-three `already applied` lines and:
+**On the hosted project today** (001 through 024 applied, and so does the repository
+end), the dry run prints twenty-four `already applied` lines and:
 
 ```
-  WOULD APPLY     : 024_retention_jobs.sql   <- dry run
-1 migration(s) pending.
+0 migration(s) pending.
 ```
+
+*Restated 2026-09-27 (R-2026-09-27-139 DO-1 a), in the change that records 024's
+hosted apply.* Until then this block described the state BEFORE that apply:
+twenty-three `already applied` lines, one WOULD APPLY line naming
+`024_retention_jobs.sql`, and a count of one. That is exactly what the founder's dry
+run printed on 2026-09-27, and it is kept below with the other dated runs rather than
+overwritten.
 
 *Restated 2026-09-27 (R-2026-09-26-136 DL-2), in the change that adds 024.* Until then
 this block showed twenty-three `already applied` lines, no WOULD APPLY line, and a
@@ -2143,6 +2166,18 @@ other dated runs rather than overwritten.
 **The second dry run is part of an apply, not an optional extra.** It is the
 reading recorded in the checkbox at the end of this section, and it is the half
 that says the apply did what the first dry run promised.
+
+**On 2026-09-27, when 024 was pending,** the same two commands printed this (the
+founder's terminal output from the deploy checkout at `3623d2b`, read back by Cowork,
+fences 1 and 3 of "024's apply" above, R-2026-09-27-139 DO-1 a; the twenty-three
+`already applied` lines are omitted, and the apply's echo carried the two expected
+DROP-IF-EXISTS NOTICEs and `cron.schedule` ids 3, 4 and 5):
+
+```
+  WOULD APPLY     : 024_retention_jobs.sql   <- dry run
+1 migration(s) pending.
+Migrations complete (1 applied this run).                    <- apply
+```
 
 **On 2026-09-25, when 022 and 023 were pending,** the same two commands printed this
 (the founder's terminal output from a checkout at `06fe479`, relayed by Cowork, run per
@@ -2275,10 +2310,11 @@ this paragraph read twenty-two, 002 through 023, and twenty-three.*
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `23`, with `1 migration(s) pending.` from the
-dry run**, naming `024_retention_jobs.sql` -- the founder's second dry run after the one
-run that applied 022 and 023, on 2026-09-25, read twenty-three `already applied` lines,
-001 through 023.
+THAT PROJECT. **On hosted today that is `24`, with `0 migration(s) pending.` from the
+dry run** -- the founder's second dry run after 024's apply, on 2026-09-27, read
+twenty-four `already applied` lines, 001 through 024.
+*Restated 2026-09-27 (R-2026-09-27-139 DO-1 a), in the change that records that apply;
+until then it read `23` with `1 migration(s) pending.`, naming `024_retention_jobs.sql`.*
 *Restated 2026-09-27 (R-2026-09-26-136 DL-2), in the change that adds 024; until then
 it read `23` with `0 migration(s) pending.`, right while the repository ended at 023.*
 *Restated 2026-09-25 (R-2026-09-25-105), in the change that records that apply; until
@@ -2750,12 +2786,12 @@ than a number that has to be maintained.)* This table
 previously recorded server versions only, which left the one tool every SQL
 result above passed through unrecorded.
 
-**Hosted now holds 001 through 023.** Migrations 014, 015 and 016 were applied on
+**Hosted now holds 001 through 024.** Migrations 014, 015 and 016 were applied on
 2026-09-16 (R-2026-09-16-02), 017 on 2026-09-17 (R-2026-09-17-01), **018 on
 2026-09-22 at 05:40:40 UTC (R-2026-09-22-52)**, **019 on 2026-09-23
 (R-2026-09-23-69)**, **020 on 2026-09-24 (R-2026-09-24-77)**, **021 on 2026-09-24
-(R-2026-09-24-85)**, and **022 and 023 together, in one run, on 2026-09-25
-(R-2026-09-25-105)**; step 5 carries each run's output, its post-apply probe, the
+(R-2026-09-24-85)**, **022 and 023 together, in one run, on 2026-09-25
+(R-2026-09-25-105)**, and **024 on 2026-09-27 (R-2026-09-27-139)**; step 5 carries each run's output, its post-apply probe, the
 owners read, the reader-policy read, 017's jobs read, 018's pre-apply reading and
 read-back, and the frozen-boundary record.
 
@@ -3941,9 +3977,15 @@ through the admin app.
      It was deployed from `5be63d4` (`https://f56ae2af.openbed-public-dashboard.pages.dev`),
      `readback_pages.sh` read PASS, and the founder checked it in the browser and approved
      the look. The ward console (D2) and admin (D3) remain, so the box stays open.
+     **Progress, 2026-09-27 (R-2026-09-27-139 DO-1 e): the ward console's part is DONE.**
+     It was deployed from `3623d2b` (`https://f6429a29.openbed-ward-console.pages.dev`),
+     `readback_ward_console.sh` read PASS, and the founder checked it on a phone at
+     `app.openbed.ng` and approved the look. Admin (D3) remains, so the box stays open.
    - [ ] The founder's launch paperwork register reads Approved on every item. The
      register is outside this repository. (R-2026-09-26-121 CW-2) It does not replace
-     the first box above.
+     the first box above. Its transfer memo covers the notice's transfer sentence for
+     Cloudflare, whose basis for transfers out of Nigeria is the founder's transfer pack
+     (R-2026-09-27-138 DN-2).
    - [ ] The facility agreement grants the facility's permission to publish its live
      capacity (Blocks facility-one onboarding, B1): the clause is drafted, is in the
      agreement version the facility accepts, and is approved by the founder. It is
