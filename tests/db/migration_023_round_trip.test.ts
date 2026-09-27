@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { TransactionSql } from 'postgres';
 import { withRole } from '../setup/db.js';
@@ -21,8 +21,10 @@ import { withRole } from '../setup/db.js';
  * asserted by behaviour below, against the facility's own columns.
  *
  * EVERY LEG RUNS INSIDE ONE ROLLED-BACK TRANSACTION (BL-1), as scripts/run_migrations.sh
- * applies each file with --single-transaction, so nothing here is committed. 023 is the
- * newest migration, so there is nothing above it to reverse first.
+ * applies each file with --single-transaction, so nothing here is committed. Every
+ * migration above 023 is reversed first, newest first, as the 022 round trip does. Until
+ * 024 this said "023 is the newest migration, so there is nothing above it to reverse
+ * first", which stopped being true the day 024 landed (R-2026-09-26-136 DL-2).
  */
 
 const MIG_DIR = join(import.meta.dirname, '..', '..', 'database', 'migrations');
@@ -35,7 +37,15 @@ async function apply(tx: TransactionSql, path: string, text = readFileSync(path,
   await tx.unsafe(text);
 }
 
-const inTx = <T>(fn: (tx: TransactionSql) => Promise<T>): Promise<T> => withRole('postgres', null, fn);
+/** Every forward migration numbered above 023, in apply order. */
+const LATER = readdirSync(MIG_DIR).filter((f) => /^\d{3}_.*\.sql$/.test(f) && !f.endsWith('.down.sql') && f > LEDGER).sort();
+
+/** Everything a leg does happens in here, on a database at 023, and is rolled back. */
+const inTx = <T>(fn: (tx: TransactionSql) => Promise<T>): Promise<T> =>
+  withRole('postgres', null, async (tx) => {
+    for (const f of LATER.slice().reverse()) await apply(tx, join(MIG_DIR, f.replace(/\.sql$/, '.down.sql')));
+    return fn(tx);
+  });
 
 /** The body between `AS $FN$` and `$FN$;` of one function, as a file writes it. */
 function bodyFrom(file: string, fn: string): string {

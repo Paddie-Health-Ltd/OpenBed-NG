@@ -72,6 +72,7 @@
     "ACCESS_ORDER": "Open this page and pass the Cloudflare check before you ask for a link. Open the link on this same device and browser.",
     "BAD_LINK_HEADING": "That link did not work",
     "BAD_LINK": "It may have been used already, or it has expired. Ask for a new one.",
+    "PRIVACY_LINK": "Privacy notice",
     "STOP_HEADING": "This page is for the operator",
     "REGISTER_HEADING": "Facilities",
     "REGISTER_EMPTY": "No facility exists yet.",

@@ -178,10 +178,22 @@ export function fontHostViolations(file: string, text: string): string[] {
   return FONT_HOSTS.filter((h) => text.includes(h)).map((h) => `${file}: names ${h}`);
 }
 
-/** An app's source corpus: index.html and every .ts and .css file under src/. */
+/**
+ * An app's source corpus: EVERY top-level .html entry of the app (index.html, and the
+ * dashboard's privacy.html since R-2026-09-26-136 DL-1), and every .ts and .css file
+ * under src/. Until DL-1 this read index.html alone, which was the whole of "an app's
+ * HTML" only while each app had one page: a second entry would have sat outside the
+ * inline-style and font-host legs while they reported the app clean.
+ */
 export function appSource(app: string, root: string): string[] {
-  const src = join(root, 'apps', app, 'src');
-  const files = [join(root, 'apps', app, 'index.html')];
+  const dir = join(root, 'apps', app);
+  const src = join(dir, 'src');
+  const files = [join(dir, 'index.html')];
+  if (existsSync(dir)) {
+    for (const name of readdirSync(dir)) {
+      if (name.endsWith('.html') && name !== 'index.html') files.push(join(dir, name));
+    }
+  }
   if (existsSync(src)) files.push(...walk(src).filter((f) => /\.(ts|css)$/.test(f)));
   return files.sort();
 }

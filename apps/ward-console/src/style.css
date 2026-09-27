@@ -51,6 +51,11 @@ main#app {
 #app > p { margin: 0; }
 .lead { font: var(--text-body-lg); color: var(--text-body); }
 .who { font: var(--text-body-sm); color: var(--text-muted); overflow-wrap: anywhere; }
+/* The privacy notice's link under the sign-in form (R-2026-09-26-136 DL-1 d): body-sm in
+   the muted text colour, no new colour; a 44 px tap target, written as a literal so a
+   test can read it. line-height after the font shorthand, which would reset it. */
+.privacy { margin: var(--space-4) 0 0; font: var(--text-body-sm); color: var(--text-muted); }
+.privacy a { display: inline-block; min-height: 44px; line-height: 44px; color: inherit; }
 
 /* A Notice, in the design system's own shape and tones (components/core/Notice.jsx, read
    from the design system's bundle; R-2026-09-26-133 DI-2): a 1 px border, a 3 px left

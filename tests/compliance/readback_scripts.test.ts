@@ -334,6 +334,14 @@ const DASH_CSS = "@font-face{font-family:'Public Sans';src:url('/assets/public-s
 const FONT_PATH = '/assets/public-sans-latin-400-normal-8Rpg0ruU.woff2';
 /** The tracked robots.txt, read, never retyped: what both hosts must serve byte for byte. */
 const ROBOTS_TXT = readFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'public', 'robots.txt'), 'utf8');
+/**
+ * /privacy as Pages serves it (R-2026-09-26-136 DL-1 e): a page with no script and no
+ * #app root, carrying the notice's own words, read from the tracked source, never retyped.
+ */
+const PRIVACY_PAGE = `<!doctype html><html><body><main id="notice">${readFileSync(join(REPO_ROOT, 'docs', 'legal', 'privacy-notice-v1.0.md'), 'utf8')}</main></body></html>`;
+const PRIVACY_ANSWER: Answer = { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' }, body: PRIVACY_PAGE };
+/** The dashboard's index as the SPA fallback serves it for a missing page: its bundle, and the #app root it fills. */
+const SPA_INDEX = `${DASH_PAGE}<main id="app"></main>`;
 
 function pagesFixtures(head: string): Fixtures {
   const beds = (servedAt: string): Answer => ({ status: 200, headers: { ...BEDS_HEADERS, 'x-openbed-served-at': servedAt }, body: BEDS_BODY });
@@ -352,6 +360,9 @@ function pagesFixtures(head: string): Fixtures {
     [`GET ${DASH_DOMAIN}/favicon.ico`]: FAVICON_ANSWER,
     [`GET ${SITE}/assets/index-DTILzLDb.css`]: { status: 200, headers: { 'content-type': 'text/css; charset=utf-8' }, body: DASH_CSS },
     [`GET ${SITE}${FONT_PATH}`]: { status: 200, headers: { 'content-type': 'font/woff2' }, body: 'wOF2' },
+    // The privacy notice on both hosts (DL-1 e).
+    [`GET ${SITE}/privacy`]: PRIVACY_ANSWER,
+    [`GET ${DASH_DOMAIN}/privacy`]: PRIVACY_ANSWER,
   };
 }
 
@@ -390,11 +401,14 @@ describe('scripts/readback_pages.sh', () => {
       ]) {
         expect(r.out, `the check "${check}" never ran`).toContain(`  ok     ${check}: `);
       }
-      expect(r.out).toContain("PASS: read-backs 4, 6, 7 and 8, the page's security headers and scripts on both hosts, the favicon on both hosts, a self-hosted font, and the serve-time stamp read as they must.");
+      expect(r.out).toContain("PASS: read-backs 4, 6, 7 and 8, the page's security headers and scripts on both hosts, the favicon on both hosts, the privacy notice on both hosts, a self-hosted font, and the serve-time stamp read as they must.");
       for (const check of [
         'page scripts', 'openbed.ng content-security-policy', 'openbed.ng scripts', 'read-back 7 robots.txt', 'read-back 7 openbed.ng robots.txt',
         'favicon.ico status', 'favicon.ico', 'favicon.ico content-type', 'openbed.ng favicon.ico status', 'openbed.ng favicon.ico', 'openbed.ng favicon.ico content-type',
         'page stylesheet', 'stylesheet fonts', 'font status', 'font content-type',
+        'privacy status', 'privacy content-type', 'privacy controller', 'privacy version', 'privacy is not the SPA index', 'privacy scripts',
+        'openbed.ng privacy status', 'openbed.ng privacy content-type', 'openbed.ng privacy controller', 'openbed.ng privacy version',
+        'openbed.ng privacy is not the SPA index', 'openbed.ng privacy scripts',
       ]) {
         expect(r.out, `the check "${check}" never ran`).toContain(`  ok     ${check}: `);
       }
@@ -418,6 +432,15 @@ describe('scripts/readback_pages.sh', () => {
     // The design pass (D1; R-2026-09-26-122 CX-3): the favicon is never the SPA's HTML, on either host.
     ['/favicon.ico answered by the SPA fallback', (f) => { f[`GET ${SITE}/favicon.ico`] = { status: 200, headers: { 'content-type': 'text/html' }, body: DASH_PAGE }; }, 'favicon.ico content-type'],
     ['/favicon.ico answered by the SPA fallback on openbed.ng only', (f) => { f[`GET ${DASH_DOMAIN}/favicon.ico`] = { status: 200, headers: { 'content-type': 'text/html' }, body: DASH_PAGE }; }, 'openbed.ng favicon.ico content-type'],
+    // The privacy notice (R-2026-09-26-136 DL-1 e): today's deployment answers /privacy with
+    // the SPA index, 200 text/html, so the status and type alone would PASS it.
+    ['/privacy answered by the SPA fallback', (f) => { f[`GET ${SITE}/privacy`] = { status: 200, headers: { 'content-type': 'text/html' }, body: SPA_INDEX }; }, 'privacy is not the SPA index'],
+    ['/privacy answered by the SPA fallback on openbed.ng only', (f) => { f[`GET ${DASH_DOMAIN}/privacy`] = { status: 200, headers: { 'content-type': 'text/html' }, body: SPA_INDEX }; }, 'openbed.ng privacy is not the SPA index'],
+    ['/privacy not found', (f) => { f[`GET ${SITE}/privacy`] = { status: 404, headers: { 'content-type': 'text/html' }, body: 'Not found' }; }, 'privacy status'],
+    ['/privacy without the controller', (f) => { f[`GET ${SITE}/privacy`] = { ...PRIVACY_ANSWER, body: PRIVACY_PAGE.split('Paddie Health Ltd').join('The operator') }; }, 'privacy controller'],
+    ['/privacy of another version', (f) => { f[`GET ${DASH_DOMAIN}/privacy`] = { ...PRIVACY_ANSWER, body: PRIVACY_PAGE.split('Version 1.0').join('Version 2.0') }; }, 'openbed.ng privacy version'],
+    ['/privacy carrying a script', (f) => { f[`GET ${SITE}/privacy`] = { ...PRIVACY_ANSWER, body: PRIVACY_PAGE.replace('</body>', '<script src="/x.js"></script></body>') }; }, 'privacy scripts'],
+    ['/privacy served as plain text', (f) => { f[`GET ${SITE}/privacy`] = { ...PRIVACY_ANSWER, headers: { 'content-type': 'text/plain' } }; }, 'privacy content-type'],
     ['a favicon that is not the tracked icon', (f) => { f[`GET ${SITE}/favicon.ico`] = { status: 200, headers: { 'content-type': 'image/x-icon' }, bodyBase64: Buffer.from('not the icon').toString('base64') }; }, 'favicon.ico'],
     ['a font served as application/octet-stream', (f) => { f[`GET ${SITE}${FONT_PATH}`] = { status: 200, headers: { 'content-type': 'application/octet-stream' }, body: 'wOF2' }; }, 'font content-type'],
     ['a stylesheet that names no woff2', (f) => { f[`GET ${SITE}/assets/index-DTILzLDb.css`] = { status: 200, headers: { 'content-type': 'text/css' }, body: 'body{margin:0}' }; }, 'stylesheet fonts'],

@@ -374,7 +374,7 @@ entry points to its source; nothing is copied.**
 | Processor | What it processes | Outstanding | Source |
 |---|---|---|---|
 | Cloudflare | Every public visitor's IP, at the edge for `openbed.ng` | s.29 written agreement; s.41 transfer basis; retention | R3, this record |
-| Cloudflare — **Data Sub-Processor for API traffic** via `api.openbed.ng`, under its standard DPA (the founder's decision, 2026-09-19) | **Scope to be completed from the proxy review's findings, not written ahead of them:** the fields that traverse the Worker and whether any are patient-identifying or patient-adjacent; whether the platform retains request metadata; the processing regions. **A second purpose, now ENDED (R-2026-09-25-119 CU-4 a):** Cloudflare **Web Analytics (RUM)** was enabled zone-wide on `openbed.ng`, and it collected page-view data from `openbed.ng` visitors. There, unlike on admin and the ward console, no CSP blocked its beacon (the public page shipped no CSP until 2026-09-25). **It was switched off by the founder on 2026-09-25. Its start date is NOT KNOWN** from anything in this repository. It is cookieless. With no facility listed, the visitors were almost certainly our own testing. **The dashboard offers no deletion of the collected data.** This feeds the founder's processor pack | Sub-processor listing under the standard DPA; the s.41 transfer basis is a distinct instrument | R-2026-09-19-23 D2; R-2026-09-25-119 CU-4 a |
+| Cloudflare — **Data Sub-Processor for API traffic** via `api.openbed.ng`, under its standard DPA (the founder's decision, 2026-09-19) | Scope (D2, completed 2026-09-26 from the proxy review's findings): serves the three sites (Pages) and runs the Worker supabase-proxy at api.openbed.ng, which relays every call to the database. Crossing Cloudflare: sign-in requests (a ward's or the operator's address); access tokens (a signed JWT carrying email and user id); database calls (ward status updates; operator edits to facility and contact records); and every visitor's IP address and request headers. No patient data crosses it: OpenBed holds none. Worker request logging is off in configuration (DL-3). Processing is on Cloudflare's global edge; the transfer basis is recorded in the founder's processor and transfer pack on s.41(1)(a). **A second purpose, now ENDED (R-2026-09-25-119 CU-4 a):** Cloudflare **Web Analytics (RUM)** was enabled zone-wide on `openbed.ng`, and it collected page-view data from `openbed.ng` visitors. There, unlike on admin and the ward console, no CSP blocked its beacon (the public page shipped no CSP until 2026-09-25). **It was switched off by the founder on 2026-09-25. Its start date is NOT KNOWN** from anything in this repository. It is cookieless. With no facility listed, the visitors were almost certainly our own testing. **The dashboard offers no deletion of the collected data.** This feeds the founder's processor pack | Sub-processor listing under the standard DPA; the s.41 transfer basis is a distinct instrument | R-2026-09-19-23 D2; R-2026-09-25-119 CU-4 a; R-2026-09-26-136 DL-6 a |
 | Email provider: **Proton (Proton AG, Switzerland)**, sender `support@openbed.ng`. **Custom SMTP and its written processor agreement, ONE item** | Magic-link and escalation mail | **Restated 2026-09-25 (R-2026-09-25-108):** custom SMTP is configured, through Proton (H3). **Still open:** the s.29 written processor agreement, the s.41 transfer basis and log retention, all PENDING the founder's approval. They are tracked in the founder's paperwork register, items 1 and 4, which is outside this repository. **The gate (CJ-2):** the agreement gates facility one, so no hospital or ward address is sent a link until it is approved. It does not gate H6: at H6 the only address Proton sends to is the operator's sign-in address, Paddie Health's own role address in a mailbox Proton already hosts. **Until 2026-09-25 this cell read:** **A prerequisite for facility one** (2026-09-14). Custom SMTP must be configured, AND the NDPA s.29 written processor agreement executed with whichever provider it uses. They are one item because whatever sends the links is the processor (v2:323), so configuring the sender is choosing the processor. The built-in sender returned HTTP 429 on the fourth OTP request of a single sitting, so it cannot carry even the runbook's own verification procedure. The s.41 transfer basis and log retention are as recorded at clauseX:123 | Runbook step 9, run on 2026-09-14 (`docs/runbook-supabase-project-creation.md`); v2:322/323; clauseX:123 |
 | Supabase (the database, Auth and PostgREST, project `klrlpxysjsjpdkeqdhvl`, region `eu-west-1`) | Every row the system holds, including the one named person per facility in `app.facility_contact`, and the login addresses in `auth.users` | s.29 written processor agreement; s.41 transfer basis; retention | Added 2026-09-24 (R-2026-09-24-76 BD-4, on BC-7's check): until this row Supabase was named as a processor nowhere in the record or in any tracked file |
 
@@ -6155,6 +6155,213 @@ _Issued as R-PROVISIONAL-2026-09-26-DJ, by Cowork on 2026-09-26, as its re-check
 
 **DJ-3 — PROCESS:** one new commit on `design-pass-d2`, with no force-push and no rebase. -134 lands with its ledger row. The full suite runs on a fresh DB and the commit gate runs, then STOP at #89. Nothing hosted.
 
+### R-2026-09-26-135 — #89 merged; the ward console's deploy waits for the founder
+
+_Issued as R-PROVISIONAL-2026-09-26-DK, by Cowork on 2026-09-26, as its re-check of #89 at `8c23765fdb5df70ee4d7ca82169f6c1ba38637ef`. **Pasting it was the founder's merge word for #89.** It said it would land in D3's pull request. R-2026-09-26-136's "DK AMENDED" moved it to P's pull request, where it lands. Number assigned on landing: R-2026-09-26-134 plus one. Next provisional letter: **DL**._
+
+**VERIFIED BY COWORK** (2026-09-26, GitHub API and the screenshots, from the founder's Mac):
+- #89 OPEN at `8c23765`, base `2586d29` (= main), clean; 3 commits, 15 files.
+- The compare `daa38df...8c23765` is 1 ahead and 0 behind: no force-push, no rebase.
+- The latest run of each of the seven checks on `8c23765` is success. The cancelled set is the earlier run on the same head, superseded.
+- No address is on any added line.
+- The DJ diff was read in full: `noValidate` on the publish form only; focus to the count input or the reason select on each refusal; the sign-in form unchanged; 39 test lines added, none removed.
+- `publish-invalid`, `publish-zero-no-reason` and `publish-count-over-500` were read at 360×740 and 1280×900 (the 360 full-page shots are byte-identical to 360×740). Each shows the console's own sentence as a caution Notice under Publish, and no browser bubble.
+
+**ACCEPTED:** DJ-1 to DJ-3 as landed, including the finding that jsdom applies native validation to a tapped submit, so the five new legs prove behaviour and not only the static setting.
+
+**DK-1 — THE MERGE.**
+- **Landed:** #89's head read from the API as `8c23765fdb5df70ee4d7ca82169f6c1ba38637ef`. It was merged as a merge commit with `--match-head-commit` on that value, and read back MERGED at 2026-09-26T21:36:17Z.
+- The merge commit is `19e28becc593edd9fe9b35e7c26df86831b5f451`, with parents `2586d290c2ff3d8bdf97577b3e7c3d8fe7215dba` and `8c23765fdb5df70ee4d7ca82169f6c1ba38637ef`.
+- Only then was local main fast-forwarded. `design-pass-d2` was deleted on the remote and locally, and both read back as gone. Read again on 2026-09-27, before landing: `gh pr view 89` reads MERGED with that merge commit, `git ls-remote --heads origin design-pass-d2` returns nothing, and no local branch has the name.
+
+**DK-2 — BOX 14 STAYS OPEN.** The ward console's part closes only after the founder deploys it, the read-back passes, and the founder approves it on a phone. Admin (D3) remains.
+
+**DK-3 — THE REGISTER.** DG-3's row "The hosted project's auth hooks are off" STAYS. It leaves in the pull request that records the founder's section 5 step 5 read at this deploy.
+
+**DK-4 — NOTHING HOSTED BY CLAUDE CODE.** After DK-1, STOP and report the merge commit. As amended by -136: the D2 deploy read-back and D3's start word are the letter after DL (DM), once the founder has run the deploys at the end of -136.
+
+### R-2026-09-26-136 — P: the privacy notice at /privacy, the retention jobs, Worker logging off, the DPA evidence, SECURITY.md
+
+_Issued as R-PROVISIONAL-2026-09-26-DL, by Cowork on 2026-09-26. It re-issues a ruling a second Cowork session drafted as "DF / R-2026-09-26-130". That letter and that number were already used on main (#88: DF is PR F's terms, -130), so the body stands unchanged except: every DF becomes DL; -130 becomes -136; the sequence; DL-8; and the after-merge order. **DL-2 a was amended by the founder on 2026-09-26, in answer to a premise question from the implementer** (below). It folds into DL and lands with it, with no new letter. It lands in P's pull request with -135. Number assigned on landing: R-2026-09-26-134 plus two, after -135. Next provisional letter: **DM**, the D2 deploy read-back and D3's start word._
+
+**ONE SESSION ISSUES LETTERS (from this ruling on).** One Cowork session issues provisional letters. A ruling that arrives with a letter already on this ledger is a STOP: ask before landing it.
+
+**DK AMENDED.** DK had said it lands in D3's pull request, and that DL would be the D2 deploy read-back and D3's start word. Instead, DK lands in P's pull request as -135; DL is this ruling; and the deploy read-back and D3's start word are DM, once the founder has run the deploys at the end of this ruling.
+
+**SEQUENCE.** P branches from main after #89 (D2) merges (DK-1), and merges before D3 opens. D2 is already styled, so P itself adds the privacy link to the ward console's D2-styled sign-in screen, in D2's design: below the sign-in form, body-sm, `--text-muted`, a real `<a>`, a 44 px tap target, no new colour. D3 restyles the admin sign-in and must keep P's link, and D3's pull request carries the link guard green. Claude Code runs nothing hosted.
+- **Landed:** P branched from main at `19e28becc593edd9fe9b35e7c26df86831b5f451`, the merge of #89.
+
+**THE NOTICE INTEGRITY CHECK.** `docs/legal/privacy-notice-v1.0.md` is the notice text byte for byte, ending with exactly one newline, and its sha256 must be `0921ca415238d5ed96f3d287bf4fe02669a7c0e5cebac25b3f303a22be524db1`, or STOP: a paste error, never fixed by hand.
+- **MEASURED** twice: on the pasted text before anything was written, and on the committed file. Both equal.
+
+**DL-1 — THE PRIVACY NOTICE AT https://openbed.ng/privacy** (register item 7; the founder approved the record it is written from).
+- **a.** The notice is committed as `docs/legal/privacy-notice-v1.0.md`. The registered office and RC number are the founder's, given 2026-09-26. That file is the single source.
+- **b.** It is served as a second static entry of `apps/public-dashboard` (`privacy.html` → `/privacy`). There is no script on the page. It keeps the same `_headers` and CSP, and carries the design-system foundation, the lockup and the permanent emergency strip, as on the index. It is in the third person as written, and no word is changed.
+  - **Landed:** a second Vite input. `privacy.html` links one same-origin stylesheet, `src/privacy.css`, which imports the design tokens, the fonts and the index's styles.
+  - A Vite hook writes the rendered notice in place of the page's one placeholder, and refuses a build with no placeholder, two, or one in `index.html`.
+  - The renderer, `apps/public-dashboard/privacy-notice.ts`, handles exactly the notice's markdown subset and throws on anything else, naming the line. No markdown package was added.
+  - On a narrow screen each table row becomes a card, labelled from the column's own header through a `data-label` attribute. That label is not part of the page's text, and no word is added.
+  - Pages serves `privacy.html` at `/privacy`. DOCUMENTED at developers.cloudflare.com/pages/configuration/serving-pages: "If an HTML file is found with a matching path to the current route requested, Pages will serve it."
+- **c.** The three openbed.ng contact addresses on the page come from `packages/origins/contacts.json` at build time, never typed. A compliance test renders the page and asserts its text equals the source file with those substitutions, and is shown red first with one planted word changed.
+  - **Landed:** `tests/compliance/privacy_notice.test.ts` reads the BUILT `dist/privacy.html`. It compares its text, block by block, with the source reduced to text by a second, independent method, with contacts.json's addresses applied.
+  - It pins the file's sha256.
+  - Plants: one word changed; an address that is not contacts.json's; a `<script>`; a `style=`; the SPA's `#app` root; no emergency strip; no lockup; no viewport. The renderer's refusals are planted too.
+  - **Red first:** with no built page every leg read "…dist/privacy.html does not exist: build the dashboard first". Then, with "Sessions: deleted 30 days" planted as "90 days" in the built page, the accept leg read "block 30 differs: page: … deleted 90 days … source: … deleted 30 days …". It was green after a rebuild.
+- **d.** "Privacy notice" links to the one URL https://openbed.ng/privacy from the openbed.ng footer, the ward console's sign-in screen, and the admin sign-in screen. The URL comes from one tracked constant, not from contacts.json. A guard asserts every link, with a plant per app.
+  - **Landed:** the constant is `PRIVACY_NOTICE_URL` in `packages/origins/src/privacy.ts` (the `@openbed/origins/privacy` export). The dashboard footer carries the hello address and the link.
+  - The ward console shows `p.privacy` under the sign-in form on the signed-out, link-sent and bad-link states. Admin shows it on its signed-out and bad-link screens, and "Privacy notice" is in `packages/labels/admin-labels.json`.
+  - The guard is `tests/compliance/privacy_links.test.ts`. It renders every state in jsdom, checks each built bundle per app with a plant naming the one app, refuses the URL typed anywhere else under `apps/` or `packages/`, and reads a 44 px rule per app.
+  - **Red first:** with the three apps' `main.ts` put back to main's and rebuilt, 10 legs failed, reading "ward-console (signed out): no <a href=\"https://openbed.ng/privacy\">" and "apps/admin: the built bundle does not carry https://openbed.ng/privacy". All 23 were green on this change.
+- **e.** `scripts/readback_pages.sh` checks `/privacy` on the deployment host and on openbed.ng: 200 `text/html`, containing "Paddie Health Ltd" and "Version 1.0", and NOT the SPA index (no `#app` root). It must be shown failing against today's deployment first.
+  - **Landed:** those checks, plus no `<script` at all. `tests/compliance/readback_scripts.test.ts` gains the fixtures, the accept labels, and plants for the SPA index on each host, a 404, no controller, another version, a script, and `text/plain`.
+  - **Red first, against today's openbed.ng** (a read-only GET, run by the implementer on 2026-09-27): "WRONG openbed.ng privacy controller: read '(absent)'", "WRONG openbed.ng privacy is not the SPA index: read 'id=\"app\"'", "WRONG openbed.ng privacy scripts", then "STOP". Today `/privacy` is the SPA index, 200 `text/html`.
+- **f.** Screenshots of `/privacy` at 360 px and at desktop width go to `.design-screens/P/`.
+  - **Landed:** eleven files, from an untracked harness that serves `/privacy` by Pages' own route matching, not by D1's SPA fallback. They are:
+    - `/privacy` at 360×740, 360 full page and 1280×900;
+    - the dashboard footer at 360×740 and 1280×900;
+    - the ward console signed out, link sent and bad link, each at 360×740 and 1280×900.
+  - The harness read, for every shot: no horizontal overflow and no CSP line; on `/privacy`, `scripts=0` and no `#app`; every privacy link 44 px tall. The ward console's link is in the muted text colour, `rgb(90, 102, 114)`.
+  - The implementer read every image. On the notice at 360 px the tables stack as labelled cards.
+- **Also landed:** `tests/compliance/_design.ts`'s `appSource` read only `index.html` as an app's HTML. It now reads every top-level `.html` entry, so the inline-style and font-host legs reach `privacy.html`, and the bundle guard asserts `privacy.html` is in the corpus by identity. This is test-conventions §2(d): the description was broader than the filter.
+
+**DL-2 — MIGRATION 024** (`024_retention_jobs.sql` and its down file): the retention schedule's two database jobs, and the G1 comment.
+- **a.** `app.erase_lapsed_ward_logins()` deletes the `auth.users` row for every `app.ward_account` with `role <> 'PLATFORM_ADMIN'`, `is_active = false` and `deactivated_at < now() - interval '30 days'`. The `app.ward_account` row stays, because it holds no address.
+  - **As amended by the founder:** one audit row is written per erasure, and it names the ward, not the account.
+  - It never deletes an active account.
+  - It also counts accounts still active at a facility whose `app.facility_agreement.withdrawn_on` is more than 30 days ago, and RAISEs a WARNING with that count (a missed runbook 12.5 step). It deletes nothing for them.
+- **DL-2 a AMENDED BY THE FOUNDER (2026-09-26), verbatim in substance.** The erasure audit row is WARD ONLY. "Carrying the ward_account id" in DL-2 a was a premise error. 005 removed `subject_id` because it accepted an account identifier; its fixture forbids `ward_account_id`; and the privacy notice says the audit log records "wards, never people". The slip is Cowork's: the drafting session wrote it, and the re-issuing session did not check it against 005.
+  - (a) One audit row per erased login, in 005's shape as 022's `ward_account.reactivate` uses it: the subject is `facility_id` + `ward_category`; the action is `'ward_account.login_erase'`; `new_value` is `{"role": <role>}` and nothing else. No ward_account id, no `auth.users` id, no address, and no per-account date, in any column or inside any jsonb field.
+  - (b) Two logins erased for the same ward in one run write two rows. The count is the evidence, not an identifier.
+  - (c) The WARNING path writes no audit row and deletes nothing.
+  - (d) Tests, red first. An erasure writes exactly one row with that subject, action and `new_value`. A plant putting the ward_account id into `new_value` is refused by 005's existing guard; if that guard does not inspect jsonb for this action, it is extended so it does, and shown red on the plant. That is the loophole 005 names.
+  - (e) The premise correction is recorded here, quoting 005's reason: "`subject_id text` accepted ANY identifier: an account id, an address, anything. facility_id + ward_category are the subject now." (005, the FOUR COLUMNS WERE REMOVED block).
+  - **Landed:** 005's guards are a column list (`scripts/lint_audit_log_columns.sh`, `tests/db/audit_log_column_list.test.ts`) and cannot see inside jsonb. So 024 adds the CHECK `audit_log_login_erase_ward_only`. For this action it admits only the ward subject, `new_value` exactly `{"role": "WARD_STAFF"}` with a category or `{"role": "FACILITY_ADMIN"}` without one, and no `old_value`, `version` or `session_id`.
+  - **Red first:** on the local database before 024, an insert of `{"role":"WARD_STAFF","ward_account":<uuid>}` for this action was accepted, reading `carries_account_id t`. After 024, that plant, a uuid smuggled as the role, an address, a `session_id`, and a non-object value are each refused, naming the CHECK. The exact ward-level shape is accepted when written directly.
+- **b.** After erasure a login cannot come back by reactivation. 022's reactivate path refuses an erased login with a named error (LOGIN_ERASED; hint: provision a new login), and `scripts/provision_ward_account.mjs` never treats an erased login as complete. A test for each.
+  - **Landed:** reactivation is keyed on `ward_account.id = p_user_id`, so an erased row is reachable only by an Auth user bearing its old id, or by a hand-run UPDATE. Two things close both routes. 024 adds `app.ward_account.login_erased_at` with the CHECK `ward_account_erased_never_active`, so an erased row can never be active by any path. `app.provision_complete` is 022's body with one block added ahead of the reactivate branch: `LOGIN_ERASED`, HINT 'provision a new login'.
+  - The script names it: "REFUSED by app.provision_complete: LOGIN_ERASED — this login was erased under the retention schedule and cannot be reactivated; provision a new login".
+  - **Red first:** before the sentence existed, the script leg read "LOGIN_ERASED. Invite … is still open." It never printed a success, even then.
+- **c.** `app.prune_ended_auth_sessions()`: sessions end within 24 hours (the timebox) or 8 hours after last use (the inactivity timeout), but neither setting is relied on. The end is the later of `created_at + 24 hours` and the last use, and `auth.sessions` rows are deleted when that is more than 30 days ago. Their `auth.refresh_tokens` are deleted explicitly, not by an assumed cascade. The local schema is read first.
+  - **Landed:** the local schema was read first. `refreshed_at` is `timestamp WITHOUT time zone`, so the function reads it `AT TIME ZONE 'UTC'` (correction 2 below). A leg shows a session last used 29.75 days ago is kept at TimeZone UTC+14, where the bare expression would delete it.
+- **d.** Both functions are SECURITY DEFINER, owned by postgres, with search_path pinned, and EXECUTE revoked from PUBLIC, anon and authenticated. The function-grants fixture is updated.
+  - Cowork's hosted check on 2026-09-26: postgres holds DELETE on `auth.users`, `auth.sessions` and `auth.refresh_tokens`; pg_cron is 1.6.4; both existing jobs run as postgres.
+  - **Landed:** also `SET row_security = off`, as 017's cron-run writers have, and revoked from service_role too. Both functions are in `packages/fixtures/function-grants.json` with `execute: []`.
+- **e.** Two pg_cron jobs by name, daily, at 02:17 and 02:27 UTC: `openbed_erase_lapsed_ward_logins` and `openbed_prune_ended_auth_sessions`. They upsert by name as 017's do, and a re-apply leaves exactly one row per job name (017's Condition F pattern, with a duplicate plant).
+  - **Landed:** the local pause (`database/local/pause_scheduled_jobs.sql`) and `SCHEDULED_JOBS` (`tests/setup/db.ts`) now name all four jobs, and `tests/db/scheduled_jobs_paused.test.ts` derives its expectations from that list.
+- **f.** `COMMENT ON TABLE app.facility_contact`, restated for G1 (the founder's decision, 2026-09-26): legitimate interests (NDPA s.25(1)(f)), not contract. 003 stays frozen, and `database/migrations/README.md` carries the note beside 003.
+- **g.** The down file unschedules both jobs, drops both functions, and restores 003's comment verbatim.
+  - **Landed:** it also restores 022's `provision_complete` verbatim and drops the two CHECKs and the column. **It refuses while any login is marked erased** (`LOGINS_ERASED`), the shape of 022's `OPERATOR_INDEX_IN_USE`.
+- **h.** Tests: `tests/db/retention_jobs.test.ts` and `tests/db/migration_024_round_trip.test.ts`. The 023 round trip now reverses 024 first. Its "nothing above it" line was true only while 023 was the newest migration.
+- **i.** The runbook section "024's apply" follows 020's fence style and is run by the founder.
+  - Fence A, before: the count of `auth.users` reads 1; `auth.audit_log_entries` reads 0, and any other value is a STOP to report; postgres's DELETE on the three tables; and the cascade from `auth.identities` and `auth.one_time_tokens`.
+  - Then 020's six fences.
+  - Fence B, after: `auth.users` still reads 1, and the four jobs are listed.
+  - Both fences were pasted into `zsh -f -i` against the local database, with an `interactivecomments` counter-control; every command ran. Step 5's expectation now names 024 as pending, and 017's jobs read-back and the backup drill carry dated notes.
+
+**DL-3 — WORKER LOGGING OFF** (the record of processing, G4). `supabase-proxy/wrangler.json` gains `"observability": { "enabled": false }`, pinned by a compliance test shown red first. The founder's runbook line: redeploy with `scripts/deploy_worker.sh`, then run `scripts/readback_worker.sh`.
+- **Landed:** `tests/compliance/worker_observability.test.ts` was red first against today's file: "has no \"observability\" key". The key is valid in the pinned wrangler 4.134 (`node_modules/wrangler/config-schema.json`). The founder's line is `docs/runbook-cloudflare-worker-proxy.md` section 4.
+
+**DL-4 — THE DPA EVIDENCE** (register items 1–3). The current published texts of the Proton, Supabase and Cloudflare DPAs are saved outside the repository, in ~/OpenBed-records/legal/. `docs/legal/README.md` holds one row per vendor: the URL, the version or date stated, the date read, the sha256, how it binds, and GitHub as an independent controller with no DPA. A failed fetch is recorded as NOT FETCHED; no other source is ever substituted.
+- **Landed:** all three were fetched on 2026-09-26 at 23:24 UTC, each 200 `text/html`. The versions stated:
+  - Proton: "Last modified: February 10, 2026".
+  - Supabase: "Version 1 — August 1, 2026". supabase.com itself redirected /legal/dpa to /legal/customer-resources/data-processing-addendum; that is recorded as the vendor's redirect, not a substitution.
+  - Cloudflare: "Version 6.4, effective April 3, 2026".
+- The "how it binds" column quotes each text (correction 6 below).
+
+**DL-5 — SECURITY.md** (register item 14, reviewed by Cowork). The in-scope sentence, the list of unpublished data, and the pointer to the privacy notice, as ruled. `contacts.test.ts` stays green.
+
+**DL-6 — THE RECORD.**
+- **a.** The Cloudflare row of the processor-obligations table carries the scope sentence as ruled, with its Web Analytics text kept, and cites DL-6 a in its Source cell. **Box 9 is NOT ticked.** Cowork rules it closed once the founder approves register row 3.
+- **b.** **Box 1 (CJ-2) is NOT ticked.** Its three conditions are met in the founder's pack, and Cowork rules it closed once the founder approves register rows 1–4.
+- **c.** The `scripts/` survey TRIGGER row fires at 024, and its Gate cell now reads "FIRED at 024; work in PR S (R-2026-09-26-136 DL-6 c)". PR S follows D3. `deferred_items.test.ts` stays green.
+- **d.** This entry, -135's, and their ledger rows.
+
+**DL-7 — THE REPORT quotes, it does not state:** the branch, HEAD, `git log --oneline main..HEAD`, `git diff -M --name-status main...HEAD`, every new guard red then green, the full test count against the previous total, the screenshots, and "024's apply" as rendered. Then the pull request opens, and Cowork checks it before the merge word.
+
+**DL-8 — WHAT D2 ALREADY SET THAT P MUST KEEP.**
+- (a) P's PR body answers "Runbook expectations this migration changes:".
+- (b) The privacy page, the dashboard footer link and the ward-console link read no clock and carry no inline style or script. `openbed/no-wall-clock`, the bundle guards and the CSP stay green, unchanged.
+- (c) Screenshots go to `.design-screens/P/`:
+  - `/privacy` at 360×740, 360 full page, and 1280×900;
+  - the dashboard footer with the link at 360 and 1280;
+  - the ward console's signed-out, link-sent and bad-link states at 360 and 1280, showing the link.
+- (d) The register stays consistent: DL-6 c's FIRED mark, DG-3's hooks row still present, and `deferred_items.test.ts` green.
+
+**PREMISE CORRECTIONS AND MECHANISM CHOICES** (method notes 4 and 20):
+1. **DL-2 a's "carrying the ward_account id"** is superseded by the founder's amendment above.
+2. **DL-2 c's expression mixed two types.** `auth.sessions.refreshed_at` is `timestamp without time zone`, and `coalesce()` with the two `timestamptz` columns casts it through the session's TimeZone. It is read `AT TIME ZONE 'UTC'`. MEASURED locally (gotrue v2.196.0, PostgreSQL 17.6).
+3. **"Do not assume a cascade" applies to erasure too.** `auth.refresh_tokens.user_id` is varchar with no foreign key, so deleting a user leaves its refresh tokens that have no session. The erase function deletes refresh tokens (by user and by session) and sessions explicitly, then the user. `auth.identities` and `auth.one_time_tokens`, which carry the address, go by their `ON DELETE CASCADE`. That is MEASURED locally, and fence A reads it on hosted, because Cowork's hosted check covered DELETE on three tables and not these two. Explicit deletes of those two were considered and not made: they would need a hosted privilege no one has read.
+4. **DL-2 b's mechanism** is the column and its CHECK, not only the refusal. The refusal alone closes the reactivate branch and not a hand-run UPDATE.
+5. **A WARNING raised inside a pg_cron job is not visible where a founder would look.** MEASURED locally on 2026-09-27 with a scratch job, removed afterwards. `cron.job_run_details` recorded `succeeded | DO`, and the WARNING appeared only in the Postgres server log. On hosted that is Supabase's Postgres logs. DL-2 a's WARNING is built as ruled. **Whether the founder needs a readable signal for a missed 12.5 step is REPORTED for a ruling, not built:** no facility is withdrawn today.
+6. **DL-4's "how it binds".**
+   - Proton: the text says it "forms part of the Contract for Services under Proton AG's Terms and Conditions" (holds).
+   - Supabase: the DPA "supplements and forms part of the Supabase Terms of Service", and the SCCs "are incorporated into this DPA". The words "execution of this DPA shall have the same effect as signing" appear once, about the UK Approved Addendum, not the EU SCCs. The substance holds; the wording is narrower.
+   - Cloudflare: the DPA "forms part of the Main Agreement", which includes a "Self-Serve Subscription Agreement". The Self-Serve terms' own side was not fetched and is NOT CONFIRMED.
+7. **Not edited:** `docs/facility-agreement-clause-x-access-addresses.md` says "The public dashboard has no privacy notice." It is a dated pre-draft (Cowork, 2026-09-10), and under method note 8 a dated record is superseded, not amended. It is superseded here, by DL-1.
+
+**AFTER MERGE, founder only, in this order:**
+1. Apply 024 by its runbook section.
+2. Redeploy the public dashboard, then run `readback_pages.sh`.
+3. Redeploy the Worker, then run `readback_worker.sh`.
+4. Deploy the ward console (D2 and P together), then run `readback_ward_console.sh`, the phone check, and `docs/runbook-ward-console-deploy.md` section 5 step 5 (Authentication → Hooks).
+
+Admin picks up the link with D3's deploy.
+
+### R-2026-09-27-137 — #90 amended once: the jobs keep the notice's words; a missed withdrawal fails a job; the processor evidence quotes its texts
+
+_Issued as R-PROVISIONAL-2026-09-27-DM, by Cowork on 2026-09-27, as its check of #90 at `a39d3cd99a2a81de998c00335b3af5c267b267bc`. **Not the merge word.** It lands in #90 as a second commit on `pr-p-privacy-retention`, with no force-push and no rebase. Number assigned on landing: R-2026-09-26-136 plus one. **It replaces -136's forward reference:** the D2 deploy read-back and D3's start word are now **DN**, not DM. Next provisional letter: **DN**._
+
+**VERIFIED BY COWORK** (2026-09-27, GitHub API and the screenshots, from the founder's Mac):
+- #90 OPEN at `a39d3cd`, base `19e28be` (= main), clean; 1 commit, 43 files, +2773/−130.
+- Seven check runs succeeded, including repo-lint's migration-line step (the body names "024's apply").
+- `docs/legal/privacy-notice-v1.0.md` at `a39d3cd` hashes to `0921ca415238d5ed96f3d287bf4fe02669a7c0e5cebac25b3f303a22be524db1`.
+- The added lines carry only the notice's public role addresses, NDPC's published contact, and test placeholders.
+- 024 was read in full, and the app, script, Worker and SECURITY.md diffs were read in full.
+- No FK ties `app.ward_account.id` to `auth.users`, and `retention_jobs.test.ts` reads `login_erased_at` after erasure: the row stays.
+- All 11 screenshots were read.
+
+**ACCEPTED:**
+- the three method corrections: `refreshed_at AT TIME ZONE 'UTC'`; explicit refresh-token and session deletes on erasure, with identities and one_time_tokens by cascade and fence A reading that cascade on hosted; and the `ward_account_erased_never_active` CHECK;
+- the ward-only audit CHECK;
+- the stale pre-draft line, superseded by -136 under method note 8.
+
+**A CORRECTION TO -136, BY THE IMPLEMENTER.** -136's DL-1 f "Landed" line and #90's first body said twelve screenshots. There are **eleven**: three of `/privacy`, two of the footer, and six of the ward console. Cowork's count is right. -136 is corrected in place in this commit, because it has not merged.
+
+**DM-1 — THE JOBS MUST KEEP THE NOTICE'S WORDS.** The notice says a closed ward's address is "deleted within 30 days", and that sessions are "deleted 30 days after they end". A daily job with a 30-day threshold deletes on day 30 or 31.
+- **a.** Both functions move to a 29-day threshold, `now() - interval '29 days'`. With a daily run, every deletion then lands within 30 days of the event.
+- **b.** The tests are restated: 30 days is erased or deleted; 28 days is kept; the TimeZone leg is re-pointed to 28.75 days, which a bare read at UTC+14 would delete as 29.33.
+  - **Red first against `a39d3cd`**, on a fresh database: 15 legs failed across `tests/db/retention_jobs.test.ts` and `tests/db/migration_024_round_trip.test.ts`. Among them: "a login deactivated 30 days ago is erased …", "a session last used 30 days ago", and "a session never refreshed, created 31 days ago (ended at created + 24 h, 30 days ago)".
+- **c.** 024's header, both function comments, "024's apply", `database/migrations/README.md` and this entry all say: a 29-day threshold, a daily run, deleted within 30 days; the reason is this ruling.
+
+**DM-2 — A MISSED WITHDRAWAL STEP IS SEEN, NOT LOGGED.**
+- **a.** The withdrawn-facility check leaves `app.erase_lapsed_ward_logins()` for `app.check_withdrawn_facility_accounts()`.
+  - When the count is above 0 it RAISEs EXCEPTION with the same `WITHDRAWN_FACILITY_ACTIVE_ACCOUNTS` message, so `cron.job_run_details` records the run as failed, with the message. It deletes nothing.
+  - SECURITY DEFINER, owned by postgres, search_path pinned, owner-only, and in the grants fixture.
+  - The mechanism was **MEASURED** locally on 2026-09-27 with a scratch job, since removed: a raising pg_cron job reads `failed | ERROR:  <message>` in `cron.job_run_details`.
+- **b.** A third job, by name, daily at 02:37 UTC: `openbed_check_withdrawn_facility_accounts`. It uses the same upsert by name, with the duplicate plant, and is added to `database/local/pause_scheduled_jobs.sql` and `SCHEDULED_JOBS`. The down unschedules it and drops the function. The round trip is up, down, up.
+- **c.** Tests, red first (above):
+  - the function raises for an active account at a facility withdrawn 31 days ago, and nothing is deleted;
+  - control: with no such account it does not raise;
+  - the erasure no longer raises or warns.
+- **d.** Runbook 12.5 gains a dated step 5: on the 31st day after `withdrawn_on`, read `cron.job_run_details` for the three retention jobs; any failed run is a STOP. "024's apply" fence B reads the three retention jobs, five lines with 017's. Both fences were pasted into `zsh -f -i`, with the counter-control.
+- **e.** The register gains one row: "A failed retention job run is only visible in `cron.job_run_details`". It is a TRIGGER on facility one's first ward account being provisioned. Recounted from the table: **58 → 59**.
+
+**DM-3 — THE PROCESSOR EVIDENCE SAYS WHAT THE TEXTS SAY.**
+- **a.** Cloudflare's Self-Serve Subscription Agreement (https://www.cloudflare.com/terms/, titled so) was fetched on 2026-09-27 at 07:09 UTC to ~/OpenBed-records/legal/.
+  - It states "Last Updated September 12, 2025"; the saved file's sha256 is `27401c884349ad32674da8c934f70c3a331bf056efdda7db39a4cab950c5879a`.
+  - **FOUND**, in section 6.1: "…Cloudflare will handle such Personal Data in compliance with Cloudflare's Data Processing Addendum ("Data Processing Addendum"), which is hereby incorporated by reference into this Agreement."
+  - **REPORTED FOR A RULING: the clause is conditional.** It opens "If Customer Content includes the personal data of European data subjects as those terms are defined by EU and UK Data Protection Laws and all data defined as 'personal information' under the California Consumer Privacy Act". On its face it names no Nigerian data subject. Whether it reaches OpenBed's data is a legal reading, and is not decided here.
+- **b.** `docs/legal/README.md` now quotes the Supabase DPA:
+  - clause 12.1 on the EU SCCs, conditional on the GDPR or Swiss law applying, or on the exporter's law prohibiting the transfer without safeguards;
+  - Schedule 2 paragraph 2.3's "same effect as signing", which applies to the UK Approved Addendum only.
+  - DL-4's paraphrase was the drafting session's error, carried by Cowork.
+- **c.** Proton is unchanged.
+- **d.** The founder does not deploy `/privacy` until (a) reads FOUND, or the founder has decided otherwise in writing. **(a) reads FOUND, with the condition above reported.** No written decision from the founder is recorded.
+
+**DM-4 — NO SCREENSHOT RETAKE:** nothing visual changes.
+
+**DM-5 — PROCESS:** one new commit on `pr-p-privacy-retention`, with no force-push and no rebase. -137 lands with its ledger row. The full suite runs on a fresh DB and the commit gate runs, then STOP at #90 for Cowork's re-check. Nothing hosted. Next letter: **DN**, the deploy read-back and D3's start word.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -6280,6 +6487,9 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | DH | R-2026-09-26-132 | 2026-09-26 | **#88 merged at `2586d29`** (parents `5be63d4`, `5b94fb6`); `pr-f-fired-guards` deleted on both sides and read back as gone. Box 14 stays open. **D2 built:** the ward console's viewport, foundation, favicon, lockup, sign-in, handover cards, 64 px count with steppers that never publish, styled reason select and 52 px Publish, every sentence byte-identical. The PENDING D2 legs flipped, DA-3's D2 row removed (58 rows), and the ward read-back checks the favicon and a font. A pre-existing defect is reported: "Published." is erased by the re-render. |
 | DI | R-2026-09-26-133 | 2026-09-26 | **#89 amended once.** A publish updates its own card only: "Published." is finally seen, and other cards keep their unsent edits and Notices. The next publish sends the new version, and an edit clears a stale outcome. The Notice tones are the design system's (info for what went through, caution for every refusal, no green), and every status is announced. The steppers and count have names, which go on the clinicians' wording list. Found: a browser's own validation pre-empts the two client-side sentences. |
 | DJ | R-2026-09-26-134 | 2026-09-26 | **#89 amended once more.** The publish form sets `noValidate`, so its own sentences, not the browser's bubble, answer a blank, out-of-range or fractional count and a zero with no reason. Each is a caution Notice, nothing is sent, and focus goes to the field. The fields keep `required`, and the sign-in form keeps the browser's validation. Three screenshot states retaken. |
+| DK | R-2026-09-26-135 | 2026-09-26 | **#89 merged at `19e28be`** (parents `2586d29`, `8c23765`); `design-pass-d2` deleted on both sides and read back as gone. Pasting DK was the founder's merge word. Held, and landed in P's pull request by -136's "DK AMENDED". Box 14 stays open; DG-3's hooks row stays. |
+| DL | R-2026-09-26-136 | 2026-09-26 | **P built:** the privacy notice at /privacy from `docs/legal/privacy-notice-v1.0.md` (sha256 as issued), linked from the three sites by one constant; migration 024's two retention jobs, with the erasure's audit row ward-only by the database (DL-2 a, amended by the founder the same day); Worker logging off; the DPA evidence outside the repository; SECURITY.md. A re-issue of a draft lettered DF, whose letter and number were taken. Box 1 and box 9 not ticked. The `scripts/` survey TRIGGER fired at 024. |
+| DM | R-2026-09-27-137 | 2026-09-27 | **#90 amended once.** The retention jobs move to a 29-day threshold, so a daily run deletes within the notice's 30 days. A missed withdrawal step now fails its own job, `openbed_check_withdrawn_facility_accounts`, visibly in `cron.job_run_details`, where a WARNING reached only the server log. The DPA README quotes Supabase clause 12.1, and Cloudflare's Self-Serve section 6.1 (FOUND, conditional on EU/UK and CCPA data, reported). Register 58 → 59. -136's screenshot count corrected to eleven. Next letter DN. |
 
 ## Deferred items — this record is where the list lives
 
@@ -6361,7 +6571,7 @@ the record's own, except where CW-5 assigned one._
 | B1's onboarding checks: the first ward account reads its own history as itself (12.4 step 6), and the first publish reads back from `/beds.json` (12.4 step 9) | R-2026-09-26-122 CX-1 (b) | TRIGGER | The first ward account at facility one |
 | `ward_reply` has a cap and no content validation (#63/#97) | R-2026-09-17-03 and -04 | TRIGGER | The first change that writes `app.referral.ward_reply` (referrals are unwired in v1; R-2026-09-26-122 CX-2) |
 | Gate 3's property test does not exist (#109) | R-2026-09-17-03 and -04 | TRIGGER | The next change under `packages/gate/` or `packages/snapshot/src/freshness.ts` (R-2026-09-26-122 CX-2) |
-| The `scripts/` survey items: PR evidence tables generated from artefacts; the idempotency digest's grants and RLS flags; item 1, the duty-flag lint missing `<> 'NO'`; item 2, nothing validates SQL quoted in prose | Deferred to the `scripts/` survey; R-2026-09-15-06 and -07; R-2026-09-17-05; R-2026-09-17-08 D2 | TRIGGER | The next migration file added (024) (R-2026-09-26-122 CX-2) |
+| The `scripts/` survey items: PR evidence tables generated from artefacts; the idempotency digest's grants and RLS flags; item 1, the duty-flag lint missing `<> 'NO'`; item 2, nothing validates SQL quoted in prose | Deferred to the `scripts/` survey; R-2026-09-15-06 and -07; R-2026-09-17-05; R-2026-09-17-08 D2 | TRIGGER | The next migration file added (024) (R-2026-09-26-122 CX-2). FIRED at 024; work in PR S (R-2026-09-26-136 DL-6 c) |
 | The test-title citation convention | R-2026-09-23-65 E | TRIGGER | The first cited test title found not to exist in its file (R-2026-09-26-122 CX-2) |
 | A real-browser refusal check in CI | R-2026-09-23-70 C3 | TRIGGER | The first PR that adds a browser runner (Playwright or similar) as a dependency. If D1's screenshots add one, it fires in D1 and the check lands in D2 (R-2026-09-26-122 CX-2) |
 | Provisioning as a Supabase Edge Function | R-2026-09-23-71 C | TRIGGER | The first proposal to move ward-account setup into an app (R-2026-09-26-122 CX-2) |
@@ -6373,6 +6583,7 @@ the record's own, except where CW-5 assigned one._
 | `publish_ward_status` enqueues to `app.notification_outbox` (#71) | R-2026-09-17-03 and -04 | VERSION | Out of v1: escalation notifications are not in v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
 | Pages Git integration as the root fix for deploys | R-2026-09-20-30 A5 | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
 | Phone features: the tile, call tracking, WhatsApp/SMS | R-2026-09-23-66 C2 | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
+| A failed retention job run is only visible in `cron.job_run_details`: nothing tells the operator unless someone reads it (12.5 step 5 reads it after a withdrawal) | R-2026-09-27-137 DM-2 e | TRIGGER | Facility one's first ward account is provisioned. Until then there is no ward login to erase. By then, a failed run of the three retention jobs must surface where the operator looks |
 
 ## Method notes — how rulings reach the implementer
 

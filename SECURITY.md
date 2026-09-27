@@ -40,16 +40,16 @@ us the disclosure window above.
 
 **In scope.** The published web application and its API surface; the database
 security boundary (schema separation, RLS policies, function grants, RPC
-argument handling); the snapshot pipeline; the notification and escalation
-paths; anything in this repository.
+argument handling); the snapshot pipeline; the ward console and admin sign-in
+paths, and the api.openbed.ng proxy; anything in this repository.
 
 **Of particular interest**, because these are the boundaries the design depends
 on rather than incidental hardening:
 
 - Any way for an anonymous client to read a base table in the `app` schema.
 - Any way for an anonymous client to read a column outside the published
-  projection — reason codes, staff mobile numbers, admin notes, ward replies,
-  token hashes, device fingerprints.
+  projection — a facility contact's details, any sign-in address, or bed-status
+  history beyond what the public page shows.
 - Any way to recover a facility that has opted into quiet mode, including by
   arithmetic on the LGA rollup.
 - Any way to execute a `public` RPC as `anon`.
@@ -66,6 +66,8 @@ No personal data. No real facility data. No production credentials. All seed
 data is synthetic. The facility list and real duty phone numbers are never
 committed. If you find any of those in the history, that is itself a reportable
 finding and a high-severity one.
+
+For the personal data the running service holds, see the privacy notice at https://openbed.ng/privacy.
 
 ## A note on secret scanning
 

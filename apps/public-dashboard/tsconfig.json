@@ -15,5 +15,5 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": []
   },
-  "include": ["src/**/*.ts", "vite.config.ts"]
+  "include": ["src/**/*.ts", "vite.config.ts", "privacy-notice.ts"]
 }

@@ -2,6 +2,7 @@ import { SessionExpiredError, SessionHolder, requestSignInLink, sessionFromUrlFr
 import { apiOrigin } from '@openbed/origins';
 import { publishableKeyFor } from '@openbed/origins/keys';
 import { WARD_SUPPORT_EMAIL } from '@openbed/origins/support';
+import { PRIVACY_NOTICE_URL } from '@openbed/origins/privacy';
 import { categoryLabel, precedence, reasonLabel } from '@openbed/labels';
 import { NO_WARD, NO_WARD_HEADING, OFFERING_CHOICES, ZERO_REASONS } from '@openbed/labels/ward';
 // The design system's tokens and self-hosted fonts first, then this app's own rules
@@ -686,10 +687,25 @@ function signInRequestForm(): HTMLFormElement {
   return form;
 }
 
-/** A screen that also offers the ward a new link. */
+/**
+ * The privacy notice's link, under the sign-in form (R-2026-09-26-136 DL-1 d): small,
+ * muted, a real link with a 44 px target, and no new colour. Its URL is the one tracked
+ * constant; tests/compliance/privacy_links.test.ts asserts it on every sign-in state.
+ */
+function privacyLink(): HTMLParagraphElement {
+  const p = document.createElement('p');
+  p.className = 'privacy';
+  const a = document.createElement('a');
+  a.href = PRIVACY_NOTICE_URL;
+  a.textContent = 'Privacy notice';
+  p.append(a);
+  return p;
+}
+
+/** A screen that also offers the ward a new link, with the privacy notice under it. */
 function showWithRequest(heading: string, detail: string, kind: 'caution' | 'lead' = 'caution'): void {
   show(heading, detail, kind);
-  appRoot()?.append(signInRequestForm());
+  appRoot()?.append(signInRequestForm(), privacyLink());
 }
 
 /**

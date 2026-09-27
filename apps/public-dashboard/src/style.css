@@ -166,8 +166,12 @@ section.facility li {
   vertical-align: middle;
 }
 
-/* 6. The footer: the general-enquiries address, and nothing else. */
+/* 6. The footer: the general-enquiries address and the privacy notice's link (R-2026-09-26-136
+   DL-1 d), side by side, wrapping on a narrow screen. */
 #site-footer {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-6);
   max-width: var(--measure-app);
   margin: 0 auto;
   padding: var(--space-4) var(--gutter-page) var(--space-8);
