@@ -271,10 +271,11 @@ describe('the runner refuses to report a count it did not obtain', () => {
       // 021_facility_agreement_and_contact_write.sql, 21 until
       // 022_one_operator_and_reactivation.sql, 22 until
       // 023_operator_register_location_and_phone.sql, 23 until
-      // 024_retention_jobs.sql.
+      // 024_retention_jobs.sql, 24 until 025_facility_reporter_role.sql and
+      // 026_facility_reporter_and_checks.sql, which arrived together.
       // Deriving it from the directory would compare the runner's file count
       // with the test's own file count, which agrees even when both are wrong.
-      '24 migration(s) pending.',
+      '26 migration(s) pending.',
     );
   });
 

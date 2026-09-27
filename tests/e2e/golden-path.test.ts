@@ -25,6 +25,12 @@ import {
   ALPHA_CATEGORIES,
   loadFuture,
   provisionE2eWardAccounts,
+  provisionE2eReporter,
+  GAMMA,
+  GAMMA_CATEGORIES,
+  GAMMA_CONTACT,
+  GAMMA_AGREEMENT,
+  REPORTER_EMAIL,
   restoreAlphaWardBaseline,
   assertAlphaPublic,
 } from './_harness.js';
@@ -83,7 +89,7 @@ function name(id: string): string {
 }
 
 /** Shared across steps within the single-threaded run. */
-const state: { link?: MintedLink; expiringLink?: MintedLink; operator?: WardSession } = {};
+const state: { link?: MintedLink; expiringLink?: MintedLink; operator?: WardSession; reporter?: WardSession } = {};
 
 /**
  * THE OPERATOR'S SESSION: the E2E operator global setup bootstrapped through the
@@ -94,6 +100,24 @@ const state: { link?: MintedLink; expiringLink?: MintedLink; operator?: WardSess
 async function operatorCall(fn: string, body: unknown) {
   state.operator ??= await signInWard(E2E_OPERATOR_EMAIL);
   return authedRest(`rpc/${fn}`, state.operator, { method: 'POST', body: body as Record<string, unknown> });
+}
+
+/** GAMMA's register row (R-2026-09-27-144 DT), read as the admin app reads it. */
+async function gammaInRegister(): Promise<Record<string, unknown>> {
+  const r = await operatorCall(RPC.register, registerBody());
+  expect(r.status, JSON.stringify(r.body)).toBe(200);
+  const row = (r.body as { facilities: Record<string, unknown>[] }).facilities.find((f) => f['facility_id'] === GAMMA.id);
+  expect(row, 'GAMMA is not in the operator register').toBeDefined();
+  return row as Record<string, unknown>;
+}
+
+/**
+ * THE FACILITY-LEVEL REPORTER'S SESSION, minted and verified by the same route as every
+ * other session here, and held apart from wardSession's one cached session.
+ */
+async function reporterCall(fn: string, body: Record<string, unknown>) {
+  state.reporter ??= await signInWard(REPORTER_EMAIL);
+  return authedRest(`rpc/${fn}`, state.reporter, { method: 'POST', body });
 }
 
 /** ALPHA's register row, read as the admin app reads it. */
@@ -225,10 +249,10 @@ describe('golden path — release gate 2', () => {
     // than after it). This read `ward_public?limit=1`, which 018 revokes from
     // both client roles. The replacement is also the stronger probe: anon held
     // SELECT on ward_public before 018, so the old assertion was satisfied by a
-    // request carrying no bearer token at all. EXECUTE on my_facility_wards is
+    // request carrying no bearer token at all. EXECUTE on my_reporting_wards is
     // granted to `authenticated` and revoked from `anon` by name, so reaching its
     // body at all is the authentication this step claims to be testing.
-    const res = await fetch(`${apiUrl()}/rest/v1/rpc/my_facility_wards`, {
+    const res = await fetch(`${apiUrl()}/rest/v1/rpc/my_reporting_wards`, {
       method: 'POST',
       headers: {
         apikey: anonKey(),
@@ -274,10 +298,10 @@ describe('golden path — release gate 2', () => {
     const session = await wardSession(WARD_EMAIL);
     expect(session.claims.sub, 'the token carries no sub').toBe(session.userId);
 
-    // my_facility_wards() resolves the facility from auth.uid() and calls
+    // my_reporting_wards() resolves the facility from auth.uid() and calls
     // app.assert_member, which raises NOT_A_MEMBER when no ward_account row
     // matches. Until a ward account is provisioned, this is where the path stops.
-    const res = await authedRest('rpc/my_facility_wards', session, { method: 'POST', body: {} });
+    const res = await authedRest('rpc/my_reporting_wards', session, { method: 'POST', body: {} });
     expect(
       res.status,
       `the session did not resolve to an app.ward_account row: ${JSON.stringify(res.body)}`,
@@ -286,10 +310,10 @@ describe('golden path — release gate 2', () => {
 
   test(name('handover-lists-facility-wards'), async () => {
     const session = await wardSession(WARD_EMAIL);
-    const res = await authedRest('rpc/my_facility_wards', session, { method: 'POST', body: {} });
-    expect(res.status, `my_facility_wards failed: ${JSON.stringify(res.body)}`).toBe(200);
+    const res = await authedRest('rpc/my_reporting_wards', session, { method: 'POST', body: {} });
+    expect(res.status, `my_reporting_wards failed: ${JSON.stringify(res.body)}`).toBe(200);
     const rows = res.body as { category?: string }[];
-    expect(Array.isArray(rows), 'my_facility_wards did not return rows').toBe(true);
+    expect(Array.isArray(rows), 'my_reporting_wards did not return rows').toBe(true);
     expect(rows.map((r) => r.category), 'the handover screen does not list the published category').toContain(
       PUBLISH_CATEGORY,
     );
@@ -348,6 +372,77 @@ describe('golden path — release gate 2', () => {
     expect(row?.replayed, 'a fresh publish was reported as a replay').toBe(false);
     expect(row?.claim_bed_count, 'the second publish did not take').toBe(6);
     expect(row?.public_bed_count, 'the second publish did not reach the public projection').toBe(6);
+  });
+
+  // ------------------------- the facility-level login (R-2026-09-27-144 DT, Bundle 1)
+  test(name('operator-onboards-reporter-facility'), async () => {
+    const fields = { name: GAMMA.name, lga: GAMMA.lga, state: 'Lagos', lat: GAMMA.lat, lng: GAMMA.lng, publicPhoneE164: GAMMA.phone };
+    const created = await operatorCall(RPC.createFacility, createFacilityBody(GAMMA.id, fields));
+    expect(created.status, JSON.stringify(created.body)).toBe(200);
+    const contact = await operatorCall(RPC.recordContact, recordContactBody(GAMMA.id, GAMMA_CONTACT, null));
+    expect(contact.status, JSON.stringify(contact.body)).toBe(200);
+    const agreement = await operatorCall(
+      RPC.recordAgreement,
+      recordAgreementBody(GAMMA.id, GAMMA_AGREEMENT.acceptedOn, GAMMA_AGREEMENT.version, GAMMA_AGREEMENT.signatoryRole),
+    );
+    expect(agreement.status, JSON.stringify(agreement.body)).toBe(200);
+    for (const category of GAMMA_CATEGORIES) {
+      const r = await operatorCall(RPC.addCategory, addCategoryBody(GAMMA.id, category, 'OFFERED'));
+      expect(r.status, JSON.stringify(r.body)).toBe(200);
+    }
+    const row = await gammaInRegister();
+    expect((row['categories'] as { category: string }[]).map((c) => c.category).sort()).toEqual([...GAMMA_CATEGORIES].sort());
+    expect(row['listed_at'], 'GAMMA must stay unlisted, so nothing public changes').toBeNull();
+    expect(row['reporting_model'], 'GAMMA has a reporting login before one was provisioned').toBe('NONE');
+  });
+
+  test(name('operator-provisions-reporter'), async () => {
+    const out = provisionE2eReporter();
+    console.log(`[e2e] provision_ward_account.mjs (FACILITY_REPORTER): ${out.trim().split('\n').at(-1) ?? ''}`);
+    const row = await gammaInRegister();
+    expect(row['reporting_model'], 'the register does not read GAMMA as reporting through one login').toBe('FACILITY');
+    expect(row['reporter_login']).toBe('active');
+    const cats = row['categories'] as { category: string; has_account: boolean; provisioning_incomplete: boolean }[];
+    expect(cats.map((c) => [c.category, c.has_account, c.provisioning_incomplete]).sort()).toEqual(
+      [...GAMMA_CATEGORIES].sort().map((c) => [c, true, false]),
+    );
+  });
+
+  test(name('reporter-reads-can-publish'), async () => {
+    const res = await reporterCall('my_reporting_wards', {});
+    expect(res.status, `my_reporting_wards failed for the reporter: ${JSON.stringify(res.body)}`).toBe(200);
+    const rows = (res.body as { category: string; can_publish: boolean }[]).map((r) => [r.category, r.can_publish]).sort();
+    expect(rows).toEqual([...GAMMA_CATEGORIES].sort().map((c) => [c, true]));
+  });
+
+  test(name('reporter-publishes-two-categories'), async () => {
+    const listed = await reporterCall('my_reporting_wards', {});
+    const versions = new Map((listed.body as { category: string; version: number }[]).map((r) => [r.category, r.version]));
+    for (const [i, category] of GAMMA_CATEGORIES.entries()) {
+      const before = versions.get(category);
+      expect(before, `${category} is not in the reporter's list`).toBeDefined();
+      const res = await reporterCall('publish_ward_status', {
+        p_category: category,
+        p_offering: 'OFFERED',
+        p_bed_count: i + 2,
+        p_accepting: true,
+        p_reason: null,
+        p_expected_version: before as number,
+        p_client_mutation_id: `e2e-reporter-${category}-${RUN}`,
+        p_composed_at: new Date().toISOString(),
+      });
+      expect(res.status, `the reporter's publish of ${category} failed: ${JSON.stringify(res.body)}`).toBe(200);
+      const row = (res.body as PublishContract[])[0];
+      expect(row?.version, `${category}: version did not move`).toBe((before as number) + 1);
+      expect(row?.replayed).toBe(false);
+      expect(row?.claim_bed_count, `${category}: the claim did not take`).toBe(i + 2);
+      expect(row?.public_listed, 'GAMMA is unlisted, and a publish reported it public').toBe(false);
+    }
+    const events = await sql()<{ category: string; source: string }[]>`
+      select distinct on (category) category::text as category, source::text as source from app.ward_status_event
+       where facility_id = ${GAMMA.id}::uuid and client_mutation_id like ${`e2e-reporter-%-${RUN}`}
+       order by category, id desc`;
+    expect(events).toEqual([...GAMMA_CATEGORIES].sort().map((c) => ({ category: c, source: 'WARD' })));
   });
 
   test(name('snapshot-regenerates'), async () => {

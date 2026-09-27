@@ -47,6 +47,34 @@ export const BETA = {
   phone: '+2348000000002',
 } as const;
 
+/**
+ * GAMMA: the facility the FACILITY-LEVEL reporting login reports for (R-2026-09-27-144 DT,
+ * Bundle 1's definition of done). The operator steps create it, record its contact and
+ * agreement and add two categories; the production script provisions its reporter; the
+ * reporter publishes both categories. It is NEVER LISTED, so nothing public changes and
+ * the snapshot steps below still read ALPHA and BETA alone. Deactivated between runs,
+ * never deleted, like ALPHA.
+ */
+export const GAMMA = {
+  id: 'e2e00000-0000-4000-8000-000000000003',
+  name: 'E2E_Gamma Nursing Home',
+  lga: 'E2E_LGA_GAMMA',
+  lat: 6.4541,
+  lng: 3.3947,
+  phone: '+2348000000003',
+} as const;
+export const GAMMA_CATEGORIES = ['MATERNITY', 'THEATRE'] as const;
+/** The facility-level reporting login's address. A ROLE address, never a person. */
+export const REPORTER_EMAIL = 'e2e-reporter-gamma@e2e.invalid';
+export const GAMMA_CONTACT = {
+  fullName: 'Synthetic Contact',
+  jobTitle: 'Matron',
+  email: `contact-${GAMMA.id.slice(-4)}@e2e.invalid`,
+  mobileE164: null,
+  smsOptIn: false,
+} as const;
+export const GAMMA_AGREEMENT = { acceptedOn: '2026-09-01', version: 'synthetic-v1', signatoryRole: null } as const;
+
 /** The ward account the golden path signs in as. A ROLE address, never a person. */
 export const WARD_EMAIL = 'e2e-maternity-alpha@e2e.invalid';
 /** Second account at the same facility, different category. Exists to make ward-scope observable. */
@@ -114,15 +142,15 @@ export async function resetE2eCorpus(): Promise<void> {
   // ward_account_scope_matches_role CHECK exists to make unrepresentable.
   // Accounts carry no history (events and audit rows have no actor), so they are
   // still deleted and re-provisioned every run.
-  await db`delete from app.ward_account where facility_id in (${ALPHA.id}::uuid, ${BETA.id}::uuid)`;
-  await db`delete from app.invite where facility_id in (${ALPHA.id}::uuid, ${BETA.id}::uuid)`;
+  await db`delete from app.ward_account where facility_id in (${ALPHA.id}::uuid, ${BETA.id}::uuid, ${GAMMA.id}::uuid)`;
+  await db`delete from app.invite where facility_id in (${ALPHA.id}::uuid, ${BETA.id}::uuid, ${GAMMA.id}::uuid)`;
   // The E2E operator, found by its Auth user, and any operator invite left open by an
   // interrupted bootstrap. Before the users are deleted, because this finds it by them.
   await db`
     delete from app.ward_account
      where role = 'PLATFORM_ADMIN' and id in (select id from auth.users where email = ${E2E_OPERATOR_EMAIL})`;
   await db`delete from app.invite where role = 'PLATFORM_ADMIN' and facility_id is null and accepted_at is null`;
-  await db`update app.facility set is_active = false where id in (${ALPHA.id}::uuid, ${BETA.id}::uuid)`;
+  await db`update app.facility set is_active = false where id in (${ALPHA.id}::uuid, ${BETA.id}::uuid, ${GAMMA.id}::uuid)`;
   await db`delete from auth.users where email like ${`%@e2e.invalid`}`;
 }
 
@@ -139,6 +167,9 @@ export async function seedE2eCorpus(): Promise<void> {
   // create it for real.
   await db`update app.facility set is_active = true, quiet_mode = false where id = ${ALPHA.id}::uuid`;
   await db`update app.facility_agreement set withdrawn_on = null where facility_id = ${ALPHA.id}::uuid`;
+  // GAMMA the same way (R-2026-09-27-144 DT): created by the operator steps, reactivated here.
+  await db`update app.facility set is_active = true, quiet_mode = false where id = ${GAMMA.id}::uuid`;
+  await db`update app.facility_agreement set withdrawn_on = null where facility_id = ${GAMMA.id}::uuid`;
   await db`
     update app.facility_ops set anaesthetist = 'UNKNOWN', obstetrician = 'UNKNOWN', paediatrician = 'UNKNOWN'
      where facility_id = ${ALPHA.id}::uuid`;
@@ -379,4 +410,24 @@ export function provisionE2eWardAccounts(): void {
       { encoding: 'utf8', env: { ...process.env, SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey() } },
     );
   }
+}
+
+/**
+ * Provision GAMMA's FACILITY-LEVEL reporting login THROUGH THE PRODUCTION SCRIPT
+ * (R-2026-09-27-144 DT). No --category: the reporter holds none, and 026's
+ * app.provision_begin refuses one INVALID_ARGUMENT. The gates are SQL's, so this
+ * passes exactly when GAMMA has a contact, an unwithdrawn agreement and at least one
+ * ward, and no ward login is active there.
+ */
+export function provisionE2eReporter(): string {
+  return execFileSync(
+    'node',
+    [
+      join(import.meta.dirname, '..', '..', 'scripts', 'provision_ward_account.mjs'),
+      '--email', REPORTER_EMAIL,
+      '--facility', GAMMA.id,
+      '--role', 'FACILITY_REPORTER',
+    ],
+    { encoding: 'utf8', env: { ...process.env, SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey() } },
+  );
 }

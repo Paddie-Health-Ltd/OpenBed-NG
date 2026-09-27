@@ -26,7 +26,7 @@
 #   STEP 3 -- THE API. The deployed key is accepted and a wrong one refused (the ward
 #   console's two halves), and the Worker FORWARDS an operator call: with no key,
 #   operator_register must be forwarded and refused by Supabase with 401, the answer
-#   readback_worker.sh's probe 1 observed for my_facility_wards. A Worker `refused`
+#   readback_worker.sh's probe 1 observed for my_reporting_wards. A Worker `refused`
 #   there means H5, the Worker redeploy with the admin entries, has not landed.
 #
 # THE SERVICE TOKEN (BQ-2 b). Read ONLY from the environment, as
@@ -278,7 +278,7 @@ rb_expect "step 3 dead half status" "$DEAD_CODE" 401
 rb_expect_contains "step 3 dead half body" "$(rb_body 200)" '"message":"Invalid API key"'
 
 # The Worker forwards an operator call (H5). With no key, forwarded and refused by
-# Supabase with 401: the answer readback_worker.sh's probe 1 reads for my_facility_wards.
+# Supabase with 401: the answer readback_worker.sh's probe 1 reads for my_reporting_wards.
 api_probe POST /rest/v1/rpc/operator_register -H 'Content-Type: application/json' -d '{}'
 rb_expect "step 3 operator call status" "$RB_CODE" 401
 rb_expect "step 3 operator call x-openbed-proxy" "$(rb_header x-openbed-proxy)" "forwarded"

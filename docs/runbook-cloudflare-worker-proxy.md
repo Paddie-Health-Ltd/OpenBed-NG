@@ -72,11 +72,17 @@ deploy. Run with no URL, or a non-https one, it STOPs before sending anything.
 
 | Check | Request | Must read |
 |---|---|---|
-| probe 1 — no key: forwarded, refused by Supabase's gateway | `POST /rest/v1/rpc/my_facility_wards`, no key | `401`, `sb-project-ref: klrlpxysjsjpdkeqdhvl` (read from `packages/origins/origins.json`), `x-openbed-proxy: forwarded` |
+| probe 1 — no key: forwarded, refused by Supabase's gateway | `POST /rest/v1/rpc/my_reporting_wards`, no key | `401`, `sb-project-ref: klrlpxysjsjpdkeqdhvl` (read from `packages/origins/origins.json`), `x-openbed-proxy: forwarded` |
+| probe 1b — the HEFAMAA write, no key: forwarded, refused by Supabase's gateway | `POST /rest/v1/rpc/operator_record_registration`, no key | the same three values as probe 1 |
 | probe 2 — the tracked key: forwarded, accepted | `GET /auth/v1/settings` with the key from `packages/origins/publishable-keys.json` | `200`, `x-openbed-proxy: forwarded` |
 | probe 2, HEAD half | the same, as HEAD (`curl -I`, never `-X HEAD`) | `405`, `x-openbed-proxy: forwarded` |
 | probe 3 — off the list: refused HERE, Supabase never asked | `GET /rest/v1/` | `404`, `x-openbed-proxy: refused`, body `{"message":"not forwarded by the OpenBed proxy"}` |
 | the stamp | `GET` and `HEAD /__openbed/version` | `"commit"` = this checkout's HEAD, `"dirty": false`; HEAD `200` with `x-openbed-proxy: stamp` |
+
+*Restated 2026-09-27 (R-2026-09-27-145 DU-2; R-2026-09-27-144 DT k): probe 1's path read
+`/rest/v1/rpc/my_facility_wards` until 026 renamed that function, and probe 1b is new. The
+values in both rows are the gateway's no-key answer observed on 2026-09-23 on the OLD path;
+they are first read on the new paths by the Worker read-back in 025 and 026's hosted run.*
 
 **What the WRONG lines mean:**
 

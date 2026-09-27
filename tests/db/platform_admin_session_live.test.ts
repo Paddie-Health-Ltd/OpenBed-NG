@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from 'vitest';
 import { signInWard, authedRest, type WardSession } from '../setup/auth.js';
 import { sql } from '../setup/db.js';
-import ZERO_WARD from '../../packages/fixtures/platform-admin-my-facility-wards.json';
+import ZERO_WARD from '../../packages/fixtures/platform-admin-my-reporting-wards.json';
 
 /**
  * WHAT A REAL PLATFORM_ADMIN SESSION GETS FROM EVERY FUNCTION `authenticated` CAN RUN
@@ -18,7 +18,7 @@ import ZERO_WARD from '../../packages/fixtures/platform-admin-my-facility-wards.
  * stated:
  *   - publish_ward_status REFUSES it: its explicit WARD_STAFF check (014:189-193)
  *     gives 42501 INSUFFICIENT_ROLE after assert_member lets it through;
- *   - my_facility_wards and ward_status_history do NOT refuse it. assert_member
+ *   - my_reporting_wards and ward_status_history do NOT refuse it. assert_member
  *     returns early, and each then filters on the account's facility, which is NULL
  *     for a platform admin, so each answers 200 with ZERO rows. No data from any
  *     facility, but no refusal either;
@@ -60,11 +60,11 @@ describe('a real PLATFORM_ADMIN session, function by function', () => {
     expect(JSON.stringify(r.body)).toContain('INSUFFICIENT_ROLE');
   });
 
-  test('my_facility_wards — NOT refused: 200 and zero rows, because the account has no facility', async () => {
+  test('my_reporting_wards — NOT refused: 200 and zero rows, because the account has no facility', async () => {
     // THE SHARED-FIXTURE LINK (R-2026-09-24-88 BP-8): the ward console's render test
     // draws its zero-ward stop against this same file, so the stop is tested against
     // what a real PLATFORM_ADMIN session gets, and a change here reds both.
-    const r = await call('my_facility_wards', {});
+    const r = await call('my_reporting_wards', {});
     expect(r.status, JSON.stringify(r.body)).toBe(200);
     expect(ZERO_WARD.body, 'the shared fixture stopped saying zero rows').toEqual([]);
     expect(r.body, 'the live body no longer matches the fixture the ward console is tested against').toEqual(ZERO_WARD.body);

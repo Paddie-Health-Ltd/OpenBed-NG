@@ -29,9 +29,10 @@ import { withScratch, place, copyMigrations, REPO_ROOT } from './_scratch.js';
  * says "not offered at this facility" only for a ward that has LEFT PENDING, because
  * a new ward is NOT_OFFERED by default and nothing records whether anyone chose it.
  * That is sound only while every write that moves a ward to ACTIVE also writes its
- * offering. Today the one such write is publish_ward_status's UPDATE (014), and the
- * last block below holds it to that: a second writer, or one that leaves offering
- * alone, turns this red and has to be looked at.
+ * offering. Today the one such writer is publish_ward_status's UPDATE -- 014's, and
+ * 026's redefinition of the same function (R-2026-09-27-144 DT e), which the live
+ * database runs -- and the last block below holds it to that: a second writer, or
+ * one that leaves offering alone, turns this red and has to be looked at.
  *
  * NOT ASSERTED HERE, deliberately:
  *   - writers outside database/migrations (the seed, the e2e harness, tests). They
@@ -417,10 +418,15 @@ export function activeWriters(dir: string): ActiveWriter[] {
 }
 
 describe('a ward leaves PENDING only by stating its offering', () => {
+  // One entry per write SITE: 014 defines publish_ward_status and 026 redefines it
+  // (R-2026-09-27-144 DT e). Both sites are the same writer, and both state the offering.
+  const REAL_WRITERS = [
+    { writer: 'public.publish_ward_status', statesOffering: true },
+    { writer: 'public.publish_ward_status', statesOffering: true },
+  ];
+
   test('real migrations are accepted — the one writer of ACTIVE is publish_ward_status, and it states the offering', () => {
-    expect(activeWriters(MIGRATIONS), 'the writer set changed; "not offered" rests on it').toEqual([
-      { writer: 'public.publish_ward_status', statesOffering: true },
-    ]);
+    expect(activeWriters(MIGRATIONS), 'the writer set changed; "not offered" rests on it').toEqual(REAL_WRITERS);
   });
 
   test('plant — a second path to ACTIVE that leaves offering alone is rejected', () => {
@@ -447,7 +453,7 @@ describe('a ward leaves PENDING only by stating its offering', () => {
     withScratch((root) => {
       copyMigrations(root);
       place(root, 'database/migrations/099_read.sql', "CREATE VIEW app.active_wards AS SELECT id FROM app.ward_status WHERE monitoring_state = 'ACTIVE';\n");
-      expect(activeWriters(join(root, 'database', 'migrations'))).toEqual([{ writer: 'public.publish_ward_status', statesOffering: true }]);
+      expect(activeWriters(join(root, 'database', 'migrations'))).toEqual(REAL_WRITERS);
     });
   });
 

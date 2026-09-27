@@ -147,7 +147,7 @@ describe('the function-EXECUTE surface, against packages/fixtures/function-grant
   });
 
   test.each<[string, string, string]>([
-    ['a grant to anon on a ward RPC', 'grant execute on function public.my_facility_wards() to anon', "  WRONG  public.my_facility_wards() EXECUTE: read 'anon,authenticated', must be 'authenticated'"],
+    ['a grant to anon on a ward RPC', 'grant execute on function public.my_reporting_wards() to anon', "  WRONG  public.my_reporting_wards() EXECUTE: read 'anon,authenticated', must be 'authenticated'"],
     ['a grant revoked from authenticated', 'revoke execute on function public.publish_ward_status(text, text, integer, boolean, text, integer, text, timestamptz) from authenticated', "  WRONG  public.publish_ward_status(text, text, integer, boolean, text, integer, text, timestamp with time zone) EXECUTE: read 'none', must be 'authenticated'"],
     ['a grant to anon on a provisioning gate', 'grant execute on function app.provision_begin(uuid, text, text) to anon', "  WRONG  app.provision_begin(uuid, text, text) EXECUTE: read 'anon', must be 'none'"],
     // A new function in public reads EXECUTE for all three roles with no GRANT written:

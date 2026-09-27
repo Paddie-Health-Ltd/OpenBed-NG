@@ -12,7 +12,8 @@
     "user_id",
     "ip_address",
     "user_agent",
-    "display_name"
+    "display_name",
+    "hefamaa_reg_no"
   ],
-  "why_absent_names_are_listed": "refusal_note has NEVER existed -- it was cut from the first schema draft and survives only in comments explaining its removal. fingerprint, actor_id, user_id, ip_address, user_agent and display_name were removed or never built under the ward-level identity decision (2026-09-08), which banned them from the audit log and the event stream; they are banned from the anonymous surface as well, at zero cost. The subset that must exist in app today is kept in the catalogue test, where it is that test's own anti-vacuity leg."
+  "why_absent_names_are_listed": "refusal_note has NEVER existed -- it was cut from the first schema draft and survives only in comments explaining its removal. fingerprint, actor_id, user_id, ip_address, user_agent and display_name were removed or never built under the ward-level identity decision (2026-09-08), which banned them from the audit log and the event stream; they are banned from the anonymous surface as well, at zero cost. The subset that must exist in app today is kept in the catalogue test, where it is that test's own anti-vacuity leg. hefamaa_reg_no EXISTS (app.facility, migration 026, R-2026-09-27-144 DT k): a facility's HEFAMAA registration number, operator-only and never public by the founder's decision of 2026-09-27; it is listed so that a projection change carrying it to a mirror or to /beds.json goes red."
 }

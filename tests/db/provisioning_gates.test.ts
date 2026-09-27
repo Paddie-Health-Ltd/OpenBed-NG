@@ -335,3 +335,226 @@ describe('no client role can reach the gates', () => {
     expect(rows.every((r) => !r.can), JSON.stringify(rows)).toBe(true);
   });
 });
+
+describe('026 — the facility reporter is provisioned through the same gates, and one source reports per ward (R-2026-09-27-144 DT c, g)', () => {
+  const REPORTER = 'FACILITY_REPORTER';
+  const deactivate = (tx: TransactionSql, id: string) =>
+    tx.unsafe(`update app.ward_account set is_active = false, deactivated_at = now() where id = '${id}'`);
+  const reporterBegin = (tx: TransactionSql): Promise<Begin> => begin(tx, '', REPORTER);
+  const insertAccount = (tx: TransactionSql, role: 'WARD_STAFF' | 'FACILITY_REPORTER', id: string = randomUUID()): Promise<unknown> =>
+    tx.unsafe(`insert into app.ward_account (id, facility_id, ward_category, role) values ('${id}', '${FAC}', ${role === 'WARD_STAFF' ? "'ICU_ADULT'" : 'null'}, '${role}')`);
+
+  test('the reporter is provisioned: begin opens a facility-scoped invite with no category, complete makes the account, and a second begin is complete', async () => {
+    const user = randomUUID();
+    await withRole('postgres', null, async (tx) => {
+      const b = await reporterBegin(tx);
+      expect(b.status).toBe('open');
+      const [inv] = await tx.unsafe<{ facility_id: string; ward_category: string | null; role: string }[]>(
+        `select facility_id, ward_category, role from app.invite where id = '${b.invite_id}'`,
+      );
+      expect(inv).toEqual({ facility_id: FAC, ward_category: null, role: REPORTER });
+      expect(await complete(tx, b.invite_id ?? '', user)).toBe('complete');
+      const [acct] = await tx.unsafe<{ role: string; facility_id: string; ward_category: string | null; is_active: boolean }[]>(
+        `select role, facility_id, ward_category, is_active from app.ward_account where id = '${user}'`,
+      );
+      expect(acct).toEqual({ role: REPORTER, facility_id: FAC, ward_category: null, is_active: true });
+      expect(await reporterBegin(tx), 'begin opened a second reporter invite while one is active').toEqual({ status: 'complete', invite_id: null });
+    }, (tx) => facility(tx, 'signed'));
+  });
+
+  test('a reporter invite with a category is refused INVALID_ARGUMENT', async () => {
+    const r = await refusal(withRole('postgres', null, (tx) => begin(tx, 'ICU_ADULT', REPORTER), (tx) => facility(tx, 'signed')));
+    expect(r.message).toBe('INVALID_ARGUMENT');
+  });
+
+  test('a reporter invite with no facility is refused INVALID_ARGUMENT — never provisioned as the operator (the 022 ELSE)', async () => {
+    const r = await refusal(withRole('postgres', null, (tx) => begin(tx, '', REPORTER, null), (tx) => facility(tx, 'signed')));
+    expect(r.message).toBe('INVALID_ARGUMENT');
+  });
+
+  test.each<[string, 'none' | 'unsigned' | 'withdrawn', string]>([
+    ['no contact', 'none', 'NO_FACILITY_CONTACT'],
+    ['no agreement', 'unsigned', 'AGREEMENT_NOT_RECORDED'],
+    ['a withdrawn agreement', 'withdrawn', 'AGREEMENT_WITHDRAWN'],
+  ])('a reporter at a facility with %s is refused %s', async (_what, state, code) => {
+    const r = await refusal(withRole('postgres', null, (tx) => reporterBegin(tx), async (tx) => {
+      await facility(tx, state === 'withdrawn' ? 'signed' : state);
+      if (state === 'withdrawn') await tx.unsafe(`update app.facility_agreement set withdrawn_on = '2026-09-20' where facility_id = '${FAC}'`);
+    }));
+    expect(r.message).toBe(code);
+  });
+
+  test('a reporter at a facility with no ward is refused NO_CATEGORY', async () => {
+    const r = await refusal(withRole('postgres', null, (tx) => reporterBegin(tx), async (tx) => {
+      await facility(tx, 'signed');
+      await tx.unsafe(`delete from app.ward_status where facility_id = '${FAC}'`);
+    }));
+    expect(r.message).toBe('NO_CATEGORY');
+  });
+
+  test('FACILITY_ADMIN falls to the ELSE and is refused ROLE_NOT_PROVISIONED_IN_V1, naming the role', async () => {
+    const r = await refusal(withRole('postgres', null, (tx) => tx.unsafe(`select * from app.provision_begin('${FAC}', NULL, 'FACILITY_ADMIN')`), (tx) => facility(tx, 'signed')));
+    expect(r.message).toBe('ROLE_NOT_PROVISIONED_IN_V1');
+  });
+
+  test('a reporter where a ward login is active is refused REPORTING_MODEL_CONFLICT at begin, and opens no invite', async () => {
+    await withRole('postgres', null, async (tx) => {
+      const w = await begin(tx);
+      await complete(tx, w.invite_id ?? '', randomUUID());
+      const r = await refusal(tx.savepoint((sp) => sp.unsafe(`select * from app.provision_begin('${FAC}', NULL, '${REPORTER}')`)));
+      expect(r.message).toBe('REPORTING_MODEL_CONFLICT');
+      const [n] = await tx.unsafe<{ n: number }[]>(`select count(*)::int as n from app.invite where facility_id = '${FAC}' and role = '${REPORTER}'`);
+      expect(n?.n, 'an invite opened despite the conflict').toBe(0);
+    }, (tx) => facility(tx, 'signed'));
+  });
+
+  test('a ward login where a reporter is active is refused REPORTING_MODEL_CONFLICT at begin, and opens no invite', async () => {
+    await withRole('postgres', null, async (tx) => {
+      const b = await reporterBegin(tx);
+      await complete(tx, b.invite_id ?? '', randomUUID());
+      const r = await refusal(tx.savepoint((sp) => sp.unsafe(`select * from app.provision_begin('${FAC}', 'ICU_ADULT', 'WARD_STAFF')`)));
+      expect(r.message).toBe('REPORTING_MODEL_CONFLICT');
+      const [n] = await tx.unsafe<{ n: number }[]>(`select count(*)::int as n from app.invite where facility_id = '${FAC}' and role = 'WARD_STAFF'`);
+      expect(n?.n, 'an invite opened despite the conflict').toBe(0);
+    }, (tx) => facility(tx, 'signed'));
+  });
+
+  test.each<['WARD_STAFF' | 'FACILITY_REPORTER', 'WARD_STAFF' | 'FACILITY_REPORTER']>([
+    ['WARD_STAFF', 'FACILITY_REPORTER'],
+    ['FACILITY_REPORTER', 'WARD_STAFF'],
+  ])('the trigger — an active %s makes a direct INSERT of an active %s at the same facility REPORTING_MODEL_CONFLICT', async (first, second) => {
+    await withRole('postgres', null, async (tx) => {
+      await insertAccount(tx, first);
+      const r = await refusal(tx.savepoint((sp) => insertAccount(sp, second)));
+      expect(r.message).toBe('REPORTING_MODEL_CONFLICT');
+    }, (tx) => facility(tx, 'signed'));
+  });
+
+  test('the trigger — reactivating a ward login while a reporter is active is REPORTING_MODEL_CONFLICT, through provision_complete and by hand', async () => {
+    const ward = randomUUID();
+    await withRole('postgres', null, async (tx) => {
+      const w = await begin(tx);
+      await complete(tx, w.invite_id ?? '', ward);
+      await deactivate(tx, ward);
+      const b = await reporterBegin(tx);
+      await complete(tx, b.invite_id ?? '', randomUUID());
+      // begin refuses the ward now (above), so the reopening invite is made directly.
+      const [inv] = await tx.unsafe<{ id: string }[]>(`insert into app.invite (facility_id, ward_category, role) values ('${FAC}', 'ICU_ADULT', 'WARD_STAFF') returning id`);
+      const viaComplete = await refusal(tx.savepoint((sp) => sp.unsafe(`select * from app.provision_complete('${inv?.id}', '${ward}')`)));
+      expect(viaComplete.message).toBe('REPORTING_MODEL_CONFLICT');
+      const byHand = await refusal(tx.savepoint((sp) => sp.unsafe(`update app.ward_account set is_active = true, deactivated_at = null where id = '${ward}'`)));
+      expect(byHand.message).toBe('REPORTING_MODEL_CONFLICT');
+    }, (tx) => facility(tx, 'signed'));
+  });
+
+  test('control — an INACTIVE ward login beside an active reporter is accepted: the rule is about who reports now', async () => {
+    await withRole('postgres', null, async (tx) => {
+      await insertAccount(tx, 'FACILITY_REPORTER');
+      await tx.unsafe(`insert into app.ward_account (id, facility_id, ward_category, role, is_active, deactivated_at) values ('${randomUUID()}', '${FAC}', 'ICU_ADULT', 'WARD_STAFF', false, now())`);
+      const [n] = await tx.unsafe<{ n: number }[]>(`select count(*)::int as n from app.ward_account where facility_id = '${FAC}'`);
+      expect(n?.n).toBe(2);
+    }, (tx) => facility(tx, 'signed'));
+  });
+
+  test('the trigger refuses to run under REPEATABLE READ, where its read could not see a concurrent writer', async () => {
+    const sentinel = new Error('rollback');
+    let message = '';
+    try {
+      await sql().begin('isolation level repeatable read', async (tx) => {
+        await facility(tx, 'signed');
+        try {
+          await tx.savepoint((sp) => insertAccount(sp, 'FACILITY_REPORTER'));
+        } catch (e) {
+          message = (e as Error).message;
+        }
+        throw sentinel;
+      });
+    } catch (e) {
+      if (e !== sentinel) throw e;
+    }
+    expect(message).toBe('REPORTING_MODEL_CHECK_ISOLATION');
+  });
+
+  test('a second active reporter is refused REPORTER_ALREADY_EXISTS by name, never a raw 23505 — and the index refuses it written directly', async () => {
+    await withRole('postgres', null, async (tx) => {
+      // The invite is opened while no reporter exists; one then appears by another path.
+      const b = await reporterBegin(tx);
+      await insertAccount(tx, 'FACILITY_REPORTER');
+      const r = await refusal(tx.savepoint((sp) => sp.unsafe(`select * from app.provision_complete('${b.invite_id}', '${randomUUID()}')`)));
+      expect(r.message).toBe('REPORTER_ALREADY_EXISTS');
+      expect(r.code, 'the refusal surfaced as the raw unique violation').not.toBe('23505');
+      const raw = await refusal(tx.savepoint((sp) => insertAccount(sp, 'FACILITY_REPORTER')));
+      expect(raw.code, 'the index did not refuse a second active reporter written directly').toBe('23505');
+      expect(raw.message).toContain('ward_account_one_active_reporter');
+    }, (tx) => facility(tx, 'signed'));
+  });
+
+  test('a deactivated reporter re-provisioned through the gates is reactivated', async () => {
+    const user = randomUUID();
+    await withRole('postgres', null, async (tx) => {
+      const first = await reporterBegin(tx);
+      await complete(tx, first.invite_id ?? '', user);
+      await deactivate(tx, user);
+      const again = await reporterBegin(tx);
+      expect(again.status, 'begin treated a switched-off reporter as complete').toBe('open');
+      expect(await complete(tx, again.invite_id ?? '', user)).toBe('reactivated');
+    }, (tx) => facility(tx, 'signed'));
+  });
+
+  test('an erased reporter login is refused LOGIN_ERASED, as a ward login is', async () => {
+    const user = randomUUID();
+    await withRole('postgres', null, async (tx) => {
+      const first = await reporterBegin(tx);
+      await complete(tx, first.invite_id ?? '', user);
+      await tx.unsafe(`update app.ward_account set is_active = false, deactivated_at = now() - interval '40 days', login_erased_at = now() where id = '${user}'`);
+      const again = await reporterBegin(tx);
+      const r = await refusal(tx.savepoint((sp) => sp.unsafe(`select * from app.provision_complete('${again.invite_id}', '${user}')`)));
+      expect(r.message).toBe('LOGIN_ERASED');
+    }, (tx) => facility(tx, 'signed'));
+  });
+
+  test('the race — a reporter and a ward login activated at one facility over two real connections: exactly one succeeds, and the second WAITED on the first', async () => {
+    // COMMITS, because two connections cannot share a rolled-back transaction. Its own
+    // facility id, so no other test's rows are touched; direct inserts, so no
+    // append-only audit row pins the facility; finally removes every row it made.
+    const RACE = '0d000000-0000-4000-8000-0000000000fa';
+    const [reporter, ward] = [randomUUID(), randomUUID()];
+    let release!: () => void;
+    const released = new Promise<void>((r) => { release = r; });
+    let inserted!: () => void;
+    const aInserted = new Promise<void>((r) => { inserted = r; });
+    try {
+      await sql().unsafe(`
+        insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, listed_at)
+        values ('${RACE}', 'Race Facility', 'Yaba', 'Lagos', 6.51, 3.38, '+2348000000402', NULL)`);
+      await sql().unsafe(`insert into app.ward_status (facility_id, category, offering) values ('${RACE}', 'ICU_ADULT', 'OFFERED')`);
+
+      const a = sql().begin(async (tx) => {
+        await tx.unsafe(`insert into app.ward_account (id, facility_id, ward_category, role) values ('${reporter}', '${RACE}', null, 'FACILITY_REPORTER')`);
+        inserted();
+        await released;
+      });
+      // Proceeds once A's INSERT has landed -- or fails here, naming A's error, if it
+      // could not land (a reporter row the scope CHECK refuses, before 026).
+      await Promise.race([aInserted, a.then(() => undefined)]);
+      let bSettled = false;
+      const b = sqlSecond()
+        .unsafe(`insert into app.ward_account (id, facility_id, ward_category, role) values ('${ward}', '${RACE}', 'ICU_ADULT', 'WARD_STAFF')`)
+        .finally(() => { bSettled = true; });
+      await new Promise((r) => setTimeout(r, 500));
+      const waited = !bSettled;
+      release();
+      const results = await Promise.allSettled([a, b]);
+      expect(waited, 'the ward login did not wait for the reporter\'s transaction: nothing serialised them').toBe(true);
+      expect(results.map((r) => r.status), JSON.stringify(results)).toEqual(['fulfilled', 'rejected']);
+      expect(((results[1] as PromiseRejectedResult).reason as Error).message).toBe('REPORTING_MODEL_CONFLICT');
+      const [n] = await sql()<{ n: number }[]>`select count(*)::int as n from app.ward_account where facility_id = ${RACE}::uuid and is_active`;
+      expect(n?.n, 'both kinds of login are active at one facility').toBe(1);
+    } finally {
+      release();
+      await sql()`delete from app.ward_account where id in (${reporter}::uuid, ${ward}::uuid)`;
+      await sql()`delete from app.ward_status where facility_id = ${RACE}::uuid`;
+      await sql()`delete from app.facility where id = ${RACE}::uuid`;
+    }
+  });
+});

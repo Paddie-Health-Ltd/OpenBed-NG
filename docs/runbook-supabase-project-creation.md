@@ -943,11 +943,15 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions.
 Restated 2026-09-14: until then this read `exactly 13 migration(s) pending.`, and
 migration 014 made that wrong.
 
-- **The hosted project today** holds 001 through 024 (see step 7), and so does the
-  repository. Every file up to and including
+- **The hosted project today** holds 001 through 024 (see step 7), and the
+  repository ends at 026. Every file up to and including
   `024_retention_jobs.sql` must read `already applied`;
-  there must be no `WOULD APPLY` line; and the dry run must end
-  `0 migration(s) pending.`
+  there must be exactly two `WOULD APPLY` lines, naming `025_facility_reporter_role.sql`
+  and then `026_facility_reporter_and_checks.sql`; and the dry run must end
+  `2 migration(s) pending.` Apply them by "025 and 026's apply" below.
+- **Restated 2026-09-27 (R-2026-09-27-144 DT l), in the change that ADDS 025 and 026.**
+  Until then this expected no `WOULD APPLY` line and `0 migration(s) pending.`, which
+  was right from 024's hosted apply while the repository ended at 024.
 - **Restated 2026-09-27 (R-2026-09-27-139 DO-1 a), in the change that records 024's
   hosted apply.** Until then this expected 001 through 023, exactly one `WOULD APPLY`
   line naming `024_retention_jobs.sql`, and `1 migration(s) pending.` The founder's
@@ -1029,10 +1033,14 @@ migration 014 made that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line AT ALL, or any count other than
-  `0 migration(s) pending.`: stop and report.** Another file pending means
+- **Any `WOULD APPLY` line OTHER than the two named above, or any count other than
+  `2 migration(s) pending.`: stop and report.** Another file pending means
   either a migration reached the repository after the list was last restated, or
   hosted is not where this document says it is.
+  - *Restated 2026-09-27 (R-2026-09-27-144 DT l), in the change that adds 025 and 026.
+    Until then this bullet read "Any `WOULD APPLY` line AT ALL, or any count other than
+    `0 migration(s) pending.`", which was right from 024's hosted apply until this
+    change merged.*
   - *Restated 2026-09-27 (R-2026-09-27-139 DO-1 a), in the change that records 024's
     hosted apply. Until then this bullet read "Any `WOULD APPLY` line OTHER than the
     one named above, or any count other than `1 migration(s) pending.`", which was
@@ -2088,14 +2096,138 @@ this apply. On 2026-09-27 it was (R-2026-09-27-139).
 
 - [x] On 2026-09-27, 024 applied, from the deploy checkout at `3623d2b` (#90's merge; Cowork's reading of the founder's pasted terminal output, read in full, R-2026-09-27-139 DO-1 a). A: `1` | `0` | `t|t|t` | `auth.identities|c` | `auth.one_time_tokens|c`. Fence 1: twenty-three `already applied`, `WOULD APPLY` `024_retention_jobs.sql`, "1 migration(s) pending." Fence 2: `FINGERPRINT beds.json=0/0:543f06c0b0c4,facility_public=0:d41d8cd98f00,ward_public=0:d41d8cd98f00,lga_rollup=0:d41d8cd98f00`, taken twice, identical. Fence 3: "Applying 024_retention_jobs.sql", the two expected DROP-IF-EXISTS NOTICEs, `cron.schedule` ids 3, 4 and 5, "Migrations complete (1 applied this run)." Fence 4: all four `ok`, "PASS (VACUOUS FOR B1)". Fence 5: twenty-four `already applied` (001 to 024), "0 migration(s) pending." Fence 6: PASS; `app.check_withdrawn_facility_accounts()`, `app.erase_lapsed_ward_logins()` and `app.prune_ended_auth_sessions()` read `EXECUTE: none`, and `public.rls_auto_enable()` reads `ok` (hosted-only). B: `1`, then exactly the five jobs -- the three retention jobs at `37 2 * * *`, `17 2 * * *` and `27 2 * * *`, and 017's two -- all `postgres`, all active.
 
+### 025 and 026's apply — the facility-level login; two readings around the same six fences (R-2026-09-27-144 DT l)
+
+**Not yet run.** The founder runs it after the pull request that adds 025 and 026
+merges, first in DT's hosted runs, and then redeploys the Worker (below). Claude Code
+runs nothing hosted.
+
+**What 025 and 026 change** (their headers say why). 025 adds the value
+`FACILITY_REPORTER` to `app.app_role` and nothing else: PostgreSQL refuses to use an enum
+value in the transaction that added it, and the runner applies each file in its own
+transaction. **It is the one irreversible step in this sprint: PostgreSQL cannot drop
+an enum value.** 026 then:
+- widens the two scope CHECKs;
+- allows one active reporting login per facility;
+- adds the trigger that keeps a facility to one reporting model, `REPORTING_MODEL_CONFLICT`;
+- lets the reporter publish, as source `WARD`, for any ward at its own facility;
+- gives explicit branches to `app.provision_begin`;
+- adds the reporter's arm to the erasure CHECK;
+- adds the reporting model and `retention_alert` to the operator's register;
+- adds a form CHECK on the contact email;
+- adds the operator-only `app.facility.hefamaa_reg_no`, with its writer
+  `public.operator_record_registration`;
+- renames `public.my_facility_wards()` to `public.my_reporting_wards()`, which carries
+  `can_publish` (R-2026-09-27-145 DU-1).
+
+Neither file writes a public row, and the -45 gate is unaffected: neither creates a
+facility or a ward_account row.
+
+**If 026 refuses after 025 has committed,** 025's value stays, unused, and nothing else
+changed. Correct what the refusal names, then run the apply again: the runner skips 025
+and applies 026 alone.
+
+**The window (R-2026-09-27-145 DU-4 a):** from this apply until the ward console is
+redeployed from a commit containing 026, the deployed console calls
+`my_facility_wards`, which no longer exists. Hosted has no ward or facility login, and
+12.4 step 5 provisions none until that redeploy reads back.
+
+**A. The before-reading.** It only reads. **It must read, in this order:** `0`; `0`; `0`.
+- The first line counts the `app.ward_account` and `app.invite` rows that fit no arm of
+  026's scope CHECKs. It compares roles as text, because the value does not exist yet.
+- The second counts contact emails that 026's form CHECK would refuse.
+- The third counts `FACILITY_REPORTER` labels on `app.app_role`, which does not exist
+  before 025.
+- 026 refuses by name on the first two (`SCOPE_CHECK_VIOLATIONS`,
+  `CONTACT_EMAIL_MALFORMED`). This reading shows them before anything is applied.
+- **Any other reading: stop and report, and do not apply.**
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select (select count(*) from app.ward_account a where not ((a.role::text = 'WARD_STAFF' and a.facility_id is not null and a.ward_category is not null) or (a.role::text in ('FACILITY_ADMIN', 'FACILITY_REPORTER') and a.facility_id is not null and a.ward_category is null) or (a.role::text = 'PLATFORM_ADMIN' and a.facility_id is null and a.ward_category is null))) + (select count(*) from app.invite i where not ((i.role::text = 'WARD_STAFF' and i.facility_id is not null and i.ward_category is not null) or (i.role::text in ('FACILITY_ADMIN', 'FACILITY_REPORTER') and i.facility_id is not null and i.ward_category is null) or (i.role::text = 'PLATFORM_ADMIN' and i.facility_id is null and i.ward_category is null)))"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select count(*) from app.facility_contact where email is not null and email !~ '^[^@[:space:]]+@[^@[:space:]]+$'"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select count(*) from pg_enum where enumtypid = 'app.app_role'::regtype and enumlabel = 'FACILITY_REPORTER'"
+unset DATABASE_URL
+```
+
+**Then run the six fences of "020's apply" above, in the same order, with these
+expectations for 025 and 026.** Only what each must read changes:
+
+1. **The dry run:** exactly two `WOULD APPLY` lines, naming
+   `025_facility_reporter_role.sql` and then `026_facility_reporter_and_checks.sql`, and
+   the count the list at the top of this step states. Anything else: stop and report.
+2. **The before-reading:** as for 020. Keep the `FINGERPRINT` line.
+3. **The apply:** as for 020. It applies the two files in order, each in its own
+   transaction, and ends by saying two were applied this run. A refusal from 026's
+   pre-checks, `SCOPE_CHECK_VIOLATIONS` or `CONTACT_EMAIL_MALFORMED`, names its count:
+   stop and report. Fence A should have shown it first.
+4. **The after-reading:** as for 020. `PASS (VACUOUS FOR B1)` is expected while hosted
+   lists no facility. Neither file changes what a projection writes, and
+   `hefamaa_reg_no` is never projected.
+5. **The second dry run:** twenty-six `already applied` lines, naming
+   `001_app_schema_and_migration_ledger.sql` through
+   `026_facility_reporter_and_checks.sql`, no `WOULD APPLY` line, and the same last line
+   as 020's fence 5, saying nothing is pending. Anything else: stop and report.
+6. **Who can execute what:** as for 020, run after the apply. Three lines are new:
+   - `app.enforce_one_reporting_source() EXECUTE: none`;
+   - `public.my_reporting_wards() EXECUTE: authenticated`;
+   - `public.operator_record_registration(text, integer, text) EXECUTE: authenticated`.
+
+   `public.my_facility_wards()` is no longer listed: 026 drops it, and
+   `packages/fixtures/function-grants.json` no longer names it. Every other line reads as
+   before, and `public.rls_auto_enable()` reads `ok` under `(hosted-only)`. Anything
+   else: stop and report.
+
+**B. The after-reading.** **It must read `1`, and then `t|t|t`.**
+- `1` is the one `FACILITY_REPORTER` label.
+- The three `t`s say that the one-source trigger exists, that `my_facility_wards()` is
+  gone, and that `my_reporting_wards()` is there.
+- **Anything else: stop and report.**
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+read -rs DATABASE_URL && export DATABASE_URL
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select count(*) from pg_enum where enumtypid = 'app.app_role'::regtype and enumlabel = 'FACILITY_REPORTER'"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select exists (select 1 from pg_trigger where tgname = 'trg_ward_account_one_reporting_source'), to_regprocedure('public.my_facility_wards()') is null, to_regprocedure('public.my_reporting_wards()') is not null"
+unset DATABASE_URL
+```
+
+**Then the Worker.** 026 renames the ward console's read and adds the HEFAMAA write, so
+the allow-list changed with it:
+- `/rest/v1/rpc/my_reporting_wards` replaces `/rest/v1/rpc/my_facility_wards`;
+- `/rest/v1/rpc/operator_record_registration` is new.
+
+From the same deploy checkout, redeploy the Worker and read it back, by sections 1 and 2
+of `docs/runbook-cloudflare-worker-proxy.md`. The read-back must read `PASS`, including:
+- probe 1, now on `my_reporting_wards`;
+- probe 1b, on `operator_record_registration`.
+
+Probe 4 is Cowork's, as always.
+
+**Neither down migration is applied here on anyone's own authority.** 026's refuses
+while data depends on it (`REPORTER_ROWS_EXIST`, `REPORTER_ERASURES_EXIST`,
+`HEFAMAA_NUMBERS_RECORDED`). 025's removes nothing: PostgreSQL cannot drop the value.
+
+**Afterwards:** the frozen boundary is recorded with `26`, in the change that records
+this apply.
+
+- [ ] 025 and 026 applied, and the Worker redeployed and read back (the date, the checkout's commit, and each reading: A, 1 to 6, B, the Worker's read-back)
+
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 024 applied, and so does the repository
-end), the dry run prints twenty-four `already applied` lines and:
+**On the hosted project today** (001 through 024 applied, and the repository ending
+at 026), the dry run prints twenty-four `already applied` lines and:
 
 ```
-0 migration(s) pending.
+  WOULD APPLY     : 025_facility_reporter_role.sql   <- dry run
+  WOULD APPLY     : 026_facility_reporter_and_checks.sql   <- dry run
+2 migration(s) pending.
 ```
+
+*Restated 2026-09-27 (R-2026-09-27-144 DT l), in the change that adds 025 and 026.*
+Until then this block showed twenty-four `already applied` lines, no WOULD APPLY line,
+and a count of zero -- right from 024's apply while the repository ended at 024.
 
 *Restated 2026-09-27 (R-2026-09-27-139 DO-1 a), in the change that records 024's
 hosted apply.* Until then this block described the state BEFORE that apply:
@@ -2265,9 +2397,14 @@ Migrations complete (3 applied this run).   <- apply
 second is lower:
 
 ```
-24 migration(s) pending.          <- dry run
-Migrations complete (23 applied this run).   <- apply
+26 migration(s) pending.          <- dry run
+Migrations complete (25 applied this run).   <- apply
 ```
+
+*Restated 2026-09-27 (R-2026-09-27-144 DT l), in the change that adds 025 and 026. This
+block read `24` and `23` -- right while the repository ended at 024. Observed on the
+local stack in this change: a fresh `db:reset` printed `Migrations complete (25 applied
+this run).`*
 
 *Restated 2026-09-27 (R-2026-09-26-136 DL-2), in the change that adds 024. This block
 read `23` and `22` -- right while the repository ended at 023. Observed on the local
@@ -2296,13 +2433,15 @@ so from that merge it named a count one lower than a correct virgin run prints. 
 not one of the hosted expectations the guard parses; it was found by reading the
 section for this restatement.*
 
-**Twenty-three is correct there. Nothing was skipped.** Migration 001 creates the `app`
+**Twenty-five is correct there. Nothing was skipped.** Migration 001 creates the `app`
 schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
 recorded by a ledger that does not exist yet. The runner applies and ledgers it
 in a separate **bootstrap** step, and the apply loop then counts only what it
-applied itself -- 002 through 024, which is twenty-three. The dry run has no bootstrap
+applied itself -- 002 through 026, which is twenty-five. The dry run has no bootstrap
 branch: `is_applied` returns 0 while the ledger is absent, so it counts all
-twenty-four as pending. The two numbers are measuring different things.
+twenty-six as pending. The two numbers are measuring different things.
+*Restated 2026-09-27 (R-2026-09-27-144 DT l), in the change that adds 025 and 026; until
+then this paragraph read twenty-three, 002 through 024, and twenty-four.*
 *Restated 2026-09-27 (R-2026-09-26-136 DL-2), in the change that adds 024; until then
 this paragraph read twenty-two, 002 through 023, and twenty-three.*
 
@@ -2310,9 +2449,12 @@ this paragraph read twenty-two, 002 through 023, and twenty-three.*
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `24`, with `0 migration(s) pending.` from the
-dry run** -- the founder's second dry run after 024's apply, on 2026-09-27, read
-twenty-four `already applied` lines, 001 through 024.
+THAT PROJECT. **On hosted today that is `24`, with `2 migration(s) pending.` from the
+dry run**, naming `025_facility_reporter_role.sql` and
+`026_facility_reporter_and_checks.sql` -- the founder's second dry run after 024's apply,
+on 2026-09-27, read twenty-four `already applied` lines, 001 through 024.
+*Restated 2026-09-27 (R-2026-09-27-144 DT l), in the change that adds 025 and 026; until
+then it read `24` with `0 migration(s) pending.`, right while the repository ended at 024.*
 *Restated 2026-09-27 (R-2026-09-27-139 DO-1 a), in the change that records that apply;
 until then it read `23` with `1 migration(s) pending.`, naming `024_retention_jobs.sql`.*
 *Restated 2026-09-27 (R-2026-09-26-136 DL-2), in the change that adds 024; until then
@@ -4031,8 +4173,28 @@ through the admin app.
    the facility view's first hosted sight.
 3. **Record the contact and the agreement** in the facility's detail view.
 4. **Add the ward categories**, each with its offering stated. There is no default.
-5. **Provision each ward's login** with the script, one ward at a time. A gate refusal
-   names what is missing, and no Auth call is made:
+5. **Provision each ward's login** with the script, one ward at a time.
+
+   **First, a precondition (R-2026-09-27-145 DU-4 b), for every kind of login this step
+   provisions, a ward's or the facility's.** The deployed ward console must be one that
+   reads `my_reporting_wards`. 026 dropped `my_facility_wards`, and a console built
+   before it cannot load a ward.
+   - **The commit to check is the deploy checkout's HEAD.** It must contain 026 and
+     the console's fetch of `rpc/my_reporting_wards`.
+   - The ward console read-back, run from that checkout, must then read `PASS`. That
+     proves the deployed console was built from that HEAD.
+   - **It must print `026 present`, then `1`, then end in `PASS:`.** Anything else:
+     stop, redeploy the ward console by `docs/runbook-ward-console-deploy.md` from a
+     checkout that passes the first two lines, and read it back again before any login
+     is provisioned.
+
+   ```bash
+   git cat-file -e HEAD:database/migrations/026_facility_reporter_and_checks.sql && echo "026 present" || echo "STOP: 026 is not in this checkout"
+   git show HEAD:apps/ward-console/src/main.ts | grep -c "rpc/my_reporting_wards"
+   bash scripts/readback_ward_console.sh https://app.openbed.ng
+   ```
+
+   Then provision. A gate refusal names what is missing, and no Auth call is made:
 
    ```bash
    read -r WARD_EMAIL

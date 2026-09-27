@@ -84,7 +84,7 @@
 #     shipped). This was misclassified GUARD-AHEAD-OF-SUBJECT from commit
 #     fb925b2 / 349e72e onward: the code this corpus is aimed at, "a real
 #     authenticated client fetch", is apps/ward-console/src/main.ts's
-#     holder.authedFetch('rpc/my_facility_wards', ...) call -- sending
+#     holder.authedFetch('rpc/my_reporting_wards', ...) call -- sending
 #     apikey + Authorization: Bearer <token>, and dropping the session on a
 #     real 401 -- and that has been in the built apps/ward-console/dist bundle
 #     since those commits, which predate this correction. The publish screen's

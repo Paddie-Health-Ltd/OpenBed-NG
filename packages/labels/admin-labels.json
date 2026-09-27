@@ -14,6 +14,7 @@
     "INVALID_ARGUMENT:p_job_title": "The contact's full name and job title are both needed.",
     "INVALID_ARGUMENT:p_accepted_on": "Enter the date the agreement was accepted.",
     "INVALID_ARGUMENT:p_signatory_role": "The signatory's role is too long: 64 characters at most.",
+    "INVALID_ARGUMENT:p_email": "That email address is not in a form this page can read. Check it for a missing @ or a space.",
     "NO_SUCH_FACILITY": "This facility no longer exists. Reload the page.",
     "IDEMPOTENCY_CONFLICT": "A facility was already created from this form with other details. Reload to see it.",
     "VERSION_CONFLICT": "This facility changed since you opened it. It has been reloaded, and your changes were not saved.",
@@ -40,7 +41,9 @@
     "facility_contact_sms_requires_optin": "A mobile number is kept only with SMS opt-in ticked. Tick it only if the contact agreed.",
     "facility_agreement_version_is_a_label": "The agreement version must be a short label, such as v1 or 2026-09.",
     "facility_agreement_signatory_role_is_short": "The signatory's role is too long: 64 characters at most.",
-    "facility_agreement_withdrawn_after_accepted": "A withdrawal date cannot be before the acceptance date."
+    "facility_agreement_withdrawn_after_accepted": "A withdrawal date cannot be before the acceptance date.",
+    "facility_contact_email_form": "That email address is not in a form this page can read. Check it for a missing @ or a space.",
+    "facility_hefamaa_reg_no_form": "Enter the registration number as it appears on the certificate, up to 64 characters, or leave it empty."
   },
   "not_null": {
     "facility.name": "The facility needs a name.",

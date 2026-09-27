@@ -522,7 +522,7 @@ describe('from() allowlist guard', () => {
     // absent: this guard is over the lint, and the lint must never read it.
     place(root, 'packages/fixtures/public-relations.json', JSON.stringify({
       clientAddressableRelations: ['facility_public', 'ward_public', 'lga_rollup'],
-      rpcs: ['my_facility_wards', 'ward_status_history'],
+      rpcs: ['my_reporting_wards', 'ward_status_history'],
     }));
   }
 
@@ -578,7 +578,7 @@ describe('from() allowlist guard', () => {
       // person disables.
       place(root, 'packages/fixtures/public-relations.json', JSON.stringify({
         clientAddressableRelations: [],
-        rpcs: ['my_facility_wards', 'ward_status_history', 'publish_ward_status'],
+        rpcs: ['my_reporting_wards', 'ward_status_history', 'publish_ward_status'],
       }));
       place(root, 'apps/x/src/query.ts', "const q = await fetchJson('/beds.json');");
       const res = runLint(LINT, root);
@@ -595,7 +595,7 @@ describe('from() allowlist guard', () => {
       // emptying the relation half did anything at all.
       place(root, 'packages/fixtures/public-relations.json', JSON.stringify({
         clientAddressableRelations: [],
-        rpcs: ['my_facility_wards', 'ward_status_history', 'publish_ward_status'],
+        rpcs: ['my_reporting_wards', 'ward_status_history', 'publish_ward_status'],
       }));
       place(root, 'apps/x/src/query.ts', "const q = db.from('ward_public').select('facility_id,category,bed_count');");
       const res = runLint(LINT, root);
@@ -627,7 +627,7 @@ describe('from() allowlist guard', () => {
     withScratch((root) => {
       place(root, 'packages/fixtures/public-relations.json', JSON.stringify({
         clientAddressableRelations: ['facility_public', 'ward_public', 'lga_rollup', 'bed_ledger_public'],
-        rpcs: ['my_facility_wards', 'ward_status_history'],
+        rpcs: ['my_reporting_wards', 'ward_status_history'],
       }));
       place(root, 'apps/x/src/query.ts', SIXTH);
       const res = runLint(LINT, root);
@@ -653,7 +653,7 @@ describe('from() allowlist guard', () => {
         comment: 'These mirror app.ward_status and must never expose it directly.',
         exposedSchemas: ['public', 'graphql_public'],
         clientAddressableRelations: ['facility_public', 'ward_public', 'lga_rollup'],
-        rpcs: ['my_facility_wards', 'ward_status_history'],
+        rpcs: ['my_reporting_wards', 'ward_status_history'],
       }));
       place(root, 'apps/x/src/query.ts', "const q = db.from('ward_status').select('bed_count');");
       const res = runLint(LINT, root);
@@ -679,7 +679,7 @@ describe('from() allowlist guard', () => {
   test('anti-vacuity — no app source at all refuses to pass', () => {
     withScratch((root) => {
       place(root, 'packages/fixtures/public-relations.json',
-        JSON.stringify({ clientAddressableRelations: ['ward_public'], rpcs: ['my_facility_wards'] }, null, 2));
+        JSON.stringify({ clientAddressableRelations: ['ward_public'], rpcs: ['my_reporting_wards'] }, null, 2));
       place(root, 'README.md', 'x');
       const res = runLint(LINT, root);
       expect(res.status, `an empty source corpus reported clean:\n${res.stdout}`).toBe(2);

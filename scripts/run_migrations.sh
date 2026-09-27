@@ -37,10 +37,14 @@
 # inserting its own filename into app.schema_migrations, the DDL and its ledger
 # row commit together: the schema and the ledger cannot disagree about that file.
 #
-# Verified safe for this corpus: the only CONCURRENTLY and ALTER TYPE ... ADD
-# VALUE occurrences in database/migrations/ are inside comments, so every
-# executable statement here is transactional in PG17. If a future migration needs
-# non-transactional DDL, it needs its own runner path and a note saying why.
+# Verified safe for this corpus: the only CONCURRENTLY occurrences in
+# database/migrations/ are inside comments, and the one executable ALTER TYPE ...
+# ADD VALUE, in 025_facility_reporter_role.sql, is transactional in PG17 -- what
+# PostgreSQL refuses is USING the new value in the transaction that added it, which
+# is why 025 holds the value alone and 026 uses it, each file in its own transaction
+# (R-2026-09-27-144 DT; restated from "inside comments" in the change that adds 025).
+# If a future migration needs non-transactional DDL, it needs its own runner path and
+# a note saying why.
 #
 # RESIDUAL WINDOW, stated rather than left to be discovered: the belt-and-braces
 # `INSERT ... ON CONFLICT DO NOTHING` this script runs AFTER the file is a second,
