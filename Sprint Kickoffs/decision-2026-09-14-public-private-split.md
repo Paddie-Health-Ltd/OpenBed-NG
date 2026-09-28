@@ -8330,6 +8330,179 @@ _Issued as R-PROVISIONAL-2026-09-28-EI, by Cowork on 2026-09-28, on the founder'
 
 Next letter: **EJ**.
 
+### R-2026-09-28-160 — #101 merged: the logo links home is on main
+
+_Issued as R-PROVISIONAL-2026-09-28-EJ, by Cowork on 2026-09-28, as its check of #101 at `9f904f1` and the merge word. It was acted on the same day and HELD for the record, landing here, in the records-only pull request that also lands -161 (EK-1). Number assigned on landing: R-2026-09-28-159 plus one. Next provisional letter: **EK**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-28-EJ — #101 (EI, THE LOGO LINKS HOME): MERGE WORD
+> EJ lands as -160 in the records commit for hosted run 4. Next letter: EK.
+>
+> READ BY COWORK, from its own clone:
+> - main is at be50e35; #101's head is 9f904f15adc84f96c5675d74f07f4364119b8725; main..head is
+>   one commit, 9f904f1, with 5 paths, which match your name-status list;
+> - index.html and privacy.html each wrap the mark and lockup in one
+>   <a class="home-link" href="/" aria-label="OpenBed home">, the mark keeping alt="";
+> - style.css gains the two .home-link rules and nothing else; privacy.css @imports style.css,
+>   so both pages get them from a same-origin stylesheet. No inline style anywhere;
+> - privacy.html still has no <script>: its only external references are the icon and
+>   ./src/privacy.css;
+> - tokens.css's a{}, a:hover{} and :focus-visible{} (lines 200 to 202) are unchanged, and no
+>   .home-link rule restates or overrides the ring;
+> - the height works out: 12 px padding + 44 px link - 16 px margin + 12 px padding + 1 px
+>   border = 53 px, as you measured;
+> - the decision record's -159 entry and ledger row match EI as issued.
+> The eight screenshots in .design-screens/EI/, all read: the lockup is unchanged in colour,
+> with no underline, at 360x740 and 1280x900 on both pages; the focus ring is a whole 2 px teal
+> box on all four focused shots; nothing else on either page moved. All of it matches EI.
+>
+> EJ-1  MERGE WORD. Read the seven required checks on 9f904f1 from the API and quote each one.
+>   Merge only if every one reads success (skipped, neutral or cancelled does not count). Merge as
+>   a merge commit, read MERGED back, then delete ei-home-link on both sides. Report the merge
+>   SHA, its parents and main's register count by kind (59: 15 BOX, 33 TRIGGER, 11 VERSION).
+>   Then STOP.
+>
+> EJ-2  ACCEPTED AS REPORTED:
+>   - the 26 legs, 20 of 26 red on main's build, then 26 of 26; 2570 = 2544 + 26;
+>   - the three off-diff plants (privacy-notice.ts, main.ts, tokens.css), each caught;
+>   - your four slips (the typecheck, the misaimed 40 px plant, the contaminated plant run, the
+>     e2e attestation header), each found and fixed before the commit. Record them in -159's
+>     process notes if they are not there already; they need no new rule.
+>
+> EJ-3  OBSERVED, NO CHANGE. Focused, the ring's outer edge meets the strip above the header and
+>   the header's bottom border, which is what a 44 px target in a 53 px header gives, and the
+>   ring's right side sits close to the "d" of "Bed" (the lockup's -0.02em letter-spacing).
+>   The ring is whole and visible in every shot. Nothing to do; noted so it is not rediscovered.
+>
+> EJ-4  HOSTED RUN 4 IS THE FOUNDER'S, and nothing in it is yours. The steps: refresh the deploy
+>   checkout to #101's merge; deploy the public dashboard; run readback_pages.sh on the new
+>   deployment, which must read PASS; the founder's browser check that clicking the logo on
+>   openbed.ng/privacy opens the bed list. Cowork relays the output, and it is recorded in one
+>   records-only PR: EJ as -160, then hosted run 4 as -161, under the letter Cowork issues then.
+>
+> WHAT IS NEXT FOR YOU: that records PR, when its letter comes. The scripts survey (PR S, owed
+> since DL-6 c) follows as its own letter; do not start it before then.
+
+**EJ-1: #101 MERGED.**
+- **The required checks** on `9f904f15adc84f96c5675d74f07f4364119b8725`, read from the check-runs API, latest run of each: repo-lint (18:06:28Z), migration-lint (18:06:06Z), compliance-tests (18:08:34Z), db-tests (18:08:09Z), bundle-guards (18:06:17Z), secret-scan (18:06:06Z) and golden-path (18:07:27Z). All seven read `completed success`, and none read skipped, neutral or cancelled. The seven names were read from main's branch protection.
+- **The merge:** `3441c8507a96fcab81e138f9c683496008271b37`, at 2026-09-28T18:44:19Z, with parents `be50e3519b7bfbc1e783f9880293645800da1289` (main) and `9f904f15adc84f96c5675d74f07f4364119b8725` (the head). The head was read from the API and passed to `--match-head-commit`, and the merge was a merge commit.
+- `ei-home-link` was deleted on both sides after `MERGED` read back, and neither side shows it.
+- **Main's register:** 59 (15 BOX, 33 TRIGGER, 11 VERSION), counted from the table.
+
+**EJ-2:** accepted as reported, as listed.
+
+**-159's process notes: four slips, each found and fixed before #101's commit.** They land here, not in -159, because EJ-1 pinned the merge to `9f904f1` and adding them there would have moved the head. EK-1 a accepts this. No new rule.
+1. **The first typecheck failed.** The new test spread a `NodeList`, which needs the `dom.iterable` lib, and the test file loads only `dom`. It now uses `Array.from`.
+2. **The 40 px plant was misaimed.** "A 40px tap target" replaced the first `min-height: 44px` in the built stylesheet, which is the emergency strip's, not the home link's. The stylesheet changed but the rule under test did not, so the checker was right to stay green. The plant now targets the `.home-link` rule.
+3. **One plant run was contaminated.** Plant B (`apps/public-dashboard/src/main.ts`) first ran over the dist that plant A (`apps/public-dashboard/privacy-notice.ts`) left, because the page was not rebuilt after A's restore, so B's first run also failed the privacy-page legs. B was rerun over a clean build, and exactly one leg failed, the bed list's: "the page has 2 <a href="/">".
+4. **The e2e attestation header was wrong.** The golden-path line in #101's attestation block read "junit-e2e.xml … failed=8". Those are the file's counts, and the eight are the known failures past the unchanged frontier, which is what the line goes on to say. It was reported to Cowork.
+
+**EJ-3: observed, no change.** Focused, the ring's outer edge meets the emergency strip above the header and the header's bottom border, which is what a 44 px target in a 53 px header gives. Its right side sits close to the "d" of "Bed", because of the lockup's -0.02em letter-spacing. The ring is whole and visible in every shot. This is noted so it is not rediscovered.
+
+**EJ-4:** hosted run 4 was the founder's, and nothing in it was Claude Code's. It is recorded in -161.
+
+Next letter: **EK**.
+
+### R-2026-09-28-161 — Hosted run 4 recorded: the logo links home on openbed.ng
+
+_Issued as R-PROVISIONAL-2026-09-28-EK, by Cowork on 2026-09-28. It relays the founder's pasted output from hosted run 4, as Cowork read it. Landed in the records-only pull request that lands -160 first (EK-1). Number assigned on landing: R-2026-09-28-160 plus one. Next provisional letter: **EL**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-28-EK — HOSTED RUN 4 RECORDED: THE LOGO LINKS HOME ON openbed.ng
+> EK lands with EJ in one records-only PR: EJ as -160, then EK as -161. Next letter: EL.
+>
+> EK-1  THE RECORD. Open one records-only PR from main (3441c85).
+>   a) Land EJ as -160, as you hold it, with:
+>      - the #101 merge facts you reported: the seven checks, merge 3441c85 with parents be50e35
+>        and 9f904f1, ei-home-link deleted on both sides, register 59;
+>      - EJ-2's four slips as -159's process notes (the first typecheck, the misaimed 40 px
+>        plant, the contaminated plant run, the e2e attestation header). Cowork accepts landing
+>        them under -160 rather than moving #101's head; no new rule;
+>      - EJ-3's observation, with no change.
+>   b) Land EK as -161, recording hosted run 4 from the founder's pasted output, relayed by Cowork:
+>      - THE REFRESH: the deploy checkout moved from 8aca82b to
+>        3441c8507a96fcab81e138f9c683496008271b37, with npm ci clean (0 vulnerabilities).
+>      - THE DEPLOY: bash scripts/deploy_pages.sh --branch main public-dashboard. The stamp read
+>        back 3441c85, clean. Deployment https://016b7b9f.openbed-public-dashboard.pages.dev;
+>        5 files uploaded (10 already there), then _headers and the Functions bundle.
+>        dist/privacy.html was 9.58 kB (9.40 kB at 8aca82b).
+>      - THE READ-BACK: readback_pages.sh against 016b7b9f read PASS:
+>        - read-back 4 names 3441c85, dirty false, and the ancestor check exits 0;
+>        - read-backs 6, 7 and 8 read ok;
+>        - the headers and scripts are right on both hosts, both serving
+>          /assets/index-DRIWEa8y.js, so openbed.ng serves the new build; the favicon and the
+>          font are right;
+>        - /privacy reads Version 1.1, with Paddie Health Ltd as controller, no #app root and no
+>          scripts, on both hosts;
+>        - the serve-time stamp advances (18:48:34.132Z to 18:48:40.076Z).
+>      - THE BROWSER CHECK (the founder's): on openbed.ng/privacy, clicking the logo opened the bed
+>        list; on hover the cursor is a pointer, with no underline and no colour change.
+>      - THE HOSTED STATE:
+>        - the public dashboard at 016b7b9f from 3441c85;
+>        - the ward console at 6e216584 and admin at 90acd718, both still from 48ba94b (the
+>          deploy script built all three workspaces, but only the public dashboard was uploaded);
+>        - Worker 7d07e831 at cd05de1;
+>        - migrations 001 to 026.
+>        No reporting login exists yet.
+>   c) readback_pages.sh does not read the home link, and none is added. Read-back 4 ties the
+>      deployment to 3441c85, dashboard_home_link.test.ts holds that commit's built pages to the
+>      link, and the founder's click is the hosted reading. Say this in -161 in one line.
+>
+> EK-2  REGISTER. Hosted run 4 ticks no box, and no row lands or leaves: 59 (15 BOX, 33 TRIGGER,
+>   11 VERSION). Recount from the table. Any other number is a STOP to report.
+>
+> EK-3  PROCESS: as EH-3. Commit with scripts/commit.sh --fast. Merge only when all seven required
+>   checks read success. Merge as a merge commit, read MERGED back, and delete the branch on both
+>   sides. Report the merge SHA, its parents and the register count, then STOP.
+>
+> WHAT IS NEXT: the scripts survey (PR S, owed since DL-6 c) comes from Cowork as its own letter.
+> Do not start it before then. Facility one waits on the hospital's details sheet and signed
+> agreement; nothing in it is yours.
+
+**What this record rests on.**
+- **The founder's readings, relayed by Cowork.** Every deploy, read-back and browser reading below is the founder's, as Cowork relays it. Claude Code ran nothing hosted, and read none of these URLs.
+- **What Claude Code checked, from the repository at `3441c85`:**
+  - `apps/` is identical at `9f904f1` and `3441c85`.
+  - A local build of that tree emits `assets/index-DRIWEa8y.js`, the bundle the read-back found on both hosts.
+  - Its dist/privacy.html is 9589 bytes, which agrees with the reported 9.58 kB, as 9407 bytes read 9.40 kB in -158.
+
+**EK-1 b: HOSTED RUN 4, RECORDED.**
+- **The refresh:** the deploy checkout moved from `8aca82b` to `3441c8507a96fcab81e138f9c683496008271b37`, and `npm ci` was clean (0 vulnerabilities).
+- **The deploy:** `bash scripts/deploy_pages.sh --branch main public-dashboard`.
+  - The stamp read back `3441c85`, clean.
+  - The deployment is `https://016b7b9f.openbed-public-dashboard.pages.dev`.
+  - 5 files were uploaded (10 were already there), then `_headers` and the Functions bundle.
+  - dist/privacy.html was 9.58 kB (9.40 kB at `8aca82b`).
+- **The read-back:** `readback_pages.sh` against `016b7b9f` read PASS:
+  - read-back 4 names `3441c85`, dirty false, and the ancestor check exits 0;
+  - read-backs 6, 7 and 8 read ok;
+  - the headers and scripts are right on both hosts, and both serve `/assets/index-DRIWEa8y.js`, so openbed.ng serves the new build;
+  - the favicon and the font are right;
+  - `/privacy` reads Version 1.1, with Paddie Health Ltd as controller, no app root and no scripts, on both hosts;
+  - the serve-time stamp advances (18:48:34.132Z to 18:48:40.076Z).
+- **The founder's browser check:** on openbed.ng/privacy, clicking the logo opened the bed list. On hover the cursor is a pointer, with no underline and no colour change.
+- **Hosted after this run.** This restates -158's table, which stays as written for its own date.
+
+  | What | Version | Built from |
+  |---|---|---|
+  | Migrations | 001 through 026, frozen boundary 26 | |
+  | Worker | `7d07e831` | `cd05de1` |
+  | Public dashboard | `016b7b9f` | `3441c85` |
+  | Ward console | `6e216584` | `48ba94b` |
+  | Admin | `90acd718` | `48ba94b` |
+
+  The deploy script built all three workspaces, but only the public dashboard was uploaded. No reporting login exists yet.
+
+**EK-1 c:** `scripts/readback_pages.sh` does not read the home link, and none is added. Read-back 4 ties the deployment to `3441c85`, `tests/compliance/dashboard_home_link.test.ts` holds that commit's built pages to the link, and the founder's click is the hosted reading.
+
+**EK-2: NO BOX TICKED, NO ROW MOVES.** Recounted from the table: **59** (15 BOX, 33 TRIGGER, 11 VERSION). EB-4's row did not fire, because no runbook changed; this pull request edits only this record. EB-2's row did not fire, because the gate did not run in a hosted run.
+
+**EK-3:** records-only, committed with `scripts/commit.sh --fast`, whose trailer says so.
+
+Nothing hosted ran from Claude Code's side. Next letter: **EL**.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -8480,6 +8653,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | EG | R-2026-09-28-157 | 2026-09-28 | **#99 merged at `8aca82b`** (parents `175ac40`, `f7777f2`), all seven required checks read `success` first; `bundle-5-privacy-1-1` deleted on both sides. Register 60 (16 BOX, 33 TRIGGER, 11 VERSION). EG-3: EE-6's CLCO condition came from Cowork's own 2026-09-27 handoff, not from this record; Cowork's slip, and -155's "no citation" stands. Held, and landed with -158. Next letter EH. |
 | EH | R-2026-09-28-158 | 2026-09-28 | **Hosted run 3 recorded** (the founder's readings, relayed by Cowork): the new read-back against `2633ccc0` read STOP, WRONG on read-back 4's commit and on the privacy version on both hosts; the public dashboard deployed as `3f0e1e17` from `8aca82b` and read back PASS with Version 1.1 on both hosts; the browser shows Version 1.1. EE-4's 12.4 box is ticked and its BOX row leaves: register 60 → 59 (15 BOX, 33 TRIGGER, 11 VERSION). EB-4's row did not fire (no psql line). Next letter EI. |
 | EI | R-2026-09-28-159 | 2026-09-28 | **The OpenBed logo links home** (the founder's finding on openbed.ng/privacy). On both pages of `apps/public-dashboard`, the mark and lockup are one relative `<a class="home-link" href="/">` named "OpenBed home". Its style has no underline, no colour change and no hover effect, a 44 px tap target with the header's height unchanged, and the design system's focus ring. `tests/compliance/dashboard_home_link.test.ts` holds the built pages and CSS to it, red first. No row lands or leaves; register 59. Next letter EJ. |
+| EJ | R-2026-09-28-160 | 2026-09-28 | **#101 merged at `3441c85`** (parents `be50e35`, `9f904f1`), all seven required checks read `success` first; `ei-home-link` deleted on both sides; register 59. -159's process notes: four slips found and fixed before #101's commit (the first typecheck, the misaimed 40 px plant, the contaminated plant run, the e2e attestation header), landed here rather than moving #101's head; no new rule. EJ-3: the focus ring meets the strip and the header's border and sits close to "Bed"; no change. Held, and landed with -161. Next letter EK. |
+| EK | R-2026-09-28-161 | 2026-09-28 | **Hosted run 4 recorded** (the founder's readings, relayed by Cowork): the public dashboard deployed as `016b7b9f` from `3441c85` and read back PASS, both hosts serving `/assets/index-DRIWEa8y.js`, `/privacy` still Version 1.1; the founder's click on openbed.ng/privacy's logo opened the bed list. The read-back does not read the link; the test and the click do. No box ticked and no row moves: register 59. Next letter EL. |
 
 ## Deferred items — this record is where the list lives
 
