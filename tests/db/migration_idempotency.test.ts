@@ -93,6 +93,8 @@ async function digest(): Promise<Digest> {
       -- duplicated a policy under another name changed nothing this digest could
       -- see. Grants, owners and RLS flags were still outside the digest until
       -- R-2026-09-28-162 (EL-3), which added the five components after contents.
+      -- Column and type ACLs followed in R-2026-09-28-163 (EM-4): EL-3 named
+      -- table, function, schema and default ACLs, and a column GRANT moved nothing.
       select coalesce(string_agg(schemaname||'.'||tablename||'.'||policyname||':'||cmd||':'||roles::text||':'||coalesce(qual,'')||':'||coalesce(with_check,''),
                                  ',' order by schemaname, tablename, policyname), 'none') s
         from pg_policies where schemaname in ('app','public')
@@ -170,13 +172,61 @@ async function digest(): Promise<Digest> {
           from pg_default_acl d join pg_namespace n on n.oid = d.defaclnamespace
          where n.nspname in ('app','public')
       ) x
+    ), column_acl as (
+      -- COLUMN ACLs, R-2026-09-28-163 (EM-4). Only columns whose attacl is non-null
+      -- and non-empty: a column GRANT then REVOKE leaves attacl NULL, so the
+      -- restore returns the same text, and today the component is exactly 'none'.
+      select coalesce(string_agg(x.line, ',' order by x.line), 'none') s from (
+        select n.nspname||'.'||c.relname||'.'||a.attname||':acl='||
+               coalesce((select string_agg(q.e, ';' order by q.e) from (
+                 select pg_get_userbyid(g.grantor)||'/'||case when g.grantee = 0 then 'PUBLIC' else pg_get_userbyid(g.grantee) end
+                        ||'/'||g.privilege_type||'/'||g.is_grantable::text as e
+                   from aclexplode(a.attacl) g
+               ) q), 'none') as line
+          from pg_attribute a
+          join pg_class c on c.oid = a.attrelid
+          join pg_namespace n on n.oid = c.relnamespace
+         where n.nspname in ('app','public') and a.attnum > 0 and not a.attisdropped
+           and a.attacl is not null and cardinality(a.attacl) > 0
+      ) x
+    ), type_acl as (
+      -- TYPE ACLs, R-2026-09-28-163 (EM-4). Array types (typcategory 'A') and
+      -- relation row types (typrelid <> 0) are left out: they follow their element
+      -- type and their relation. NOT ASSERTED, as a consequence: a standalone
+      -- composite type, and a domain over an array. Neither exists today; 002
+      -- creates only enums. A NULL typacl means the owner's defaults, so it is
+      -- expanded by acldefault('T', ...) like every other ACL here.
+      select coalesce(string_agg(x.line, ',' order by x.line), 'none') s from (
+        select n.nspname||'.'||t.typname||':owner='||pg_get_userbyid(t.typowner)||':acl='||
+               coalesce((select string_agg(q.e, ';' order by q.e) from (
+                 select pg_get_userbyid(g.grantor)||'/'||case when g.grantee = 0 then 'PUBLIC' else pg_get_userbyid(g.grantee) end
+                        ||'/'||g.privilege_type||'/'||g.is_grantable::text as e
+                   from aclexplode(coalesce(t.typacl, acldefault('T', t.typowner))) g
+               ) q), 'none') as line
+          from pg_type t join pg_namespace n on n.oid = t.typnamespace
+         where n.nspname in ('app','public') and t.typcategory <> 'A' and t.typrelid = 0
+      ) x
     )
     select cols.s as cols, enums.s as enums, funcs.s as funcs, trigs.s as trigs, cons.s as cons,
            pols.s as policies, contents.s as contents,
-           relations.s as relations, rls.s as rls, functions.s as functions, schemas.s as schemas, default_acl.s as default_acl
-      from cols, enums, funcs, trigs, cons, pols, contents, relations, rls, functions, schemas, default_acl
+           relations.s as relations, rls.s as rls, functions.s as functions, schemas.s as schemas, default_acl.s as default_acl,
+           column_acl.s as column_acl, type_acl.s as type_acl
+      from cols, enums, funcs, trigs, cons, pols, contents, relations, rls, functions, schemas, default_acl, column_acl, type_acl
   `;
   return { ...(row ?? {}) };
+}
+
+/** One digest plant: what it changes, what must be present first, and how it is undone. */
+interface Plant {
+  name: string;
+  component: string;
+  present: string;
+  /** The component must EQUAL `present`, not merely contain it. */
+  exact?: boolean;
+  /** Text the component must carry once the plant has applied. */
+  after?: string[];
+  plant: string;
+  restore: string;
 }
 
 /** The components that differ, by name. */
@@ -193,7 +243,7 @@ describe('migration idempotency', () => {
     const before = await digest();
     expect(JSON.stringify(before).length, 'digest came back empty — it would compare equal trivially').toBeGreaterThan(500);
     expect(Object.keys(before).sort(), 'the digest does not carry every named component').toEqual(
-      ['cols', 'cons', 'contents', 'default_acl', 'enums', 'funcs', 'functions', 'policies', 'relations', 'rls', 'schemas', 'trigs']);
+      ['cols', 'column_acl', 'cons', 'contents', 'default_acl', 'enums', 'funcs', 'functions', 'policies', 'relations', 'rls', 'schemas', 'trigs', 'type_acl']);
 
     for (const f of FORWARD) {
       expect(() => applyFile(join(MIG_DIR, f)), `${f} failed on re-apply`).not.toThrow();
@@ -283,7 +333,7 @@ describe('migration idempotency', () => {
    *     before the plant. A leaked grant would weaken every db test file after
    *     this one, and 013's grant sweep would then hide it on the next re-apply.
    */
-  test.each([
+  test.each<Plant>([
     {
       name: 'SELECT on an app table granted to anon',
       component: 'relations', present: 'app.facility:r:owner=postgres',
@@ -361,13 +411,39 @@ describe('migration idempotency', () => {
         'DROP ROLE IF EXISTS openbed_plant_owner;',
       ].join('\n'),
     },
-  ])('plant — $name is caught by the $component component alone, and restored', async ({ component, present, plant, restore }) => {
+    {
+      // R-2026-09-28-163 (EM-4). A column grant moved nothing the digest saw until
+      // then. No migration from 001 to 026 holds one, so the precondition is EXACT:
+      // the component must read 'none', not merely contain something. A column
+      // GRANT then REVOKE leaves attacl NULL, so the restore returns the same text.
+      name: 'SELECT on one column granted to anon',
+      component: 'column_acl', present: 'none', exact: true, after: ['app.facility.id', 'anon'],
+      plant: 'GRANT SELECT (id) ON app.facility TO anon;',
+      restore: 'REVOKE SELECT (id) ON app.facility FROM anon;',
+    },
+    {
+      // R-2026-09-28-163 (EM-4). After the REVOKE, app.tri_state's typacl is
+      // EXPLICIT rather than NULL: it equals the value before the plant only
+      // through the acldefault('T', owner) expansion the component renders.
+      name: 'USAGE on an app type granted to anon',
+      component: 'type_acl', present: 'app.tri_state:owner=postgres',
+      plant: 'GRANT USAGE ON TYPE app.tri_state TO anon;',
+      restore: 'REVOKE USAGE ON TYPE app.tri_state FROM anon;',
+    },
+  ])('plant — $name is caught by the $component component alone, and restored', async ({ component, present, exact, after: expectAfter, plant, restore }) => {
     const before = await digest();
-    expect(before[component], `the digest's ${component} component does not carry ${present}`).toContain(present);
+    if (exact) {
+      expect(before[component], `the digest's ${component} component is not exactly ${present}`).toBe(present);
+    } else {
+      expect(before[component], `the digest's ${component} component does not carry ${present}`).toContain(present);
+    }
     try {
       applySql('plant', plant);                // succeeds, no error
       const after = await digest();
       expect(moved(before, after), `the plant did not move the ${component} component, and only it`).toEqual([component]);
+      for (const text of expectAfter ?? []) {
+        expect(after[component], `after the plant, ${component} does not carry ${text}`).toContain(text);
+      }
     } finally {
       applySql('restore', restore);
     }

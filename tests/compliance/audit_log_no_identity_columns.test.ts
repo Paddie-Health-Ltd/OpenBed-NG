@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { accessSync, chmodSync, constants, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { runLint, withScratch, copyMigrations, place, REPO_ROOT } from './_scratch.js';
 import FIXTURE from '../../packages/fixtures/audit-log-columns.json';
@@ -180,6 +180,32 @@ describe('audit log has no identity-bearing column', () => {
       const res = runLint(LINT, root);
       expect(res.status, `an ALTER ... ADD COLUMN was accepted:\n${res.stdout}`).toBe(1);
       expect(res.stdout, 'the ALTER leg did not name itself').toContain('ALTER TABLE app.audit_log ADD COLUMN');
+    });
+  });
+
+  test('plant — an UNREADABLE later migration FAILS, and the script says so in its own words', () => {
+    // R-2026-09-28-163 EM-3 b. The awk that locates the CREATE TABLE block reads
+    // every forward migration first. Until then it was a bare `block=$(awk ...)`
+    // under set -e: an unreadable file stopped the run with exit 2, but the only
+    // words on screen were awk's own. The ALTER-TABLE read further down is
+    // shadowed by this step and is registered as could-not-run.
+    withScratch((root) => {
+      copyMigrations(root);
+      place(root, 'packages/fixtures/audit-log-columns.json', readFileSync(join(REPO_ROOT, 'packages/fixtures/audit-log-columns.json'), 'utf8'));
+      place(root, 'database/migrations/900_x.sql',
+        `-- ===\n-- 900_x.sql\n-- Idempotency: n/a\n-- ===\nALTER TABLE app.audit_log ADD COLUMN ip_address text;\nVALUES ('900_x.sql')\n`);
+      const target = join(root, 'database', 'migrations', '900_x.sql');
+      chmodSync(target, 0o000);
+      try {
+        expect(() => accessSync(target, constants.R_OK), 'this user can read a mode-000 file; the plant did not take').toThrow();
+        const res = runLint(LINT, root);
+        expect(res.status, `an unreadable migration did not fail loudly:\n${res.stdout}`).toBe(2);
+        expect(res.stdout, 'the block read did not name itself').toContain('the audit_log block read exited');
+        expect(res.stdout).toContain('900_x.sql');
+        expect(res.stdout).not.toContain('PASS');
+      } finally {
+        chmodSync(target, 0o644);
+      }
     });
   });
 

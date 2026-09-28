@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'vitest';
+import { accessSync, chmodSync, constants } from 'node:fs';
+import { join } from 'node:path';
 import { runLint, withScratch, copyMigrations, place, REPO_ROOT } from './_scratch.js';
 
 /**
@@ -52,6 +54,29 @@ describe('lint_no_replica_identity_full', () => {
       const res = runLint(LINT, root);
       expect(res.status, `plant was accepted:\n${res.stdout}`).toBe(1);
       expect(res.stdout, `the guard rejected but did not name the file:\n${res.stdout}`).toContain(file);
+    });
+  });
+
+  test('plant — an UNREADABLE migration FAILS rather than reporting clean', () => {
+    // R-2026-09-28-163 EM-3 b. Until then the read was `sed ... "$f" | grep`, and
+    // under pipefail a pipeline reports its LAST non-zero status: grep's 1 hid the
+    // sed that could not read the file, and a mode-000 migration read PASS.
+    withScratch((root) => {
+      copyMigrations(root);
+      place(root, 'database/migrations/900_plant.sql', banner('900_plant.sql', 'ALTER TABLE public.ward_public REPLICA IDENTITY FULL;'));
+      const target = join(root, 'database', 'migrations', '900_plant.sql');
+      chmodSync(target, 0o000);
+      try {
+        // The precondition is the plant: a user who can read a mode-000 file (root)
+        // cannot run this leg, and must see why rather than a green.
+        expect(() => accessSync(target, constants.R_OK), 'this user can read a mode-000 file; the plant did not take').toThrow();
+        const res = runLint(LINT, root);
+        expect(res.status, `an unreadable migration did not fail loudly:\n${res.stdout}`).toBe(2);
+        expect(res.stdout, 'the read refusal did not name itself').toContain('the REPLICA IDENTITY read exited');
+        expect(res.stdout).not.toContain('PASS');
+      } finally {
+        chmodSync(target, 0o644);
+      }
     });
   });
 

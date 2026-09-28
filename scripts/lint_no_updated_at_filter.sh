@@ -47,11 +47,22 @@ while IFS= read -r _line; do FILES+=("$_line"); done < <(
 VIOLATIONS=0
 for f in "${FILES[@]}"; do
     # `|| true` on a three-stage pipeline hid grep's exit 2 at every stage, so an
-    # unreadable source file reported no 4am freshness filter.
+    # unreadable source file reported no 4am freshness filter. REMOVING `|| true`
+    # DID NOT FIX IT, although this comment said so until R-2026-09-28-163: under
+    # pipefail the pipeline reports its LAST non-zero status, so the later greps'
+    # 1 still hid the first grep's 2, and a mode-000 file read PASS.
+    #
+    # THE FIRST GREP IS THE READ, so it runs on its own and its 0, 1 or 2 is
+    # captured on its own. Its output is then filtered from printf, which has
+    # nothing to fail to read.
     st=0
-    out=$(grep -nE "updated_at|updatedAt" "$f" \
-          | grep -Ei '\.(filter|lt|gt|gte|lte|neq|eq)\(|where|WHERE' \
-          | grep -v 'OPENBED-FRESHNESS-ORDER-ONLY') || st=$?
+    hits=$(grep -nE "updated_at|updatedAt" "$f") || st=$?
+    case "$st" in
+        0|1) ;;
+        *) echo "ERROR: the updated_at read exited $st on $f -- the file was not scanned" >&2; exit 2 ;;
+    esac
+    st=0
+    out=$(printf '%s\n' "$hits" | grep -Ei '\.(filter|lt|gt|gte|lte|neq|eq)\(|where|WHERE' | grep -v 'OPENBED-FRESHNESS-ORDER-ONLY') || st=$?
     case "$st" in
         0|1) ;;
         *) echo "ERROR: the freshness-filter scan exited $st on $f -- it did not run" >&2; exit 2 ;;

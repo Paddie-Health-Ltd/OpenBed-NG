@@ -7,7 +7,7 @@ import {
   indexHtml, inlineStyleViolations, TOKEN, VIEWPORT_CONTENT, type BuiltCss,
 } from './_design.js';
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, readFileSync } from 'node:fs';
+import { accessSync, chmodSync, constants, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -483,6 +483,27 @@ describe('updated_at filter guard', () => {
       expect(res.status, `THE 4AM BUG WAS ACCEPTED:\n${res.stdout}`).toBe(1);
       expect(res.stdout, 'the summary line that names the verdict was not printed').toContain('lint_no_updated_at_filter.sh: FAILED (');
       expect(res.stdout, 'the guard did not name the rule it enforces').toContain('updated_at used as a FILTER on the public search path');
+    });
+  });
+
+  test('plant — an UNREADABLE source file FAILS rather than reporting clean', () => {
+    // R-2026-09-28-163 EM-3 b. The first grep IS the read. It was the first stage
+    // of a three-grep pipeline, and under pipefail the pipeline reports its LAST
+    // non-zero status: the later greps' 1 hid the first grep's 2, and a mode-000
+    // file holding a real freshness filter read PASS.
+    withScratch((root) => {
+      place(root, 'apps/x/src/query.ts', "const q = db.from('ward_public').lt('updated_at', cutoff);");
+      const target = join(root, 'apps/x/src/query.ts');
+      chmodSync(target, 0o000);
+      try {
+        expect(() => accessSync(target, constants.R_OK), 'this user can read a mode-000 file; the plant did not take').toThrow();
+        const res = runLint(LINT, root);
+        expect(res.status, `an unreadable source file did not fail loudly:\n${res.stdout}`).toBe(2);
+        expect(res.stdout, 'the read refusal did not name itself').toContain('the updated_at read exited');
+        expect(res.stdout).not.toContain('PASS');
+      } finally {
+        chmodSync(target, 0o644);
+      }
     });
   });
 

@@ -38,11 +38,19 @@ for f in "${FILES[@]}"; do
     # DESCRIBED in a banner or a COMMENT ON without tripping the lint that
     # enforces it. Line numbers survive because nothing is deleted, only blanked.
     # `|| true` collapsed grep's exit 2 (could not run) into its 1 (no match),
-    # so a file this could not read reported clean. pipefail makes $st the first
-    # failure in the pipeline; only 0 and 1 are verdicts.
+    # so a file this could not read reported clean; only 0 and 1 are verdicts.
+    #
+    # THE READ IS ITS OWN STEP (R-2026-09-28-163). This was `sed ... "$f" | grep`,
+    # under a comment saying pipefail makes the status the FIRST failure in the
+    # pipeline. It is the LAST non-zero one: grep's 1 hid a sed that could not
+    # read the file, and a mode-000 migration read PASS.
     st=0
-    out=$(sed -e "s/'[^']*'//g" -e 's/--.*//' "$f" \
-          | grep -nEi 'REPLICA[[:space:]]+IDENTITY[[:space:]]+FULL') || st=$?
+    text=$(sed -e "s/'[^']*'//g" -e 's/--.*//' "$f") || st=$?
+    case "$st" in
+        0) ;;
+        *) echo "ERROR: the REPLICA IDENTITY read exited $st on $f -- the file was not scanned" >&2; exit 2 ;;
+    esac
+    out=$(printf '%s\n' "$text" | grep -nEi 'REPLICA[[:space:]]+IDENTITY[[:space:]]+FULL') || st=$?
     case "$st" in
         0|1) ;;
         *) echo "ERROR: the REPLICA IDENTITY scan exited $st on $f -- it did not run" >&2; exit 2 ;;
