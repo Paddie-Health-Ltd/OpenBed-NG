@@ -8245,6 +8245,91 @@ _Issued as R-PROVISIONAL-2026-09-28-EH, by Cowork on 2026-09-28. It relays the f
 
 Nothing hosted ran from Claude Code's side. Next letter: **EI**.
 
+### R-2026-09-28-159 — The OpenBed logo links home, on /privacy and on the bed list
+
+_Issued as R-PROVISIONAL-2026-09-28-EI, by Cowork on 2026-09-28, on the founder's finding. Landed in its own pull request, branched from `be50e35` (#100's merge, read back MERGED first). Number assigned on landing: R-2026-09-28-158 plus one. Next provisional letter: **EJ**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-28-EI — THE OPENBED LOGO LINKS HOME, ON /privacy AND ON THE BED LIST
+> EI lands in its own small PR as -159. Next letter: EJ.
+>
+> START after EH's records-only PR has merged and you have read MERGED back. Branch from that
+> merge; do not stack the two.
+>
+> THE FINDING (the founder's, 2026-09-28, on openbed.ng/privacy). The header's mark and "OpenBed"
+> lockup are not a link. On /privacy there is no way back to the bed list except the browser's
+> back button, and a visitor who arrived from app.openbed.ng's or admin's "Privacy notice" link
+> has no back either. Cowork read apps/public-dashboard/privacy.html at 8aca82b: the header is an
+> <img> and a <span>, with no <a>. index.html is the same.
+>
+> EI-1  THE CHANGE, in apps/public-dashboard only.
+>   a) In privacy.html AND index.html, wrap the header's mark and lockup in one link:
+>      <a class="home-link" href="/"> ... </a>
+>      The accessible name is "OpenBed home": use aria-label, and keep the mark's alt="".
+>      Use a relative "/", never an absolute URL, so the link works on the deployment host and
+>      on openbed.ng alike.
+>   b) The link's styles live in the existing same-origin stylesheets, with no inline style (CSP):
+>      - the lockup keeps its navy "Open" and teal "Bed", with no underline and no colour change
+>        in any state;
+>      - the tap target is at least 44 px tall;
+>      - the focus ring is the design system's (2 px teal, 2 px offset);
+>      - no hover effect beyond the cursor.
+>   c) Nothing else on either page changes. The privacy page still carries no script. On the bed
+>      list, the link reloads the list, which is harmless and conventional.
+>
+> EI-2  TESTS, each red first:
+>   - the rendered privacy.html has exactly one <a href="/"> containing the mark and the lockup,
+>     with its accessible name "OpenBed home";
+>   - the same for index.html;
+>   - the privacy page's "no scripts" and CSP checks are unchanged and still green;
+>   - a plant that removes the link from either page is caught.
+>
+> EI-3  SCREENSHOTS to .design-screens/EI/: /privacy and the bed list, at 360x740 and 1280x900, each
+>   also with the link focused, so the focus ring shows. Cowork reads every one.
+>
+> EI-4  THE REPORT, then STOP for Cowork's check:
+>   - branch and HEAD;
+>   - git log --oneline main..HEAD;
+>   - git diff -M --name-status main...HEAD;
+>   - red then green;
+>   - the test count against 2544;
+>   - the register count by kind (59; no row should land or leave);
+>   - the screenshots.
+> Process as every PR. Nothing hosted.
+>
+> AFTER THE MERGE: hosted run 4, the founder's. Deploy the public dashboard only, then run
+> readback_pages.sh on the new deployment and check in a browser that clicking the logo on
+> openbed.ng/privacy opens the bed list. Cowork writes the commands with the address filled in.
+
+**What this rests on.** The finding is the founder's, relayed by Cowork. Cowork's reading of the two headers at `8aca82b` was checked at `be50e35`, and it holds: in `apps/public-dashboard/privacy.html` and `apps/public-dashboard/index.html`, the header held an `<img class="mark">` and a `<span class="lockup">`, with no `<a>`.
+
+**EI-1: LANDED.**
+- **a.** On both pages, the mark and the lockup are wrapped in one `<a class="home-link" href="/" aria-label="OpenBed home">`. The mark's `alt=""` is kept, and the href is a relative "/".
+- **b.** Two rules in `apps/public-dashboard/src/style.css`, the same-origin stylesheet both pages already load, with no inline style:
+  - `.home-link` is a flex row with a 44 px `min-height`. Its block margin of -8 px keeps it inside the header's 12 px padding, so the header is no taller than before: 53 px, measured with the link and with it unwrapped.
+  - `.home-link`, `:hover`, `:active` and `:visited` each set `color: inherit` and `text-decoration: none`. Without them, the design system's `a{}` would underline the link and `a:hover{}` would recolour it.
+  - The focus ring is the design system's own `:focus-visible` rule (2 px `--ob-teal-600`, 2 px offset), which no `.home-link` rule restates or overrides. There is no hover effect beyond the cursor.
+- **c.** Nothing else on either page changes. The privacy page still carries no script.
+
+**EI-2: TESTS, red first.** `tests/compliance/dashboard_home_link.test.ts`, 26 legs:
+- **The real artefacts:** the built privacy page, the bed list as `src/main.ts` renders it over the built index page, and the two built stylesheets. Each page must have exactly one `<a href="/">`, in the site header, class `home-link`, named "OpenBed home" and holding the mark (with `alt=""`) and the lockup. In the stylesheets, every rule naming `.home-link` may set only layout, `color: inherit` or `text-decoration: none`; its min-height must be at least 44 px; and the design system's focus-ring rule and its tokens must be present.
+- **Plants:**
+  - the link removed from either page;
+  - an absolute URL, a second home link, no name or the wrong name, alt text on the mark, the mark or the lockup outside the link, the link outside the header, and the wrong class;
+  - in the CSS: no rule, an underline or a colour on hover, a hover background, a focus ring of its own, a 40 px target, the underline back in one state, the design system's ring rule removed, and a 1 px ring.
+- **A positive control and anti-vacuity.**
+- **Red first:** against main's build, 20 of 26 failed. The three real-artefact legs read "the page has 0 <a href="/">" (both pages) and "no rule names .home-link". Then 26 of 26 passed.
+- The privacy page's "no scripts" and CSP checks are unchanged and still green: `tests/compliance/privacy_notice.test.ts`, `tests/compliance/security_headers.test.ts` and `tests/compliance/bundle_guards.test.ts`.
+
+**EI-3: SCREENSHOTS**, in .design-screens/EI/: /privacy and the bed list at 360x740 and 1280x900, each plain and with the link focused by keyboard (three Tabs, after the two emergency numbers).
+- **Measured in the browser:** one home link, named "OpenBed home"; the link 44 px tall; the header 53 px. Focused, it matches `:focus-visible`, with outline `solid 2px rgb(47, 143, 138)` and a 2 px offset. Hovered, there is no underline and no background, the navy and teal are unchanged, and the cursor is a pointer.
+- A click on /privacy's logo opened `/`, with the bed list rendered.
+
+**Register:** 59 (15 BOX, 33 TRIGGER, 11 VERSION). No row lands or leaves.
+
+Next letter: **EJ**.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -8394,6 +8479,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | EF | R-2026-09-28-156 | 2026-09-28 | **EE amended:** the notice text travels as a hand-over file with its sha256, checked before use and in the repository. EE-3's red is read without a hosted site: `readback_pages.sh` has no local-server seam (its custom domain is fixed), so none was added, and the red came through its tests' curl-stub seam; the hosted red is the founder's, in hosted run 3. Next letter EG. |
 | EG | R-2026-09-28-157 | 2026-09-28 | **#99 merged at `8aca82b`** (parents `175ac40`, `f7777f2`), all seven required checks read `success` first; `bundle-5-privacy-1-1` deleted on both sides. Register 60 (16 BOX, 33 TRIGGER, 11 VERSION). EG-3: EE-6's CLCO condition came from Cowork's own 2026-09-27 handoff, not from this record; Cowork's slip, and -155's "no citation" stands. Held, and landed with -158. Next letter EH. |
 | EH | R-2026-09-28-158 | 2026-09-28 | **Hosted run 3 recorded** (the founder's readings, relayed by Cowork): the new read-back against `2633ccc0` read STOP, WRONG on read-back 4's commit and on the privacy version on both hosts; the public dashboard deployed as `3f0e1e17` from `8aca82b` and read back PASS with Version 1.1 on both hosts; the browser shows Version 1.1. EE-4's 12.4 box is ticked and its BOX row leaves: register 60 → 59 (15 BOX, 33 TRIGGER, 11 VERSION). EB-4's row did not fire (no psql line). Next letter EI. |
+| EI | R-2026-09-28-159 | 2026-09-28 | **The OpenBed logo links home** (the founder's finding on openbed.ng/privacy). On both pages of `apps/public-dashboard`, the mark and lockup are one relative `<a class="home-link" href="/">` named "OpenBed home". Its style has no underline, no colour change and no hover effect, a 44 px tap target with the header's height unchanged, and the design system's focus ring. `tests/compliance/dashboard_home_link.test.ts` holds the built pages and CSS to it, red first. No row lands or leaves; register 59. Next letter EJ. |
 
 ## Deferred items — this record is where the list lives
 

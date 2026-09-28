@@ -29,11 +29,15 @@
     </div>
 
     <!-- The lockup is live text, never outlined: "Open" and "Bed" beside the 28 px mark.
-         The mark is decorative here (the words name the site), so its alt is empty. -->
+         The mark is decorative here (the words name the site), so its alt is empty.
+         Mark and lockup are one link home, named "OpenBed home", with a relative "/" so it
+         works on the deployment host and on openbed.ng alike (R-2026-09-28-159 EI). -->
     <header class="site-header">
       <div class="site-header-inner">
-        <img class="mark" src="../../packages/design/openbed-mark.svg" width="28" height="28" alt="" />
-        <span class="lockup"><span class="lockup-open">Open</span><span class="lockup-bed">Bed</span></span>
+        <a class="home-link" href="/" aria-label="OpenBed home">
+          <img class="mark" src="../../packages/design/openbed-mark.svg" width="28" height="28" alt="" />
+          <span class="lockup"><span class="lockup-open">Open</span><span class="lockup-bed">Bed</span></span>
+        </a>
       </div>
     </header>
 
