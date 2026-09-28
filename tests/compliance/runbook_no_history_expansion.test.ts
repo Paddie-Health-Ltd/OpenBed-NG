@@ -1,6 +1,6 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
+import { DOCS, docsUnder, shellFences, type Doc, type ShellLine } from './_fences.js';
 import { REPO_ROOT, place, withScratch } from './_scratch.js';
 
 /**
@@ -38,10 +38,12 @@ import { REPO_ROOT, place, withScratch } from './_scratch.js';
  * the same way, and a guard over `bash` alone would pass it silently
  * (test-conventions section 2(d)). Each label has its own plant below.
  *
- * WHY ITS OWN FENCE READER. tests/compliance/runbook_psql_path.test.ts has one, but
- * importing a test file makes vitest run that file's tests again, inside this one. The
- * reader here keeps its rule: indent-tolerant, and a fence closes only at a marker with
- * its opening indent. A fence that never closes is a violation, not a silent end.
+ * THE FENCE READER is tests/compliance/_fences.ts, shared since R-2026-09-28-150 DZ-3 with
+ * tests/compliance/runbook_read_pasted_alone.test.ts. It keeps
+ * tests/compliance/runbook_psql_path.test.ts's rule: indent-tolerant, and a fence closes
+ * only at a marker with its opening indent. A fence that never closes is a violation, not
+ * a silent end. This file had its own copy until then; it moved unchanged, and every leg
+ * below reads the same corpus through it.
  *
  * NOT ASSERTED HERE, deliberately:
  *   - fences with no label, or with any other label (24 unlabelled and 4 sql or text
@@ -56,10 +58,6 @@ import { REPO_ROOT, place, withScratch } from './_scratch.js';
  *     either way.
  */
 
-const DOCS = 'docs';
-const SHELL_LABELS = ['bash', 'sh', 'shell', 'zsh'] as const;
-const OPEN = new RegExp(`^(\\s*)\`\`\`(${SHELL_LABELS.join('|')})\\s*$`);
-
 /** A line that genuinely needs `!`, by its document and its exact trimmed text, and why. */
 export interface Allowed {
   doc: string;
@@ -70,59 +68,10 @@ export interface Allowed {
 /** Empty today (DX-2: "there is none today"). An entry needs a reason, and must match a line. */
 export const ALLOW: readonly Allowed[] = [];
 
-export interface Doc {
-  doc: string;
-  text: string;
-}
-
-/** Every .md under `<root>/docs`, at any depth, sorted, with its path relative to root. */
-export function docsUnder(root: string): Doc[] {
-  const out: Doc[] = [];
-  const walk = (dir: string): void => {
-    for (const e of readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
-      const p = join(dir, e.name);
-      if (e.isDirectory()) walk(p);
-      else if (e.isFile() && e.name.endsWith('.md')) out.push({ doc: relative(root, p), text: readFileSync(p, 'utf8') });
-    }
-  };
-  walk(join(root, DOCS));
-  return out;
-}
-
-export interface ShellLine {
-  doc: string;
-  line: number;
-  text: string;
-}
-
 /** Every line inside a shell fence, 1-indexed in its document, and every fence that never closed. */
 export function shellLines(docs: readonly Doc[]): { lines: ShellLine[]; fences: number; errors: string[] } {
-  const lines: ShellLine[] = [];
-  const errors: string[] = [];
-  let fences = 0;
-  for (const { doc, text } of docs) {
-    let open: { indent: string; line: number } | null = null;
-    text.split('\n').forEach((raw, i) => {
-      if (open === null) {
-        const m = OPEN.exec(raw);
-        if (m !== null) {
-          open = { indent: m[1] ?? '', line: i + 1 };
-          fences += 1;
-        }
-        return;
-      }
-      if (raw.trimEnd() === `${open.indent}\`\`\``) {
-        open = null;
-        return;
-      }
-      lines.push({ doc, line: i + 1, text: raw });
-    });
-    if (open !== null) {
-      const at: number = (open as { line: number }).line;
-      errors.push(`${doc}:${at}: a shell fence that never closes: every line after it would be read as shell, or a reader would stop reading`);
-    }
-  }
-  return { lines, fences, errors };
+  const { fences, errors } = shellFences(docs);
+  return { lines: fences.flatMap((f) => f.lines), fences: fences.length, errors };
 }
 
 /** Everything wrong with a corpus under an allow-list, parse failures first. */

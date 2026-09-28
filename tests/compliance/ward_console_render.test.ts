@@ -61,7 +61,9 @@ function sessionFragment(): string {
 // monitoring_state, state and source are what my_facility_wards always returned
 // (011:142-154) and my_reporting_wards returns (026); the console read none of them
 // until -70 E.
-const GOOD_ROW = { category: 'MATERNITY', offering: 'OFFERED', bed_count: 3, accepting: true, version: 4, gated_by: null, monitoring_state: 'ACTIVE', state: 'OK', source: 'WARD' };
+const GOOD_ROW = { category: 'MATERNITY', offering: 'OFFERED', bed_count: 3, accepting: true, version: 4, gated_by: null, monitoring_state: 'ACTIVE', state: 'OK', source: 'WARD', can_publish: true };
+// can_publish is 026's (R-2026-09-27-144 DT, Bundle 2): a row without it renders read-only,
+// so every fixture row that exercises the publish form says the server lets this login publish it.
 
 /** Every value of every app enum the console can receive, read from the migrations. */
 function enumCodes(): string[] {
@@ -228,6 +230,65 @@ describe('B2 — a malformed ward row is refused, never defaulted', () => {
     await until(() => text().includes('Could not load'));
     expect(text()).toContain('The ward list could not be read.');
     expect(text()).not.toContain(SENTINEL);
+  });
+});
+
+describe('can_publish decides which rows carry a form (R-2026-09-27-144 DT, Bundle 2; resolves -139 DO-3)', () => {
+  // The server's flag, not a guess: 026's my_reporting_wards() says, per row, whether THIS
+  // login may publish it. Until Bundle 2 every row carried a form, so a ward login was
+  // offered Publish on wards WARD_SCOPE_DENIED would refuse (DO-3).
+  const readOnly = () => Array.from(document.querySelectorAll('li.ward')).filter((li) => li.querySelector('form') === null);
+
+  test("a ward login's own ward carries the one form, and its two other wards read-only, each with the muted line", async () => {
+    await renderAt(sessionFragment(), handover([
+      { ...GOOD_ROW, can_publish: true },
+      { ...GOOD_ROW, category: 'ICU_ADULT', can_publish: false },
+      { ...GOOD_ROW, category: 'THEATRE', can_publish: false },
+    ]));
+    await until(() => text().includes('Handover'));
+    expect(document.querySelectorAll('form.publish').length, 'the rows the server did not let this login publish carry a form').toBe(1);
+    expect(document.querySelector('li.ward form.publish')?.closest('li')?.querySelector('p.summary')?.textContent).toBe('Maternity: 3 beds');
+    const ro = readOnly();
+    expect(ro.map((li) => li.querySelector('p.summary')?.textContent)).toEqual(['Adult ICU: 3 beds', 'Operating theatre: 3 beds']);
+    for (const li of ro) {
+      const line = li.querySelector('p.reports-own');
+      expect(line?.textContent, 'a read-only row does not say why it has no form').toBe('This ward reports from its own login.');
+      expect(line?.classList.contains('notice'), 'the read-only line is a Notice, and it refuses nothing').toBe(false);
+      expect(li.querySelector('button'), 'a read-only row carries a control').toBeNull();
+    }
+  });
+
+  test('a facility login, can_publish true on every ward, carries a form on every row and no read-only line', async () => {
+    await renderAt(sessionFragment(), handover([
+      { ...GOOD_ROW, can_publish: true },
+      { ...GOOD_ROW, category: 'ICU_ADULT', can_publish: true },
+      { ...GOOD_ROW, category: 'THEATRE', can_publish: true },
+    ]));
+    await until(() => text().includes('Handover'));
+    expect(document.querySelectorAll('form.publish').length).toBe(3);
+    expect(text()).not.toContain('This ward reports from its own login.');
+  });
+
+  test('a row WITHOUT can_publish is read-only, never publishable (DT: missing reads as false)', async () => {
+    const older: Record<string, unknown> = { ...GOOD_ROW };
+    delete older['can_publish'];
+    await renderAt(sessionFragment(), handover([older]));
+    await until(() => text().includes('Handover'));
+    expect(document.querySelectorAll('form').length, 'a row with no can_publish carries a form').toBe(0);
+    expect(text()).toContain('Maternity: 3 beds');
+    expect(text()).toContain('This ward reports from its own login.');
+    expect(text(), 'a missing flag was treated as an unreadable row').not.toContain('could not be read');
+  });
+
+  test.each([
+    ['sent as text', 'true'],
+    ['sent as a number', 1],
+    ['null', null],
+  ])('plant — can_publish %s is refused: the row renders as unreadable with no form', async (_label, value) => {
+    await renderAt(sessionFragment(), handover([{ ...GOOD_ROW, can_publish: value }]));
+    await until(() => text().includes('Handover'));
+    expect(document.querySelectorAll('form').length, 'a malformed flag was guessed into a form').toBe(0);
+    expect(text()).toContain("could not be read, so it cannot be updated from here");
   });
 });
 
@@ -401,6 +462,13 @@ describe('the ward asks for a new sign-in link, and cannot learn whether an addr
     expect(status).toContain('The request could not be sent.');
     expect(status, 'the unreachable message is the answered one — the comparison above could not see a difference').not.toContain('If this address belongs to a ward');
     expect(text()).not.toContain(SENTINEL);
+  });
+
+  test('the address field is labelled "Sign-in email address" (DT Bundle 2: a facility login signs in here too)', async () => {
+    await renderAt('', () => json(200, {}));
+    const label = document.querySelector('form.signin-request label.field');
+    expect(label?.firstChild?.textContent, 'the sign-in label is not the new sentence').toBe('Sign-in email address ');
+    expect(text(), "the old label, \"This ward's email address\", is still on the page").not.toContain("This ward's email address");
   });
 
   test('the bad-link screen offers the same request', async () => {

@@ -132,6 +132,9 @@ li.ward {
   padding: var(--space-4);
 }
 .summary { margin: 0; font: var(--text-heading); color: var(--text-strong); overflow-wrap: anywhere; }
+/* A ward this login does not publish for (DT Bundle 2): its status, and one muted line. The
+   muted text colour, as .who uses; no new colour, and not a Notice, because it refuses nothing. */
+.reports-own { margin: 0; font: var(--text-body-sm); color: var(--text-muted); }
 
 /* The publish form. */
 form.publish { display: grid; gap: var(--space-3); }

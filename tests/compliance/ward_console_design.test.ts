@@ -60,7 +60,9 @@ function sessionFragment(): string {
   return `#access_token=${token}&refresh_token=r1&expires_at=${now + 3600}&token_type=bearer`;
 }
 
-const GOOD_ROW = { category: 'MATERNITY', offering: 'OFFERED', bed_count: 3, accepting: true, version: 4, gated_by: null, monitoring_state: 'ACTIVE', state: 'OK', source: 'WARD' };
+const GOOD_ROW = { category: 'MATERNITY', offering: 'OFFERED', bed_count: 3, accepting: true, version: 4, gated_by: null, monitoring_state: 'ACTIVE', state: 'OK', source: 'WARD', can_publish: true };
+// can_publish is 026's (R-2026-09-27-144 DT, Bundle 2): a row without it renders read-only,
+// so every fixture row that exercises the publish form says the server lets this login publish it.
 
 type Route = (url: string, init?: RequestInit) => Response | Promise<Response>;
 
@@ -416,7 +418,7 @@ describe('DI-1 — a publish updates its own card only', () => {
     await until(() => publishCalls(stub) === 1 && (card(0).summary.textContent ?? '').includes('37 beds'));
     await settle();
     expect(card(0).status.textContent, 'the outcome was not left on the card that published').toBe(want);
-    expect(card(0).summary.textContent).toBe(m.summaryLine({ category: 'MATERNITY', offering: 'OFFERED', bedCount: 37, accepting: true, version: 5, gatedBy: null, monitoringState: 'ACTIVE', source: 'WARD', state: 'OK' }));
+    expect(card(0).summary.textContent).toBe(m.summaryLine({ category: 'MATERNITY', offering: 'OFFERED', bedCount: 37, accepting: true, version: 5, gatedBy: null, monitoringState: 'ACTIVE', source: 'WARD', state: 'OK', canPublish: true }));
   });
 
   test('with two wards, the other card is the SAME node after a publish, and its unsent count and its Notice survive', async () => {

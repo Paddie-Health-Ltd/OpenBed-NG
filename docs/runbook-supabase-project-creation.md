@@ -169,6 +169,37 @@ a personal access token outranks `service_role`.
 can show it, and neither says how the token is set or removed. They are open
 items for the `scripts/` survey, not examples to copy.
 
+### A block that reads a value is pasted alone (R-2026-09-28-150 DZ-3)
+
+**Paste the connection line ALONE. Give it its value at its prompt, silent for a secret.
+Then paste the command block.** Every block in these runbooks that reads a value -- a
+connection string, a key, an address, an id -- is now two fences:
+- **The connection line**, one line and nothing after it, such as
+  `export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL`.
+  A line that reads several values waits for them in the order its step lists.
+- **The command block**, the next fence, which ends with `unset` naming every value the
+  connection line read. Where it calls `psql`, it still carries step P's PATH line itself
+  (R-2026-09-22-52): the connection line carries it too, and running it twice changes
+  nothing.
+
+**WHY.** On hosted run 1 (2026-09-28), "the pasted read -rs swallowed a line"
+(R-2026-09-28-149 DY): when a block holding a `read` and then commands reaches the shell
+line by line, `read` takes the NEXT pasted line as its value. The command that should have
+run is swallowed, and the ones after it run with a command's text for a connection
+string. Read locally on 2026-09-28 under a pseudo-terminal, with fence A of "025 and 026's
+apply":
+- **the old one-block shape:** with bracketed paste on, `0`, `0`, `1`. Pasted line by line,
+  `read` took the first `psql` line as the connection string, that reading never ran, and
+  the next two failed with `psql: error: missing "=" after "psql" in connection info string`.
+- **the two-fence shape:** `0`, `0`, `1` with bracketed paste on and line by line, and the
+  value unset afterwards in both.
+
+So the rule holds whichever way a terminal delivers a paste, and nothing depends on a
+terminal setting. A plain `read -r` swallows a line the same way, so it follows the same
+rule. `tests/compliance/runbook_read_pasted_alone.test.ts` refuses a line after a `read` in
+any shell block under `docs/`, and a command block that does not unset what its connection
+line read.
+
 ### A stop condition and the action it gates never share a fence
 
 **This was the most serious defect #18 fixed — more serious than the comments.**
@@ -514,6 +545,11 @@ policy is even consulted. Decision A3: RLS is the second line, not the only one.
 
       ```bash
       read -rs SUPABASE_ACCESS_TOKEN && export SUPABASE_ACCESS_TOKEN
+      ```
+
+      Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+      ```bash
       ESP="$(bash scripts/get_extra_search_path.sh)" || ESP=
       case "$ESP" in
         "") echo "STOP: no db_extra_search_path value. Read the script's own message above. Do not tick." ;;
@@ -627,8 +663,13 @@ before A.2 can be unconfirmed.
 **Step P's PATH line is carried in below**, because this block calls `psql` itself.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -tAc "select count(*) from app.ward_account w join auth.users u on u.id = w.id where w.is_active and u.email_confirmed_at is null"
 unset DATABASE_URL
 ```
@@ -673,11 +714,15 @@ unset KEY
 line is carried in below**, because this block calls `psql` itself.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -r PROBE; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its values at their prompts, in the order this step lists them. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -r PROBE
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -tAc "select count(*) from auth.users where email = '$PROBE'"
-unset DATABASE_URL
+unset DATABASE_URL PROBE
 ```
 
 (The first line waits for the probe address printed above: paste it and press Enter.
@@ -689,9 +734,13 @@ The second waits silently for the connection string.)
   **Remove that user**, read the removal back, and record both with the reading:
 
   ```bash
+  export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -r PROBE; read -rs DATABASE_URL && export DATABASE_URL
+  ```
+
+  Paste the line above on its own, and give it its values at their prompts, in the order this step lists them. Then paste:
+
+  ```bash
   export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-  read -r PROBE
-  read -rs DATABASE_URL && export DATABASE_URL
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "delete from auth.users where email = '$PROBE'"
   psql "$DATABASE_URL" -tAc "select count(*) from auth.users where email = '$PROBE'"
   unset DATABASE_URL PROBE
@@ -925,8 +974,13 @@ files this project has not yet received -- no more, no fewer.**
 **Step P's PATH line is carried in below**, because `scripts/run_migrations.sh` calls `psql`.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 bash scripts/run_migrations.sh --dry-run
 unset DATABASE_URL
 ```
@@ -1172,8 +1226,13 @@ the last removes it.
 **Step P's PATH line is carried in below**, because this block calls `psql` itself.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -Atc "select name || ' default=' || default_version || ' installed=' || coalesce(installed_version, 'none') from pg_available_extensions where name = 'pg_cron'"
 psql "$DATABASE_URL" -Atc "select 'preloaded=' || (current_setting('shared_preload_libraries') like '%pg_cron%')"
 unset DATABASE_URL
@@ -1192,8 +1251,13 @@ Only after reading those lines, the apply:
 **Step P's PATH line is carried in below**, because `scripts/run_migrations.sh` calls `psql`.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 bash scripts/run_migrations.sh
 unset DATABASE_URL
 ```
@@ -1233,8 +1297,13 @@ removes it.
 **Step P's PATH line is carried in below**, because this block calls `psql` itself.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "notify pgrst, 'reload schema'"
 unset DATABASE_URL
 ```
@@ -1290,8 +1359,13 @@ The first line waits silently for the connection string; the last removes it.
 **Step P's PATH line is carried in below**, because this block calls `psql` itself.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -Atc "select proname || ' owner=' || pg_get_userbyid(proowner) from pg_proc where proname in ('project_facility', 'refresh_lga_rollup', 'regenerate_snapshot') order by proname"
 unset DATABASE_URL
 ```
@@ -1324,8 +1398,13 @@ the last removes it.
 **Step P's PATH line is carried in below**, because this block calls `psql` itself.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -Atc "select policyname || ' | ' || cmd || ' | permissive=' || permissive || ' | roles=' || roles::text || ' | qual=' || coalesce(qual,'(null)') || ' | with_check=' || coalesce(with_check,'(null)') from pg_policies where schemaname = 'public' and tablename = 'snapshot_current' order by policyname"
 psql "$DATABASE_URL" -Atc "select relrowsecurity || ' ' || relforcerowsecurity from pg_class where oid = 'public.snapshot_current'::regclass"
 unset DATABASE_URL
@@ -1370,8 +1449,13 @@ the last removes it.
 **Step P's PATH line is carried in below**, because this block calls `psql` itself.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -Atc "select jobname || ' | ' || schedule || ' | ' || command || ' | ' || username || ' | active=' || active from cron.job where jobname like 'openbed_%' order by jobname"
 psql "$DATABASE_URL" -Atc "select proname || ' ' || array_to_string(proconfig, ',') from pg_proc where proname = 'refresh_lga_rollup'"
 unset DATABASE_URL
@@ -1397,8 +1481,13 @@ runs. This block only reads.
 **Step P's PATH line is carried in below**, because this block calls `psql` itself.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -Atc "select j.jobname || ' ' || d.status || ' ' || count(*) from cron.job_run_details d join cron.job j using (jobid) where j.jobname like 'openbed_%' group by j.jobname, d.status order by 1"
 unset DATABASE_URL
 ```
@@ -1496,8 +1585,13 @@ last removes it from the shell.
 **Step P's PATH line is carried in below**, because this block calls `psql` itself.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -c "select coalesce(string_agg(tablename, ', ' order by tablename), '(empty)') as published from pg_publication_tables where pubname = 'supabase_realtime';"
 unset DATABASE_URL
 ```
@@ -1556,9 +1650,13 @@ block rather than assumed from an earlier one.
 **Step P's PATH line is carried in below**, because this block calls `psql` itself.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; printf 'apply time (UTC, e.g. 2026-09-21 21:05:00+00): '; read -r APPLY_TS; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its values at their prompts, in the order this step lists them. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-printf 'apply time (UTC, e.g. 2026-09-21 21:05:00+00): '; read -r APPLY_TS
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -v apply_ts="$APPLY_TS" <<'SQL'
 select r.rolname, c.relname,
        has_table_privilege(r.rolname, 'public.' || c.relname, 'SELECT') as can_select
@@ -1744,8 +1842,13 @@ same stop condition: the list at the top of this step, which today names exactly
 file, `020_operator_functions_and_listing.sql`. **Anything else: stop and report.**
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 bash scripts/run_migrations.sh --dry-run
 unset DATABASE_URL
 ```
@@ -1756,8 +1859,13 @@ because a verdict needs something to compare with. **A `STOP:` or `ERROR:` here
 means do not apply.**
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 bash scripts/readback_public_output.sh https://openbed.ng
 unset DATABASE_URL
 ```
@@ -1765,8 +1873,13 @@ unset DATABASE_URL
 **3. The apply.** Only after fences 1 and 2 have both read as they must.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 bash scripts/run_migrations.sh
 unset DATABASE_URL
 ```
@@ -1776,8 +1889,13 @@ single quotes. The before-reading prints this command with the value already in 
 so copy that line and do not retype the fingerprint.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 bash scripts/readback_public_output.sh https://openbed.ng 'PASTE-THE-FINGERPRINT-HERE'
 unset DATABASE_URL
 ```
@@ -1801,8 +1919,13 @@ pending. **Stop condition:** twenty `already applied` lines, naming
 `0 migration(s) pending.` **Anything else: stop and report.**
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 bash scripts/run_migrations.sh --dry-run
 unset DATABASE_URL
 ```
@@ -1816,8 +1939,13 @@ the answer with `packages/fixtures/function-grants.json`, the same file the D3
 closed-list test derives its list from.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 bash scripts/readback_function_grants.sh
 unset DATABASE_URL
 ```
@@ -2041,8 +2169,13 @@ never erased. So the count must read 1 before the apply and 1 after it.
 - **Any other reading: stop and report, and do not apply.**
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select count(*) from auth.users"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select count(*) from auth.audit_log_entries"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select has_table_privilege('postgres', 'auth.users', 'DELETE'), has_table_privilege('postgres', 'auth.sessions', 'DELETE'), has_table_privilege('postgres', 'auth.refresh_tokens', 'DELETE')"
@@ -2094,8 +2227,13 @@ repository does not schedule. *Restated 2026-09-27 (R-2026-09-27-137 DM-2 d): un
 this read four lines, before the third retention job existed.*
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select count(*) from auth.users"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select jobname, schedule, command, username, active from cron.job where jobname like 'openbed_%' order by jobname"
 unset DATABASE_URL
@@ -2181,8 +2319,13 @@ first two must still read `0`, and the third reads `1` because 025's value commi
   third reading of `1` on a first run means 025 is already applied: stop.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select (select count(*) from app.ward_account a where not ((a.role::text = 'WARD_STAFF' and a.facility_id is not null and a.ward_category is not null) or (a.role::text in ('FACILITY_ADMIN', 'FACILITY_REPORTER') and a.facility_id is not null and a.ward_category is null) or (a.role::text = 'PLATFORM_ADMIN' and a.facility_id is null and a.ward_category is null))) + (select count(*) from app.invite i where not ((i.role::text = 'WARD_STAFF' and i.facility_id is not null and i.ward_category is not null) or (i.role::text in ('FACILITY_ADMIN', 'FACILITY_REPORTER') and i.facility_id is not null and i.ward_category is null) or (i.role::text = 'PLATFORM_ADMIN' and i.facility_id is null and i.ward_category is null)))"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select count(*) from app.facility_contact where email is not null and not (email ~ '^[^@[:space:]]+@[^@[:space:]]+$')"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select count(*) from pg_enum where enumtypid = 'app.app_role'::regtype and enumlabel = 'FACILITY_REPORTER'"
@@ -2227,8 +2370,13 @@ expectations for 025 and 026.** Only what each must read changes:
 - **Anything else: stop and report.**
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select count(*) from pg_enum where enumtypid = 'app.app_role'::regtype and enumlabel = 'FACILITY_REPORTER'"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select exists (select 1 from pg_trigger where tgname = 'trg_ward_account_one_reporting_source'), to_regprocedure('public.my_facility_wards()') is null, to_regprocedure('public.my_reporting_wards()') is not null"
 unset DATABASE_URL
@@ -2553,8 +2701,13 @@ The first line waits silently for the connection string; the last removes it.
 **Step P's PATH line is carried in below**, because this block calls `psql` itself.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -Atc "select count(*) from app.schema_migrations"
 bash scripts/run_migrations.sh --dry-run
 unset DATABASE_URL
@@ -2892,8 +3045,13 @@ output of the first.
 **Half 1 — the failing half. It must return a row.**
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
 BEGIN;
 GRANT SELECT ON app.facility TO anon;
@@ -2915,8 +3073,13 @@ half 2 means nothing.**
 **Half 2 — the real sweep. It must return no rows, and must count 17 tables.**
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
 SELECT grantee, table_name, privilege_type
   FROM information_schema.table_privileges
@@ -3090,8 +3253,13 @@ heredoc markers is unchanged from the run recorded below.**
 **Step P's PATH line is carried in below**, because this block calls `psql` itself.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" <<'SQL'
 begin;
 do $probe$
@@ -3340,6 +3508,11 @@ Four properties of it are deliberate; keep all four:
 
 ```bash
 read -rs TOKEN
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 BODY="$(printf '{"type":"signup","token_hash":"%s"}' "${TOKEN:?no token}" | \
   curl -s -X POST "https://$REF.supabase.co/auth/v1/verify" \
     -H "apikey: ${KEY:?no key}" -H "Content-Type: application/json" \
@@ -3621,8 +3794,13 @@ empty.
 **Step P's PATH line is carried in below**, because this block calls `psql` itself.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" <<'SQL'
 select schemaname, tablename from pg_publication_tables
  where pubname = 'supabase_realtime' order by tablename;
@@ -3887,8 +4065,12 @@ sections 1 and 2. The token is read silently into the environment for the read-b
 removed after it:
 
 ```bash
-read -rs OPENBED_ACCESS_CLIENT_ID && export OPENBED_ACCESS_CLIENT_ID
-read -rs OPENBED_ACCESS_CLIENT_SECRET && export OPENBED_ACCESS_CLIENT_SECRET
+read -rs OPENBED_ACCESS_CLIENT_ID && export OPENBED_ACCESS_CLIENT_ID; read -rs OPENBED_ACCESS_CLIENT_SECRET && export OPENBED_ACCESS_CLIENT_SECRET
+```
+
+Paste the line above on its own, and give it its values at their prompts, in the order this step lists them. Then paste:
+
+```bash
 bash scripts/readback_admin.sh https://HASH.openbed-admin.pages.dev
 unset OPENBED_ACCESS_CLIENT_ID OPENBED_ACCESS_CLIENT_SECRET
 ```
@@ -3912,6 +4094,11 @@ the key goes to curl on its standard input, never on its command line:
 
 ```bash
 read -rs SUPABASE_SERVICE_ROLE_KEY && export SUPABASE_SERVICE_ROLE_KEY
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 printf 'apikey: %s\nAuthorization: Bearer %s\n' "$SUPABASE_SERVICE_ROLE_KEY" "$SUPABASE_SERVICE_ROLE_KEY" | curl -o /dev/null -s --max-time 12 -w "real key: HTTP %{http_code}\n" -H @- "https://klrlpxysjsjpdkeqdhvl.supabase.co/auth/v1/admin/users?per_page=1"
 printf 'apikey: %sx\nAuthorization: Bearer %sx\n' "$SUPABASE_SERVICE_ROLE_KEY" "$SUPABASE_SERVICE_ROLE_KEY" | curl -o /dev/null -s --max-time 12 -w "wrong key: HTTP %{http_code}\n" -H @- "https://klrlpxysjsjpdkeqdhvl.supabase.co/auth/v1/admin/users?per_page=1"
 unset SUPABASE_SERVICE_ROLE_KEY
@@ -3943,9 +4130,12 @@ project. The script reaches the database itself (postgres.js, not `psql`), so th
 block needs no PATH line:
 
 ```bash
-read -r OPERATOR_EMAIL
-read -rs SUPABASE_SERVICE_ROLE_KEY && export SUPABASE_SERVICE_ROLE_KEY
-read -rs DATABASE_URL && export DATABASE_URL
+read -r OPERATOR_EMAIL; read -rs SUPABASE_SERVICE_ROLE_KEY && export SUPABASE_SERVICE_ROLE_KEY; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its values at their prompts, in the order this step lists them. Then paste:
+
+```bash
 SUPABASE_API_URL=https://klrlpxysjsjpdkeqdhvl.supabase.co node scripts/provision_ward_account.mjs --role PLATFORM_ADMIN --email "$OPERATOR_EMAIL" --project-ref klrlpxysjsjpdkeqdhvl
 unset SUPABASE_SERVICE_ROLE_KEY DATABASE_URL OPERATOR_EMAIL
 ```
@@ -3964,8 +4154,13 @@ silently for the key and the connection string.
 **The count read-back**, which must read `1`:
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -tAc "select count(*) from app.ward_account where role = 'PLATFORM_ADMIN' and is_active"
 unset DATABASE_URL
 ```
@@ -4238,9 +4433,19 @@ through the admin app.
    the facility view's first hosted sight.
 3. **Record the contact and the agreement** in the facility's detail view.
 4. **Add the ward categories**, each with its offering stated. There is no default.
-5. **Provision each ward's login** with the script, one ward at a time.
+5. **Provision the facility's reporting login, or its ward logins,** with the script.
+   *Restated 2026-09-28 (R-2026-09-27-144 DT, Bundle 2): until then this read "Provision
+   each ward's login with the script, one ward at a time", and that is now step 5a.*
 
-   **First, a precondition (R-2026-09-27-145 DU-4 b), for every kind of login this step
+   **First, ask the facility: "Does one nurse in charge know the beds for the whole
+   hospital on each shift?"** (R-2026-09-27-144 DT, Bundle 2; the reporting model is
+   R-2026-09-27-141 DQ-3.)
+   - **Yes:** one login for the whole facility, the facility's own. Step 5b.
+   - **No:** one login per ward. Step 5a, one ward at a time.
+   - **Never both at one facility:** one reporting source per ward. 026 refuses the second
+     kind of login where the first is active, `REPORTING_MODEL_CONFLICT`.
+
+   **Then a precondition (R-2026-09-27-145 DU-4 b), for every kind of login this step
    provisions, a ward's or the facility's.** The deployed ward console must be one that
    reads `my_reporting_wards`. 026 dropped `my_facility_wards`, and a console built
    before it cannot load a ward.
@@ -4259,20 +4464,58 @@ through the admin app.
    bash scripts/readback_ward_console.sh https://app.openbed.ng
    ```
 
-   Then provision. A gate refusal names what is missing, and no Auth call is made:
+   5a. **One login per ward**, one ward at a time. A gate refusal names what is missing,
+   and no Auth call is made. The connection line waits, in order, for the ward's role
+   address, the facility id (shown in the admin app), the category code, such as
+   `MATERNITY`, and then, silently, the service-role key and the database URL:
 
    ```bash
-   read -r WARD_EMAIL
-   read -r FACILITY_ID
-   read -r CATEGORY
-   read -rs SUPABASE_SERVICE_ROLE_KEY && export SUPABASE_SERVICE_ROLE_KEY
-   read -rs DATABASE_URL && export DATABASE_URL
+   read -r WARD_EMAIL; read -r FACILITY_ID; read -r CATEGORY; read -rs SUPABASE_SERVICE_ROLE_KEY && export SUPABASE_SERVICE_ROLE_KEY; read -rs DATABASE_URL && export DATABASE_URL
+   ```
+
+   Paste the line above on its own, and give it its values at their prompts, in the order this step lists them. Then paste:
+
+   ```bash
    SUPABASE_API_URL=https://klrlpxysjsjpdkeqdhvl.supabase.co node scripts/provision_ward_account.mjs --email "$WARD_EMAIL" --facility "$FACILITY_ID" --category "$CATEGORY" --project-ref klrlpxysjsjpdkeqdhvl
    unset SUPABASE_SERVICE_ROLE_KEY DATABASE_URL WARD_EMAIL FACILITY_ID CATEGORY
    ```
 
-   The three plain reads wait, in order, for the ward's role address, the facility id
-   (shown in the admin app), and the category code, such as `MATERNITY`.
+   5b. **One login for the whole facility** (R-2026-09-27-144 DT, Bundle 2). There is no
+   category: the login publishes for every ward at its facility, and for no other. The
+   gates are 5a's (the contact and the agreement), plus `NO_CATEGORY` when the facility has
+   no ward yet (add its categories first, step 4) and `REPORTING_MODEL_CONFLICT` when a
+   ward login is already active there. The connection line waits, in order, for the
+   facility's role address for this login, the facility id, and then, silently, the
+   service-role key and the database URL:
+
+   ```bash
+   read -r REPORTER_EMAIL; read -r FACILITY_ID; read -rs SUPABASE_SERVICE_ROLE_KEY && export SUPABASE_SERVICE_ROLE_KEY; read -rs DATABASE_URL && export DATABASE_URL
+   ```
+
+   Paste the line above on its own, and give it its values at their prompts, in the order this step lists them. Then paste:
+
+   ```bash
+   SUPABASE_API_URL=https://klrlpxysjsjpdkeqdhvl.supabase.co node scripts/provision_ward_account.mjs --role FACILITY_REPORTER --email "$REPORTER_EMAIL" --facility "$FACILITY_ID" --project-ref klrlpxysjsjpdkeqdhvl
+   unset SUPABASE_SERVICE_ROLE_KEY DATABASE_URL REPORTER_EMAIL FACILITY_ID
+   ```
+
+   **PASS:** a `provisioned FACILITY_REPORTER` line, with the address masked and
+   `-> account <id> (the facility login @ <facility id>)`. Keep the id for step 6b.
+
+   **If it prints `REFUSED by app.provision_complete: REPORTING_MODEL_CONFLICT` or
+   `REPORTER_ALREADY_EXISTS`** (R-2026-09-27-146 DV-4), another login became active at
+   this facility while this run was making the Auth user. The script says which case it is.
+   - **"An Auth user now exists … with NO account":** delete that user. In the Supabase
+     dashboard, go to Authentication, then Users, open the user with the id it printed,
+     and choose Delete user.
+   - **"… already holds an account row … do NOT delete it":** leave the user alone.
+   - **Either way:** do not re-run the command, and nothing was retried. Decide the
+     facility's reporting model first (the question at the head of this step), and report
+     it.
+   - **After `REPORTING_MODEL_CONFLICT`:** The admin app shows each ward without its own
+     login as 'Setup incomplete' until a later provisioning run at this facility succeeds.
+     That is expected. Record the facility id and report it. (R-2026-09-28-151 EA-3 a, in
+     the founder's wording.)
 
    **Open item (R-2026-09-25-113 CO-3):** the script prints the full address on its
    `provisioned` line. At H6 step 5 that line carried the operator's sign-in address,
@@ -4283,21 +4526,26 @@ through the admin app.
    would show it, including text from Auth or the database. That holds from the merge of
    the pull request carrying it. A checkout older than that still prints it, so mask by
    hand there.
-6. **B1's check: the first ward account reads its own history** (B1, recorded
+6. **B1's check: the first reporting login reads its own history** (B1, recorded
    2026-09-14; R-2026-09-26-122 CX-1 b). Run it once, straight after facility one's first
-   ward account is provisioned in step 5. It reads as that ward, inside one transaction
-   that ends in `rollback`, so it changes nothing.
+   reporting login is provisioned in step 5: 6a for a ward's login, 6b for the facility's.
+   It reads as that login, inside one transaction that ends in `rollback`, so it changes
+   nothing. *Restated 2026-09-28 (R-2026-09-27-144 DT, Bundle 2): until then this read
+   "the first ward account reads its own history", with 6a's check alone.*
 
-   The three reads wait, in order, for the database URL, the ward's **account id**, and
+   6a. **A ward's login.** The connection line waits, in order, for the database URL, the ward's **account id**, and
    its category code. Take the id from step 5's own output (the `-> account <id>` part of
    its `provisioned` line), or from `app.ward_account` by facility and category. **Never
    look it up in `auth.users` by address.** The check prints no address.
 
    ```bash
+   export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL; read -r WARD_USER_ID; read -r CATEGORY
+   ```
+
+   Paste the line above on its own, and give it its values at their prompts, in the order this step lists them. Then paste:
+
+   ```bash
    export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-   read -rs DATABASE_URL && export DATABASE_URL
-   read -r WARD_USER_ID
-   read -r CATEGORY
    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "begin; select set_config('request.jwt.claims', json_build_object('sub', '$WARD_USER_ID', 'role', 'authenticated')::text, true) is not null as claims_set; set local role authenticated; select count(*) as history_rows from public.ward_status_history('$CATEGORY'); rollback;"
    unset DATABASE_URL WARD_USER_ID CATEGORY
    ```
@@ -4308,6 +4556,29 @@ through the admin app.
    and report it. Observed on the local stack on 2026-09-26: a ward account at its own
    facility read `history_rows 0` and `ROLLBACK`; an id with no account read
    `ERROR:  NOT_A_MEMBER`.
+
+   6b. **The facility's login** (R-2026-09-27-144 DT, Bundle 2). It reads EACH ward's history
+   as itself: one row per ward at its facility, read through `public.my_reporting_wards()`,
+   the list the ward console shows it. The connection line waits, in order, for the
+   database URL and the facility login's **account id**, from step 5b's own output. Never
+   look it up in `auth.users` by address.
+
+   ```bash
+   export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL; read -r REPORTER_USER_ID
+   ```
+
+   Paste the line above on its own, and give it its values at their prompts, in the order this step lists them. Then paste:
+
+   ```bash
+   export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "begin; select set_config('request.jwt.claims', json_build_object('sub', '$REPORTER_USER_ID', 'role', 'authenticated')::text, true) is not null as claims_set; set local role authenticated; select r.category, (select count(*) from public.ward_status_history(r.category::text)) as history_rows from public.my_reporting_wards() r order by r.category; rollback;"
+   unset DATABASE_URL REPORTER_USER_ID
+   ```
+
+   **PASS:** `claims_set` reads `t`; then one row for EVERY ward category the facility
+   has, each with a `history_rows` count (0 is a pass); and the last line is `ROLLBACK`.
+   **FAIL:** a ward missing from the list, `ERROR: NOT_A_MEMBER` or `NOT_AUTHENTICATED`,
+   or any other error. Stop and report it.
 
    **What this does NOT prove: HTTP reach.** It runs the function's membership check as
    the real account on hosted, but not through PostgREST. The transport is proved by
@@ -4330,6 +4601,13 @@ through the admin app.
    it, within the snapshot's regeneration interval. **FAIL:** a refused publish, or a
    `/beds.json` that does not show that count. Stop and report it.
 
+   **For a facility's login** (R-2026-09-27-144 DT, Bundle 2), publish TWO wards from the
+   console, each from its own card with its own count, and publish each on its own:
+   there is no control that publishes more than one. Both must say they were published,
+   and both counts must read back from `/beds.json`, each for its own ward. **FAIL:** a
+   refused publish, a ward whose card has no Publish button under the facility's login,
+   or either count missing from `/beds.json`. Stop and report it.
+
    *Renumbered 2026-09-26 (R-2026-09-26-122):* steps 6 and 9 are new, and the old steps 6
    (List) and 7 (Read back) are now 7 and 8. Nothing cited them by number.
 
@@ -4346,9 +4624,13 @@ with its read-back.
 in the same transaction. `/beds.json` follows within the regeneration interval.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -r FACILITY_ID; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its values at their prompts, in the order this step lists them. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -r FACILITY_ID
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "update app.facility_agreement set withdrawn_on = (now() at time zone 'Africa/Lagos')::date where facility_id = '$FACILITY_ID' and withdrawn_on is null"
 psql "$DATABASE_URL" -tAc "select withdrawn_on is not null from app.facility_agreement where facility_id = '$FACILITY_ID'"
 unset DATABASE_URL FACILITY_ID
@@ -4361,9 +4643,13 @@ request, because `app.assert_member` checks `is_active` on every call (011:96-11
 console already tells a ward it has been switched off.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -r FACILITY_ID; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its values at their prompts, in the order this step lists them. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -r FACILITY_ID
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "update app.ward_account set is_active = false, deactivated_at = now() where facility_id = '$FACILITY_ID' and is_active"
 psql "$DATABASE_URL" -tAc "select count(*) from app.ward_account where facility_id = '$FACILITY_ID' and is_active"
 unset DATABASE_URL FACILITY_ID
@@ -4374,9 +4660,13 @@ unset DATABASE_URL FACILITY_ID
 **3. Clear `listed_at`**, so the register reads "Not listed".
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -r FACILITY_ID; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its values at their prompts, in the order this step lists them. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -r FACILITY_ID
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "update app.facility set listed_at = null where id = '$FACILITY_ID'"
 psql "$DATABASE_URL" -tAc "select listed_at is null from app.facility where id = '$FACILITY_ID'"
 unset DATABASE_URL FACILITY_ID
@@ -4401,8 +4691,13 @@ still active, which is how a missed step 2 is seen. The erasure and the session 
 must also have run. This block only reads.
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select j.jobname, count(d.runid) filter (where d.status = 'succeeded'), count(d.runid) filter (where d.status = 'failed') from cron.job j left join cron.job_run_details d on d.jobid = j.jobid and d.start_time > now() - interval '31 days' where j.jobname in ('openbed_check_withdrawn_facility_accounts', 'openbed_erase_lapsed_ward_logins', 'openbed_prune_ended_auth_sessions') group by j.jobname order by j.jobname"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select j.jobname, d.start_time, d.return_message from cron.job_run_details d join cron.job j on j.jobid = d.jobid where j.jobname in ('openbed_check_withdrawn_facility_accounts', 'openbed_erase_lapsed_ward_logins', 'openbed_prune_ended_auth_sessions') and d.status = 'failed' and d.start_time > now() - interval '31 days' order by d.start_time"
 unset DATABASE_URL
@@ -4423,9 +4718,13 @@ agreement (BD-2 5).
 **1. Delete the facility's contact row.**
 
 ```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -r FACILITY_ID; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its values at their prompts, in the order this step lists them. Then paste:
+
+```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-read -r FACILITY_ID
-read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "delete from app.facility_contact where facility_id = '$FACILITY_ID'"
 psql "$DATABASE_URL" -tAc "select (select count(*) from app.facility_contact where facility_id = '$FACILITY_ID') || '|' || (select count(*) from app.facility_agreement where facility_id = '$FACILITY_ID')"
 unset DATABASE_URL FACILITY_ID
