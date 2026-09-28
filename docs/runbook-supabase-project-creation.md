@@ -4512,6 +4512,10 @@ through the admin app.
    - **Either way:** do not re-run the command, and nothing was retried. Decide the
      facility's reporting model first (the question at the head of this step), and report
      it.
+   - **After `REPORTING_MODEL_CONFLICT`:** The admin app shows each ward without its own
+     login as 'Setup incomplete' until a later provisioning run at this facility succeeds.
+     That is expected. Record the facility id and report it. (R-2026-09-28-151 EA-3 a, in
+     the founder's wording.)
 
    **Open item (R-2026-09-25-113 CO-3):** the script prints the full address on its
    `provisioned` line. At H6 step 5 that line carried the operator's sign-in address,

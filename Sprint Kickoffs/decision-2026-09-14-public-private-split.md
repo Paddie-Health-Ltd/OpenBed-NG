@@ -6999,6 +6999,7 @@ Nothing hosted. Next letter: **DU**.
   - A row without `can_publish` is read-only, as DT says. A `can_publish` that is present and not true or false is refused like any malformed field.
   - `tests/compliance/ward_console_no_bulk_publish.test.ts` asserts no bulk control exists. It uses a whitelist of what the handover may hold, not a word list: a shortcut worded "Same as before" is refused like "Publish all".
   - **This resolves -139 DO-3, and its row leaves the register in this pull request, as -146 DV-1 b amended DT's line.** Recounted from the table: **58 → 57** (15 BOX, 31 TRIGGER, 11 VERSION).
+    *Restated 2026-09-28 by R-2026-09-28-151 EA-7 c, in the same pull request, after main (with Bundle 3, whose DP-5 b row also left) was merged in:* the merged table read **56** (15 BOX, 30 TRIGGER, 11 VERSION), and -151's two rows make it **58** (15 BOX, 32 TRIGGER, 11 VERSION). The count above is this pull request's own table before the merge.
 - **The sign-in label** reads "Sign-in email address".
 - **`scripts/provision_ward_account.mjs`** takes `--role FACILITY_REPORTER --facility <uuid>`, and a `--category` with it is a usage failure before anything is read.
   - Its refusal map gains `REPORTING_MODEL_CONFLICT`, `NO_CATEGORY` and `REPORTER_ALREADY_EXISTS`, in plain sentences. The masked address is unchanged.
@@ -7368,6 +7369,173 @@ _Issued as R-PROVISIONAL-2026-09-28-DZ, by Cowork on 2026-09-28, as its check of
 
 Nothing hosted ran from Claude Code's side. Next letter: **EA**.
 
+### R-2026-09-28-151 — Cowork's check of #95 and #96: #96 merged; EA-2's defect withdrawn, and the runbook's 12.4 and 12.5 SQL now runs in a test
+
+_Issued as R-PROVISIONAL-2026-09-28-EA, by Cowork on 2026-09-28, as its check of #95 at `8a8319a` and #96 at `6d6a4e2`. Landed in #95 (Bundle 2's pull request), after -150. Number assigned on landing: R-2026-09-28-150 plus one. Next provisional letter: **EB**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-28-EA — COWORK'S CHECK OF #95 (BUNDLE 2) AND #96 (BUNDLE 3): #96 MERGES NOW; #95 FIXES 12.4 STEP 6b, THEN MERGES
+> EA lands in #95 as -151, after DZ's -150. Next letter: EB.
+>
+> READ BY COWORK, from its own clone of Paddie-Health-Ltd/OpenBed-NG: main at fbce3c9 (#94's merge,
+> parents cd05de1 and 2c94c17, as reported); #95 head 8a8319a; #96 head 6d6a4e2. The full diffs, the
+> console and admin code, 026's signatures, and all 64 screenshots in .design-screens/DT-2 and DT-3
+> (16 states, four sizes each). Everything in both PRs matches DT, DV-4 and DZ, except the one defect
+> in EA-2.
+>
+> EA-1  #96 (BUNDLE 3): MERGE WORD.
+>   a) Merge #96 now, as a merge commit, and delete its branch on both sides. It merges FIRST.
+>   b) Read after merging: main's register counts 57 (58, minus DP-5 b's row). Quote the count by kind.
+>
+> EA-2  #95 (BUNDLE 2): ONE DEFECT, FIXED BEFORE THE MERGE.
+>   a) THE DEFECT. 12.4 step 6b calls public.ward_status_history(r.category::text). The function
+>      takes app.ward_category (011:229), and PostgreSQL has no implicit cast from text to an enum:
+>      only an untyped literal, like 6a's '$CATEGORY', coerces. Cowork reproduced it on PostgreSQL 16
+>      with 011's signature: "ERROR: function public.ward_status_history(text) does not exist".
+>      The same query passing r.category returns one row per ward. As written, the founder's 6b
+>      would fail at facility one on hosted.
+>   b) THE FIX. Pass r.category, with no cast.
+>   c) WHY NO TEST CAUGHT IT: no test runs the runbook's SQL. runbook_psql_path counts blocks; it
+>      never executes them. Add tests/db/runbook_12_4_12_5_sql_live.test.ts. It extracts these
+>      blocks' psql -c statements FROM THE RUNBOOK FENCES (never a copy) and runs them against
+>      the local stack:
+>        - 12.4 step 6a, as a ward login;
+>        - 12.4 step 6b, as a facility login at a facility with two wards;
+>        - 12.5 steps 1 to 3, against a throwaway facility.
+>      It asserts:
+>        - each block's PASS lines: claims_set t, one row per ward in 6b, and ROLLBACK;
+>        - that 6a and 6b change nothing.
+>      Show it red first against the current 6b text, then green.
+>   d) SWEEP: list in the PR body every other psql -c statement in docs/runbook-*.md, with whether
+>      a test executes it. List only; do not build tests for them. Cowork decides from the list.
+>
+> EA-3  THE STRANDED INVITE (your open item). A refusal at provision_complete leaves its invite open,
+>   and nothing in v1 closes one. operator_register then shows "setup incomplete" for that facility,
+>   on every ward without its own active login, indefinitely.
+>   a) In #95, 12.4 step 5b's refusal paragraph gains one line: "The admin app will show this
+>      facility's login as 'setup incomplete' from now on. That is expected: nothing in v1 closes
+>      the open invite. Record the facility id and report it."
+>   b) Register row, TRIGGER:
+>      - trigger: "a provisioning run is refused at provision_complete on hosted";
+>      - work: "design closing, or superseding, an open invite, with its audit row";
+>      - source: EA-3.
+>      It lands in #95.
+>
+> EA-4  THE WORKER'S ALLOW-LIST COMMENT. It still calls operator_record_registration a runbook probe
+>   "until apps/admin records" a number. Agreed: not worth a Worker redeploy on its own.
+>   Register row, TRIGGER:
+>      - trigger: "the next commit that changes supabase-proxy/";
+>      - work: "restate operator_record_registration's allow-list comment (apps/admin calls it since
+>        DT Bundle 3)";
+>      - source: EA-4.
+>   It lands in #95.
+>
+> EA-5  THE SIGN-IN SENTENCES THAT STILL SAY "WARD" (your open item). A facility login reads them,
+>   and facility one is a facility login, so they change. DT's "every other sentence unchanged" was
+>   about Bundle 2. They go in BUNDLE 4, which already changes the console's public wording, with
+>   its render tests. Change these three, exactly as written here, and nothing else:
+>   - main.ts:782:
+>       from: "Open the sign-in link sent to this ward’s address on this handset, or ask for a new one below."
+>       to:   "Open the sign-in link sent to your sign-in address on this handset, or ask for a new one below."
+>   - TAP_AGAIN (main.ts:153):
+>       from: "Your session has ended. Tap the link on the ward handset again to sign back in."
+>       to:   "Your session has ended. Tap the sign-in link on this handset again to sign back in."
+>   - ACCOUNT_DEACTIVATED (main.ts:210):
+>       from: "This ward's account has been switched off. ${ASK_FOR_HELP}"
+>       to:   "This sign-in has been switched off. ${ASK_FOR_HELP}"
+>   The per-ward sentences (ROW_REFUSED, NO_SUCH_WARD, VERSION_CONFLICT, REPORTS_OWN) stay: each
+>   is about one ward's card.
+>
+> EA-6  ACCEPTED AS REPORTED:
+>   - the DZ-3 guard widened to a plain read -r;
+>   - 43 blocks holding 59 reads, not 50;
+>   - DV-4's message saying whether the run created the Auth user or found it;
+>   - your two slips, recorded in -150.
+>   Cowork's own slip: DZ named "facility-reporter's records branch", but #94's branch was
+>   records-dw-dx-dy. Record it in -151.
+>
+> EA-7  THE ORDER, AFTER #96 MERGES:
+>   a) On #95's branch, merge main in. Do not rebase.
+>   b) Apply EA-2, EA-3 and EA-4. Land DZ as -150 and EA as -151, with their ledger rows.
+>   c) Recount the register from the table: 57, minus DO-3's row, plus EA-3's and EA-4's rows = 58.
+>      Quote it by kind.
+>   d) Run the full suite on a fresh database. Show the new test red first, then green.
+>   e) STOP, and report:
+>      - HEAD;
+>      - git log --oneline main..HEAD;
+>      - git diff -M --name-status main...HEAD;
+>      - the red and green runs;
+>      - the test counts against 2469;
+>      - the EA-2 d sweep list;
+>      - the register count.
+>   Cowork checks it before #95's merge word.
+>   Then Bundle 4, with EA-5's three sentences in it.
+>
+> Nothing hosted. Hosted run 2 comes after Bundles 2 to 4 merge: the ward console, admin and the
+> public dashboard, each deployed and read back. The founder runs it; Cowork writes the steps.
+>
+> Bundle 5 (privacy notice 1.1) still waits for the founder's approval of Cowork's draft. It will
+> come with its own letter.
+
+**EA-1: #96 MERGED, FIRST.**
+- merge commit `6d8c35507728d5cb1f3bc7e746e0a765db509024`, at 2026-09-28T10:42:57Z;
+- parents `fbce3c904572c07d50f0d94c381ae5ee45cc9c26` (main) and `6d6a4e23aea6696efc0532991df8fc6e0cfed657` (the head).
+
+**How it merged:**
+- The head was read from the API just before the merge and passed to `--match-head-commit`. The state read `CLEAN`.
+- The branch `bundle-3-admin` was deleted on both sides only after `MERGED` read back. `ls-remote` then found no head, and there was no local branch.
+- **EA-1 b: main's register, counted from the table at `6d8c355`: 57** (15 BOX, 31 TRIGGER, 11 VERSION), as EA-1 b says.
+
+**EA-7 a.** Main was merged into #95's branch, with no rebase, at `a2ccc35ea6525037049ada7e77686074692f6a8b`.
+- The one conflict was in this record, where both bundles had added a LANDED block to -144. Both are kept, Bundle 2's first.
+- Both rows stay removed: DO-3 here, and DP-5 b in #96.
+- The merged table read 56 (15 BOX, 30 TRIGGER, 11 VERSION).
+
+**EA-2 a AND b: WITHDRAWN, Cowork's error. 12.4 step 6b is unchanged.** The founder settled this in this session, on the reading below.
+- **The mistake:** Cowork read 011's signature and missed 015's replacement.
+  - `database/migrations/015_ward_status_history_text_category.sql` dropped 011's `ward_status_history(app.ward_category, timestamptz, integer)`. It recreated the function as `(text, timestamptz, integer)`, because `authenticated` cannot name an `app` type over PostgREST.
+  - 015 is applied on hosted: it is in `database/migrations/applied-hosted.json`, and its post-apply probe passed on 2026-09-16.
+- **What the database says, read locally on 2026-09-28:**
+  - `pg_proc` holds one `ward_status_history`: `(text, timestamp with time zone, integer)`.
+  - `pg_cast` lists no cast from `app.ward_category` to `text`. The automatic I/O conversion to text is not applied when resolving a function call.
+  - `select count(*) from public.ward_status_history('THEATRE'::app.ward_category)` fails with `ERROR:  function public.ward_status_history(app.ward_category) does not exist`.
+- **So the rule EA-2 a cites is right, and its direction is reversed.** `r.category` from `my_reporting_wards()` is the enum, and 6b's `::text` is what makes the call resolve. EA-2 b's form, with no cast, is the one that fails.
+- The test below plants EA-2 b's form and reads that error. -150's pseudo-terminal paste of 6b read THEATRE 3 and MATERNITY 2 through the cast.
+
+**EA-2 c: LANDED.** `tests/db/runbook_12_4_12_5_sql_live.test.ts`.
+- **What it runs.** It finds each block in the runbook by its section and its step's own words, through the shared fence reader (`tests/compliance/_fences.ts`). It then runs the command fence verbatim under bash, with the values the connection fence reads.
+  - It runs the whole fence (its PATH line, its psql lines and its `unset`), not only the `-c` statements. That is the paste, minus zsh.
+  - A block that moved, reads other variables, runs another number of psql lines, or does not end in its `unset` is refused by name.
+- **Where it runs.** 12.4 step 6a runs as a ward login. 6b runs as a facility login at a facility with two wards. 12.5 steps 1 to 3 run against a throwaway facility.
+- **What it asserts.** Each block's PASS lines, read back from the database. And for 6a and 6b, that every base table in `app` and the three public mirrors read the same, row for row, before and after.
+- **The fixtures' counts are 0.** A published status writes `app.ward_status_event`, which holds its facility by a RESTRICT key, so a fixture with an event could not be removed. The runbook's PASS line says 0 is a pass.
+- **Red first, and green:**
+  - **Red:** EA-2 b's form (`r.category`, no cast) planted into the runbook's own 6b, under bash with a trap restore, and the plant confirmed by `diff`: collected=16 ran=16 passed=13 **failed=3**, derived by `scripts/attest_counts.mjs`. The real 6b leg read `ERROR:  function public.ward_status_history(app.ward_category) does not exist`; the two 6b plant legs went red with it, one because its plant no longer found the cast to remove, one on the same error. The runbook was restored, and its only diff was EA-3's bullet.
+  - **Green:** the runbook as committed: collected=16 ran=16 passed=16 failed=0 errored=0 skipped=0, derived. The full suite's attestation is in #95's body.
+  - EA-7 d asked for red "against the current 6b text". That cannot be shown, because the current text is correct. So the red is against EA-2 b's form, the change EA-2 would have made.
+
+**EA-2 d: LANDED as a list in #95's body.** It covers every psql invocation in a shell fence under `docs/runbook-*.md`, with whether a test executes it: 47 psql lines in shell fences, all in the Supabase runbook: one `psql --version`, 41 with `-c`, and 5 fed a heredoc. This test executes the 8 in 12.4 steps 6a and 6b and 12.5 steps 1 to 3. No test executes the other 38 (33 `-c` and 5 heredoc); `tests/db/readback_public_output_sql.test.ts` runs a script's queries, not a fence. Nothing else was built.
+
+**EA-3: LANDED, with a's line restated by the founder.** EA-3 a's line was true for one of the two codes 5b's refusal paragraph covers.
+- **The two codes:**
+  - After `REPORTING_MODEL_CONFLICT`, each ward without its own login reads "Setup incomplete" in the admin app.
+  - After `REPORTER_ALREADY_EXISTS`, an active facility login exists. So every ward reads "Reported by the facility login", and nothing reads "setup incomplete".
+- **"From now on" holds only until a later reporter run at that facility succeeds.** `provision_begin` reuses the open invite (026:725-734), and `provision_complete` accepts it (026:856).
+- **The founder's wording**, under its own bullet "After `REPORTING_MODEL_CONFLICT`:" in 12.4 step 5b: "The admin app shows each ward without its own login as 'Setup incomplete' until a later provisioning run at this facility succeeds. That is expected. Record the facility id and report it." Nothing is added for `REPORTER_ALREADY_EXISTS`.
+- **b.** The register row stands, as issued.
+
+**EA-4: LANDED.** The register row, as issued.
+
+**EA-5:** Bundle 4's. The three lines were read at `apps/ward-console/src/main.ts:153`, `:210` and `:782` on #95's branch, as EA-5 cites them. Unchanged here.
+
+**EA-6: ACCEPTED.**
+- **Cowork's own slip, recorded as EA-6 asks:** DZ named "facility-reporter's records branch", but #94's branch was `records-dw-dx-dy` (read from the API, -150).
+
+**EA-7 c.** Recounted from the table: 56 after the merge, plus EA-3's and EA-4's rows, gives **58** (15 BOX, 32 TRIGGER, 11 VERSION). That is EA's 57, minus DO-3, plus two.
+
+Nothing hosted ran from Claude Code's side. Next letter: **EB**.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -7508,7 +7676,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | DW | R-2026-09-28-147 | 2026-09-28 | **#93 merged at `cd05de1`** (parents `1b506d6`, `97bd7cf`), with the head pinned; `facility-reporter-025-026` deleted on both sides and read back as gone. Pasting DW was the merge word. Fence 1 and fence 3's re-run readings, beyond DV-2, accepted. Held, and landed with -148. Next letter DX. |
 | DX | R-2026-09-28-148 | 2026-09-28 | **Hosted run 1, fence A:** the founder's zsh rewrote a pasted `!~` (history expansion), and psql refused the line; nothing was written. Fence A's second reading rewritten as `not (email ~ …)`, paste-checked. `tests/compliance/runbook_no_history_expansion.test.ts` refuses any `!` in a shell block under `docs/`, red first on line 2162; it exempts no comment line, because a default zsh expands one. The readings recorded as the founder's: `0`, the email reading's re-run `0` (its value relayed in DY), `0`. Next letter DY. |
 | DY | R-2026-09-28-149 | 2026-09-28 | **Hosted run 1 recorded:** 025 and 026 applied from `cd05de1` (fences A, 1 to 6 and B, the founder's readings relayed by Cowork), and the Worker redeployed as `7d07e831` and read back PASS, probe 4 included. The frozen boundary is at 26 (`ledger_rows: 26`). Step 5 is restated to 001 to 026 and 0 pending, with the 2026-09-28 run kept dated; step 7 reads 001 to 026. Hosted state: Worker `7d07e831` at `cd05de1`, dashboard `963e53f5` and ward console `f6429a29` at `3623d2b` (the console calls a dropped function; no login exists), admin `0651ec07` at `ba12ceb`. A finding reported for Cowork: the relayed `read -rs` swallow, its mechanism on the founder's terminal not established. Next letter DZ. |
-| DZ | R-2026-09-28-150 | 2026-09-28 | **#94 merged at `fbce3c9`** (parents `cd05de1`, `2c94c17`), with the head pinned; `records-dw-dx-dy` deleted on both sides and read back as gone. DX-2's two departures and -149's `read -rs` finding accepted. **DZ-3 landed in Bundle 2's pull request:** every block that reads a value is a one-line connection block and a command block ending in its `unset` (43 blocks), step P states the rule, `tests/compliance/runbook_read_pasted_alone.test.ts` guards it, and a real paste under a pseudo-terminal read the same with bracketed paste on and off. DT's Bundle 2 landed with it; DO-3 leaves: register 58 → 57. Next letter EA. |
+| DZ | R-2026-09-28-150 | 2026-09-28 | **#94 merged at `fbce3c9`** (parents `cd05de1`, `2c94c17`), with the head pinned; `records-dw-dx-dy` deleted on both sides and read back as gone. DX-2's two departures and -149's `read -rs` finding accepted. **DZ-3 landed in Bundle 2's pull request:** every block that reads a value is a one-line connection block and a command block ending in its `unset` (43 blocks), step P states the rule, `tests/compliance/runbook_read_pasted_alone.test.ts` guards it, and a real paste under a pseudo-terminal read the same with bracketed paste on and off. DT's Bundle 2 landed with it; DO-3 leaves: register 56 once main, with Bundle 3, was merged in (restated by -151 EA-7 c; until then "DO-3 leaves: register 58 → 57", this pull request's own table). Next letter EA. |
+| EA | R-2026-09-28-151 | 2026-09-28 | **Cowork's check of #95 and #96.** #96 merged first at `6d8c355` (parents `fbce3c9`, `6d6a4e2`); `bundle-3-admin` deleted on both sides and read back as gone; main's register read 57. Main merged into #95 at `a2ccc35`. **EA-2 a and b withdrawn, Cowork's error:** 015 replaced 011's enum signature with a text one, so 6b's `::text` is right and the uncast form is what fails; 6b unchanged. `tests/db/runbook_12_4_12_5_sql_live.test.ts` runs 12.4 steps 6a and 6b and 12.5 steps 1 to 3 from the runbook's own fences, red first on EA-2 b's form. 12.4 step 5b gains the founder's scoped EA-3 line. The stranded invite (EA-3) and the allow-list comment (EA-4) become TRIGGER rows: register 56 → 58 (15 BOX, 32 TRIGGER, 11 VERSION). EA-5's three sentences go to Bundle 4. Next letter EB. |
 
 ## Deferred items — this record is where the list lives
 
@@ -7600,6 +7769,8 @@ the record's own, except where CW-5 assigned one._
 | Phone features: the tile, call tracking, WhatsApp/SMS | R-2026-09-23-66 C2 | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
 | The notice's transfer sentence for Cloudflare: its SCCs are stated for European data and its Global CBPR mechanism needs the originating country to recognise it; the basis for transfers out of Nigeria is the founder's transfer pack | R-2026-09-27-138 DN-2 | BOX | Box 15 at runbook 12.4 step 1 (the paperwork register approved in full, whose transfer memo covers it), ticked by a ruling that closes it |
 | "N beds" reads "1 beds" when N is 1, in all three apps: `apps/public-dashboard/src/age-view.ts`, `apps/ward-console/src/main.ts` and `apps/admin/src/main.ts`. Fixed as one change across the three, with a guard | R-2026-09-27-140 DP-5 a | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned: the first moment a real count can be shown (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned: the first moment a real count can be shown") |
+| Design closing, or superseding, an open invite, with its audit row. A refusal at `provision_complete` leaves its invite open, and the admin app shows each ward without its own login as "Setup incomplete" until a later run at that facility succeeds | R-2026-09-28-151 EA-3 | TRIGGER | A provisioning run is refused at provision_complete on hosted |
+| Restate `operator_record_registration`'s allow-list comment in `supabase-proxy/allow-list.json` (apps/admin calls it since DT Bundle 3) | R-2026-09-28-151 EA-4 | TRIGGER | The next commit that changes supabase-proxy/ |
 
 ## Method notes — how rulings reach the implementer
 
