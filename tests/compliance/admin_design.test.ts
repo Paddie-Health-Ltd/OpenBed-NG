@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { REPO_ROOT } from './_scratch.js';
 import { noticeCssViolations, toneViolations, type Tone } from './_design.js';
 import ADMIN_LABELS from '../../packages/labels/admin-labels.json';
+import { lagosTime } from '../../packages/snapshot/src/index.js';
 
 /**
  * ADMIN'S DESIGN PASS, AND WHAT IT MUST NOT CHANGE (the design-pass kickoff, D3;
@@ -98,6 +99,10 @@ const facility = (id: string, over: Record<string, unknown> = {}): Record<string
   has_contact: true,
   agreement_state: 'recorded',
   categories: [ward('MATERNITY')],
+  // 026's three keys (R-2026-09-27-144 DT i, k): the register refuses a row without them.
+  reporting_model: 'WARD',
+  reporter_login: 'none',
+  hefamaa_reg_no: null,
   ...over,
 });
 
@@ -124,7 +129,7 @@ function server(facilities: () => Record<string, unknown>[], over: Record<string
     const fn = /\/rpc\/([a-z_]+)$/.exec(url)?.[1] ?? '';
     const o = over[fn];
     if (o !== undefined) return o(url, init);
-    if (fn === 'operator_register') return json(200, { server_now: SERVER_NOW, facilities: facilities() });
+    if (fn === 'operator_register') return json(200, { server_now: SERVER_NOW, retention_alert: [], facilities: facilities() });
     if (fn === 'operator_get_contact') return json(200, contact());
     return json(500, { message: 'unexpected call' });
   };
@@ -312,6 +317,19 @@ describe('every outcome is a Notice in the design system\'s tone, and every stat
     await detail({ operator_set_facility_listed: () => json(200, [{ facility_id: FAC_A, version: 5, listed_at: SERVER_NOW }]) }, () => submit('list-facility'), () => CONTACT, () => [facility(FAC_A, { listed_at: null })]);
     rows.push({ what: 'listed', el: pageStatus(), text: 'Listed.', tone: 'info' });
 
+    // Bundle 3 (R-2026-09-27-144 DT): the registration's outcomes, the retention alert, and
+    // DP-5 b's two read-failure sentences.
+    await detail({ operator_record_registration: () => json(200, [{ facility_id: FAC_A, version: 5 }]) }, () => { setInput('record-registration', 'hefamaa_reg_no', 'HEF/LA/0042'); submit('record-registration'); });
+    rows.push({ what: 'registration saved', el: pageStatus(), text: W.REGISTRATION_SAVED, tone: 'info' });
+    await detail({}, () => { setInput('record-registration', 'hefamaa_reg_no', ' HEF/LA/0042'); submit('record-registration'); });
+    rows.push({ what: 'registration refused on the page', el: formStatus('record-registration'), text: C['INVALID_ARGUMENT:p_hefamaa_reg_no'] as string, tone: 'caution' });
+    await renderAt(sessionFragment(), () => json(200, { server_now: SERVER_NOW, retention_alert: [{ job: 'openbed_erase_lapsed_ward_logins', end_time: SERVER_NOW }], facilities: [] }));
+    await until(() => document.querySelector('p.retention-alert') !== null);
+    rows.push({ what: 'retention alert', el: document.querySelector('p.retention-alert'), text: `${W.RETENTION_ALERT_LEAD} openbed_erase_lapsed_ward_logins, ${lagosTime(SERVER_NOW)}. ${W.RETENTION_ALERT_ACTION}`, tone: 'caution' });
+    await openA(server(() => [facility(FAC_A)], {}, () => ({ not: 'a contact' })));
+    rows.push({ what: 'contact could not be read', el: document.querySelector('section.contact-detail p'), text: W.CONTACT_UNREADABLE, tone: 'caution' });
+    rows.push({ what: 'agreement waits on the contact', el: document.querySelector('section.agreement-detail p'), text: W.AGREEMENT_NEEDS_CONTACT, tone: 'caution' });
+
     // The sign-in form.
     const signIn = async (route: Route) => {
       await renderAt('', route);
@@ -323,7 +341,7 @@ describe('every outcome is a Notice in the design system\'s tone, and every stat
     rows.push({ what: 'sign-in answered', el: await signIn(() => json(200, {})), text: W.REQUEST_ANSWERED, tone: 'info' });
     rows.push({ what: 'sign-in unreachable', el: await signIn(() => { throw new TypeError('down'); }), text: W.REQUEST_UNREACHABLE, tone: 'caution' });
 
-    expect(rows.length).toBe(22);
+    expect(rows.length).toBe(27);
     const out = toneViolations(rows);
     expect(out, out.join('\n')).toEqual([]);
   });
@@ -339,14 +357,15 @@ describe('every outcome is a Notice in the design system\'s tone, and every stat
   test('every p.status carries role="status": the register, every form of a facility, and the sign-in form', async () => {
     await openA(server(() => [facility(FAC_A, { listed_at: null })], {}, () => NO_AGREEMENT));
     const statuses = Array.from(document.querySelectorAll('p.status'));
-    // The page's line, and edit, add-category, record-contact, record-agreement, list-facility.
-    expect(statuses.length).toBe(6);
+    // The page's line, and edit, record-registration (DT Bundle 3), add-category,
+    // record-contact, record-agreement, list-facility.
+    expect(statuses.length).toBe(7);
     await renderAt(sessionFragment(), server(() => [facility(FAC_A)]));
     await until(() => document.querySelector('li.facility') !== null);
     statuses.push(...Array.from(document.querySelectorAll('p.status')));
     await renderAt('', () => json(500, {}));
     statuses.push(...Array.from(document.querySelectorAll('p.status')));
-    expect(statuses.length).toBe(8);
+    expect(statuses.length).toBe(9);
     for (const s of statuses) expect(s.getAttribute('role'), 'a status line is not announced').toBe('status');
   });
 });
@@ -400,7 +419,7 @@ describe('the operator forms do their own validation (DO-4 c); the sign-in form 
   test('every operator form sets noValidate; the sign-in form does not', async () => {
     await openA(server(() => [facility(FAC_A, { listed_at: null })], {}, () => NO_AGREEMENT));
     const operator = Array.from(document.querySelectorAll<HTMLFormElement>('form'));
-    expect(operator.map((f) => f.classList[0]).sort()).toEqual(['add-category', 'edit-facility', 'list-facility', 'record-agreement', 'record-contact']);
+    expect(operator.map((f) => f.classList[0]).sort()).toEqual(['add-category', 'edit-facility', 'list-facility', 'record-agreement', 'record-contact', 'record-registration']);
     await renderAt(sessionFragment(), server(() => []));
     await until(() => document.querySelector('ul.register') !== null);
     button('New facility').click();

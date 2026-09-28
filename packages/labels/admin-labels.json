@@ -15,6 +15,7 @@
     "INVALID_ARGUMENT:p_accepted_on": "Enter the date the agreement was accepted.",
     "INVALID_ARGUMENT:p_signatory_role": "The signatory's role is too long: 64 characters at most.",
     "INVALID_ARGUMENT:p_email": "That email address is not in a form this page can read. Check it for a missing @ or a space.",
+    "INVALID_ARGUMENT:p_hefamaa_reg_no": "Enter the registration number as it appears on the certificate, up to 64 characters, or leave it empty.",
     "NO_SUCH_FACILITY": "This facility no longer exists. Reload the page.",
     "IDEMPOTENCY_CONFLICT": "A facility was already created from this form with other details. Reload to see it.",
     "VERSION_CONFLICT": "This facility changed since you opened it. It has been reloaded, and your changes were not saved.",
@@ -102,6 +103,19 @@
     "CHANGES": "Changes",
     "PHONE_CHANGE_CONFIRM": "This is the number the public page shows for an emergency call. Nothing is saved until you confirm the change.",
     "CONFIRM_PHONE": "Confirm phone change",
-    "CANCEL": "Cancel"
+    "CANCEL": "Cancel",
+    "REPORTING_MODEL_FACILITY": "One login for the whole facility",
+    "REPORTING_MODEL_WARD": "One login per ward",
+    "REPORTING_MODEL_NONE": "No reporting login yet",
+    "REPORTED_BY_FACILITY": "Reported by the facility login",
+    "REGISTRATION_HEADING": "Registration",
+    "HEFAMAA_LABEL": "HEFAMAA registration number (optional)",
+    "SAVE_REGISTRATION": "Save registration",
+    "REGISTRATION_SAVED": "Registration saved.",
+    "RETENTION_ALERT_LEAD": "A data-retention job did not complete:",
+    "RETENTION_ALERT_ACTION": "Follow the Supabase runbook, 12.5 step 5.",
+    "SIGN_OUT": "Sign out",
+    "AGREEMENT_NEEDS_CONTACT": "The agreement can be recorded once the contact can be read. Reload the page.",
+    "CONTACT_UNREADABLE": "The contact could not be read. Reload the page."
   }
 }
