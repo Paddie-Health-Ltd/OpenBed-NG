@@ -8083,6 +8083,168 @@ _Issued as R-PROVISIONAL-2026-09-28-EF, by Cowork on 2026-09-28, after Claude Co
 
 Next letter: **EG**.
 
+### R-2026-09-28-157 — #99 merged: privacy notice 1.1 is on main
+
+_Issued as R-PROVISIONAL-2026-09-28-EG, by Cowork on 2026-09-28, as its check of #99 at `f7777f2` and the merge word. It was acted on the same day and HELD for the record, landing here, in the records-only pull request that also lands -158 (EH-1). Number assigned on landing: R-2026-09-28-156 plus one. Next provisional letter: **EH**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-28-EG — #99 (BUNDLE 5): MERGE WORD
+> EG lands as -157 in the record commit of whichever PR comes next. Next letter: EH.
+>
+> READ BY COWORK, from its own clone:
+> - main is at 175ac40; #99's head is f7777f2, and main..head is c0cc816 and f7777f2, 10 paths;
+> - docs/legal/privacy-notice-v1.1.md's sha256 is 9e38c813...ec76, the hand-over copy's;
+> - vite.config.ts reads v1.1, and privacy.html and privacy-notice.ts name it;
+> - readback_pages.sh now reads "Version 1[.]1", and a page still on 1.0 reads WRONG there;
+> - the screenshots at 360x740, 360 full page and 1280x900 show "Version 1.1" and all nine
+>   sections, with the four tables laid out as cards at 360.
+> All of it matches EE as amended by EF.
+>
+> EG-1  MERGE WORD. Read the seven required checks on f7777f2 from the API and quote each one.
+>   Merge only if every one reads success (skipped, neutral or cancelled does not count). Merge as
+>   a merge commit, read MERGED back, and then delete bundle-5-privacy-1-1 on both sides. Report
+>   the merge SHA, its parents and main's register count by kind (60: 16 BOX, 33 TRIGGER,
+>   11 VERSION). Then STOP.
+>
+> EG-2  ACCEPTED AS REPORTED:
+>   - the BOX row for EE-4's 12.4 box (the register test is right to demand one), so 60;
+>   - EF-2 b: readback_pages.sh has no local seam, none was added, and the red came from the test
+>     that feeds it the 1.0 page;
+>   - EE-1: the README paragraph restated, not only the line added;
+>   - 024 left naming v1.0, because it is frozen;
+>   - your plant-restore slip, and its new standing rule.
+>
+> EG-3  COWORK'S SLIP (EE-6), recorded in -157. EE-6 told you to cite "wherever the record holds"
+>   CLCO's condition that the agreement must name who publishes for the facility. The record
+>   holds no such condition. It came from Cowork's own handoff of 2026-09-27 (the Board's
+>   reporting-model read, restated by Cowork), not from a ruling. -155's wording, "Cowork's
+>   statement, with no citation", is correct as it stands. The condition is met by the agreement's
+>   clause 2.1 and Schedule 1's "Who reports" row, which the founder approved on 2026-09-28.
+>
+> EG-4  HOSTED RUN 3 IS THE FOUNDER'S, and nothing in it is yours. The steps: refresh the deploy
+>   checkout to #99's merge; run the new readback_pages.sh against 2633ccc0, which must read
+>   STOP; deploy the public dashboard; read the new deployment back, which must read PASS; and
+>   the founder's browser check of /privacy. Cowork relays the output, and it is recorded, with
+>   EE-4's box, in the next records commit.
+
+**EG-1: #99 MERGED.**
+- **The required checks** on `f7777f28b481a5f74727315ee1be056d5e46b1d5`, read from the check-runs API, latest run of each: bundle-guards (16:36:05Z), compliance-tests (16:37:58Z), db-tests (16:37:34Z), golden-path (16:37:29Z), migration-lint (16:35:49Z), repo-lint (16:36:17Z) and secret-scan (16:35:46Z). All seven read `completed success`, and none read skipped, neutral or cancelled. The seven names were read from main's branch protection.
+- **The merge:** `8aca82b273df456a97663a5a04db189f6953c7a4`, at 2026-09-28T16:46:15Z, with parents `175ac409d129c40582f231fa5a560abb73d06a2a` (main) and `f7777f28b481a5f74727315ee1be056d5e46b1d5` (the head). The head was read from the API and passed to `--match-head-commit`, and the merge was a merge commit.
+- `bundle-5-privacy-1-1` was deleted on both sides after `MERGED` read back.
+- **Main's register:** 60 (16 BOX, 33 TRIGGER, 11 VERSION), counted from the table.
+
+**EG-2:** accepted as reported, as listed.
+
+**EG-3, recorded as EG-3 asks: Cowork's slip.** EE-6 said to cite "wherever the record holds" CLCO's condition that the agreement must name who publishes for the facility. The record holds no such condition. It came from Cowork's own handoff of 2026-09-27 (the Board's reporting-model read, restated by Cowork), not from a ruling. -155's wording, "Cowork's statement, with no citation", stands. *Cowork's statement:* the condition is met by the agreement's clause 2.1 and Schedule 1's "Who reports" row, which the founder approved on 2026-09-28.
+
+**EG-4:** hosted run 3 was the founder's, and nothing in it was Claude Code's. It is recorded in -158.
+
+Next letter: **EH**.
+
+### R-2026-09-28-158 — Hosted run 3 recorded: privacy notice 1.1 is live, and EE-4's box is ticked
+
+_Issued as R-PROVISIONAL-2026-09-28-EH, by Cowork on 2026-09-28. It relays the founder's pasted output from hosted run 3, as Cowork read it. Landed in the records-only pull request that lands -157 first (EH-1). Number assigned on landing: R-2026-09-28-157 plus one. Next provisional letter: **EI**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-28-EH — HOSTED RUN 3 RECORDED: PRIVACY NOTICE 1.1 LIVE; EE-4's BOX TICKED
+> EH lands with EG in one records-only PR: EG as -157, then EH as -158. Next letter: EI.
+>
+> EH-1  THE RECORD. Open one records-only PR from main (8aca82b). Land EG as -157, with the #99 merge
+>   facts you reported and EG-3, Cowork's slip. Then land EH as -158, recording hosted run 3 from
+>   the founder's pasted output, relayed by Cowork:
+>   a) The deploy checkout refreshed from 48ba94b to 8aca82b273df456a97663a5a04db189f6953c7a4,
+>      with npm ci clean.
+>   b) THE RED FIRST (EF-3). The new readback_pages.sh, run against the live 2633ccc0 (still on
+>      1.0), read STOP with WRONG on exactly three lines:
+>      - read-back 4 commit: read 48ba94b, must be 8aca82b;
+>      - privacy version: (absent), the notice states Version 1.1;
+>      - openbed.ng privacy version: the same.
+>      Every other line read ok.
+>   c) THE DEPLOY: bash scripts/deploy_pages.sh --branch main public-dashboard, deployment
+>      https://3f0e1e17.openbed-public-dashboard.pages.dev, with the Functions bundle uploaded.
+>      dist/privacy.html was 9.40 kB (8.74 kB at 1.0).
+>   d) THE GREEN: readback_pages.sh against 3f0e1e17 read PASS:
+>      - read-back 4 names 8aca82b, clean and on origin/main;
+>      - read-backs 6, 7 and 8 read ok;
+>      - the headers and scripts are right on both hosts, and so are the favicon and the font;
+>      - /privacy reads Version 1.1, with Paddie Health Ltd as controller, no #app root and no
+>        scripts, on both hosts;
+>      - the serve-time stamp advances.
+>   e) The founder's browser check: openbed.ng/privacy shows "Version 1.1", and its sign-in row
+>      reads "for one ward or for a whole hospital".
+>   f) THE HOSTED STATE:
+>      - the public dashboard at 3f0e1e17 from 8aca82b;
+>      - the ward console at 6e216584 and admin at 90acd718, both from 48ba94b;
+>      - Worker 7d07e831 at cd05de1;
+>      - migrations 001 to 026.
+>      No reporting login exists yet.
+>
+> EH-2  EE-4's BOX IS TICKED by this run. In runbook 12.4, tick "Privacy notice 1.1 deployed and read
+>   back ... before the first facility-level login is provisioned", citing -158 and 3f0e1e17.
+>   Remove its BOX row by rule, and recount from the table: 60 becomes 59 (15 BOX, 33 TRIGGER,
+>   11 VERSION). Any other number is a STOP to report. If the tick is a runbook change that
+>   EB-4's TRIGGER row watches (a psql line added or edited), say so. A tick adds no psql line,
+>   so it should not fire.
+>
+> EH-3  PROCESS: as ED-3. Commit with scripts/commit.sh --fast. Merge only when all seven required
+>   checks read success. Merge as a merge commit, read MERGED back, and delete the branch on both
+>   sides. Report the merge SHA, its parents and the register count, then STOP.
+>
+> WHAT IS NEXT: facility one. Its creation (12.4 steps 1 to 2a) and its facility-level login
+> (steps 5b and 6b) are the founder's, from the admin app and the runbook. Cowork writes the steps
+> once the founder has facility one's details (the details sheet) and its signed agreement.
+> Nothing for Claude Code.
+
+**What this record rests on.**
+- **The founder's readings, relayed by Cowork.** Every deploy, read-back and browser reading below is the founder's, as Cowork relays it. Claude Code ran nothing hosted, and read none of these URLs.
+- **What Claude Code checked, from the repository at `8aca82b`:**
+  - `scripts/readback_pages.sh` names the three lines EH-1 b quotes: `read-back 4 commit` compares the deployment's stamp with the checkout's HEAD (l.53), and `privacy version` and `openbed.ng privacy version` read `(absent)` against "the notice states Version 1.1" when the page lacks `Version 1.1` (l.184–185). A deployment from `48ba94b` serving 1.0, read from a checkout at `8aca82b`, reads WRONG on exactly those three.
+  - The sign-in row EH-1 e quotes, "for one ward or for a whole hospital", is in `docs/legal/privacy-notice-v1.1.md` (l.27) and not in v1.0.
+  - A local build of dist/privacy.html at `8aca82b` is 9407 bytes, which agrees with EH-1 c's 9.40 kB. The 8.74 kB at 1.0 is the founder's reading only.
+
+**EH-1: HOSTED RUN 3, RECORDED.**
+- **a. The deploy checkout:** refreshed to `8aca82b273df456a97663a5a04db189f6953c7a4` from `48ba94b`, and `npm ci` was clean.
+- **b. The red first (R-2026-09-28-156 EF-3).** The new `readback_pages.sh`, against the live `2633ccc0` (still on 1.0), read STOP with WRONG on exactly three lines:
+  - read-back 4 commit: it read `48ba94b` where it must be `8aca82b`;
+  - privacy version: `(absent)`, where the notice states Version 1.1;
+  - openbed.ng privacy version: the same.
+
+  Every other line read ok. This is the hosted red that -155 EE-3 could not take locally (-156 EF-2 b).
+- **c. The deploy:** `bash scripts/deploy_pages.sh --branch main public-dashboard`, deployment `https://3f0e1e17.openbed-public-dashboard.pages.dev`, with the Functions bundle uploaded. dist/privacy.html was 9.40 kB (8.74 kB at 1.0).
+- **d. The green:** `readback_pages.sh` against `3f0e1e17` read PASS:
+  - read-back 4 names `8aca82b`, clean and on origin/main;
+  - read-backs 6, 7 and 8 read ok;
+  - the headers, scripts, favicon and font are right on both hosts;
+  - `/privacy` reads Version 1.1, with Paddie Health Ltd as controller, no app root and no scripts, on both hosts;
+  - the serve-time stamp advances.
+- **e. The founder's browser check:** openbed.ng/privacy shows "Version 1.1", and its sign-in row reads "for one ward or for a whole hospital".
+- **f. Hosted after this run.** This restates -154's table, which stays as written for its own date.
+
+  | What | Version | Built from |
+  |---|---|---|
+  | Migrations | 001 through 026, frozen boundary 26 | |
+  | Worker | `7d07e831` | `cd05de1` |
+  | Public dashboard | `3f0e1e17` | `8aca82b` |
+  | Ward console | `6e216584` | `48ba94b` |
+  | Admin | `90acd718` | `48ba94b` |
+
+  No reporting login exists yet.
+
+**EH-2: EE-4's BOX TICKED, AND ITS ROW LEAVES.**
+- Runbook 12.4 step 1's box "Privacy notice 1.1 deployed and read back … before the first facility-level login is provisioned" is ticked, with a CLOSED line citing -158 and `3f0e1e17`.
+- **Its BOX row leaves by rule (e)** of this record's deferred-items section. Ticked with the row still in place, `tests/compliance/deferred_items.test.ts` read red, 1 of 29: "(e) … BOX row cites R-2026-09-28-155 EE-4, and every box carrying it is ticked: a closed item leaves the register". With the row removed it reads green.
+- **Recounted from the table: 60 → 59** (15 BOX, 33 TRIGGER, 11 VERSION), as EH-2 requires.
+- **EB-4's TRIGGER row did not fire.** The runbook change is the tick and its CLOSED line, and neither adds nor edits a psql line. This pull request's runbook diff contains no `psql`.
+- EB-2's gate-log row did not fire in the hosted run, because the gate did not run there.
+
+**EH-3:** records-only, committed with `scripts/commit.sh --fast`, whose trailer says so.
+
+**What is next, and nothing for Claude Code:** facility one. Its creation (12.4 steps 1 to 2a) and its facility-level login (steps 5b and 6b) are the founder's, from the admin app and the runbook. Cowork writes the steps once the founder has facility one's details and its signed agreement.
+
+Nothing hosted ran from Claude Code's side. Next letter: **EI**.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -8230,6 +8392,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | ED | R-2026-09-28-154 | 2026-09-28 | **Hosted run 2 recorded** (the founder's readings, relayed by Cowork): the ward console `6e216584`, admin `90acd718` and the public dashboard `2633ccc0`, all from `48ba94b`, each read back PASS, and the founder's browser checks passed. Admin's first read-back ran against a pasted placeholder URL and is not a verdict; the rerun is (Cowork's slip: a read-back command is given with the real URL filled in). Hosted: migrations 001 to 026, Worker `7d07e831` at `cd05de1`. 12.4 step 5's DU-4 b precondition is MET on hosted. No trigger fired; register 59. Next letter EE. |
 | EE | R-2026-09-28-155 | 2026-09-28 | **Bundle 5: privacy notice 1.1.** The founder-approved text is committed byte for byte (from EF-1's file; EE's inline copy arrived truncated). `/privacy` renders 1.1 exactly as 1.0 was, 1.0 is kept unchanged with its hash pinned, and `readback_pages.sh` checks Version 1.1, each red first. 12.4 step 1 gains the unticked hosted-run-3 box, so a BOX row lands: register 59 → 60 (16 BOX, 33 TRIGGER, 11 VERSION). The facility agreement's restated clauses 1.2 and 2.1 and "Who reports" row are recorded; CLCO's condition is not held in this record and is not cited. Next letter EF. |
 | EF | R-2026-09-28-156 | 2026-09-28 | **EE amended:** the notice text travels as a hand-over file with its sha256, checked before use and in the repository. EE-3's red is read without a hosted site: `readback_pages.sh` has no local-server seam (its custom domain is fixed), so none was added, and the red came through its tests' curl-stub seam; the hosted red is the founder's, in hosted run 3. Next letter EG. |
+| EG | R-2026-09-28-157 | 2026-09-28 | **#99 merged at `8aca82b`** (parents `175ac40`, `f7777f2`), all seven required checks read `success` first; `bundle-5-privacy-1-1` deleted on both sides. Register 60 (16 BOX, 33 TRIGGER, 11 VERSION). EG-3: EE-6's CLCO condition came from Cowork's own 2026-09-27 handoff, not from this record; Cowork's slip, and -155's "no citation" stands. Held, and landed with -158. Next letter EH. |
+| EH | R-2026-09-28-158 | 2026-09-28 | **Hosted run 3 recorded** (the founder's readings, relayed by Cowork): the new read-back against `2633ccc0` read STOP, WRONG on read-back 4's commit and on the privacy version on both hosts; the public dashboard deployed as `3f0e1e17` from `8aca82b` and read back PASS with Version 1.1 on both hosts; the browser shows Version 1.1. EE-4's 12.4 box is ticked and its BOX row leaves: register 60 → 59 (15 BOX, 33 TRIGGER, 11 VERSION). EB-4's row did not fire (no psql line). Next letter EI. |
 
 ## Deferred items — this record is where the list lives
 
@@ -8324,7 +8488,6 @@ the record's own, except where CW-5 assigned one._
 | Restate `operator_record_registration`'s allow-list comment in `supabase-proxy/allow-list.json` (apps/admin calls it since DT Bundle 3) | R-2026-09-28-151 EA-4 | TRIGGER | The next commit that changes supabase-proxy/ |
 | Read the kept log, name the failing test and its cause, and report it; the 2026-09-28 red on 95c1b83's first gate run is the open instance | R-2026-09-28-152 EB-2 | TRIGGER | The next time tests (db+compliance) is red in scripts/gate.sh |
 | That change brings its block under a live test | R-2026-09-28-152 EB-4 | TRIGGER | The next runbook change that adds or edits a psql line outside the fences tests/db/runbook_12_4_12_5_sql_live.test.ts runs |
-| Privacy notice 1.1 deployed and read back (readback_pages.sh PASS with 'Version 1.1' on both hosts), before the first facility-level login is provisioned; hosted run 3 | R-2026-09-28-155 EE-4 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 
 ## Method notes — how rulings reach the implementer
 
