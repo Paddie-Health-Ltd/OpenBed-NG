@@ -8503,6 +8503,353 @@ _Issued as R-PROVISIONAL-2026-09-28-EK, by Cowork on 2026-09-28. It relays the f
 
 Nothing hosted ran from Claude Code's side. Next letter: **EL**.
 
+### R-2026-09-28-162 — PR S-a: the scripts/ survey's three guards
+
+_Issued as R-PROVISIONAL-2026-09-28-EL, by Cowork on 2026-09-28. It replaces an earlier EL text, which Cowork's independent review changed (EL-0). Landed in its own pull request, branched from `3bac730` (#102's merge, read back first). Number assigned on landing: R-2026-09-28-161 plus one. Next provisional letter: **EM**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-28-EL — PR S-a: THE scripts/ SURVEY'S THREE GUARDS
+> EL lands in PR S-a as -162. Next letter: EM.
+> If you received an earlier EL text, discard it. It was reviewed independently before being
+> pasted and is replaced by this one; the findings that changed it are in EL-0.
+>
+> START from main at 3bac7308434a828197cd57c1880011daaa9cd580 (#102's merge), after reading it
+> back. DL-6 c fired the survey's TRIGGER at 024 and said "PR S follows D3"; D3 is done (-139,
+> -142).
+>
+> EL-0  THE SPLIT, AND WHY. The survey row names four items. PR S becomes two PRs:
+>   - S-a (this letter): item 1 (negated equality on a duty flag), item 2 (SQL quoted in prose)
+>     and the digest's privileges. Each is a guard, built red first.
+>   - S-b (its own letter, after S-a merges): item 4 (PR evidence from artefacts) and the
+>     charter table over every script, S-a's new ones included. S-b needs a shared register
+>     module and a named source of local JUnit files, which is a design of its own.
+>   Cowork's independent review of the first draft found:
+>   - its item-2 guard would be red on today's tree: the decision record quotes the broken form
+>     as evidence (lines 1148, 1187 and 8837);
+>   - its EL-1 c premise was wrong: `NOT p_anaesthetist = 'NO'` DOES compile. NOT binds looser
+>     than =, so it parses as NOT (p_anaesthetist = 'NO') and drops a NULL. Only a bare
+>     `NOT flag` standing alone fails to compile. Checked on PostgreSQL 16 over
+>     YES/UNKNOWN/NO/NULL: it returned YES,UNKNOWN.
+>   Both are Cowork's slips. Record them in -162.
+>
+> READ BY COWORK, from its own clone at 3bac730, and confirmed by the review:
+> - The register row (decision record, the "scripts/ survey items" row, TRIGGER, "FIRED at 024;
+>   work in PR S") names four items.
+> - scripts/lint_sql_no_bare_not_duty_flag.sh blanks '...' literals and strips `--` comments,
+>   then matches `\bNOT\s+([a-z_]+\.)?(anaesthetist|obstetrician|paediatrician)\b`. Its header
+>   says nothing catches `<> 'NO'` or `NOT (x = 'NO')`.
+> - That pattern misses `NOT p_anaesthetist` (the underscore is a word character), and app.gate()
+>   takes p_anaesthetist, p_obstetrician and p_paediatrician (006:59-63).
+> - No migration 001 to 026, .down files included, holds `<> 'NO'`, `!= 'NO'`,
+>   `NOT (... = 'NO')`, `NOT flag = 'NO'` or `NOT IN ('NO')`. 006 uses
+>   `IS NOT DISTINCT FROM 'NO'::app.tri_state` at :90, :101 and :105.
+> - The digest in tests/db/migration_idempotency.test.ts has no grants, owners or RLS flags
+>   (:75-76 says so).
+> - tests/db/runbook_12_4_12_5_sql_live.test.ts runs the 12.4 and 12.5 psql lines, and EB-4's
+>   row covers any new one.
+>
+> EL-1  ITEM 1: THE NEGATED EQUALITY ON A DUTY FLAG.
+>   a) TWO PASSES PER FILE, over database/migrations/*.sql, .down files included.
+>      - Pass A is today's pass, unchanged in what it strips (literals and `--` comments). It
+>        carries the bare NOT.
+>      - Pass B strips `--` comments only, keeping literals, and carries the negated equality.
+>      Pass B cannot run on literal-kept text with pass A's pattern: it would fire on 003:179's
+>      COMMENT ON COLUMN, which quotes `not anaesthetist`. Extend the script, or add a sibling.
+>      A sibling joins LINTS in scripts/lint_migrations_all.sh; lint_migrations_all_complete
+>      and runner_aggregation assert those names.
+>   b) A DUTY-FLAG NAME is `([a-z_]+\.)?[a-z_]*(anaesthetist|obstetrician|paediatrician)[a-z_]*`.
+>      That covers bare, qualified, p_-prefixed and suffixed names such as
+>      `anaesthetist_on_duty`, the boolean regression the header says the guard exists for
+>      (003:160). Pass A's bare NOT uses it too. If the wider name fires anywhere on the real
+>      corpus, STOP and report the line; do not narrow it silently.
+>   c) PASS B CATCHES, with optional whitespace and an optional ::type on either side:
+>      - `flag <> 'NO'`, `flag != 'NO'`;
+>      - the reversed `'NO' <> flag`, `'NO' != flag`;
+>      - `NOT (flag = 'NO'`;
+>      - `NOT flag = 'NO'` (the precedence form in EL-0).
+>   d) THE HEADER.
+>      - Rewrite lines 14-18. A bare `NOT flag` does not compile against the enum.
+>        `NOT flag = 'NO'` does compile and drops a NULL.
+>        `NOT flag IS DISTINCT FROM 'NO'` compiles and is correct, and pass A flags it anyway:
+>        an accepted false positive, named as one.
+>      - "NOT ASSERTED HERE either" becomes what the guard now catches, followed by what it still
+>        misses:
+>        - a NOT ( ... ) split across lines;
+>        - a compound NOT (a = 'X' AND flag = 'NO');
+>        - `flag NOT IN ('NO')`;
+>        - dynamic SQL in EXECUTE strings;
+>        - a `--` inside a literal, which truncates pass B's line (a false negative).
+>      - Classify the new match under code-pipeline Clause 5 as GUARD-AHEAD-OF-SUBJECT: there
+>        are zero occurrences today.
+>   e) PLANTS, both ways (test conventions section 2). Each is caught:
+>      - every shape in c, on a bare, a qualified, a p_ and a suffixed name;
+>      - with and without a cast, and with and without whitespace;
+>      - inside a $$ function body;
+>      - in a .down.sql file;
+>      - `NOT p_anaesthetist` for pass A.
+>      Controls, none caught:
+>      - `IS NOT DISTINCT FROM 'NO'`, `IS DISTINCT FROM 'NO'`, and a positive `= 'NO'`;
+>      - `coalesce(anaesthetist, 'UNKNOWN') <> 'NO'` (total, and so correct);
+>      - a non-duty `col <> 'NO'`;
+>      - `NOT EXISTS (... flag = 'NO')`;
+>      - a COMMENT ON literal quoting `<> ''NO''`;
+>      - a `--` comment quoting the wrong form;
+>      - 026:141's `WHERE NOT ( (role = 'WARD_STAFF' ...`, the real-corpus trap for a matcher
+>        that reads across lines.
+>      Say whether `/* */` blocks are stripped, and plant accordingly. Red first applies to the
+>      catch plants only; the controls are green against the old script and the new one.
+>
+> EL-2  ITEM 2: SQL QUOTED IN PROSE.
+>   a) THE GUARD. It catches a comparison (=, <>, !=, IS DISTINCT FROM, IS NOT DISTINCT FROM)
+>      whose right-hand side is an UNQUOTED YES, NO or UNKNOWN.
+>      - The match is case-sensitive, and the literal is a whole token, with the underscore
+>        counted as a word character: `gated_by = NO_ANAESTHETIST_ON_DUTY`
+>        (sweep-2026-09-17-v1-enumeration.md:294) is not a hit.
+>      - CORPUS: the tracked *.md files (from git ls-files) EXCEPT the decision record;
+>        .claude/rules/*; and the `--` comments in database/migrations/*.sql.
+>      - The decision record is OUT OF SCOPE, not allowlisted. It is append-only and quotes the
+>        defect as evidence, and -162 will quote it again. The header says so under NOT
+>        ASSERTED HERE, and a test reads the exclusion beside the filter (section 2 d).
+>      - A hit in a frozen migration's comment cannot be edited: its correction goes to
+>        database/migrations/README.md. Say so in the header.
+>      - Anti-vacuity is per location: zero files in any one of the three locations is exit 2.
+>      - The script has a root seam. Its plants run in a scratch git repository built by the
+>        test, constructed and never committed.
+>      - It runs in the gate and as a compliance test. Classify it LIVE.
+>      - It must be green on today's tree. Plants: a hit in an .md file, in a rules file and in
+>        a migration comment; and the decision-record exclusion proven by a plant that is
+>        caught once the file is renamed.
+>      Controls, none caught:
+>      - `= now()` and `=> NO`;
+>      - `= 'NO'` and `IS NOT DISTINCT FROM 'NO'::app.tri_state`;
+>      - `NO_ANAESTHETIST_ON_DUTY`.
+>   b) THE REPORT, with no guard. List every other place prose carries SQL a reader would copy:
+>      fenced sql blocks, and inline code that is a whole statement, outside the fences a live
+>      test already runs.
+>      - Give a count per file.
+>      - Name any fragment that cannot compile as written against the current schema. Say for
+>        each whether you checked it by eye or in a rolled-back transaction.
+>      Fix nothing in part b; Cowork rules on it in the merge letter.
+>
+> EL-3  ITEM 3: THE DIGEST GAINS PRIVILEGES AND OWNERS, for schemas app and public.
+>   a) COMPONENTS, each wrapped in coalesce(..., 'none'). One NULL string_agg would make the
+>      whole || digest NULL.
+>      - Relations of relkind r, p, v, m, S and f: relowner, and the ACL as
+>        aclexplode(coalesce(relacl, acldefault(kind, owner))), each row rendered by name as
+>        grantor/grantee (0 as PUBLIC), privilege and is_grantable, sorted.
+>      - relrowsecurity and relforcerowsecurity, for r and p.
+>      - Functions: proowner, prosecdef, proconfig unnested and sorted, and proacl the same way
+>        as relacl. A SECURITY DEFINER function runs as its owner.
+>      - Schema ACLs (nspacl) for app and public.
+>      - pg_default_acl in those schemas.
+>      Return the digest as a map of named components, so each plant can say which one moved.
+>      Update the :75-76 comment.
+>   b) PLANTS. Each is a re-apply that succeeds.
+>      - One per component: SELECT on an app table to anon; EXECUTE on an app function to anon;
+>        an ACL on a sequence or a view; RLS disabled; FORCE removed; SECURITY INVOKER; a changed
+>        search_path (RESET or a different value); a schema grant; a default privilege; an
+>        owner change.
+>      - Each asserts a presence precondition (as :181 does), and that ONLY its named component
+>        changed.
+>      - Each restores its state in finally (REVOKE, ENABLE and FORCE, SECURITY DEFINER, the
+>        old owner), then asserts the digest equals its value before the plant. A leaked grant
+>        would weaken every db test file after it.
+>      - The existing "changes nothing" leg stays green on the real corpus.
+>   c) STOP ON A REAL DIFFERENCE. If the real re-apply is not idempotent once these components
+>      are in, STOP and report the component, the object and the grantee. Also say whether the
+>      difference exists on a fresh db reset before the suite runs, which separates a
+>      non-idempotent migration from pollution by an earlier test file (013:88-98's sweep
+>      erases leaked grants). Do not change the digest to hide it.
+>
+> EL-4  REGISTER. S-a lands no row and removes none: 59 (15 BOX, 33 TRIGGER, 11 VERSION).
+>   - The survey row stays. Its Gate cell becomes: "FIRED at 024; items 1 and 2 and the digest
+>     landed in S-a (R-2026-09-28-162); the evidence tables and the charter in S-b".
+>   - If deferred_items.test.ts pins that cell's text, report it rather than change the test.
+>   - The row leaves in S-b, with its work done recorded there, once the merge letter has ruled
+>     on EL-2 b's list and S-b's charter table.
+>
+> EL-5  THE REPORT, then STOP for Cowork's check:
+>   - branch and HEAD; git log --oneline origin/main..HEAD; git diff -M --name-status
+>     origin/main...HEAD;
+>   - for each of EL-1, EL-2 a and EL-3: red first (catch plants only), then green, with every
+>     plant and control named;
+>   - the test count against 2570;
+>   - EL-2 b's list;
+>   - the register count by kind.
+>   Process as every PR: the full gate, and merge only on Cowork's word. Nothing hosted: S-a
+>   touches no migration, no app and no deploy script. Do not start S-b.
+
+**What this record rests on.**
+- **Cowork's readings at `3bac730`, re-read by Claude Code at `3bac7308434a828197cd57c1880011daaa9cd580` before acting.** Every one holds:
+  - 006:59-63 is `app.gate()`'s signature, with the three `p_` parameters, and :90, :101 and :105 use `IS NOT DISTINCT FROM 'NO'::app.tri_state`;
+  - 003:160 is the `--` comment naming `not anaesthetist_on_duty`, and 003:179 is the COMMENT ON literal quoting `not anaesthetist`;
+  - 026:141 is `WHERE NOT (   (role = 'WARD_STAFF'`;
+  - sweep-2026-09-17-v1-enumeration.md:294 is `gated_by = NO_ANAESTHETIST_ON_DUTY`;
+  - the digest test's :75-76 comment said grants and RLS flags were outside the digest, and :181 was the policy plant's presence precondition;
+  - no `deferred_items.test.ts` assertion, nor any other test, pins the survey row's Gate cell text.
+- **Probed by Claude Code at `3bac730`, before any code changed:**
+  - EL-1's wider pass A and every pass B shape give zero hits over all 52 migration files, .down files included, so EL-1 b's stop did not fire;
+  - EL-2's pattern gives zero hits over the 41 tracked .md files, the 2 rules files and the 52 migrations' `--` comments. In this record it hits exactly 1148, 1187 and 8837, as Cowork found;
+  - no migration from 001 to 026 holds a `/* */` block.
+- **The precedence, observed on local PostgreSQL 17.6** in a rolled-back transaction, over YES/UNKNOWN/NO/NULL:
+  - `NOT f = 'NO'` returned UNKNOWN,YES, dropping the NULL;
+  - `NOT f IS DISTINCT FROM 'NO'` returned NO, which is total;
+  - a bare `NOT f` was refused with "argument of NOT must be type boolean, not type app.tri_state".
+  
+  Cowork's PostgreSQL 16 reading agrees.
+
+**EL-0: TWO SLIPS, COWORK'S, RECORDED AS EL-0 ASKS.**
+- **The first draft's item-2 guard would have been red on today's tree.** This record quotes the unquoted form as evidence at 1148, 1187 and 8837. The landed guard leaves this record out of scope by path (EL-2 a).
+- **The first draft's EL-1 c premise was wrong.** `NOT p_anaesthetist = 'NO'` compiles: NOT binds looser than =. Only a bare `NOT flag` standing alone is refused. The header now says so, and the precedence form is one of pass B's shapes.
+
+**EL-1: LANDED.** `scripts/lint_sql_no_bare_not_duty_flag.sh` is extended in place; no sibling was added, so `LINTS` and both tests over it are unchanged.
+- **The name.** A duty-flag name is `([a-z_]+\.)?[a-z_]*(anaesthetist|obstetrician|paediatrician)[a-z_]*`, case-insensitive, in both passes.
+- **Pass A** blanks literals and strips `--` comments, as before, and carries the bare NOT.
+- **Pass B** strips `--` comments only. It carries:
+  - `flag <> 'NO'` and `flag != 'NO'`;
+  - `'NO' <> flag` and `'NO' != flag`;
+  - `NOT (flag = 'NO'` and `NOT flag = 'NO'`;
+  - beyond the letter, the reversed NOT forms `NOT ('NO' = flag` and `NOT 'NO' = flag`.
+  
+  Each allows whitespace and a `::type` on either side.
+- **`/* */` blocks are not stripped.** No migration holds one, so a block comment quoting a wrong form is read as code and caught. The header says to quote a wrong form in a `--` comment instead.
+- **The header:**
+  - lines 14-18 are rewritten as EL-1 d asks, with `NOT flag IS DISTINCT FROM 'NO'` named as pass A's accepted false positive;
+  - the old "NOT ASSERTED HERE either" becomes what pass B catches, then what it still misses: EL-1 d's five, plus a parenthesised `(flag) <> 'NO'`;
+  - pass B is classified GUARD-AHEAD-OF-SUBJECT.
+- **A FINDING OUTSIDE THE LETTER, FIXED BECAUSE IT IS THIS SCRIPT.** The scan was `sed ... "$f" | grep`, under a comment saying pipefail makes the status "the first failure in the pipeline". It is the LAST non-zero one.
+  - A sed that could not read the file exited non-zero. grep read nothing and exited 1, and the pipeline reported 1: no match.
+  - Observed with a mode-000 migration: this script, and main's copy of it at `3bac730`, both read PASS.
+  - The read is now its own step, with its own leg, "the duty-flag read exited", reached by a mode-000 plant. The plant's precondition fails loudly for a user who can read the file.
+- **Three siblings carry the same pipeline and the same false comment. They are NOT fixed here**, as they are outside S-a; this is for Cowork's ruling:
+  - `scripts/lint_no_replica_identity_full.sh`: observed with a mode-000 plant, it read PASS;
+  - `scripts/lint_no_updated_at_filter.sh`: observed with a mode-000 plant, it read PASS;
+  - `scripts/lint_audit_log_columns.sh`: on the same plant it exited 2, through an earlier step that reads the file, so its own `sed | grep` site is unproven either way.
+- **Tests,** `tests/compliance/lint_sql_bare_not_duty_flag.test.ts`, 56 legs. Every plant asserts which pass reported its line.
+  - **Catch plants:**
+    - each of pass B's eight shapes, on a bare, a qualified, a `p_` and a suffixed name, each file holding all six cast and spacing variants and asserting every line;
+    - a `$$` body, a .down file, and a `/* */` block;
+    - `NOT p_anaesthetist` and `NOT anaesthetist_on_duty` for pass A;
+    - the accepted false positive, caught by pass A and not by pass B;
+    - the unreadable file.
+  - **Controls, none caught:**
+    - `IS NOT DISTINCT FROM 'NO'`, `IS DISTINCT FROM 'NO'`, and a positive `= 'NO'`;
+    - the total `coalesce(...) <> 'NO'`, and a non-duty `<> 'NO'`;
+    - `NOT EXISTS (... = 'NO')`;
+    - a COMMENT ON literal quoting `<> ''NO''`;
+    - a `--` comment quoting the wrong form;
+    - 026:141 to 144, copied from the real file after asserting line 141 still reads as cited.
+- **Red first:** against main's script, 38 of 55 failed: every new catch plant. The 17 that passed are the four original pass-A plants, the nine controls, the comment control, both anti-vacuity legs and the real corpus. Green: 55 of 55, then 56 of 56 with the unreadable-file leg, which main's script fails by reading PASS.
+
+**EL-2 a: LANDED.** The new guard is `scripts/lint_sql_quoted_in_prose.sh`, classified LIVE.
+- **What it catches:** =, <>, !=, IS DISTINCT FROM or IS NOT DISTINCT FROM, then an unquoted YES, NO or UNKNOWN.
+  - The literal is case-sensitive and a whole token, with the underscore a word character. EL-2 a's "case-sensitive" is read as applying to the literal; the keywords match in any case, as SQL reads them.
+  - Today's corpus holds no lower-case variant, so the reading changes nothing now.
+- **The corpus is three disjoint locations, each with its own anti-vacuity:**
+  1. tracked .md files outside `.claude/rules/`, except this record;
+  2. tracked files under `.claude/rules/`;
+  3. the `--` comments of `database/migrations/*.sql`, read from disk so an unadded migration is read.
+- **The exclusion is one path, `EXCLUDED`, named under NOT ASSERTED HERE.** A test reads both and checks the path is tracked. The header also says a frozen migration's comment is corrected in `database/migrations/README.md`.
+- **Wiring:**
+  - `scripts/gate.sh` runs it as "sql in prose";
+  - `tests/compliance/runner_aggregation.test.ts` stubs it;
+  - `tests/compliance/lint_migrations_all_complete.test.ts` records it as running elsewhere, not in the migration-lint job, because two of its three locations are markdown;
+  - its ACCEPT leg runs in `compliance-tests`.
+- **Tests,** `tests/compliance/lint_sql_quoted_in_prose.test.ts`, 23 legs. Its scratch git repository is built by the test, and nothing is committed.
+  - **Plants:** a hit in an .md file, in a rules file and in a migration comment; != with YES; lower-case IS DISTINCT FROM; = at end of line.
+  - **The exclusion:** a hit at this record's path is accepted, then caught once `git mv` renames it.
+  - **Controls:** `= now()`, `=> NO`, `= 'NO'`, `IS NOT DISTINCT FROM 'NO'::app.tri_state`, `NO_ANAESTHETIST_ON_DUTY`, lower-case prose, and an unquoted literal in migration code, which is not this guard's corpus.
+  - **Failure legs:** anti-vacuity for each location and a missing migration directory; a root git cannot list; an unreadable .md file and an unreadable migration.
+- **Red first:** 20 of 20 failed, because the script did not exist; the controls were red only for that reason. Green: 23 of 23. On the real tree it reads PASS over 41 .md files, 2 rules files and 52 migrations.
+
+**EL-2 b: THE LIST, FOR COWORK'S RULING. NOTHING IS FIXED.**
+- **How it was made.** An extractor over the 44 tracked .md files took:
+  - ```` ```sql ```` fences;
+  - shell fences that call psql, with each `-c` string and heredoc body taken apart;
+  - inline code that opens with a statement keyword and has a target.
+
+  **The extractor's shape is its limit.** It recognises a statement by its first keyword, so a statement split across inline spans, or opening with anything else, is not in the list.
+- **The runs.** Every extracted statement was run in `BEGIN ... ROLLBACK` on the local stack at 026, with `$VARS` given a dummy uuid.
+  - Fragments holding their own transaction control were not wrapped, because a COMMIT would persist. They were read by eye; where a fragment held no commit, it was also run verbatim.
+  - Keyword-only mentions such as `CREATE OR REPLACE` or `GRANT ALL` are prose, not statements. They are counted apart.
+- **The live test's five fences** are excluded: runbook 4565, 4590, 4650, 4669 and 4686.
+
+  | File | sql fences | psql fences (not live) | Whole-statement inline | Keyword-only mentions |
+  |---|---|---|---|---|
+  | `docs/runbook-supabase-project-creation.md` | 1 | 26 (38 statements; one fence is `psql --version`) | 1 | 15 |
+  | this record | 0 | 0 | 8 | 24 |
+  | `Sprint Kickoffs/sprint-kickoff-bedspace-v2-2026-09-10.md` | 1 | 0 | 3 | 4 |
+  | `Sprint Kickoffs/sweep-2026-09-15-v2-enumeration.md` | 0 | 0 | 4 | 2 |
+  | `Sprint Kickoffs/sprint-kickoff-017-schedule-2026-09-16.md` | 0 | 0 | 3 | 1 |
+  | `Sprint Kickoffs/pr-a-design-report-2026-09-24.md` | 0 | 0 | 2 | 1 |
+  | `Sprint Kickoffs/decision-2026-09-08-ward-level-identity.md` | 0 | 0 | 2 | 0 |
+  | `Sprint Kickoffs/sprint-kickoff-bedspace-v1-2026-09-08.md` | 0 | 0 | 1 | 4 |
+  | `Sprint Kickoffs/sweep-2026-09-17-v1-enumeration.md` | 0 | 0 | 1 | 4 |
+  | `Sprint Kickoffs/pr-a2-design-report-2026-09-24.md` | 0 | 0 | 1 | 0 |
+  | `Sprint Kickoffs/pr-c-design-report-2026-09-24.md` | 0 | 0 | 1 | 0 |
+  | `database/migrations/README.md` | 0 | 0 | 0 | 1 |
+  | four handoffs in `docs/` (2026-09-10 twice, 09-15, 09-17) | 0 | 0 | 0 | 1 each |
+
+- **What cannot compile as written against the current schema:**
+  - `Sprint Kickoffs/decision-2026-09-08-ward-level-identity.md`:67 and :119, `DROP TYPE app.blood_status`: "type does not exist", as the type was cut before 002. Checked in a rolled-back transaction.
+  - This record, 7517, `select count(*) from public.ward_status_history('THEATRE'::app.ward_category)`: "function ... (app.ward_category) does not exist", as 015 made the parameter text. Checked in a rolled-back transaction. It is EA-2 b's form, and `tests/db/runbook_12_4_12_5_sql_live.test.ts` plants it as the refused one.
+  - This record, 2559, `begin; set local role anon; select … from public.snapshot_current; rollback;`: the `…` stands for a column list. Checked by eye.
+  - `Sprint Kickoffs/sprint-kickoff-bedspace-v2-2026-09-10.md`:174's sql fence is a signature, not a statement, and its parameters are `app.ward_category`/`app.ward_offering`. The live function takes text. Checked in a rolled-back transaction (a syntax error) and against pg_proc.
+  - `Sprint Kickoffs/sweep-2026-09-17-v1-enumeration.md`:685, `CREATE TYPE app.monitoring_state AS ENUM (...)`: this compiles, but it errors "already exists" against the current schema, because it quotes a migration that ran. Checked in a rolled-back transaction.
+  - **Fragments that read as statements but are incomplete,** each a syntax error in a rolled-back transaction:
+    - this record 599 `GRANT SELECT TO service_role` (no ON), and 3178 `CREATE TABLE x AS`;
+    - `Sprint Kickoffs/pr-a-design-report-2026-09-24.md`:84 `delete from`;
+    - `Sprint Kickoffs/sprint-kickoff-bedspace-v2-2026-09-10.md`:367 and :393;
+    - `Sprint Kickoffs/sweep-2026-09-15-v2-enumeration.md`:138 (two) and :266;
+    - runbook 4777 `GRANT SET ON PARAMETER session_replication_role` (no TO).
+- **Compiles, and is refused at run time by design, which is not a defect:**
+  - runbook 3240's sql fence, quoted under "The SQL this step used to carry was a no-op": the append-only trigger refused its DELETE;
+  - runbook 1664's heredoc: it compiles, and its last select is refused to anon, which is its point.
+- **Runbook fences read by eye, then run verbatim** because none holds a commit: 1664, 3059 (returned exactly `anon | facility | SELECT`, and left no grant) and 3267 (both legs PASS, then ROLLBACK). All three compile.
+- **Everything else compiles:** the other 35 runbook psql statements, and 13 inline statements across the files above.
+
+**EL-3: LANDED.** `tests/db/migration_idempotency.test.ts`.
+- **The digest is now a map of twelve named components.** The seven before are cols, enums, funcs, trigs, cons, policies and contents. Five are new, each wrapped in `coalesce(..., 'none')`:
+  - **relations** (r, p, v, m, S, f): owner, and `aclexplode(coalesce(relacl, acldefault(kind, relowner)))` rendered by name as grantor/grantee/privilege/grantable, with 0 as PUBLIC and 's' as the kind for sequences;
+  - **rls**: relrowsecurity and relforcerowsecurity for r and p;
+  - **functions**: owner, prosecdef, sorted proconfig, and proacl through `acldefault('f', ...)`;
+  - **schemas**: nspacl for app and public;
+  - **default_acl**: pg_default_acl rows in app and public.
+
+  The :75-76 comment is updated. The real re-apply leg also asserts that the twelve names are present.
+- **Two existing plants tighten,** a Standard O (i) tightening: the mutate plant now requires that only `contents` moved, and the policy plant that only `policies` moved. Before, each required only that something changed.
+- **Eleven plants, each a re-apply that succeeds.** Each has a presence precondition, "only this component moved", a restore in `finally`, and then the whole digest equal to its value before the plant:
+  - SELECT on `app.facility` to anon, and USAGE on `app.audit_log_id_seq` to anon (relations);
+  - EXECUTE on `app.assert_operator()` to anon, SECURITY INVOKER, RESET search_path, and search_path set to `public, app` (functions);
+  - RLS disabled and FORCE removed on `app.facility_agreement` (rls);
+  - USAGE on schema app to anon (schemas);
+  - a default SELECT on tables in app to anon (default_acl);
+  - `app.facility`'s owner changed to a throwaway role (relations).
+
+  The throwaway role is granted CREATE on app only for the ALTER, and is revoked in the same plant, so only the owner remains changed. It is dropped on restore.
+- **Red first:**
+  - with the five components absent, all 11 failed their preconditions;
+  - with the precondition removed for one run, all 11 moved `[]` under the old seven components;
+  - the database was read back afterwards: no grant, owner, flag or role leaked.
+
+  Green: 16 of 16.
+- **EL-3 c's stop did not fire.** The real re-apply changes nothing with the new components:
+  - on the existing local database;
+  - on a fresh `db reset` with migrations and seed, running the file alone before any other test file.
+
+  The full suite's run is in the pull request's attestation.
+
+**EL-4: REGISTER.** The survey row stays. After its trigger, which is kept as DL-6 c kept it, its Gate cell now reads "FIRED at 024; items 1 and 2 and the digest landed in S-a (R-2026-09-28-162); the evidence tables and the charter in S-b". Nothing pins that text. Recounted from the table: **59** (15 BOX, 33 TRIGGER, 11 VERSION). No row lands or leaves.
+
+**The leg register** (`packages/fixtures/leg-coverage.json`) takes eleven new legs, all reached: 326 legs, 300 reached and 26 registered become 337, 311 and 26.
+
+**Process notes.**
+- An inline `node -e` holding an apostrophe broke its quoting. zsh then ran a fragment of the note as the command `that`, which was not found, and nothing was written. The edit was redone from a script file, which is what the heredoc rule already says to do.
+- To list parsed legs once, `npx tsx` fetched tsx 4.23.15 into npm's cache. `package.json` and the lockfile are unchanged.
+
+Nothing hosted: S-a touches no migration, no app and no deploy script. S-b is not started. Next letter: **EM**.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -8655,6 +9002,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | EI | R-2026-09-28-159 | 2026-09-28 | **The OpenBed logo links home** (the founder's finding on openbed.ng/privacy). On both pages of `apps/public-dashboard`, the mark and lockup are one relative `<a class="home-link" href="/">` named "OpenBed home". Its style has no underline, no colour change and no hover effect, a 44 px tap target with the header's height unchanged, and the design system's focus ring. `tests/compliance/dashboard_home_link.test.ts` holds the built pages and CSS to it, red first. No row lands or leaves; register 59. Next letter EJ. |
 | EJ | R-2026-09-28-160 | 2026-09-28 | **#101 merged at `3441c85`** (parents `be50e35`, `9f904f1`), all seven required checks read `success` first; `ei-home-link` deleted on both sides; register 59. -159's process notes: four slips found and fixed before #101's commit (the first typecheck, the misaimed 40 px plant, the contaminated plant run, the e2e attestation header), landed here rather than moving #101's head; no new rule. EJ-3: the focus ring meets the strip and the header's border and sits close to "Bed"; no change. Held, and landed with -161. Next letter EK. |
 | EK | R-2026-09-28-161 | 2026-09-28 | **Hosted run 4 recorded** (the founder's readings, relayed by Cowork): the public dashboard deployed as `016b7b9f` from `3441c85` and read back PASS, both hosts serving `/assets/index-DRIWEa8y.js`, `/privacy` still Version 1.1; the founder's click on openbed.ng/privacy's logo opened the bed list. The read-back does not read the link; the test and the click do. No box ticked and no row moves: register 59. Next letter EL. |
+| EL | R-2026-09-28-162 | 2026-09-28 | **PR S-a: the scripts/ survey's three guards.** Item 1: the duty-flag lint gains pass B (the negated equality, GUARD-AHEAD-OF-SUBJECT) and a wider flag name, and its `sed | grep` read, which failed open on an unreadable file, is its own step; three siblings with the same pipeline are reported, not fixed. Item 2: `scripts/lint_sql_quoted_in_prose.sh` (LIVE), this record out of scope by path. The digest gains relations, rls, functions, schemas and default_acl, as a map; the re-apply stays idempotent. EL-2 b's list is for the merge letter. Cowork's two EL-0 slips recorded. Register 59. Next letter EM. |
 
 ## Deferred items — this record is where the list lives
 
@@ -8732,7 +9080,7 @@ the record's own, except where CW-5 assigned one._
 | B1's onboarding checks: the first reporting login reads its own history as itself (12.4 step 6: 6a a ward's login, 6b the facility's, each ward), and the first publish reads back from `/beds.json` (12.4 step 9; a facility's login publishes two wards) (restated 2026-09-28, R-2026-09-27-144 DT Bundle 2; until then: "B1's onboarding checks: the first ward account reads its own history as itself (12.4 step 6), and the first publish reads back from `/beds.json` (12.4 step 9)") | R-2026-09-26-122 CX-1 (b) | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "The first ward account at facility one") |
 | `ward_reply` has a cap and no content validation (#63/#97) | R-2026-09-17-03 and -04 | TRIGGER | The first change that writes `app.referral.ward_reply` (referrals are unwired in v1; R-2026-09-26-122 CX-2) |
 | Gate 3's property test does not exist (#109) | R-2026-09-17-03 and -04 | TRIGGER | The next change under `packages/gate/` or `packages/snapshot/src/freshness.ts` (R-2026-09-26-122 CX-2) |
-| The `scripts/` survey items: PR evidence tables generated from artefacts; the idempotency digest's grants and RLS flags; item 1, the duty-flag lint missing `<> 'NO'`; item 2, nothing validates SQL quoted in prose | Deferred to the `scripts/` survey; R-2026-09-15-06 and -07; R-2026-09-17-05; R-2026-09-17-08 D2 | TRIGGER | The next migration file added (024) (R-2026-09-26-122 CX-2). FIRED at 024; work in PR S (R-2026-09-26-136 DL-6 c) |
+| The `scripts/` survey items: PR evidence tables generated from artefacts; the idempotency digest's grants and RLS flags; item 1, the duty-flag lint missing `<> 'NO'`; item 2, nothing validates SQL quoted in prose | Deferred to the `scripts/` survey; R-2026-09-15-06 and -07; R-2026-09-17-05; R-2026-09-17-08 D2 | TRIGGER | The next migration file added (024) (R-2026-09-26-122 CX-2). FIRED at 024; items 1 and 2 and the digest landed in S-a (R-2026-09-28-162); the evidence tables and the charter in S-b |
 | The test-title citation convention | R-2026-09-23-65 E | TRIGGER | The first cited test title found not to exist in its file (R-2026-09-26-122 CX-2) |
 | A real-browser refusal check in CI | R-2026-09-23-70 C3 | TRIGGER | The first PR that adds a browser runner (Playwright or similar) as a dependency. If D1's screenshots add one, it fires in D1 and the check lands in D2 (R-2026-09-26-122 CX-2) |
 | Provisioning as a Supabase Edge Function | R-2026-09-23-71 C | TRIGGER | The first proposal to move ward-account setup into an app (R-2026-09-26-122 CX-2) |

@@ -37,6 +37,12 @@ const RUN_ELSEWHERE: Record<string, string> = {
     'repository root and requires exit 0. It is not in .github/workflows/ci.yml under any name, ' +
     'so a reader grepping the workflow for it will not find it -- which is exactly why this is ' +
     'written down rather than left to be rediscovered.',
+  'lint_sql_quoted_in_prose.sh':
+    'Reads only the `--` COMMENTS of the migrations, as one of three prose locations; the other ' +
+    'two are tracked markdown, which the migration-lint job has no business reading ' +
+    '(R-2026-09-28-162, EL-2 a). It runs in scripts/gate.sh as "sql in prose", and in the ' +
+    '`compliance-tests` job through the ACCEPT leg of tests/compliance/lint_sql_quoted_in_prose.test.ts, ' +
+    'which invokes it against the real repository root and requires exit 0.',
 };
 
 function aggregatorList(): string[] {

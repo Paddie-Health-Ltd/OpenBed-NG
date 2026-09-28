@@ -82,6 +82,7 @@ const GATE_SCRIPTS = [
   'lint_no_third_party_fonts.sh',
   'lint_grep_exit_codes.sh',
   'lint_audit_log_columns.sh',
+  'lint_sql_quoted_in_prose.sh',
 ];
 
 function gate(fail: string, inject?: { anchor: string; line: string }, transform?: (src: string) => string): GateRun {
