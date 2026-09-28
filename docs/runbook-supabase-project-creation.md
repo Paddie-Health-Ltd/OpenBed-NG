@@ -143,6 +143,18 @@ prose above its block.
 step: a new terminal reintroduces every defect, and it makes a comment inside a
 block look safe to add back.
 
+### No bash block holds a `!`
+
+**No line of a bash block under `docs/` contains `!`, and none may be added**
+(R-2026-09-28-148 DX-2). zsh's history expansion is on by default, and a pasted `!`
+is rewritten before the line runs. Double quotes do not stop it. Observed on hosted
+run 1 of "025 and 026's apply", 2026-09-28: fence A's second reading held `!~` inside
+a double-quoted `psql -tAc` string, the founder's zsh replaced it with a word from its
+history, and psql refused the line. It only read, so nothing was written. A negated
+match is written `not (x ~ '…')`. `tests/compliance/runbook_no_history_expansion.test.ts`
+refuses a `!` in any shell block under `docs/`, and names any block that genuinely needs
+one in its allow-list, with a reason. There is none.
+
 ### Every block that reads a credential removes it again
 
 A block that reads a secret into the shell -- the Supabase personal access
@@ -943,12 +955,17 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions.
 Restated 2026-09-14: until then this read `exactly 13 migration(s) pending.`, and
 migration 014 made that wrong.
 
-- **The hosted project today** holds 001 through 024 (see step 7), and the
-  repository ends at 026. Every file up to and including
-  `024_retention_jobs.sql` must read `already applied`;
-  there must be exactly two `WOULD APPLY` lines, naming `025_facility_reporter_role.sql`
-  and then `026_facility_reporter_and_checks.sql`; and the dry run must end
-  `2 migration(s) pending.` Apply them by "025 and 026's apply" below.
+- **The hosted project today** holds 001 through 026 (see step 7), and so does the
+  repository. Every file up to and including
+  `026_facility_reporter_and_checks.sql` must read `already applied`;
+  there must be no `WOULD APPLY` line; and the dry run must end
+  `0 migration(s) pending.`
+- **Restated 2026-09-28 (R-2026-09-28-149 DY-1), in the change that records 025's and
+  026's hosted apply.** Until then this expected 001 through 024, exactly two
+  `WOULD APPLY` lines naming `025_facility_reporter_role.sql` and then
+  `026_facility_reporter_and_checks.sql`, and `2 migration(s) pending.` The founder's
+  dry run printed exactly that on 2026-09-28, and the apply that followed took the
+  ledger to 26.
 - **Restated 2026-09-27 (R-2026-09-27-144 DT l), in the change that ADDS 025 and 026.**
   Until then this expected no `WOULD APPLY` line and `0 migration(s) pending.`, which
   was right from 024's hosted apply while the repository ended at 024.
@@ -1033,10 +1050,14 @@ migration 014 made that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line OTHER than the two named above, or any count other than
-  `2 migration(s) pending.`: stop and report.** Another file pending means
+- **Any `WOULD APPLY` line AT ALL, or any count other than
+  `0 migration(s) pending.`: stop and report.** Another file pending means
   either a migration reached the repository after the list was last restated, or
   hosted is not where this document says it is.
+  - *Restated 2026-09-28 (R-2026-09-28-149 DY-1), in the change that records 025's and
+    026's hosted apply. Until then this bullet read "Any `WOULD APPLY` line OTHER than
+    the two named above, or any count other than `2 migration(s) pending.`", which was
+    right from #93's merge until the apply.*
   - *Restated 2026-09-27 (R-2026-09-27-144 DT l), in the change that adds 025 and 026.
     Until then this bullet read "Any `WOULD APPLY` line AT ALL, or any count other than
     `0 migration(s) pending.`", which was right from 024's hosted apply until this
@@ -1679,6 +1700,7 @@ node scripts/freeze_applied_migrations.mjs 19 YYYY-MM-DD R-YYYY-MM-DD-NN
 - [x] Frozen boundary recorded, 2026-09-16: 16 migrations, `001_app_schema_and_migration_ledger.sql` first, `016_snapshot.sql` last
 - [x] Frozen boundary recorded, 2026-09-17: 17 migrations, `001_app_schema_and_migration_ledger.sql` first, `017_snapshot_schedule.sql` last (R-2026-09-17-01), with the frozen_migrations placeholder moved to 018 in the same change
 - [x] Frozen boundary recorded, 2026-09-22: 18 migrations, `001_app_schema_and_migration_ledger.sql` first, `018_close_mirror_read_and_push_surfaces.sql` last (R-2026-09-22-52), with the frozen_migrations placeholder moved to 019 in the same change. `ledger_rows: 18`, matching the `18` read from hosted `app.schema_migrations` in the apply session; the recorder would have refused any other number.
+- [x] Frozen boundary recorded, 2026-09-28: 26 migrations, `001_app_schema_and_migration_ledger.sql` first, `026_facility_reporter_and_checks.sql` last (R-2026-09-28-149 DY-1), recorded by `node scripts/freeze_applied_migrations.mjs 26 2026-09-28 R-2026-09-28-149`. `ledger_rows: 26`, matching the twenty-six `already applied` lines of the founder's second dry run (fence 5 of "025 and 026's apply"). 025's and 026's sha256 are the tracked files' at `cd05de1`, the checkout the founder ran from.
 - [x] Frozen boundary recorded, 2026-09-27: 24 migrations, `001_app_schema_and_migration_ledger.sql` first, `024_retention_jobs.sql` last (R-2026-09-27-139 DO-1 a), recorded by `node scripts/freeze_applied_migrations.mjs 24 2026-09-27 R-2026-09-27-139`. `ledger_rows: 24`, matching the twenty-four `already applied` lines of the founder's second dry run (fence 5 of "024's apply"). 024's sha256 is the tracked file's at `3623d2b`, the checkout the founder ran from.
 - [x] Frozen boundary recorded, 2026-09-25: 23 migrations, `001_app_schema_and_migration_ledger.sql` first, `023_operator_register_location_and_phone.sql` last (R-2026-09-25-105), recorded by `node scripts/freeze_applied_migrations.mjs 23 2026-09-25 R-2026-09-25-105`. `ledger_rows: 23`, matching the twenty-three `already applied` lines of the founder's second dry run (fence 5 of the one run that applied 022 and 023 together, R-2026-09-25-103). 022's and 023's sha256 are the tracked files' at `06fe479`, the checkout the founder ran from.
 - [x] Frozen boundary recorded, 2026-09-24: 21 migrations, `001_app_schema_and_migration_ledger.sql` first, `021_facility_agreement_and_contact_write.sql` last (R-2026-09-24-85). `ledger_rows: 21`, matching the twenty-one `already applied` lines of the founder's second dry run (fence 5 of "021's apply").
@@ -2098,9 +2120,11 @@ this apply. On 2026-09-27 it was (R-2026-09-27-139).
 
 ### 025 and 026's apply — the facility-level login; two readings around the same six fences (R-2026-09-27-144 DT l)
 
-**Not yet run.** The founder runs it after the pull request that adds 025 and 026
-merges, first in DT's hosted runs, and then redeploys the Worker (below). Claude Code
-runs nothing hosted.
+**Run on 2026-09-28** by the founder from the deploy checkout at `cd05de1` (#93's merge),
+first in DT's hosted runs, and the Worker redeployed after it (below). Each reading is
+the founder's, relayed by Cowork (R-2026-09-28-149 DY-1). The readings are in the
+checkbox at the end of this step. Claude Code ran nothing hosted.
+*Restated 2026-09-28 (R-2026-09-28-149): until then this read "Not yet run."*
 
 **What 025 and 026 change** (their headers say why). 025 adds the value
 `FACILITY_REPORTER` to `app.app_role` and nothing else: PostgreSQL refuses to use an enum
@@ -2147,7 +2171,8 @@ first two must still read `0`, and the third reads `1` because 025's value commi
 (R-2026-09-27-146 DV-2).
 - The first line counts the `app.ward_account` and `app.invite` rows that fit no arm of
   026's scope CHECKs. It compares roles as text, because the value does not exist yet.
-- The second counts contact emails that 026's form CHECK would refuse.
+- The second counts contact emails that 026's form CHECK would refuse. It is written
+  `not (email ~ …)`, never with `!~`: zsh rewrites a pasted `!` (R-2026-09-28-148 DX-1).
 - The third counts `FACILITY_REPORTER` labels on `app.app_role`, which does not exist
   before 025.
 - 026 refuses by name on the first two (`SCOPE_CHECK_VIOLATIONS`,
@@ -2159,7 +2184,7 @@ first two must still read `0`, and the third reads `1` because 025's value commi
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 read -rs DATABASE_URL && export DATABASE_URL
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select (select count(*) from app.ward_account a where not ((a.role::text = 'WARD_STAFF' and a.facility_id is not null and a.ward_category is not null) or (a.role::text in ('FACILITY_ADMIN', 'FACILITY_REPORTER') and a.facility_id is not null and a.ward_category is null) or (a.role::text = 'PLATFORM_ADMIN' and a.facility_id is null and a.ward_category is null))) + (select count(*) from app.invite i where not ((i.role::text = 'WARD_STAFF' and i.facility_id is not null and i.ward_category is not null) or (i.role::text in ('FACILITY_ADMIN', 'FACILITY_REPORTER') and i.facility_id is not null and i.ward_category is null) or (i.role::text = 'PLATFORM_ADMIN' and i.facility_id is null and i.ward_category is null)))"
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select count(*) from app.facility_contact where email is not null and email !~ '^[^@[:space:]]+@[^@[:space:]]+$'"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select count(*) from app.facility_contact where email is not null and not (email ~ '^[^@[:space:]]+@[^@[:space:]]+$')"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select count(*) from pg_enum where enumtypid = 'app.app_role'::regtype and enumlabel = 'FACILITY_REPORTER'"
 unset DATABASE_URL
 ```
@@ -2170,6 +2195,9 @@ expectations for 025 and 026.** Only what each must read changes:
 1. **The dry run:** exactly two `WOULD APPLY` lines, naming
    `025_facility_reporter_role.sql` and then `026_facility_reporter_and_checks.sql`, and
    the count the list at the top of this step states. Anything else: stop and report.
+   *Restated 2026-09-28 (R-2026-09-28-149 DY-1): run, and kept as written.* The list
+   at the top of this step now states the state after this apply; when this fence ran
+   it stated two pending, which is what the fence read (the dated 2026-09-28 run below).
 2. **The before-reading:** as for 020. Keep the `FINGERPRINT` line.
 3. **The apply:** as for 020. It applies the two files in order, each in its own
    transaction, and ends by saying two were applied this run. A refusal from 026's
@@ -2223,20 +2251,25 @@ while data depends on it (`REPORTER_ROWS_EXIST`, `REPORTER_ERASURES_EXIST`,
 `HEFAMAA_NUMBERS_RECORDED`). 025's removes nothing: PostgreSQL cannot drop the value.
 
 **Afterwards:** the frozen boundary is recorded with `26`, in the change that records
-this apply.
+this apply. On 2026-09-28 it was (R-2026-09-28-149).
 
-- [ ] 025 and 026 applied, and the Worker redeployed and read back (the date, the checkout's commit, and each reading: A, 1 to 6, B, the Worker's read-back)
+- [x] On 2026-09-28, 025 and 026 applied, and the Worker redeployed and read back, from the deploy checkout at `cd05de15d248ad9462e98d96ac247f5f9beb3f55` (#93's merge, `git status` clean). The readings are the founder's, relayed by Cowork (R-2026-09-28-149 DY-1). A: `0` (scope rows); the email reading refused under zsh history expansion (R-2026-09-28-148 DX), and re-run in the `not (email ~ …)` form read `0`; `0` (`FACILITY_REPORTER` labels). The first attempt at fence 2 failed before reading anything: psql reached the local socket, because the pasted `read -rs` swallowed a line. It is not a reading; the re-run is. Fence 1: twenty-four `already applied` (001 to 024), `WOULD APPLY` `025_facility_reporter_role.sql` then `026_facility_reporter_and_checks.sql`, "2 migration(s) pending." Fence 2: `FINGERPRINT beds.json=0/0:543f06c0b0c4,facility_public=0:d41d8cd98f00,ward_public=0:d41d8cd98f00,lga_rollup=0:d41d8cd98f00`, `RECORDED`. Fence 3: 001 to 024 skipped; 025 applied (`ALTER TYPE`, `INSERT 0 1`, `INSERT 0 0`); 026 applied, with three expected DROP-IF-EXISTS NOTICEs (`trg_ward_account_one_reporting_source`, `facility_contact_email_form`, `facility_hefamaa_reg_no_form`); "Migrations complete (2 applied this run)." Fence 4: all four parts `ok` against the fingerprint, "PASS (VACUOUS FOR B1)". Fence 5: twenty-six `already applied` (001 to 026), no `WOULD APPLY` line, "0 migration(s) pending." Fence 6: PASS; `app.enforce_one_reporting_source()` reads `EXECUTE: none`, `public.my_reporting_wards()` and `public.operator_record_registration(text, integer, text)` read `EXECUTE: authenticated`, `my_facility_wards` is absent, and `public.rls_auto_enable()` reads `ok` (hosted-only). B: `1`, then `t|t|t`. The Worker: `deploy_worker.sh supabase-proxy`, Current Version ID `7d07e831-c2a8-4d84-8edb-dd731f16793e`, the stamp naming `cd05de1` on attempt 1 of 12; `readback_worker.sh https://api.openbed.ng` read PASS: probe 1 (`my_reporting_wards`) 401, `klrlpxysjsjpdkeqdhvl`, forwarded; probe 1b (`operator_record_registration`) the same; probe 2 GET 200 and HEAD 405, both forwarded; probe 3 404, refused with the proxy's body; the stamp `cd05de1`, dirty false, HEAD 200. Probe 4, Cowork's reading through the Cloudflare connector: the deployed `supabase-proxy` is the tracked handler with `supabase-proxy/allow-list.json` at `cd05de1`, entry for entry (forward: 13 POST, 1 GET, 13 OPTIONS; 2 `direct_origin_exceptions`; 1 `refusal_probes`), and its bundled `version.json` reads commit `cd05de1`, dirty false. PASS.
 
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 024 applied, and the repository ending
-at 026), the dry run prints twenty-four `already applied` lines and:
+**On the hosted project today** (001 through 026 applied, and so does the repository
+end), the dry run prints twenty-six `already applied` lines and:
 
 ```
-  WOULD APPLY     : 025_facility_reporter_role.sql   <- dry run
-  WOULD APPLY     : 026_facility_reporter_and_checks.sql   <- dry run
-2 migration(s) pending.
+0 migration(s) pending.
 ```
+
+*Restated 2026-09-28 (R-2026-09-28-149 DY-1), in the change that records 025's and
+026's hosted apply.* Until then this block described the state BEFORE that apply:
+twenty-four `already applied` lines, two WOULD APPLY lines naming
+`025_facility_reporter_role.sql` and then `026_facility_reporter_and_checks.sql`, and a
+count of two. That is exactly what the founder's dry run printed on 2026-09-28, and it
+is kept below with the other dated runs rather than overwritten.
 
 *Restated 2026-09-27 (R-2026-09-27-144 DT l), in the change that adds 025 and 026.*
 Until then this block showed twenty-four `already applied` lines, no WOULD APPLY line,
@@ -2311,6 +2344,19 @@ other dated runs rather than overwritten.
 **The second dry run is part of an apply, not an optional extra.** It is the
 reading recorded in the checkbox at the end of this section, and it is the half
 that says the apply did what the first dry run promised.
+
+**On 2026-09-28, when 025 and 026 were pending,** the same two commands printed this
+(the founder's terminal output from the deploy checkout at `cd05de1`, relayed by Cowork,
+fences 1 and 3 of "025 and 026's apply" above, R-2026-09-28-149 DY-1; the twenty-four
+`already applied` lines are omitted, and the apply's echo carried 025's `ALTER TYPE`,
+`INSERT 0 1` and `INSERT 0 0`, and 026's three expected DROP-IF-EXISTS NOTICEs):
+
+```
+  WOULD APPLY     : 025_facility_reporter_role.sql   <- dry run
+  WOULD APPLY     : 026_facility_reporter_and_checks.sql   <- dry run
+2 migration(s) pending.
+Migrations complete (2 applied this run).                    <- apply
+```
 
 **On 2026-09-27, when 024 was pending,** the same two commands printed this (the
 founder's terminal output from the deploy checkout at `3623d2b`, read back by Cowork,
@@ -2462,10 +2508,12 @@ this paragraph read twenty-two, 002 through 023, and twenty-three.*
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `24`, with `2 migration(s) pending.` from the
-dry run**, naming `025_facility_reporter_role.sql` and
-`026_facility_reporter_and_checks.sql` -- the founder's second dry run after 024's apply,
-on 2026-09-27, read twenty-four `already applied` lines, 001 through 024.
+THAT PROJECT. **On hosted today that is `26`, with `0 migration(s) pending.` from the
+dry run** -- the founder's second dry run after 025's and 026's apply, on 2026-09-28, read
+twenty-six `already applied` lines, 001 through 026.
+*Restated 2026-09-28 (R-2026-09-28-149 DY-1), in the change that records that apply;
+until then it read `24` with `2 migration(s) pending.`, naming
+`025_facility_reporter_role.sql` and `026_facility_reporter_and_checks.sql`.*
 *Restated 2026-09-27 (R-2026-09-27-144 DT l), in the change that adds 025 and 026; until
 then it read `24` with `0 migration(s) pending.`, right while the repository ended at 024.*
 *Restated 2026-09-27 (R-2026-09-27-139 DO-1 a), in the change that records that apply;
@@ -2941,14 +2989,18 @@ than a number that has to be maintained.)* This table
 previously recorded server versions only, which left the one tool every SQL
 result above passed through unrecorded.
 
-**Hosted now holds 001 through 024.** Migrations 014, 015 and 016 were applied on
+**Hosted now holds 001 through 026.** Migrations 014, 015 and 016 were applied on
 2026-09-16 (R-2026-09-16-02), 017 on 2026-09-17 (R-2026-09-17-01), **018 on
 2026-09-22 at 05:40:40 UTC (R-2026-09-22-52)**, **019 on 2026-09-23
 (R-2026-09-23-69)**, **020 on 2026-09-24 (R-2026-09-24-77)**, **021 on 2026-09-24
 (R-2026-09-24-85)**, **022 and 023 together, in one run, on 2026-09-25
-(R-2026-09-25-105)**, and **024 on 2026-09-27 (R-2026-09-27-139)**; step 5 carries each run's output, its post-apply probe, the
+(R-2026-09-25-105)**, **024 on 2026-09-27 (R-2026-09-27-139)**, and **025 and 026
+together, in one run, on 2026-09-28 (R-2026-09-28-149)**; step 5 carries each run's output, its post-apply probe, the
 owners read, the reader-policy read, 017's jobs read, 018's pre-apply reading and
 read-back, and the frozen-boundary record.
+
+*Restated 2026-09-28 (R-2026-09-28-149 DY-1), in the change that records 025's and 026's
+hosted apply.* Until then this read *"Hosted now holds 001 through 024."*
 
 *Restated 2026-09-25 (R-2026-09-25-105), in the change that records 022's and 023's
 hosted apply.* Until then this read *"Hosted now holds 001 through 021."*
