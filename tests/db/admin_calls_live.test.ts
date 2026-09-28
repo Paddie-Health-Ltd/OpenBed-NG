@@ -9,10 +9,12 @@ import {
   createFacilityBody,
   editFacilityBody,
   recordContactBody,
+  recordRegistrationBody,
   registerBody,
   type ContactFields,
   type FacilityFields,
 } from '../../apps/admin/src/bodies.js';
+import { parseRegister } from '../../apps/admin/src/parse.js';
 import { adminMessageFor } from '../../apps/admin/src/messages.js';
 
 /**
@@ -151,6 +153,44 @@ describe('the admin app’s calls, live', () => {
     const body = editFacilityBody(id, loaded, { ...FIELDS, state: 'Ogun' });
     expect((await call(RPC.editFacility, body)).status).toBe(200);
     expect(refusal(await call(RPC.editFacility, body)).key).toBe('VERSION_CONFLICT');
+  });
+
+  // THE PAGE'S PARSER OVER THE LIVE REGISTER (R-2026-09-27-144 DT Bundle 3). The render tests
+  // feed parseRegister synthetic rows; this reads the real server's answer, so a key 026
+  // renamed or dropped (reporting_model, reporter_login, hefamaa_reg_no, retention_alert)
+  // reds here rather than showing every live row as unreadable.
+  test("the page's own parser reads the live register: every row a facility, 026's keys read, the retention alert a list", async () => {
+    const id = await newFacility();
+    const r = await call(RPC.register, registerBody());
+    expect(r.status, JSON.stringify(r.body)).toBe(200);
+    const reg = parseRegister(r.body);
+    expect(reg, 'the live register envelope is unreadable to the page').not.toBeNull();
+    expect(Array.isArray(reg?.retentionAlert)).toBe(true);
+    const unreadable = (reg?.facilities ?? []).filter((f) => f.kind === 'unreadable');
+    expect(unreadable, 'live rows the page cannot read').toEqual([]);
+    const mine = reg?.facilities.find((f) => f.facilityId === id);
+    expect(mine?.kind === 'facility' ? [mine.reportingModel, mine.reporterLogin, mine.hefamaaRegNo] : null).toEqual(['NONE', 'none', null]);
+  });
+
+  // THE NINTH CALL (R-2026-09-27-144 DT Bundle 3): the Registration section's body, live.
+  test('the HEFAMAA number, through the page\'s own body: saved and read back in the register, the facility version bumped, a repeat a no-op, and a padded value refused as the page\'s sentence', async () => {
+    const id = await newFacility();
+    const v1 = (await registerRow(id))['version'] as number;
+    const saved = await call(RPC.recordRegistration, recordRegistrationBody(id, v1, 'HEF/LA/0042'));
+    expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+    const row = await registerRow(id);
+    expect(row['hefamaa_reg_no']).toBe('HEF/LA/0042');
+    expect(row['version'], 'a registration write did not bump the facility version').toBe(v1 + 1);
+    const repeat = await call(RPC.recordRegistration, recordRegistrationBody(id, v1, 'HEF/LA/0042'));
+    expect((repeat.body as { version: number }[])[0]?.version, 'an identical repeat wrote again').toBe(v1 + 1);
+    const padded = await call(RPC.recordRegistration, recordRegistrationBody(id, v1 + 1, ' HEF/LA/0042'));
+    expect(refusal(padded).key).toBe('INVALID_ARGUMENT:p_hefamaa_reg_no');
+    expect(refusal(padded).sentence).toBe(ADMIN_LABELS.codes['INVALID_ARGUMENT:p_hefamaa_reg_no']);
+    const stale = await call(RPC.recordRegistration, recordRegistrationBody(id, v1, 'HEF/LA/0043'));
+    expect(refusal(stale).key).toBe('VERSION_CONFLICT');
+    const cleared = await call(RPC.recordRegistration, recordRegistrationBody(id, v1 + 1, null));
+    expect(cleared.status, JSON.stringify(cleared.body)).toBe(200);
+    expect((await registerRow(id))['hefamaa_reg_no'], 'null did not clear the number').toBeNull();
   });
 
   const CONTACT: ContactFields = { fullName: 'Synthetic Contact', jobTitle: 'Medical Director', email: 'contact-admin-live@example.invalid', mobileE164: null, smsOptIn: false };

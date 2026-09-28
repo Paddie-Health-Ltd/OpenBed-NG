@@ -111,6 +111,13 @@
       "needs_browser": false
     },
     {
+      "id": "operator-records-hefamaa",
+      "description": "The operator records GAMMA's HEFAMAA registration number through operator_record_registration, with the admin app's own body builder and GAMMA's current version. It reads back from the operator register, and the facility version moved by one. The number is operator-only: GAMMA is unlisted, and the column is in packages/fixtures/forbidden-columns.json.",
+      "gate2_clause": "An operator onboards a facility whose nurse in charge reports for every ward, through one facility-level login (R-2026-09-27-144 DT, Bundle 3's definition of done: the golden path records a HEFAMAA number)",
+      "owning_stage": 1,
+      "needs_browser": false
+    },
+    {
       "id": "operator-provisions-reporter",
       "description": "GAMMA's facility-level reporting login is provisioned through scripts/provision_ward_account.mjs with --role FACILITY_REPORTER and no category, through 026's app.provision_begin gates. The operator register then reads GAMMA's reporting_model as FACILITY, its reporter_login as active, and every ward as having its account.",
       "gate2_clause": "An operator onboards a facility whose nurse in charge reports for every ward, through one facility-level login (R-2026-09-27-144 DT, Bundle 1's definition of done; the reporting model is R-2026-09-27-141 DQ-3)",

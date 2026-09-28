@@ -193,6 +193,8 @@ ul.checklist li { padding: 2px 0; }
 ul.wards li { padding: var(--space-2) 0; border-top: var(--border-width) solid var(--border-hairline); overflow-wrap: anywhere; }
 ul.wards li:first-child { border-top: 0; }
 .worst { font: var(--text-label); color: var(--text-strong); }
+/* The facility's reporting model (DT Bundle 3): a label over its ward lines, no new colour. */
+.reporting-model { margin: 0; font: var(--text-label); color: var(--text-strong); }
 
 /* THE REGISTER. Below 960 px each facility is a card; at 960 px and wider the same
    elements are the rows of a table (the kickoff's D3), five columns in the card's own
@@ -215,7 +217,7 @@ li.facility {
 .cell-open button { width: 100%; }
 
 /* One facility's view: each section a card. */
-.facility-detail, .wards-detail, .contact-detail, .agreement-detail, .listing {
+.facility-detail, .registration-detail, .wards-detail, .contact-detail, .agreement-detail, .listing {
   display: grid;
   gap: var(--space-3);
   background: var(--surface-card);

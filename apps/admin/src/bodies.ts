@@ -9,10 +9,13 @@
  *
  * No DOM, no fetch, no clock: this module must load in Node for the db and E2E tests.
  * Parameter names and types are 020's and 021's (packages/fixtures/function-grants.json
- * lists the eight signatures).
+ * lists their signatures).
  */
 
-/** The eight functions the app calls (R-2026-09-24-88 BP-2), by the name PostgREST routes on. */
+/**
+ * The nine functions the app calls (R-2026-09-24-88 BP-2; the ninth, operator_record_registration,
+ * since R-2026-09-27-144 DT Bundle 3), by the name PostgREST routes on.
+ */
 export const RPC = {
   register: 'operator_register',
   getContact: 'operator_get_contact',
@@ -22,6 +25,7 @@ export const RPC = {
   recordContact: 'operator_record_contact',
   recordAgreement: 'operator_record_agreement',
   setListed: 'operator_set_facility_listed',
+  recordRegistration: 'operator_record_registration',
 } as const;
 
 export interface FacilityFields {
@@ -101,6 +105,16 @@ export const recordAgreementBody = (facilityId: string, acceptedOn: string, vers
   p_signatory_role: signatoryRole,
 });
 
+/**
+ * The HEFAMAA registration number (026, DT k). null clears it. The server takes the value
+ * exactly as sent -- a blank or space-padded one is INVALID_ARGUMENT, never trimmed -- and an
+ * identical repeat writes nothing. Checked against the FACILITY's version, which it bumps.
+ */
+export const recordRegistrationBody = (facilityId: string, expectedVersion: number, hefamaaRegNo: string | null) => ({
+  p_facility_id: facilityId,
+  p_expected_version: expectedVersion,
+  p_hefamaa_reg_no: hefamaaRegNo,
+});
 export const setListedBody = (facilityId: string, expectedVersion: number) => ({
   p_facility_id: facilityId,
   p_expected_version: expectedVersion,
