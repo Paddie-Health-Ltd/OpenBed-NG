@@ -45,6 +45,15 @@
 # (`echo "x: $(false)"`) does not abort. A value this script depends on is
 # assigned on its own line, where a failure does.
 #
+# EVERY CHECK'S OUTPUT IS KEPT (R-2026-09-28-152 EB-2). Until then run() sent each
+# check's output to /dev/null and the closing line said "Re-run the named check on
+# its own to see its output", which assumes the failure repeats. On 2026-09-28 the
+# first gate run of 95c1b83 read `tests (db+compliance) FAILED` and nothing else; two
+# re-runs and a second gate were green, so that red has no cause on record. Now each
+# check writes its stdout and stderr to .gate-logs/<nn>-<label-slug>.log (gitignored,
+# emptied at the start of every run), and a failed check prints its log's path and
+# last 40 lines. A gate that ran no check at all fails: zero checks is not a pass.
+#
 # Usage: bash scripts/gate.sh [--fast]
 #   --fast   Skip the e2e phase, which needs a running Supabase stack.
 # Exit: 0 all clear, 1 a check failed, other non-zero: the gate itself broke.
@@ -58,15 +67,29 @@ if [ "${1:-}" = "--fast" ]; then
     FAST=1
 fi
 
+LOGS="$ROOT/.gate-logs"
+rm -rf "$LOGS"
+mkdir -p "$LOGS"
+
 FAILED=()
+RAN=0
 run () {  # $1 label, rest: command
     local label="$1"; shift
+    RAN=$((RAN + 1))
+    local slug
+    slug="$(printf '%s' "$label" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-' | tr -s '-')"
+    slug="${slug#-}"
+    slug="${slug%-}"
+    local log
+    log="$(printf '.gate-logs/%02d-%s.log' "$RAN" "$slug")"
     local rc=0
-    "$@" >/dev/null 2>&1 || rc=$?
+    "$@" > "$ROOT/$log" 2>&1 || rc=$?
     if [ "$rc" -eq 0 ]; then
         printf '  %-34s ok\n' "$label"
     else
         printf '  %-34s FAILED (exit %s)\n' "$label" "$rc"
+        printf '    log: %s -- its last 40 lines:\n' "$log"
+        tail -n 40 "$ROOT/$log" | sed 's/^/    | /'
         FAILED+=("$label")
     fi
 }
@@ -88,10 +111,15 @@ if [ "$FAST" -eq 0 ]; then
     run "golden path + ratchet" npm run test:e2e
 fi
 
+if [ "$RAN" -eq 0 ]; then
+    echo
+    echo "gate.sh: FAILED — no check ran. A gate that checked nothing has not passed."
+    exit 1
+fi
 if [ "${#FAILED[@]}" -gt 0 ]; then
     echo
     echo "gate.sh: FAILED — ${#FAILED[@]} check(s) did not pass: ${FAILED[*]}"
-    echo "  Re-run the named check on its own to see its output."
+    echo "  Each check's full output is in .gate-logs/."
     exit 1
 fi
 echo

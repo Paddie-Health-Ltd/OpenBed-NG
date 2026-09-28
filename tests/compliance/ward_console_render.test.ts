@@ -233,6 +233,15 @@ describe('B2 — a malformed ward row is refused, never defaulted', () => {
   });
 });
 
+describe('a bed count in words (R-2026-09-27-144 DT Bundle 4; R-2026-09-27-140 DP-5 a)', () => {
+  test.each([[1, '1 bed'], [0, '0 beds'], [2, '2 beds']])('the handover summary for a count of %s reads "%s"', async (n, words) => {
+    const m = await import('../../apps/ward-console/src/main.js');
+    const { categoryLabel } = await import('../../packages/labels/src/index.js');
+    const line = m.summaryLine({ category: 'MATERNITY', offering: 'OFFERED', bedCount: n, accepting: true, version: 5, gatedBy: null, monitoringState: 'ACTIVE', source: 'WARD', state: 'OK', canPublish: true });
+    expect(line).toBe(`${categoryLabel('MATERNITY')}: ${words}`);
+  });
+});
+
 describe('can_publish decides which rows carry a form (R-2026-09-27-144 DT, Bundle 2; resolves -139 DO-3)', () => {
   // The server's flag, not a guess: 026's my_reporting_wards() says, per row, whether THIS
   // login may publish it. Until Bundle 2 every row carried a form, so a ward login was
@@ -301,6 +310,19 @@ describe('D1 — no raw server text reaches the screen', () => {
     expect(text()).toContain('This sign-in is not linked to a ward.');
     expect(text(), 'the server body reached the page').not.toContain(SENTINEL);
     expect(text(), 'the status line is still printed').not.toMatch(/The server answered/);
+  });
+
+  // R-2026-09-28-151 EA-5: a facility login reads this sentence too, so it names the
+  // sign-in and not a ward. The lead and the session-ended sentence are held exactly in
+  // tests/compliance/ward_console_design.test.ts.
+  test('site 1, the handover load — ACCOUNT_DEACTIVATED reads "This sign-in has been switched off", not a ward\'s account (EA-5)', async () => {
+    await renderAt(sessionFragment(), (url) =>
+      url.endsWith('my_reporting_wards') ? json(403, { code: '42501', message: 'ACCOUNT_DEACTIVATED', details: SENTINEL, hint: null }) : json(500, {}),
+    );
+    await until(() => text().includes('Could not load'));
+    expect(text()).toContain('This sign-in has been switched off. To fix this, ');
+    expect(text(), 'the pre-EA-5 sentence is still shown').not.toContain("This ward's account has been switched off.");
+    expect(text()).not.toContain(SENTINEL);
   });
 
   test('site 1, the handover load — an unrecognised answer shows the one fixed fallback', async () => {

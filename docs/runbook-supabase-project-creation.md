@@ -200,6 +200,12 @@ rule. `tests/compliance/runbook_read_pasted_alone.test.ts` refuses a line after 
 any shell block under `docs/`, and a command block that does not unset what its connection
 line read.
 
+**Read the screen, not the shell's status** (R-2026-09-28-152 EB-3 b). A command block
+ends in its `unset`, so the shell reports success whatever `psql` did: a psql `ERROR` on
+screen is the failure, and the block's later lines still run after it. 12.4 step 6b lists
+the facility's wards in the database's category order, which is not alphabetical, so
+check that every ward is there rather than their order.
+
 ### A stop condition and the action it gates never share a fence
 
 **This was the most serious defect #18 fixed — more serious than the comments.**
@@ -4514,8 +4520,7 @@ through the admin app.
      it.
    - **After `REPORTING_MODEL_CONFLICT`:** The admin app shows each ward without its own
      login as 'Setup incomplete' until a later provisioning run at this facility succeeds.
-     That is expected. Record the facility id and report it. (R-2026-09-28-151 EA-3 a, in
-     the founder's wording.)
+     That is expected. Record the facility id and report it. (R-2026-09-28-151 EA-3 a)
 
    **Open item (R-2026-09-25-113 CO-3):** the script prints the full address on its
    `provisioned` line. At H6 step 5 that line carried the operator's sign-in address,

@@ -214,6 +214,15 @@ describe('the register', () => {
     expect(stale?.textContent).toContain('3 beds, last reported at 24 Sept, 00:00 (Lagos time)');
   });
 
+  test('a one-bed ward reads "1 bed", never "1 beds" (R-2026-09-27-144 DT Bundle 4; DP-5 a)', async () => {
+    const one = { ...REGISTER, facilities: [facility(FAC_A, { categories: [ward('MATERNITY', { bed_count: 1 })] })] };
+    await renderAt(sessionFragment(), server({ operator_register: () => json(200, one) }));
+    await until(() => text().includes('Facilities'));
+    const line = document.querySelector<HTMLElement>('li.ward')?.textContent ?? '';
+    expect(line, line).toContain(': 1 bed, last reported at ');
+    expect(line).not.toContain('1 beds');
+  });
+
   test('the checklist is derived from the row, and the words are Listed / Not listed, never Paused', async () => {
     await renderAt(sessionFragment(), server());
     await until(() => text().includes('Facilities'));

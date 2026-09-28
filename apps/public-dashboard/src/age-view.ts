@@ -1,5 +1,5 @@
 import { freshnessBand, lagosTime, snapshotAge, type DecodedRow } from '@openbed/snapshot';
-import { categoryLabel, precedence, reasonLabel, UNKNOWN_STATUS } from './labels.js';
+import { bedCountText, categoryLabel, precedence, reasonLabel, UNKNOWN_STATUS } from './labels.js';
 
 /**
  * WHAT A VISITOR IS TOLD ABOUT HOW OLD A COUNT IS (R-2026-09-23-67 A1-A5).
@@ -117,7 +117,7 @@ export function wardLineParts(ward: DecodedRow, clock: ServeClock): WardLinePart
   const open = ward['accepting_effective'] === true;
   const reason = ward['gated_by'];
   const count: WardLineSegment =
-    bedCount === null ? { text: 'not yet reporting', role: 'words' } : { text: `${String(bedCount)} beds`, role: 'badge' };
+    bedCount === null ? { text: 'not yet reporting', role: 'words' } : { text: bedCountText(bedCount), role: 'badge' };
   const rest = `${open ? '' : ' — not accepting'}${reason === null || reason === undefined ? '' : ` (${reasonLabel(reason)})`}${p.qualifiers}`;
   const claim: WardLineSegment[] = rest === '' ? [...head, count] : [...head, count, { text: rest }];
   const aged = (band: WardLineParts['band'], tone: WardLine['tone'], stamp: string, status: WardStatus = 'unknown'): WardLineParts => ({

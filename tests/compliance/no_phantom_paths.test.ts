@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { REPO_ROOT } from './_scratch.js';
+import { REPO_ROOT, withScratch, place } from './_scratch.js';
 
 /**
  * CLAUSE 4 — NO PHANTOM ENFORCEMENT, enforced mechanically.
@@ -143,9 +143,17 @@ const PLANNING_DOC = /^(Sprint Kickoffs\/|docs\/handoff-)/;
 const SOURCE_EXT = /\.(md|ts|tsx|sh|sql|yml|yaml|mjs|json|toml)$/;
 const TOP_LEVEL = /^(apps|packages|scripts|tests|database|docs|supabase|\.github|\.ci|\.claude)\//;
 
+/**
+ * Directories never read as source. `.gate-logs` holds scripts/gate.sh's kept per-check
+ * output (R-2026-09-28-152 EB-2 d): a log quotes the paths a failing test printed, and a
+ * test log must never be read as a citation. Excluded by NAME, because a log's extension
+ * is not a promise.
+ */
+const NOT_SOURCE = ['node_modules', '.git', 'dist', '.next', 'coverage', '.gate-logs'];
+
 function sourceFiles(dir: string, acc: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
-    if (['node_modules', '.git', 'dist', '.next', 'coverage'].includes(name)) continue;
+    if (NOT_SOURCE.includes(name)) continue;
     const full = join(dir, name);
     if (statSync(full).isDirectory()) sourceFiles(full, acc);
     else if (SOURCE_EXT.test(name)) acc.push(full);
@@ -330,6 +338,17 @@ describe('Clause 4 — no phantom enforcement', () => {
   test('plant — the exemption is BY FILE: the same path cited from another file is still rejected', () => {
     const cites = [{ path: 'apps/public-dashboard/dist/version.json', citedIn: 'docs/runbook-x.md' }];
     expect(ignoredCitationViolations(cites, () => true, IGNORED_CITATION_EXEMPTIONS).length).toBe(1);
+  });
+
+  test('a kept gate log is not source: .gate-logs/ is not read, and the same file elsewhere is (EB-2 d)', () => {
+    // Built in pieces so this file's own source never carries the backticked phantom.
+    const quoted = `quoted: ${'`'}docs/no-such-runbook.md${'`'}\n`;
+    withScratch((root) => {
+      place(root, '.gate-logs/04-tests-db-compliance.md', quoted);
+      place(root, 'docs/control.md', quoted);
+      const read = sourceFiles(root).map((f) => f.slice(root.length + 1)).sort();
+      expect(read).toEqual(['docs/control.md']);
+    });
   });
 
   test('positive control — a tracked path is accepted', () => {

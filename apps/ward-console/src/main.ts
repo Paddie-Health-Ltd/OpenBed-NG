@@ -3,7 +3,7 @@ import { apiOrigin } from '@openbed/origins';
 import { publishableKeyFor } from '@openbed/origins/keys';
 import { WARD_SUPPORT_EMAIL } from '@openbed/origins/support';
 import { PRIVACY_NOTICE_URL } from '@openbed/origins/privacy';
-import { categoryLabel, precedence, reasonLabel } from '@openbed/labels';
+import { bedCountText, categoryLabel, precedence, reasonLabel } from '@openbed/labels';
 import { NO_WARD, NO_WARD_HEADING, OFFERING_CHOICES, ZERO_REASONS } from '@openbed/labels/ward';
 // The design system's tokens and self-hosted fonts first, then this app's own rules
 // (the design pass, D2). Vite emits all three as same-origin assets.
@@ -150,7 +150,7 @@ function show(heading: string, detail: string, kind: 'caution' | 'lead' = 'cauti
 export const REPORTS_OWN = 'This ward reports from its own login.';
 
 /** The one message an expired or unrenewable session produces. There is no other. */
-const TAP_AGAIN = 'Your session has ended. Tap the link on the ward handset again to sign back in.';
+const TAP_AGAIN = 'Your session has ended. Tap the sign-in link on this handset again to sign back in.';
 
 /**
  * WHAT A WARD IS TOLD, FOR EVERY ANSWER THE SERVER CAN GIVE (R-2026-09-23-66, the
@@ -207,7 +207,7 @@ export const SIGNIN_UNREACHABLE = 'The request could not be sent. Check this han
 export const WARD_MESSAGES: Readonly<Record<string, string>> = {
   NOT_AUTHENTICATED: TAP_AGAIN,
   NOT_A_MEMBER: `This sign-in is not linked to a ward. ${ASK_FOR_HELP}`,
-  ACCOUNT_DEACTIVATED: `This ward's account has been switched off. ${ASK_FOR_HELP}`,
+  ACCOUNT_DEACTIVATED: `This sign-in has been switched off. ${ASK_FOR_HELP}`,
   CROSS_FACILITY_DENIED: `This sign-in cannot act for that facility. ${ASK_FOR_HELP}`,
   INSUFFICIENT_ROLE: `This sign-in cannot publish bed counts. ${ASK_FOR_HELP}`,
   WARD_SCOPE_DENIED: 'This handset can only publish for its own ward, not this one.',
@@ -614,7 +614,7 @@ export function summaryLine(ward: WardRow): string {
   // `bedCount === null` means never reported, and is rendered as such rather than as
   // zero. Publishing "0 beds" for a ward nobody has updated states a claim the
   // facility never made.
-  const beds = ward.bedCount === null ? 'not yet reporting' : `${ward.bedCount} beds`;
+  const beds = ward.bedCount === null ? 'not yet reporting' : bedCountText(ward.bedCount);
   return `${category}: ${beds}${ward.accepting ? '' : ' — not accepting'}${ward.gatedBy ? ` (${reasonLabel(ward.gatedBy)})` : ''}${p.qualifiers}`;
 }
 
@@ -779,7 +779,7 @@ export async function render(): Promise<void> {
   }
 
   if (session === null) {
-    showWithRequest('Ward console', 'Open the sign-in link sent to this ward’s address on this handset, or ask for a new one below.', 'lead');
+    showWithRequest('Ward console', 'Open the sign-in link sent to your sign-in address on this handset, or ask for a new one below.', 'lead');
     return;
   }
 

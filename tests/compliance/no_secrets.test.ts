@@ -188,6 +188,26 @@ describe('secret scan', () => {
     });
   });
 
+  test('.gate-logs/ is not read: a secret shape in a kept gate log is not a finding, and the same file elsewhere is (EB-2 d)', () => {
+    // A kept gate log quotes this scan's own plants, and it is gitignored, so it cannot
+    // reach the repository. The control proves the scan would have fired on the file.
+    withScratch((root) => {
+      place(root, 'src/ok.ts', 'export const ok = 1;\n');
+      place(root, '.gate-logs/05-secret-scan.json', `{ "quoted": "${PLANT_SB_SECRET}" }`);
+      track(root);
+      const res = runLint(LINT, root);
+      expect(res.status, `a kept gate log was read as source:\n${res.stdout}`).toBe(0);
+    });
+    withScratch((root) => {
+      place(root, 'src/ok.ts', 'export const ok = 1;\n');
+      place(root, 'gate-logs-control/05-secret-scan.json', `{ "quoted": "${PLANT_SB_SECRET}" }`);
+      track(root);
+      const res = runLint(LINT, root);
+      expect(res.status, `the control file was not flagged, so the leg above proves nothing:\n${res.stdout}`).toBe(1);
+      expect(res.stdout).toContain('Supabase secret key');
+    });
+  });
+
   test('anti-vacuity — an empty tree FAILS rather than reporting clean', () => {
     withScratch((root) => {
       const res = runLint(LINT, root);

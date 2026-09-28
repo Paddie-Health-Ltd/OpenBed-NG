@@ -149,6 +149,7 @@ export default tseslint.config(
       'supabase/.temp/**',
       'packages/fixtures/**',
       '**/.design-screens/**',
+      '**/.gate-logs/**',
     ],
   },
   ...tseslint.configs.recommended,
