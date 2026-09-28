@@ -1,11 +1,15 @@
 # Legal texts: the privacy notice, and the processors' agreements
 
-**The privacy notice.** `docs/legal/privacy-notice-v1.0.md` is the single source of the
-notice served at https://openbed.ng/privacy (R-2026-09-26-136 DL-1). The founder approved
-the record it is written from, and Cowork issued it with its sha256,
-`0921ca415238d5ed96f3d287bf4fe02669a7c0e5cebac25b3f303a22be524db1`, which
-`tests/compliance/privacy_notice.test.ts` pins. A change to the notice is a new file with
-a new version number, never an edit to this one.
+**The privacy notice.** `docs/legal/privacy-notice-v1.1.md` is the single source of the
+notice served at https://openbed.ng/privacy. A change to the notice is a new file with a
+new version number, never an edit to an existing one, and
+`tests/compliance/privacy_notice.test.ts` pins each version's sha256.
+
+- **Version 1.1:** `docs/legal/privacy-notice-v1.1.md`, approved by the founder 2026-09-28, R-2026-09-28-155. Handed over by Cowork as a file (R-2026-09-28-156 EF-1), sha256 `9e38c81335715db959651b07096b48d200e48c8199361f3571a0020de5baec76`. Not yet deployed: https://openbed.ng/privacy serves 1.0 until hosted run 3 deploys and reads back 1.1 (runbook 12.4 step 1's box).
+- **Version 1.0, the prior version, kept unchanged:** `docs/legal/privacy-notice-v1.0.md` (R-2026-09-26-136 DL-1). The founder approved the record it is written from, and Cowork issued it with its sha256, `0921ca415238d5ed96f3d287bf4fe02669a7c0e5cebac25b3f303a22be524db1`.
+
+*Restated 2026-09-28 (R-2026-09-28-155 EE-1).* Until then this paragraph named
+`privacy-notice-v1.0.md` as the single source, which it was until version 1.1.
 
 ## The data-processing agreements (register items 1–3; R-2026-09-26-136 DL-4)
 

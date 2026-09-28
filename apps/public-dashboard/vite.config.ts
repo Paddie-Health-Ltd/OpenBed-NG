@@ -8,7 +8,8 @@ const PLACEHOLDER = '<!-- @PRIVACY_NOTICE@ -->';
 
 /**
  * THE PRIVACY NOTICE, WRITTEN INTO privacy.html AT BUILD TIME (R-2026-09-26-136 DL-1).
- * docs/legal/privacy-notice-v1.0.md is the single source and
+ * docs/legal/privacy-notice-v1.1.md is the single source (version 1.1 since
+ * R-2026-09-28-155 EE-2; 1.0 stays in docs/legal/, unchanged, as the prior version) and
  * packages/origins/contacts.json supplies every openbed.ng address; privacy-notice.ts
  * renders them. The page carries no script, so this is the only moment the notice can
  * be put into it. Exactly one placeholder in privacy.html and none anywhere else, or the
@@ -27,7 +28,7 @@ function privacyNotice(): Plugin {
           return html;
         }
         if (count !== 1) throw new Error(`privacy.html: expected exactly one privacy-notice placeholder, found ${count}`);
-        const markdown = readFileSync(resolve(REPO, 'docs/legal/privacy-notice-v1.0.md'), 'utf8');
+        const markdown = readFileSync(resolve(REPO, 'docs/legal/privacy-notice-v1.1.md'), 'utf8');
         const contacts = JSON.parse(readFileSync(resolve(REPO, 'packages/origins/contacts.json'), 'utf8')) as Contacts;
         return html.replace(PLACEHOLDER, renderNotice(markdown, contacts));
       },

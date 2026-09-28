@@ -7893,6 +7893,196 @@ _Issued as R-PROVISIONAL-2026-09-28-ED, by Cowork on 2026-09-28. It relays the f
 
 Nothing hosted ran from Claude Code's side. Next letter: **EE**.
 
+### R-2026-09-28-155 — Bundle 5: privacy notice 1.1 is the notice /privacy serves, the read-back checks 1.1, and 12.4 gains its box
+
+_Issued as R-PROVISIONAL-2026-09-28-EE, by Cowork on 2026-09-28, as Bundle 5's start word, with the notice approved by the founder that day. Amended before any of it was built by -156 (EF), which replaced the inline notice text with a file and moved EE-3's red. Landed in Bundle 5's pull request, after -153 and -154. Number assigned on landing: R-2026-09-28-154 plus one. Next provisional letter: **EF**._
+
+**As issued.** The inline NOTICE TEXT arrived cut off mid-sentence, and EF-1 replaced it, so it is not reproduced. The bracketed line at the end of the quote says so.
+
+> R-PROVISIONAL-2026-09-28-EE — BUNDLE 5 START WORD: PRIVACY NOTICE 1.1 (APPROVED BY THE FOUNDER, 2026-09-28)
+> EE lands in Bundle 5's PR as -155, after EC's -153 and ED's -154. Next letter: EF.
+>
+> START after ED's records-only PR has merged and you have read MERGED back. Branch from main at
+> that merge. If ED's PR is still open, finish it first. Do not stack the two.
+>
+> EE-1  THE TEXT. Commit the NOTICE TEXT below, byte for byte, as docs/legal/privacy-notice-v1.1.md.
+>   - It is complete and approved. Change no words, punctuation or table cell.
+>   - The contact addresses in it are the three published ones, as in 1.0.
+>   - docs/legal/privacy-notice-v1.0.md stays in the repo unchanged, as the prior version.
+>   - docs/legal/README.md gains one line for 1.1: approved by the founder 2026-09-28, R-2026-09-28-155.
+>
+> EE-2  THE PAGE. /privacy (apps/public-dashboard, privacy.html) serves 1.1, rendered exactly as
+>   1.0 is.
+>   - The compliance test's source file moves to v1.1. Contacts are still substituted from
+>     packages/origins/contacts.json.
+>   - Show the test red first with one planted word changed, then green.
+>   - Also assert that the rendered page contains "Version 1.1" and does not contain
+>     "Version 1.0".
+>
+> EE-3  READ-BACK. In scripts/readback_pages.sh, the privacy check's "Version 1.0" becomes
+>   "Version 1.1". Show it failing against today's deployment (2633ccc0, which serves 1.0) before
+>   the change goes in. That failing run is the red.
+>
+> EE-4  RUNBOOK 12.4 gains a box before facility one's first reporting login: "Privacy notice 1.1
+>   deployed and read back (readback_pages.sh PASS with 'Version 1.1' on both hosts), before the
+>   first facility-level login is provisioned." Tick nothing: the founder's hosted run 3 ticks it.
+>
+> EE-5  SCREENSHOTS to .design-screens/B5/: /privacy at 360x740, 360 full page, 960x800 and
+>   1280x900. Cowork reads every one.
+>
+> EE-6  THE FACILITY AGREEMENT, for the record only; there is no code change. The founder approved
+>   Cowork's restatement on 2026-09-28, and it is now in the live agreement (register item 8):
+>   - clause 1.2, Ward Account: "means a sign-in to the ward console for one ward of the Facility
+>     or, where Schedule 1 says that one sign-in reports for the whole Facility, that sign-in,
+>     which reports for every ward listed there";
+>   - clause 2.1: "The Operator shall provide the Ward Accounts that Schedule 1 states: either one
+>     for each ward category listed there, or one through which the Facility reports for all of
+>     them";
+>   - Schedule 1 gains a "Who reports" row.
+>   Record it under EE. CLCO's condition, that the agreement must name who publishes on the
+>   facility's behalf, is met by clause 2.1 and that row. Say so in the record, citing wherever
+>   the record holds that condition.
+>
+> EE-7  THE REPORT, then STOP for Cowork's check:
+>   - branch and HEAD;
+>   - git log --oneline main..HEAD;
+>   - git diff -M --name-status main...HEAD;
+>   - the red and green runs for EE-2 and EE-3;
+>   - the test count against 2541;
+>   - the register count by kind (59, unless a row leaves or lands, and then say which);
+>   - the screenshots.
+> Process as every PR: one branch, no force-push, no rebase, ZERO-RED on a fresh database, the
+> full gate through scripts/commit.sh. Nothing hosted.
+>
+> AFTER THE MERGE (hosted run 3, the founder's): deploy the public dashboard only, then run
+> readback_pages.sh. Cowork writes the commands, with the real deployment URL filled in.
+>
+> NOTICE TEXT (docs/legal/privacy-notice-v1.1.md), from the next line to the end of this block:
+>
+> [The inline notice text followed here, and arrived cut off mid-sentence at "Bed counts, their", in the table section. It is not reproduced: R-2026-09-28-156 EF-1 replaces it with the hand-over file, which is committed byte for byte as docs/legal/privacy-notice-v1.1.md.]
+
+**The order held.** ED's records-only PR (#98) merged first, at `175ac409d129c40582f231fa5a560abb73d06a2a`, with `MERGED` read back. The truncation was reported before anything was built, and this branch starts from `175ac40`.
+
+**EE-1: LANDED, from EF-1's file.**
+- `docs/legal/privacy-notice-v1.1.md` is the hand-over file, copied unchanged. In the repository it reads sha256 `9e38c81335715db959651b07096b48d200e48c8199361f3571a0020de5baec76` and 6166 bytes, as EF-1 a gives them.
+- `docs/legal/privacy-notice-v1.0.md` is unchanged, and its sha256 is now pinned too.
+- **`docs/legal/README.md` gains the 1.1 line** ("approved by the founder 2026-09-28, R-2026-09-28-155"), with its hash.
+  - **Premise note:** one line alone would have left the README's first paragraph saying `privacy-notice-v1.0.md` "is the single source of the notice served at https://openbed.ng/privacy".
+  - That paragraph is restated, and dated: 1.1 is the source, 1.0 is the prior version kept unchanged, and 1.1 is not yet deployed.
+
+**EE-2: LANDED.**
+- `apps/public-dashboard/vite.config.ts` reads `privacy-notice-v1.1.md`. The renderer, `privacy-notice.ts`, is unchanged, so 1.1 renders exactly as 1.0 did, with every openbed.ng address from `packages/origins/contacts.json`.
+- **The comments naming v1.0 as the source are restated,** in `privacy-notice.ts`, `privacy.html` and `vite.config.ts`.
+- **`tests/compliance/privacy_notice.test.ts`:**
+  - the source and its hash move to 1.1;
+  - a leg pins 1.0's hash, because the prior version must stay unchanged;
+  - a leg asserts the built page contains "Version 1.1" and not "Version 1.0".
+- **Red first, twice, then green:**
+  - **(a)** the test moved to 1.1 while the build still rendered 1.0: collected=21 ran=21 passed=17 **failed=4**, beginning "block 2 differs: page: Version 1.0. … source: Version 1.1.";
+  - **(b)** with 1.1 built, one planted word in the built page ("Lagos" → "Abuja" in the retention cell), then restored and compared: 1 of 1 **failed**, "block 40 differs … the Abuja limitation period";
+  - **green:** 21 of 21.
+- **Not changed:** `database/migrations/024_retention_jobs.sql:7` still names `privacy-notice-v1.0.md`. It is a frozen migration, and the comment was true of the notice 024 was written against.
+
+**EE-3: LANDED, with its red read through the tests' seam, never against a hosted site (EF-2).**
+- `scripts/readback_pages.sh`'s privacy check reads `Version 1.1`.
+- `tests/compliance/readback_scripts.test.ts`'s fixture page is built from 1.1. A new leg serves the 1.0 page, which 2633ccc0 serves today, on both hosts, and requires WRONG on "privacy version" and "openbed.ng privacy version", then STOP.
+- **Red first against main's script** (which expects 1.0): collected=149 ran=44 passed=41 **failed=3**. The new 1.0 leg was red, because main's script passes a 1.0 page. The two ACCEPT legs over the 1.1 page were red too. **Green:** the whole file.
+
+**EE-4: LANDED.** 12.4 step 1 gains the box, unticked, carrying `R-2026-09-28-155 EE-4`, before the paperwork-register box.
+- `tests/compliance/deferred_items.test.ts` requires a BOX row for every unticked box, so **a BOX row lands** (EE-7: "unless a row leaves or lands"). The register goes **59 → 60 (16 BOX, 33 TRIGGER, 11 VERSION)**, recounted from the table.
+
+**EE-5: the screenshots,** in .design-screens/B5/: `/privacy` at 360x740, 360xfull, 960x800 and 1280x900.
+- Each reads "Version 1.1" and not "Version 1.0".
+- All are aligned (16, 16, 24 and 184 px), with no horizontal overflow.
+- All nine sections render. The full-page shot was read to the end.
+
+**EE-6: THE FACILITY AGREEMENT, RECORDED.** No code change. This is the founder-approved restatement, relayed by Cowork and now in the live agreement (the founder's paperwork register item 8, outside this repository):
+- clause 1.2, Ward Account: "means a sign-in to the ward console for one ward of the Facility or, where Schedule 1 says that one sign-in reports for the whole Facility, that sign-in, which reports for every ward listed there";
+- clause 2.1: "The Operator shall provide the Ward Accounts that Schedule 1 states: either one for each ward category listed there, or one through which the Facility reports for all of them";
+- Schedule 1 gains a "Who reports" row.
+
+**On EE-6's citation: THE RECORD DOES NOT HOLD THE CONDITION, so none is cited.** EE-6 asks for the record's source for "CLCO's condition, that the agreement must name who publishes on the facility's behalf".
+- **Searched for:** every "CLCO" in this record, and "behalf", "who publishes" and "who reports" across this record and `docs/`.
+- **What was found:**
+  - -144 (DT) holds the CLCO's input on no new personal data and on erasure covering the new login.
+  - -141 DQ-3 holds the founder's reporting model.
+  - No entry states the condition. DQ-3 d names a Board write-up outside this repository, as Cowork's statement.
+- **So the condition is recorded as Cowork's statement, not cited.** That clause 2.1 and the "Who reports" row meet it is Cowork's reading, relayed.
+- **Unchanged:** the 12.4 box for the agreement's publishing permission (B1, -122 CX-1) is about a different clause, and stays as it is.
+
+**EE-7:** the report is in Bundle 5's pull request body. Nothing hosted ran from Claude Code's side.
+
+Next letter: **EF**.
+
+### R-2026-09-28-156 — EE amended: the notice comes as a file, and EE-3's red is read without a hosted site
+
+_Issued as R-PROVISIONAL-2026-09-28-EF, by Cowork on 2026-09-28, after Claude Code stopped on EE's truncated notice text. Landed in Bundle 5's pull request, after -155. Number assigned on landing: R-2026-09-28-155 plus one. Next provisional letter: **EG**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-28-EF — EE AMENDED: THE NOTICE TEXT COMES AS A FILE, AND EE-3's RED IS READ LOCALLY
+> EF lands in Bundle 5's PR as -156, after EE's -155. Next letter: EG.
+>
+> You were right to stop. The notice was cut off in transit: a long paste block does not survive
+> the relay whole. So the text no longer travels inside a paste.
+>
+> EF-1  THE NOTICE TEXT (replaces EE's inline NOTICE TEXT).
+>   a) Source: /Users/KWB/cowork-handoff/privacy-notice-v1.1.md, placed there by Cowork. It is
+>      6166 bytes, ends with a single newline, and its sha256 is
+>      9e38c81335715db959651b07096b48d200e48c8199361f3571a0020de5baec76
+>   b) Before using it, check that sha256 and byte count. On any mismatch, STOP and report; do
+>      not use it.
+>   c) Copy it unchanged to docs/legal/privacy-notice-v1.1.md, and check the sha256 again in the
+>      repo.
+>   d) It runs from "# OpenBed privacy notice" to "Earlier versions are available on request at
+>      hello@openbed.ng." Its sections, in order:
+>      1. Who runs OpenBed
+>      2. What OpenBed does not do
+>      3. What is processed, why, and on what basis
+>      4. Who else handles the data
+>      5. Transfers outside Nigeria
+>      6. Your rights
+>      7. Complaints
+>      8. How the data is protected
+>      9. Changes
+>   e) The file in ~/cowork-handoff is a hand-over copy, not a source of truth. The repo file is.
+>      Leave the hand-over copy where it is.
+>
+> EF-2  EE-3's RED: LOCAL, NOT HOSTED. DW-4 stands, and you run nothing against a hosted site.
+>   a) Show the red locally, by the seam readback_pages.sh's own tests already use to aim it at
+>      a local server. Point it at a local build of main (175ac40), which serves 1.0: it must read
+>      WRONG on the privacy version line and end in STOP. Then build the branch (1.1), and the
+>      same local run must read ok on that line.
+>   b) If readback_pages.sh has no such seam, do not add one for this. Say so in the report.
+>      The red then comes from EF-3.
+>
+> EF-3  THE HOSTED RED IS THE FOUNDER'S, in hosted run 3. Before deploying 1.1, the founder runs
+>   the NEW readback_pages.sh (from the deploy checkout at Bundle 5's merge) against the live
+>   deployment 2633ccc0, which serves 1.0. It must read WRONG on "privacy version" on both hosts
+>   and end in STOP. Then comes the deploy, and the read-back of the new deployment must PASS.
+>   Cowork writes both commands, with the addresses filled in. Nothing for you to run.
+>
+> EF-4  Everything else in EE stands as written: EE-1 (apart from its inline text), EE-2, EE-4,
+>   EE-5, EE-6 and EE-7. Start from 175ac40.
+
+**EF-1: the file, checked before use and again in the repository.**
+- **The hand-over copy** read 6166 bytes, sha256 `9e38c81335715db959651b07096b48d200e48c8199361f3571a0020de5baec76`, and ended in a single newline. Its nine `##` sections are in EF-1 d's order.
+- **The repository copy** reads the same hash and size.
+- The hand-over copy was left where it was.
+
+**EF-2 b applied: `scripts/readback_pages.sh` has NO seam to aim it at a local server, and none was added.**
+- `rb_require_url` accepts only an `https://…openbed-public-dashboard.pages.dev` address.
+- `DOMAIN='https://openbed.ng'` is fixed in the script, so every real run also reads the live domain.
+- Its own tests reach it only through a curl stub on PATH that answers from fixtures. So the local red of EF-2 a could not be run.
+- **What was run instead, with no new seam:** the existing stub seam in `tests/compliance/readback_scripts.test.ts`, feeding the 1.0 page (what 2633ccc0 serves). It must read WRONG on "privacy version" on both hosts and STOP, and it was red first against main's script (-155 EE-3).
+- **The hosted red is EF-3's,** the founder's, in hosted run 3. 12.4 step 1's new box names it.
+
+**EF-3:** nothing to run here. It is written into the EE-4 box.
+
+**EF-4:** EE's other items landed as -155 records.
+
+Next letter: **EG**.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -8038,6 +8228,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | EB | R-2026-09-28-152 | 2026-09-28 | **#95 merged at `b8bf9b4`** (parents `6d8c355`, `95c1b83`), every required check read `success` first; `bundle-2-ward-console` deleted on both sides and read back as gone. **Bundle 4 landed:** "1 bed" through one helper in `packages/labels` at all three sites, with a guard; EA-5's three console sentences; `scripts/gate.sh` keeps each check's output in `.gate-logs/`, prints a failed check's tail, and refuses a gate that ran nothing; the secret scan and the phantom-path guard exclude `.gate-logs/` by name; step P says to read the screen, not the shell's status. EB-3 a's correction: EA-3 a's line is Cowork's wording, relayed by the founder. Rows: EB-2 and EB-4 arrive, DP-5 a leaves: register 58 → 59 (15 BOX, 33 TRIGGER, 11 VERSION), not EB's 60, which left DP-5 a in. Next letter EC. |
 | EC | R-2026-09-28-153 | 2026-09-28 | **Cowork's check of #97.** One false comment fixed before the merge: `.gitignore` said the secret scan reads only tracked files, and it now names the two readers that exclude `.gate-logs/` by name (`508d082`). #97 merged at `48ba94b` (parents `b8bf9b4`, `508d082`) after every required check read `success`; `bundle-4-beds` deleted on both sides. Register 59 (15 BOX, 33 TRIGGER, 11 VERSION). EB's 59-then-60 was Cowork's slip. EC-4's premise checked: since `cd05de1` only `applied-hosted.json` changed under `database/migrations/`, and nothing under `supabase-proxy/`, so no Worker redeploy and no apply. Held, and landed with -154. Next letter ED. |
 | ED | R-2026-09-28-154 | 2026-09-28 | **Hosted run 2 recorded** (the founder's readings, relayed by Cowork): the ward console `6e216584`, admin `90acd718` and the public dashboard `2633ccc0`, all from `48ba94b`, each read back PASS, and the founder's browser checks passed. Admin's first read-back ran against a pasted placeholder URL and is not a verdict; the rerun is (Cowork's slip: a read-back command is given with the real URL filled in). Hosted: migrations 001 to 026, Worker `7d07e831` at `cd05de1`. 12.4 step 5's DU-4 b precondition is MET on hosted. No trigger fired; register 59. Next letter EE. |
+| EE | R-2026-09-28-155 | 2026-09-28 | **Bundle 5: privacy notice 1.1.** The founder-approved text is committed byte for byte (from EF-1's file; EE's inline copy arrived truncated). `/privacy` renders 1.1 exactly as 1.0 was, 1.0 is kept unchanged with its hash pinned, and `readback_pages.sh` checks Version 1.1, each red first. 12.4 step 1 gains the unticked hosted-run-3 box, so a BOX row lands: register 59 → 60 (16 BOX, 33 TRIGGER, 11 VERSION). The facility agreement's restated clauses 1.2 and 2.1 and "Who reports" row are recorded; CLCO's condition is not held in this record and is not cited. Next letter EF. |
+| EF | R-2026-09-28-156 | 2026-09-28 | **EE amended:** the notice text travels as a hand-over file with its sha256, checked before use and in the repository. EE-3's red is read without a hosted site: `readback_pages.sh` has no local-server seam (its custom domain is fixed), so none was added, and the red came through its tests' curl-stub seam; the hosted red is the founder's, in hosted run 3. Next letter EG. |
 
 ## Deferred items — this record is where the list lives
 
@@ -8132,6 +8324,7 @@ the record's own, except where CW-5 assigned one._
 | Restate `operator_record_registration`'s allow-list comment in `supabase-proxy/allow-list.json` (apps/admin calls it since DT Bundle 3) | R-2026-09-28-151 EA-4 | TRIGGER | The next commit that changes supabase-proxy/ |
 | Read the kept log, name the failing test and its cause, and report it; the 2026-09-28 red on 95c1b83's first gate run is the open instance | R-2026-09-28-152 EB-2 | TRIGGER | The next time tests (db+compliance) is red in scripts/gate.sh |
 | That change brings its block under a live test | R-2026-09-28-152 EB-4 | TRIGGER | The next runbook change that adds or edits a psql line outside the fences tests/db/runbook_12_4_12_5_sql_live.test.ts runs |
+| Privacy notice 1.1 deployed and read back (readback_pages.sh PASS with 'Version 1.1' on both hosts), before the first facility-level login is provisioned; hosted run 3 | R-2026-09-28-155 EE-4 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 
 ## Method notes — how rulings reach the implementer
 

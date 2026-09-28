@@ -180,8 +180,9 @@ for host in "$SITE_BEFORE" "$DOMAIN"; do
     esac
     rb_matches 'Paddie Health Ltd'
     if [ "$RB_COUNT" -gt 0 ]; then rb_ok "$label controller" "Paddie Health Ltd"; else rb_wrong "$label controller" "(absent)" "the notice names Paddie Health Ltd"; fi
-    rb_matches 'Version 1[.]0'
-    if [ "$RB_COUNT" -gt 0 ]; then rb_ok "$label version" "Version 1.0"; else rb_wrong "$label version" "(absent)" "the notice states Version 1.0"; fi
+    # Version 1.1 since R-2026-09-28-155 EE-3: a deployment still serving 1.0 reads WRONG here.
+    rb_matches 'Version 1[.]1'
+    if [ "$RB_COUNT" -gt 0 ]; then rb_ok "$label version" "Version 1.1"; else rb_wrong "$label version" "(absent)" "the notice states Version 1.1"; fi
     rb_matches 'id="app"'
     if [ "$RB_COUNT" -eq 0 ]; then rb_ok "$label is not the SPA index" "no #app root"; else rb_wrong "$label is not the SPA index" "id=\"app\"" "that is the dashboard's index answering for a missing page"; fi
     rb_matches '<script'

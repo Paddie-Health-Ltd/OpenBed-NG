@@ -1,7 +1,8 @@
 /**
  * THE PRIVACY NOTICE, RENDERED AT BUILD TIME (R-2026-09-26-136 DL-1 b, c).
  *
- * docs/legal/privacy-notice-v1.0.md is the single source. vite.config.ts reads it and
+ * docs/legal/privacy-notice-v1.1.md is the single source (version 1.1 since
+ * R-2026-09-28-155 EE-2; 1.0 stays beside it, unchanged). vite.config.ts reads it and
  * packages/origins/contacts.json, calls renderNotice(), and writes the result into
  * privacy.html in place of its one placeholder. The page ships no script: everything
  * here runs in Node, once, during the build.

@@ -12,11 +12,14 @@ import { hasViewport, VIEWPORT_CONTENT } from './_design.js';
 import { REPO_ROOT } from './_scratch.js';
 
 /**
- * THE PAGE AT /privacy IS THE APPROVED NOTICE, WORD FOR WORD (R-2026-09-26-136 DL-1 c).
+ * THE PAGE AT /privacy IS THE APPROVED NOTICE, WORD FOR WORD (R-2026-09-26-136 DL-1 c;
+ * version 1.1 since R-2026-09-28-155 EE-2 and R-2026-09-28-156 EF-1).
  *
- * docs/legal/privacy-notice-v1.0.md is the single source. The founder approved the
- * record it is written from, and Cowork issued it with a sha256, so the first leg pins
- * that hash: the file cannot be "fixed" by hand without this going red.
+ * docs/legal/privacy-notice-v1.1.md is the single source. The founder approved it on
+ * 2026-09-28, and Cowork handed it over as a file with its sha256, so the first leg pins
+ * that hash: the file cannot be "fixed" by hand without this going red. Version 1.0 stays
+ * in the repository as the prior version, unchanged, and its own hash is pinned too: a
+ * published version is never edited, a change is a new file.
  *
  * THE BUILT PAGE IS READ, NOT THE RENDERER'S RETURN VALUE. The renderer
  * (apps/public-dashboard/privacy-notice.ts) runs inside the Vite build; a test over its
@@ -43,12 +46,15 @@ import { REPO_ROOT } from './_scratch.js';
  * reads it on the deployment and on openbed.ng after the founder's deploy (DL-1 e).
  */
 
-const SOURCE = join(REPO_ROOT, 'docs', 'legal', 'privacy-notice-v1.0.md');
+const SOURCE = join(REPO_ROOT, 'docs', 'legal', 'privacy-notice-v1.1.md');
+const PRIOR = join(REPO_ROOT, 'docs', 'legal', 'privacy-notice-v1.0.md');
 const BUILT = join(REPO_ROOT, 'apps', 'public-dashboard', 'dist', 'privacy.html');
 const PAGE_SOURCE = join(REPO_ROOT, 'apps', 'public-dashboard', 'privacy.html');
 const INDEX_SOURCE = join(REPO_ROOT, 'apps', 'public-dashboard', 'index.html');
-/** Issued with the ruling (DL, "NOTICE INTEGRITY CHECK"). */
-const NOTICE_SHA256 = '0921ca415238d5ed96f3d287bf4fe02669a7c0e5cebac25b3f303a22be524db1';
+/** Issued with the file (R-2026-09-28-156 EF-1 a). */
+const NOTICE_SHA256 = '9e38c81335715db959651b07096b48d200e48c8199361f3571a0020de5baec76';
+/** Version 1.0's, issued with R-2026-09-26-136 DL ("NOTICE INTEGRITY CHECK"). */
+const PRIOR_SHA256 = '0921ca415238d5ed96f3d287bf4fe02669a7c0e5cebac25b3f303a22be524db1';
 const PLACEHOLDER = '<!-- @PRIVACY_NOTICE@ -->';
 const contacts = CONTACTS as unknown as Contacts;
 
@@ -149,9 +155,20 @@ const readBuilt = (): string => {
 const markdown = (): string => readFileSync(SOURCE, 'utf8');
 
 describe('the privacy notice at /privacy is the approved text (R-2026-09-26-136 DL-1)', () => {
-  test('real docs/legal/privacy-notice-v1.0.md is accepted — its sha256 is the one issued with the ruling', () => {
+  test('real docs/legal/privacy-notice-v1.1.md is accepted — its sha256 is the one issued with the file', () => {
     const got = createHash('sha256').update(readFileSync(SOURCE)).digest('hex');
     expect(got, 'the notice file is not the approved text: a paste error, never to be fixed by hand').toBe(NOTICE_SHA256);
+  });
+
+  test('the prior version, docs/legal/privacy-notice-v1.0.md, is kept unchanged — its sha256 is still 1.0\'s', () => {
+    const got = createHash('sha256').update(readFileSync(PRIOR)).digest('hex');
+    expect(got, 'version 1.0 was edited: a published version is never changed, a change is a new file').toBe(PRIOR_SHA256);
+  });
+
+  test('the built page states "Version 1.1" and never "Version 1.0" (R-2026-09-28-155 EE-2)', () => {
+    const text = squash(new DOMParser().parseFromString(readBuilt(), 'text/html').body.textContent ?? '');
+    expect(text).toContain('Version 1.1');
+    expect(text, 'the page still states version 1.0').not.toContain('Version 1.0');
   });
 
   test('real built privacy page is accepted — its text equals the source with contacts.json addresses', () => {
