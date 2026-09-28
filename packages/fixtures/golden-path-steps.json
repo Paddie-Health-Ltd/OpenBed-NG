@@ -84,7 +84,7 @@
     },
     {
       "id": "handover-lists-facility-wards",
-      "description": "public.my_facility_wards() returns the session's own facility's categories. It takes no arguments, so it cannot be pointed at another facility -- the absence is the control.",
+      "description": "public.my_reporting_wards() returns the session's own facility's categories. It takes no arguments, so it cannot be pointed at another facility -- the absence is the control.",
       "gate2_clause": "identifies at handover",
       "owning_stage": 1,
       "needs_browser": false
@@ -100,6 +100,34 @@
       "id": "ward-republishes",
       "description": "A second publish from the same ward session succeeds and increments version. Placed here rather than beside the update-request steps because a second call to the publish RPC passes the moment Stage 1 lands, and owning_stage names the stage that makes a step pass. Its gate2_clause is unchanged, so the mapping back to Gate 2's arc survives the move. THIS is the value the projection and the tile assert against below -- exercising a version increment before the projection is read, deliberately and not by accident.",
       "gate2_clause": "the ward updates",
+      "owning_stage": 1,
+      "needs_browser": false
+    },
+    {
+      "id": "operator-onboards-reporter-facility",
+      "description": "The operator creates GAMMA through operator_create_facility, records its contact and agreement, and adds two ward categories, each through the RPC and body the admin app sends. GAMMA is never listed, so no public output changes and the snapshot steps below still read ALPHA and BETA alone. Owned by stage 1 although stage 0's functions make it pass: it follows the stage 1 steps, and owning_stage must not decrease down this list.",
+      "gate2_clause": "An operator onboards a facility whose nurse in charge reports for every ward, through one facility-level login (R-2026-09-27-144 DT, Bundle 1's definition of done; the reporting model is R-2026-09-27-141 DQ-3)",
+      "owning_stage": 1,
+      "needs_browser": false
+    },
+    {
+      "id": "operator-provisions-reporter",
+      "description": "GAMMA's facility-level reporting login is provisioned through scripts/provision_ward_account.mjs with --role FACILITY_REPORTER and no category, through 026's app.provision_begin gates. The operator register then reads GAMMA's reporting_model as FACILITY, its reporter_login as active, and every ward as having its account.",
+      "gate2_clause": "An operator onboards a facility whose nurse in charge reports for every ward, through one facility-level login (R-2026-09-27-144 DT, Bundle 1's definition of done; the reporting model is R-2026-09-27-141 DQ-3)",
+      "owning_stage": 1,
+      "needs_browser": false
+    },
+    {
+      "id": "reporter-reads-can-publish",
+      "description": "The reporter's session, minted and verified as every session here is, reads public.my_reporting_wards(): GAMMA's two categories, and can_publish true on both, decided by the server.",
+      "gate2_clause": "An operator onboards a facility whose nurse in charge reports for every ward, through one facility-level login (R-2026-09-27-144 DT, Bundle 1's definition of done; the reporting model is R-2026-09-27-141 DQ-3)",
+      "owning_stage": 1,
+      "needs_browser": false
+    },
+    {
+      "id": "reporter-publishes-two-categories",
+      "description": "The reporter publishes both of GAMMA's categories through publish_ward_status, each from its own row's version: both land with the claim as sent, and public_listed is false because GAMMA is unlisted. The events carry source WARD.",
+      "gate2_clause": "An operator onboards a facility whose nurse in charge reports for every ward, through one facility-level login (R-2026-09-27-144 DT, Bundle 1's definition of done; the reporting model is R-2026-09-27-141 DQ-3)",
       "owning_stage": 1,
       "needs_browser": false
     },

@@ -35,10 +35,13 @@ import './style.css';
  * is taken on demand with a single in-flight promise, because one handset and
  * one screen removes the cross-tab race the library's machinery exists for.
  *
- * WHY A PUBLISH FORM PER ROW, NOT ONE FORM FOR "MY WARD". my_facility_wards()
- * returns every ward category at the account's facility (for handover
- * visibility), not just the one this account may publish for, and nothing in
- * its return columns or in the session's claims identifies which row that is.
+ * WHY A PUBLISH FORM PER ROW, NOT ONE FORM FOR "MY WARD". my_reporting_wards()
+ * (026; 011's my_facility_wards() until R-2026-09-27-145 DU renamed it) returns
+ * every ward category at the account's facility (for handover visibility), not
+ * just the ones this account may publish for. Its can_publish column says which
+ * rows those are, decided by the server (026) -- AND THIS CONSOLE DOES NOT READ IT
+ * YET: rendering by it is Bundle 2 of R-2026-09-27-144 DT, and until then nothing
+ * the console reads is used to pick a row.
  * Rather than guess client-side, every row gets its own inline publish form,
  * sourced entirely from that row's own already-loaded data (category, version)
  * -- never user-typed. The server remains the sole authority on which
@@ -135,7 +138,8 @@ const TAP_AGAIN = 'Your session has ended. Tap the link on the ward handset agai
  * kickoff's D1). Raw server text NEVER reaches the screen: it named internals, and
  * on the bad-link screen it carried GoTrue's own error text. Each rejection the
  * three functions this console calls can raise -- app.assert_member() and
- * public.my_facility_wards() in 011, public.publish_ward_status() in 014 -- has a
+ * public.my_reporting_wards() and public.publish_ward_status(), each as 026 last
+ * wrote it (011's and 014's, renamed or widened by R-2026-09-27-144/-145) -- has a
  * fixed sentence here, and tests/compliance/ward_console_render.test.ts asserts
  * this table covers exactly the codes parsed from those functions. 23514 is the
  * CHECK violation a count outside 0-500 would raise (004). Anything else gets
@@ -157,8 +161,10 @@ export const ROW_REFUSED = `This ward's record could not be read, so it cannot b
 export const LOAD_REFUSED = `The ward list could not be read. Reload the page. ${CALL_OPERATOR}`;
 /**
  * A SESSION WITH NO WARD (R-2026-09-24-88 BP-8; the found-on-landing item of
- * R-2026-09-23-72). my_facility_wards answers a PLATFORM_ADMIN with 200 and zero
- * rows, and a WARD_STAFF account always has its ward, so zero rows is an operator
+ * R-2026-09-23-72). my_reporting_wards answers a PLATFORM_ADMIN with 200 and zero
+ * rows (observed of my_facility_wards, whose body 026 kept under the new name), a
+ * WARD_STAFF account always has its ward, and a facility reporter's facility has at
+ * least one (026 refuses it NO_CATEGORY otherwise), so zero rows is an operator
  * whose sign-in fell back to this console (the Site URL fallback, AZ-1) or broken
  * data. It is a stop, never an empty handover list that looks like a sign-in that
  * worked. The words are in packages/labels; the support sentence is appended here
@@ -744,7 +750,7 @@ export async function render(): Promise<void> {
   const holder = new SessionHolder({ apiUrl: API_URL, anonKey: PUBLISHABLE_KEY, session });
 
   try {
-    const res = await holder.authedFetch('rpc/my_facility_wards', {
+    const res = await holder.authedFetch('rpc/my_reporting_wards', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: '{}',

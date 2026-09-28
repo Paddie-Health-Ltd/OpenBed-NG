@@ -475,32 +475,31 @@ describe('runbook migration expectation', () => {
     ).toEqual([]);
   });
 
-  test('the expectation is actually parsed — all four sites read ZERO, not null', () => {
+  test('the expectation is actually parsed — all four sites read TWO, and both file parsers name 025 and 026', () => {
     // WITHOUT THIS, every assertion above passes when a regex stops matching.
-    // RESTATED 2026-09-27 (R-2026-09-27-139 DO-1 a), in the change that records 024's
-    // hosted apply: while 024 was pending this leg read ONE and named 024. Nothing is
-    // pending again, so -- as after 018's to 023's applies -- THE COUNTS are what prove
-    // the parsers reached the text: `0` is a parse, `null` is a miss, and `[]` is
-    // compatible with both. test-conventions section 2(a). The filename parsers' reach is
-    // proved by the plant leg below, which inserts a name and reads it back.
-    expect(expectedPendingCount(RUNBOOK_TEXT), 'the prose pending-count parser matched nothing').toBe(0);
-    expect(fencedPendingCount(RUNBOOK_TEXT), 'the fenced pending-count parser matched nothing').toBe(0);
-    expect(stopBulletPendingCount(RUNBOOK_TEXT), 'the stop-bullet parser matched nothing').toBe(0);
-    expect(ledgerSiteCounts(RUNBOOK_TEXT), 'the ledger sentence was not found — its parser matched nothing').toEqual({ ledger: 24, pending: 0 });
+    // RESTATED 2026-09-27 (R-2026-09-27-144 DT l), in the change that adds 025 and 026:
+    // from 024's apply (R-2026-09-27-139 DO-1 a) until then nothing was pending and this
+    // leg read ZERO and []. With two files pending the lists are non-empty again, which
+    // is the stronger proof the parsers reached the text -- a dead regex returns [],
+    // never a name. test-conventions section 2(a): evidence is an executed assertion.
+    expect(expectedPendingCount(RUNBOOK_TEXT), 'the prose pending-count parser matched nothing').toBe(2);
+    expect(fencedPendingCount(RUNBOOK_TEXT), 'the fenced pending-count parser matched nothing').toBe(2);
+    expect(stopBulletPendingCount(RUNBOOK_TEXT), 'the stop-bullet parser matched nothing').toBe(2);
+    expect(ledgerSiteCounts(RUNBOOK_TEXT), 'the ledger sentence was not found — its parser matched nothing').toEqual({ ledger: 24, pending: 2 });
 
-    expect(expectedWouldApply(RUNBOOK_TEXT), 'step 5 names a pending migration and hosted holds them all').toEqual([]);
-    expect(fencedWouldApply(RUNBOOK_TEXT), "step 5's fence prints a WOULD APPLY line and nothing is pending").toEqual([]);
+    expect(expectedWouldApply(RUNBOOK_TEXT), 'step 5 does not name the pending migrations').toEqual(['025_facility_reporter_role.sql', '026_facility_reporter_and_checks.sql']);
+    expect(fencedWouldApply(RUNBOOK_TEXT), "step 5's fence does not print the pending migrations").toEqual(['025_facility_reporter_role.sql', '026_facility_reporter_and_checks.sql']);
   });
 
   test('plant — the ledger sentence left at its pre-apply count is rejected', () => {
-    // The fourth site's miss in the other direction: the three sites restated for the
-    // apply, this one still saying one pending. Restated for 024's apply
-    // (R-2026-09-27-139 DO-1 a); while 024 was pending it planted 0 against 1.
-    const planted = RUNBOOK_TEXT.replace('with `0 migration(s) pending.` from the\ndry run', 'with `1 migration(s) pending.` from the\ndry run');
+    // The fourth site's miss, as the change that adds 025 and 026 could make it: the
+    // three other sites restated to two pending, this one still saying none. Restated for
+    // 025 and 026 (R-2026-09-27-144 DT l); after 024's apply it planted 1 against 0.
+    const planted = RUNBOOK_TEXT.replace('with `2 migration(s) pending.` from the\ndry run', 'with `0 migration(s) pending.` from the\ndry run');
     expect(planted, 'the plant did not change the ledger sentence').not.toBe(RUNBOOK_TEXT);
-    expect(ledgerSiteCounts(planted)?.pending, 'the plant did not reach the parsed sentence').toBe(1);
+    expect(ledgerSiteCounts(planted)?.pending, 'the plant did not reach the parsed sentence').toBe(0);
     expect(expectationViolations(planted, forwardMigrations(REPO_ROOT), frozenMigrations(REPO_ROOT)).join('\n')).toContain(
-      "step 5's prose states 0 pending but its ledger sentence says 1",
+      "step 5's prose states 2 pending but its ledger sentence says 0",
     );
   });
 
@@ -520,19 +519,20 @@ describe('runbook migration expectation', () => {
     // This plants a pending migration into the real runbook, in both sites, and
     // asserts each parser extracts it — so [] above means "nothing pending" rather
     // than "nothing read".
-    // Restated for 024's apply (R-2026-09-27-139 DO-1 a): nothing is pending, so the
-    // plant INSERTS a pending file into both sites, as it did after 018's to 023's
-    // applies. While 024 was pending it replaced the named file.
+    // Restated for 025 and 026 (R-2026-09-27-144 DT l): two files are pending, so the
+    // plant REPLACES the second named file in both sites, and a parser that returned the
+    // real names regardless would red. After 024's apply, with nothing pending, it
+    // inserted one.
     const planted = RUNBOOK_TEXT.replace(
-      'there must be no `WOULD APPLY` line; and the dry',
-      'there must be exactly one `WOULD APPLY` line, naming `025_planted.sql`; and the dry',
+      'and then `026_facility_reporter_and_checks.sql`; and the dry',
+      'and then `027_planted.sql`; and the dry',
     ).replace(
-      '```\n0 migration(s) pending.\n```\n\n*Restated 2026-09-27 (R-2026-09-27-139',
-      '```\n  WOULD APPLY     : 025_planted.sql   <- dry run\n0 migration(s) pending.\n```\n\n*Restated 2026-09-27 (R-2026-09-27-139',
+      '  WOULD APPLY     : 026_facility_reporter_and_checks.sql   <- dry run\n2 migration(s) pending.',
+      '  WOULD APPLY     : 027_planted.sql   <- dry run\n2 migration(s) pending.',
     );
     expect(planted, 'the plant changed neither site').not.toBe(RUNBOOK_TEXT);
-    expect(expectedWouldApply(planted), 'the prose filename parser is dead').toEqual(['025_planted.sql']);
-    expect(fencedWouldApply(planted), 'the fenced filename parser is dead').toEqual(['025_planted.sql']);
+    expect(expectedWouldApply(planted), 'the prose filename parser is dead').toEqual(['025_facility_reporter_role.sql', '027_planted.sql']);
+    expect(fencedWouldApply(planted), 'the fenced filename parser is dead').toEqual(['025_facility_reporter_role.sql', '027_planted.sql']);
   });
 
   test('the DATED historical fences are not read as the current one', () => {
@@ -548,15 +548,17 @@ describe('runbook migration expectation', () => {
     // zero. Restated for 024 (R-2026-09-26-136 DL-2): the current block named 024, so
     // what had to survive the plant was that name and a count of one. Re-aimed by
     // R-2026-09-27-139 DO-1 a, at the 2026-09-27 fence (024 pending), now the one nearest
-    // the current block, which prints nothing pending: what must survive is [] and zero.
+    // the current block, which printed nothing pending: what had to survive was [] and
+    // zero. Restated for 025 and 026 (R-2026-09-27-144 DT l): the current block names both,
+    // so what must survive the plant is those two names and a count of two.
     const planted = RUNBOOK_TEXT.replace(
       '  WOULD APPLY     : 024_retention_jobs.sql   <- dry run\n1 migration(s) pending.\nMigrations complete (1 applied this run).',
       '  WOULD APPLY     : 999_not_real.sql   <- dry run\n7 migration(s) pending.\nMigrations complete (1 applied this run).',
     );
     expect(planted, 'the plant did not reach the dated 2026-09-27 fence').not.toBe(RUNBOOK_TEXT);
 
-    expect(fencedWouldApply(planted), 'a dated historical fence is being read as the current expectation').toEqual([]);
-    expect(fencedPendingCount(planted), 'a dated historical count is being read as the current one').toBe(0);
+    expect(fencedWouldApply(planted), 'a dated historical fence is being read as the current expectation').toEqual(['025_facility_reporter_role.sql', '026_facility_reporter_and_checks.sql']);
+    expect(fencedPendingCount(planted), 'a dated historical count is being read as the current one').toBe(2);
     expect(expectationViolations(planted, forwardMigrations(REPO_ROOT), frozenMigrations(REPO_ROOT))).toEqual([]);
   });
 
@@ -564,15 +566,15 @@ describe('runbook migration expectation', () => {
     // #61's miss, one level finer: the half-restatement. This is the likeliest
     // future mistake now that the prose is guarded, because the two sites sit
     // three hundred lines apart.
-    // Restated for 024's apply (R-2026-09-27-139 DO-1 a): the half-restatement is now
-    // the fence still printing 024 while the prose says nothing is pending. For 024's
-    // merge it was the fence left at zero while the prose named 024.
+    // Restated for 025 and 026 (R-2026-09-27-144 DT l): the half-restatement is now the
+    // fence left at its pre-025 state -- no WOULD APPLY line, zero pending -- while the
+    // prose names both. After 024's apply it was the fence still printing 024.
     const planted = RUNBOOK_TEXT.replace(
-      '```\n0 migration(s) pending.\n```\n\n*Restated 2026-09-27 (R-2026-09-27-139',
-      '```\n  WOULD APPLY     : 024_retention_jobs.sql   <- dry run\n0 migration(s) pending.\n```\n\n*Restated 2026-09-27 (R-2026-09-27-139',
+      '```\n  WOULD APPLY     : 025_facility_reporter_role.sql   <- dry run\n  WOULD APPLY     : 026_facility_reporter_and_checks.sql   <- dry run\n2 migration(s) pending.\n```',
+      '```\n0 migration(s) pending.\n```',
     );
     expect(planted, 'the plant did not change the fenced block').not.toBe(RUNBOOK_TEXT);
-    expect(fencedWouldApply(planted), 'the plant did not reach the parsed fence').toEqual(['024_retention_jobs.sql']);
+    expect(fencedWouldApply(planted), 'the plant did not reach the parsed fence').toEqual([]);
 
     const violations = expectationViolations(
       planted,
@@ -601,16 +603,17 @@ describe('runbook migration expectation', () => {
     // The other direction, and the one that happens AFTER an apply: the runbook
     // still expects the file the founder has just applied, so the next dry run
     // reads FAILED on a correct project.
-    // Restated for 024's apply (R-2026-09-27-139 DO-1 a): the plant is the exact
-    // post-apply slip -- the runbook still naming 024, which the founder has just
-    // applied. For 024's merge it named 022 in place of 024.
+    // Restated for 025 and 026 (R-2026-09-27-144 DT l): the plant is the runbook naming
+    // 024, which hosted already holds, in place of 025. After 024's apply it was the
+    // runbook still naming 024 as the one pending file.
     const planted = RUNBOOK_TEXT.replace(
-      'there must be no `WOULD APPLY` line; and the dry',
-      'there must be one `WOULD APPLY` line, naming `024_retention_jobs.sql`; and the dry',
+      'naming `025_facility_reporter_role.sql`\n  and then',
+      'naming `024_retention_jobs.sql`\n  and then',
     );
     expect(planted, 'the plant did not change the parsed bullet').not.toBe(RUNBOOK_TEXT);
     expect(expectedWouldApply(planted), 'the plant did not reach the parsed line').toEqual([
       '024_retention_jobs.sql',
+      '026_facility_reporter_and_checks.sql',
     ]);
 
     const violations = expectationViolations(
@@ -627,10 +630,11 @@ describe('runbook migration expectation', () => {
     // The count and the file list are two claims. #61 would have been caught by
     // either; a change that updates one and not the other is the likelier future
     // mistake, because they sit four lines apart.
-    // Restated for 024's apply (R-2026-09-27-139 DO-1 a): the plant is the pre-apply
-    // count, one, against zero unapplied. For 024's merge it planted two against one.
+    // Restated for 025 and 026 (R-2026-09-27-144 DT l): the plant is a count of one --
+    // the likeliest slip, one file counted -- against the two unapplied. After 024's
+    // apply it planted one against zero.
     const planted = RUNBOOK_TEXT.replace(
-      'run must end\n  `0 migration(s) pending.`',
+      'run must end\n  `2 migration(s) pending.`',
       'run must end\n  `1 migration(s) pending.`',
     );
     expect(expectedPendingCount(planted), 'the plant did not reach the parsed count').toBe(1);
@@ -641,7 +645,7 @@ describe('runbook migration expectation', () => {
       frozenMigrations(REPO_ROOT),
     );
     expect(violations.join('\n'), 'a stale count was accepted').toContain(
-      'step 5 states 1 migration(s) pending, but 0 forward migration(s) are unapplied',
+      'step 5 states 1 migration(s) pending, but 2 forward migration(s) are unapplied',
     );
   });
 
@@ -651,7 +655,7 @@ describe('runbook migration expectation', () => {
     // migration. Both statements are in the same list, four lines apart, and the
     // document shipped that way.
     const planted = RUNBOOK_TEXT.replace(
-      'than\n  `0 migration(s) pending.`: stop and report.**',
+      'than\n  `2 migration(s) pending.`: stop and report.**',
       'than zero: stop and report.**',
     );
     expect(planted, 'the plant did not change the stop bullet').not.toBe(RUNBOOK_TEXT);
@@ -675,7 +679,7 @@ describe('runbook migration expectation', () => {
     // The leg above catches a bullet with no count; this catches one that looks
     // restated and is not.
     const planted = RUNBOOK_TEXT.replace(
-      'than\n  `0 migration(s) pending.`: stop and report.**',
+      'than\n  `2 migration(s) pending.`: stop and report.**',
       'than `3 migration(s) pending.`: stop and report.**',
     );
     expect(stopBulletPendingCount(planted), 'the plant did not reach the parsed count').toBe(3);
@@ -714,16 +718,16 @@ describe('runbook migration expectation', () => {
     expect(found[0]).toContain('`3 migration(s) pending.`');
   });
 
-  test('plant — the virgin-database block left at its pre-024 counts is rejected', () => {
-    // The miss that made this a class, re-aimed at the change that adds 024: the
-    // block left at 23 / 22. Restated for 024 (R-2026-09-26-136 DL-2); for 023 it
-    // planted 22 / 21.
-    const planted = RUNBOOK_TEXT.replace('24 migration(s) pending.          <- dry run', '23 migration(s) pending.          <- dry run')
-      .replace('Migrations complete (23 applied this run).   <- apply', 'Migrations complete (22 applied this run).   <- apply');
-    expect(virginCounts(planted), 'the plant did not reach the virgin block').toEqual({ pending: 23, applied: 22 });
+  test('plant — the virgin-database block left at its pre-025 counts is rejected', () => {
+    // The miss that made this a class, re-aimed at the change that adds 025 and 026: the
+    // block left at 24 / 23. Restated for 025 and 026 (R-2026-09-27-144 DT l); for 024 it
+    // planted 23 / 22.
+    const planted = RUNBOOK_TEXT.replace('26 migration(s) pending.          <- dry run', '24 migration(s) pending.          <- dry run')
+      .replace('Migrations complete (25 applied this run).   <- apply', 'Migrations complete (23 applied this run).   <- apply');
+    expect(virginCounts(planted), 'the plant did not reach the virgin block').toEqual({ pending: 24, applied: 23 });
     const v = expectationViolations(planted, forwardMigrations(REPO_ROOT), frozenMigrations(REPO_ROOT)).join('\n');
-    expect(v).toContain('says 23 pending, but a virgin dry run lists all 24 forward migrations');
-    expect(v).toContain('says 22 applied, but the runner applies 23');
+    expect(v).toContain('says 24 pending, but a virgin dry run lists all 26 forward migrations');
+    expect(v).toContain('says 23 applied, but the runner applies 25');
   });
 
   test('a DATED historical statement is accepted, and the same line undated is not', () => {

@@ -76,6 +76,8 @@ const CALLS: [string, (id: string) => string][] = [
   ['operator_record_contact', () => `select * from public.operator_record_contact('${FAC}', 'A Person', 'Matron', 'role@example.invalid', null, false, null)`],
   ['operator_record_agreement', () => `select * from public.operator_record_agreement('${FAC}', '2026-09-01', 'v1.0', 'CMD')`],
   ['operator_get_contact', () => `select public.operator_get_contact('${FAC}')`],
+  // 026 (R-2026-09-27-144 DT k): the HEFAMAA registration number's one writer.
+  ['operator_record_registration', () => `select * from public.operator_record_registration('${FAC}', 1, 'LSHEFAMAA-0001')`],
 ];
 
 describe('the operator functions refuse every caller that is not an active PLATFORM_ADMIN', () => {
@@ -93,6 +95,20 @@ describe('the operator functions refuse every caller that is not an active PLATF
 
   test.each(CALLS)('ward staff %s is rejected with NOT_AN_OPERATOR', async (_name, call) => {
     const r = await refusal(withRole('authenticated', claims(WARD), (tx) => tx.unsafe(call(randomUUID())), accounts));
+    expect(r.message).toBe('NOT_AN_OPERATOR');
+    expect(r.code).toBe('42501');
+  });
+
+  // 026 (DT): the facility-level reporting login is not an operator either.
+  test.each(CALLS)('facility reporter %s is rejected with NOT_AN_OPERATOR', async (_name, call) => {
+    const REPORTER = '0a000000-0000-4000-8000-000000000003';
+    const r = await refusal(withRole('authenticated', claims(REPORTER), (tx) => tx.unsafe(call(randomUUID())), async (tx) => {
+      await accounts(tx);
+      await tx.unsafe(`
+        insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, listed_at)
+        values ('0a000000-0000-4000-8000-0000000000fb', 'Reporter Facility', 'Ikeja', 'Lagos', 6.6, 3.35, '+2348000000303', null)`);
+      await tx.unsafe(`insert into app.ward_account (id, facility_id, role) values ('${REPORTER}', '0a000000-0000-4000-8000-0000000000fb', 'FACILITY_REPORTER')`);
+    }));
     expect(r.message).toBe('NOT_AN_OPERATOR');
     expect(r.code).toBe('42501');
   });
@@ -319,5 +335,257 @@ describe("operator_register — every facility, every category, and no email (02
       // INSERTED stale: the touch trigger would reset updated_at on an UPDATE.
       await tx.unsafe(`insert into app.ward_status (facility_id, category, offering, updated_at) values ('${FAC}', 'MATERNITY', 'OFFERED', now() - interval '30 days')`);
     });
+  });
+});
+
+// ============================================================
+// 026 (R-2026-09-27-144 DT i, k)
+// ============================================================
+
+const FAC_R = '0a000000-0000-4000-8000-0000000000fc';
+
+interface RegisterCategory {
+  category: string;
+  has_account: boolean;
+  provisioning_incomplete: boolean;
+}
+interface RegisterFacility {
+  facility_id: string;
+  reporting_model: string;
+  reporter_login: string;
+  hefamaa_reg_no: string | null;
+  version: number;
+  categories: RegisterCategory[];
+}
+interface Register {
+  retention_alert: { job: string; end_time: string }[];
+  facilities: RegisterFacility[];
+}
+
+/** An active operator and one unlisted facility with two wards, and no login at it. */
+async function reporterFacility(tx: TransactionSql): Promise<void> {
+  await tx.unsafe(`insert into app.ward_account (id, role) values ('${OP}', 'PLATFORM_ADMIN')`);
+  await tx.unsafe(`
+    insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, listed_at)
+    values ('${FAC_R}', 'Model Facility', 'Ikeja', 'Lagos', 6.6, 3.35, '+2348000000304', null)`);
+  await tx.unsafe(`insert into app.ward_status (facility_id, category, offering) values ('${FAC_R}', 'ICU_ADULT', 'OFFERED'), ('${FAC_R}', 'MATERNITY', 'OFFERED')`);
+}
+
+async function register(tx: TransactionSql): Promise<Register> {
+  const [env] = await tx.unsafe<{ r: Register }[]>('select public.operator_register() as r');
+  if (env === undefined) throw new Error('operator_register returned no row');
+  return env.r;
+}
+const mine = (r: Register): RegisterFacility => {
+  const f = r.facilities.find((x) => x.facility_id === FAC_R);
+  if (f === undefined) throw new Error('the facility is missing from the register');
+  return f;
+};
+const byCategory = (f: RegisterFacility): Record<string, Omit<RegisterCategory, 'category'>> =>
+  Object.fromEntries(f.categories.map((c) => [c.category, { has_account: c.has_account, provisioning_incomplete: c.provisioning_incomplete }]));
+
+describe('operator_register — the reporting model and the reporting login, per facility (026, DT i)', () => {
+  test.each<[string, string, { reporting_model: string; reporter_login: string }, Record<string, Omit<RegisterCategory, 'category'>>]>([
+    ['no login at all', '', { reporting_model: 'NONE', reporter_login: 'none' }, {
+      ICU_ADULT: { has_account: false, provisioning_incomplete: false },
+      MATERNITY: { has_account: false, provisioning_incomplete: false },
+    }],
+    ['one active ward login', `insert into app.ward_account (id, facility_id, ward_category, role) values (gen_random_uuid(), '${FAC_R}', 'ICU_ADULT', 'WARD_STAFF')`,
+      { reporting_model: 'WARD', reporter_login: 'none' }, {
+        ICU_ADULT: { has_account: true, provisioning_incomplete: false },
+        MATERNITY: { has_account: false, provisioning_incomplete: false },
+      }],
+    ['an open ward invite', `insert into app.invite (facility_id, ward_category, role) values ('${FAC_R}', 'MATERNITY', 'WARD_STAFF')`,
+      { reporting_model: 'NONE', reporter_login: 'none' }, {
+        ICU_ADULT: { has_account: false, provisioning_incomplete: false },
+        MATERNITY: { has_account: false, provisioning_incomplete: true },
+      }],
+    ['an open reporter invite', `insert into app.invite (facility_id, ward_category, role) values ('${FAC_R}', null, 'FACILITY_REPORTER')`,
+      { reporting_model: 'NONE', reporter_login: 'setup incomplete' }, {
+        ICU_ADULT: { has_account: false, provisioning_incomplete: true },
+        MATERNITY: { has_account: false, provisioning_incomplete: true },
+      }],
+    ['an active reporter', `insert into app.ward_account (id, facility_id, ward_category, role) values (gen_random_uuid(), '${FAC_R}', null, 'FACILITY_REPORTER')`,
+      { reporting_model: 'FACILITY', reporter_login: 'active' }, {
+        ICU_ADULT: { has_account: true, provisioning_incomplete: false },
+        MATERNITY: { has_account: true, provisioning_incomplete: false },
+      }],
+    ['an active reporter and its accepted invite', `
+      insert into app.invite (facility_id, ward_category, role, accepted_at) values ('${FAC_R}', null, 'FACILITY_REPORTER', now());
+      insert into app.ward_account (id, facility_id, ward_category, role) values (gen_random_uuid(), '${FAC_R}', null, 'FACILITY_REPORTER')`,
+      { reporting_model: 'FACILITY', reporter_login: 'active' }, {
+        ICU_ADULT: { has_account: true, provisioning_incomplete: false },
+        MATERNITY: { has_account: true, provisioning_incomplete: false },
+      }],
+    ['a deactivated reporter', `insert into app.ward_account (id, facility_id, ward_category, role, is_active, deactivated_at) values (gen_random_uuid(), '${FAC_R}', null, 'FACILITY_REPORTER', false, now())`,
+      { reporting_model: 'NONE', reporter_login: 'none' }, {
+        ICU_ADULT: { has_account: false, provisioning_incomplete: false },
+        MATERNITY: { has_account: false, provisioning_incomplete: false },
+      }],
+  ])('with %s', async (_state, plant, facilityLevel, categories) => {
+    const f = await withRole('authenticated', claims(OP), async (tx) => mine(await register(tx)), async (tx) => {
+      await reporterFacility(tx);
+      if (plant !== '') await tx.unsafe(plant);
+    });
+    expect({ reporting_model: f.reporting_model, reporter_login: f.reporter_login }).toEqual(facilityLevel);
+    expect(byCategory(f)).toEqual(categories);
+  });
+});
+
+describe('operator_register — retention_alert names a retention job whose last finished run failed (026, DT i; DM-2 e)', () => {
+  const at = (s: string): string => new Date(s).toISOString();
+  /**
+   * Plants one run of a job, by name, as pg_cron would record it. Rolled back with the
+   * test. runid is given, not drawn: postgres holds INSERT on cron.job_run_details and
+   * no USAGE on its sequence (observed locally, 2026-09-27), and each plant is later
+   * than the one before, which is the order the alert reads.
+   */
+  const run = (job: string, status: string, end: string | null): string => `
+    insert into cron.job_run_details (jobid, runid, job_pid, database, username, command, status, return_message, start_time, end_time)
+    select j.jobid, (select coalesce(max(runid), 0) + 1 from cron.job_run_details), 1, current_database(), 'postgres', j.command,
+           '${status}', '${status === 'failed' ? 'ERROR: planted' : '1 row'}',
+           ${end === null ? "now()" : `'${end}'::timestamptz - interval '1 minute'`}, ${end === null ? 'null' : `'${end}'::timestamptz`}
+      from cron.job j where j.jobname = '${job}' and j.username = 'postgres'`;
+  const alertWith = (...plants: string[]) =>
+    withRole('authenticated', claims(OP), async (tx) => (await register(tx)).retention_alert, async (tx) => {
+      await reporterFacility(tx);
+      for (const p of plants) {
+        const r = await tx.unsafe(p);
+        if (r.count !== 1) throw new Error(`the plant did not land: ${p}`);
+      }
+    });
+
+  test('empty when no retention job has run', async () => {
+    expect(await alertWith()).toEqual([]);
+  });
+
+  test('a failed run of the erasure names the job and the run\'s end', async () => {
+    expect(await alertWith(run('openbed_erase_lapsed_ward_logins', 'failed', '2026-09-27 02:17:05+00'))).toEqual([
+      { job: 'openbed_erase_lapsed_ward_logins', end_time: at('2026-09-27T02:17:05Z').replace('.000Z', '+00:00') },
+    ]);
+  });
+
+  test('each of the three jobs is watched, in name order', async () => {
+    const alert = await alertWith(
+      run('openbed_prune_ended_auth_sessions', 'failed', '2026-09-27 02:27:05+00'),
+      run('openbed_check_withdrawn_facility_accounts', 'failed', '2026-09-27 02:37:05+00'),
+      run('openbed_erase_lapsed_ward_logins', 'failed', '2026-09-27 02:17:05+00'),
+    );
+    expect(alert.map((a) => a.job)).toEqual([
+      'openbed_check_withdrawn_facility_accounts',
+      'openbed_erase_lapsed_ward_logins',
+      'openbed_prune_ended_auth_sessions',
+    ]);
+  });
+
+  test('a later succeeded run clears the alert: only the most recent finished run counts', async () => {
+    expect(await alertWith(
+      run('openbed_erase_lapsed_ward_logins', 'failed', '2026-09-26 02:17:05+00'),
+      run('openbed_erase_lapsed_ward_logins', 'succeeded', '2026-09-27 02:17:05+00'),
+    )).toEqual([]);
+  });
+
+  test('a run still in progress is not an alert, and does not hide the failed run before it', async () => {
+    expect(await alertWith(
+      run('openbed_erase_lapsed_ward_logins', 'failed', '2026-09-26 02:17:05+00'),
+      run('openbed_erase_lapsed_ward_logins', 'running', null),
+    )).toEqual([{ job: 'openbed_erase_lapsed_ward_logins', end_time: '2026-09-26T02:17:05+00:00' }]);
+  });
+
+  test('a failed run of a job that is not a retention job is not this alert', async () => {
+    expect(await alertWith(run('openbed_regenerate_snapshot', 'failed', '2026-09-27 02:00:05+00'))).toEqual([]);
+  });
+});
+
+describe('operator_record_registration — the HEFAMAA registration number (026, DT k)', () => {
+  const RECORD = (value: string | null, version: number | null = 1): string =>
+    `select * from public.operator_record_registration('${FAC_R}', ${version === null ? 'null' : version}, ${value === null ? 'null' : `'${value.replace(/'/g, "''")}'`})`;
+  const asOp = <T>(fn: (tx: TransactionSql) => Promise<T>): Promise<T> => withRole('authenticated', claims(OP), fn, reporterFacility);
+  async function registrationAudits(tx: TransactionSql): Promise<{ old_value: unknown; new_value: unknown; version: number }[]> {
+    await tx.unsafe('reset role');
+    return tx.unsafe(`select old_value, new_value, version from app.audit_log where facility_id = '${FAC_R}' and action = 'facility.registration' order by id`);
+  }
+
+  test('an operator records the number: the facility version moves, the register reads it back, and one audit row carries the number only', async () => {
+    const out = await asOp(async (tx) => {
+      const [r] = await tx.unsafe<{ facility_id: string; version: number }[]>(RECORD('LSHEFAMAA/2024/0137'));
+      const f = mine(await register(tx));
+      return { r, f, a: await registrationAudits(tx) };
+    });
+    expect(out.r).toEqual({ facility_id: FAC_R, version: 2 });
+    expect(out.f.hefamaa_reg_no).toBe('LSHEFAMAA/2024/0137');
+    expect(out.f.version).toBe(2);
+    expect(out.a).toEqual([{ old_value: { hefamaa_reg_no: null }, new_value: { hefamaa_reg_no: 'LSHEFAMAA/2024/0137' }, version: 2 }]);
+  });
+
+  test('J2 — an identical repeat returns the current version with no write and no second audit row', async () => {
+    const out = await asOp(async (tx) => {
+      await tx.unsafe(RECORD('LSHEFAMAA/2024/0137'));
+      const [again] = await tx.unsafe<{ version: number }[]>(RECORD('LSHEFAMAA/2024/0137', 1));
+      return { again, a: await registrationAudits(tx) };
+    });
+    expect(out.again?.version).toBe(2);
+    expect(out.a).toHaveLength(1);
+  });
+
+  test('J1 — a stale version is refused VERSION_CONFLICT, naming the current version, and nothing changes', async () => {
+    const out = await asOp(async (tx) => {
+      await tx.unsafe(RECORD('LSHEFAMAA/2024/0137'));
+      const r = await refusal(tx.savepoint((sp) => sp.unsafe(RECORD('LSHEFAMAA/2024/0999', 1))));
+      return { r, f: mine(await register(tx)) };
+    });
+    expect(out.r.message).toBe('VERSION_CONFLICT');
+    expect(out.r.detail).toBe('current_version=2');
+    expect(out.f.hefamaa_reg_no).toBe('LSHEFAMAA/2024/0137');
+  });
+
+  test('NULL clears a recorded number', async () => {
+    const f = await asOp(async (tx) => {
+      await tx.unsafe(RECORD('LSHEFAMAA/2024/0137'));
+      await tx.unsafe(RECORD(null, 2));
+      return mine(await register(tx));
+    });
+    expect(f.hefamaa_reg_no).toBeNull();
+    expect(f.version).toBe(3);
+  });
+
+  test('the ordinary number and a 64-character number are accepted', async () => {
+    const f = await asOp(async (tx) => {
+      await tx.unsafe(RECORD('A'.repeat(64)));
+      return mine(await register(tx));
+    });
+    expect(f.hefamaa_reg_no).toBe('A'.repeat(64));
+  });
+
+  test.each([
+    ['blank', ''],
+    ['only spaces', '   '],
+    ['a leading space', ' LSHEFAMAA/0137'],
+    ['a trailing space', 'LSHEFAMAA/0137 '],
+    ['a trailing tab', 'LSHEFAMAA/0137\t'],
+    ['65 characters', 'A'.repeat(65)],
+  ])('a number with %s is refused INVALID_ARGUMENT naming p_hefamaa_reg_no', async (_what, value) => {
+    const r = await refusal(asOp((tx) => tx.unsafe(RECORD(value))));
+    expect(r.message).toBe('INVALID_ARGUMENT');
+    expect(r.detail).toBe('p_hefamaa_reg_no');
+  });
+
+  test.each([
+    ['blank', "''"],
+    ['a leading space', "' LSHEFAMAA/0137'"],
+    ['a trailing space', "'LSHEFAMAA/0137 '"],
+    ['65 characters', `'${'A'.repeat(65)}'`],
+  ])('facility_hefamaa_reg_no_form refuses a number with %s written directly', async (_what, literal) => {
+    const e = await refusal(withRole('postgres', null, (tx) => tx.unsafe(`update app.facility set hefamaa_reg_no = ${literal} where id = '${FAC_R}'`), reporterFacility));
+    expect(e.code).toBe('23514');
+    expect(e.message).toContain('facility_hefamaa_reg_no_form');
+  });
+
+  test('a facility that does not exist is refused NO_SUCH_FACILITY, and a malformed id INVALID_ARGUMENT', async () => {
+    const missing = await refusal(asOp((tx) => tx.unsafe(RECORD('LSHEFAMAA/0137').replace(FAC_R, randomUUID()))));
+    expect(missing.message).toBe('NO_SUCH_FACILITY');
+    const malformed = await refusal(asOp((tx) => tx.unsafe(RECORD('LSHEFAMAA/0137').replace(FAC_R, 'not-a-uuid'))));
+    expect(malformed.message).toBe('INVALID_ARGUMENT');
+    expect(malformed.detail).toBe('p_facility_id');
   });
 });

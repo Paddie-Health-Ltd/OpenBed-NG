@@ -76,9 +76,22 @@ async function freeWard(tx: Tx, skip: Ward[] = []): Promise<Ward> {
   return w;
 }
 
+/** A seeded facility with no active reporting login of either kind (026's one-source trigger). */
+async function freeFacility(tx: Tx): Promise<string> {
+  const [r] = await tx.unsafe<{ facility: string }[]>(`
+    select f.id::text as facility from app.facility f
+     where exists (select 1 from app.ward_status ws where ws.facility_id = f.id)
+       and not exists (select 1 from app.ward_account u where u.facility_id = f.id and u.is_active)
+     order by 1 limit 1`);
+  if (r === undefined) throw new Error('precondition: no seeded facility without an active login -- run db:reset');
+  return r.facility;
+}
+
 interface LoginSpec {
   ward?: Ward | null;
-  role?: 'WARD_STAFF' | 'PLATFORM_ADMIN';
+  /** FACILITY_REPORTER only (026): the facility it reports for. */
+  facility?: string;
+  role?: 'WARD_STAFF' | 'PLATFORM_ADMIN' | 'FACILITY_REPORTER';
   /** null: active. A number: deactivated that many days ago. */
   deactivatedDaysAgo: number | null;
 }
@@ -98,12 +111,13 @@ async function plantLogin(tx: Tx, spec: LoginSpec): Promise<string> {
   await tx.unsafe(`insert into auth.refresh_tokens (token, user_id, session_id) values ('planted-by-session-' || $1, $1, $2)`, [id, sid] as never[]);
   await tx.unsafe(`insert into auth.refresh_tokens (token, user_id, session_id) values ('planted-by-user-' || $1, $1, null)`, [id] as never[]);
   const role = spec.role ?? 'WARD_STAFF';
-  const ward = role === 'PLATFORM_ADMIN' ? null : (spec.ward ?? (await freeWard(tx)));
+  const ward = role === 'WARD_STAFF' ? (spec.ward ?? (await freeWard(tx))) : null;
+  const facility = role === 'FACILITY_REPORTER' ? (spec.facility ?? (await freeFacility(tx))) : (ward?.facility ?? null);
   const active = spec.deactivatedDaysAgo === null;
   await tx.unsafe(
     `insert into app.ward_account (id, facility_id, ward_category, role, is_active, deactivated_at)
      values ($1, $2, $3::app.ward_category, $4::app.app_role, $5, case when $5 then null else now() - make_interval(days => $6::int) end)`,
-    [id, ward?.facility ?? null, ward?.category ?? null, role, active, spec.deactivatedDaysAgo ?? 0] as never[],
+    [id, facility, ward?.category ?? null, role, active, spec.deactivatedDaysAgo ?? 0] as never[],
   );
   return id;
 }
@@ -500,5 +514,83 @@ describe('the three jobs, and the G1 comment (DL-2 e, f; DM-2 b)', () => {
     expect(r?.c).toBe(
       "One invited human per facility (CMD or matron): business-contact data held on the legitimate-interests basis (NDPA s.25(1)(f)), not contract: the contact is not a party to the facility agreement (G1, founder's decision 2026-09-26). DELIBERATELY NOT append-only -- this row must stay deletable on request, which is why 010 names it as outside the append-only set. Nothing here ever reaches app.audit_log, app.ward_status_event, or any public mirror.",
     );
+  });
+});
+
+describe('026 — the facility reporter\'s login is erased on the same schedule, facility-level (R-2026-09-27-144 DT h)', () => {
+  /** The erasure audit rows this transaction wrote for one facility with no category: a reporter's. */
+  async function facilityEraseRows(tx: Tx, facility: string): Promise<{ new_value: unknown; ward_category: string | null }[]> {
+    return tx.unsafe(`
+      select new_value, ward_category::text as ward_category from app.audit_log
+       where action = 'ward_account.login_erase' and facility_id = $1 and ward_category is null
+         and occurred_at = now()`, [facility] as never[]);
+  }
+
+  test('a reporter login deactivated 30 days ago is erased: every auth row gone, the row marked, one facility-level audit row', async () => {
+    const r = await asPostgres(async (tx) => {
+      const facility = await freeFacility(tx);
+      const id = await plantLogin(tx, { role: 'FACILITY_REPORTER', facility, deactivatedDaysAgo: DUE });
+      const before = await authCounts(tx, id);
+      await erase(tx);
+      return { before, after: await authCounts(tx, id), at: await erasedAt(tx, id), rows: await facilityEraseRows(tx, facility) };
+    });
+    expect(r.before, 'the plant did not land').toEqual(PLANTED);
+    expect(r.after, 'an auth row carrying the address or a session survived erasure').toEqual(GONE);
+    expect(r.at, 'the erased reporter is not marked').not.toBeNull();
+    expect(r.rows).toEqual([{ new_value: { role: 'FACILITY_REPORTER' }, ward_category: null }]);
+  });
+
+  test('a reporter login deactivated 28 days ago is kept, with no audit row', async () => {
+    const r = await asPostgres(async (tx) => {
+      const facility = await freeFacility(tx);
+      const id = await plantLogin(tx, { role: 'FACILITY_REPORTER', facility, deactivatedDaysAgo: NOT_DUE });
+      await erase(tx);
+      return { after: await authCounts(tx, id), at: await erasedAt(tx, id), rows: await facilityEraseRows(tx, facility) };
+    });
+    expect(r.after).toEqual(PLANTED);
+    expect(r.at).toBeNull();
+    expect(r.rows).toEqual([]);
+  });
+
+  test('a lapsed reporter does not stop a lapsed ward login being erased in the same run', async () => {
+    const r = await asPostgres(async (tx) => {
+      const facility = await freeFacility(tx);
+      const reporter = await plantLogin(tx, { role: 'FACILITY_REPORTER', facility, deactivatedDaysAgo: DUE });
+      const w = await freeWard(tx);
+      const ward = await plantLogin(tx, { ward: w, deactivatedDaysAgo: DUE });
+      await erase(tx);
+      return { reporter: await erasedAt(tx, reporter), ward: await erasedAt(tx, ward) };
+    });
+    expect(r.reporter, 'the reporter was not erased').not.toBeNull();
+    expect(r.ward, 'the ward login was not erased beside a reporter').not.toBeNull();
+  });
+
+  test('real — the reporter\'s facility-level erasure row is accepted when written directly', async () => {
+    const rows = await asPostgres(async (tx) => {
+      const facility = await freeFacility(tx);
+      await tx.unsafe(`insert into app.audit_log (facility_id, ward_category, action, new_value) values ($1, null, 'ward_account.login_erase', '{"role":"FACILITY_REPORTER"}'::jsonb)`, [facility] as never[]);
+      return facilityEraseRows(tx, facility);
+    });
+    expect(rows).toEqual([{ new_value: { role: 'FACILITY_REPORTER' }, ward_category: null }]);
+  });
+
+  test('plant — a reporter erasure row that names a ward category is refused by audit_log_login_erase_ward_only', async () => {
+    const e = await asPostgres(async (tx) => {
+      const w = await freeWard(tx);
+      return refusal(() => tx.unsafe(`insert into app.audit_log (facility_id, ward_category, action, new_value) values ($1, $2::app.ward_category, 'ward_account.login_erase', '{"role":"FACILITY_REPORTER"}'::jsonb)`, [w.facility, w.category] as never[]));
+    });
+    expect(e.message).toContain('audit_log_login_erase_ward_only');
+  });
+
+  test('an active reporter at a facility withdrawn 31 days ago makes check_withdrawn_facility_accounts() RAISE', async () => {
+    const message = await asPostgres(async (tx) => {
+      const facility = await freeFacility(tx);
+      await plantLogin(tx, { role: 'FACILITY_REPORTER', facility, deactivatedDaysAgo: null });
+      await tx.unsafe(`insert into app.facility_agreement (facility_id, accepted_on, version, signatory_role) values ($1, current_date - 90, 'v1', 'CMD')
+                       on conflict (facility_id) do nothing`, [facility] as never[]);
+      await tx.unsafe(`update app.facility_agreement set accepted_on = least(accepted_on, current_date - 90), withdrawn_on = current_date - 31 where facility_id = $1`, [facility] as never[]);
+      return (await refusal(() => tx.unsafe('select app.check_withdrawn_facility_accounts()'))).message;
+    });
+    expect(message).toMatch(/^WITHDRAWN_FACILITY_ACTIVE_ACCOUNTS: 1 active account\(s\)/);
   });
 });

@@ -60,16 +60,19 @@ describe('the authenticated-executable surface', () => {
   test('the derived list names exactly the functions the migrations grant — the nine held as a literal until 2026-09-24, as restated by 021', () => {
     // 021: operator_list_facilities restated as operator_register (a return type cannot
     // change in place), plus operator_record_contact, operator_record_agreement and
-    // operator_get_contact.
+    // operator_get_contact. 026 (R-2026-09-27-144 DT k; R-2026-09-27-145 DU-1):
+    // operator_record_registration, and my_facility_wards restated as
+    // my_reporting_wards, for the same reason 021 renamed its list.
     expect(Object.keys(CLOSED_LIST).sort()).toEqual([
       'graphql_public.graphql',
-      'public.my_facility_wards',
+      'public.my_reporting_wards',
       'public.operator_add_category',
       'public.operator_create_facility',
       'public.operator_edit_facility',
       'public.operator_get_contact',
       'public.operator_record_agreement',
       'public.operator_record_contact',
+      'public.operator_record_registration',
       'public.operator_register',
       'public.operator_set_facility_listed',
       'public.publish_ward_status',

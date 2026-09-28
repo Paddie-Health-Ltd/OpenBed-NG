@@ -14,7 +14,7 @@ import { REPO_ROOT } from './_scratch.js';
  * `id uuid PRIMARY KEY` with no foreign key to auth.users, so nothing at the
  * schema level enforces it. A defect here does not produce a broken account --
  * it produces an account whose id does not match its auth user, which fails at
- * my_facility_wards() with NOT_A_MEMBER and reads like a permissions bug.
+ * my_reporting_wards() with NOT_A_MEMBER and reads like a permissions bug.
  *
  * WHAT THIS FILE HOLDS, and it needs no service:
  *   - the usage and credential legs;

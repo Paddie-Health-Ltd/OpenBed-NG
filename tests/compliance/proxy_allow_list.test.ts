@@ -332,7 +332,7 @@ describe('the allow-list against the code and the runbooks', () => {
       'GET /rest/v1/snapshot_current?select=v,payload&order=v.desc&limit=1 @ packages/snapshot/src/serve.ts',
       'POST /auth/v1/otp @ packages/auth/src/request.ts',
       'POST /auth/v1/token?grant_type=refresh_token @ packages/auth/src/holder.ts',
-      'POST /rest/v1/rpc/my_facility_wards @ apps/ward-console/src/main.ts',
+      'POST /rest/v1/rpc/my_reporting_wards @ apps/ward-console/src/main.ts',
       'POST /rest/v1/rpc/operator_add_category @ apps/admin/src/main.ts',
       'POST /rest/v1/rpc/operator_create_facility @ apps/admin/src/main.ts',
       'POST /rest/v1/rpc/operator_edit_facility @ apps/admin/src/main.ts',
@@ -373,7 +373,8 @@ describe('the allow-list against the code and the runbooks', () => {
       'GET /rest/v1/ @ scripts/readback_worker.sh',
       'HEAD /__openbed/version @ scripts/readback_worker.sh',
       'HEAD /auth/v1/settings @ scripts/readback_worker.sh',
-      'POST /rest/v1/rpc/my_facility_wards @ scripts/readback_worker.sh',
+      'POST /rest/v1/rpc/my_reporting_wards @ scripts/readback_worker.sh',
+      'POST /rest/v1/rpc/operator_record_registration @ scripts/readback_worker.sh',
       'POST /rest/v1/rpc/operator_register @ scripts/readback_admin.sh',
     ]);
   });

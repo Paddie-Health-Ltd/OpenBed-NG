@@ -600,7 +600,9 @@ describe('scripts/readback_ward_console.sh', () => {
 function workerFixtures(head: string): Fixtures {
   const fwd = { 'x-openbed-proxy': 'forwarded' };
   return {
-    [`POST ${API}/rest/v1/rpc/my_facility_wards`]: { status: 401, headers: { 'sb-project-ref': 'klrlpxysjsjpdkeqdhvl', ...fwd }, body: '{"message":"No API key found in request"}' },
+    [`POST ${API}/rest/v1/rpc/my_reporting_wards`]: { status: 401, headers: { 'sb-project-ref': 'klrlpxysjsjpdkeqdhvl', ...fwd }, body: '{"message":"No API key found in request"}' },
+    // Probe 1b (R-2026-09-27-144 DT k): the HEFAMAA write's path, the same no-key answer.
+    [`POST ${API}/rest/v1/rpc/operator_record_registration`]: { status: 401, headers: { 'sb-project-ref': 'klrlpxysjsjpdkeqdhvl', ...fwd }, body: '{"message":"No API key found in request"}' },
     [`GET ${API}/auth/v1/settings apikey=${TRACKED_KEY}`]: { status: 200, headers: fwd, body: '{"external":{"email":true}}' },
     [`HEAD ${API}/auth/v1/settings apikey=${TRACKED_KEY}`]: { status: 405, headers: fwd },
     [`GET ${API}/rest/v1/`]: { status: 404, headers: { 'x-openbed-proxy': 'refused' }, body: '{"message":"not forwarded by the OpenBed proxy"}' },
@@ -620,6 +622,9 @@ describe('scripts/readback_worker.sh', () => {
         'probe 1 status',
         'probe 1 sb-project-ref',
         'probe 1 x-openbed-proxy',
+        'probe 1b status',
+        'probe 1b sb-project-ref',
+        'probe 1b x-openbed-proxy',
         'probe 2 GET status',
         'probe 2 GET x-openbed-proxy',
         'probe 2 HEAD status',
@@ -640,8 +645,9 @@ describe('scripts/readback_worker.sh', () => {
   });
 
   test.each<[string, (f: Fixtures) => void, string]>([
-    ['a 401 that did not come through the Worker', (f) => { f[`POST ${API}/rest/v1/rpc/my_facility_wards`] = { status: 401, headers: { 'sb-project-ref': 'klrlpxysjsjpdkeqdhvl' } }; }, 'probe 1 x-openbed-proxy'],
-    ['another project answering', (f) => { f[`POST ${API}/rest/v1/rpc/my_facility_wards`] = { status: 401, headers: { 'sb-project-ref': 'someotherproject', 'x-openbed-proxy': 'forwarded' } }; }, 'probe 1 sb-project-ref'],
+    ['a 401 that did not come through the Worker', (f) => { f[`POST ${API}/rest/v1/rpc/my_reporting_wards`] = { status: 401, headers: { 'sb-project-ref': 'klrlpxysjsjpdkeqdhvl' } }; }, 'probe 1 x-openbed-proxy'],
+    ['another project answering', (f) => { f[`POST ${API}/rest/v1/rpc/my_reporting_wards`] = { status: 401, headers: { 'sb-project-ref': 'someotherproject', 'x-openbed-proxy': 'forwarded' } }; }, 'probe 1 sb-project-ref'],
+    ["the HEFAMAA write's path dropped from the list", (f) => { f[`POST ${API}/rest/v1/rpc/operator_record_registration`] = { status: 404, headers: { 'x-openbed-proxy': 'refused' }, body: '{"message":"not forwarded by the OpenBed proxy"}' }; }, 'probe 1b status'],
     ['the settings path refused by the list', (f) => { f[`GET ${API}/auth/v1/settings apikey=${TRACKED_KEY}`] = { status: 404, headers: { 'x-openbed-proxy': 'refused' } }; }, 'probe 2 GET status'],
     ['HEAD answering 200, the value the runbook stated before it was observed', (f) => { f[`HEAD ${API}/auth/v1/settings apikey=${TRACKED_KEY}`] = { status: 200, headers: { 'x-openbed-proxy': 'forwarded' } }; }, 'probe 2 HEAD status'],
     ["Supabase's own 404 at the off-list path, as a Worker that forwards everything would give", (f) => { f[`GET ${API}/rest/v1/`] = { status: 404, body: '{"error":"requested path is invalid"}' }; }, 'probe 3 x-openbed-proxy'],

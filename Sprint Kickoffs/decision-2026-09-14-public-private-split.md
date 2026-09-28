@@ -6767,6 +6767,341 @@ Nothing hosted. Next letter: **DS**.
   - **Recounted from the table after -141 and -142: 60** (15 BOX, 34 TRIGGER, 11 VERSION). The same count at `ba12ceb` read 62 (16 BOX, 35 TRIGGER, 11 VERSION).
 - **DR-4's "one step directly after the step that creates facility one" is landed as a lettered step, 2a.** A new numbered step would have renumbered steps 3 to 9. Steps 6 and 9 are cited by the live register row CX-1 (b), by dated records and by a comment in `tests/compliance/runbook_psql_path.test.ts`. Renumbering would have made each of them name the wrong step.
 
+### R-2026-09-27-143 — #92 merged; DS held for the FACILITY_REPORTER bundle's first pull request
+
+_Issued as R-PROVISIONAL-2026-09-27-DS, by Cowork on 2026-09-27: its check of #92 at `b017272196aabe5263ac18e018d3dc3b0e2c9a35`. **Pasting it was the founder's merge word for #92.** Held under its own DS-1 d, and landed here, in the FACILITY_REPORTER bundle's first pull request. Number assigned on landing: R-2026-09-27-142 plus one. Next provisional letter: **DT**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-27-DS — Cowork's check of #92 at b017272196aabe5263ac18e018d3dc3b0e2c9a35. PASTING THIS IS THE FOUNDER'S MERGE WORD FOR #92.
+>
+> VERIFIED BY COWORK (2026-09-27, from the founder's Mac):
+> - #92 OPEN, head b017272 on records-dq-dr, base ba12ceb (= main), mergeable_state clean. origin/main..records-dq-dr = 31dcb8e, b017272.
+> - Seven check runs on b017272 (suite 98411142589), all success. An earlier suite (98411094208) read cancelled, superseded by the push.
+> - The diff, read in full: 3 files, +188 / -8. Records only: the decision record, docs/runbook-admin-deploy.md and docs/runbook-supabase-project-creation.md. No code, no migration, no test.
+>   - -141 and -142 as issued, with DR-7.
+>   - Five gates restated with their old wording quoted and dated.
+>   - The favicon row and CW-1's design-pass BOX row removed.
+>   - Box 14 ticked with the three deploys.
+>   - Step 2a added after step 2.
+>   - The 16-boxes/3-ticked line.
+>
+> ACCEPTED:
+> - -141 and -142 as landed.
+> - The register going 62 -> 60 (15 BOX, 34 TRIGGER, 11 VERSION), not 61. Rule (e) retires CW-1's BOX row once box 14, its only box, is ticked, and the red was shown with the row put back.
+> - DR-4 landed as lettered step 2a, so steps 3 to 9 keep the numbers that CX-1 (b), dated records and runbook_psql_path.test.ts cite.
+> - DR-7's field inventory, and its inference about which two fields Chrome counted, recorded as an inference. The founder did open New facility during the check ("the functionality seems to work"), which supports it. The token choice waits for DP-5 b's gate.
+> - CX-1 (b)'s item wording carried to the FACILITY_REPORTER bundle.
+>
+> DS-1 — THE MERGE.
+>  a. Read #92's head from the API; it must be b017272196aabe5263ac18e018d3dc3b0e2c9a35, or STOP.
+>  b. Merge as a merge commit with --match-head-commit on that value. Read back MERGED, and record the merge commit and its parents from git and gh pr view 92.
+>  c. Only then fast-forward local main. Delete records-dq-dr on the remote and locally, and read both back as gone.
+>  d. STOP and report the merge commit. DS is held and lands as -143 in the FACILITY_REPORTER bundle's first PR.
+>
+> DS-2 — NOTHING HOSTED. #92 changes no deployed artifact, so there is no deploy.
+>
+> Next letter: DT. Cowork issues the FACILITY_REPORTER bundle's kickoff separately; do not start it until the founder pastes it.
+
+**DS-1 — THE MERGE. Done on 2026-09-27**, read from gh and git:
+- #92's head, read from the API before the merge: `b017272196aabe5263ac18e018d3dc3b0e2c9a35`. It was merged as a merge commit, with `--match-head-commit` on that value, and read back `MERGED` at 19:37:55Z.
+- The merge commit is `1b506d68fd5d700d477d7005bb7a7ec2a37bb7cc`, with parents `ba12ceb14ff339a25c81648a30b584741560f2f9` and `b017272196aabe5263ac18e018d3dc3b0e2c9a35`.
+- Local main was fast-forwarded to it. `records-dq-dr` was deleted on the remote and locally, and both read back as gone.
+
+**DS-2:** nothing hosted.
+
+### R-2026-09-27-144 — the FACILITY_REPORTER sprint: the facility-level login, and everything gated on facility one's first reporting login (Bundle 1: migrations 025 and 026)
+
+_Issued as R-PROVISIONAL-2026-09-27-DT, by Cowork (sprint-push) on 2026-09-27: the kickoff of a five-bundle sprint. Landed in Bundle 1's pull request, after -143, with -145 amending its point (f). Number assigned on landing: R-2026-09-27-143 plus one. Next provisional letter: **DU**._
+
+**As issued, with two changes of form and none of wording intended:** its own headings are shown in bold, so this record's hierarchy holds, and its nested lists are run together into single lines. The text as pasted is the first user message of session e9c3bbc6.
+
+> R-PROVISIONAL-2026-09-27-DT — SPRINT KICKOFF: THE FACILITY-LEVEL LOGIN, AND EVERYTHING GATED ON FACILITY ONE'S FIRST REPORTING LOGIN
+> Date: 2026-09-27. Prepared by Cowork (sprint-push). DT is held and lands as -144 in Bundle 1's PR, after -143 (DS). Next letter: DU.
+>
+> **Responsibilities**
+> - Claude Code implements, tests and ships each bundle below, one PR at a time. It stops at each PR for Cowork's check, which carries the merge word.
+> - Cowork has scoped, bundled and reviewed this (CTO, staff-engineer, QA, CLCO, CPO and COO reads folded in). Treat what follows as settled input.
+> - Premise rule (method notes 4 and 20): where anything below does not match the code, report it in the PR and do not compose around it.
+>
+> **Why this sprint exists**
+> The founder decided the reporting model on 2026-09-27 (-141 DQ-3):
+> - One facility-level login where one nurse in charge knows every bed on each shift.
+> - Otherwise one login per ward.
+> - Either way, one reporting source per ward.
+>
+> Facility one is a small private hospital, so it needs the facility-level login, which does not exist yet. Five register rows are gated on "facility one's first reporting login (ward or facility) is provisioned": CX-1 (b), DM-2 e, DO-3, DP-5 a and DP-5 b. This sprint resolves all five BEFORE that login exists, so no trigger fires onto an unbuilt fix.
+>
+> Out of scope:
+> - the facility-admin override (the R-2026-09-24-75 BC-7 VERSION row stays);
+> - a mix of both models in one hospital (VERSION);
+> - SMS or phone sign-in;
+> - any public self-registration or application form.
+>
+> **Read first (all in the repo)**
+> - 003 §4 (ward_account, ward_account_scope_matches_role) and the invite_scope_matches_role CHECK (~l.470);
+> - 011 (assert_member, my_facility_wards);
+> - 014 (publish_ward_status: identity, v_role at l.189, and WARD_SCOPE_DENIED at l.218);
+> - 015 (ward_status_history);
+> - 020 and 022 (provision_begin, provision_complete, ward_account_one_active_per_ward);
+> - 021 (operator_record_contact, operator_register);
+> - 023 (operator_register: has_account and provisioning_incomplete);
+> - 024 (audit_log_login_erase_ward_only, and the three retention functions);
+> - scripts/provision_ward_account.mjs;
+> - apps/ward-console/src/main.ts ("WHY A PUBLISH FORM PER ROW", and the sign-in label at ~l.645);
+> - scripts/run_migrations.sh (--single-transaction);
+> - 12.4 of docs/runbook-supabase-project-creation.md.
+>
+> **Bundle 1 — migrations 025 and 026 (one PR; the founder applies both in one hosted run)**
+>
+> Why together: the role, its enforcement, the RPC shapes the apps read, and the two small schema fixes share one hosted apply. Hosted applies cost the founder a six-fence session each, so there is one apply, not three.
+>
+> 025_facility_reporter_role.sql — the enum value ALONE.
+> - It contains ALTER TYPE app.app_role ADD VALUE IF NOT EXISTS 'FACILITY_REPORTER'; and nothing else.
+> - Why alone: the runner applies each file with --single-transaction, and PostgreSQL refuses to USE a new enum value in the transaction that added it. So every CHECK, index predicate or statement that names it goes in 026. Prove this against local PG: 026's content inside 025 must fail, and the split must pass. Report the error text.
+> - Down file: PostgreSQL cannot drop an enum value. The down file removes nothing. It raises if any ward_account or invite row holds the role, and otherwise states that the value stays, unused.
+> - The round-trip test: up, down, up leaves exactly one such label.
+> - This is the sprint's one irreversible element. Decided: a new role, not FACILITY_ADMIN reused. FACILITY_ADMIN keeps its meaning (oversight and override, with a source = 'ADMIN' publish, still refused by 014), and a reporter publishes as a ward does.
+>
+> 026_facility_reporter_and_checks.sql
+> - a. Scope CHECKs. Drop and re-add ward_account_scope_matches_role and invite_scope_matches_role, each with a fourth arm: (role = 'FACILITY_REPORTER' AND facility_id IS NOT NULL AND ward_category IS NULL). 003 stays frozen. Pre-check fence: 0 rows would violate the new CHECKs (hosted holds the operator only).
+> - b. One active reporter per facility: a unique partial index on ward_account (facility_id) WHERE role = 'FACILITY_REPORTER' AND is_active, the shape of ward_account_one_active_per_ward.
+> - c. One reporting source per ward, in the database. A BEFORE INSERT OR UPDATE OF role, facility_id, is_active trigger on app.ward_account. When NEW is active and its role is WARD_STAFF or FACILITY_REPORTER, it takes SELECT … FROM app.facility WHERE id = NEW.facility_id FOR UPDATE, which serialises concurrent provisioning at one facility, and raises REPORTING_MODEL_CONFLICT if the other kind is active at that facility. It covers reactivation (022's path) as well as insert. Test: the race runs in two connections: one provisions a reporter, the other a ward login, at the same facility. Exactly one succeeds.
+> - d. assert_member. p_required = 'WARD_STAFF' admits FACILITY_REPORTER, as it admits FACILITY_ADMIN. List every caller of assert_member(…, 'WARD_STAFF') in the PR, and state what each now admits. Every caller is expected to be a read or write within the caller's own facility. Anything else is a STOP.
+> - e. publish_ward_status. It admits WARD_STAFF (own category only: WARD_SCOPE_DENIED otherwise, unchanged) and FACILITY_REPORTER (any category at its own facility; NO_SUCH_WARD where none exists). FACILITY_ADMIN is still refused. The event's source stays 'WARD'. Decided: the claim is the facility's own nursing staff's, not OpenBed's, which is what source WARD means publicly. Every other check and its order (the 014 header's list) is unchanged. Restate the header.
+> - f. my_facility_wards() gains can_publish boolean, decided by the server: WARD_STAFF: category = own; FACILITY_REPORTER: true; FACILITY_ADMIN: false. The return type changes, so this is a DROP and CREATE. Re-apply 011's revoke-by-name and the single grant, and update the function-grants fixture. Dependents: read and list them.
+> - g. provision_begin and provision_complete: explicit branches on role, and NO ELSE that means PLATFORM_ADMIN. The bug this fixes: 022's provision_begin treats every role that is not WARD_STAFF as PLATFORM_ADMIN (its ELSE). A FACILITY_REPORTER passed there today would be provisioned as a facility-less operator-shaped invite. The only reason that can't happen is that the role doesn't exist yet. The branches are WARD_STAFF, FACILITY_REPORTER and PLATFORM_ADMIN. ELSE raises ROLE_NOT_PROVISIONED_IN_V1 (FACILITY_ADMIN). The reporter branch: needs a facility, and a category is INVALID_ARGUMENT; applies the same invite gate as WARD_STAFF (NO_FACILITY_CONTACT, AGREEMENT_NOT_RECORDED, AGREEMENT_WITHDRAWN); requires at least one ward category (NO_CATEGORY); refuses REPORTING_MODEL_CONFLICT before any invite opens; reads 'complete' when an active reporter exists. provision_complete keeps 022's reactivation and 024's LOGIN_ERASED refusal for the reporter. Sweep: read every function that branches on app_role (grep the migrations for v_role, u.role, i.role and the role literals). List each in the PR with how it treats FACILITY_REPORTER. Any non-exhaustive branch is fixed here.
+> - h. 024's erasure. audit_log_login_erase_ward_only gains the arm (new_value ->> 'role' = 'FACILITY_REPORTER' AND ward_category IS NULL). Tests: erase_lapsed_ward_logins erases a reporter deactivated 30 days ago, and keeps one deactivated 28 days ago; check_withdrawn_facility_accounts counts an active reporter at a withdrawn facility.
+> - i. operator_register. Per ward, has_account is true when an active WARD_STAFF holds that category OR an active FACILITY_REPORTER holds the facility. provisioning_incomplete counts an open reporter invite. Per facility, it adds: reporting_model: 'FACILITY', 'WARD' or 'NONE', from the active logins; reporter_login: 'active', 'setup incomplete' or 'none'. It also adds retention_alert: for each of the three 024 job names whose most recent run in cron.job_run_details did not succeed, the job name and the run's end time. It is empty when all are well, and read under the operator check only. This resolves DM-2 e; its row leaves in this PR.
+> - j. Contact email (resolves -140 DP-2; its row leaves in this PR). operator_record_contact refuses a non-null email that does not match ^[^@[:space:]]+@[^@[:space:]]+$, with INVALID_ARGUMENT DETAIL p_email. A CHECK on the contact email column enforces the same. Pre-check fence: 0 violating rows. A db test is shown red first.
+> - k. The HEFAMAA registration number (the founder's decision, 2026-09-27). app.facility.hefamaa_reg_no text NULL, with a CHECK: trimmed, length 1–64. Operator-only and never public: project_facility is unchanged. The public-relations guard (public-relations.json and its test) must show the column absent from every public mirror, with a plant. Optional, and not a listing gate in v1. HEFAMAA's mandate covers public and private facilities in Lagos, but federal institutions (LUTH, for example) may carry no HEFAMAA number, so a required field would block them. Written by a NEW RPC, operator_record_registration(p_facility_id, p_expected_version, p_hefamaa_reg_no): VERSION_CONFLICT-checked, bumping the version as other facility writes do, with an audit row that carries no value beyond the number; read back in operator_register. Decided: a new RPC rather than a change to operator_edit_facility's signature, so the deployed admin keeps working until it is redeployed. Blast radius: the Worker's allow-list gains this RPC (forward and preflight entries), with readback_worker.sh's leg, so a Worker redeploy is part of this bundle's hosted run. The authenticated-executable closed list and the function-grants fixture gain it.
+> - l. The runbook. "025 and 026's apply", in the existing fence style: A, 1–6 and B, with the two pre-check counts in fence 2 and the Worker redeploy after fence 6. The frozen-boundary and step-5 restatements follow the 024 pattern.
+>
+> Specialist input folded in: CTO — a new role, not a widened one; can-publish decided by the server; a new RPC for HEFAMAA. Staff-engineer — the ELSE-as-operator bug (g); the enum-in-transaction split (025); the concurrent-provision race (c); DROP and CREATE resetting grants (f). QA — the refusal matrix below. CLCO — no new personal data (the registration number is a facility's, and it is never public). Erasure covers the new login kind (h).
+>
+> Refusal matrix (db tests, each shown red first): reporter publish, any category at its own facility: ok; a reporter's publish lands on its own facility's ward only (there is no facility argument; assert that a same-category ward at another facility is untouched); ward login, other category: WARD_SCOPE_DENIED; FACILITY_ADMIN publish: refused; reporter invite with a category: INVALID_ARGUMENT; reporter with no contact, no agreement, or a withdrawn agreement: the three gate codes; reporter at a facility with no ward: NO_CATEGORY; reporter where a ward login is active, and a ward login where a reporter is active: REPORTING_MODEL_CONFLICT, at provision_begin AND at the trigger; a second active reporter: the unique index; can_publish per role; has_account and reporting_model in each state; retention_alert with a planted failed run; a malformed email; hefamaa_reg_no blank, too long, or with surrounding spaces.
+>
+> Definition of done: a full suite ZERO-RED on a fresh DB; the golden path extended with an operator, a facility, a reporter and a publish on two categories, locally; the sweep list, the assert_member caller list and the dependents list in the PR body; the three register rows (DO-3, DM-2 e, DP-2) leave, with a recount; -143 (DS) and -144 (DT) land with ledger rows. Nothing hosted.
+>
+> **Bundle 2 — the ward console, the provisioning script, and 12.4's facility-level path (after Bundle 1 merges)**
+> Why together: these are the reporter's first contact: how the login is made, and what its holder sees. They share the ward-facing words.
+> - The console renders a Publish form only where can_publish is true. Other rows show their status read-only, with one muted line: "This ward reports from its own login." Retire the "WHY A PUBLISH FORM PER ROW" header in favour of the server's flag, and say why in its place. No bulk control: no "publish all" and no "nothing changed" shortcut. Each ward is published on its own, with its own count, so stale claims can't be refreshed in one tap. A guard asserts that no such control exists. This resolves DO-3, whose row left in Bundle 1. Note it here.
+> - The sign-in label. "This ward's email address" becomes "Sign-in email address". Every other sentence is unchanged.
+> - The parser accepts can_publish, and a row without it is treated as false. There are no ward logins on hosted, so no live user sees the window between the hosted apply and the redeploy. State this.
+> - scripts/provision_ward_account.mjs accepts --role FACILITY_REPORTER --facility <uuid>, and --category with it is refused. Its refusal map gains REPORTING_MODEL_CONFLICT and NO_CATEGORY, in plain sentences. The masked-address output is unchanged.
+> - 12.4: Step 5 gains a facility-level variant: one login, the facility's. Steps 6 and 9 gain the reporter's reading: it reads each ward's history as itself, and a publish on two categories reads back from /beds.json. The operator's onboarding question goes at the head of step 5: "Does one nurse in charge know the beds for the whole hospital on each shift?" The numbers are unchanged; use lettered sub-steps where needed. Restate CX-1 (b)'s item wording from "the first ward account" to "the first reporting login".
+> - Screenshots in .design-screens/DT-2/, at four sizes: a reporter with three wards, a ward login seeing two read-only rows, the new sign-in label, and a refused publish. Cowork reads every one before the merge word.
+> - Definition of done: ZERO-RED; the golden path runs the reporter through the console; the screenshots. Nothing hosted.
+>
+> **Bundle 3 — admin: the reporting model, the HEFAMAA number, a retention alert, and DP-5 b's operator edges (after Bundle 1; may run beside Bundle 2)**
+> Why together: all operator-only, in one app and one review.
+> - The register and the detail view show each facility's reporting model: "One login for the whole facility", "One login per ward" or "No reporting login yet". Under a facility login, each ward line reads "Reported by the facility login" in place of the per-ward login state.
+> - The detail view's "Registration" section has the HEFAMAA number as an optional field, sent by operator_record_registration, with the D3 form conventions: noValidate, with its own sentence and focus; caution and info Notices; the DO-4 d version rule. Its sentences: label "HEFAMAA registration number (optional)"; saved Notice "Registration saved."; refusal on blank or over 64 characters: "Enter the registration number as it appears on the certificate, up to 64 characters, or leave it empty." It is never shown on openbed.ng.
+> - The contact email refusal maps INVALID_ARGUMENT:p_email to the page's existing sentence: "That email address is not in a form this page can read. Check it for a missing @ or a space."
+> - The retention alert is a caution Notice at the top of the register when retention_alert is non-empty: "A data-retention job did not complete: <job>, <Lagos time>. Follow the Supabase runbook, 12.5 step 5." It is fed only by that field.
+> - DP-5 b's six edges (the row leaves in this PR): 1. The register-unreachable screen gains the existing "Reload" button. 2. The two stop screens gain a "Sign out" button, returning to sign-in. 3. With the contact unreadable, the Agreement section reads "The agreement can be recorded once the contact can be read. Reload the page." 4. After a failed contact READ, the contact section reads "The contact could not be read. Reload the page." That replaces UNRECOGNISED's "Nothing was changed". 5. "Listed (27 Sept, 12:49 (Lagos time))" becomes "Listed 27 Sept, 12:49 (Lagos time)" in the detail view. 6. autocomplete="off" on every facility, contact, agreement and registration field. The sign-in email keeps email.
+> - Screenshots in .design-screens/DT-3/, at four sizes: each new state, and each changed one. Cowork reads every one.
+> - Definition of done: ZERO-RED; the golden path records a HEFAMAA number; the screenshots. Nothing hosted.
+>
+> **Bundle 4 — "1 beds", everywhere (resolves -140 DP-5 a; after Bundle 2, which touches the same console file)**
+> Why alone: it is the one public-facing wording change, in all three apps, and needs its own read.
+> - One helper, in packages/labels, is used at all three sites (apps/public-dashboard/src/age-view.ts, apps/ward-console/src/main.ts and apps/admin/src/main.ts): "1 bed", or "N beds" for N ≠ 1, and "0 beds".
+> - A guard fails on any bare ${…} beds template outside the helper, with a plant per app.
+> - Public-dashboard screenshots at four sizes, with counts 0, 1 and 2.
+> - The row leaves in this PR.
+> - Definition of done: ZERO-RED; screenshots. Nothing hosted.
+>
+> **Bundle 5 — privacy notice 1.1 (DO NOT START until Cowork pastes the approved text)**
+> - The notice's ward-staff row changes to cover a facility-level login.
+> - Cowork drafts the text, and the founder approves it. It is served as docs/legal/privacy-notice-v1.1.md, as 1.0 was. readback_pages.sh's "Version 1.0" check moves to 1.1. 1.0 stays in the repo as the prior version.
+> - 12.4 gains a box: "Privacy notice 1.1 deployed and read back, before the first facility-level login is provisioned."
+>
+> **Hosted runs (the founder's; Cowork turns each into commands when its turn comes)**
+> 1. After Bundle 1 merges: 025 and 026's apply (fences A, 1–6 and B); the Worker redeploy and its read-back; the frozen boundary at 26.
+> 2. After Bundles 2–4 merge: deploy the ward console, admin and the public dashboard, each with its read-back, then the founder's browser checks.
+> 3. After Bundle 5: deploy the public dashboard and run the notice read-back.
+> 4. Only then: facility one's creation (12.4 steps 1–2a), and its facility-level login.
+>
+> **Open decisions for the founder**
+> - The privacy notice 1.1 wording: Cowork drafts it as part of the onboarding documents.
+> - Everything else is decided, and logged above: a new role rather than a reused one; source WARD for reporter publishes; HEFAMAA optional and never public; a new RPC rather than a changed edit signature; one hosted apply for both migrations; the new sentences, as written above.
+>
+> **Process, every PR**
+> - One branch from main per bundle, with no force-push and no rebase.
+> - The full suite on a fresh DB and the commit gate.
+> - Red shown first for every new guard.
+> - Standard P ledger.
+> - STOP at each PR for Cowork's check.
+> - Nothing hosted by Claude Code.
+> - Claude Code runs every git command itself. Cowork reads its own clone and never writes to Claude Code's working tree: Cowork's slip on 2026-09-27 left an empty .git/index.lock twice (the one Claude Code removed at 13:13 was Cowork's), and briefly moved HEAD. Both are restored. If a stray lock ever appears again, report it before removing it.
+
+**LANDED IN BUNDLE 1'S PULL REQUEST** (025, 026, and what they reach):
+- **025** holds the enum value alone. The one-off reading that DT asked for was taken on 2026-09-27 against local PostgreSQL 17.6, at 024. 025 and 026 were concatenated and applied as one `--single-transaction` run. It failed at 026's first use of the value, its pre-check, with:
+  ```
+  ERROR:  unsafe use of new value "FACILITY_REPORTER" of enum type app.app_role
+  HINT:  New enum values must be committed before they can be used.
+  ```
+  Nothing committed: the label count stayed three, and the ledger stayed at 024. The two files applied one transaction each then both passed. `tests/db/migration_025_round_trip.test.ts` holds the rule on a scratch enum type (55P04), and up, down, up leaves one label.
+- **026**, a to l, as its header lists them. (f) is as amended by -145: the renamed `public.my_reporting_wards()`.
+- The refusal matrix, each row a db test: `tests/db/facility_reporter.test.ts`, and new blocks in `tests/db/provisioning_gates.test.ts`, `tests/db/retention_jobs.test.ts`, `tests/db/operator_functions.test.ts` and `tests/db/operator_contact_and_agreement.test.ts`. The race is two real connections, and asserts that the second **waited**.
+- The golden path gains four steps, all run locally: an operator onboards GAMMA (never listed), GAMMA's facility login is provisioned through the script, it reads `can_publish` true on both categories, and it publishes both.
+- The runbook gains "025 and 026's apply", with step 5 restated in its five places.
+- Two register rows leave:
+  - DM-2 e, the retention alert, now in `operator_register`;
+  - DP-2, the contact email's form, now in the database.
+
+  **DO-3's row stays until Bundle 2's pull request**, restated: the server half (`can_publish`) landed here, and the console half is Bundle 2's.
+
+  **Recounted from the table: 60 → 58** (15 BOX, 32 TRIGGER, 11 VERSION).
+
+  *Restated 2026-09-27 by R-2026-09-27-146 DV-1, in the same pull request, before it merged.* Until then this read: "Three register rows leave, as DT's definition of done names them: DO-3, the console's Publish on every row, which Bundle 2 resolves (between this merge and Bundle 2's, that defect is carried by DT's Bundle 2, not by the register); DM-2 e …; DP-2 …. Recounted from the table: 60 → 57 (15 BOX, 31 TRIGGER, 11 VERSION)."
+
+**PREMISE CORRECTIONS AND MECHANISM CHOICES** (method notes 4 and 20). Each was also in the pull request body:
+1. **"readback_worker.sh's leg".** The script had no per-RPC leg beyond probe 1, and the allow-list test reds an entry nothing calls.
+   - **Mechanism:** probe 1b, a POST with no key on `operator_record_registration`, which must read 401, the project's `sb-project-ref`, and `forwarded`.
+   - The allow-list entry's reason is `runbook probe:` until Bundle 3's admin calls it.
+   - The OPTIONS entry is added now, ahead of its browser caller, so that Bundle 3 needs no second Worker redeploy. The allow-list header names it as the one exception.
+2. **"The two pre-check counts in fence 2".** In the house pattern, fence 2 is always the fingerprint before-reading, and a migration's pre-checks refuse inside it, named in fence 3 (022's shape).
+   - **Mechanism:** 026 refuses by name with the count (`SCOPE_CHECK_VIOLATIONS`, `CONTACT_EMAIL_MALFORMED`).
+   - The runbook reads the same two counts, read-only, in a new section A before fence 1, so they are seen before anything is applied.
+3. **"025 contains … nothing else".** Every migration also carries its banner and its ledger insert; the header lint and the symmetry test enforce both. 025 holds no other statement.
+4. **`scripts/run_migrations.sh` said every `ADD VALUE` in the corpus was inside a comment.** 025 made that false. It is restated in the same change.
+5. **"The public-relations guard (public-relations.json and its test)".** That file says nothing about columns.
+   - Column absence is `packages/fixtures/forbidden-columns.json`, through `tests/db/rls_anon_column_containment.test.ts` and `tests/db/beds_json_served.test.ts`.
+   - `hefamaa_reg_no` is added to that fixture, with a plant that adds it to `public.facility_public` and is reported as a leak.
+6. **DP-2's gate said "at least one @"; DT's regex admits exactly one.** DT's governs.
+7. **DT (f)'s DROP and CREATE could not ship:** 011 re-applies over 026, and CREATE OR REPLACE cannot change a return type. -145 ruled the rename.
+8. **Found beyond DT (the sweep):**
+   - `app.erase_lapsed_ward_logins()` already selected every role but PLATFORM_ADMIN.
+   - So (h) is load-bearing: without it, a lapsed reporter's audit insert fails and the whole daily erasure rolls back.
+9. **A guard defect found on the way, fixed as a tightening:** `tests/compliance/admin_render.test.ts`'s CHECK-constraint corpus applied every ADD in a file before every DROP. So 026's drop-then-add removed its own two new constraints from the corpus.
+   - That leg stayed green while the live-catalogue twin, `tests/db/admin_calls_live.test.ts`, went red.
+   - It now reads statements in order, with a plant for each direction.
+10. **Pulled forward from Bundle 3, because two guards required it now:**
+    - admin's sentence for `INVALID_ARGUMENT:p_email`, which is the page's existing sentence, as Bundle 3 says;
+    - sentences for the two new CHECKs, one of them Bundle 3's HEFAMAA refusal sentence.
+
+    `packages/labels/admin-labels.json` only; no admin code changes.
+11. **`tests/compliance/public_labels.test.ts` counts write sites:** 026 redefines `publish_ward_status`, so the one writer of ACTIVE now has two sites, 014's and 026's. Both state the offering, and the expectation names both, exactly.
+12. **Mechanism choices, each a choice DT left open:**
+    - A second active reporter is refused `REPORTER_ALREADY_EXISTS`, by constraint and never as a raw 23505.
+    - The trigger refuses to run under REPEATABLE READ (`REPORTING_MODEL_CHECK_ISOLATION`), where its read could not see the writer it waited for.
+    - `operator_record_registration` accepts exactly what the column accepts, plus NULL to clear it: a blank or space-padded value is `INVALID_ARGUMENT`, not trimmed.
+    - An identical repeat writes nothing (J2).
+    - Its audit row carries the old and new number and nothing else, which is how "no value beyond the number" is read.
+    - `retention_alert` reads each job's latest FINISHED run, and the pass signal is `succeeded`: a run in progress is not an alert, and a job that has never run raises none. 026's header names that.
+13. **Observed, not inferred:** postgres holds INSERT on `cron.job_run_details` and no USAGE on its `runid` sequence (local, 2026-09-27). The retention-alert tests give each planted run its `runid`.
+
+Nothing hosted. Next letter: **DU**.
+
+### R-2026-09-27-145 — DT (f) amended: can_publish ships on a renamed read, public.my_reporting_wards()
+
+_Issued as R-PROVISIONAL-2026-09-27-DU, by Cowork on 2026-09-27, as the answer to the question Claude Code raised in Bundle 1 when 011's re-apply over 026 failed. Lands in Bundle 1's pull request, after -143 and -144. Number assigned on landing: R-2026-09-27-144 plus one. Next provisional letter: **DV**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-27-DU — amends DT (f): can_publish ships as a renamed RPC. Lands as -145 in Bundle 1's PR, after -143 (DS) and -144 (DT), with a ledger row.
+>
+> Answer to your question: option 1, "New RPC, drop old".
+>
+> Cowork's slip, owned: DT (f) prescribed DROP and CREATE on my_facility_wards() without checking tests/db/migration_idempotency.test.ts. 011 is frozen and re-applies over 026, and 021 had already met "cannot change return type of existing function" and renamed. Record it in -145.
+>
+> DU-1 026 creates public.my_reporting_wards(): 011's columns, in 011's order, with can_publish boolean last. The values are unchanged from DT (f): WARD_STAFF gets category = own, FACILITY_REPORTER gets true, FACILITY_ADMIN gets false. The body is SECURITY DEFINER with search_path pinned, as 011. Re-apply the revoke-by-name and the single grant to the new name. 026 DROPs my_facility_wards(). Follow 021's rename exactly. In the PR, state how 021's rename passes the idempotency test and show that 026 passes the same way. If re-applying 011 would leave my_facility_wards() resurrected with a live grant in the final state, that is a STOP: report it, don't work around it.
+>
+> DU-2 Every dependent moves to the new name in this PR. Grep the whole repo for my_facility_wards, not only the ones you listed. That covers migrations and tests, the console's fetch path, the Worker allow-list (forward and preflight entries; remove the old name), readback_worker.sh probe 1, the function-grants fixture and the authenticated-executable closed list, the fixtures, the golden path, the runbooks and docs. List every hit in the PR body with its disposition. The only occurrences left should be history: frozen migrations, 021-era records and rulings.
+>
+> DU-3 The console keeps its current rendering. Bundle 1 changes only the name it fetches. Rendering by can_publish stays in Bundle 2. The existing console tests pass unchanged apart from the name.
+>
+> DU-4 The hosted window. After the Bundle 1 hosted run, the deployed ward console (f6429a29 at 3623d2b) calls a dropped function until Bundle 2's console deploy. The hosted register is empty, so no login can reach it. Close the window in place, not with a register row:
+>   a) The runbook's "025 and 026's apply" section states the window in one line.
+>   b) Runbook 12.4's login-provisioning step gains a precondition: the ward console read-back must PASS at a commit on or after Bundle 1's merge, and the step names the commit to check. This applies to both kinds of login, ward and facility-level.
+>
+> DU-5 The refusal matrix row "can_publish per role" runs against my_reporting_wards(). Add one test: my_facility_wards() does not exist after a fresh apply, and does not exist after the idempotency re-apply either.
+>
+> Everything else in DT stands. Carry on with Bundle 1 and stop at the PR.
+
+**Cowork's slip, recorded as DU asks:** DT (f) prescribed DROP and CREATE of `my_facility_wards()` itself, without checking `tests/db/migration_idempotency.test.ts`. The failure was observed, not predicted. The first full run with DT (f) as written stopped the re-apply at 011:
+```
+ERROR:  cannot change return type of existing function
+DETAIL:  Row type defined by OUT parameters is different.
+HINT:  Use DROP FUNCTION my_facility_wards() first.
+```
+Because that test commits each file, it left the local database with 001 to 010 re-applied: 35 reds, most of them collateral. A fresh `db:reset` cleared them.
+
+**How 021's rename passes the idempotency test, and 026's the same way (DU-1):**
+- **021.** It drops `operator_list_facilities()` and creates `operator_register()` under a new name. A re-apply of 020 recreates the old function, and a re-apply of 021 drops it again (021's header, point 5).
+- **026.** A re-apply of 011 recreates `my_facility_wards()`, with 011's grant. A re-apply of 026 drops it again. `my_reporting_wards()` is created OR REPLACED with an unchanged return type.
+- **What the test sees.** The digest compares functions by name before and after, and the test now also asserts by name after the re-apply that `my_facility_wards()` is absent and `my_reporting_wards()` present. It passes.
+- **DU-1's STOP condition does not arise:** the final state holds no `my_facility_wards()`, so no live grant.
+
+**DU-2's dispositions** are listed per hit in the pull request body. Every live hit moved to the new name. What remains:
+- frozen migrations: 011 and its down, 014:50, 014:134, 015:44;
+- dated records and rulings: this record, the kickoffs, a handoff, and one dated Worker probe-4 reading in the Supabase runbook;
+- 026 and its down, where the rename is the subject.
+
+The fixture that holds a PLATFORM_ADMIN's answer was renamed with it, from platform-admin-my-facility-wards.json to `packages/fixtures/platform-admin-my-reporting-wards.json`.
+
+**DU-4:** (a) is one paragraph in "025 and 026's apply". (b) is a precondition at the head of 12.4 step 5, for both kinds of login.
+- **The commit to check is the deploy checkout's HEAD:** it must contain 026 and the console's fetch of `rpc/my_reporting_wards`.
+- The ward console read-back run from it must read `PASS`, which proves the deployed console was built from that HEAD.
+- The fence prints `026 present`, `1`, and then the read-back's verdict.
+- It was paste-checked in `zsh -f -i` in its failing direction, at the pre-commit HEAD: it read `STOP: 026 is not in this checkout` and `0`.
+
+**DU-5:** landed. The two tests are in `tests/db/facility_reporter.test.ts` (after a fresh apply) and `tests/db/migration_idempotency.test.ts` (after the re-apply).
+
+Nothing hosted. Next letter: **DV**.
+
+### R-2026-09-27-146 — Cowork's check of #93: DO-3's row stays until Bundle 2, and fence A's re-run reading
+
+_Issued as R-PROVISIONAL-2026-09-27-DV, by Cowork on 2026-09-27, as its check of #93 at `8931cdf`. Lands in #93, after -143, -144 and -145. Number assigned on landing: R-2026-09-27-145 plus one. Next provisional letter: **DW**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-27-DV — Cowork's check of #93 (head 8931cdf): amend, then merge. Lands as -146 in #93, with a ledger row. Next letter: DW.
+>
+> VERIFIED BY COWORK (2026-09-27, GitHub API read through the founder's browser pane; code read from a clone of pr/93):
+> - #93 OPEN, one commit 8931cdf on base 1b506d6 = main, 54 files, mergeable_state clean.
+> - All seven check runs completed success: repo-lint, bundle-guards, db-tests, compliance-tests, migration-lint, golden-path, secret-scan.
+> - Read and accepted: 025 alone; 026's pre-checks, scope CHECK arms, ward_account_one_active_reporter, enforce_one_reporting_source (READ COMMITTED lock-then-read; REPEATABLE READ refused), assert_member, publish_ward_status (014's order kept; the reporter's facility comes from its own account), my_reporting_wards with can_publish per role, provision_begin's explicit branches with ELSE -> ROLE_NOT_PROVISIONED_IN_V1, provision_complete's REPORTER_ALREADY_EXISTS, the erasure CHECK's reporter arm, the rename's idempotency assertion, the allow-list entries with the named preflight exception, probe 1b, forbidden-columns.json carrying hefamaa_reg_no (the right guard for a column; accepted in place of DT k's wording), and 12.4 step 5's DU-4 b precondition.
+> - The four departures reported in the PR are accepted as reasoned.
+>
+> DV-1  DO-3 STAYS IN THE REGISTER UNTIL BUNDLE 2 MERGES. DT's definition of done said DO-3 leaves in Bundle 1. That is Cowork's slip: Bundle 1 fixes the server half (can_publish), but the console still offers Publish on every row until Bundle 2. A row leaving before its fix lands is a deferral carried only by a kickoff, which the standing rule forbids.
+>   a) Restore DO-3's row, restated. The server half landed in -144 (can_publish on my_reporting_wards). The console half is Bundle 2's. Its gate is unchanged: TRIGGER, facility one's first reporting login is provisioned.
+>   b) DT's Bundle 2 line "This resolves DO-3, whose row left in Bundle 1" is amended by this ruling to "whose row leaves in Bundle 2's PR". Record the amendment in -146; leave the kickoff text as committed.
+>   c) Recount from the table: 60 -> 58 (DM-2 e and DP-2 leave). State the per-gate split. Update -144's ledger row and every count site that tests/compliance/deferred_items.test.ts reads.
+>
+> DV-2  RUNBOOK, "025 and 026's apply", fence A. When 026 was refused after 025 committed and the apply is being run again, the third reading is 1, not 0. Add that case: on such a re-run the first two readings must still read 0 and the third reads 1; any other reading stops. Add a test leg if runbook_migration_expectation.test.ts pins fence A's readings.
+>
+> DV-3  ACCEPTED, no change: the three admin sentences in admin-labels.json stay in this PR. Bundle 3 renders them and does not add them again.
+>
+> DV-4  FOR BUNDLE 2 (the provisioning script), recorded now so it isn't lost. provision_begin's REPORTING_MODEL_CONFLICT check can race: two begins at one facility can both open invites, and the trigger then refuses the second at provision_complete, after generate_link has created an Auth user. The script must name REPORTING_MODEL_CONFLICT and REPORTER_ALREADY_EXISTS when they come back from complete. It must tell the operator that an Auth user was created with no account, show it masked, and say how to delete it. It must never retry. Test it with the Auth stub. Carried by DT's Bundle 2 scope, not a register row, because Bundle 2 is the next PR.
+>
+> Amend #93 with one commit (DV-1, DV-2 and -146 with its ledger row), re-run the attestation, and stop for Cowork's check. Nothing hosted.
+
+**Cowork's verified facts, read back from the API before this landed:** #93 has one commit, `8931cdf1fb881ec7dbfb2e0552b8aaa185f06895`, on base `1b506d68fd5d700d477d7005bb7a7ec2a37bb7cc`, with 54 changed files, and all seven check runs read `COMPLETED SUCCESS`. All hold.
+
+**LANDED IN #93** (a second commit on the same branch):
+- **DV-1 a.** DO-3's row is back in the register, in the place it left, with its item restated: the server half landed in -144 as `can_publish` on `my_reporting_wards()` (-145), and the console half is Bundle 2's, whose pull request the row leaves in. Its gate is unchanged.
+- **DV-1 b.** DT's Bundle 2 line now reads, by this ruling: "This resolves DO-3, whose row leaves in Bundle 2's PR." The kickoff's text in -144 is left as committed.
+- **DV-1 c.** **Recounted from the table: 60 → 58** (15 BOX, 32 TRIGGER, 11 VERSION). DM-2 e and DP-2 leave. -144's landed block and DT's ledger row are restated in place, each with the text it replaced.
+- **DV-2.** Fence A now states the re-run case: `0`; `0`; `1`, and any other reading stops. It also says that a `1` on a first run means 025 is already applied, which stops.
+- **DV-3.** No change.
+- **DV-4.** Recorded here; carried by DT's Bundle 2 scope.
+
+**PREMISE CORRECTIONS** (method notes 4 and 20):
+1. **DV-1 c: "every count site that `tests/compliance/deferred_items.test.ts` reads".** It reads no count. It parses the register's rows and the boxes at runbook 12.4 step 1, and checks their gate kinds and the rows against the boxes; no total appears in it. The count sites are prose, both in this record: -144's landed block and DT's ledger row. Both are restated. The guard parses the restored row as the fifty-eighth: it is a TRIGGER row, so rules (c) to (e), which bind BOX rows, do not reach it.
+2. **DV-2: "if `runbook_migration_expectation.test.ts` pins fence A's readings".** It does not. Its parsers read only step 5's current bullet and its fenced expected output, never "025 and 026's apply". So no test leg was added. The case is guarded by the runbook text alone, which is the form fence A's first-run readings already had.
+
+**Beyond DV-2, for Cowork to accept or strike.** The re-run DV-2 describes also changes two other readings in that section:
+- **Fence 1** expects exactly two `WOULD APPLY` lines. On the re-run it shows 025 as `already applied` and one `WOULD APPLY` line naming 026, and its last line's pending count agrees with that one line.
+- **Fence 3** says two were applied this run. On the re-run it says one.
+
+Left as they stood, a correct re-run would stop at fence 1 after fence A passed. The paragraph "If 026 refuses after 025 has committed" now lists all three readings that differ on a re-run, and says every other reading is as for a first run. That is the smallest change that makes the case DV-2 adds runnable end to end.
+
+**A guard caught my first wording.** It stated fence 1's re-run count as a literal pending line. `tests/compliance/runbook_migration_expectation.test.ts` refuses any count stated in the runbook outside step 5's guarded sites and outside a dated block, and it reddened four legs. The guard is right: a stated count goes stale. Step 5 says why: "The expectation is stated as **files, not a count**". The re-run line now names files, and says the last line's count must agree with them. The guard is unchanged.
+
+Nothing hosted. Next letter: **DW**.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -6900,6 +7235,10 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | DP | R-2026-09-27-140 | 2026-09-27 | **#91 amended once.** The add-category screenshots answered from the written state and retaken (8 shots, reported, not committed); -139's claim that no outcome line contradicted its page corrected in place. The contact email's form, checked only by the page, gated on the next migration after 024 (DP-2). "St. Nicholas' Hospital" replaced by an invented name in two test files (DP-3). No header row (DP-4). "1 beds" in all three apps and five operator-only rough edges gated on facility one's first ward account (DP-5). Register 59 → 62. Next letter DQ. |
 | DQ | R-2026-09-27-141 | 2026-09-27 | **#91 merged at `ba12ceb`** (parents `3623d2b`, `ed8189e`); `design-pass-d3` deleted on both sides and read back as gone. Pasting DQ was the founder's merge word. DQ-2's deploy commands corrected (Cowork's slip, caught before any run). The founder's reporting model recorded: one facility-level login or one per ward, by the hospital's nursing structure, one source per ward; facility one on one facility login, so the next bundle builds FACILITY_REPORTER first. Five register gates restated from a first ward account to a first reporting login. Held, and landed with -142. |
 | DR | R-2026-09-27-142 | 2026-09-27 | **D3 deployed and read back:** admin `0651ec07` from `ba12ceb`, `readback_admin.sh` PASS with the favicon on both hosts and a font, and the founder's desktop and phone checks. **Box 14 closed** (D1, D2 and D3 deployed, read back and approved; 16 boxes, 3 ticked). The favicon row leaves, and so does the design pass's BOX row, by rule (e): register 62 → 60. The facility view's first hosted sight is 12.4 step 2a. Amended once by DR-7: two autocomplete infos folded into DP-5 b's row. Next letter DS. |
+| DS | R-2026-09-27-143 | 2026-09-27 | **#92 merged at `1b506d6`** (parents `ba12ceb`, `b017272`); `records-dq-dr` deleted on both sides and read back as gone. Pasting DS was the founder's merge word. Held, and landed in the FACILITY_REPORTER bundle's first pull request. Next letter DT. |
+| DT | R-2026-09-27-144 | 2026-09-27 | **The FACILITY_REPORTER sprint's kickoff, five bundles; Bundle 1 landed:** 025 (the enum value alone, irreversible; the one-transaction refusal read locally) and 026 (the scope CHECKs, one reporter per facility, one reporting source per ward by trigger, assert_member and publish widened for the reporter, provision_begin's per-role branches, the erasure CHECK's reporter arm, the register's reporting model and retention alert, the contact email's form CHECK, and the operator-only HEFAMAA number with its RPC). The golden path runs a facility login publishing two wards. DM-2 e and DP-2 leave, and DO-3's row stays until Bundle 2, restated: register 60 → 58 (restated by -146 DV-1; until then "DO-3, DM-2 e and DP-2 leave: register 60 → 57"). Next letter DU. |
+| DU | R-2026-09-27-145 | 2026-09-27 | **DT (f) amended:** can_publish ships on `public.my_reporting_wards()`, and `my_facility_wards()` is dropped, as 021 renamed its list, because 011 re-applies over 026 and a return type cannot change in place (Cowork's slip, owned). Every live dependent renamed; the hosted window closed by a runbook line and a 12.4 step 5 precondition. Next letter DV. |
+| DV | R-2026-09-27-146 | 2026-09-27 | **Cowork's check of #93 at `8931cdf`: amend, then merge.** DO-3's row restored, restated: the server half (`can_publish`) landed in -144, the console half is Bundle 2's, and the row leaves in Bundle 2's pull request (Cowork's slip, owned). Register 60 → 58 (15 BOX, 32 TRIGGER, 11 VERSION). Fence A of "025 and 026's apply" states the re-run reading `0`; `0`; `1`, and fences 1 and 3's re-run readings are stated beside it. The three admin sentences stay. Bundle 2's provisioning script names both refusals from complete, never retries, and tells the operator about the orphaned Auth user. Next letter DW. |
 
 ## Deferred items — this record is where the list lives
 
@@ -6989,10 +7328,8 @@ the record's own, except where CW-5 assigned one._
 | `publish_ward_status` enqueues to `app.notification_outbox` (#71) | R-2026-09-17-03 and -04 | VERSION | Out of v1: escalation notifications are not in v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
 | Pages Git integration as the root fix for deploys | R-2026-09-20-30 A5 | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
 | Phone features: the tile, call tracking, WhatsApp/SMS | R-2026-09-23-66 C2 | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
-| A failed retention job run is only visible in `cron.job_run_details`: nothing tells the operator unless someone reads it (12.5 step 5 reads it after a withdrawal) | R-2026-09-27-137 DM-2 e | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned. Until then there is no reporting login to erase. By then, a failed run of the three retention jobs must surface where the operator looks (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned. Until then there is no ward login to erase. By then, a failed run of the three retention jobs must surface where the operator looks") |
 | The notice's transfer sentence for Cloudflare: its SCCs are stated for European data and its Global CBPR mechanism needs the originating country to recognise it; the basis for transfers out of Nigeria is the founder's transfer pack | R-2026-09-27-138 DN-2 | BOX | Box 15 at runbook 12.4 step 1 (the paperwork register approved in full, whose transfer memo covers it), ticked by a ruling that closes it |
-| The ward console offers Publish on wards the login cannot publish for: `my_facility_wards()` returns every ward at the caller's facility, and `publish_ward_status` admits only the login's own ward (WARD_SCOPE_DENIED). Its fix waits on the founder's decision on the reporting model (per-ward logins, a facility-level reporter, or both), which may re-gate the facility-admin override row (R-2026-09-24-75 BC-7) | R-2026-09-27-139 DO-3 | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned. No reporting login exists until then (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned. No ward login exists until then") |
-| `operator_record_contact` (021) checks no email's form; only admin's page does (R-2026-09-27-139 DO-4 c) | R-2026-09-27-140 DP-2 | TRIGGER | The next migration after 024. It adds the form check at the database (at least one @, no whitespace, a non-empty part on each side of it), with its own db test shown red first, and the row leaves in that pull request |
+| The ward console offers Publish on wards the login cannot publish for: it renders a Publish form on every row `my_reporting_wards()` returns, and `publish_ward_status` admits a ward login only for its own ward (WARD_SCOPE_DENIED). **The server half landed in R-2026-09-27-144:** `can_publish` on `my_reporting_wards()` (R-2026-09-27-145), decided per role by the server. **The console half is DT's Bundle 2's:** render the form only where `can_publish` is true, and the row leaves in Bundle 2's pull request (restated 2026-09-27, R-2026-09-27-146 DV-1; until then: "`my_facility_wards()` returns every ward at the caller's facility, and `publish_ward_status` admits only the login's own ward (WARD_SCOPE_DENIED). Its fix waits on the founder's decision on the reporting model (per-ward logins, a facility-level reporter, or both), which may re-gate the facility-admin override row (R-2026-09-24-75 BC-7)") | R-2026-09-27-139 DO-3 | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned. No reporting login exists until then (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned. No ward login exists until then") |
 | "N beds" reads "1 beds" when N is 1, in all three apps: `apps/public-dashboard/src/age-view.ts`, `apps/ward-console/src/main.ts` and `apps/admin/src/main.ts`. Fixed as one change across the three, with a guard | R-2026-09-27-140 DP-5 a | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned: the first moment a real count can be shown (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned: the first moment a real count can be shown") |
 | Admin's operator-only rough edges: the register-unreachable screen has no Reload control; the two stop screens offer no next step; the Agreement section is a bare heading when the contact is unreadable; UNRECOGNISED's "Nothing was changed" is shown after a failed READ of the contact; the nested brackets in "Listed (… (Lagos time))"; admin's inputs carry no autocomplete attribute except the sign-in email (the Chrome Issues panel on admin.openbed.ng, 2026-09-27, reported two; the source has 14 such inputs (6 facility, 5 contact, 3 agreement) and two selects; the pair that fits is New facility's `name` and `phone`, inferred); set the right token on each (R-2026-09-27-142 DR-7 b) | R-2026-09-27-140 DP-5 b | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned") |
 

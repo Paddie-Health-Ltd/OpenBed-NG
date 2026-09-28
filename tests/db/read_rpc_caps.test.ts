@@ -157,7 +157,7 @@ describe('read RPC caps', () => {
   test('missing-context — an unauthenticated caller is rejected with 42501', async () => {
     await expect(
       withRole('authenticated', null, async (tx) => {
-        await tx.unsafe(`select * from public.my_facility_wards()`);
+        await tx.unsafe(`select * from public.my_reporting_wards()`);
       }),
     ).rejects.toThrow(/NOT_AUTHENTICATED/);
   });

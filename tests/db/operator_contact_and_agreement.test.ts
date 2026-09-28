@@ -166,6 +166,39 @@ describe('operator_record_contact', () => {
     expect(r.message).toBe(code);
   });
 
+  // 026 (R-2026-09-27-140 DP-2; R-2026-09-27-144 DT j): the email's form, in the
+  // database. The ordinary address the first test records is the positive control.
+  test.each([
+    ['no @', 'matron-role.example.invalid'],
+    ['two @', 'matron@role@example.invalid'],
+    ['a space', 'matron role@example.invalid'],
+    ['nothing before the @', '@example.invalid'],
+    ['nothing after the @', 'matron-role@'],
+  ])('an email with %s is refused INVALID_ARGUMENT naming p_email', async (_what, email) => {
+    const r = await refusal(asOperator((tx) => tx.unsafe(CONTACT({ email }))));
+    expect(r.message).toBe('INVALID_ARGUMENT');
+    expect(r.detail).toBe('p_email');
+  });
+
+  test('facility_contact_email_form refuses a malformed email written directly, and accepts the ordinary one', async () => {
+    const out = await withRole('postgres', null, async (tx) => {
+      await tx.unsafe('savepoint bad');
+      let bad: { code?: string; constraint_name?: string } = {};
+      try {
+        await tx.unsafe(`insert into app.facility_contact (facility_id, full_name, job_title, email) values ('${FAC}', 'A Person', 'Matron', 'matron role@example.invalid')`);
+      } catch (e) {
+        bad = e as { code?: string; constraint_name?: string };
+      }
+      await tx.unsafe('rollback to savepoint bad');
+      await tx.unsafe(`insert into app.facility_contact (facility_id, full_name, job_title, email) values ('${FAC}', 'A Person', 'Matron', '${EMAIL}')`);
+      const [n] = await tx.unsafe<{ n: number }[]>(`select count(*)::int as n from app.facility_contact where facility_id = '${FAC}'`);
+      return { bad, n: n?.n };
+    }, fixture);
+    expect(out.bad.code).toBe('23514');
+    expect(out.bad.constraint_name).toBe('facility_contact_email_form');
+    expect(out.n, 'the ordinary address was refused').toBe(1);
+  });
+
   test('a facility that does not exist is refused NO_SUCH_FACILITY', async () => {
     const r = await refusal(asOperator((tx) => tx.unsafe(CONTACT().replace(FAC, randomUUID()))));
     expect(r.message).toBe('NO_SUCH_FACILITY');

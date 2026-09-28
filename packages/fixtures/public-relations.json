@@ -7,7 +7,7 @@
   "clientAddressableRelations": [],
   "realtimePublicationMembers": [],
   "rpcs": [
-    "my_facility_wards",
+    "my_reporting_wards",
     "ward_status_history",
     "publish_ward_status"
   ]

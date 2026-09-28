@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { REPO_ROOT } from './_scratch.js';
-import ZERO_WARD from '../../packages/fixtures/platform-admin-my-facility-wards.json';
+import ZERO_WARD from '../../packages/fixtures/platform-admin-my-reporting-wards.json';
 
 /**
  * THE WARD CONSOLE, RENDERED (R-2026-09-23-66; the kickoff's B2 and D1).
@@ -58,8 +58,9 @@ function sessionFragment(): string {
   return `#access_token=${token}&refresh_token=r1&expires_at=${now + 3600}&token_type=bearer`;
 }
 
-// monitoring_state, state and source are what my_facility_wards has always returned
-// (011:142-154); the console read none of them until -70 E.
+// monitoring_state, state and source are what my_facility_wards always returned
+// (011:142-154) and my_reporting_wards returns (026); the console read none of them
+// until -70 E.
 const GOOD_ROW = { category: 'MATERNITY', offering: 'OFFERED', bed_count: 3, accepting: true, version: 4, gated_by: null, monitoring_state: 'ACTIVE', state: 'OK', source: 'WARD' };
 
 /** Every value of every app enum the console can receive, read from the migrations. */
@@ -123,7 +124,7 @@ async function until(cond: () => boolean, deadlineMs = 5000): Promise<void> {
 }
 
 function handover(rows: unknown[]): Route {
-  return (url) => (url.endsWith('/rest/v1/rpc/my_facility_wards') ? json(200, rows) : json(500, { message: 'unexpected call' }));
+  return (url) => (url.endsWith('/rest/v1/rpc/my_reporting_wards') ? json(200, rows) : json(500, { message: 'unexpected call' }));
 }
 
 /** The codes a RAISE in `fn` can produce, parsed from the migration that defines it. */
@@ -146,10 +147,12 @@ export function coverageViolations(raised: string[], table: readonly string[]): 
   return out;
 }
 
+// The definitions in force: 026 last wrote all three (R-2026-09-27-144 DT d, e;
+// R-2026-09-27-145 DU-1 renamed 011's my_facility_wards).
 const RAISED = [
-  ...raisedCodes('011_read_rpcs_capped.sql', 'app.assert_member'),
-  ...raisedCodes('011_read_rpcs_capped.sql', 'public.my_facility_wards'),
-  ...raisedCodes('014_publish_ward_status.sql', 'public.publish_ward_status'),
+  ...raisedCodes('026_facility_reporter_and_checks.sql', 'app.assert_member'),
+  ...raisedCodes('026_facility_reporter_and_checks.sql', 'public.my_reporting_wards'),
+  ...raisedCodes('026_facility_reporter_and_checks.sql', 'public.publish_ward_status'),
 ];
 
 beforeEach(() => {
@@ -221,7 +224,7 @@ describe('B2 — a malformed ward row is refused, never defaulted', () => {
   });
 
   test('plant — a ward list that is not a list is refused whole', async () => {
-    await renderAt(sessionFragment(), (url) => (url.endsWith('my_facility_wards') ? json(200, { rows: [GOOD_ROW], note: SENTINEL }) : json(500, {})));
+    await renderAt(sessionFragment(), (url) => (url.endsWith('my_reporting_wards') ? json(200, { rows: [GOOD_ROW], note: SENTINEL }) : json(500, {})));
     await until(() => text().includes('Could not load'));
     expect(text()).toContain('The ward list could not be read.');
     expect(text()).not.toContain(SENTINEL);
@@ -231,7 +234,7 @@ describe('B2 — a malformed ward row is refused, never defaulted', () => {
 describe('D1 — no raw server text reaches the screen', () => {
   test('site 1, the handover load — a recognised refusal shows its fixed sentence and none of the body', async () => {
     await renderAt(sessionFragment(), (url) =>
-      url.endsWith('my_facility_wards') ? json(403, { code: '42501', message: 'NOT_A_MEMBER', details: SENTINEL, hint: null }) : json(500, {}),
+      url.endsWith('my_reporting_wards') ? json(403, { code: '42501', message: 'NOT_A_MEMBER', details: SENTINEL, hint: null }) : json(500, {}),
     );
     await until(() => text().includes('Could not load'));
     expect(text()).toContain('This sign-in is not linked to a ward.');
@@ -240,7 +243,7 @@ describe('D1 — no raw server text reaches the screen', () => {
   });
 
   test('site 1, the handover load — an unrecognised answer shows the one fixed fallback', async () => {
-    await renderAt(sessionFragment(), (url) => (url.endsWith('my_facility_wards') ? json(502, { message: `${SENTINEL} upstream` }) : json(500, {})));
+    await renderAt(sessionFragment(), (url) => (url.endsWith('my_reporting_wards') ? json(502, { message: `${SENTINEL} upstream` }) : json(500, {})));
     await until(() => text().includes('Could not load'));
     expect(text()).toContain('Something went wrong. Reload the page and try again.');
     expect(text()).not.toContain(SENTINEL);
@@ -253,7 +256,7 @@ describe('D1 — no raw server text reaches the screen', () => {
     ['a body that is not JSON', `<html>${SENTINEL}</html>`, 'Something went wrong. Reload the page and try again.'],
   ])('site 2, the publish status — %s shows a fixed sentence and none of the body', async (_label, body, expected) => {
     await renderAt(sessionFragment(), (url) => {
-      if (url.endsWith('my_facility_wards')) return json(200, [GOOD_ROW]);
+      if (url.endsWith('my_reporting_wards')) return json(200, [GOOD_ROW]);
       if (url.endsWith('publish_ward_status')) {
         return typeof body === 'string' ? new Response(body, { status: 400 }) : json(400, body);
       }
@@ -291,7 +294,7 @@ describe('D1 — no raw server text reaches the screen', () => {
 describe('the publish form sends what the server accepts', () => {
   async function submitWith(setup: (form: HTMLFormElement) => void) {
     const stub = await renderAt(sessionFragment(), (url) => {
-      if (url.endsWith('my_facility_wards')) return json(200, [GOOD_ROW]);
+      if (url.endsWith('my_reporting_wards')) return json(200, [GOOD_ROW]);
       if (url.endsWith('publish_ward_status')) {
         return json(200, [{ version: 5, replayed: false, claim_offering: 'NOT_OFFERED', claim_bed_count: null, claim_accepting: false, public_gated_by: null }]);
       }
@@ -423,7 +426,7 @@ describe('the ward asks for a new sign-in link, and cannot learn whether an addr
 
 /**
  * BP-8 (R-2026-09-24-88): a session with NO ward is a stop, never an empty handover.
- * Rendered against packages/fixtures/platform-admin-my-facility-wards.json, the body
+ * Rendered against packages/fixtures/platform-admin-my-reporting-wards.json, the body
  * tests/db/platform_admin_session_live.test.ts asserts a real PLATFORM_ADMIN session
  * gets. Until PR 3.4b-app A the console drew "Handover", "Signed in as …" and an empty
  * list for it: a sign-in that looked as if it worked.

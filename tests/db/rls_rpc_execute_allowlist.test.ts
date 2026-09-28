@@ -79,19 +79,22 @@ describe('RPC execute allowlist', () => {
       from pg_proc p
       join pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'public' and p.proname in (
-        'my_facility_wards', 'ward_status_history', 'publish_ward_status',
+        'my_reporting_wards', 'ward_status_history', 'publish_ward_status',
         'operator_create_facility', 'operator_edit_facility', 'operator_set_facility_listed',
         'operator_add_category', 'operator_register',
-        'operator_record_contact', 'operator_record_agreement', 'operator_get_contact'
+        'operator_record_contact', 'operator_record_agreement', 'operator_get_contact',
+        'operator_record_registration'
       )
       order by 1
     `;
 
     // Three since 014 (the two capped reads and the write path), five operator
     // functions since 020, and 021's three more, with 020's list restated as
-    // operator_register. That NOTHING ELSE is authenticated-executable is
+    // operator_register. 026 adds operator_record_registration, and renames
+    // my_facility_wards to my_reporting_wards (R-2026-09-27-144 DT k; -145 DU-1).
+    // That NOTHING ELSE is authenticated-executable is
     // tests/db/authenticated_executable_closed_list.test.ts, by identity.
-    expect(rows.length, 'one of the eleven authenticated RPCs is missing').toBe(11);
+    expect(rows.length, 'one of the twelve authenticated RPCs is missing').toBe(12);
     for (const row of rows) {
       expect(row.authed, `${row.signature} is not callable by authenticated`).toBe(true);
       expect(row.anon, `${row.signature} is callable by anon`).toBe(false);

@@ -554,16 +554,27 @@ describe('every refusal has a sentence, and every sentence a refusal', () => {
     return [...out].sort();
   }
 
-  /** Every CHECK constraint the migrations declare on the three tables the operator writes. */
-  function checkNames(): string[] {
+  /**
+   * Every CHECK constraint the migrations declare on the three tables the operator
+   * writes. Each file is read IN STATEMENT ORDER: a DROP removes a name and a later ADD
+   * puts it back. Until R-2026-09-27-144 every ADD in a file was applied before every
+   * DROP, so the drop-then-add idiom (DROP CONSTRAINT IF EXISTS x; ADD CONSTRAINT x) --
+   * 026's, for its two new CHECKs -- dropped the file's own new constraints from the
+   * corpus, and this leg stayed green while tests/db/admin_calls_live.test.ts, over the
+   * live catalogue, went red. The plant below holds the order.
+   */
+  function checkNamesIn(sources: readonly string[]): string[] {
     const out = new Set<string>();
-    for (const f of FORWARD) {
-      const src = readFileSync(join(MIG, f), 'utf8');
-      for (const m of src.matchAll(/CONSTRAINT\s+((?:facility|facility_contact|facility_agreement)_[a-z0-9_]+)\s+CHECK/g)) out.add(m[1] as string);
-      for (const m of src.matchAll(/DROP CONSTRAINT (?:IF EXISTS )?((?:facility|facility_contact|facility_agreement)_[a-z0-9_]+)/g)) out.delete(m[1] as string);
+    const re = /(DROP CONSTRAINT (?:IF EXISTS )?|CONSTRAINT\s+)((?:facility|facility_contact|facility_agreement)_[a-z0-9_]+)(\s+CHECK)?/g;
+    for (const src of sources) {
+      for (const m of src.matchAll(re)) {
+        if ((m[1] as string).startsWith('DROP')) out.delete(m[2] as string);
+        else if (m[3] !== undefined) out.add(m[2] as string);
+      }
     }
     return [...out].sort();
   }
+  const checkNames = (): string[] => checkNamesIn(FORWARD.map((f) => readFileSync(join(MIG, f), 'utf8')));
 
   function coverage(raised: string[], table: string[]): string[] {
     const out: string[] = [];
@@ -583,6 +594,16 @@ describe('every refusal has a sentence, and every sentence a refusal', () => {
     const names = checkNames();
     expect(names.length, 'no constraints parsed').toBeGreaterThan(5);
     expect(coverage(names, Object.keys(ADMIN_LABELS.constraints).sort())).toEqual([]);
+  });
+
+  test('plant — a CHECK dropped and added again in one file is still in the corpus, and one dropped for good is not', () => {
+    expect(checkNamesIn([
+      'ALTER TABLE app.facility DROP CONSTRAINT IF EXISTS facility_planted_form;\nALTER TABLE app.facility ADD CONSTRAINT facility_planted_form\n    CHECK (true);\n',
+    ])).toEqual(['facility_planted_form']);
+    expect(checkNamesIn([
+      'ALTER TABLE app.facility ADD CONSTRAINT facility_planted_form CHECK (true);\n',
+      'ALTER TABLE app.facility DROP CONSTRAINT IF EXISTS facility_planted_form;\n',
+    ])).toEqual([]);
   });
 
   test('plant — a new RAISE with no sentence, and a sentence nothing raises, are both caught', () => {

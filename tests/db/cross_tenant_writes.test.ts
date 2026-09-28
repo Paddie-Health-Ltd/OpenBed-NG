@@ -73,7 +73,7 @@ describe('cross-tenant isolation', () => {
     // everything would satisfy every negative case in this file.
     const rows = await withRole(
       'authenticated', CLAIMS_A,
-      async (tx) => tx.unsafe<{ category: string }[]>(`select category::text as category from public.my_facility_wards()`),
+      async (tx) => tx.unsafe<{ category: string }[]>(`select category::text as category from public.my_reporting_wards()`),
       seedTwoFacilities,
     );
     expect(rows.map((r) => r.category)).toEqual(['ICU_ADULT']);

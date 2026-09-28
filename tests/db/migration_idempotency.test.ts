@@ -115,6 +115,16 @@ describe('migration idempotency', () => {
 
     const after = await digest();
     expect(after, 're-applying the migrations changed the schema or the data').toBe(before);
+
+    // R-2026-09-27-145 DU-1, DU-5: 026 RENAMED my_facility_wards to my_reporting_wards,
+    // as 021 renamed its list, because 011 is frozen and re-applies above. That re-apply
+    // recreates my_facility_wards() WITH ITS GRANT; 026's re-apply must drop it again.
+    // Asserted by name, not only through the digest: a resurrected function holding a
+    // live grant is the one outcome the rename must not leave.
+    const [fn] = await sql()<{ old: string | null; renamed: string | null }[]>`
+      select to_regprocedure('public.my_facility_wards()')::text as old,
+             to_regprocedure('public.my_reporting_wards()')::text as renamed`;
+    expect(fn, 'after the re-apply, my_facility_wards() is back or my_reporting_wards() is gone').toEqual({ old: null, renamed: 'my_reporting_wards()' });
   });
 
   test('plant — a migration that ERRORS on re-apply is caught', () => {

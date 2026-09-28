@@ -95,7 +95,7 @@ const PUBLISHED = [{ version: 5, replayed: false, claim_offering: 'OFFERED', cla
 /** A console showing one ward, whose publish answers `publish` (default: success). */
 async function oneWard(row: Record<string, unknown> = GOOD_ROW, publish: Route = () => json(200, PUBLISHED)) {
   const stub = await renderAt(sessionFragment(), (url, init) => {
-    if (url.endsWith('/rest/v1/rpc/my_facility_wards')) return json(200, [row]);
+    if (url.endsWith('/rest/v1/rpc/my_reporting_wards')) return json(200, [row]);
     if (url.endsWith('/rest/v1/rpc/publish_ward_status')) return publish(url, init);
     return json(500, { message: 'unexpected call' });
   });
@@ -230,13 +230,13 @@ describe('the words are unchanged, and every refusal is a Notice', () => {
 
   test('a handover-load refusal and a refused row render their sentences exactly, as Notices', async () => {
     const m = await import('../../apps/ward-console/src/main.js');
-    await renderAt(sessionFragment(), (url) => (url.endsWith('my_facility_wards') ? json(403, { code: '42501', message: 'NOT_A_MEMBER' }) : json(500, {})));
+    await renderAt(sessionFragment(), (url) => (url.endsWith('my_reporting_wards') ? json(403, { code: '42501', message: 'NOT_A_MEMBER' }) : json(500, {})));
     await until(() => (document.body.textContent ?? '').includes('Could not load'));
     const p = document.querySelector('#app > p') as HTMLParagraphElement;
     expect(p.textContent).toBe(m.WARD_MESSAGES['NOT_A_MEMBER']);
     expect(p.className).toBe('notice notice-caution');
 
-    await renderAt(sessionFragment(), (url) => (url.endsWith('my_facility_wards') ? json(200, [{ ...GOOD_ROW, version: 0 }]) : json(500, {})));
+    await renderAt(sessionFragment(), (url) => (url.endsWith('my_reporting_wards') ? json(200, [{ ...GOOD_ROW, version: 0 }]) : json(500, {})));
     await until(() => document.querySelector('p.refused') !== null);
     const refused = document.querySelector('li > p.refused') as HTMLParagraphElement;
     expect(refused.textContent).toBe(`Maternity: ${m.ROW_REFUSED}`);
@@ -251,7 +251,7 @@ describe('the words are unchanged, and every refusal is a Notice', () => {
       { ...GOOD_ROW, category: 'SURGICAL', accepting: false, gated_by: 'NO_ANAESTHETIST_ON_DUTY', source: 'ADMIN', state: 'UNDER_REVIEW' },
       { ...GOOD_ROW, category: 'THEATRE', bed_count: null, monitoring_state: 'PENDING' },
     ];
-    await renderAt(sessionFragment(), (url) => (url.endsWith('my_facility_wards') ? json(200, rows) : json(500, {})));
+    await renderAt(sessionFragment(), (url) => (url.endsWith('my_reporting_wards') ? json(200, rows) : json(500, {})));
     await until(() => document.querySelectorAll('li.ward').length === rows.length);
     const shown = Array.from(document.querySelectorAll('ul.wards > li.ward > p.summary')).map((p) => p.textContent);
     expect(shown).toEqual(rows.map((r) => m.summaryLine(m.wardRowFrom(r) as Parameters<typeof m.summaryLine>[0])));
@@ -375,7 +375,7 @@ const result = (version: number, replayed = false) => [{ version, replayed, clai
 /** The console with `rows`, whose publishes answer from `publish`. Returns the fetch stub. */
 async function wards(rows: Record<string, unknown>[], publish: Route) {
   const stub = await renderAt(sessionFragment(), (url, init) => {
-    if (url.endsWith('/rest/v1/rpc/my_facility_wards')) return json(200, rows);
+    if (url.endsWith('/rest/v1/rpc/my_reporting_wards')) return json(200, rows);
     if (url.endsWith('/rest/v1/rpc/publish_ward_status')) return publish(url, init);
     return json(500, { message: 'unexpected call' });
   });
@@ -513,13 +513,13 @@ describe('DI-2 — every outcome is a Notice in the design system\'s tone, and e
     rows.push({ what: 'session ended at publish', el: await publishOutcome(() => json(401, { message: 'JWT expired' })), text: 'Your session has ended. Tap the link on the ward handset again to sign back in.', tone: 'caution' });
     rows.push({ what: 'sign-in answered', el: await signIn(() => json(200, {})), text: m.SIGNIN_ANSWERED, tone: 'info' });
     rows.push({ what: 'sign-in unreachable', el: await signIn(() => { throw new TypeError('down'); }), text: m.SIGNIN_UNREACHABLE, tone: 'caution' });
-    await renderAt(sessionFragment(), (url) => (url.endsWith('my_facility_wards') ? json(403, { code: '42501', message: 'NOT_A_MEMBER' }) : json(500, {})));
+    await renderAt(sessionFragment(), (url) => (url.endsWith('my_reporting_wards') ? json(403, { code: '42501', message: 'NOT_A_MEMBER' }) : json(500, {})));
     await until(() => document.querySelector('#app > p') !== null);
     rows.push({ what: 'handover load refused', el: document.querySelector('#app > p'), text: m.WARD_MESSAGES['NOT_A_MEMBER'] as string, tone: 'caution' });
-    await renderAt(sessionFragment(), (url) => (url.endsWith('my_facility_wards') ? json(200, []) : json(500, {})));
+    await renderAt(sessionFragment(), (url) => (url.endsWith('my_reporting_wards') ? json(200, []) : json(500, {})));
     await until(() => document.querySelector('#app > p') !== null);
     rows.push({ what: 'no ward', el: document.querySelector('#app > p'), text: m.NO_WARD_SESSION, tone: 'caution' });
-    await renderAt(sessionFragment(), (url) => (url.endsWith('my_facility_wards') ? json(200, [{ ...GOOD_ROW, version: 0 }]) : json(500, {})));
+    await renderAt(sessionFragment(), (url) => (url.endsWith('my_reporting_wards') ? json(200, [{ ...GOOD_ROW, version: 0 }]) : json(500, {})));
     await until(() => document.querySelector('p.refused') !== null);
     rows.push({ what: 'a refused row', el: document.querySelector('p.refused'), text: `Maternity: ${m.ROW_REFUSED}`, tone: 'caution' });
     await renderAt('#error=access_denied&error_code=otp_expired', () => json(500, {}));

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { sql } from '../setup/db.js';
+import { sql, withRole } from '../setup/db.js';
+import type { TransactionSql } from 'postgres';
 import PUBLIC_RELATIONS from '../../packages/fixtures/public-relations.json';
 import FORBIDDEN from '../../packages/fixtures/forbidden-columns.json';
 
@@ -71,7 +72,20 @@ const FORBIDDEN_COLUMNS_THAT_MUST_EXIST = [
   'admin_note',
   'ward_reply',
   'token_hash',
+  // 026 (R-2026-09-27-144 DT k): app.facility's HEFAMAA registration number.
+  'hefamaa_reg_no',
 ] as const;
+
+/** Every forbidden column on a relation the snapshot is built from, as schema.table.column. */
+async function leakedColumns(q: ReturnType<typeof sql> | TransactionSql): Promise<string[]> {
+  const rows = await q.unsafe<{ table_schema: string; table_name: string; column_name: string }[]>(`
+    select c.table_schema, c.table_name, c.column_name
+      from information_schema.columns c
+     where (c.table_schema || '.' || c.table_name) = any($1)
+       and c.column_name = any($2)
+     order by 1, 2, 3`, [GENERATOR_SOURCE_RELATIONS, [...FORBIDDEN_COLUMNS]] as never[]);
+  return rows.map((r) => `${r.table_schema}.${r.table_name}.${r.column_name}`);
+}
 
 /**
  * THE FROZEN COLUMN LIST for public.ward_public — IMPORTED, NOT RESTATED.
@@ -273,15 +287,19 @@ describe('anon column containment', () => {
     // and pinned by the identity assertion there. The hazard is unchanged: a
     // forbidden column on one of these reaches the snapshot, and the snapshot
     // reaches every visitor.
-    const rows = await sql()<{ table_schema: string; table_name: string; column_name: string }[]>`
-      select c.table_schema, c.table_name, c.column_name
-        from information_schema.columns c
-       where (c.table_schema || '.' || c.table_name) = any(${GENERATOR_SOURCE_RELATIONS})
-         and c.column_name = any(${[...FORBIDDEN_COLUMNS]})
-    `;
-
-    const leaks = rows.map((r) => `${r.table_schema}.${r.table_name}.${r.column_name}`);
+    const leaks = await leakedColumns(sql());
     expect(leaks, 'private columns are present on a relation the snapshot is built from').toEqual([]);
+  });
+
+  // 026 (R-2026-09-27-144 DT k): the HEFAMAA registration number is operator-only and
+  // never public. The containment leg above is the guard; this plant shows it would
+  // see the column arrive on a mirror, which is the change that would publish it.
+  test('plant — hefamaa_reg_no added to public.facility_public is reported as a leak', async () => {
+    const leaks = await withRole('postgres', null, async (tx) => {
+      await tx.unsafe('alter table public.facility_public add column hefamaa_reg_no text');
+      return leakedColumns(tx);
+    });
+    expect(leaks).toContain('public.facility_public.hefamaa_reg_no');
   });
 
   test('ward_public column list regression — the frozen list is unchanged', async () => {
@@ -326,6 +344,14 @@ describe('anon column containment', () => {
         .toBeGreaterThan(0);
     },
   );
+
+  test('hefamaa_reg_no exists in app but has never been projected to public (026, DT k)', async () => {
+    const [pub] = await sql()<{ n: number }[]>`
+      select count(*)::int as n from information_schema.columns
+       where table_schema = 'public' and column_name = 'hefamaa_reg_no'
+    `;
+    expect(pub?.n, 'hefamaa_reg_no has appeared in the public schema').toBe(0);
+  });
 
   test('reason_code exists in app but has never been projected to public', async () => {
     const [pub] = await sql()<{ n: number }[]>`

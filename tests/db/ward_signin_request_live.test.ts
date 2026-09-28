@@ -114,7 +114,7 @@ describe('a ward requests a new sign-in link — local stack, end to end', () =>
     expect(session?.claims.sub).toBe(userId);
 
     const holder = new SessionHolder({ apiUrl: apiUrl(), anonKey: anonKey(), session: session as NonNullable<typeof session> });
-    const res = await holder.authedFetch('rpc/my_facility_wards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const res = await holder.authedFetch('rpc/my_reporting_wards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     expect(res.status, `the handover did not load: ${await res.clone().text()}`).toBe(200);
     const rows = (await res.json()) as { category: string }[];
     expect(rows.map((r) => r.category), "the handover does not list this ward's own category").toContain(CATEGORY);

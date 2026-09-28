@@ -152,7 +152,7 @@ describe('refresh against live GoTrue', () => {
     // from no session at all; it only ruled out a MALFORMED token, which
     // PostgREST refuses with 401.
     //
-    // public.my_facility_wards() has EXECUTE granted to `authenticated` and
+    // public.my_reporting_wards() has EXECUTE granted to `authenticated` and
     // revoked from `anon` BY NAME (011), and it resolves the caller from
     // auth.uid(). So the signal below is reachable only by a request that
     // actually authenticated.
@@ -167,7 +167,7 @@ describe('refresh against live GoTrue', () => {
     // assertion.
     const session = await ward();
     const holder = realHolder(session);
-    const res = await holder.authedFetch('rpc/my_facility_wards', {
+    const res = await holder.authedFetch('rpc/my_reporting_wards', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: '{}',
@@ -273,7 +273,7 @@ describe('session bounds — access follows physical control of the handset', ()
     // only once auth.uid() has resolved from the token, so it is the signal that
     // the token was still honoured; a token GoTrue had stopped accepting would
     // come back 401 from PostgREST, before any function body ran.
-    const res = await fetch(`${apiUrl()}/rest/v1/rpc/my_facility_wards`, {
+    const res = await fetch(`${apiUrl()}/rest/v1/rpc/my_reporting_wards`, {
       method: 'POST',
       headers: {
         apikey: anonKey(),

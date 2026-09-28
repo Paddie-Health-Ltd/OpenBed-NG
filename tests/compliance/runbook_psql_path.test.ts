@@ -74,8 +74,13 @@ const RUNBOOKS = [
  * and the jobs after it -- each carrying step P's PATH line.
  * 35 -> 36 on 2026-09-27 (R-2026-09-27-137 DM-2 d): 12.5 step 5 reads the retention
  * jobs' runs on the 31st day after a withdrawal through psql, carrying step P's PATH line.
+ * 36 -> 38 on 2026-09-27 (R-2026-09-27-144 DT l): "025 and 026's apply" adds two blocks
+ * that call psql -- fence A, the two pre-check counts and the label count before the
+ * apply, and fence B, the label, the trigger and the rename after it -- each carrying
+ * step P's PATH line. 12.4 step 5's new precondition block (R-2026-09-27-145 DU-4 b)
+ * does not call psql.
  */
-const GOVERNED_TODAY = 36;
+const GOVERNED_TODAY = 38;
 
 export interface Fence {
   /** Which runbook it came from. */

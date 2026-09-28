@@ -2,7 +2,8 @@
 # ============================================================
 # scripts/readback_worker.sh
 # ============================================================
-# THE api.openbed.ng WORKER'S READ-BACK: probes 1 to 3 and the stamp of
+# THE api.openbed.ng WORKER'S READ-BACK: probes 1 to 3 (with 1b, the HEFAMAA write's
+# path, R-2026-09-27-144 DT k) and the stamp of
 # docs/runbook-cloudflare-worker-proxy.md (R-2026-09-23-70). Probe 4, the deployed
 # source equalling the repository's, is read by Cowork through the Cloudflare
 # connector, and nothing here can stand in for it. Why these are a script and not
@@ -51,10 +52,17 @@ if [ "$fst" -ne 0 ] || [ -z "$REF" ]; then
 fi
 
 echo "=== probe 1: no key -- forwarded, and refused by Supabase's gateway ==="
-api_probe POST /rest/v1/rpc/my_facility_wards -H 'Content-Type: application/json' -d '{}'
+api_probe POST /rest/v1/rpc/my_reporting_wards -H 'Content-Type: application/json' -d '{}'
 rb_expect "probe 1 status" "$RB_CODE" 401
 rb_expect "probe 1 sb-project-ref" "$(rb_header sb-project-ref)" "$REF"
 rb_expect "probe 1 x-openbed-proxy" "$(rb_header x-openbed-proxy)" "forwarded"
+
+echo
+echo "=== probe 1b: the HEFAMAA write, no key -- forwarded, and refused by Supabase's gateway (R-2026-09-27-144 DT k) ==="
+api_probe POST /rest/v1/rpc/operator_record_registration -H 'Content-Type: application/json' -d '{}'
+rb_expect "probe 1b status" "$RB_CODE" 401
+rb_expect "probe 1b sb-project-ref" "$(rb_header sb-project-ref)" "$REF"
+rb_expect "probe 1b x-openbed-proxy" "$(rb_header x-openbed-proxy)" "forwarded"
 
 echo
 echo "=== probe 2: the tracked key -- forwarded, and accepted ==="
