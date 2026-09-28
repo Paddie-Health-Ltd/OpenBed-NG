@@ -25,6 +25,13 @@
 # through. Naming this is the honest boundary of the guard; a reader who assumed
 # condition (1) covered it would be wrong.
 #
+# AN UNREADABLE MIGRATION is caught by the audit_log BLOCK READ, the awk step
+# that looks for the CREATE TABLE, because it reads every forward migration
+# first: "the audit_log block read exited". Leg 3's own read further down is
+# SHADOWED by it -- by the time Leg 3 runs, every file it reads has already been
+# read -- so that leg is registered as could-not-run rather than planted
+# (R-2026-09-28-163).
+#
 # CLASSIFICATION (Clause 5): GUARD-AHEAD-OF-SUBJECT. The guard executes and is
 # non-vacuous over the real migrations today, but the audit WRITER it ultimately
 # protects arrives in Bundle 3. Reclassify to LIVE as part of that bundle, not as
@@ -95,11 +102,21 @@ while IFS= read -r _line; do FILES+=("$_line"); done < <(find "$MIG_DIR" -maxdep
 ACTUAL=""
 BLOCKS=0
 for f in "${FILES[@]}"; do
+    # THIS STEP IS WHAT CATCHES AN UNREADABLE MIGRATION (R-2026-09-28-163). It
+    # reads every forward migration before Leg 3 does. Until then it was a bare
+    # assignment under set -e: an unreadable file stopped the run with exit 2, and
+    # the only words on screen were awk's own. Its status is now captured, and
+    # the refusal is the script's.
+    st=0
     block=$(awk '
         /CREATE TABLE (IF NOT EXISTS )?app\.audit_log[[:space:]]*\(/ { inblk=1; next }
         inblk && /^\);/ { inblk=0; next }
         inblk { print }
-    ' "$f")
+    ' "$f") || st=$?
+    case "$st" in
+        0) ;;
+        *) echo "ERROR: the audit_log block read exited $st on $f" >&2; exit 2 ;;
+    esac
     [ -z "$block" ] && continue
     BLOCKS=$((BLOCKS+1))
     ACTUAL=$(printf '%s\n' "$block" \
@@ -168,11 +185,21 @@ done
 # --- Leg 3: no later migration may ALTER a column in ---
 for f in "${FILES[@]}"; do
     # `|| true` collapsed grep's exit 2 (could not run) into its 1 (no match),
-    # so a file this could not read reported clean. pipefail makes $st the first
-    # failure in the pipeline; only 0 and 1 are verdicts.
+    # so a file this could not read reported clean; only 0 and 1 are verdicts.
+    #
+    # THE READ IS ITS OWN STEP (R-2026-09-28-163). This was `sed ... "$f" | grep`,
+    # under a comment saying pipefail makes the status the FIRST failure. It is
+    # the LAST non-zero one, so grep's 1 would hide a sed that could not read.
+    # This read is SHADOWED: the block read above has already read every file
+    # this loop reads, and refuses an unreadable one first. It stays, so the leg
+    # is correct on its own if that step ever changes.
     st=0
-    out=$(sed -e "s/'[^']*'//g" -e 's/--.*//' "$f" \
-          | grep -nEi 'ALTER TABLE[[:space:]]+(IF EXISTS[[:space:]]+)?app\.audit_log.*ADD[[:space:]]+COLUMN') || st=$?
+    text=$(sed -e "s/'[^']*'//g" -e 's/--.*//' "$f") || st=$?
+    case "$st" in
+        0) ;;
+        *) echo "ERROR: the ALTER-TABLE read exited $st on $f -- the file was not scanned" >&2; exit 2 ;;
+    esac
+    out=$(printf '%s\n' "$text" | grep -nEi 'ALTER TABLE[[:space:]]+(IF EXISTS[[:space:]]+)?app\.audit_log.*ADD[[:space:]]+COLUMN') || st=$?
     case "$st" in
         0|1) ;;
         *) echo "ERROR: the ALTER-TABLE scan exited $st on $f -- it did not run" >&2; exit 2 ;;

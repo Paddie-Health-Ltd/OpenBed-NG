@@ -107,6 +107,7 @@ run "bundle: from-allowlist" bash scripts/lint_from_allowlist.sh
 run "bundle: fonts"      bash scripts/lint_no_third_party_fonts.sh
 run "grep exit codes"    bash scripts/lint_grep_exit_codes.sh
 run "audit-log columns"  bash scripts/lint_audit_log_columns.sh
+run "sql in prose"       bash scripts/lint_sql_quoted_in_prose.sh
 if [ "$FAST" -eq 0 ]; then
     run "golden path + ratchet" npm run test:e2e
 fi

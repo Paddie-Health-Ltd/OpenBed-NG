@@ -107,6 +107,77 @@ describe('lint_grep_exit_codes', () => {
     });
   });
 
+  /**
+   * THE PIPELINE ARM (R-2026-09-28-163, EM-3 a). `|| st=$?` is the prescribed
+   * capture, and it is correct only when grep reads the input itself. Under
+   * pipefail a pipeline's status is its LAST non-zero one, so in
+   * `sed ... "$f" | grep` a sed that could not read the file is hidden behind
+   * grep's 1, and an unreadable file reads clean.
+   *
+   * MAIN'S THREE SIBLING FORMS, as they stood at 3bac730, embedded here rather
+   * than read from main: CI checks out at depth 1, and main changes on merge.
+   *   lint_no_replica_identity_full.sh:44-45
+   *   lint_audit_log_columns.sh:174-175
+   *   lint_no_updated_at_filter.sh:52-54
+   */
+  const SIBLINGS: [string, string, string][] = [
+    ['lint_no_replica_identity_full.sh', '3bac730 replica:44-45', String.raw`    out=$(sed -e "s/'[^']*'//g" -e 's/--.*//' "$f" \
+          | grep -nEi 'REPLICA[[:space:]]+IDENTITY[[:space:]]+FULL') || st=$?`],
+    ['lint_audit_log_columns.sh', '3bac730 audit:174-175', String.raw`    out=$(sed -e "s/'[^']*'//g" -e 's/--.*//' "$f" \
+          | grep -nEi 'ALTER TABLE[[:space:]]+(IF EXISTS[[:space:]]+)?app\.audit_log.*ADD[[:space:]]+COLUMN') || st=$?`],
+    ['lint_no_updated_at_filter.sh', '3bac730 updated_at:52-54', String.raw`    out=$(grep -nE "updated_at|updatedAt" "$f" \
+          | grep -Ei '\.(filter|lt|gt|gte|lte|neq|eq)\(|where|WHERE' \
+          | grep -v 'OPENBED-FRESHNESS-ORDER-ONLY') || st=$?`],
+  ];
+  const PIPE_ARM = "captures a piped grep's status";
+
+  test.each(SIBLINGS)('shape — the %s literal (%s) is the joined, "$f"-reading, status-capturing form', (_script, _where, literal) => {
+    const lines = literal.split('\n');
+    expect(lines.length === 2 || lines.length === 3, `the literal spans ${lines.length} physical lines`).toBe(true);
+    for (const l of lines.slice(0, -1)) expect(l.endsWith(' \\'), `not joined by a trailing backslash: ${l}`).toBe(true);
+    expect(lines[0], 'the first stage does not read "$f"').toContain('"$f"');
+    expect((lines.at(-1) as string).endsWith('|| st=$?'), 'the literal does not end in || st=$?').toBe(true);
+  });
+
+  test.each(SIBLINGS)('the live %s no longer holds its %s form', (script, _where, literal) => {
+    const live = readFileSync(join(REPO_ROOT, 'scripts', script), 'utf8');
+    expect(live, `${script} still holds the piped read`).not.toContain(literal.split('\n')[0] as string);
+  });
+
+  test.each([
+    ...SIBLINGS.map(([script, where, literal]) => [`main's ${script} form (${where})`, literal] as [string, string]),
+    ['a TRAILING pipe, which only the join makes visible', `out=$(sed -e 's/x//' "$f" | \\\ngrep -n y) || st=$?`],
+    ['a one-line sed | grep', `out=$(sed -e 's/x//' "$f" | grep -n y) || st=$?`],
+    ['cat "$f" | grep', `out=$(cat "$f" | grep -n y) || st=$?`],
+    ['grep "$f" | grep -v', `out=$(grep -n y "$f" | grep -v z) || st=$?`],
+    ['printf | sed | grep, a non-grep middle stage', `out=$(printf '%s\\n' "$t" | sed -e 's/x//' | grep -n y) || st=$?`],
+  ])('plant — %s is rejected by the pipeline arm, at its first line', (_name, snippet) => {
+    withScratch((root) => {
+      copyScripts(root);
+      place(root, 'scripts/lint_planted.sh', `#!/usr/bin/env bash\nset -euo pipefail\n${snippet}\n`);
+      expect(readFileSync(join(root, 'scripts/lint_planted.sh'), 'utf8'), 'the plant did not land').toContain(snippet);
+      const res = runLint(LINT, root);
+      expect(res.status, `plant was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout, `the pipeline arm did not fire:\n${res.stdout}`).toContain(PIPE_ARM);
+      expect(res.stdout, `the plant was not reported at its first physical line:\n${res.stdout}`).toContain('lint_planted.sh:3:');
+    });
+  });
+
+  test.each([
+    ['the fixed duty-flag scan', `    out=$(printf '%s\\n' "$text" | grep -nEi "$pattern") || st=$?`],
+    ['printf | grep, with a quoted | in the pattern', `filtered=$(printf '%s\\n' "$out" | grep -vE 'x|y') || fst=$?`],
+    ['a two-line printf \\ / | grep, accepted only because the lines join', `out=$(printf '%s\\n' "$t" \\\n      | grep -n x) || st=$?`],
+    ['a single-stage grep that reads the file itself', `out=$(grep -nE "x" "$f") || st=$?`],
+    ['a TWO-line commented copy of a wrong form', `# out=$(sed -e 's/x//' "$f" \\\n#       | grep -n y) || st=$?\ntrue`],
+  ])('positive control — %s is accepted', (_name, snippet) => {
+    withScratch((root) => {
+      copyScripts(root);
+      place(root, 'scripts/lint_planted.sh', `#!/usr/bin/env bash\nset -euo pipefail\n${snippet}\n`);
+      const res = runLint(LINT, root);
+      expect(res.status, `a correct form was rejected:\n${res.stdout}`).toBe(0);
+    });
+  });
+
   test('the guard skips itself, so it must invoke no grep at all', () => {
     // The compensating control for that skip, named in the script's own header.
     // It is pure bash `case` matching: no fork, no pipe, and therefore no third
