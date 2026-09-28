@@ -41,6 +41,7 @@ import {
   getContactBody,
   recordAgreementBody,
   recordContactBody,
+  recordRegistrationBody,
   registerBody,
   setListedBody,
 } from '../../apps/admin/src/bodies.js';
@@ -394,6 +395,19 @@ describe('golden path — release gate 2', () => {
     expect((row['categories'] as { category: string }[]).map((c) => c.category).sort()).toEqual([...GAMMA_CATEGORIES].sort());
     expect(row['listed_at'], 'GAMMA must stay unlisted, so nothing public changes').toBeNull();
     expect(row['reporting_model'], 'GAMMA has a reporting login before one was provisioned').toBe('NONE');
+  });
+
+  test(name('operator-records-hefamaa'), async () => {
+    // The admin app's Registration section's call, through its own body builder
+    // (R-2026-09-27-144 DT Bundle 3's definition of done). GAMMA is unlisted, and the
+    // number is operator-only: it is read back from the operator's register and nowhere else.
+    const before = await gammaInRegister();
+    const version = before['version'] as number;
+    const r = await operatorCall(RPC.recordRegistration, recordRegistrationBody(GAMMA.id, version, `HEF/E2E/${RUN}`));
+    expect(r.status, `operator_record_registration failed: ${JSON.stringify(r.body)}`).toBe(200);
+    const after = await gammaInRegister();
+    expect(after['hefamaa_reg_no'], 'the HEFAMAA number did not read back in the register').toBe(`HEF/E2E/${RUN}`);
+    expect(after['version'], 'the registration did not bump the facility version').toBe(version + 1);
   });
 
   test(name('operator-provisions-reporter'), async () => {

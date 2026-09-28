@@ -6994,6 +6994,37 @@ _Issued as R-PROVISIONAL-2026-09-27-DT, by Cowork (sprint-push) on 2026-09-27: t
 
 Nothing hosted. Next letter: **DU**.
 
+**LANDED IN BUNDLE 3'S PULL REQUEST** (2026-09-28, admin; beside Bundle 2's, from main):
+- **The reporting model.** The register card and the detail view's Wards section each show it: "One login for the whole facility", "One login per ward" or "No reporting login yet", from 026's `reporting_model`. Under a facility login each ward line reads "Reported by the facility login" in place of its own login state.
+  - The parser reads `reporting_model`, `reporter_login` and `hefamaa_reg_no` as it reads 023's keys. Absent or malformed, the row is unreadable, never defaulted.
+- **The HEFAMAA number:** the detail view's new Registration section.
+  - Label "HEFAMAA registration number (optional)"; saved Notice "Registration saved."; refusal "Enter the registration number as it appears on the certificate, up to 64 characters, or leave it empty.", with focus on the field.
+  - Sent by `operator_record_registration` with the facility's version. The form keeps the row it was filled from while it holds unsent input (DO-4 d).
+  - An emptied field sends null, which clears the number.
+  - The golden path records one (`operator-records-hefamaa`), and `tests/db/admin_calls_live.test.ts` round-trips the page's own body.
+  - Neither the public dashboard's source, the ward console's nor the snapshot package's names it (a test reads all three).
+- **The contact email refusal** (DV-3): `INVALID_ARGUMENT:p_email` and `facility_contact_email_form` render the page's existing sentence. The three sentences Bundle 1 pulled forward are rendered, not added again.
+- **The retention alert:** a caution Notice at the top of the register, one per job, "A data-retention job did not complete: <job>, <Lagos time>. Follow the Supabase runbook, 12.5 step 5.", fed by `retention_alert` alone. A `retention_alert` that cannot be read makes the register unreadable, never "nothing failed".
+- **DP-5 b's six edges; its row leaves the register in this pull request:**
+  - (1) the register-unreachable screen's Reload;
+  - (2) Sign out on both stop screens, back to the sign-in;
+  - (3) the Agreement section's sentence when the contact is unreadable;
+  - (4) "The contact could not be read. Reload the page." after a failed contact read;
+  - (5) "Listed 27 Sept, 12:49 (Lagos time)";
+  - (6) `autocomplete="off"` on every facility, contact, agreement and registration field.
+  - **Recounted from this pull request's table: 58 → 57** (15 BOX, 31 TRIGGER, 11 VERSION). DO-3's row leaves in Bundle 2's pull request, so whichever of the two merges second restates the count against the merged table.
+- **Screenshots in .design-screens/DT-3/**, twelve states at 360x740, 360xfull, 960x800 and 1280x900. All are aligned, with no horizontal overflow.
+
+**PREMISE CORRECTIONS AND CHOICES** (method notes 4 and 20):
+1. **"refusal on blank or over 64 characters".** Empty is allowed: DT's own sentence says "or leave it empty", and null clears the number. The page refuses what the column refuses (026's `facility_hefamaa_reg_no_form`): only spaces, a space at either end, or over 64 characters, counted in characters as `char_length` counts them.
+2. **DP-5 b 6 names "facility, contact, agreement and registration" fields.** The register row also names admin's two selects (Ward category, Offering), so they carry `autocomplete="off"` too.
+   - jsdom leaves a select's `autocomplete` property unreflected, so the page sets the attribute, which is what a browser reads.
+3. **DP-5 b 4 "after a failed contact READ".** It covers an answer the page cannot parse and a refusal it does not recognise, both of which used to show UNRECOGNISED's "Nothing was changed". A recognised refusal keeps its own sentence, and no answer at all keeps UNREACHABLE's.
+4. **Sign out is local.** The session lived only in the page's memory, so leaving the screen leaves it. No GoTrue logout is called: that would be a path the Worker's allow-list does not forward. The access token stays valid at GoTrue until it expires.
+5. **The Worker's allow-list is not edited.** Its `operator_record_registration` entry still reads "runbook probe … until apps/admin records a facility's HEFAMAA number", and the header still names that preflight as its one exception. Both are true history now, not a present fact. The allow-list test accepts the entry, because a call site now exists.
+   - Restating either would change the file bundled into the deployed Worker. DT k landed these entries early so that this bundle needs no Worker redeploy.
+   - The restatement belongs to the next Worker redeploy, and is reported for Cowork.
+
 ### R-2026-09-27-145 — DT (f) amended: can_publish ships on a renamed read, public.my_reporting_wards()
 
 _Issued as R-PROVISIONAL-2026-09-27-DU, by Cowork on 2026-09-27, as the answer to the question Claude Code raised in Bundle 1 when 011's re-apply over 026 failed. Lands in Bundle 1's pull request, after -143 and -144. Number assigned on landing: R-2026-09-27-144 plus one. Next provisional letter: **DV**._
@@ -7472,7 +7503,6 @@ the record's own, except where CW-5 assigned one._
 | The notice's transfer sentence for Cloudflare: its SCCs are stated for European data and its Global CBPR mechanism needs the originating country to recognise it; the basis for transfers out of Nigeria is the founder's transfer pack | R-2026-09-27-138 DN-2 | BOX | Box 15 at runbook 12.4 step 1 (the paperwork register approved in full, whose transfer memo covers it), ticked by a ruling that closes it |
 | The ward console offers Publish on wards the login cannot publish for: it renders a Publish form on every row `my_reporting_wards()` returns, and `publish_ward_status` admits a ward login only for its own ward (WARD_SCOPE_DENIED). **The server half landed in R-2026-09-27-144:** `can_publish` on `my_reporting_wards()` (R-2026-09-27-145), decided per role by the server. **The console half is DT's Bundle 2's:** render the form only where `can_publish` is true, and the row leaves in Bundle 2's pull request (restated 2026-09-27, R-2026-09-27-146 DV-1; until then: "`my_facility_wards()` returns every ward at the caller's facility, and `publish_ward_status` admits only the login's own ward (WARD_SCOPE_DENIED). Its fix waits on the founder's decision on the reporting model (per-ward logins, a facility-level reporter, or both), which may re-gate the facility-admin override row (R-2026-09-24-75 BC-7)") | R-2026-09-27-139 DO-3 | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned. No reporting login exists until then (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned. No ward login exists until then") |
 | "N beds" reads "1 beds" when N is 1, in all three apps: `apps/public-dashboard/src/age-view.ts`, `apps/ward-console/src/main.ts` and `apps/admin/src/main.ts`. Fixed as one change across the three, with a guard | R-2026-09-27-140 DP-5 a | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned: the first moment a real count can be shown (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned: the first moment a real count can be shown") |
-| Admin's operator-only rough edges: the register-unreachable screen has no Reload control; the two stop screens offer no next step; the Agreement section is a bare heading when the contact is unreadable; UNRECOGNISED's "Nothing was changed" is shown after a failed READ of the contact; the nested brackets in "Listed (… (Lagos time))"; admin's inputs carry no autocomplete attribute except the sign-in email (the Chrome Issues panel on admin.openbed.ng, 2026-09-27, reported two; the source has 14 such inputs (6 facility, 5 contact, 3 agreement) and two selects; the pair that fits is New facility's `name` and `phone`, inferred); set the right token on each (R-2026-09-27-142 DR-7 b) | R-2026-09-27-140 DP-5 b | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned") |
 
 ## Method notes — how rulings reach the implementer
 

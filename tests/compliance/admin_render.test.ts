@@ -95,12 +95,16 @@ function facility(id: string, over: Record<string, unknown> = {}): Record<string
     has_contact: true,
     agreement_state: 'recorded',
     categories: [ward('MATERNITY')],
+    // 026's three keys (R-2026-09-27-144 DT i, k): the register refuses a row without them.
+    reporting_model: 'WARD',
+    reporter_login: 'none',
+    hefamaa_reg_no: null,
     ...over,
   };
 }
 
 const REGISTER = {
-  server_now: SERVER_NOW,
+  server_now: SERVER_NOW, retention_alert: [],
   facilities: [
     facility(FAC_A, {
       categories: [ward('ICU_ADULT', { updated_at: hoursAgo(13) }), ward('MATERNITY'), ward('THEATRE', { monitoring_state: 'PENDING', bed_count: null, updated_at: null, has_account: false, provisioning_incomplete: true })],
@@ -223,7 +227,7 @@ describe('the register', () => {
 
   test('a listed facility with no contact, and one whose agreement is withdrawn, each say so', async () => {
     const reg = {
-      server_now: SERVER_NOW,
+      server_now: SERVER_NOW, retention_alert: [],
       facilities: [facility(FAC_A, { has_contact: false }), facility(FAC_B, { agreement_state: 'withdrawn' })],
     };
     await renderAt(sessionFragment(), server({ operator_register: () => json(200, reg) }));
@@ -233,7 +237,7 @@ describe('the register', () => {
   });
 
   test('a row that could not be read is shown in its place, never dropped', async () => {
-    const reg = { server_now: SERVER_NOW, facilities: [facility(FAC_A, { version: 'four' }), facility(FAC_B)] };
+    const reg = { server_now: SERVER_NOW, retention_alert: [], facilities: [facility(FAC_A, { version: 'four' }), facility(FAC_B)] };
     await renderAt(sessionFragment(), server({ operator_register: () => json(200, reg) }));
     await until(() => text().includes('Facilities'));
     expect(document.querySelectorAll('li.facility')).toHaveLength(2);
@@ -435,7 +439,7 @@ describe('the edit form shows what is saved, and a phone change needs a confirm 
   test('a register row without 023’s keys is unreadable, never defaulted', async () => {
     const row = facility(FAC_A);
     delete row['public_phone_e164'];
-    await renderAt(sessionFragment(), server({ operator_register: () => json(200, { server_now: SERVER_NOW, facilities: [row] }) }));
+    await renderAt(sessionFragment(), server({ operator_register: () => json(200, { server_now: SERVER_NOW, retention_alert: [], facilities: [row] }) }));
     await until(() => text().includes('Facilities'));
     expect(text()).toContain("This facility's record could not be read.");
   });
@@ -509,6 +513,244 @@ describe('the contact is a named person’s data (BP-5)', () => {
   });
 });
 
+describe('Bundle 3: the reporting model, the HEFAMAA number, the retention alert, and DP-5 b (R-2026-09-27-144 DT)', () => {
+  const S = ADMIN_LABELS.screens;
+  const HEFAMAA_SENTENCE = ADMIN_LABELS.codes['INVALID_ARGUMENT:p_hefamaa_reg_no'];
+  const withRegister = (facilities: Record<string, unknown>[], over: Record<string, unknown> = {}) =>
+    server({ operator_register: () => json(200, { server_now: SERVER_NOW, retention_alert: [], facilities, ...over }) });
+  async function openFirst(route: Route) {
+    const stub = await renderAt(sessionFragment(), route);
+    await until(() => text().includes('Facilities'));
+    button('Open').click();
+    await until(() => document.querySelector('section.registration-detail') !== null);
+    return stub;
+  }
+
+  test.each([
+    ['FACILITY', 'One login for the whole facility'],
+    ['WARD', 'One login per ward'],
+    ['NONE', 'No reporting login yet'],
+  ])('the register shows reporting_model %s as "%s"', async (model, words) => {
+    await renderAt(sessionFragment(), withRegister([facility(FAC_A, { reporting_model: model })]));
+    await until(() => text().includes('Facilities'));
+    expect(document.querySelector('li.facility .reporting-model')?.textContent).toBe(words);
+  });
+
+  test('under a facility login every ward line reads "Reported by the facility login", never its own login state; the detail view says the same', async () => {
+    const wards = [ward('MATERNITY'), ward('THEATRE', { has_account: false, provisioning_incomplete: false })];
+    await renderAt(sessionFragment(), withRegister([facility(FAC_A, { reporting_model: 'FACILITY', reporter_login: 'active', categories: wards })]));
+    await until(() => text().includes('Facilities'));
+    const lines = Array.from(document.querySelectorAll('li.facility ul.wards li')).map((l) => l.textContent ?? '');
+    expect(lines).toHaveLength(2);
+    for (const l of lines) {
+      expect(l.endsWith(`— ${S.REPORTED_BY_FACILITY}`), `a ward line under the facility login reads: ${l}`).toBe(true);
+      expect(l).not.toContain(S.LOGIN_NONE);
+    }
+    button('Open').click();
+    await until(() => document.querySelector('section.wards-detail .reporting-model') !== null);
+    expect(document.querySelector('section.wards-detail .reporting-model')?.textContent).toBe(S.REPORTING_MODEL_FACILITY);
+    expect(Array.from(document.querySelectorAll('section.wards-detail ul.wards li')).every((l) => (l.textContent ?? '').endsWith(S.REPORTED_BY_FACILITY))).toBe(true);
+  });
+
+  test('a ward login keeps its per-ward login state', async () => {
+    await renderAt(sessionFragment(), withRegister([facility(FAC_A, { reporting_model: 'WARD' })]));
+    await until(() => text().includes('Facilities'));
+    expect(document.querySelector('li.facility ul.wards li')?.textContent).toContain(`— ${S.LOGIN_ACTIVE}`);
+    expect(text()).not.toContain(S.REPORTED_BY_FACILITY);
+  });
+
+  test.each([
+    ['no reporting_model', { reporting_model: undefined }],
+    ['a reporting_model it does not know', { reporting_model: 'BOTH' }],
+    ['a reporter_login it does not know', { reporter_login: 'maybe' }],
+    ['a hefamaa_reg_no that is a number', { hefamaa_reg_no: 42 }],
+  ])('plant — a row with %s is unreadable, never defaulted', async (_name, over) => {
+    const row = facility(FAC_A, over);
+    for (const [k, v] of Object.entries(over)) if (v === undefined) delete row[k];
+    await renderAt(sessionFragment(), withRegister([row]));
+    await until(() => text().includes('Facilities'));
+    expect(text()).toContain("This facility's record could not be read.");
+  });
+
+  test('a non-empty retention_alert is a caution Notice at the TOP of the register, one per job, in Lagos time', async () => {
+    const alert = [
+      { job: 'openbed_erase_lapsed_ward_logins', end_time: '2026-09-24T01:37:12Z' },
+      { job: 'openbed_prune_ended_auth_sessions', end_time: '2026-09-24T01:27:05Z' },
+    ];
+    await renderAt(sessionFragment(), withRegister([facility(FAC_A)], { retention_alert: alert }));
+    await until(() => text().includes('Facilities'));
+    const notes = Array.from(document.querySelectorAll('p.retention-alert'));
+    expect(notes.map((n) => n.textContent)).toEqual([
+      'A data-retention job did not complete: openbed_erase_lapsed_ward_logins, 24 Sept, 02:37 (Lagos time). Follow the Supabase runbook, 12.5 step 5.',
+      'A data-retention job did not complete: openbed_prune_ended_auth_sessions, 24 Sept, 02:27 (Lagos time). Follow the Supabase runbook, 12.5 step 5.',
+    ]);
+    for (const n of notes) expect(n.classList.contains('notice-caution')).toBe(true);
+    // At the top: straight after the heading, before the register's own controls.
+    expect(document.querySelector('#app > h1')?.nextElementSibling).toBe(notes[0]);
+  });
+
+  test('an empty retention_alert shows no alert; one that cannot be read is never read as empty', async () => {
+    await renderAt(sessionFragment(), withRegister([facility(FAC_A)]));
+    await until(() => text().includes('Facilities'));
+    expect(document.querySelector('p.retention-alert')).toBeNull();
+    for (const bad of [null, [{ job: 'x' }], 'none']) {
+      await renderAt(sessionFragment(), withRegister([facility(FAC_A)], { retention_alert: bad }));
+      await until(() => text().includes(ADMIN_LABELS.fixed.UNRECOGNISED));
+      expect(document.querySelector('ul.register'), `a retention_alert of ${JSON.stringify(bad)} was read as nothing wrong`).toBeNull();
+    }
+  });
+
+  test('the Registration section is prefilled with the saved number, and Save sends it with the FACILITY version', async () => {
+    const stub = await openFirst(withRegister([facility(FAC_A, { hefamaa_reg_no: 'HEF/LA/0042' })], {}));
+    const input = document.querySelector<HTMLInputElement>('form.record-registration [name="hefamaa_reg_no"]');
+    expect(input?.value).toBe('HEF/LA/0042');
+    expect(document.querySelector('form.record-registration label')?.firstChild?.textContent).toBe(`${S.HEFAMAA_LABEL} `);
+    setInput('record-registration', 'hefamaa_reg_no', 'HEF/LA/0043');
+    submit('record-registration');
+    await until(() => calls(stub, 'operator_record_registration').length === 1);
+    expect(calls(stub, 'operator_record_registration')[0]).toEqual({ p_facility_id: FAC_A, p_expected_version: 4, p_hefamaa_reg_no: 'HEF/LA/0043' });
+  });
+
+  test('an emptied field sends null, which clears the number, and the page says "Registration saved."', async () => {
+    const stub = await openFirst(
+      server({
+        operator_register: () => json(200, { server_now: SERVER_NOW, retention_alert: [], facilities: [facility(FAC_A, { hefamaa_reg_no: 'HEF/LA/0042' })] }),
+        operator_record_registration: () => json(200, [{ facility_id: FAC_A, version: 5 }]),
+      }),
+    );
+    setInput('record-registration', 'hefamaa_reg_no', '');
+    submit('record-registration');
+    await until(() => text().includes(S.REGISTRATION_SAVED));
+    expect(calls(stub, 'operator_record_registration')[0]?.['p_hefamaa_reg_no']).toBeNull();
+    const status = document.querySelector('#app > p.status');
+    expect(status?.textContent).toBe('Registration saved.');
+    expect(status?.classList.contains('notice-info')).toBe(true);
+  });
+
+  test.each([
+    ['only spaces', '   '],
+    ['a space before it', ' HEF/1'],
+    ['a space after it', 'HEF/1 '],
+    ['65 characters', 'H'.repeat(65)],
+  ])('%s is refused on the page, in its sentence, with focus on the field, and nothing is sent', async (_name, value) => {
+    const stub = await openFirst(withRegister([facility(FAC_A)]));
+    setInput('record-registration', 'hefamaa_reg_no', value);
+    submit('record-registration');
+    await until(() => (document.querySelector('form.record-registration p.status')?.textContent ?? '') !== '');
+    expect(document.querySelector('form.record-registration p.status')?.textContent).toBe(HEFAMAA_SENTENCE);
+    expect(document.activeElement?.getAttribute('name')).toBe('hefamaa_reg_no');
+    expect(calls(stub, 'operator_record_registration')).toHaveLength(0);
+  });
+
+  test('64 characters, and one with a space inside, are sent', async () => {
+    for (const value of ['H'.repeat(64), 'HEF LA 0042']) {
+      const stub = await openFirst(withRegister([facility(FAC_A)]));
+      setInput('record-registration', 'hefamaa_reg_no', value);
+      submit('record-registration');
+      await until(() => calls(stub, 'operator_record_registration').length === 1);
+      expect(calls(stub, 'operator_record_registration')[0]?.['p_hefamaa_reg_no']).toBe(value);
+    }
+  });
+
+  test("the server's own refusals: INVALID_ARGUMENT p_hefamaa_reg_no and the column's CHECK both read as the page's sentence", async () => {
+    expect(adminMessageFor(400, null, JSON.stringify({ code: 'P0001', message: 'INVALID_ARGUMENT', details: 'p_hefamaa_reg_no' })).sentence).toBe(HEFAMAA_SENTENCE);
+    expect(adminMessageFor(400, null, JSON.stringify({ code: '23514', message: 'new row for relation "facility" violates check constraint "facility_hefamaa_reg_no_form"' })).sentence).toBe(HEFAMAA_SENTENCE);
+    await openFirst(server({ operator_record_registration: () => json(400, { code: 'P0001', message: 'INVALID_ARGUMENT', details: 'p_hefamaa_reg_no' }) }));
+    setInput('record-registration', 'hefamaa_reg_no', 'HEF/1');
+    submit('record-registration');
+    await until(() => (document.querySelector('form.record-registration p.status')?.textContent ?? '') !== '');
+    expect(document.querySelector('form.record-registration p.status')?.textContent).toBe(HEFAMAA_SENTENCE);
+  });
+
+  test('VERSION_CONFLICT reloads the facility and says so; the number is never re-sent', async () => {
+    const stub = await openFirst(server({ operator_record_registration: () => json(409, { code: 'P0001', message: 'VERSION_CONFLICT', details: 'current_version=5' }) }));
+    setInput('record-registration', 'hefamaa_reg_no', 'HEF/1');
+    submit('record-registration');
+    await until(() => text().includes(ADMIN_LABELS.codes.VERSION_CONFLICT));
+    expect(calls(stub, 'operator_record_registration')).toHaveLength(1);
+  });
+
+  test('DV-3 — the contact email refusals render the page\'s existing sentence: INVALID_ARGUMENT p_email and the email CHECK', async () => {
+    const sentence = ADMIN_LABELS.codes['INVALID_ARGUMENT:p_email'];
+    expect(ADMIN_LABELS.constraints.facility_contact_email_form).toBe(sentence);
+    for (const body of [
+      { code: 'P0001', message: 'INVALID_ARGUMENT', details: 'p_email' },
+      { code: '23514', message: 'new row for relation "facility_contact" violates check constraint "facility_contact_email_form"' },
+    ]) {
+      await openFirst(server({ operator_record_contact: () => json(400, body) }));
+      setInput('record-contact', 'email', 'ada@example.invalid');
+      submit('record-contact');
+      await until(() => (document.querySelector('form.record-contact p.status')?.textContent ?? '') !== '');
+      expect(document.querySelector('form.record-contact p.status')?.textContent).toBe(sentence);
+    }
+  });
+
+  test('DP-5 b 1 — the register-unreachable screen has the Reload button, and it reloads', async () => {
+    let n = 0;
+    const route = server({
+      operator_register: () => {
+        n += 1;
+        if (n <= 2) throw new TypeError('down');
+        return json(200, REGISTER);
+      },
+    });
+    await renderAt(sessionFragment(), route);
+    await until(() => text().includes(ADMIN_LABELS.fixed.UNREACHABLE));
+    button(S.RELOAD).click();
+    await until(() => document.querySelector('ul.register') !== null);
+  });
+
+  test.each(['NOT_AN_OPERATOR', 'ACCOUNT_DEACTIVATED'])('DP-5 b 2 — the %s stop screen has Sign out, and it returns to the sign-in', async (code) => {
+    await renderAt(sessionFragment(), server({ operator_register: () => json(403, { code: '42501', message: code }) }));
+    await until(() => text().includes(S.STOP_HEADING));
+    button(S.SIGN_OUT).click();
+    expect(document.querySelector('form.signin-request'), 'Sign out did not return to the sign-in').not.toBeNull();
+    expect(text()).toContain(S.ACCESS_ORDER);
+    expect(text()).not.toContain(S.STOP_HEADING);
+  });
+
+  test('DP-5 b 3 and 4 — a contact that could not be READ says so in both sections, never "Nothing was changed"', async () => {
+    for (const contactRoute of [() => json(200, { not: 'a contact' }), () => json(400, { code: 'P0001', message: 'SOMETHING_NEW' })]) {
+      await openFirst(server({ operator_get_contact: contactRoute }));
+      expect(document.querySelector('section.contact-detail p')?.textContent).toBe(S.CONTACT_UNREADABLE);
+      expect(document.querySelector('section.agreement-detail p')?.textContent).toBe(S.AGREEMENT_NEEDS_CONTACT);
+      expect(text()).not.toContain('Nothing was changed');
+    }
+  });
+
+  test('DP-5 b 5 — the detail view reads "Listed 20 Sept, 10:00 (Lagos time)", with no bracket inside a bracket', async () => {
+    await openFirst(server());
+    const lines = Array.from(document.querySelectorAll('section.facility-detail > p')).map((p) => p.textContent ?? '');
+    expect(lines).toContain('Listed 20 Sept, 10:00 (Lagos time)');
+    expect(text()).not.toContain('((Lagos time))');
+    expect(text()).not.toContain('Listed (');
+  });
+
+  test('DP-5 b 6 — every facility, contact, agreement and registration field, and both selects, carry autocomplete="off"; the sign-in email keeps email', async () => {
+    await openFirst(server({ operator_get_contact: () => json(200, { contact: CONTACT.contact, agreement: null }) }));
+    const fields = Array.from(document.querySelectorAll<HTMLInputElement | HTMLSelectElement>('form.operator-form input, form.operator-form select'));
+    expect(fields.length, 'the detail view has no operator fields to check').toBeGreaterThanOrEqual(15);
+    const off = fields.filter((f) => f.getAttribute('autocomplete') !== 'off').map((f) => f.name);
+    expect(off, 'these operator fields let the browser offer the operator\'s own details').toEqual([]);
+    await renderAt('', () => json(500, {}));
+    expect(document.querySelector<HTMLInputElement>('form.signin-request input[name="email"]')?.getAttribute('autocomplete')).toBe('email');
+  });
+
+  test('the HEFAMAA number is never on openbed.ng or the ward console: neither app\'s source names it', () => {
+    const src = (dir: string): string =>
+      readdirSync(join(REPO_ROOT, dir), { recursive: true, withFileTypes: true })
+        .filter((e) => e.isFile() && /\.(ts|html|css)$/.test(e.name))
+        .map((e) => readFileSync(join(e.parentPath, e.name), 'utf8'))
+        .join('\n');
+    for (const dir of ['apps/public-dashboard/src', 'apps/ward-console/src', 'packages/snapshot/src']) {
+      const all = src(dir);
+      expect(all.length, `${dir} was read as empty`).toBeGreaterThan(1000);
+      expect(all.toLowerCase(), `${dir} names the HEFAMAA number`).not.toContain('hefamaa');
+    }
+    expect(src('apps/admin/src').toLowerCase(), 'the positive control: admin itself names it').toContain('hefamaa');
+  });
+});
+
 describe('every refusal has a sentence, and every sentence a refusal', () => {
   const FUNCTIONS = [
     'public.operator_register',
@@ -519,6 +761,8 @@ describe('every refusal has a sentence, and every sentence a refusal', () => {
     'public.operator_record_contact',
     'public.operator_record_agreement',
     'public.operator_set_facility_listed',
+    // The ninth (R-2026-09-27-144 DT Bundle 3): the Registration section's write (026).
+    'public.operator_record_registration',
     'app.assert_operator',
     'app.operator_session',
   ];
@@ -583,7 +827,7 @@ describe('every refusal has a sentence, and every sentence a refusal', () => {
     return out;
   }
 
-  test('the code table covers EXACTLY the codes the eight functions and their two guards can raise', () => {
+  test('the code table covers EXACTLY the codes the nine functions and their two guards can raise', () => {
     const raised = raisedKeys();
     expect(raised.length, 'no codes parsed from the migrations — the checker read nothing').toBeGreaterThan(20);
     expect(raised).toContain('MOBILE_NOT_E164');

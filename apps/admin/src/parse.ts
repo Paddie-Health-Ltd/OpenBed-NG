@@ -21,6 +21,11 @@ export interface Ward {
 
 export type AgreementState = 'none' | 'recorded' | 'withdrawn';
 
+/** 026's reporting model, from the active logins (R-2026-09-27-144 DT i). */
+export type ReportingModel = 'FACILITY' | 'WARD' | 'NONE';
+/** 026's facility-level login state. */
+export type ReporterLogin = 'active' | 'setup incomplete' | 'none';
+
 export interface Facility {
   readonly kind: 'facility';
   readonly facilityId: string;
@@ -37,6 +42,10 @@ export interface Facility {
   readonly hasContact: boolean;
   readonly agreementState: AgreementState;
   readonly categories: readonly Ward[];
+  /** Since 026 (R-2026-09-27-144 DT i, k): operator-only, never public. */
+  readonly reportingModel: ReportingModel;
+  readonly reporterLogin: ReporterLogin;
+  readonly hefamaaRegNo: string | null;
 }
 
 /** A register row that could not be read. Shown in place, never dropped. */
@@ -45,9 +54,17 @@ export interface UnreadableFacility {
   readonly facilityId: string | null;
 }
 
+/** A retention job whose latest finished run did not succeed (026's retention_alert). */
+export interface RetentionAlert {
+  readonly job: string;
+  readonly endTime: string;
+}
+
 export interface Register {
   readonly serverNow: string;
   readonly facilities: readonly (Facility | UnreadableFacility)[];
+  /** Empty when every retention job's latest run succeeded. Since 026. */
+  readonly retentionAlert: readonly RetentionAlert[];
 }
 
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
@@ -78,7 +95,7 @@ function facilityFrom(x: unknown): Facility | UnreadableFacility {
   const id = isObj(x) && str(x['facility_id']) ? x['facility_id'] : null;
   const unreadable: UnreadableFacility = { kind: 'unreadable', facilityId: id };
   if (!isObj(x) || id === null) return unreadable;
-  const { name, lga, state, lat, lng, public_phone_e164, version, listed_at, is_active, has_contact, agreement_state, categories } = x;
+  const { name, lga, state, lat, lng, public_phone_e164, version, listed_at, is_active, has_contact, agreement_state, categories, reporting_model, reporter_login, hefamaa_reg_no } = x;
   if (!str(name) || !str(lga) || !str(state)) return unreadable;
   // 023's three keys. Absent -- a database at 021 -- the row is unreadable, never
   // defaulted: an edit form showing a guessed phone is the defect 023 exists to close.
@@ -87,6 +104,11 @@ function facilityFrom(x: unknown): Facility | UnreadableFacility {
   if (!strOrNull(listed_at) || !bool(is_active) || !bool(has_contact)) return unreadable;
   if (agreement_state !== 'none' && agreement_state !== 'recorded' && agreement_state !== 'withdrawn') return unreadable;
   if (!Array.isArray(categories)) return unreadable;
+  // 026's three keys, read like 023's: absent or of the wrong kind, the row is unreadable,
+  // never defaulted. A guessed reporting model would tell the operator who reports.
+  if (reporting_model !== 'FACILITY' && reporting_model !== 'WARD' && reporting_model !== 'NONE') return unreadable;
+  if (reporter_login !== 'active' && reporter_login !== 'setup incomplete' && reporter_login !== 'none') return unreadable;
+  if (!strOrNull(hefamaa_reg_no)) return unreadable;
   const wards = categories.map(wardFrom);
   if (wards.some((w) => w === null)) return unreadable;
   return {
@@ -104,13 +126,33 @@ function facilityFrom(x: unknown): Facility | UnreadableFacility {
     hasContact: has_contact,
     agreementState: agreement_state,
     categories: wards as Ward[],
+    reportingModel: reporting_model,
+    reporterLogin: reporter_login,
+    hefamaaRegNo: hefamaa_reg_no,
   };
 }
 
-/** The register, or null when the envelope itself could not be read. */
+/** 026's retention_alert: a list of {job, end_time}, or null when it could not be read. */
+function retentionAlertFrom(x: unknown): RetentionAlert[] | null {
+  if (!Array.isArray(x)) return null;
+  const out: RetentionAlert[] = [];
+  for (const a of x) {
+    if (!isObj(a) || !str(a['job']) || !str(a['end_time']) || Number.isNaN(Date.parse(a['end_time']))) return null;
+    out.push({ job: a['job'], endTime: a['end_time'] });
+  }
+  return out;
+}
+
+/**
+ * The register, or null when the envelope itself could not be read. A retention_alert
+ * that cannot be read makes the ENVELOPE unreadable, never an empty alert: an alert read
+ * as "nothing failed" is the one reading that hides a failure (R-2026-09-27-144 DT i).
+ */
 export function parseRegister(x: unknown): Register | null {
   if (!isObj(x) || !str(x['server_now']) || Number.isNaN(Date.parse(x['server_now'])) || !Array.isArray(x['facilities'])) return null;
-  return { serverNow: x['server_now'], facilities: x['facilities'].map(facilityFrom) };
+  const retentionAlert = retentionAlertFrom(x['retention_alert']);
+  if (retentionAlert === null) return null;
+  return { serverNow: x['server_now'], facilities: x['facilities'].map(facilityFrom), retentionAlert };
 }
 
 export interface Contact {

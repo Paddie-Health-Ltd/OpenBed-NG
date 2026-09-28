@@ -17,11 +17,12 @@ import {
   normaliseNgPhone,
   recordAgreementBody,
   recordContactBody,
+  recordRegistrationBody,
   registerBody,
   setListedBody,
   type FacilityFields,
 } from './bodies.js';
-import { parseContact, parseRegister, type ContactView, type Facility, type Register, type Ward } from './parse.js';
+import { parseContact, parseRegister, type ContactView, type Facility, type Register, type ReportingModel, type Ward } from './parse.js';
 import { adminMessageFor, type Refusal } from './messages.js';
 
 /**
@@ -77,6 +78,14 @@ import { adminMessageFor, type Refusal } from './messages.js';
  * for every refusal or failure; the words are unchanged. The operator forms do their own
  * validation (noValidate), in their own sentences, with focus on the field that needs
  * fixing; the sign-in form keeps the browser's, as the ward console's does (-134 DJ).
+ *
+ * THE FACILITY-LEVEL LOGIN, THE HEFAMAA NUMBER AND THE RETENTION ALERT (R-2026-09-27-144 DT,
+ * Bundle 3). Each facility shows its reporting model, from 026's reporting_model, and under
+ * a facility login each ward reads "Reported by the facility login" in place of its own
+ * login state. The HEFAMAA registration number is the Registration section's one optional
+ * field, sent by operator_record_registration and shown nowhere but here. A non-empty
+ * retention_alert is a caution Notice at the top of the register, one per job, and it is
+ * fed by that field alone.
  *
  * AN UPDATE CHANGES ONLY WHAT IT UPDATED (DO-4 d; the ward console's -133 DI-1). A write
  * in one section of a facility's view re-reads the facility and patches the lines that
@@ -139,11 +148,11 @@ function show(heading: string, detail: string, kind: 'caution' | 'lead' = 'cauti
 // ------------------------------------------------------------------ calls
 
 /**
- * THE EIGHT CALLS, EACH A LITERAL PATH (-58 A5). The Worker's allow-list is derived from
+ * THE NINE CALLS, EACH A LITERAL PATH (-58 A5; the ninth since R-2026-09-27-144 DT Bundle 3). The Worker's allow-list is derived from
  * the code's call sites by tests/compliance/proxy_allow_list.test.ts, which reads a
  * `.authedFetch('<literal>')` and refuses a computed path as unresolved. So each call
  * names its path here, in full, rather than building `rpc/${name}` -- which would be
- * one call site the derivation cannot read, standing for eight. The method is written
+ * one call site the derivation cannot read, standing for nine. The method is written
  * at each call too, because that is where the derivation reads it.
  */
 type Call = (holder: SessionHolder, body: string) => Promise<Response>;
@@ -157,6 +166,7 @@ const CALL = {
   recordContact: (h, body) => h.authedFetch('rpc/operator_record_contact', { method: 'POST', headers: JSON_HEADERS, body }),
   recordAgreement: (h, body) => h.authedFetch('rpc/operator_record_agreement', { method: 'POST', headers: JSON_HEADERS, body }),
   setListed: (h, body) => h.authedFetch('rpc/operator_set_facility_listed', { method: 'POST', headers: JSON_HEADERS, body }),
+  recordRegistration: (h, body) => h.authedFetch('rpc/operator_record_registration', { method: 'POST', headers: JSON_HEADERS, body }),
 } satisfies Record<keyof typeof RPC, Call>;
 
 async function post(holder: SessionHolder, call: keyof typeof CALL, body: unknown): Promise<CallResult> {
@@ -202,6 +212,12 @@ function guarded(p: Promise<unknown>): void {
 function stopFor(refusal: Refusal): boolean {
   if (refusal.key === 'NOT_AN_OPERATOR' || refusal.key === 'ACCOUNT_DEACTIVATED') {
     show(W.STOP_HEADING, refusal.sentence);
+    // A next step (DP-5 b 2): back to the sign-in, as a fresh page is. The session was
+    // only ever in this page's memory; leaving the screen leaves it behind.
+    const out = el('button', W.SIGN_OUT);
+    out.type = 'button';
+    out.addEventListener('click', () => landing());
+    appRoot()?.append(out);
     return true;
   }
   if (refusal.key === 'NOT_AUTHENTICATED' || refusal.key === 'SESSION_ID_IS_ACCOUNT_ID') {
@@ -221,20 +237,29 @@ function wardBand(w: Ward, reg: Register, mark: FetchMark): FreshnessBand | null
   return freshnessBand(w.updatedAt, reg.serverNow, elapsedSince(mark)).band;
 }
 
-function loginWord(w: Ward): string {
+/** The facility's reporting model, in words (DT Bundle 3). */
+const MODEL_WORD: Record<ReportingModel, string> = {
+  FACILITY: W.REPORTING_MODEL_FACILITY,
+  WARD: W.REPORTING_MODEL_WARD,
+  NONE: W.REPORTING_MODEL_NONE,
+};
+
+function loginWord(w: Ward, model: ReportingModel): string {
+  // Under a facility login a ward has no login of its own: the facility's reports for it.
+  if (model === 'FACILITY') return W.REPORTED_BY_FACILITY;
   if (w.hasAccount) return W.LOGIN_ACTIVE;
   if (w.provisioningIncomplete) return W.LOGIN_INCOMPLETE;
   return W.LOGIN_NONE;
 }
 
-function wardLine(w: Ward, reg: Register, mark: FetchMark): HTMLLIElement {
+function wardLine(w: Ward, model: ReportingModel, reg: Register, mark: FetchMark): HTMLLIElement {
   const li = el('li', undefined, 'ward');
   const band = wardBand(w, reg, mark);
   let claim: string;
   if (w.offering === 'NOT_OFFERED') claim = 'not offered';
   else if (w.monitoringState === 'PENDING' || w.updatedAt === null) claim = W.NOT_YET_REPORTING;
   else claim = `${w.bedCount === null ? 'no count' : `${String(w.bedCount)} beds`}, last reported at ${lagosTime(w.updatedAt)} (${BAND_WORD[band as FreshnessBand]})`;
-  li.textContent = `${categoryLabel(w.category)}: ${claim} — ${loginWord(w)}`;
+  li.textContent = `${categoryLabel(w.category)}: ${claim} — ${loginWord(w, model)}`;
   if (band !== null) li.dataset['band'] = band;
   return li;
 }
@@ -296,8 +321,9 @@ function renderRegister(holder: SessionHolder, reg: Register, mark: FetchMark, n
       const worst = bands.reduce((a, b) => (BAND_ORDER.indexOf(b) > BAND_ORDER.indexOf(a) ? b : a));
       wardsCell.append(el('p', `Worst ward: ${BAND_WORD[worst]}`, 'worst'));
     }
+    wardsCell.append(el('p', MODEL_WORD[f.reportingModel], 'reporting-model'));
     const wards = el('ul', undefined, 'wards');
-    for (const w of f.categories) wards.append(wardLine(w, reg, mark));
+    for (const w of f.categories) wards.append(wardLine(w, f.reportingModel, reg, mark));
     wardsCell.append(wards);
     const open = el('button', 'Open');
     open.type = 'button';
@@ -310,7 +336,13 @@ function renderRegister(holder: SessionHolder, reg: Register, mark: FetchMark, n
 
   const actions = el('div', undefined, 'actions');
   actions.append(reload, create);
-  root.replaceChildren(el('h1', W.REGISTER_HEADING), actions, status);
+  // THE RETENTION ALERT (DT Bundle 3; resolves -137 DM-2 e's surfacing): at the top, one
+  // caution Notice per job whose latest finished run did not succeed. Fed by that field
+  // only; an empty list shows nothing.
+  const alerts = reg.retentionAlert.map((a) =>
+    el('p', `${W.RETENTION_ALERT_LEAD} ${a.job}, ${lagosTime(a.endTime)}. ${W.RETENTION_ALERT_ACTION}`, 'notice notice-caution retention-alert'),
+  );
+  root.replaceChildren(el('h1', W.REGISTER_HEADING), ...alerts, actions, status);
   if (reg.facilities.length === 0) root.append(el('p', W.REGISTER_EMPTY, 'lead'));
   root.append(list);
 }
@@ -321,6 +353,11 @@ async function loadRegister(holder: SessionHolder, notice?: string): Promise<Reg
   const r = await read(holder, 'register', registerBody());
   if (r.kind === 'unreachable') {
     show(W.REGISTER_HEADING, ADMIN_FIXED.UNREACHABLE);
+    // The register's own Reload (DP-5 b 1), so the sentence's "reload" has a control.
+    const again = el('button', W.RELOAD);
+    again.type = 'button';
+    again.addEventListener('click', () => guarded(loadRegister(holder, notice)));
+    appRoot()?.append(again);
     return null;
   }
   if (r.kind === 'refused') {
@@ -344,6 +381,9 @@ function field(label: string, name: string, value = '', type = 'text'): { wrap: 
   input.name = name;
   input.type = type;
   input.value = value;
+  // Nothing an operator types here is the operator's own detail, so the browser offers
+  // none (DP-5 b 6). The sign-in address sets its own token, email, after this.
+  input.autocomplete = 'off';
   wrap.append(input);
   return { wrap, input };
 }
@@ -366,6 +406,9 @@ function select(label: string, name: string, options: readonly (readonly [string
   const wrap = el('label', `${label} `, 'field');
   const input = el('select', undefined, 'select');
   input.name = name;
+  // The attribute, not the property: a <select>'s autocomplete is not reflected everywhere
+  // (jsdom leaves the property unreflected), and the attribute is what the browser reads.
+  input.setAttribute('autocomplete', 'off');
   // No default: an empty first choice the operator must replace.
   const none = el('option', 'Choose');
   none.value = '';
@@ -532,7 +575,18 @@ async function readDetail(holder: SessionHolder, facilityId: string): Promise<De
   const c = await read(holder, 'getContact', getContactBody(facilityId));
   if (c.kind === 'refused' && stopFor(c.refusal)) return null;
   const view: ContactView | null = c.kind === 'ok' ? parseContact(c.data) : null;
-  const contactProblem = c.kind === 'ok' ? (view === null ? ADMIN_FIXED.UNRECOGNISED : null) : c.kind === 'refused' ? c.refusal.sentence : ADMIN_FIXED.UNREACHABLE;
+  // A READ that failed says so, never UNRECOGNISED's "Nothing was changed", which is a
+  // write's sentence (DP-5 b 4).
+  const contactProblem =
+    c.kind === 'ok'
+      ? view === null
+        ? W.CONTACT_UNREADABLE
+        : null
+      : c.kind === 'refused'
+        ? c.refusal.key === 'UNRECOGNISED'
+          ? W.CONTACT_UNREADABLE
+          : c.refusal.sentence
+        : ADMIN_FIXED.UNREACHABLE;
   return { reg: parsed, mark, f, view, contactProblem };
 }
 
@@ -610,7 +664,8 @@ function renderDetail(holder: SessionHolder, first: Detail): void {
   const facility = el('section', undefined, 'facility-detail');
   const name = el('h2', d.f.name);
   const place = el('p', `${d.f.lga}, ${d.f.state}`);
-  const listedLine = (): string => (d.f.listedAt === null ? W.NOT_LISTED : `${W.LISTED} (${lagosTime(d.f.listedAt)})`);
+  // "Listed 27 Sept, 12:49 (Lagos time)", no brackets around a bracket (DP-5 b 5).
+  const listedLine = (): string => (d.f.listedAt === null ? W.NOT_LISTED : `${W.LISTED} ${lagosTime(d.f.listedAt)}`);
   const listed = el('p', listedLine());
   let list = checklist(d.f);
   facility.append(name, place, listed, list);
@@ -694,9 +749,11 @@ function renderDetail(holder: SessionHolder, first: Detail): void {
 
   // The wards, and the add-category form.
   const wards = el('section', undefined, 'wards-detail');
+  const model = el('p', MODEL_WORD[d.f.reportingModel], 'reporting-model');
   const wl = el('ul', undefined, 'wards');
   const drawWards = (): void => {
-    wl.replaceChildren(...d.f.categories.map((w) => wardLine(w, d.reg, d.mark)));
+    model.textContent = MODEL_WORD[d.f.reportingModel];
+    wl.replaceChildren(...d.f.categories.map((w) => wardLine(w, d.f.reportingModel, d.reg, d.mark)));
   };
   drawWards();
   patches.push(drawWards);
@@ -704,6 +761,7 @@ function renderDetail(holder: SessionHolder, first: Detail): void {
   const off = select('Offering', 'offering', [['OFFERED', 'Offered'], ['NOT_OFFERED', 'Not offered']]);
   wards.append(
     el('h2', 'Wards'),
+    model,
     wl,
     form('add-category', 'Add ward category', [cat.wrap, off.wrap], async (s) => {
       if (cat.input.value === '' || off.input.value === '') {
@@ -788,7 +846,8 @@ function renderDetail(holder: SessionHolder, first: Detail): void {
   const agreement = modal('agreement-detail', 'Agreement', () => agreementLine() ?? (d.contactProblem === null ? 'form' : 'none'), () => {
     const line = agreementLine();
     if (line !== null) return [el('p', line)];
-    if (d.contactProblem !== null) return [];
+    // Not a bare heading (DP-5 b 3): say why there is no form, and what to do.
+    if (d.contactProblem !== null) return [el('p', W.AGREEMENT_NEEDS_CONTACT, 'notice notice-caution')];
     const on = field('Accepted on', 'accepted_on', '', 'date');
     const version = field('Agreement version', 'version');
     const role = field("Signatory's role", 'signatory_role');
@@ -807,6 +866,40 @@ function renderDetail(holder: SessionHolder, first: Detail): void {
   });
   patches.push(agreement.patch);
 
+  // THE REGISTRATION (DT Bundle 3, k): the HEFAMAA number, optional, operator-only. Its form
+  // keeps the saved row it was filled from while it holds unsent input, and sends THAT
+  // row's version (DO-4 d); an untouched form follows every re-read. Empty clears it.
+  const registration = el('section', undefined, 'registration-detail');
+  const hefamaa = field(W.HEFAMAA_LABEL, 'hefamaa_reg_no', d.f.hefamaaRegNo ?? '');
+  let regBase = d.f;
+  let regDirty = false;
+  hefamaa.input.addEventListener('input', () => (regDirty = true));
+  const regRebase = (): void => {
+    regBase = d.f;
+    hefamaa.input.value = regBase.hefamaaRegNo ?? '';
+    regDirty = false;
+  };
+  patches.push(() => {
+    if (!regDirty) regRebase();
+  });
+  registration.append(
+    el('h2', W.REGISTRATION_HEADING),
+    form('record-registration', W.SAVE_REGISTRATION, [hefamaa.wrap], async (s) => {
+      const typed = hefamaa.input.value;
+      const value = typed === '' ? null : typed;
+      // The column's own rule (026's facility_hefamaa_reg_no_form): 1 to 64 characters, no
+      // space at either end. Counted in characters, as char_length counts them.
+      if (value !== null && ([...value].length > 64 || !/^\S(?:[\s\S]*\S)?$/.test(value))) {
+        refuse(s, ADMIN_CODES['INVALID_ARGUMENT:p_hefamaa_reg_no'] ?? ADMIN_FIXED.UNRECOGNISED, hefamaa.input);
+        return;
+      }
+      const r = await write(holder, 'recordRegistration', recordRegistrationBody(regBase.facilityId, regBase.version, value));
+      const outcome = await after(r, s, null);
+      if (outcome === 'ok') await refresh(W.REGISTRATION_SAVED, 'info');
+      if (outcome !== 'refused') regRebase();
+    }),
+  );
+
   // Listing: in the app. Unlisting and withdrawal are founder steps, never here (BC-6).
   // The List press sends the facility's LATEST version: the form holds nothing typed, and
   // the checklist beside it is the row that version stands for.
@@ -822,7 +915,7 @@ function renderDetail(holder: SessionHolder, first: Detail): void {
   });
   patches.push(listing.patch);
 
-  root.replaceChildren(heading, back, status, facility, wards, contact.node, agreement.node, listing.node);
+  root.replaceChildren(heading, back, status, facility, registration, wards, contact.node, agreement.node, listing.node);
 }
 
 // ------------------------------------------------------------------ sign-in
@@ -876,6 +969,12 @@ function privacyLink(): HTMLParagraphElement {
   return p;
 }
 
+/** The signed-out landing a fresh page shows: the instruction, the request form, the notice link. */
+function landing(): void {
+  show(W.TITLE, W.ACCESS_ORDER, 'lead');
+  appRoot()?.append(requestForm(), privacyLink());
+}
+
 function signedOut(detail: string = W.ACCESS_ORDER): void {
   show(W.SIGNED_OUT, detail);
   appRoot()?.append(el('p', W.ACCESS_ORDER, 'lead'), requestForm(), privacyLink());
@@ -893,8 +992,7 @@ export async function render(): Promise<void> {
     return;
   }
   if (session === null) {
-    show(W.TITLE, W.ACCESS_ORDER, 'lead');
-    appRoot()?.append(requestForm(), privacyLink());
+    landing();
     return;
   }
   // The tokens leave the address bar at once.
