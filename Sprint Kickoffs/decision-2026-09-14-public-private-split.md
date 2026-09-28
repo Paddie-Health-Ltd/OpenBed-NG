@@ -7102,6 +7102,144 @@ Left as they stood, a correct re-run would stop at fence 1 after fence A passed.
 
 Nothing hosted. Next letter: **DW**.
 
+### R-2026-09-28-147 — Cowork's merge word for #93; the re-run readings beyond DV-2 accepted
+
+_Issued as R-PROVISIONAL-2026-09-28-DW, by Cowork on 2026-09-28, as its check of #93's amendment at `97bd7cf`. Held, as DS was, and landed in the next pull request. Number assigned on landing: R-2026-09-27-146 plus one. Next provisional letter: **DX**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-28-DW — Cowork's check of #93's amendment (97bd7cf): MERGE. Held; lands in the next records or Bundle 2 PR with a ledger row, as DS was. Next letter: DX.
+>
+> VERIFIED BY COWORK (2026-09-28, GitHub API read through the founder's browser pane; code read from a clone):
+> - #93 OPEN, head 97bd7cf7afd41caf903ee8c7967e1e4114261fdb, 2 commits, base 1b506d6 = main, 54 files, mergeable_state clean.
+> - compare 8931cdf...97bd7cf: ahead 1, behind 0; files: the decision record and docs/runbook-supabase-project-creation.md only.
+> - Check runs on 97bd7cf: the latest run of each of the seven completed success (repo-lint, migration-lint, bundle-guards, secret-scan, compliance-tests, db-tests, golden-path). An earlier cancelled suite on the same head is the push-plus-body-edit pattern, not a failure.
+> - Register recounted by Cowork from the table at 97bd7cf: 58 rows, 15 BOX / 32 TRIGGER / 11 VERSION. DO-3's row is present and restated per DV-1 a.
+> - Fence A's re-run readings (0; 0; 1) and the first-run stop on a third reading of 1 are present per DV-2.
+>
+> DW-1  ACCEPTED: the re-run paragraph's fence 1 and fence 3 readings, beyond DV-2's wording. Without them a correct re-run passes fence A and stops at fence 1. Stating them as file names, not a count, is right, and runbook_migration_expectation stays unchanged. Record it as accepted in DW's landing.
+> DW-2  NOTED, no change: DV's two premises that did not hold (deferred_items.test.ts reads no count; runbook_migration_expectation does not read fence A) were Cowork's. The record already says so.
+> DW-3  MERGE #93 now, as a merge commit, with the head pinned: gh pr merge 93 --merge --match-head-commit 97bd7cf7afd41caf903ee8c7967e1e4114261fdb. Then delete facility-reporter-025-026 on both sides and read both back as gone. Report the merge commit's SHA and its parents, and stop.
+> DW-4  After the merge, nothing hosted runs from your side. The founder's hosted run 1 ("025 and 026's apply", then the Worker redeploy and read-back) is walked through by Cowork from the deploy checkout at the merge commit. The frozen boundary at 26 is recorded in the change that records that run.
+
+**#93 MERGED**, read back from the API:
+- merge commit `cd05de15d248ad9462e98d96ac247f5f9beb3f55`, at 2026-09-28T05:08:18Z;
+- parents `1b506d68fd5d700d477d7005bb7a7ec2a37bb7cc` (main) and `97bd7cf7afd41caf903ee8c7967e1e4114261fdb` (the head).
+
+**How it merged:**
+- The head was read from the API just before the merge and passed through a variable to `--match-head-commit`. It matched `97bd7cf…`.
+- The state read `CLEAN` beforehand.
+- `facility-reporter-025-026` was deleted on both sides only after `MERGED` was read back, and both read back as gone: `ls-remote` found no head, there was no local branch, and the API's branch read returned 404.
+
+**DW-1: ACCEPTED, recorded as DW asks.** -146's re-run paragraph states fence 1 and fence 3's re-run readings, beyond DV-2's wording. They are stated as file names, and `runbook_migration_expectation` is unchanged.
+
+**DW-4:** nothing hosted ran from Claude Code's side. The frozen boundary at 26 is recorded in the change that records hosted run 1.
+
+### R-2026-09-28-148 — hosted run 1, fence A: a pasted "!" rewritten by zsh; no shell block in docs/ holds one
+
+_Issued as R-PROVISIONAL-2026-09-28-DX, by Cowork on 2026-09-28, during hosted run 1. Held, and landed with DW. Number assigned on landing: R-2026-09-28-147 plus one. Next provisional letter: **DY**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-28-DX — Hosted run 1, fence A: the founder's zsh rewrote "!~" (history expansion). Held; lands with DW in the next records or Bundle 2 PR, each with a ledger row. Next letter: DY.
+>
+> WHAT HAPPENED (founder's terminal output, read by Cowork 2026-09-28, deploy checkout cd05de1):
+> - Fence A's second reading ran as `... and email ~/.claude/CLAUDE.md '^[^@...'`. zsh history expansion replaced `!~` inside the double-quoted -tAc string, and psql raised a syntax error. Readings 1 and 3 read 0 and 0. Nothing was written.
+> - Cowork searched every ```bash block under docs/ at cd05de1 for "!" on a non-comment line. This line is the only hit: docs/runbook-supabase-project-creation.md:2162. It is Cowork-reviewed text; the slip is shared.
+> - The founder re-ran the reading as `... and not (email ~ '^[^@[:space:]]+@[^@[:space:]]+$')`, and that is the reading of record.
+>
+> DX-1  In the runbook, fence A's second reading becomes exactly that form, with no "!" anywhere. 026's own pre-check is SQL inside a file, not shell, so it is unaffected. Leave it alone.
+> DX-2  THE ROOT CAUSE, GUARDED: add a compliance test that fails when any line of a ```bash block in docs/*.md contains "!" outside a comment. The founder's shell is zsh with history expansion on, and a pasted "!" is rewritten before it runs. Plant one such line to show it red first. If a block ever genuinely needs "!", the test must name it in an allow-list with a reason; there is none today.
+> DX-3  Record the fence A readings as the founder's, relayed by Cowork: 0 (scope rows), then the email reading from the re-run, then 0 (enum label).
+
+**The slip is Claude Code's too.** The line was written in -144's Bundle 1, and fence A was never paste-checked before it shipped. This session's transcript holds no paste of it before 2026-09-28.
+
+The one fence Bundle 1 did check, DU-4 b's, was run as `zsh -f -i -c '…'`. That is not a paste: history expansion applies to lines read interactively, not to a `-c` string, so that check could not have caught a `!` either. A paste-check feeds the lines to `zsh -f -i` on standard input, as this entry's did.
+
+**LANDED:**
+- **DX-1.** Fence A's second reading is now `… where email is not null and not (email ~ '^[^@[:space:]]+@[^@[:space:]]+$')`, the founder's form, and no `!` remains in the fence. The fence's prose says why. 026 is untouched.
+  - **Paste-checked in `zsh -f -i`** against the local database, 2026-09-28. The new line read `0`. The old line, as the control, read `zsh: event not found: ~`.
+- **DX-2.** The new guard is `tests/compliance/runbook_no_history_expansion.test.ts`. The runbook states the rule in a new section, "No bash block holds a `!`", beside "Every bash block in this runbook holds commands only".
+  - **Red first:** against the runbook as merged (`cd05de1`), the real-corpus leg reads `docs/runbook-supabase-project-creation.md:2162: "!" in a shell block`: Cowork's line, found by the guard and not by a search. collected=14, failed=3, derived.
+  - **The checker neutered** (`!` read as `!!`): nine legs go red, the eight `!` plants and the allow-list leg. The unclosed-fence plant stays green, because it does not depend on that check. Its own message comes only from the unclosed branch, so its assertion proves that branch fires.
+  - **The allow-list** is empty. An entry needs a reason, and an entry that matches no line is refused.
+- **DX-3.** The readings, as the founder's, relayed by Cowork:
+  - scope rows: `0`;
+  - the email reading, from the re-run: `0`. DX stated no value for it, and none was composed; the value is DY's, relayed by Cowork (R-2026-09-28-149);
+  - the enum label: `0`.
+
+**PREMISE CORRECTIONS AND MECHANISM CHOICES** (method notes 4 and 20):
+1. **DX-2's "outside a comment" does not hold for the founder's shell.** zsh's `interactivecomments` is off by default, and there a pasted `#` line is not a comment.
+   - **Read in `zsh -f -i`, 2026-09-28:** `# note !~ f` printed `zsh: event not found: ~` with the option off. With it on, the `!` was left alone.
+   - The runbook already forbids `#` in a bash block for the same reason ("Every bash block in this runbook holds commands only"). An exemption would exempt a line the runbook forbids, and it could hide a live `!`.
+   - **So the guard exempts nothing by position:** not a comment line, and not single quotes, which do protect in zsh. The allow-list is the one route for a block that needs `!`.
+2. **"```bash blocks in docs/*.md".** Every shell fence under `docs/` is labelled bash today: 90 fences in six runbooks, with no `sh`, `shell` or `zsh` fence. A fence with one of those labels would be pasted the same way, so the guard reads all four labels, with a plant for each. It also reads `.md` files at any depth under `docs/`: `docs/legal/` holds no fence today, and a nested file has its own plant.
+3. **Cowork's search was re-derived by the guard, not re-read by hand.** At `cd05de1` it holds: one `!` on a non-comment line of a bash fence, at line 2162. The guard adds that no comment line and no non-shell fence holds one either.
+4. **A plant of mine was wrong on its first run.** The observed line's plant used a string replacement, and the replacement ends `$'`. JavaScript reads `$'` in a replacement string as "the text after the match", so the plant inserted the rest of the runbook. The file changed, and the leg found no line. This is the 2026-09-21 rule's shape: confirm the plant mutated the path under test. The plant is now a function replacer, and the header says why.
+
+Nothing hosted ran from Claude Code's side. Next letter: **DY**.
+
+### R-2026-09-28-149 — hosted run 1 recorded: 025 and 026 applied, the Worker redeployed, the frozen boundary at 26
+
+_Issued as R-PROVISIONAL-2026-09-28-DY, by Cowork on 2026-09-28. Lands in the records pull request with -147 and -148. Number assigned on landing: R-2026-09-28-148 plus one. Next provisional letter: **DZ**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-28-DY — Hosted run 1 recorded: 025 and 026 applied, the Worker redeployed; the frozen boundary at 26. One records PR carrying DW (-147), DX (-148) and DY (-149), each with a ledger row. Next letter: DZ.
+>
+> THE FOUNDER'S READINGS, relayed by Cowork (2026-09-28, deploy checkout cd05de15d248ad9462e98d96ac247f5f9beb3f55, git status clean):
+> - Fence A: 0 (scope rows); the email reading errored under zsh history expansion (DX), and its re-run in the "not (email ~ …)" form read 0; 0 (FACILITY_REPORTER labels). The first attempt at fence 2 failed before reading anything (psql reached the local socket because the pasted read -rs swallowed a line) and is not a reading; the re-run is.
+> - Fence 1: 24 "already applied" (001-024); WOULD APPLY 025_facility_reporter_role.sql, then 026_facility_reporter_and_checks.sql; "2 migration(s) pending."
+> - Fence 2: FINGERPRINT beds.json=0/0:543f06c0b0c4,facility_public=0:d41d8cd98f00,ward_public=0:d41d8cd98f00,lga_rollup=0:d41d8cd98f00; RECORDED.
+> - Fence 3: 001-024 skipped; 025 applied (ALTER TYPE, INSERT 0 1, INSERT 0 0); 026 applied, with three expected DROP … IF EXISTS notices (trg_ward_account_one_reporting_source, facility_contact_email_form, facility_hefamaa_reg_no_form); "Migrations complete (2 applied this run)."
+> - Fence 4: all four parts ok against the fingerprint; "PASS (VACUOUS FOR B1)".
+> - Fence 5: 26 "already applied" (001-026); no WOULD APPLY line; "0 migration(s) pending."
+> - Fence 6: PASS. New lines read as the runbook states: app.enforce_one_reporting_source() none; public.my_reporting_wards() authenticated; public.operator_record_registration(text, integer, text) authenticated. my_facility_wards absent. public.rls_auto_enable() ok (hosted-only).
+> - Fence B: 1, then t|t|t.
+> - Worker: deploy_worker.sh supabase-proxy -> Current Version ID 7d07e831-c2a8-4d84-8edb-dd731f16793e; the stamp named cd05de1 on attempt 1 of 12. readback_worker.sh https://api.openbed.ng -> PASS: probe 1 (my_reporting_wards) 401 / klrlpxysjsjpdkeqdhvl / forwarded; probe 1b (operator_record_registration) the same; probe 2 GET 200, HEAD 405, both forwarded; probe 3 404 refused with the proxy's body; stamp cd05de1, dirty false, HEAD 200 stamp.
+> - Probe 4, Cowork's reading through the Cloudflare connector: the deployed supabase-proxy is the tracked handler with allow-list.json at cd05de1 entry for entry (forward 13 POST, 1 GET, 13 OPTIONS; 2 direct_origin_exceptions; 1 refusal_probe), and its bundled version.json reads commit cd05de1, dirty false. PASS.
+>
+> DY-1  Tick the runbook's "025 and 026's apply" checkbox with the date, the checkout's commit and each reading above (A, 1 to 6, B, the Worker's read-back, probe 4). Restate step 5's "hosted today" lists and step 7 for 001-026 in the 024 pattern. The frozen boundary goes to 26 in database/migrations/applied-hosted.json, with its tests.
+> DY-2  Hosted state after this run, for the record: migrations 001-026; Worker 7d07e831 at cd05de1; public dashboard 963e53f5 at 3623d2b; ward console f6429a29 at 3623d2b (it calls my_facility_wards, which no longer exists, and hosted holds no ward or facility login; 12.4 step 5's DU-4 b precondition holds until Bundle 2's console deploy reads back); admin 0651ec07 at ba12ceb.
+> DY-3  Land DW as -147 (#93's merge facts: cd05de1, parents 1b506d6 and 97bd7cf, 2026-09-28T05:08:18Z, branch deleted; DW-1's acceptance of the fence 1 and 3 re-run readings). Land DX as -148 with DX-1 (the runbook line without "!") and DX-2 (the compliance guard against "!" in docs/*.md bash blocks, shown red first with a plant). Land DY as -149.
+> DY-4  Records and that one guard only; no migration, no app code. Stop at the PR for Cowork's check. After it merges, Bundles 2 and 3 may start side by side, per DT.
+
+**Verified before landing:**
+- **Probe 4's counts** hold against `supabase-proxy/allow-list.json`, which is unchanged since `cd05de1`: forward holds 13 POST, 13 OPTIONS and 1 GET, with 2 `direct_origin_exceptions` and 1 `refusal_probes`.
+- **The frozen files** are byte-identical to `cd05de1`: `git diff cd05de1 -- database/migrations` is empty.
+
+**LANDED:**
+- **DY-1.**
+  - "025 and 026's apply" is ticked with every reading above. Its "Not yet run." now says "Run on 2026-09-28", and fence 1 carries the dated "run, and kept as written" note.
+  - Step 5 is restated to 001 through 026 and `0` pending at its four guarded sites: the prose bullet, the STOP bullet, the expected-output fence and the ledger sentence. Each site keeps the text it replaced.
+  - The 2026-09-28 dry run and apply are kept as a dated fence, above 2026-09-27's.
+  - Step 7 now reads "Hosted now holds 001 through 026". The frozen-boundary list gains 2026-09-28's line.
+  - **The frozen boundary** was recorded by `node scripts/freeze_applied_migrations.mjs 26 2026-09-28 R-2026-09-28-149`, which printed `frozen boundary recorded: 26 migrations`. `ledger_rows: 26` matches fence 5's twenty-six `already applied`. 025's sha256 is `bd60fafd…` and 026's is `bc97c36c…`, the tracked files' at `cd05de1`.
+  - **Its tests:** `tests/compliance/runbook_migration_expectation.test.ts`'s ten pinned legs are restated one for one to the post-apply state, as 890e22e did for 024. Sixteen assertions were removed and sixteen replace them, each with the same exactness; the diff pairs them. The dated-fence leg is re-aimed at the 2026-09-28 fence. `frozen_migrations` and `freeze_applied_migrations` needed no change: their tests read the file, and they pass.
+- **DY-2.** Hosted after this run:
+
+  | What | Version | Built from |
+  |---|---|---|
+  | Migrations | 001 through 026 | |
+  | Worker | `7d07e831` | `cd05de1` |
+  | Public dashboard | `963e53f5` | `3623d2b` |
+  | Ward console | `f6429a29` | `3623d2b` |
+  | Admin | `0651ec07` | `ba12ceb` |
+
+  The ward console calls `my_facility_wards`, which no longer exists. Hosted holds no ward or facility login, and 12.4 step 5's DU-4 b precondition holds until Bundle 2's console deploy reads back.
+- **DY-3.** -147 and -148 land above this entry. -148's DX-3 now carries the email reading as this ruling relays it: `0`, from the re-run.
+
+**A FINDING, for Cowork to rule. Not fixed here, because DY-4 limits this change to records and one guard.**
+- **What was relayed:** "the pasted read -rs swallowed a line". The relayed mechanism: a fence opening `read -rs DATABASE_URL && export DATABASE_URL` hands its next line to `read` as the connection string. `psql` then gets a command's text for a URL, and falls back to the local socket.
+- **This time** it failed before reading anything, which is the safe direction.
+- **The runbook never warns of this.** Step 5 says only that "The `read -rs` line waits silently for it", and 50 lines in this runbook use `read -rs`.
+- **What was read locally, 2026-09-28, and what it does NOT show.** Three lines fed to `zsh -f -i` on standard input: `read -rs DATABASE_URL && export DATABASE_URL`, `echo SECOND-LINE-RAN`, and `echo "URL=[$DATABASE_URL]"`. They printed only `URL=[echo SECOND-LINE-RAN]`.
+  - **That is standard input, not a terminal paste.** Claude Code's own verification note of 2026-09-15 records the opposite for a real terminal: bracketed paste takes the whole block as one buffer, and `read` waits for fresh input. There, the same swallow was a harness fault in a paste-check, not a runbook defect.
+  - **So the mechanism on the founder's terminal is not established here.** It is consistent with a terminal that delivers the paste line by line (bracketed paste off, or a paste split by the terminal). It is equally consistent with the connection string being entered after further lines were already pasted. Nothing here reads the founder's terminal settings.
+- **Cowork's to rule:** whether to ask the founder how the fence was pasted, and whether the runbook should say, at step P, to paste a `read -rs` fence only up to that line, enter the string, and then paste the rest.
+
+Nothing hosted ran from Claude Code's side. Next letter: **DZ**.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -7239,6 +7377,9 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | DT | R-2026-09-27-144 | 2026-09-27 | **The FACILITY_REPORTER sprint's kickoff, five bundles; Bundle 1 landed:** 025 (the enum value alone, irreversible; the one-transaction refusal read locally) and 026 (the scope CHECKs, one reporter per facility, one reporting source per ward by trigger, assert_member and publish widened for the reporter, provision_begin's per-role branches, the erasure CHECK's reporter arm, the register's reporting model and retention alert, the contact email's form CHECK, and the operator-only HEFAMAA number with its RPC). The golden path runs a facility login publishing two wards. DM-2 e and DP-2 leave, and DO-3's row stays until Bundle 2, restated: register 60 → 58 (restated by -146 DV-1; until then "DO-3, DM-2 e and DP-2 leave: register 60 → 57"). Next letter DU. |
 | DU | R-2026-09-27-145 | 2026-09-27 | **DT (f) amended:** can_publish ships on `public.my_reporting_wards()`, and `my_facility_wards()` is dropped, as 021 renamed its list, because 011 re-applies over 026 and a return type cannot change in place (Cowork's slip, owned). Every live dependent renamed; the hosted window closed by a runbook line and a 12.4 step 5 precondition. Next letter DV. |
 | DV | R-2026-09-27-146 | 2026-09-27 | **Cowork's check of #93 at `8931cdf`: amend, then merge.** DO-3's row restored, restated: the server half (`can_publish`) landed in -144, the console half is Bundle 2's, and the row leaves in Bundle 2's pull request (Cowork's slip, owned). Register 60 → 58 (15 BOX, 32 TRIGGER, 11 VERSION). Fence A of "025 and 026's apply" states the re-run reading `0`; `0`; `1`, and fences 1 and 3's re-run readings are stated beside it. The three admin sentences stay. Bundle 2's provisioning script names both refusals from complete, never retries, and tells the operator about the orphaned Auth user. Next letter DW. |
+| DW | R-2026-09-28-147 | 2026-09-28 | **#93 merged at `cd05de1`** (parents `1b506d6`, `97bd7cf`), with the head pinned; `facility-reporter-025-026` deleted on both sides and read back as gone. Pasting DW was the merge word. Fence 1 and fence 3's re-run readings, beyond DV-2, accepted. Held, and landed with -148. Next letter DX. |
+| DX | R-2026-09-28-148 | 2026-09-28 | **Hosted run 1, fence A:** the founder's zsh rewrote a pasted `!~` (history expansion), and psql refused the line; nothing was written. Fence A's second reading rewritten as `not (email ~ …)`, paste-checked. `tests/compliance/runbook_no_history_expansion.test.ts` refuses any `!` in a shell block under `docs/`, red first on line 2162; it exempts no comment line, because a default zsh expands one. The readings recorded as the founder's: `0`, the email reading's re-run `0` (its value relayed in DY), `0`. Next letter DY. |
+| DY | R-2026-09-28-149 | 2026-09-28 | **Hosted run 1 recorded:** 025 and 026 applied from `cd05de1` (fences A, 1 to 6 and B, the founder's readings relayed by Cowork), and the Worker redeployed as `7d07e831` and read back PASS, probe 4 included. The frozen boundary is at 26 (`ledger_rows: 26`). Step 5 is restated to 001 to 026 and 0 pending, with the 2026-09-28 run kept dated; step 7 reads 001 to 026. Hosted state: Worker `7d07e831` at `cd05de1`, dashboard `963e53f5` and ward console `f6429a29` at `3623d2b` (the console calls a dropped function; no login exists), admin `0651ec07` at `ba12ceb`. A finding reported for Cowork: the relayed `read -rs` swallow, its mechanism on the founder's terminal not established. Next letter DZ. |
 
 ## Deferred items — this record is where the list lives
 
