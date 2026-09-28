@@ -7058,6 +7058,21 @@ Nothing hosted. Next letter: **DU**.
    - Restating either would change the file bundled into the deployed Worker. DT k landed these entries early so that this bundle needs no Worker redeploy.
    - The restatement belongs to the next Worker redeploy, and is reported for Cowork.
 
+
+**LANDED IN BUNDLE 4'S PULL REQUEST** (2026-09-28, "1 bed"; after Bundle 2, with -152):
+- **One helper.** `bedCountText()` in `packages/labels/src/index.ts` gives "1 bed", and "N beds" for every other N, "0 beds" included. It is used at all three sites DT names: `apps/public-dashboard/src/age-view.ts` (through the app's `src/labels.ts` re-export), `apps/ward-console/src/main.ts` and `apps/admin/src/main.ts`.
+  - It formats and never throws, because it runs inside the public page's renderer. It takes `unknown`, because the public page's rows are decoded untyped: any value but 1 renders exactly as `${String(n)} beds` did.
+- **The guard.** `tests/compliance/bed_count_wording.test.ts` refuses a count joined to "bed" or "beds" (a `${…} beds` template or a `+ ' beds'` concatenation) anywhere under `apps/*/src` and `packages/*/src` but the helper's own lines. It has a plant per app, a concatenation plant, a plant in the helper's file outside the helper (the exemption is by location, not by file), and an anti-vacuity leg. The corpus is asserted against the three apps.
+- **Rendered:** "1 bed", "0 beds" and "2 beds" on the public page, the console's handover summary and the admin app's ward line, each in its own render test.
+- **DP-5 a's row leaves the register in this pull request**, as DT says.
+- **Screenshots in .design-screens/DT-4/**, at 360x740, 360xfull, 960x800 and 1280x900, twenty in all:
+  - the public dashboard with counts 0, 1 and 2;
+  - the console's handover with a one-bed ward;
+  - the sign-in screen;
+  - the session-ended screen;
+  - the switched-off screen.
+  All are aligned, with no horizontal overflow.
+
 ### R-2026-09-27-145 — DT (f) amended: can_publish ships on a renamed read, public.my_reporting_wards()
 
 _Issued as R-PROVISIONAL-2026-09-27-DU, by Cowork on 2026-09-27, as the answer to the question Claude Code raised in Bundle 1 when 011's re-apply over 026 failed. Lands in Bundle 1's pull request, after -143 and -144. Number assigned on landing: R-2026-09-27-144 plus one. Next provisional letter: **DV**._
@@ -7536,6 +7551,148 @@ _Issued as R-PROVISIONAL-2026-09-28-EA, by Cowork on 2026-09-28, as its check of
 
 Nothing hosted ran from Claude Code's side. Next letter: **EB**.
 
+### R-2026-09-28-152 — #95 merged; Bundle 4: "1 bed", EA-5's sentences, and the gate keeps what it sees
+
+_Issued as R-PROVISIONAL-2026-09-28-EB, by Cowork on 2026-09-28, as its check of #95 at `95c1b83`. Landed in Bundle 4's pull request. Number assigned on landing: R-2026-09-28-151 plus one. Next provisional letter: **EC**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-28-EB — #95'S MERGE WORD, AND THE GATE KEEPS WHAT IT SEES
+> EB lands in Bundle 4's PR as -152. Next letter: EC.
+>
+> READ BY COWORK, from its own clone:
+> - main is at 6d8c355 (#96's merge, parents fbce3c9 and 6d6a4e2);
+> - #95's head is 95c1b83, and main..head is 95c1b83, a2ccc35 and 8a8319a;
+> - the diff has 20 paths;
+> - 12.4 step 5b carries EA-3 a's line under "After REPORTING_MODEL_CONFLICT:";
+> - the two TRIGGER rows are there, and the register reads 58;
+> - -150 and -151 are on the ledger;
+> - tests/db/runbook_12_4_12_5_sql_live.test.ts reads the fences from the runbook itself and never
+>   a copy, reads errors from stderr because a fence's exit status is its unset's, and holds the
+>   enum-form plant and the dropped-ward plant.
+> It matches EA as amended. Two corrections to the record, in EB-3.
+>
+> EB-1  #95: MERGE WORD, ON ONE CONDITION.
+>   a) Cowork cannot read CI from here. Before merging, read the required checks on 95c1b83 from
+>      the API and quote each one's name and conclusion. Merge only if every required check
+>      reads success, and none reads skipped or neutral.
+>   b) Then merge #95 as a merge commit. Read MERGED back, then delete bundle-2-ward-console on
+>      both sides and confirm it is gone. Quote the merge SHA and its parents.
+>
+> EB-2  THE UNEXPLAINED GATE RED. You were right not to call it a flake. The reason it has no
+>   cause is structural: scripts/gate.sh's run() sends every check's output to /dev/null, so a
+>   red check leaves nothing to read. Its own closing line, "Re-run the named check on its own
+>   to see its output", assumes the failure repeats, and this one did not. Fix it in Bundle 4:
+>   a) run() writes each check's combined stdout and stderr to .gate-logs/<nn>-<label-slug>.log.
+>      The directory is gitignored and overwritten on each run.
+>   b) On a failed check, the gate prints that check's log path and the last 40 lines of the log.
+>      The closing line becomes "Each check's full output is in .gate-logs/."
+>   c) tests/compliance/runner_aggregation.test.ts gains legs:
+>      - plant: a failing check's log exists and holds the check's own output;
+>      - accept: a passing run writes one log per check;
+>      - anti-vacuity: a gate that ran no checks fails.
+>      Show the new legs red first.
+>   d) Confirm that the secret scan and every lint ignore .gate-logs/, or exclude it by name.
+>      A test log must never be read as source.
+>   e) Register row, TRIGGER:
+>      - trigger: "the next time tests (db+compliance) is red in scripts/gate.sh";
+>      - work: "read the kept log, name the failing test and its cause, and report it; the
+>        2026-09-28 red on 95c1b83's first gate run is the open instance";
+>      - source: EB-2.
+>      With EA-7 c's 58, the register reads 59. Quote it by kind.
+>
+> EB-3  RECORD CORRECTIONS, in Bundle 4's record commit. Do not edit -151's row; write the
+>   corrections under EB.
+>   a) 12.4 step 5b and -151 call EA-3 a's line "the founder's wording". It is Cowork's
+>      wording, relayed by the founder. The step says "(R-2026-09-28-151 EA-3 a)" and nothing
+>      more.
+>   b) Two findings from your EA-2 c work are now standing facts:
+>      - a runbook fence's exit status is its unset's;
+>      - 6b lists wards in the enum's order.
+>      Add both to the "A block that reads a value is pasted alone" preamble in the runbook,
+>      in one sentence each, so the founder knows that a psql ERROR on screen is the failure
+>      signal, whatever the shell returns.
+>
+> EB-4  THE SWEEP'S 38 UNEXECUTED psql LINES. Leave them untested for now, deliberately: most are
+>   the one-time apply fences for 001 to 026, already run and read back on hosted. Register row,
+>   TRIGGER:
+>   - trigger: "the next runbook change that adds or edits a psql line outside the fences
+>     tests/db/runbook_12_4_12_5_sql_live.test.ts runs";
+>   - work: "that change brings its block under a live test";
+>   - source: EB-4.
+>   The register reads 60 with it. Quote the count by kind.
+>
+> EB-5  BUNDLE 4 STARTS after #95's merge is read back. Its scope:
+>   - DT's Bundle 4, "1 bed" everywhere, through the packages/labels helper, with a guard;
+>   - EA-5's three console sentences, exactly as written there;
+>   - EB-2 and EB-3;
+>   - the register rows from EB-2 and EB-4.
+>   Screenshots at four sizes go to .design-screens/DT-4/:
+>   - the public dashboard with counts 0, 1 and 2;
+>   - the ward console's handover with a 1-bed ward;
+>   - the sign-in screen;
+>   - the session-ended screen;
+>   - the switched-off screen.
+>   Then the standard report, and STOP for Cowork's check.
+>
+> Nothing hosted. Hosted run 2, deploying the ward console, admin and the public dashboard,
+> follows Bundle 4's merge. Cowork writes its steps then.
+
+**EB-1: THE CONDITION HELD, AND #95 IS MERGED.**
+- **The required checks,** read from the branch-protection API: repo-lint, migration-lint, compliance-tests, db-tests, bundle-guards, secret-scan and golden-path.
+- **Their conclusions on `95c1b834737664316e3dee18a9cea8b4b8e844fe`,** read from the check-runs API. The latest run of every one reads `completed success` (started 2026-09-28T11:52:25Z to 11:52:26Z), and none reads skipped or neutral.
+  - An earlier run on the same SHA (11:50:49Z to 11:50:50Z) reads `cancelled` for bundle-guards, compliance-tests, db-tests, golden-path and repo-lint, and `success` for migration-lint and secret-scan. That is the push-then-body-edit pattern, and it is quoted rather than left out.
+- **The merge:** `b8bf9b46d52608afbc2c543ad570ab1c0ff0d97b`, at 2026-09-28T12:05:46Z, with parents `6d8c35507728d5cb1f3bc7e746e0a765db509024` (main) and `95c1b834737664316e3dee18a9cea8b4b8e844fe` (the head). The head was read from the API and passed to `--match-head-commit`.
+- `bundle-2-ward-console` was deleted on both sides after `MERGED` read back. `ls-remote` found no head, and there is no local branch.
+
+**EB-2: LANDED.** `scripts/gate.sh` keeps every check's output.
+- **The logs:** each check's stdout and stderr go to `.gate-logs/NN-label-slug.log`. The directory is emptied at the start of every run, and gitignored.
+- **On a failure:** a failed check prints its log's path and last 40 lines, and the closing line reads "Each check's full output is in .gate-logs/."
+- **Zero checks is not a pass:** a gate that ran no check fails, with "gate.sh: FAILED — no check ran."
+- **c.** `tests/compliance/runner_aggregation.test.ts` gains the three legs on its scratch-gate harness, whose stubs now print their own output:
+  - PLANT: the failed check's log holds that check's stdout and stderr, and no other check's; the gate shows the path and the tail.
+  - ACCEPT: an all-green run leaves exactly one log per check, named for it in order.
+  - ANTI-VACUITY: a copy with every `run` line removed exits 1.
+  - All three were red against main's `gate.sh`.
+- **The leg register gains the zero-check refusal as reached:** 325 → 326, reached 299 → 300.
+- **d. Checked by trial, and two exclusions made by name.** Probe files holding a Supabase-secret shape and a backticked phantom path were written into `.gate-logs/` as `.log`, `.json`, `.md` and `.ts`:
+  - The secret scan and ESLint stayed green. ESLint's `ignores` gains `**/.gate-logs/**`, which `tests/compliance/eslint_ignores_cover_gitignore.test.ts` requires of every gitignored directory.
+  - **The secret scan reads the working tree by NAME pattern, tracked and untracked.** It skipped a gate log only because `.log` is not a name it selects, so a `.json` log would have been read. `scripts/lint_no_secrets.sh` now excludes `.gate-logs/` by path. `tests/compliance/no_secrets.test.ts` plants a secret-shaped `.json` there, which must pass, beside a control that plants the same file elsewhere, which must fail. The leg was red against main's scan.
+  - **`tests/compliance/no_phantom_paths.test.ts` read the probe `.md`, `.ts` and `.json` as source** and reported their three phantom paths. Its walk now skips `.gate-logs` by name, with a leg that was red first.
+  - Every other lint reads migrations, `apps/`, `packages/`, `scripts/` or built output, never the root.
+- **e.** The register row, as issued.
+
+**EB-3: LANDED.**
+- **a. The correction EB-3 a asks for, written here and not in -151's row:** 12.4 step 5b and -151 called EA-3 a's line "the founder's wording". It is Cowork's wording, relayed by the founder: it reached Claude Code as the founder's answer to Claude Code's question, and Claude Code labelled it by who relayed it. The step now reads "(R-2026-09-28-151 EA-3 a)" and nothing more. -151 is unchanged.
+- **b.** Step P's "A block that reads a value is pasted alone" gains "Read the screen, not the shell's status". A command block ends in its `unset`, so a psql `ERROR` on screen is the failure whatever the shell returns; and 12.4 step 6b lists wards in the database's category order, not alphabetically.
+
+**EB-4: the register row, as issued.** The 38 unexecuted psql lines stay untested, deliberately.
+
+**EB-5: this pull request is Bundle 4.**
+- DT's "1 bed", landed in -144's "LANDED IN BUNDLE 4".
+- **EA-5's three sentences, exactly as -151 writes them:**
+  - the signed-out lead: "Open the sign-in link sent to your sign-in address on this handset, or ask for a new one below.";
+  - TAP_AGAIN: "Your session has ended. Tap the sign-in link on this handset again to sign back in.";
+  - ACCOUNT_DEACTIVATED: "This sign-in has been switched off." followed by the unchanged help sentence.
+  - The two tests that pinned the old lead and session-ended text now pin the new text. A new render leg reads the switched-off sentence off the page.
+- The per-ward sentences stay, as EA-5 says. The console's page heading, "Ward console", is not one of EA-5's three, and is unchanged.
+
+**PREMISE CORRECTIONS** (method notes 4 and 20):
+1. **EB-2 e and EB-4's counts, 59 and then 60, do not include DP-5 a's row leaving.** DT's Bundle 4 says that row "leaves in this PR", and EB-5 puts DT's Bundle 4 in this pull request. Recounted from the table: 58, plus EB-2's row, 59; plus EB-4's row, 60; minus DP-5 a's row, **59** (15 BOX, 33 TRIGGER, 11 VERSION).
+2. **The helper does not refuse a non-integer or a negative count, as the plan said it would.** It runs inside the public page's renderer, where a throw turns one odd row into a failed page. It formats.
+3. **EB-2 d's "every lint ignores .gate-logs/"** held for ESLint and every script lint. It did not hold, by design, for two readers: the secret scan (excluded from `.log` by name pattern only) and the phantom-path guard (it read the probes). Both now exclude the directory by name.
+
+**Red first:**
+- **The six changed or new test files, against main's code** (the helper, the three sites, the dashboard's re-export and `gate.sh`, swapped in under bash and restored): collected=222 ran=222 passed=205 **failed=17**. Every red is a Bundle 4 leg:
+  - the helper's four values;
+  - the guard's real tree and three of its plants (main's admin and console lines are violations themselves);
+  - "1 bed" on each of the three sites;
+  - EA-5's three sentences;
+  - the three gate-log legs.
+- **The two `.gate-logs` exclusion legs:** each 1 of 1 red against main.
+
+Nothing hosted ran from Claude Code's side. Next letter: **EC**.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -7678,6 +7835,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | DY | R-2026-09-28-149 | 2026-09-28 | **Hosted run 1 recorded:** 025 and 026 applied from `cd05de1` (fences A, 1 to 6 and B, the founder's readings relayed by Cowork), and the Worker redeployed as `7d07e831` and read back PASS, probe 4 included. The frozen boundary is at 26 (`ledger_rows: 26`). Step 5 is restated to 001 to 026 and 0 pending, with the 2026-09-28 run kept dated; step 7 reads 001 to 026. Hosted state: Worker `7d07e831` at `cd05de1`, dashboard `963e53f5` and ward console `f6429a29` at `3623d2b` (the console calls a dropped function; no login exists), admin `0651ec07` at `ba12ceb`. A finding reported for Cowork: the relayed `read -rs` swallow, its mechanism on the founder's terminal not established. Next letter DZ. |
 | DZ | R-2026-09-28-150 | 2026-09-28 | **#94 merged at `fbce3c9`** (parents `cd05de1`, `2c94c17`), with the head pinned; `records-dw-dx-dy` deleted on both sides and read back as gone. DX-2's two departures and -149's `read -rs` finding accepted. **DZ-3 landed in Bundle 2's pull request:** every block that reads a value is a one-line connection block and a command block ending in its `unset` (43 blocks), step P states the rule, `tests/compliance/runbook_read_pasted_alone.test.ts` guards it, and a real paste under a pseudo-terminal read the same with bracketed paste on and off. DT's Bundle 2 landed with it; DO-3 leaves: register 56 once main, with Bundle 3, was merged in (restated by -151 EA-7 c; until then "DO-3 leaves: register 58 → 57", this pull request's own table). Next letter EA. |
 | EA | R-2026-09-28-151 | 2026-09-28 | **Cowork's check of #95 and #96.** #96 merged first at `6d8c355` (parents `fbce3c9`, `6d6a4e2`); `bundle-3-admin` deleted on both sides and read back as gone; main's register read 57. Main merged into #95 at `a2ccc35`. **EA-2 a and b withdrawn, Cowork's error:** 015 replaced 011's enum signature with a text one, so 6b's `::text` is right and the uncast form is what fails; 6b unchanged. `tests/db/runbook_12_4_12_5_sql_live.test.ts` runs 12.4 steps 6a and 6b and 12.5 steps 1 to 3 from the runbook's own fences, red first on EA-2 b's form. 12.4 step 5b gains the founder's scoped EA-3 line. The stranded invite (EA-3) and the allow-list comment (EA-4) become TRIGGER rows: register 56 → 58 (15 BOX, 32 TRIGGER, 11 VERSION). EA-5's three sentences go to Bundle 4. Next letter EB. |
+| EB | R-2026-09-28-152 | 2026-09-28 | **#95 merged at `b8bf9b4`** (parents `6d8c355`, `95c1b83`), every required check read `success` first; `bundle-2-ward-console` deleted on both sides and read back as gone. **Bundle 4 landed:** "1 bed" through one helper in `packages/labels` at all three sites, with a guard; EA-5's three console sentences; `scripts/gate.sh` keeps each check's output in `.gate-logs/`, prints a failed check's tail, and refuses a gate that ran nothing; the secret scan and the phantom-path guard exclude `.gate-logs/` by name; step P says to read the screen, not the shell's status. EB-3 a's correction: EA-3 a's line is Cowork's wording, relayed by the founder. Rows: EB-2 and EB-4 arrive, DP-5 a leaves: register 58 → 59 (15 BOX, 33 TRIGGER, 11 VERSION), not EB's 60, which left DP-5 a in. Next letter EC. |
 
 ## Deferred items — this record is where the list lives
 
@@ -7768,9 +7926,10 @@ the record's own, except where CW-5 assigned one._
 | Pages Git integration as the root fix for deploys | R-2026-09-20-30 A5 | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
 | Phone features: the tile, call tracking, WhatsApp/SMS | R-2026-09-23-66 C2 | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
 | The notice's transfer sentence for Cloudflare: its SCCs are stated for European data and its Global CBPR mechanism needs the originating country to recognise it; the basis for transfers out of Nigeria is the founder's transfer pack | R-2026-09-27-138 DN-2 | BOX | Box 15 at runbook 12.4 step 1 (the paperwork register approved in full, whose transfer memo covers it), ticked by a ruling that closes it |
-| "N beds" reads "1 beds" when N is 1, in all three apps: `apps/public-dashboard/src/age-view.ts`, `apps/ward-console/src/main.ts` and `apps/admin/src/main.ts`. Fixed as one change across the three, with a guard | R-2026-09-27-140 DP-5 a | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned: the first moment a real count can be shown (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned: the first moment a real count can be shown") |
 | Design closing, or superseding, an open invite, with its audit row. A refusal at `provision_complete` leaves its invite open, and the admin app shows each ward without its own login as "Setup incomplete" until a later run at that facility succeeds | R-2026-09-28-151 EA-3 | TRIGGER | A provisioning run is refused at provision_complete on hosted |
 | Restate `operator_record_registration`'s allow-list comment in `supabase-proxy/allow-list.json` (apps/admin calls it since DT Bundle 3) | R-2026-09-28-151 EA-4 | TRIGGER | The next commit that changes supabase-proxy/ |
+| Read the kept log, name the failing test and its cause, and report it; the 2026-09-28 red on 95c1b83's first gate run is the open instance | R-2026-09-28-152 EB-2 | TRIGGER | The next time tests (db+compliance) is red in scripts/gate.sh |
+| That change brings its block under a live test | R-2026-09-28-152 EB-4 | TRIGGER | The next runbook change that adds or edits a psql line outside the fences tests/db/runbook_12_4_12_5_sql_live.test.ts runs |
 
 ## Method notes — how rulings reach the implementer
 

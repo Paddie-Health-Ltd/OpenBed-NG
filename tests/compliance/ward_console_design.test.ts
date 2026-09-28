@@ -261,7 +261,7 @@ describe('the words are unchanged, and every refusal is a Notice', () => {
     await renderAt('', () => json(500, {}));
     const lead = document.querySelector('#app > p') as HTMLParagraphElement;
     expect(lead.className).toBe('lead');
-    expect(lead.textContent).toBe('Open the sign-in link sent to this ward’s address on this handset, or ask for a new one below.');
+    expect(lead.textContent).toBe('Open the sign-in link sent to your sign-in address on this handset, or ask for a new one below.');
   });
 });
 
@@ -512,7 +512,7 @@ describe('DI-2 — every outcome is a Notice in the design system\'s tone, and e
     rows.push({ what: 'zero with no reason, before sending', el: await publishOutcome(() => json(200, result(5)), '0'), text: m.WARD_MESSAGES['ZERO_REQUIRES_REASON'] as string, tone: 'caution' });
     rows.push({ what: 'published', el: await publishOutcome(() => json(200, result(5))), text: 'Published.', tone: 'info' });
     rows.push({ what: 'replayed', el: await publishOutcome(() => json(200, result(5, true))), text: 'Already published (replay).', tone: 'info' });
-    rows.push({ what: 'session ended at publish', el: await publishOutcome(() => json(401, { message: 'JWT expired' })), text: 'Your session has ended. Tap the link on the ward handset again to sign back in.', tone: 'caution' });
+    rows.push({ what: 'session ended at publish', el: await publishOutcome(() => json(401, { message: 'JWT expired' })), text: 'Your session has ended. Tap the sign-in link on this handset again to sign back in.', tone: 'caution' });
     rows.push({ what: 'sign-in answered', el: await signIn(() => json(200, {})), text: m.SIGNIN_ANSWERED, tone: 'info' });
     rows.push({ what: 'sign-in unreachable', el: await signIn(() => { throw new TypeError('down'); }), text: m.SIGNIN_UNREACHABLE, tone: 'caution' });
     await renderAt(sessionFragment(), (url) => (url.endsWith('my_reporting_wards') ? json(403, { code: '42501', message: 'NOT_A_MEMBER' }) : json(500, {})));

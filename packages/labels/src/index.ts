@@ -100,3 +100,20 @@ export function precedence(codes: WardStateCodes): Precedence {
   const qualifiers = [source, review].filter((w) => w !== '').map((w) => ` — ${w}`).join('');
   return { kind: 'claim', qualifiers };
 }
+
+/**
+ * A BED COUNT IN WORDS: "1 bed", and "N beds" for every other N, "0 beds" included
+ * (R-2026-09-27-140 DP-5 a; R-2026-09-27-144 DT, Bundle 4). The one place a count
+ * becomes words, used by the public page, the ward console and the admin app, so a
+ * one-bed ward reads the same on all three. tests/compliance/bed_count_wording.test.ts
+ * refuses a "beds" built anywhere else.
+ *
+ * It formats and never throws. It runs inside the public page's renderer, where a
+ * throw would turn one odd row into a page that shows nothing. It takes `unknown`
+ * because the public page's rows are decoded untyped: any value other than 1 renders
+ * exactly as `${String(n)} beds` did before this helper existed, so the only change is
+ * that 1 reads "1 bed".
+ */
+export function bedCountText(n: unknown): string {
+  return n === 1 ? '1 bed' : `${String(n)} beds`;
+}

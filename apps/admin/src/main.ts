@@ -2,7 +2,7 @@ import { SessionExpiredError, SessionHolder, requestSignInLink, sessionFromUrlFr
 import { apiOrigin } from '@openbed/origins';
 import { publishableKeyFor } from '@openbed/origins/keys';
 import { PRIVACY_NOTICE_URL } from '@openbed/origins/privacy';
-import { categoryLabel } from '@openbed/labels';
+import { bedCountText, categoryLabel } from '@openbed/labels';
 import { ADMIN_CODES, ADMIN_FIXED, ADMIN_SCREENS as W, WARD_CATEGORIES } from '@openbed/labels/admin';
 import { elapsedSince, freshnessBand, lagosTime, markFetch, type FetchMark, type FreshnessBand } from '@openbed/snapshot';
 import '@openbed/design/tokens.css';
@@ -258,7 +258,7 @@ function wardLine(w: Ward, model: ReportingModel, reg: Register, mark: FetchMark
   let claim: string;
   if (w.offering === 'NOT_OFFERED') claim = 'not offered';
   else if (w.monitoringState === 'PENDING' || w.updatedAt === null) claim = W.NOT_YET_REPORTING;
-  else claim = `${w.bedCount === null ? 'no count' : `${String(w.bedCount)} beds`}, last reported at ${lagosTime(w.updatedAt)} (${BAND_WORD[band as FreshnessBand]})`;
+  else claim = `${w.bedCount === null ? 'no count' : bedCountText(w.bedCount)}, last reported at ${lagosTime(w.updatedAt)} (${BAND_WORD[band as FreshnessBand]})`;
   li.textContent = `${categoryLabel(w.category)}: ${claim} — ${loginWord(w, model)}`;
   if (band !== null) li.dataset['band'] = band;
   return li;

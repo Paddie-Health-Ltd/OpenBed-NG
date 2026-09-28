@@ -88,6 +88,12 @@ describe('each band, in words, on the rendered page', () => {
     expect(banner()).toBeNull();
   });
 
+  // R-2026-09-27-140 DP-5 a, R-2026-09-27-144 DT Bundle 4: one bed is "1 bed", and none is "0 beds".
+  test.each([[1, '1 bed'], [0, '0 beds'], [2, '2 beds']])('a count of %s reads "%s" on the rendered page (DT Bundle 4)', async (n, words) => {
+    await renderAt({ wards: [ward('A_AND_E', 5, { bed_count: n })], servedAfterGenMinutes: 1 });
+    expect(lines()[0]).toBe(`${AE}: ${words} — updated 6 min ago`);
+  });
+
   test('AGEING — the count stays, "last reported N min ago — call to confirm"', async () => {
     const age = B.greenUnderMinutes + 15;
     await renderAt({ wards: [ward('A_AND_E', age - 1)], servedAfterGenMinutes: 1 });

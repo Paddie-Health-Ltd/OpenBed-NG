@@ -4,5 +4,5 @@
  * because tests/compliance/dashboard_age.test.ts names it and scans every file in
  * this directory for device-clock reads.
  */
-export { categoryLabel, reasonLabel, stateWords, precedence, isLabelled, UNKNOWN_STATUS } from '@openbed/labels';
+export { bedCountText, categoryLabel, reasonLabel, stateWords, precedence, isLabelled, UNKNOWN_STATUS } from '@openbed/labels';
 export type { LabelledEnum, Precedence, WardStateCodes } from '@openbed/labels';

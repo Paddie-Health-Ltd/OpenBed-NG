@@ -66,3 +66,9 @@ supabase-proxy/version.json
 # review evidence, and they would otherwise dirty the tree the deploy wrapper and the
 # build stamp both refuse.
 .design-screens/
+
+# scripts/gate.sh's per-check output (R-2026-09-28-152 EB-2): each check's stdout and
+# stderr, rewritten on every run so a red check leaves something to read. A log is
+# never source: nothing tracked is read from here, and the secret scan reads only
+# tracked files.
+.gate-logs/

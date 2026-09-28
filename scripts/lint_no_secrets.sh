@@ -110,6 +110,12 @@ ALLOWED=(
     'packages/origins/publishable-keys.json|JWT'
 )
 
+# .gate-logs/ IS EXCLUDED BY NAME (R-2026-09-28-152 EB-2 d). It holds scripts/gate.sh's
+# per-check output, which quotes this repository's own planted credential shapes (the
+# plant legs of this very scan print them), and it is gitignored, so it cannot reach the
+# public repository this scan protects. A test log is never source. Until then it was
+# outside the scan only because `.log` is not a name the find selects; that is an
+# accident a future `.json` log would undo, so the exclusion is stated.
 FILES=()
 while IFS= read -r _line; do FILES+=("$_line"); done < <(
     find "$ROOT" -type f \
@@ -117,7 +123,7 @@ while IFS= read -r _line; do FILES+=("$_line"); done < <(
          -o -name '*.sql' -o -name '*.sh' -o -name '*.yml' -o -name '*.yaml' -o -name '*.md' \
          -o -name '*.toml' -o -name '*.env*' \) \
       -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/dist/*' \
-      -not -path '*/.next/*' -not -name 'package-lock.json' 2>/dev/null | sort
+      -not -path '*/.next/*' -not -path '*/.gate-logs/*' -not -name 'package-lock.json' 2>/dev/null | sort
 )
 [ "${#FILES[@]}" -gt 0 ] || { echo "ERROR: no files to scan under $ROOT" >&2; exit 2; }
 

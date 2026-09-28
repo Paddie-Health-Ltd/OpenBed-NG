@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { withScratch, place, REPO_ROOT } from './_scratch.js';
 
@@ -40,6 +40,11 @@ interface Run {
   ran: string[];
 }
 
+/** A gate run, with every file it left in .gate-logs/, by name. */
+interface GateRun extends Run {
+  logs: Record<string, string>;
+}
+
 function exec(cmd: string, args: string[], env: Record<string, string>, cwd?: string): { status: number; out: string } {
   try {
     const out = execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ...env }, cwd });
@@ -50,9 +55,13 @@ function exec(cmd: string, args: string[], env: Record<string, string>, cwd?: st
   }
 }
 
-/** A stub that appends its id to ran.log, then exits 3 if it is the one told to fail. */
+/**
+ * A stub that appends its id to ran.log, prints its own output on stdout and stderr (so a
+ * kept log can be shown to hold THIS check's output), then exits 3 if it is the one told
+ * to fail.
+ */
 function stub(id: string): string {
-  return `#!/usr/bin/env bash\necho "${id}" >> "$STUB_LOG"\nif [ "\${STUB_FAIL:-}" = "${id}" ]; then exit 3; fi\nexit 0\n`;
+  return `#!/usr/bin/env bash\necho "${id}" >> "$STUB_LOG"\necho "OUTPUT OF ${id}"\necho "STDERR OF ${id}" >&2\nif [ "\${STUB_FAIL:-}" = "${id}" ]; then exit 3; fi\nexit 0\n`;
 }
 
 function plantInto(file: string, anchor: string, injected: string): void {
@@ -75,21 +84,38 @@ const GATE_SCRIPTS = [
   'lint_audit_log_columns.sh',
 ];
 
-function gate(fail: string, inject?: { anchor: string; line: string }): Run {
+function gate(fail: string, inject?: { anchor: string; line: string }, transform?: (src: string) => string): GateRun {
   return withScratch((root) => {
     mkdirSync(join(root, 'scripts'), { recursive: true });
     mkdirSync(join(root, 'bin'), { recursive: true });
     copyFileSync(join(REPO_ROOT, 'scripts/gate.sh'), join(root, 'scripts/gate.sh'));
     for (const s of GATE_SCRIPTS) place(root, `scripts/${s}`, stub(s));
     for (const tool of ['npm', 'npx']) {
-      writeFileSync(join(root, 'bin', tool), `#!/usr/bin/env bash\necho "${tool} $*" >> "$STUB_LOG"\nif [ "\${STUB_FAIL:-}" = "${tool} $*" ]; then exit 3; fi\nexit 0\n`, 'utf8');
+      writeFileSync(join(root, 'bin', tool), `#!/usr/bin/env bash\necho "${tool} $*" >> "$STUB_LOG"\necho "OUTPUT OF ${tool} $*"\necho "STDERR OF ${tool} $*" >&2\nif [ "\${STUB_FAIL:-}" = "${tool} $*" ]; then exit 3; fi\nexit 0\n`, 'utf8');
       chmodSync(join(root, 'bin', tool), 0o755);
     }
     if (inject) plantInto(join(root, 'scripts/gate.sh'), inject.anchor, inject.line);
+    if (transform) {
+      const src = readFileSync(join(root, 'scripts/gate.sh'), 'utf8');
+      const out = transform(src);
+      if (out === src) throw new Error('the gate.sh transform changed nothing; the plant did not land');
+      writeFileSync(join(root, 'scripts/gate.sh'), out, 'utf8');
+    }
     const log = join(root, 'ran.log');
     const r = exec('bash', [join(root, 'scripts/gate.sh')], { PATH: `${join(root, 'bin')}:${process.env['PATH'] ?? ''}`, STUB_LOG: log, STUB_FAIL: fail });
-    return { ...r, ran: existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n') : [] };
+    const dir = join(root, '.gate-logs');
+    const logs: Record<string, string> = {};
+    if (existsSync(dir)) for (const f of readdirSync(dir).sort()) logs[f] = readFileSync(join(dir, f), 'utf8');
+    return { ...r, ran: existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n') : [], logs };
   });
+}
+
+/** The log file each of the real gate's checks should leave, in order: NN-<label slug>.log. */
+function expectedLogs(): string[] {
+  const src = readFileSync(join(REPO_ROOT, 'scripts/gate.sh'), 'utf8');
+  const labels = [...src.matchAll(/^\s*run "([^"]+)"/gm)].map((m) => m[1]!);
+  if (labels.length === 0) throw new Error('scripts/gate.sh has no run "<label>" lines to derive the expected logs from');
+  return labels.map((l, i) => `${String(i + 1).padStart(2, '0')}-${l.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.log`);
 }
 
 function aggregator(fail: string, inject?: { anchor: string; line: string }): Run {
@@ -155,6 +181,37 @@ describe('gate.sh — counted failures reported, unintended failures abort', () 
     expect(r.status, `an unintended failure did not abort:\n${r.out}`).not.toBe(0);
     expect(r.out, `the gate ran on past an unintended failure and passed:\n${r.out}`).not.toContain('gate.sh: PASS');
     expect(r.ran, `a check ran after the unintended failure:\n${r.out}\nran: ${r.ran.join(', ')}`).not.toContain('npm run typecheck');
+  });
+});
+
+describe('gate.sh keeps every check\'s output (R-2026-09-28-152 EB-2)', () => {
+  test('plant — a failing check\'s kept log exists and holds that check\'s own output, and the gate shows its path and tail', () => {
+    const r = gate('npm run test');
+    expect(r.status, r.out).toBe(1);
+    const name = '04-tests-db-compliance.log';
+    expect(Object.keys(r.logs), `no kept log for the failed check:\n${r.out}`).toContain(name);
+    expect(r.logs[name], 'the log does not hold the check\'s stdout').toContain('OUTPUT OF npm run test');
+    expect(r.logs[name], 'the log does not hold the check\'s stderr').toContain('STDERR OF npm run test');
+    expect(r.logs[name], 'the log holds another check\'s output').not.toContain('OUTPUT OF npm run build');
+    expect(r.out).toContain(`log: .gate-logs/${name} -- its last 40 lines:`);
+    expect(r.out).toContain('    | OUTPUT OF npm run test');
+    expect(r.out).toContain("Each check's full output is in .gate-logs/.");
+  });
+
+  test('real gate.sh, all green, writes exactly one log per check it ran, named for the check', () => {
+    const r = gate('');
+    expect(r.status, r.out).toBe(0);
+    expect(Object.keys(r.logs)).toEqual(expectedLogs());
+    expect(Object.keys(r.logs)).toHaveLength(r.ran.length);
+    expect(r.logs['01-build.log']).toContain('OUTPUT OF npm run build');
+  });
+
+  test('anti-vacuity — a gate that ran no checks fails', () => {
+    const r = gate('', undefined, (src) => src.replace(/^(\s*)run "[^\n]*$/gm, '$1:'));
+    expect(r.ran, 'the plant left a check in place').toEqual([]);
+    expect(r.status, `a gate that ran nothing passed:\n${r.out}`).toBe(1);
+    expect(r.out).toContain('gate.sh: FAILED — no check ran.');
+    expect(r.out).not.toContain('gate.sh: PASS');
   });
 });
 
