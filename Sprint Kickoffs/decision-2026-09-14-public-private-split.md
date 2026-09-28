@@ -7693,6 +7693,206 @@ _Issued as R-PROVISIONAL-2026-09-28-EB, by Cowork on 2026-09-28, as its check of
 
 Nothing hosted ran from Claude Code's side. Next letter: **EC**.
 
+### R-2026-09-28-153 — Cowork's check of #97: one comment fixed, then #97 merged
+
+_Issued as R-PROVISIONAL-2026-09-28-EC, by Cowork on 2026-09-28, as its check of #97 at `7a69717`. It was acted on the same day and HELD for the record, landing here, in the records-only pull request that also lands -154 (ED-1). Number assigned on landing: R-2026-09-28-152 plus one. Next provisional letter: **ED**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-28-EC — #97 (BUNDLE 4): ONE COMMENT FIXED, THEN THE MERGE WORD
+> EC lands in the next PR's record commit as -153. Next letter: ED.
+>
+> READ BY COWORK, from its own clone:
+> - main is at b8bf9b4 (#95's merge, parents 6d8c355 and 95c1b83);
+> - #97's head is 7a69717, and main..head is that one commit, 20 paths;
+> - bedCountText() is in packages/labels and is the only place a count becomes words: 1 reads
+>   "1 bed", and every other value reads as before. It never throws, and that is correct.
+> - EA-5's three sentences are exactly as issued;
+> - gate.sh keeps a log per check, prints the log's path and last 40 lines on a red, and fails
+>   when no check ran;
+> - the secret scan excludes .gate-logs/ by name;
+> - the runbook carries EB-3's two sentences, and 12.4 step 5b cites EA-3 a only.
+> Screenshots read: the dashboard with 0, 1 and 2 beds at 360, 960 and 1280; the handover with
+> a 1-bed ward; and the sign-in, session-ended and switched-off screens. All match.
+>
+> EC-1  ONE FALSE FACT, FIXED BEFORE THE MERGE. The new .gitignore comment says "the secret scan
+>   reads only tracked files". It does not: scripts/lint_no_secrets.sh finds files over the
+>   whole tree, tracked or not. Your own report says so, and that is why EB-2 d needed the
+>   by-name exclusion. Restate the comment's last sentence as:
+>   "A log is never source: scripts/lint_no_secrets.sh and tests/compliance/no_phantom_paths.test.ts
+>   exclude .gate-logs/ by name."
+>   Commit it through scripts/commit.sh and push.
+>
+> EC-2  #97: MERGE WORD, once the new head's required checks are read.
+>   a) Read the required checks on the new head from the API, and quote each check's name and
+>      conclusion. Merge only if every one reads success; skipped or neutral does not count.
+>   b) Merge #97 as a merge commit. Read MERGED back, then delete the branch on both sides and
+>      confirm it is gone.
+>   c) Quote the merge SHA, its parents and main's register count by kind (59: 15 BOX,
+>      33 TRIGGER, 11 VERSION).
+>
+> EC-3  THE REGISTER: 59 IS RIGHT. EB's 59, then 60, forgot that DT's Bundle 4 removes DP-5 a's row.
+>   Record that as Cowork's slip under EC.
+>
+> EC-4  THEN STOP. There is no next bundle to start: Bundle 5, the privacy notice 1.1, waits for
+>   the founder's approval of Cowork's draft. Hosted run 2 is the founder's, from the deploy
+>   checkout at #97's merge commit: the ward console, admin and the public dashboard, each
+>   through scripts/deploy_pages.sh and read back. Nothing under supabase-proxy/ or
+>   database/migrations/ has changed since hosted run 1 (cd05de1), so there is no Worker
+>   redeploy and no apply. If that is wrong, say so in your report.
+
+**EC-1: LANDED in #97.** The `.gitignore` comment's last sentence now reads as EC-1 gives it. It was committed as `508d0825a797a00e12c167a0edaf6b6f66559c85` through `scripts/commit.sh` after a fresh reset, and the full gate passed and left 13 kept logs. It is one file and two lines.
+
+**EC-2: #97 MERGED.**
+- **The required checks** on `508d082`, read from the check-runs API: repo-lint, migration-lint, compliance-tests, db-tests, bundle-guards, secret-scan and golden-path. The latest run of each reads `completed success` (14:06:14Z to 14:06:15Z), and none reads skipped or neutral. An earlier run (14:06:10Z) was cancelled for all seven when a PR-body edit started the later one.
+- **The merge:** `48ba94b6dec2f64e48fede9c0ccbe37a0e97cfee`, at 2026-09-28T14:09:14Z, with parents `b8bf9b46d52608afbc2c543ad570ab1c0ff0d97b` (main) and `508d0825a797a00e12c167a0edaf6b6f66559c85` (the head). The head was read from the API and passed to `--match-head-commit`.
+- `bundle-4-beds` was deleted on both sides after `MERGED` read back; `ls-remote` found no head, and there is no local branch.
+- **Main's register:** 59 (15 BOX, 33 TRIGGER, 11 VERSION), counted from the table.
+
+**EC-3, recorded as EC-3 asks: Cowork's slip.** EB's "59, then 60" forgot that DT's Bundle 4 removes DP-5 a's row. -152's premise correction 1 reported it, and 59 is right.
+
+**EC-4.**
+- **Stopped as EC-4 says.** No bundle started.
+- **One premise, checked:** "Nothing under supabase-proxy/ or database/migrations/ has changed since hosted run 1 (cd05de1)."
+  - Nothing under `supabase-proxy/` changed.
+  - No `.sql` file under `database/migrations/` changed.
+  - One file there did change: `database/migrations/applied-hosted.json`, in `c632be7` (#94). It is hosted run 1's own record (the frozen boundary at 26), not a migration.
+  - **The conclusion holds:** hosted run 2 needed no Worker redeploy and no apply.
+
+Next letter: **ED**.
+
+### R-2026-09-28-154 — Hosted run 2 recorded: the three sites deployed from 48ba94b and read back
+
+_Issued as R-PROVISIONAL-2026-09-28-ED, by Cowork on 2026-09-28. It relays the founder's pasted output from hosted run 2, as Cowork read it. Landed in the records-only pull request that lands -153 first (ED-1). Number assigned on landing: R-2026-09-28-153 plus one. Next provisional letter: **EE**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-28-ED — HOSTED RUN 2 RECORDED: THE THREE SITES DEPLOYED FROM 48ba94b AND READ BACK
+> ED lands with EC in one records-only PR: EC as -153, then ED as -154. Next letter: EE.
+>
+> ED-1  THE RECORD. Open one records-only PR from main (48ba94b), with no code, no test and no
+>   migration changes. Land EC as -153, with EC-3's note that the 59/60 slip was Cowork's. Then
+>   land ED as -154, recording hosted run 2 from the founder's pasted output, which Cowork relays
+>   as read:
+>   a) The deploy checkout refreshed to 48ba94b6dec2f64e48fede9c0ccbe37a0e97cfee (the previous
+>      HEAD there was cd05de1), with npm ci clean.
+>   b) The ward console: bash scripts/deploy_pages.sh --branch main ward-console, deployment
+>      https://6e216584.openbed-ward-console.pages.dev. readback_ward_console.sh read PASS:
+>      - the stamp names 48ba94b and is clean;
+>      - the headers and scripts are right on both hosts;
+>      - the favicon and a self-hosted font are served correctly;
+>      - there is one publishable key;
+>      - the live half read 200 and the dead half 401 "Invalid API key".
+>   c) Admin: bash scripts/deploy_pages.sh --branch main admin, deployment
+>      https://90acd718.openbed-admin.pages.dev. readback_admin.sh read PASS:
+>      - step 1 read a 302 to Access on all three hosts;
+>      - step 2's stamp, and admin.openbed.ng's, name 48ba94b;
+>      - the headers, scripts, favicon, font and key are right;
+>      - step 3 read live 200, dead 401, and the operator call 401 with x-openbed-proxy forwarded.
+>      ITS FIRST RUN WAS NOT A VERDICT ON THE DEPLOY. Cowork's step used the placeholder
+>      https://PASTE-THE-ADDRESS.openbed-admin.pages.dev, and the founder pasted it unedited.
+>      Step 1 read a 302 to Access on all three hosts, including the placeholder. Step 2 read
+>      WRONG on every line for the placeholder host (not a stamp, no headers, Cloudflare's own
+>      inline script), but admin.openbed.ng's commit already read 48ba94b. The rerun, against
+>      the real URL, is the verdict. Record this as Cowork's slip: an instruction that must be
+>      edited before it is pasted, when the value was known. From now on, Cowork gives every
+>      read-back command with the real deployment URL filled in.
+>   d) The public dashboard: bash scripts/deploy_pages.sh --branch main public-dashboard,
+>      deployment https://2633ccc0.openbed-public-dashboard.pages.dev, with the Functions bundle
+>      uploaded. readback_pages.sh read PASS:
+>      - read-back 4 names 48ba94b, clean and on origin/main;
+>      - read-backs 6 and 8: /beds.json reads 200 JSON with the exact headers on GET and HEAD,
+>        and the body is {"v":16324,"wards":[],"facilities":[],...};
+>      - read-back 7: robots.txt is right on both hosts;
+>      - the headers and scripts are right on both hosts, and so are the favicon and the font;
+>      - /privacy reads Version 1.0, with Paddie Health Ltd as controller, no #app root and no
+>        scripts, on both hosts;
+>      - the serve-time stamp advances.
+>   e) The founder's browser checks, reported on 2026-09-28, all passed:
+>      - app.openbed.ng, on a phone in a private window, shows EA-5's sign-in sentence and the
+>        "Sign-in email address" label;
+>      - admin.openbed.ng shows the reporting-model line and the HEFAMAA Registration section;
+>      - openbed.ng loads as before.
+>   f) THE HOSTED STATE, restated where the record keeps it:
+>      - migrations 001 to 026, frozen boundary 26;
+>      - Worker 7d07e831 at cd05de1;
+>      - the ward console at 6e216584, admin at 90acd718 and the public dashboard at 2633ccc0,
+>        all from 48ba94b.
+>      The console no longer calls the dropped my_facility_wards: it reads my_reporting_wards.
+>      So 12.4 step 5's precondition (R-2026-09-27-145 DU-4 b), "the deployed ward console reads
+>      my_reporting_wards", is now MET on hosted. Record it as met, with this run as its evidence.
+>      No reporting login exists yet.
+>
+> ED-2  THE REGISTER. No row's trigger fired in this run. EB-2's gate-log row did not fire (the
+>   gate did not run here), and EB-4's row did not fire (no runbook change). Recount the register
+>   from the table and quote it by kind. It must read 59 (15 BOX, 33 TRIGGER, 11 VERSION). Any
+>   other number is a STOP to report.
+>
+> ED-3  PROCESS. Records-only, so use scripts/commit.sh --fast, whose trailer says so. Read every
+>   required check on the PR head from the API, and merge only if all seven read success. Merge as
+>   a merge commit, read MERGED back, then delete the branch on both sides. Report the merge SHA,
+>   its parents and the register count, then STOP.
+>
+> WHAT IS NEXT, and nothing below starts on this ruling:
+> - Bundle 5 (privacy notice 1.1) waits for the founder's approval of Cowork's draft. It comes as
+>   its own letter.
+> - Then hosted run 3: deploy the public dashboard and read back "Version 1.1".
+> - Only then: facility one's creation (12.4 steps 1 to 2a) and its facility-level login.
+
+**What this record rests on.**
+- **The founder's readings, relayed by Cowork.** Every deploy, read-back and browser reading below is the founder's, as Cowork relays it. Claude Code ran nothing hosted, and read none of these URLs.
+- **What Claude Code checked, from the repository at `48ba94b`:** `apps/ward-console/src/main.ts` calls `rpc/my_reporting_wards` (l.794), and names `my_facility_wards` only in a comment (l.184).
+
+**ED-1: HOSTED RUN 2, RECORDED.**
+- **a. The deploy checkout:** refreshed to `48ba94b6dec2f64e48fede9c0ccbe37a0e97cfee` from `cd05de1`, and `npm ci` was clean.
+- **b. The ward console:** `https://6e216584.openbed-ward-console.pages.dev`. `readback_ward_console.sh` read PASS:
+  - the stamp names `48ba94b` and is clean;
+  - the headers and scripts are right on both hosts;
+  - the favicon and a self-hosted font are served;
+  - there is one publishable key;
+  - the live half read 200, and the dead half 401 "Invalid API key".
+- **c. Admin:** `https://90acd718.openbed-admin.pages.dev`. `readback_admin.sh` read PASS:
+  - step 1 read a 302 to Access on all three hosts;
+  - step 2's stamp, and `admin.openbed.ng`'s, name `48ba94b`;
+  - the headers, scripts, favicon, font and key are right;
+  - step 3 read live 200, dead 401, and the operator call 401 with `x-openbed-proxy` forwarded.
+
+  **Its first run was not a verdict**, and that was **Cowork's slip**, as ED-1 c records it. The step carried the placeholder `https://PASTE-THE-ADDRESS.openbed-admin.pages.dev` when the value was known, and it was pasted unedited. The rerun against the real URL is the verdict. From now on, Cowork gives every read-back command with the real deployment URL filled in.
+- **d. The public dashboard:** `https://2633ccc0.openbed-public-dashboard.pages.dev`, with the Functions bundle uploaded. `readback_pages.sh` read PASS:
+  - read-back 4 names `48ba94b`, clean and on origin/main;
+  - read-backs 6 and 8: `/beds.json` read 200 JSON with the exact headers on GET and HEAD, and an empty body (`"wards":[]`, `"facilities":[]`);
+  - read-back 7: `robots.txt` is right on both hosts;
+  - the headers, scripts, favicon and font are right on both hosts;
+  - `/privacy` reads Version 1.0, with Paddie Health Ltd as controller, and no app root and no scripts, on both hosts;
+  - the serve-time stamp advances.
+- **e. The founder's browser checks, 2026-09-28, all passed:**
+  - `app.openbed.ng`, on a phone in a private window, shows EA-5's sign-in sentence and the "Sign-in email address" label;
+  - `admin.openbed.ng` shows the reporting-model line and the HEFAMAA Registration section;
+  - `openbed.ng` loads as before.
+- **f. Hosted after this run.** This restates -149's DY-2 table, which stays as written for its own date.
+
+  | What | Version | Built from |
+  |---|---|---|
+  | Migrations | 001 through 026, frozen boundary 26 | |
+  | Worker | `7d07e831` | `cd05de1` |
+  | Public dashboard | `2633ccc0` | `48ba94b` |
+  | Ward console | `6e216584` | `48ba94b` |
+  | Admin | `90acd718` | `48ba94b` |
+
+  - **12.4 step 5's precondition (R-2026-09-27-145 DU-4 b) is MET on hosted**, with this run as its evidence. The deployed console (`6e216584`, from `48ba94b`) reads `my_reporting_wards`, not the dropped `my_facility_wards`, and its read-back read PASS on that commit.
+  - -149's "the ward console calls `my_facility_wards`, which no longer exists" was true of `f6429a29`, and is superseded by this run.
+  - The precondition's text in the runbook is unchanged. It is still the check the founder runs from the deploy checkout before any login is provisioned.
+  - No reporting login exists yet.
+
+**ED-2: NO TRIGGER FIRED.**
+- EB-2's gate-log row did not fire, because the gate did not run in a hosted run.
+- EB-4's row did not fire, because no runbook changed: this pull request edits only this record.
+- **Recounted from the table: 59** (15 BOX, 33 TRIGGER, 11 VERSION), as ED-2 requires.
+
+**ED-3:** records-only, committed with `scripts/commit.sh --fast`, whose trailer says so.
+
+Nothing hosted ran from Claude Code's side. Next letter: **EE**.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -7836,6 +8036,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | DZ | R-2026-09-28-150 | 2026-09-28 | **#94 merged at `fbce3c9`** (parents `cd05de1`, `2c94c17`), with the head pinned; `records-dw-dx-dy` deleted on both sides and read back as gone. DX-2's two departures and -149's `read -rs` finding accepted. **DZ-3 landed in Bundle 2's pull request:** every block that reads a value is a one-line connection block and a command block ending in its `unset` (43 blocks), step P states the rule, `tests/compliance/runbook_read_pasted_alone.test.ts` guards it, and a real paste under a pseudo-terminal read the same with bracketed paste on and off. DT's Bundle 2 landed with it; DO-3 leaves: register 56 once main, with Bundle 3, was merged in (restated by -151 EA-7 c; until then "DO-3 leaves: register 58 → 57", this pull request's own table). Next letter EA. |
 | EA | R-2026-09-28-151 | 2026-09-28 | **Cowork's check of #95 and #96.** #96 merged first at `6d8c355` (parents `fbce3c9`, `6d6a4e2`); `bundle-3-admin` deleted on both sides and read back as gone; main's register read 57. Main merged into #95 at `a2ccc35`. **EA-2 a and b withdrawn, Cowork's error:** 015 replaced 011's enum signature with a text one, so 6b's `::text` is right and the uncast form is what fails; 6b unchanged. `tests/db/runbook_12_4_12_5_sql_live.test.ts` runs 12.4 steps 6a and 6b and 12.5 steps 1 to 3 from the runbook's own fences, red first on EA-2 b's form. 12.4 step 5b gains the founder's scoped EA-3 line. The stranded invite (EA-3) and the allow-list comment (EA-4) become TRIGGER rows: register 56 → 58 (15 BOX, 32 TRIGGER, 11 VERSION). EA-5's three sentences go to Bundle 4. Next letter EB. |
 | EB | R-2026-09-28-152 | 2026-09-28 | **#95 merged at `b8bf9b4`** (parents `6d8c355`, `95c1b83`), every required check read `success` first; `bundle-2-ward-console` deleted on both sides and read back as gone. **Bundle 4 landed:** "1 bed" through one helper in `packages/labels` at all three sites, with a guard; EA-5's three console sentences; `scripts/gate.sh` keeps each check's output in `.gate-logs/`, prints a failed check's tail, and refuses a gate that ran nothing; the secret scan and the phantom-path guard exclude `.gate-logs/` by name; step P says to read the screen, not the shell's status. EB-3 a's correction: EA-3 a's line is Cowork's wording, relayed by the founder. Rows: EB-2 and EB-4 arrive, DP-5 a leaves: register 58 → 59 (15 BOX, 33 TRIGGER, 11 VERSION), not EB's 60, which left DP-5 a in. Next letter EC. |
+| EC | R-2026-09-28-153 | 2026-09-28 | **Cowork's check of #97.** One false comment fixed before the merge: `.gitignore` said the secret scan reads only tracked files, and it now names the two readers that exclude `.gate-logs/` by name (`508d082`). #97 merged at `48ba94b` (parents `b8bf9b4`, `508d082`) after every required check read `success`; `bundle-4-beds` deleted on both sides. Register 59 (15 BOX, 33 TRIGGER, 11 VERSION). EB's 59-then-60 was Cowork's slip. EC-4's premise checked: since `cd05de1` only `applied-hosted.json` changed under `database/migrations/`, and nothing under `supabase-proxy/`, so no Worker redeploy and no apply. Held, and landed with -154. Next letter ED. |
+| ED | R-2026-09-28-154 | 2026-09-28 | **Hosted run 2 recorded** (the founder's readings, relayed by Cowork): the ward console `6e216584`, admin `90acd718` and the public dashboard `2633ccc0`, all from `48ba94b`, each read back PASS, and the founder's browser checks passed. Admin's first read-back ran against a pasted placeholder URL and is not a verdict; the rerun is (Cowork's slip: a read-back command is given with the real URL filled in). Hosted: migrations 001 to 026, Worker `7d07e831` at `cd05de1`. 12.4 step 5's DU-4 b precondition is MET on hosted. No trigger fired; register 59. Next letter EE. |
 
 ## Deferred items — this record is where the list lives
 
