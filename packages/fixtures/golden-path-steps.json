@@ -132,6 +132,13 @@
       "needs_browser": false
     },
     {
+      "id": "reporter-publishes-through-console",
+      "description": "The reporter's session opens the ward console itself -- apps/ward-console/src/main.ts, loaded into a jsdom window at a local address, talking to the real local stack. Every one of GAMMA's wards carries its own publish form, decided by the server's can_publish, and none reads 'This ward reports from its own login.'; a count set on one ward's form and published says 'Published.', and reads back from app.ward_status with its event's source WARD.",
+      "gate2_clause": "An operator onboards a facility whose nurse in charge reports for every ward, through one facility-level login (R-2026-09-27-144 DT, Bundle 2's definition of done: the golden path runs the reporter through the console)",
+      "owning_stage": 1,
+      "needs_browser": false
+    },
+    {
       "id": "snapshot-regenerates",
       "description": "snapshot_current gains a row whose v has incremented and which carries the REPUBLISHED count, and the snapshot heartbeat moved in the SAME transaction, so a regeneration can never be claimed that did not commit. v is a monotonic run counter or a content hash and never a timestamp aggregate: a duty-flag flip changes the derived gate without changing ward_public.updated_at, so a version derived from max(updated_at) would fail to regenerate exactly when the gate closed a theatre.",
       "gate2_clause": "the public snapshot regenerates",

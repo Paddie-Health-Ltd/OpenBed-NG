@@ -59,7 +59,10 @@ const FAC_OK = '0b000000-0000-4000-8000-0000000005a1';
 const FAC_NO_CONTACT = '0b000000-0000-4000-8000-0000000005a2';
 const FAC_NO_AGREEMENT = '0b000000-0000-4000-8000-0000000005a3';
 const FAC_WITHDRAWN = '0b000000-0000-4000-8000-0000000005a4';
-const FACILITIES = [FAC_OK, FAC_NO_CONTACT, FAC_NO_AGREEMENT, FAC_WITHDRAWN];
+// A contact and an agreement but NO ward (R-2026-09-27-144 DT, Bundle 2): a facility
+// login is refused NO_CATEGORY there.
+const FAC_NO_WARD = '0b000000-0000-4000-8000-0000000005a5';
+const FACILITIES = [FAC_OK, FAC_NO_CONTACT, FAC_NO_AGREEMENT, FAC_WITHDRAWN, FAC_NO_WARD];
 
 type Handler = (req: IncomingMessage, res: ServerResponse) => void | Promise<void>;
 let server: Server;
@@ -144,6 +147,7 @@ async function run(args: string[], env: Record<string, string> = {}): Promise<Ru
 const masked = (email: string): string => `${email[0]}…@${email.split('@')[1]}`;
 const ward = (fac: string, category = 'ICU_ADULT') => ['--email', 'ward-role@example.invalid', '--facility', fac, '--category', category];
 const operator = (email = 'operator-role@example.invalid') => ['--email', email, '--role', 'PLATFORM_ADMIN'];
+const reporter = (fac: string, email = 'nurse-in-charge@example.invalid') => ['--email', email, '--role', 'FACILITY_REPORTER', '--facility', fac];
 
 async function openInvites(fac: string): Promise<{ id: string }[]> {
   return sql()<{ id: string }[]>`select id from app.invite where facility_id = ${fac}::uuid and accepted_at is null`;
@@ -169,14 +173,18 @@ beforeAll(async () => {
       insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, listed_at)
       values (${fac}::uuid, ${`Provisioning Script Facility ${i + 1}`}, 'Yaba', 'Lagos', 6.51, 3.38, ${`+23480000005${i}1`}, NULL)
       on conflict (id) do nothing`;
-    await db`insert into app.ward_status (facility_id, category, offering) values (${fac}::uuid, 'ICU_ADULT', 'OFFERED') on conflict do nothing`;
+    if (fac !== FAC_NO_WARD) {
+      await db`insert into app.ward_status (facility_id, category, offering) values (${fac}::uuid, 'ICU_ADULT', 'OFFERED') on conflict do nothing`;
+    }
   }
-  for (const fac of [FAC_OK, FAC_NO_AGREEMENT, FAC_WITHDRAWN]) {
+  for (const fac of [FAC_OK, FAC_NO_AGREEMENT, FAC_WITHDRAWN, FAC_NO_WARD]) {
     await db`insert into app.facility_contact (facility_id, full_name, job_title, email)
              values (${fac}::uuid, 'Synthetic Contact', 'Medical Director', 'contact@example.invalid') on conflict (facility_id) do nothing`;
   }
-  await db`insert into app.facility_agreement (facility_id, accepted_on, version) values (${FAC_OK}::uuid, '2026-09-01', 'synthetic-v1')
-           on conflict (facility_id) do update set withdrawn_on = null`;
+  for (const fac of [FAC_OK, FAC_NO_WARD]) {
+    await db`insert into app.facility_agreement (facility_id, accepted_on, version) values (${fac}::uuid, '2026-09-01', 'synthetic-v1')
+             on conflict (facility_id) do update set withdrawn_on = null`;
+  }
   await db`insert into app.facility_agreement (facility_id, accepted_on, version, withdrawn_on) values (${FAC_WITHDRAWN}::uuid, '2026-09-01', 'synthetic-v1', '2026-09-20')
            on conflict (facility_id) do update set withdrawn_on = '2026-09-20'`;
   const [n] = await db<{ n: number }[]>`select count(*)::int as n from app.facility where id = any(${FACILITIES}::uuid[]) and listed_at is not null`;
@@ -429,6 +437,112 @@ describe('022 through the script (R-2026-09-24-90 BR-1 e)', () => {
     expect(r.status).toBe(1);
     expect(r.out).toContain('usage: node scripts/provision_ward_account.mjs');
     expect(requests).toEqual([]);
+  });
+});
+
+describe('the facility-level login through the script (R-2026-09-27-144 DT, Bundle 2)', () => {
+  test('a facility login is provisioned with ONE Auth request: role FACILITY_REPORTER, the facility, and no category', async () => {
+    const user = randomUUID();
+    handler = gotrue({ newId: user });
+    const r = await run(reporter(FAC_OK));
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).toContain(`provisioned FACILITY_REPORTER ${masked('nurse-in-charge@example.invalid')} -> account ${user} (the facility login @ ${FAC_OK})`);
+    expect(requests).toEqual(['POST /auth/v1/admin/users']);
+    expect(await account(user)).toEqual({ role: 'FACILITY_REPORTER', facility_id: FAC_OK, ward_category: null, is_active: true });
+  });
+
+  test('--category with the facility login is a usage failure: nothing is read, no invite opens, and ZERO Auth requests', async () => {
+    const r = await run([...reporter(FAC_OK), '--category', 'ICU_ADULT']);
+    expect(r.status, r.out).toBe(1);
+    expect(r.out).toContain('usage: node scripts/provision_ward_account.mjs');
+    expect(requests).toEqual([]);
+    expect(await openInvites(FAC_OK)).toEqual([]);
+  });
+
+  test.each([
+    ['a facility with no ward', FAC_NO_WARD, 'NO_CATEGORY — add at least one ward category to the facility first'],
+    ['a facility with no contact', FAC_NO_CONTACT, 'NO_FACILITY_CONTACT — record the facility contact first'],
+  ])('%s is refused at begin in its plain sentence, with ZERO Auth requests', async (_name, fac, said) => {
+    handler = gotrue();
+    const r = await run(reporter(fac));
+    expect(r.status, r.out).toBe(1);
+    expect(r.out).toContain(`REFUSED by app.provision_begin: ${said}. No invite was opened and no Auth call was made.`);
+    expect(requests).toEqual([]);
+  });
+
+  test('a facility login where a ward login is active is refused REPORTING_MODEL_CONFLICT at begin, in its plain sentence, with ZERO Auth requests', async () => {
+    handler = gotrue();
+    expect((await run(ward(FAC_OK))).status).toBe(0);
+    requests = [];
+    const r = await run(reporter(FAC_OK));
+    expect(r.status, r.out).toBe(1);
+    expect(r.out).toContain(
+      'REFUSED by app.provision_begin: REPORTING_MODEL_CONFLICT — this facility already reports through the other kind of login: one login for the whole facility, or one per ward, never both. No invite was opened and no Auth call was made.',
+    );
+    expect(requests).toEqual([]);
+  });
+});
+
+describe('DV-4 — a refusal at provision_complete after the Auth user exists names it, says how to delete it, and never retries (R-2026-09-27-146)', () => {
+  // THE RACE, FORCED IN FLIGHT. begin passed (no other login at the facility), then,
+  // while the script waits on the Auth call, the stub makes the conflicting login
+  // committed. provision_complete then meets 026's trigger or its one-reporter index.
+  // The stub answers only after that insert has committed, so the order is not a timing
+  // guess.
+  const inFlight = (insert: () => Promise<unknown>, user: string): Handler => async (req, res) => {
+    if (req.method === 'POST') await insert();
+    return gotrue({ newId: user })(req, res);
+  };
+
+  test('REPORTING_MODEL_CONFLICT at complete: an Auth user with NO account, masked, its id, how to delete it, and exactly one Auth request', async () => {
+    const user = randomUUID();
+    const wardLogin = randomUUID();
+    handler = inFlight(() => sql()`insert into app.ward_account (id, facility_id, ward_category, role) values (${wardLogin}::uuid, ${FAC_OK}::uuid, 'ICU_ADULT', 'WARD_STAFF')`, user);
+    const r = await run(reporter(FAC_OK));
+    expect(r.status, r.out).toBe(1);
+    expect(r.out).toContain('REFUSED by app.provision_complete: REPORTING_MODEL_CONFLICT — this facility already reports through the other kind of login');
+    expect(r.out).toContain(`An Auth user now exists for ${masked('nurse-in-charge@example.invalid')} with NO account: id ${user}; this run created it.`);
+    expect(r.out).toContain('Nothing was retried. Do not re-run this command: decide the reporting model first.');
+    expect(r.out).toContain(`To delete that Auth user: Supabase dashboard, Authentication, Users, the user with id ${user}, Delete user (runbook 12.4 step 5).`);
+    expect(r.out, 'the refusal told the operator to re-run, which a reporting-model conflict cannot fix').not.toContain('re-run the same command');
+    expect(requests, 'the refused complete was retried, or made a second Auth call').toEqual(['POST /auth/v1/admin/users']);
+    expect(await account(user), 'an account row exists for the refused login').toBeUndefined();
+    expect((await account(wardLogin))?.is_active, 'the ward login the race made was disturbed').toBe(true);
+  });
+
+  test('REPORTER_ALREADY_EXISTS at complete: the same four facts, in its plain sentence', async () => {
+    const user = randomUUID();
+    const other = randomUUID();
+    handler = inFlight(() => sql()`insert into app.ward_account (id, facility_id, ward_category, role) values (${other}::uuid, ${FAC_OK}::uuid, NULL, 'FACILITY_REPORTER')`, user);
+    const r = await run(reporter(FAC_OK));
+    expect(r.status, r.out).toBe(1);
+    expect(r.out).toContain('REFUSED by app.provision_complete: REPORTER_ALREADY_EXISTS — this facility already has an active facility-level login');
+    expect(r.out).toContain(`An Auth user now exists for ${masked('nurse-in-charge@example.invalid')} with NO account: id ${user}; this run created it.`);
+    expect(r.out).toContain('Delete user (runbook 12.4 step 5)');
+    expect(requests).toEqual(['POST /auth/v1/admin/users']);
+    expect(await account(user)).toBeUndefined();
+  });
+
+  test('a FOUND user that already holds an account row is never offered for deletion: "do NOT delete it"', async () => {
+    // A deactivated facility login, re-provisioned: begin opens an invite (no other login
+    // yet), the address already has its user, and while the lookup runs a ward login is
+    // made. complete's reactivation then meets the trigger.
+    const user = randomUUID();
+    await sql()`insert into app.ward_account (id, facility_id, ward_category, role, is_active, deactivated_at)
+                values (${user}::uuid, ${FAC_OK}::uuid, NULL, 'FACILITY_REPORTER', false, now())`;
+    const wardLogin = randomUUID();
+    const inner = gotrue({ existing: { id: user, email: 'nurse-in-charge@example.invalid', confirmed: true } });
+    handler = async (req, res) => {
+      if (req.method === 'GET') await sql()`insert into app.ward_account (id, facility_id, ward_category, role) values (${wardLogin}::uuid, ${FAC_OK}::uuid, 'ICU_ADULT', 'WARD_STAFF')`;
+      return inner(req, res);
+    };
+    const r = await run(reporter(FAC_OK));
+    expect(r.status, r.out).toBe(1);
+    expect(r.out).toContain('REFUSED by app.provision_complete: REPORTING_MODEL_CONFLICT');
+    expect(r.out).toContain(`The Auth user for ${masked('nurse-in-charge@example.invalid')} (id ${user}; it already existed (found, already confirmed)) already holds an account row, deactivated: do NOT delete it.`);
+    expect(r.out, 'a user with an account row was offered for deletion').not.toContain('Delete user');
+    expect(requests.map((q) => q.split('?')[0])).toEqual(['POST /auth/v1/admin/users', 'GET /auth/v1/admin/users']);
+    expect((await account(user))?.is_active, 'the refused reactivation switched the login on').toBe(false);
   });
 });
 

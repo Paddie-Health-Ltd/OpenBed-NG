@@ -35,21 +35,33 @@ import './style.css';
  * is taken on demand with a single in-flight promise, because one handset and
  * one screen removes the cross-tab race the library's machinery exists for.
  *
- * WHY A PUBLISH FORM PER ROW, NOT ONE FORM FOR "MY WARD". my_reporting_wards()
- * (026; 011's my_facility_wards() until R-2026-09-27-145 DU renamed it) returns
- * every ward category at the account's facility (for handover visibility), not
- * just the ones this account may publish for. Its can_publish column says which
- * rows those are, decided by the server (026) -- AND THIS CONSOLE DOES NOT READ IT
- * YET: rendering by it is Bundle 2 of R-2026-09-27-144 DT, and until then nothing
- * the console reads is used to pick a row.
- * Rather than guess client-side, every row gets its own inline publish form,
- * sourced entirely from that row's own already-loaded data (category, version)
- * -- never user-typed. The server remains the sole authority on which
- * submission succeeds: publishing from the wrong row surfaces WARD_SCOPE_DENIED
- * exactly like any other rejection. This is the same model the header above
- * already describes -- access follows physical control of the handset, which
- * in practice means only the row for this handset's own ward will ever accept
- * a publish.
+ * WHY A PUBLISH FORM ONLY WHERE THE SERVER SAYS can_publish (R-2026-09-27-144 DT,
+ * Bundle 2; it resolves -139 DO-3). my_reporting_wards() (026) returns every ward
+ * category at the account's facility, for handover visibility, and its can_publish
+ * column says which of them THIS login may publish for: a ward login, its own
+ * category; a facility login, every ward; any other role, none. The server decides
+ * it from the same account row publish_ward_status reads, so the console no longer
+ * guesses. A row with can_publish shows its own inline form, sourced entirely from
+ * that row's loaded data (category, version), never typed. Every other row shows its
+ * status read-only, with one muted line, "This ward reports from its own login."
+ * The server is still the only authority on a publish: a refusal surfaces as a fixed
+ * sentence like any other.
+ *
+ * WHAT THIS REPLACED. Until Bundle 2 every row carried a form, and the header here
+ * explained why: the console could not tell which row was the login's own. So a ward
+ * login saw Publish on wards that WARD_SCOPE_DENIED would refuse. can_publish is the
+ * server's answer to that question, and it is what the form now follows.
+ *
+ * NO BULK CONTROL, deliberately (DT Bundle 2): no "publish all" and no "nothing
+ * changed" shortcut. Each ward is published on its own, with its own count, so a
+ * stale claim cannot be refreshed in one tap. A facility login with many wards makes
+ * one tap per ward, and that is the point. tests/compliance/ward_console_no_bulk_publish.test.ts
+ * asserts that no such control exists.
+ *
+ * A ROW WITHOUT can_publish IS TREATED AS false. It shows read-only, never a form.
+ * No ward or facility login exists on hosted (R-2026-09-28-149 DY-2), so no live user
+ * sees the window between 026's hosted apply and this console's redeploy, in which the
+ * deployed console (built before 026) calls a function 026 dropped.
  *
  * RENDERED AND ASSERTED SINCE R-2026-09-23-66: tests/compliance/ward_console_render.test.ts
  * imports this module under jsdom and reads the page -- the refused rows, the fixed
@@ -129,6 +141,13 @@ function show(heading: string, detail: string, kind: 'caution' | 'lead' = 'cauti
   p.textContent = detail;
   root.replaceChildren(h, p);
 }
+
+/**
+ * THE LINE A READ-ONLY ROW CARRIES (R-2026-09-27-144 DT, Bundle 2): the ward is not this
+ * login's to publish for. For a ward login that is every other ward at its facility, each
+ * reporting from its own login. It is muted text, not a Notice: it refuses nothing.
+ */
+export const REPORTS_OWN = 'This ward reports from its own login.';
 
 /** The one message an expired or unrenewable session produces. There is no other. */
 const TAP_AGAIN = 'Your session has ended. Tap the link on the ward handset again to sign back in.';
@@ -242,6 +261,8 @@ export interface WardRow {
   readonly monitoringState: string;
   readonly source: string;
   readonly state: string;
+  /** The server's answer to "may THIS login publish for this ward?" (026). Missing reads as false. */
+  readonly canPublish: boolean;
 }
 
 export interface RowRefusal {
@@ -285,7 +306,12 @@ export function wardRowFrom(r: unknown): WardRow | RowRefusal {
   if (source === null) return refuse('source is missing or not a code');
   const state = code(row['state']);
   if (state === null) return refuse('state is missing or not a code');
-  return { category, offering, bedCount: beds, accepting, version, gatedBy: gatedBy ?? null, monitoringState, source, state };
+  // can_publish (026): absent reads as false (DT Bundle 2), so an older server's row is
+  // read-only, never publishable. Present and not true or false is refused, like every
+  // other field: a flag that decides whether a form exists is never guessed.
+  const canPublish = row['can_publish'];
+  if (!(canPublish === undefined || typeof canPublish === 'boolean')) return refuse('can_publish is not true or false');
+  return { category, offering, bedCount: beds, accepting, version, gatedBy: gatedBy ?? null, monitoringState, source, state, canPublish: canPublish === true };
 }
 
 function isRefusal(w: WardRow | RowRefusal): w is RowRefusal {
@@ -549,6 +575,8 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onPublished: (upda
           monitoringState: current.monitoringState === 'PENDING' ? 'ACTIVE' : current.monitoringState,
           source: 'WARD',
           state: current.state,
+          // Only a publishable row has a form, and a publish does not change who may publish.
+          canPublish: current.canPublish,
         };
         current = updated;
         onPublished(updated);
@@ -623,6 +651,17 @@ function renderHandover(holder: SessionHolder, email: string | null, wards: (War
 
     summary.textContent = summaryLine(ward);
 
+    // Not this login's ward (can_publish false, or absent): its status, read-only, and one
+    // muted line. No form, so nothing on this card can send a publish.
+    if (!ward.canPublish) {
+      const own = document.createElement('p');
+      own.className = 'reports-own';
+      own.textContent = REPORTS_OWN;
+      li.append(summary, own);
+      list.append(li);
+      continue;
+    }
+
     // A publish rewrites THIS card's summary and nothing else (DI-1 a, e): the handover is
     // rendered once, at load, and every other card keeps its node, its fields and its Notice.
     const form = publishFormFor(holder, ward, (updated) => {
@@ -648,7 +687,9 @@ function signInRequestForm(): HTMLFormElement {
   // A single column (D2): the label's words, a 44 px field under them, a 52 px button.
   const label = document.createElement('label');
   label.className = 'field';
-  label.textContent = "This ward's email address ";
+  // "Sign-in email address" since R-2026-09-27-144 DT Bundle 2: a facility login signs in
+  // here too, and its address is not a ward's. Every other sentence is unchanged.
+  label.textContent = 'Sign-in email address ';
   const email = document.createElement('input');
   email.type = 'email';
   email.name = 'email';

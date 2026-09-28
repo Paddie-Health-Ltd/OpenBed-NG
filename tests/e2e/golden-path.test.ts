@@ -445,6 +445,69 @@ describe('golden path — release gate 2', () => {
     expect(events).toEqual([...GAMMA_CATEGORIES].sort().map((c) => ({ category: c, source: 'WARD' })));
   });
 
+  test(name('reporter-publishes-through-console'), async () => {
+    // THE CONSOLE ITSELF, NOT ITS RPCs (DT Bundle 2's definition of done). The ward console
+    // is loaded into a jsdom window at a LOCAL address, so apiOrigin() picks the local API
+    // and every request it makes goes to the real local stack over the real network. The
+    // reporter's own session, minted and verified as every session here is, is handed to it
+    // the way a sign-in link hands it: in the URL fragment. Nothing is stubbed.
+    state.reporter ??= await signInWard(REPORTER_EMAIL);
+    const s = state.reporter;
+    const { JSDOM } = await import('jsdom');
+    const fragment = `#access_token=${s.accessToken}&refresh_token=${s.refreshToken}&expires_at=${s.expiresAt}&token_type=bearer`;
+    const dom = new JSDOM('<!doctype html><html><body><div id="app"></div></body></html>', { url: `http://127.0.0.1/${fragment}` });
+    const g = globalThis as unknown as Record<string, unknown>;
+    const saved = { window: g['window'], document: g['document'] };
+    g['window'] = dom.window;
+    g['document'] = dom.window.document;
+    const doc = dom.window.document;
+    const until = async (cond: () => boolean, what: string): Promise<void> => {
+      const end = Date.now() + 10_000;
+      while (!cond()) {
+        if (Date.now() > end) throw new Error(`the console never ${what}; the page read: ${doc.body.textContent ?? ''}`);
+        await new Promise((r) => setTimeout(r, 20));
+      }
+    };
+    try {
+      // The module renders on import, as it does in a browser.
+      await import('../../apps/ward-console/src/main.js');
+      await until(() => (doc.body.textContent ?? '').includes('Handover'), 'showed the handover');
+      const forms = Array.from(doc.querySelectorAll<HTMLFormElement>('li.ward form.publish'));
+      expect(forms.length, "the console did not give every one of GAMMA's wards its own form").toBe(GAMMA_CATEGORIES.length);
+      expect(doc.body.textContent, 'a ward read as someone else\'s to publish, under the facility login').not.toContain('This ward reports from its own login.');
+
+      // Which ward the first card is does not matter, and the step does not assume the
+      // console's order: it reads every GAMMA ward before and after, and exactly one moves.
+      const wards = async () =>
+        sql()<{ category: string; bed_count: number | null; version: number }[]>`
+          select category::text as category, bed_count, version from app.ward_status where facility_id = ${GAMMA.id}::uuid order by category::text`;
+      const before = await wards();
+      const form = forms[0] as HTMLFormElement;
+      const count = form.querySelector<HTMLInputElement>('input[name="bed_count"]');
+      expect(count, 'the form has no count field').not.toBeNull();
+      (count as HTMLInputElement).value = '9';
+      (count as HTMLInputElement).dispatchEvent(new dom.window.Event('input'));
+      form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+      await until(() => (form.querySelector('p.status')?.textContent ?? '') !== '', 'answered the publish');
+      expect(form.querySelector('p.status')?.textContent, 'the console did not say the publish went through').toBe('Published.');
+
+      const after = await wards();
+      const moved = after.filter((a) => before.find((b) => b.category === a.category)?.version !== a.version);
+      expect(moved.map((m) => m.category), 'one publish through the console did not move exactly one ward').toHaveLength(1);
+      const [changed] = moved;
+      expect(changed?.bed_count, 'the count published through the console did not reach app.ward_status').toBe(9);
+      expect(changed?.version, 'the console publish did not move the version by one').toBe((before.find((b) => b.category === changed?.category)?.version ?? -1) + 1);
+      const [event] = await sql()<{ source: string }[]>`
+        select source::text as source from app.ward_status_event
+         where facility_id = ${GAMMA.id}::uuid and category::text = ${changed?.category ?? ''} order by id desc limit 1`;
+      expect(event?.source, "the console's publish was not recorded as the facility's own claim").toBe('WARD');
+    } finally {
+      g['window'] = saved.window;
+      g['document'] = saved.document;
+      dom.window.close();
+    }
+  });
+
   test(name('snapshot-regenerates'), async () => {
     const db = sql();
     // THIS STEP'S SUBJECT IS ITS OWN CALL to app.regenerate_snapshot() below, and

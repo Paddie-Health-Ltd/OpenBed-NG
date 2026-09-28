@@ -6994,6 +6994,38 @@ _Issued as R-PROVISIONAL-2026-09-27-DT, by Cowork (sprint-push) on 2026-09-27: t
 
 Nothing hosted. Next letter: **DU**.
 
+**LANDED IN BUNDLE 2'S PULL REQUEST** (2026-09-28, with -150):
+- **The ward console renders by `can_publish`.** A row the server lets this login publish carries its own form; every other row shows its status read-only, with the muted line "This ward reports from its own login." The "WHY A PUBLISH FORM PER ROW" header is retired, and its replacement says why.
+  - A row without `can_publish` is read-only, as DT says. A `can_publish` that is present and not true or false is refused like any malformed field.
+  - `tests/compliance/ward_console_no_bulk_publish.test.ts` asserts no bulk control exists. It uses a whitelist of what the handover may hold, not a word list: a shortcut worded "Same as before" is refused like "Publish all".
+  - **This resolves -139 DO-3, and its row leaves the register in this pull request, as -146 DV-1 b amended DT's line.** Recounted from the table: **58 → 57** (15 BOX, 31 TRIGGER, 11 VERSION).
+- **The sign-in label** reads "Sign-in email address".
+- **`scripts/provision_ward_account.mjs`** takes `--role FACILITY_REPORTER --facility <uuid>`, and a `--category` with it is a usage failure before anything is read.
+  - Its refusal map gains `REPORTING_MODEL_CONFLICT`, `NO_CATEGORY` and `REPORTER_ALREADY_EXISTS`, in plain sentences. The masked address is unchanged.
+  - **DV-4:** after either model refusal at `provision_complete`, the script reads `app.ward_account` for the user's id. It then says either "An Auth user now exists … with NO account" (masked, with its id, whether this run created it, and how to delete it), or that the user "already holds an account row … do NOT delete it".
+  - It never retries, and never says re-run.
+  - All three cases are forced in flight through the Auth stub in `tests/db/provision_script.test.ts`, each with exactly its one or two Auth requests counted.
+- **12.4:**
+  - Step 5 opens with the onboarding question, and becomes 5a (one login per ward) and 5b (one login for the whole facility, with DV-4's refusal and what to do). The DU-4 b precondition covers both.
+  - Step 6 becomes 6a and 6b: the facility's login reads each ward's history as itself, through `my_reporting_wards()`, paste-checked (-150).
+  - Step 9 gains the facility's reading: two wards published, each on its own, and both read back from `/beds.json`.
+  - CX-1 (b)'s row is restated to "the first reporting login".
+- **The golden path runs the reporter through the console:** `reporter-publishes-through-console` loads `apps/ward-console/src/main.ts` into a jsdom window at a local address, against the real local stack. Every GAMMA ward has its form, and a count published through one reads back from `app.ward_status` with source WARD.
+- **Screenshots in .design-screens/DT-2/**, four states at 360x740, 360xfull, 960x800 and 1280x900: a facility login with three wards, a ward login seeing two read-only rows, the sign-in label, and a refused publish (VERSION_CONFLICT). All are aligned, with no horizontal overflow.
+
+**PREMISE CORRECTIONS** (method notes 4 and 20):
+1. **"The sign-in label at ~l.645".** It was at l.651.
+2. **"Every other sentence is unchanged"** holds as written. Two ward-worded sentences remain, left for a ruling: the signed-out lead ("Open the sign-in link sent to this ward’s address on this handset …") and SIGNIN_ANSWERED ("If this address belongs to a ward …"). A facility login reads both.
+3. **DV-4's "after generate_link has created an Auth user".** The script has not called generate_link since R-2026-09-24-93 BU-1 a. It makes a confirmed user through `POST admin/users`, or finds one. So the message says whether this run created the user or found it.
+4. **"a row without it is treated as false"** is kept for an absent flag only. A malformed flag is refused, since everything else in the parser refuses rather than guesses (R-2026-09-21-44 E).
+5. **The screenshots show "1 beds"** on a one-bed ward. That is -140 DP-5 a, Bundle 4's, and unchanged here.
+6. **Step 5b was not paste-checked:** its command names the hosted Auth URL. Its script paths are the db legs above.
+7. **An open invite outlives a model refusal at `provision_complete`.**
+   - The invite this run opened stays open.
+   - After `REPORTING_MODEL_CONFLICT`, no facility login is active, so the register reads the facility login "setup incomplete" (026's `reporter_login`). After `REPORTER_ALREADY_EXISTS` it reads "active".
+   - `app.invite` has no expiry column, and no migration deletes or closes an invite (read: 003, and a search of every forward migration).
+   - Reported, not fixed.
+
 ### R-2026-09-27-145 — DT (f) amended: can_publish ships on a renamed read, public.my_reporting_wards()
 
 _Issued as R-PROVISIONAL-2026-09-27-DU, by Cowork on 2026-09-27, as the answer to the question Claude Code raised in Bundle 1 when 011's re-apply over 026 failed. Lands in Bundle 1's pull request, after -143 and -144. Number assigned on landing: R-2026-09-27-144 plus one. Next provisional letter: **DV**._
@@ -7240,6 +7272,71 @@ _Issued as R-PROVISIONAL-2026-09-28-DY, by Cowork on 2026-09-28. Lands in the re
 
 Nothing hosted ran from Claude Code's side. Next letter: **DZ**.
 
+### R-2026-09-28-150 — #94 merged; Bundle 2 started with DZ-3: a block that reads a value is pasted alone
+
+_Issued as R-PROVISIONAL-2026-09-28-DZ, by Cowork on 2026-09-28, as its check of #94 at `2c94c17`. Held, and landed in DT's Bundle 2 pull request, the first Bundle 2 or 3 PR. Number assigned on landing: R-2026-09-28-149 plus one. Next provisional letter: **EA**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-28-DZ — Cowork's check of #94 (head 2c94c17): MERGE; then Bundles 2 and 3. Held; lands in the first Bundle 2 or 3 PR with a ledger row. Next letter: EA.
+>
+> VERIFIED BY COWORK (2026-09-28, GitHub API read through the founder's browser pane; code read from a clone of pr/94):
+> - #94 OPEN, commits c632be7 and 2c94c17 on base cd05de1 = main; mergeable_state clean; 5 files: the decision record, applied-hosted.json, the Supabase runbook, runbook_migration_expectation.test.ts, runbook_no_history_expansion.test.ts. No migration and no app code.
+> - The latest run of each of the seven checks on 2c94c17 completed success. The earlier cancelled suite is the push-plus-body-edit pattern.
+> - applied-hosted.json: ledger_rows 26, ruling -149; the sha256 of 025 (bd60fafd…271f) and 026 (bc97c36c…e457) equal the files at cd05de1, computed by Cowork.
+>
+> DZ-1  ACCEPTED: DX-2's two departures. No comment line is exempt (zsh rewrites a pasted "!" on a "#" line too). The scope covers sh, shell and zsh blocks and every .md under docs/.
+> DZ-2  ACCEPTED: -149's corrected read -rs finding. The mechanism on the founder's terminal is not established, and it does not need to be. Every fence since has used the pattern below without a fault.
+> DZ-3  FOR BUNDLE 2's PR (it edits the same runbook; carried by DT's Bundle 2 scope, not a register row):
+>   a) Step P states the rule: paste the connection line ALONE; paste the connection string at its silent prompt; then paste the command block.
+>   b) Every runbook block that reads a secret becomes a one-line connection block, `export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL` (or the block's own secret name), followed by a separate command block that ends with its unset. That covers all 50 sites.
+>   c) A compliance guard: in docs/*.md, a shell block containing `read -rs` has no other line after it. Show it red first with a plant.
+>   d) Test it by a real paste into zsh with bracketed paste on, not stdin. Say how it was tested.
+> DZ-4  MERGE #94 now, as a merge commit, with the head pinned: gh pr merge 94 --merge --match-head-commit 2c94c17836ea323e7b8882f16eb84098a5ed4fe7. Delete facility-reporter's records branch on both sides and read both back as gone. Report the merge SHA and its parents.
+> DZ-5  Then start Bundle 2 (the ward console, the provisioning script with DV-4, 12.4's facility-level path, and DZ-3) and Bundle 3 (admin), each its own PR, per DT. Each stops for Cowork's check with every screenshot at the four sizes. Bundle 4 follows Bundle 2. Nothing hosted.
+
+**#94 MERGED**, read back from the API:
+- merge commit `fbce3c904572c07d50f0d94c381ae5ee45cc9c26`, at 2026-09-28T07:49:59Z;
+- parents `cd05de15d248ad9462e98d96ac247f5f9beb3f55` (main) and `2c94c17836ea323e7b8882f16eb84098a5ed4fe7` (the head).
+
+**How it merged:** the head was read from the API just before the merge and passed to `--match-head-commit`; the state read `CLEAN`. The branch was deleted on both sides only after `MERGED` read back, and both read back as gone: `ls-remote` found no head, there was no local branch, and the API's branch read returned 404.
+- **A premise that did not hold:** DZ-4 names "facility-reporter's records branch". #94's head branch was `records-dw-dx-dy`, read from the API before the delete. `facility-reporter-025-026` was #93's, already deleted after its merge (-147).
+
+**DZ-1 and DZ-2: ACCEPTED, recorded as DZ asks.** -148's guard exempts no comment line and reads sh, shell and zsh fences under every `.md` in `docs/`. -149's corrected `read -rs` finding stands, with its mechanism on the founder's terminal not established.
+
+**DZ-3: LANDED IN THIS PULL REQUEST** (Bundle 2's):
+- **a.** Step P's section "A block that reads a value is pasted alone" states the rule: paste the connection line alone, give it its value at its prompt, then paste the command block.
+- **b.** Every block that read a value is split into a one-line connection block and a command block that ends with its `unset`. The split was scripted; the script refused any block of an unexpected shape, and none was refused.
+  - **43 blocks:** 41 in the Supabase runbook and 2 in the Pages runbook (`docs/runbook-cloudflare-pages-beds-json.md`).
+  - Where a command block calls `psql`, it keeps step P's PATH line (R-2026-09-22-52). The connection line carries it too, as DZ-3 b's form does.
+  - **Three command blocks gained unsets they had lacked:** one never unset `PROBE`, and the Pages runbook's two unset nothing.
+- **c.** `tests/compliance/runbook_read_pasted_alone.test.ts`. It was red first on its own plant: a first version measured from the LAST read in a block, and its two-reads-on-two-lines plant was accepted. It now measures from the first.
+  - The fence reader is shared with -148's guard through `tests/compliance/_fences.ts`. It moved unchanged, and -148's legs pass through it.
+- **d.** A real paste, under a pseudo-terminal running `zsh -f -i` with a 50x200 window.
+  - **Bracketed paste ON:** zsh switched mode 2004 on, and each paste was wrapped in its markers.
+  - **Bracketed paste OFF:** the same text, line by line.
+  - The value was typed at the prompt. The local database throughout.
+
+  | Fence | Shape | ON | OFF |
+  |---|---|---|---|
+  | "025 and 026's apply", fence A | new, two fences | `0`, `0`, `1`, value unset | `0`, `0`, `1`, value unset |
+  | "025 and 026's apply", fence A | old, one block | `0`, `0`, `1` | `read` took the first `psql` line; that reading never ran, and the next two failed `missing "=" after "psql" in connection info string` |
+  | 12.4 step 6b | new | `claims_set t`, THEATRE 3, MATERNITY 2, `ROLLBACK`, unset | the same |
+
+  Step 6b was read as a facility login inserted at GAMMA for the check and deleted after it.
+  - **Two harness faults, caught before any reading was taken as one:**
+    - psql paged its output into a pager on a 0x0 pseudo-terminal, which swallowed the pastes. The window size fixed it.
+    - A first fence finder missed indented fences, and pasted the wrong text into a LOCAL shell, 12.5's withdrawal `UPDATE` with an empty facility id among it. The local database was read afterwards and was unchanged: the only withdrawn agreement is the provisioning test's own fixture, dated 2026-09-20.
+    - The finder now dedents, and refuses to paste anything but a one-line connection block and a block ending in `unset`.
+
+**PREMISE CORRECTIONS** (method notes 4 and 20):
+1. **"That covers all 50 sites."** The 50 was Claude Code's count, in -149, of Supabase-runbook lines mentioning `read -rs`, prose included. In shell fences there were 44 `read -rs` lines and 15 plain `read -r` lines, in 43 blocks across two runbooks.
+2. **DZ-3 c names `read -rs`.** A plain `read -r` swallows a line in exactly the same way, and step 5's provisioning block held three. So the guard reads both, and all 15 plain reads were converted. Cowork to accept or strike.
+
+**DZ-5:** Bundle 2 is this pull request. Bundle 3 is its own, from main.
+
+Nothing hosted ran from Claude Code's side. Next letter: **EA**.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -7380,6 +7477,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | DW | R-2026-09-28-147 | 2026-09-28 | **#93 merged at `cd05de1`** (parents `1b506d6`, `97bd7cf`), with the head pinned; `facility-reporter-025-026` deleted on both sides and read back as gone. Pasting DW was the merge word. Fence 1 and fence 3's re-run readings, beyond DV-2, accepted. Held, and landed with -148. Next letter DX. |
 | DX | R-2026-09-28-148 | 2026-09-28 | **Hosted run 1, fence A:** the founder's zsh rewrote a pasted `!~` (history expansion), and psql refused the line; nothing was written. Fence A's second reading rewritten as `not (email ~ …)`, paste-checked. `tests/compliance/runbook_no_history_expansion.test.ts` refuses any `!` in a shell block under `docs/`, red first on line 2162; it exempts no comment line, because a default zsh expands one. The readings recorded as the founder's: `0`, the email reading's re-run `0` (its value relayed in DY), `0`. Next letter DY. |
 | DY | R-2026-09-28-149 | 2026-09-28 | **Hosted run 1 recorded:** 025 and 026 applied from `cd05de1` (fences A, 1 to 6 and B, the founder's readings relayed by Cowork), and the Worker redeployed as `7d07e831` and read back PASS, probe 4 included. The frozen boundary is at 26 (`ledger_rows: 26`). Step 5 is restated to 001 to 026 and 0 pending, with the 2026-09-28 run kept dated; step 7 reads 001 to 026. Hosted state: Worker `7d07e831` at `cd05de1`, dashboard `963e53f5` and ward console `f6429a29` at `3623d2b` (the console calls a dropped function; no login exists), admin `0651ec07` at `ba12ceb`. A finding reported for Cowork: the relayed `read -rs` swallow, its mechanism on the founder's terminal not established. Next letter DZ. |
+| DZ | R-2026-09-28-150 | 2026-09-28 | **#94 merged at `fbce3c9`** (parents `cd05de1`, `2c94c17`), with the head pinned; `records-dw-dx-dy` deleted on both sides and read back as gone. DX-2's two departures and -149's `read -rs` finding accepted. **DZ-3 landed in Bundle 2's pull request:** every block that reads a value is a one-line connection block and a command block ending in its `unset` (43 blocks), step P states the rule, `tests/compliance/runbook_read_pasted_alone.test.ts` guards it, and a real paste under a pseudo-terminal read the same with bracketed paste on and off. DT's Bundle 2 landed with it; DO-3 leaves: register 58 → 57. Next letter EA. |
 
 ## Deferred items — this record is where the list lives
 
@@ -7454,7 +7552,7 @@ the record's own, except where CW-5 assigned one._
 | The public "who's on it" list | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | The facility-admin override | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
 | Duty-flag gating | R-2026-09-24-75 BC-7 | VERSION | Out of v1. Reconsidered at v2 scoping, which opens 30 days after facility one is listed (CW-5) |
-| B1's onboarding checks: the first ward account reads its own history as itself (12.4 step 6), and the first publish reads back from `/beds.json` (12.4 step 9) | R-2026-09-26-122 CX-1 (b) | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "The first ward account at facility one") |
+| B1's onboarding checks: the first reporting login reads its own history as itself (12.4 step 6: 6a a ward's login, 6b the facility's, each ward), and the first publish reads back from `/beds.json` (12.4 step 9; a facility's login publishes two wards) (restated 2026-09-28, R-2026-09-27-144 DT Bundle 2; until then: "B1's onboarding checks: the first ward account reads its own history as itself (12.4 step 6), and the first publish reads back from `/beds.json` (12.4 step 9)") | R-2026-09-26-122 CX-1 (b) | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "The first ward account at facility one") |
 | `ward_reply` has a cap and no content validation (#63/#97) | R-2026-09-17-03 and -04 | TRIGGER | The first change that writes `app.referral.ward_reply` (referrals are unwired in v1; R-2026-09-26-122 CX-2) |
 | Gate 3's property test does not exist (#109) | R-2026-09-17-03 and -04 | TRIGGER | The next change under `packages/gate/` or `packages/snapshot/src/freshness.ts` (R-2026-09-26-122 CX-2) |
 | The `scripts/` survey items: PR evidence tables generated from artefacts; the idempotency digest's grants and RLS flags; item 1, the duty-flag lint missing `<> 'NO'`; item 2, nothing validates SQL quoted in prose | Deferred to the `scripts/` survey; R-2026-09-15-06 and -07; R-2026-09-17-05; R-2026-09-17-08 D2 | TRIGGER | The next migration file added (024) (R-2026-09-26-122 CX-2). FIRED at 024; work in PR S (R-2026-09-26-136 DL-6 c) |
@@ -7470,7 +7568,6 @@ the record's own, except where CW-5 assigned one._
 | Pages Git integration as the root fix for deploys | R-2026-09-20-30 A5 | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
 | Phone features: the tile, call tracking, WhatsApp/SMS | R-2026-09-23-66 C2 | VERSION | Out of v1. Reconsidered at v2 scoping (R-2026-09-26-122 CX-2) |
 | The notice's transfer sentence for Cloudflare: its SCCs are stated for European data and its Global CBPR mechanism needs the originating country to recognise it; the basis for transfers out of Nigeria is the founder's transfer pack | R-2026-09-27-138 DN-2 | BOX | Box 15 at runbook 12.4 step 1 (the paperwork register approved in full, whose transfer memo covers it), ticked by a ruling that closes it |
-| The ward console offers Publish on wards the login cannot publish for: it renders a Publish form on every row `my_reporting_wards()` returns, and `publish_ward_status` admits a ward login only for its own ward (WARD_SCOPE_DENIED). **The server half landed in R-2026-09-27-144:** `can_publish` on `my_reporting_wards()` (R-2026-09-27-145), decided per role by the server. **The console half is DT's Bundle 2's:** render the form only where `can_publish` is true, and the row leaves in Bundle 2's pull request (restated 2026-09-27, R-2026-09-27-146 DV-1; until then: "`my_facility_wards()` returns every ward at the caller's facility, and `publish_ward_status` admits only the login's own ward (WARD_SCOPE_DENIED). Its fix waits on the founder's decision on the reporting model (per-ward logins, a facility-level reporter, or both), which may re-gate the facility-admin override row (R-2026-09-24-75 BC-7)") | R-2026-09-27-139 DO-3 | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned. No reporting login exists until then (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned. No ward login exists until then") |
 | "N beds" reads "1 beds" when N is 1, in all three apps: `apps/public-dashboard/src/age-view.ts`, `apps/ward-console/src/main.ts` and `apps/admin/src/main.ts`. Fixed as one change across the three, with a guard | R-2026-09-27-140 DP-5 a | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned: the first moment a real count can be shown (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned: the first moment a real count can be shown") |
 | Admin's operator-only rough edges: the register-unreachable screen has no Reload control; the two stop screens offer no next step; the Agreement section is a bare heading when the contact is unreadable; UNRECOGNISED's "Nothing was changed" is shown after a failed READ of the contact; the nested brackets in "Listed (… (Lagos time))"; admin's inputs carry no autocomplete attribute except the sign-in email (the Chrome Issues panel on admin.openbed.ng, 2026-09-27, reported two; the source has 14 such inputs (6 facility, 5 contact, 3 agreement) and two selects; the pair that fits is New facility's `name` and `phone`, inferred); set the right token on each (R-2026-09-27-142 DR-7 b) | R-2026-09-27-140 DP-5 b | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "Facility one's first ward account is provisioned") |
 

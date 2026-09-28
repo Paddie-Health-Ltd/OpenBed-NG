@@ -311,7 +311,13 @@ stop conditions below. Section 6 explains why.
 
 ```bash
 read -r BEDS_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
 curl -sS -o /dev/null -D - "$BEDS_URL" | grep -i -E '^HTTP|^cache-control|^content-type|^cf-cache-status'
+unset BEDS_URL
 ```
 
 **Stop condition — all three exactly, observed rather than inferred:**
@@ -689,8 +695,12 @@ into an interactive shell, and `exit` there closes the terminal rather than
 stopping a script. It prints one verdict instead, and the verdict is the gate.
 
 ```bash
-read -r BEDS_STATUS
-read -r DEPLOYED_COMMIT
+read -r BEDS_STATUS; read -r DEPLOYED_COMMIT
+```
+
+Paste the line above on its own, and give it its values at their prompts, in the order this step lists them. Then paste:
+
+```bash
 OK=1
 case "$BEDS_STATUS" in *200*) ;; *) OK=0 ;; esac
 git merge-base --is-ancestor "$DEPLOYED_COMMIT" HEAD 2>/dev/null || OK=0
@@ -698,6 +708,7 @@ git cat-file -e "$DEPLOYED_COMMIT:packages/origins/origins.json" 2>/dev/null || 
 [ "$OK" = 1 ] \
   && echo "PROCEED: $DEPLOYED_COMMIT served /beds.json with 200 and carries the tracked origin." \
   || echo "STOP: not both of (section 5 read 200) and ($DEPLOYED_COMMIT carries packages/origins/origins.json). Delete nothing; deploy a commit that carries it, re-run section 5, then come back."
+unset BEDS_STATUS DEPLOYED_COMMIT
 ```
 
 **The block asks you to paste values in, deliberately.** A step whose first act is

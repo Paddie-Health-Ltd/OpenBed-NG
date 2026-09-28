@@ -95,6 +95,25 @@
 // place to erase. See docs/facility-agreement-clause-x-access-addresses.md for
 // what the Operator does and does not warrant about that address.
 //
+// THE FACILITY-LEVEL LOGIN (--role FACILITY_REPORTER; R-2026-09-27-144 DT, Bundle 2):
+// one login for the whole facility, where one nurse in charge knows every bed on each
+// shift (R-2026-09-27-141 DQ-3). It takes --facility and NO --category: a --category
+// with it is a usage failure here, before anything is read, as 026's own INVALID_ARGUMENT
+// would be. 026's gates are the ward login's (contact, agreement), plus NO_CATEGORY when
+// the facility has no ward, and REPORTING_MODEL_CONFLICT when a ward login is active
+// there: one reporting source per ward.
+//
+// A REFUSAL AT provision_complete AFTER THE AUTH USER EXISTS (R-2026-09-27-146 DV-4).
+// provision_begin's REPORTING_MODEL_CONFLICT check can race: two begins at one facility
+// can both open invites, and 026's trigger (or its one-reporter index) then refuses the
+// second at provision_complete -- after this script has made or found the Auth user.
+// For REPORTING_MODEL_CONFLICT and REPORTER_ALREADY_EXISTS there, the script names the
+// code, reads app.ward_account for that user's id, and says which case it is: an Auth
+// user with NO account (shown masked, with its id and how to delete it), or one whose
+// existing account row remains (never to be deleted). It says whether this run created
+// the user or found it. It NEVER retries, and it does not say "re-run": the conflict is
+// the facility's reporting model, which a re-run cannot change.
+//
 // THE OPERATOR (--role PLATFORM_ADMIN): no facility and no category, and the same
 // three calls. The operator's sign-in address is never written into this
 // repository (R-2026-09-24-89 BQ-1): it is given here, at run time, and nowhere
@@ -140,6 +159,8 @@
 // Usage:
 //   node scripts/provision_ward_account.mjs --email <address> --facility <uuid> \
 //        --category <ward_category> [--role WARD_STAFF] [--project-ref <ref>]
+//   node scripts/provision_ward_account.mjs --role FACILITY_REPORTER \
+//        --email <address> --facility <uuid> [--project-ref <ref>]
 //   node scripts/provision_ward_account.mjs --role PLATFORM_ADMIN \
 //        --email <the operator's sign-in address> [--project-ref <ref>]
 // Environment: SUPABASE_SERVICE_ROLE_KEY (required; never defaulted),
@@ -174,11 +195,13 @@ const role = args?.role ?? 'WARD_STAFF';
 const scopeOk =
   role === 'PLATFORM_ADMIN'
     ? args?.facility === undefined && args?.category === undefined
-    : role !== 'WARD_STAFF' || (Boolean(args?.facility) && Boolean(args?.category));
+    : role === 'FACILITY_REPORTER'
+      ? Boolean(args?.facility) && args?.category === undefined
+      : role !== 'WARD_STAFF' || (Boolean(args?.facility) && Boolean(args?.category));
 if (args === null || !args.email || !scopeOk) {
   // A literal, not a constant: the leg register reads failure messages from
   // console.error's own argument (tests/compliance/_legs.ts).
-  console.error('usage: node scripts/provision_ward_account.mjs --email <address> (--facility <uuid> --category <ward_category> [--role WARD_STAFF] | --role PLATFORM_ADMIN) [--project-ref <ref>]');
+  console.error('usage: node scripts/provision_ward_account.mjs --email <address> (--facility <uuid> --category <ward_category> [--role WARD_STAFF] | --role FACILITY_REPORTER --facility <uuid> | --role PLATFORM_ADMIN) [--project-ref <ref>]');
   process.exit(1);
 }
 
@@ -221,7 +244,15 @@ const SENTENCES = {
   // R-2026-09-26-136 DL-2 b: the retention schedule erased this login (024), and an
   // erased login is never reactivated. The database's hint, in the founder's words.
   LOGIN_ERASED: 'this login was erased under the retention schedule and cannot be reactivated; provision a new login',
+  // R-2026-09-27-144 DT, Bundle 2: the facility-level login's refusals, in plain sentences.
+  REPORTING_MODEL_CONFLICT: 'this facility already reports through the other kind of login: one login for the whole facility, or one per ward, never both',
+  NO_CATEGORY: 'add at least one ward category to the facility first',
+  REPORTER_ALREADY_EXISTS: 'this facility already has an active facility-level login',
 };
+
+// The two refusals provision_complete can raise AFTER the Auth user exists, which a
+// re-run cannot fix (DV-4): the facility's reporting model, not the run, is the cause.
+const MODEL_REFUSALS = new Set(['REPORTING_MODEL_CONFLICT', 'REPORTER_ALREADY_EXISTS']);
 
 /** A gate's refusal: PL/pgSQL `RAISE EXCEPTION '<CODE>'` arrives as SQLSTATE P0001 with the code as its message. */
 // NEVER THE FULL ADDRESS (R-2026-09-25-117 CS-3; R-2026-09-24-89 BQ-1). A pasted
@@ -317,7 +348,8 @@ async function confirmedUserFor(email) {
 }
 
 const sql = postgres(dbUrl, { max: 1, onnotice: () => {}, connect_timeout: 10, connection: { application_name: 'provision_ward_account' } });
-const scope = role === 'PLATFORM_ADMIN' ? 'the operator' : `${args.category} @ ${args.facility}`;
+const scope =
+  role === 'PLATFORM_ADMIN' ? 'the operator' : role === 'FACILITY_REPORTER' ? `the facility login @ ${args.facility}` : `${args.category} @ ${args.facility}`;
 let code = 0;
 
 try {
@@ -345,7 +377,25 @@ try {
       [done] = await sql`select * from app.provision_complete(${invite}::uuid, ${user.userId}::uuid)`;
     } catch (e) {
       const refused = refusalCode(e);
-      if (refused !== null) {
+      if (refused !== null && user !== undefined && MODEL_REFUSALS.has(refused)) {
+        // DV-4: the Auth user exists, and this is not a failure a re-run fixes. Say what
+        // exists, masked, and what to do; never retry.
+        const [held] = await sql`select is_active from app.ward_account where id = ${user.userId}::uuid`;
+        const origin = user.how === 'created, confirmed' ? 'this run created it' : `it already existed (${user.how})`;
+        console.error(`REFUSED by app.provision_complete: ${said(refused)}. Invite ${invite} is still open.`);
+        if (held === undefined) {
+          console.error(
+            `  An Auth user now exists for ${mask(args.email)} with NO account: id ${user.userId}; ${origin}. ` +
+              'Nothing was retried. Do not re-run this command: decide the reporting model first. ' +
+              `To delete that Auth user: Supabase dashboard, Authentication, Users, the user with id ${user.userId}, Delete user (runbook 12.4 step 5).`,
+          );
+        } else {
+          console.error(
+            `  The Auth user for ${mask(args.email)} (id ${user.userId}; ${origin}) already holds an account row, ${held.is_active ? 'active' : 'deactivated'}: ` +
+              'do NOT delete it. Nothing was retried. Do not re-run this command: decide the reporting model first.',
+          );
+        }
+      } else if (refused !== null) {
         console.error(`REFUSED by app.provision_complete: ${said(refused)}. Invite ${invite} is still open.`);
       } else {
         console.error(`ERROR: setup incomplete: invite ${invite} is open and no account exists yet — re-run the same command. Cause: ${scrub(e.message)}`);

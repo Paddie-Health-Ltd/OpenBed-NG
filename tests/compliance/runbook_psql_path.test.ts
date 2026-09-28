@@ -79,8 +79,12 @@ const RUNBOOKS = [
  * apply, and fence B, the label, the trigger and the rename after it -- each carrying
  * step P's PATH line. 12.4 step 5's new precondition block (R-2026-09-27-145 DU-4 b)
  * does not call psql.
+ * 38 -> 39 on 2026-09-28 (R-2026-09-27-144 DT, Bundle 2): 12.4 step 6b reads each ward's
+ * history as the facility's login through psql, carrying step P's PATH line. The same change
+ * split every block that reads a value into a connection line and a command block
+ * (R-2026-09-28-150 DZ-3 b); a connection line calls no psql, so that split moved nothing.
  */
-const GOVERNED_TODAY = 38;
+const GOVERNED_TODAY = 39;
 
 export interface Fence {
   /** Which runbook it came from. */
@@ -240,8 +244,11 @@ describe('runbook psql PATH line', () => {
   test('plant — dropping the line from block B is rejected', () => {
     // THE DEFECT ITSELF, at the block that produced it.
     const planted = SUPABASE.replace(
-      'export PATH="/opt/homebrew/opt/libpq/bin:$PATH"\nread -rs DATABASE_URL && export DATABASE_URL\npsql "$DATABASE_URL" -c "select coalesce(string_agg(tablename',
-      'read -rs DATABASE_URL && export DATABASE_URL\npsql "$DATABASE_URL" -c "select coalesce(string_agg(tablename',
+      // Re-aimed 2026-09-28 (R-2026-09-28-150 DZ-3 b): the read is now its own connection
+      // line, pasted alone, and psql runs in the command block after it. The plant drops
+      // step P's line from that command block, which is where the defect would live.
+      '```bash\nexport PATH="/opt/homebrew/opt/libpq/bin:$PATH"\npsql "$DATABASE_URL" -c "select coalesce(string_agg(tablename',
+      '```bash\npsql "$DATABASE_URL" -c "select coalesce(string_agg(tablename',
     );
     expect(planted, 'the plant did not reach block B').not.toBe(SUPABASE);
 
@@ -254,8 +261,9 @@ describe('runbook psql PATH line', () => {
   test('plant — dropping the line from a fence that runs scripts/readback_public_output.sh is rejected', () => {
     // The script calls psql itself, so its fence is governed although no psql appears in it.
     const planted = SUPABASE.replace(
-      'export PATH="/opt/homebrew/opt/libpq/bin:$PATH"\nread -rs DATABASE_URL && export DATABASE_URL\nbash scripts/readback_public_output.sh https://openbed.ng\n',
-      'read -rs DATABASE_URL && export DATABASE_URL\nbash scripts/readback_public_output.sh https://openbed.ng\n',
+      // Re-aimed 2026-09-28 (DZ-3 b): the command block after the connection line.
+      '```bash\nexport PATH="/opt/homebrew/opt/libpq/bin:$PATH"\nbash scripts/readback_public_output.sh https://openbed.ng\n',
+      '```bash\nbash scripts/readback_public_output.sh https://openbed.ng\n',
     );
     expect(planted, 'the plant did not reach the before-reading fence').not.toBe(SUPABASE);
 
@@ -267,8 +275,9 @@ describe('runbook psql PATH line', () => {
 
   test('plant — dropping the line from the fence that runs scripts/readback_function_grants.sh is rejected', () => {
     const planted = SUPABASE.replace(
-      'export PATH="/opt/homebrew/opt/libpq/bin:$PATH"\nread -rs DATABASE_URL && export DATABASE_URL\nbash scripts/readback_function_grants.sh\n',
-      'read -rs DATABASE_URL && export DATABASE_URL\nbash scripts/readback_function_grants.sh\n',
+      // Re-aimed 2026-09-28 (DZ-3 b): the command block after the connection line.
+      '```bash\nexport PATH="/opt/homebrew/opt/libpq/bin:$PATH"\nbash scripts/readback_function_grants.sh\n',
+      '```bash\nbash scripts/readback_function_grants.sh\n',
     );
     expect(planted, 'the plant did not reach fence 6').not.toBe(SUPABASE);
 

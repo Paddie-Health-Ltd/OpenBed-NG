@@ -70,6 +70,9 @@ describe('provision_ward_account', () => {
     ['the operator form given a category', ['--email', 'a@b.invalid', '--role', 'PLATFORM_ADMIN', '--category', 'MATERNITY']],
     ['a flag the script does not know', ['--email', 'a@b.invalid', '--role', 'PLATFORM_ADMIN', '--project', 'x']],
     ['a flag given twice', ['--email', 'a@b.invalid', '--email', 'c@d.invalid', '--role', 'PLATFORM_ADMIN']],
+    // R-2026-09-27-144 DT, Bundle 2: a facility login has a facility and no category.
+    ['the facility-login form given a category', ['--email', 'a@b.invalid', '--role', 'FACILITY_REPORTER', '--facility', FACILITY, '--category', 'MATERNITY']],
+    ['the facility-login form with no facility', ['--email', 'a@b.invalid', '--role', 'FACILITY_REPORTER']],
   ])('leg — %s is a usage failure', (_name, args) => {
     const res = run(args as string[]);
     expect(res.status, `an incomplete invocation was accepted:\n${res.out}`).toBe(1);
