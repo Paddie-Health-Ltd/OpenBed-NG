@@ -340,7 +340,11 @@ const ROBOTS_TXT = readFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'pub
  * /privacy as Pages serves it (R-2026-09-26-136 DL-1 e): a page with no script and no
  * #app root, carrying the notice's own words, read from the tracked source, never retyped.
  */
-const PRIVACY_PAGE = `<!doctype html><html><body><main id="notice">${readFileSync(join(REPO_ROOT, 'docs', 'legal', 'privacy-notice-v1.0.md'), 'utf8')}</main></body></html>`;
+const noticePage = (file: string): string => `<!doctype html><html><body><main id="notice">${readFileSync(join(REPO_ROOT, 'docs', 'legal', file), 'utf8')}</main></body></html>`;
+/** Version 1.1, what a deploy from this checkout serves (R-2026-09-28-155 EE-3). */
+const PRIVACY_PAGE = noticePage('privacy-notice-v1.1.md');
+/** Version 1.0, what 2633ccc0 serves today: the prior version, which this read-back must now refuse. */
+const PRIOR_PRIVACY_PAGE = noticePage('privacy-notice-v1.0.md');
 const PRIVACY_ANSWER: Answer = { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' }, body: PRIVACY_PAGE };
 /** The dashboard's index as the SPA fallback serves it for a missing page: its bundle, and the #app root it fills. */
 const SPA_INDEX = `${DASH_PAGE}<main id="app"></main>`;
@@ -440,7 +444,7 @@ describe('scripts/readback_pages.sh', () => {
     ['/privacy answered by the SPA fallback on openbed.ng only', (f) => { f[`GET ${DASH_DOMAIN}/privacy`] = { status: 200, headers: { 'content-type': 'text/html' }, body: SPA_INDEX }; }, 'openbed.ng privacy is not the SPA index'],
     ['/privacy not found', (f) => { f[`GET ${SITE}/privacy`] = { status: 404, headers: { 'content-type': 'text/html' }, body: 'Not found' }; }, 'privacy status'],
     ['/privacy without the controller', (f) => { f[`GET ${SITE}/privacy`] = { ...PRIVACY_ANSWER, body: PRIVACY_PAGE.split('Paddie Health Ltd').join('The operator') }; }, 'privacy controller'],
-    ['/privacy of another version', (f) => { f[`GET ${DASH_DOMAIN}/privacy`] = { ...PRIVACY_ANSWER, body: PRIVACY_PAGE.split('Version 1.0').join('Version 2.0') }; }, 'openbed.ng privacy version'],
+    ['/privacy of another version', (f) => { f[`GET ${DASH_DOMAIN}/privacy`] = { ...PRIVACY_ANSWER, body: PRIVACY_PAGE.split('Version 1.1').join('Version 2.0') }; }, 'openbed.ng privacy version'],
     ['/privacy carrying a script', (f) => { f[`GET ${SITE}/privacy`] = { ...PRIVACY_ANSWER, body: PRIVACY_PAGE.replace('</body>', '<script src="/x.js"></script></body>') }; }, 'privacy scripts'],
     ['/privacy served as plain text', (f) => { f[`GET ${SITE}/privacy`] = { ...PRIVACY_ANSWER, headers: { 'content-type': 'text/plain' } }; }, 'privacy content-type'],
     ['a favicon that is not the tracked icon', (f) => { f[`GET ${SITE}/favicon.ico`] = { status: 200, headers: { 'content-type': 'image/x-icon' }, bodyBase64: Buffer.from('not the icon').toString('base64') }; }, 'favicon.ico'],
@@ -454,6 +458,19 @@ describe('scripts/readback_pages.sh', () => {
       const f = pagesFixtures(head);
       plant(f, head);
       expectStopAt(run(root, SCRIPTS.pages, [SITE, work], f), check);
+    });
+  });
+
+  test('a deployment still serving privacy notice 1.0 (as 2633ccc0 does) reads WRONG on the version on both hosts, and STOPs (R-2026-09-28-155 EE-3)', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const f = pagesFixtures(git(work, 'rev-parse', 'HEAD').trim());
+      f[`GET ${SITE}/privacy`] = { ...PRIVACY_ANSWER, body: PRIOR_PRIVACY_PAGE };
+      f[`GET ${DASH_DOMAIN}/privacy`] = { ...PRIVACY_ANSWER, body: PRIOR_PRIVACY_PAGE };
+      const r = run(root, SCRIPTS.pages, [SITE, work], f);
+      expectStopAt(r, 'privacy version');
+      expect(r.out).toContain('  WRONG  openbed.ng privacy version: ');
+      expect(r.out, 'the 1.0 page failed on something other than its version').toContain('  ok     privacy controller: ');
     });
   });
 

@@ -4396,6 +4396,12 @@ through the admin app.
      favicon on both hosts and a self-hosted font, and the founder's desktop and phone
      checks. The facility view had not yet been seen on hosted, because the hosted register
      is empty; its first sight is step 2a below.
+   - [ ] Privacy notice 1.1 deployed and read back (readback_pages.sh PASS with 'Version
+     1.1' on both hosts), before the first facility-level login is provisioned.
+     (R-2026-09-28-155 EE-4) The founder's hosted run 3 ticks it: before the deploy, the
+     new readback_pages.sh against the deployment still serving 1.0 must read WRONG on
+     "privacy version" on both hosts and end in STOP (R-2026-09-28-156 EF-3); after it,
+     the read-back of the new deployment must PASS.
    - [ ] The founder's launch paperwork register reads Approved on every item. The
      register is outside this repository. (R-2026-09-26-121 CW-2) It does not replace
      the first box above. Its transfer memo covers the notice's transfer sentence for
