@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -28,12 +29,26 @@ import { BLOCKS, commandFenceAt, fingerprint, runFence, shown, tables, type Bloc
  *     Each entry also checks the body's shape. Two bodies are the same (1265 and 1887), so the
  *     shape is a check on each fence and never its key.
  *   - RUN-HERE: everything else, run below. A fence added to a runbook lands here unaided.
- * A fence that only runs a script (the PATH line, one `bash scripts/<name>.sh`, the unset),
- * and that no entry names, is a STOP: what that script does to a database has not been ruled.
+ * WHAT A RUN-HERE FENCE MAY HOLD (R-2026-09-29-166, EP-1). Every RUN-HERE fence, with or without
+ * an expectation, is a STOP naming the fence and the offending line if:
+ *   a) a line outside a quoted heredoc body is not one of: the PATH line; `psql --version`; a
+ *      line starting `psql "$DATABASE_URL"` with, outside its quotes, no ; & | < > or backtick
+ *      (its own heredoc opener aside), and no backtick or $( outside single quotes, since the
+ *      shell runs those inside double quotes too; `unset` and variable names only; exactly the
+ *      dry run; exactly the grants read-back. Blank lines run nothing and are skipped;
+ *   b) the body, heredocs and -c strings included, holds `://`: a RUN-HERE fence never leaves
+ *      the local stack;
+ *   c) the body holds a psql meta-command (\!, \c, \connect, \i, \ir, \o, \copy, \g, \gexec),
+ *      which psql runs even from a quoted heredoc.
+ * And a fence running the dry run or the grants read-back that no expectation names is a STOP:
+ * what it prints has not been ruled.
  *
- * HOW A FENCE RUNS. Only over a partition with no errors: an EXCLUDED anchor that stopped
- * matching would drop a real apply, or a call to hosted, into RUN-HERE, so every RUN-HERE leg
- * asserts the partition clean before it spawns anything, and a plant below proves it.
+ * HOW A FENCE RUNS. No fence in this file runs over a broken partition: an EXCLUDED anchor that
+ * stopped matching would drop a real apply, or a call to hosted, into RUN-HERE. Every spawn in
+ * this file goes through runGated(), the write plant's included (R-2026-09-29-166, EP-3), and a
+ * plant below proves the refusal. The five LIVE fences run in
+ * tests/db/runbook_12_4_12_5_sql_live.test.ts with their own fixtures, and the partition does
+ * not gate them.
  * Verbatim under bash, from the repository root, against the LOCAL stack.
  * beforeAll refuses anything but host 127.0.0.1 or localhost on port 54322 before any fence
  * runs, because the fences delete by id. The environment is an ALLOWLIST, never process.env:
@@ -51,7 +66,8 @@ import { BLOCKS, commandFenceAt, fingerprint, runFence, shown, tables, type Bloc
  * the fence is not run.
  *
  * WHAT IS RED. A fence's exit status is its unset's, so it says nothing. Red is a line, on
- * stdout or stderr, holding ERROR, FATAL, WARNING, STOP, "command not found" or "No such
+ * stdout or stderr, holding ERROR, FATAL, WARNING, STOP, "psql: error" (a refused connection
+ * prints nothing uppercase, R-2026-09-29-166 EP-2), "command not found" or "No such
  * file", unless an EXPECTATION names it. Expectations are keyed by anchor like EXCLUDED, and
  * one that keys no fence, or keys a fence that is not RUN-HERE, is red:
  *   - 1664, the post-apply read: exactly one "permission denied for table snapshot_current",
@@ -65,8 +81,10 @@ import { BLOCKS, commandFenceAt, fingerprint, runFence, shown, tables, type Bloc
  *   - 988, 1856, 1933 and 2715, the dry runs: "0 migration(s) pending." Any other count means
  *     the local stack is not migrated, and says so, rather than reading as a runbook defect;
  *   - 4717, the retention runs: CHOSEN AS AN EXPECTATION rather than a note. A red word is
- *     tolerated on stdout only inside the return_message column of one of the three
- *     retention jobs' rows, which is where a real job failure prints. stderr is read in full.
+ *     tolerated on stdout only after the second `|` of a row whose first field is one of the
+ *     three retention jobs and whose first two fields hold no red word (R-2026-09-29-166,
+ *     EP-4): the return_message column, which is where a real job failure prints. stderr is
+ *     read in full.
  *
  * NOTHING CHANGES. The bracket starts with the scheduled jobs asserted paused. A fingerprint
  * is taken before the first fence and after the last: tests/setup/runbook.ts's tables, plus
@@ -150,12 +168,6 @@ const lines = (body: string): string[] => body.split('\n').filter((l) => l.trim(
 const exactly = (want: string[]) => (f: CorpusFence): boolean => f.label === 'shell' && JSON.stringify(lines(f.body)) === JSON.stringify(want);
 const holds = (...needles: string[]) => (f: CorpusFence): boolean => f.label === 'shell' && needles.every((n) => f.body.includes(n));
 
-/** A script-shaped fence: the PATH line, one `bash scripts/<name>.sh [args]`, and the unset. */
-export function scriptShaped(f: CorpusFence): boolean {
-  const l = lines(f.body);
-  return f.label === 'shell' && l.length === 3 && l[0] === PATH_LINE && /^bash scripts\/[\w.-]+\.sh( .*)?$/.test(l[1] ?? '') && /^unset /.test(l[2] ?? '');
-}
-
 const APPLY = [PATH_LINE, 'bash scripts/run_migrations.sh', 'unset DATABASE_URL'];
 const DRY_RUN = [PATH_LINE, 'bash scripts/run_migrations.sh --dry-run', 'unset DATABASE_URL'];
 
@@ -176,6 +188,9 @@ function pendingZero(r: Run): string[] {
   const n = Number(PENDING.exec(found[0] ?? '')?.[1]);
   return n === 0 ? [] : [`it reads "${found[0] ?? ''}": the local stack is not migrated: npm run db:migrate`];
 }
+
+/** A red line. `psql: error` is how a refused connection prints, with nothing uppercase (EP-2). */
+const RED = /ERROR|FATAL|WARNING|STOP|psql: error|command not found|No such file/;
 
 const DENIED = 'ERROR:  permission denied for table snapshot_current';
 const RETENTION_ROW = /^(openbed_check_withdrawn_facility_accounts|openbed_erase_lapsed_ward_logins|openbed_prune_ended_auth_sessions)\|[^|]*\|/;
@@ -226,7 +241,11 @@ export const EXPECTATIONS: readonly Expectation[] = [
     anchor: "**5. On the 31st day after `withdrawn_on`, after 02:37 UTC, read the retention jobs'",
     shapeIs: "the retention jobs' runs, with the failed runs' return_message",
     shape: holds('d.return_message'),
-    tolerate: (line, stream) => stream === 'stdout' && RETENTION_ROW.test(line),
+    tolerate: (line, stream) => {
+      // Only a retention job's row, and only when its first two fields hold no red word (EP-4).
+      const m = RETENTION_ROW.exec(line);
+      return stream === 'stdout' && m !== null && !RED.test(m[0]);
+    },
   },
 ];
 
@@ -241,6 +260,67 @@ export function corpus(docs: readonly Doc[]): { fences: CorpusFence[]; errors: s
   const order = new Map(docs.map((d, i) => [d.doc, i]));
   fences.sort((a, b) => (order.get(a.doc) ?? 0) - (order.get(b.doc) ?? 0) || a.line - b.line);
   return { fences, errors: [...shell.errors, ...sqlF.errors] };
+}
+
+const DRY_RUN_LINE = 'bash scripts/run_migrations.sh --dry-run';
+const GRANTS_LINE = 'bash scripts/readback_function_grants.sh';
+const HEREDOC = /<<-?\s*(?:(['"])(\w+)\1|\\(\w+)|(\w+))/;
+const META = /\\(?:!|connect|copy|gexec|ir|i|o|c|g)(?![A-Za-z])/;
+
+/** Why a `psql "$DATABASE_URL"` line is not clean, or null. Its own trailing heredoc opener is allowed. */
+function psqlLineOffence(line: string): string | null {
+  const s = line.replace(/\s<<-?\s*(?:'\w+'|"\w+"|\\\w+|\w+)\s*$/, '');
+  let sq = false;
+  let dq = false;
+  for (let i = 0; i < s.length; i += 1) {
+    const c = s[i] ?? '';
+    if (sq) { if (c === "'") sq = false; continue; }
+    if (c === '\\') { i += 1; continue; }
+    if (c === "'" && !dq) { sq = true; continue; }
+    if (c === '"') { dq = !dq; continue; }
+    if (c === '`') return 'a backtick';
+    if (c === '$' && s[i + 1] === '(') return 'a $( command substitution';
+    if (!dq && /[;&|<>]/.test(c)) return `"${c}" outside its quotes`;
+  }
+  return null;
+}
+
+/** Why an outer line may not stand in a RUN-HERE fence, or null (EP-1 a). */
+function outerLineOffence(line: string): string | null {
+  if (line === PATH_LINE || line === 'psql --version' || line === DRY_RUN_LINE || line === GRANTS_LINE) return null;
+  if (/^unset( [A-Za-z_][A-Za-z0-9_]*)+$/.test(line)) return null;
+  if (line.startsWith('psql "$DATABASE_URL"')) return psqlLineOffence(line);
+  return 'it is not one of the lines a RUN-HERE fence may hold';
+}
+
+/**
+ * Every STOP in one RUN-HERE fence (R-2026-09-29-166, EP-1), each naming the fence and the
+ * offending line. It reads the fence as it runs: a ```sql fence in its psql heredoc.
+ */
+export function runHereStops(f: CorpusFence, hasExpectation: boolean): string[] {
+  const out: string[] = [];
+  const body = script(f).split('\n');
+  const at = (i: number): string => `${f.doc}:${f.label === 'sql' ? f.line + i : f.line + 1 + i}`;
+  let heredoc: { word: string; quoted: boolean } | null = null;
+  body.forEach((line, i) => {
+    const where = `${keyOf(f)}, at ${at(i)}: "${line}"`;
+    if (line.includes('://')) out.push(`STOP (b): ${where} holds a URL ("://"); a RUN-HERE fence never leaves the local stack`);
+    const m = META.exec(line);
+    if (m !== null) out.push(`STOP (c): ${where} holds the psql meta-command ${m[0]}, which psql runs even from a quoted heredoc`);
+    if (heredoc !== null) {
+      if (line.trim() === heredoc.word) { heredoc = null; return; }
+      if (heredoc.quoted) return;
+    }
+    if (line.trim() === '') return;
+    const why = outerLineOffence(line);
+    if (why !== null) out.push(`STOP (a): ${where}: ${why}`);
+    if ((line === DRY_RUN_LINE || line === GRANTS_LINE) && !hasExpectation) {
+      out.push(`STOP: ${where}: it runs a ruled script, and no expectation names it: what it prints has not been ruled`);
+    }
+    const h = HEREDOC.exec(line);
+    if (h !== null && heredoc === null) heredoc = { word: (h[2] ?? h[3] ?? h[4]) as string, quoted: h[4] === undefined };
+  });
+  return out;
 }
 
 /** The fence an anchor keys: the first corpus fence after the one line that holds it. */
@@ -316,11 +396,7 @@ export function partition(docs: readonly Doc[], excluded: readonly Excluded[] = 
     else expectation.set(k, e);
   }
 
-  for (const f of runHere) {
-    if (scriptShaped(f) && !expectation.has(keyOf(f))) {
-      errors.push(`STOP: ${keyOf(f)} only runs a script ("${lines(f.body)[1] ?? ''}"), and EO-1 b does not name it: what it does to a database has not been ruled`);
-    }
-  }
+  for (const f of runHere) errors.push(...runHereStops(f, expectation.has(keyOf(f))));
 
   if (live.length === 0) errors.push('the LIVE set is empty');
   if (ex.length === 0) errors.push('the EXCLUDED set is empty');
@@ -371,8 +447,6 @@ export function unknownNames(body: string): string[] {
   return expandedNames(body).filter((n) => !ALLOWED_NAMES.has(n));
 }
 
-const RED = /ERROR|FATAL|WARNING|STOP|command not found|No such file/;
-
 /** Every way one run is red, each naming its fence. */
 export function classify(where: string, r: Run, exp?: Expectation): string[] {
   const out: string[] = [];
@@ -416,24 +490,28 @@ export function fenceBase(home: string): NodeJS.ProcessEnv {
 const script = (f: CorpusFence): string => (f.label === 'sql' ? `psql "$DATABASE_URL" <<'OPENBED_SQL_FENCE'\n${f.body}\nOPENBED_SQL_FENCE` : f.body);
 
 /** One fence, through the whole pipeline: the name scan, the run, the classifier. */
-function runOne(f: CorpusFence, exp: Expectation | undefined, base: NodeJS.ProcessEnv): { violations: string[]; run?: Run } {
+let spawnsTotal = 0;
+
+function runOne(f: CorpusFence, exp: Expectation | undefined, base: NodeJS.ProcessEnv, env: Record<string, string> = {}): { violations: string[]; run?: Run } {
   const where = keyOf(f);
   const unknown = unknownNames(script(f));
   if (unknown.length > 0) {
     return { violations: unknown.map((n) => `${where}: it expands $${n}, which is not DATABASE_URL, PATH or an inert value, so it was not run`) };
   }
-  const r = runFence(script(f), {}, { base, cwd: REPO_ROOT });
+  spawnsTotal += 1;
+  const r = runFence(script(f), env, { base, cwd: REPO_ROOT });
   return { violations: classify(where, r, exp), run: r };
 }
 
 /**
- * NO FENCE RUNS OVER A BROKEN PARTITION. An EXCLUDED anchor that stopped matching drops its
- * fence into RUN-HERE, and that fence is a real apply or a call to hosted. Found by the
- * behavioural pass: a reworded 3240 anchor ran the quoted tamper statements.
+ * NO FENCE IN THIS FILE RUNS OVER A BROKEN PARTITION. An EXCLUDED anchor that stopped matching
+ * drops its fence into RUN-HERE, and that fence is a real apply or a call to hosted. Found by the
+ * behavioural pass: a reworded 3240 anchor ran the quoted tamper statements. runGated() is the
+ * only caller of runOne(), and runOne() the only caller of runFence() in this file.
  */
-function runGated(p: Partition, f: CorpusFence, base: NodeJS.ProcessEnv): { violations: string[]; run?: Run } {
+function runGated(p: Partition, f: CorpusFence, base: NodeJS.ProcessEnv, env: Record<string, string> = {}): { violations: string[]; run?: Run } {
   if (p.errors.length > 0) return { violations: [`${keyOf(f)}: the partition has errors, so no fence is run: ${p.errors.join('; ')}`] };
-  return runOne(f, p.expectation.get(keyOf(f)), base);
+  return runOne(f, p.expectation.get(keyOf(f)), base, env);
 }
 
 /** The nearest heading above a fence, to name it in a test. */
@@ -474,7 +552,6 @@ const DOCS = loadRunbooks(REPO_ROOT);
 const REAL = partition(DOCS);
 const HOME = mkdtempSync(join(tmpdir(), 'openbed-runbook-sql-home-'));
 const BASE = fenceBase(HOME);
-const REAL_BODIES = new Map(REAL.discovered.map((f) => [keyOf(f), f.body]));
 
 beforeAll(() => {
   // FIRST, before anything runs: the fences and plants delete by id, and must never meet hosted.
@@ -482,7 +559,11 @@ beforeAll(() => {
   expect(LOCAL_HOSTS.includes(u.hostname) && u.port === LOCAL_PORT, `DATABASE_URL is not the local stack (host ${u.hostname}, port ${u.port}): nothing here runs anywhere else`).toBe(true);
 });
 
-afterAll(() => rmSync(HOME, { recursive: true, force: true }));
+afterAll(() => {
+  // EP-3's proof reads this line: over a broken partition it must be 0.
+  console.info(`fences spawned in this file: ${spawnsTotal}`);
+  rmSync(HOME, { recursive: true, force: true });
+});
 
 describe('the partition of the runbooks\' psql and sql fences', () => {
   test('real runbooks: every fence is in exactly one of LIVE, EXCLUDED and RUN-HERE', () => {
@@ -497,6 +578,7 @@ describe('the partition of the runbooks\' psql and sql fences', () => {
       `LIVE ${REAL.live.length}: ${REAL.live.map((x) => `${x.name} (${keyOf(x.fence)})`).join('; ')}`,
       `EXCLUDED ${REAL.excluded.length}: ${REAL.excluded.map((x) => `"${x.entry.anchor}" (${keyOf(x.fence)}: ${x.entry.reason})`).join('; ')}`,
       `RUN-HERE ${REAL.runHere.length}: ${REAL.runHere.map((f) => `${keyOf(f)} [${REAL.expectation.get(keyOf(f))?.anchor ?? headingOf(DOCS, f)}]`).join('; ')}`,
+      `EP-1's rule over the ${REAL.runHere.length} RUN-HERE fences: ${REAL.runHere.reduce((n, f) => n + script(f).split('\n').length, 0)} lines read, ${REAL.runHere.flatMap((f) => runHereStops(f, REAL.expectation.has(keyOf(f)))).length} STOPs`,
     ].join('\n'));
   });
 
@@ -525,11 +607,85 @@ describe('the partition of the runbooks\' psql and sql fences', () => {
     expect(p.errors).toEqual(['EXCLUDED: anchor "an anchor no runbook line holds" matches no line in the corpus, so it keys no fence']);
   });
 
-  test('plant — a script-shaped fence no entry names is a STOP', () => {
+  test('plant — a dry-run fence no expectation names is a STOP, naming its line', () => {
     const text = `${DOCS[0]?.text ?? ''}\n\n### A planted step\n\n\`\`\`bash\n${PATH_LINE}\nbash scripts/run_migrations.sh --dry-run\nunset DATABASE_URL\n\`\`\`\n`;
     const p = partition([{ doc: SUPABASE_DOC, text }, ...DOCS.slice(1)]);
     expect(p.errors.length, p.errors.join('\n')).toBe(1);
-    expect(p.errors[0]).toContain('only runs a script ("bash scripts/run_migrations.sh --dry-run"), and EO-1 b does not name it');
+    expect(p.errors[0]).toContain(': "bash scripts/run_migrations.sh --dry-run": it runs a ruled script, and no expectation names it');
+  });
+
+  /** A copy of the Supabase runbook with `text` appended as a new step, partitioned, and the new fence's key. */
+  const appended = (fence: string): { p: Partition; key: string; line: number } => {
+    const base = DOCS[0]?.text ?? '';
+    const text = `${base}\n\n### A planted step\n\n${fence}\n`;
+    const line = base.split('\n').length + 4;
+    return { p: partition([{ doc: SUPABASE_DOC, text }, ...DOCS.slice(1)]), key: `${SUPABASE_DOC}:${line}`, line };
+  };
+  const at = (line: number): string => `${SUPABASE_DOC}:${line}`;
+
+  test('plant (a) — an appended fence that echoes and applies migrations is a STOP on each line', () => {
+    const { p, key, line } = appended(`\`\`\`bash\n${PATH_LINE}\necho applying\nbash scripts/run_migrations.sh\nunset DATABASE_URL\n\`\`\``);
+    expect(p.errors).toEqual([
+      `STOP (a): ${key}, at ${at(line + 2)}: "echo applying": it is not one of the lines a RUN-HERE fence may hold`,
+      `STOP (a): ${key}, at ${at(line + 3)}: "bash scripts/run_migrations.sh": it is not one of the lines a RUN-HERE fence may hold`,
+    ]);
+  });
+
+  test('plant (a) — 2715 with a real apply chained onto its psql line is a STOP', () => {
+    const f = fenceAt('**The ledger count and the pending count move together');
+    const psqlLine = 'psql "$DATABASE_URL" -Atc "select count(*) from app.schema_migrations"';
+    const { p, changed } = planted(plantInFence(DOCS[0]?.text ?? '', f.line, psqlLine, `${psqlLine}; bash scripts/run_migrations.sh`));
+    expect(changed.map(keyOf), 'the plant did not land in exactly that fence').toEqual([keyOf(f)]);
+    expect(p.errors).toEqual([`STOP (a): ${keyOf(f)}, at ${at(f.line + 2)}: "${psqlLine}; bash scripts/run_migrations.sh": ";" outside its quotes`]);
+  });
+
+  test('plant (a) — 897 with a $( command substitution inside its double quotes is a STOP', () => {
+    const f = fenceAt('**HOW TO CHECK THE CONDITION, rather than remembering it.**');
+    const { p, changed } = planted(plantInFence(DOCS[0]?.text ?? '', f.line, '"select (select count(*) from app.facility)', '"$(bash scripts/run_migrations.sh) select (select count(*) from app.facility)'));
+    expect(changed.map(keyOf), 'the plant did not land in exactly that fence').toEqual([keyOf(f)]);
+    expect(p.errors.length, p.errors.join('\n')).toBe(1);
+    expect(p.errors[0]).toContain(`STOP (a): ${keyOf(f)}, at ${at(f.line + 2)}: "psql "$DATABASE_URL" -tAc "$(bash scripts/run_migrations.sh) select`);
+    expect(p.errors[0]).toContain('": a $( command substitution');
+  });
+
+  test('plant (b) — 4168 with a second psql line reading a URL is a STOP', () => {
+    const f = fenceAt('**HOW TO CHECK THE CONDITION, rather than remembering it.**');
+    const g = REAL.runHere.find((x) => x.body.includes("where role = 'PLATFORM_ADMIN' and is_active")) as CorpusFence;
+    expect(g, '4168 is not in RUN-HERE').toBeDefined();
+    expect(g.line).not.toBe(f.line);
+    const added = 'psql "$DATABASE_URL" -tAc "select \'https://openbed.ng\'"';
+    const psqlLine = `psql "$DATABASE_URL" -tAc "select count(*) from app.ward_account where role = 'PLATFORM_ADMIN' and is_active"`;
+    const { p, changed } = planted(plantInFence(DOCS[0]?.text ?? '', g.line, psqlLine, `${psqlLine}\n${added}`));
+    expect(changed.map(keyOf), 'the plant did not land in exactly that fence').toEqual([keyOf(g)]);
+    expect(p.errors).toEqual([`STOP (b): ${keyOf(g)}, at ${at(g.line + 3)}: "${added}" holds a URL ("://"); a RUN-HERE fence never leaves the local stack`]);
+  });
+
+  test('plant (c) — 3267 with a \\! meta-command inside its quoted heredoc is a STOP', () => {
+    const f = fenceAt('### The probe — run verbatim, connected with `DATABASE_URL` (step P first)');
+    const { p, changed } = planted(plantInFence(DOCS[0]?.text ?? '', f.line, 'begin;', 'begin;\n\\! true'));
+    expect(changed.map(keyOf), 'the plant did not land in exactly that fence').toEqual([keyOf(f)]);
+    expect(p.errors).toEqual([`STOP (c): ${keyOf(f)}, at ${at(f.line + 4)}: "\\! true" holds the psql meta-command \\!, which psql runs even from a quoted heredoc`]);
+  });
+
+  test('plant (a)+(b) — an appended fence reading hosted is a STOP under both rules', () => {
+    const readback = 'bash scripts/readback_public_output.sh https://openbed.ng';
+    const { p, key, line } = appended(`\`\`\`bash\n${PATH_LINE}\n# read the hosted output\n${readback}\nunset DATABASE_URL\n\`\`\``);
+    expect(p.errors).toEqual([
+      `STOP (a): ${key}, at ${at(line + 2)}: "# read the hosted output": it is not one of the lines a RUN-HERE fence may hold`,
+      `STOP (b): ${key}, at ${at(line + 3)}: "${readback}" holds a URL ("://"); a RUN-HERE fence never leaves the local stack`,
+      `STOP (a): ${key}, at ${at(line + 3)}: "${readback}": it is not one of the lines a RUN-HERE fence may hold`,
+    ]);
+  });
+
+  test('plant (a)+(b) — 4717 with the hosted read-back line added is a STOP under both rules', () => {
+    const f = fenceAt("**5. On the 31st day after `withdrawn_on`, after 02:37 UTC, read the retention jobs'");
+    const readback = 'bash scripts/readback_public_output.sh https://openbed.ng';
+    const { p, changed } = planted(plantInFence(DOCS[0]?.text ?? '', f.line, 'unset DATABASE_URL', `${readback}\nunset DATABASE_URL`));
+    expect(changed.map(keyOf), 'the plant did not land in exactly that fence').toEqual([keyOf(f)]);
+    expect(p.errors).toEqual([
+      `STOP (b): ${keyOf(f)}, at ${at(f.line + 4)}: "${readback}" holds a URL ("://"); a RUN-HERE fence never leaves the local stack`,
+      `STOP (a): ${keyOf(f)}, at ${at(f.line + 4)}: "${readback}": it is not one of the lines a RUN-HERE fence may hold`,
+    ]);
   });
 
   test('a governed fence appended to a runbook lands in RUN-HERE unaided', () => {
@@ -550,16 +706,28 @@ describe('the partition of the runbooks\' psql and sql fences', () => {
     expect(expandedNames("psql \"$A\" <<'SQL'\nselect $B$;\nSQL\necho '$C' \"${D}\" # $E\ncat <<EOF\n$F\nEOF")).toEqual(['A', 'D', 'F']);
   });
 
-  test('4717\'s expectation tolerates a red word only in a retention job\'s return_message on stdout', () => {
+  test('4717\'s expectation tolerates a red word only in a retention job\'s return_message on stdout, never in its first two fields', () => {
     const exp = EXPECTATIONS.find((e) => e.anchor.startsWith('**5. On the 31st day'));
     expect(exp, "4717's expectation is gone").toBeDefined();
-    const r: Run = { status: 0, stdout: 'openbed_erase_lapsed_ward_logins|2026-09-01 02:37:00+00|ERROR: the job failed\nsomething|else|ERROR: not a retention row', stderr: 'ERROR: on stderr' };
-    expect(classify('x', r, exp)).toEqual(['x: a red line on stdout: something|else|ERROR: not a retention row', 'x: a red line on stderr: ERROR: on stderr']);
+    const r: Run = {
+      status: 0,
+      stdout: 'openbed_erase_lapsed_ward_logins|2026-09-01 02:37:00+00|ERROR: the job failed\nsomething|else|ERROR: not a retention row\nopenbed_erase_lapsed_ward_logins|ERROR FATAL|fine',
+      stderr: 'ERROR: on stderr',
+    };
+    expect(classify('x', r, exp)).toEqual([
+      'x: a red line on stdout: something|else|ERROR: not a retention row',
+      'x: a red line on stdout: openbed_erase_lapsed_ward_logins|ERROR FATAL|fine',
+      'x: a red line on stderr: ERROR: on stderr',
+    ]);
   });
 });
 
 let before: Record<string, string> = {};
+/** Fences spawned over the real partition: the RUN-HERE legs and the write plant (EP-3). */
 let spawned = 0;
+const sha = (x: string): string => createHash('sha256').update(x).digest('hex');
+/** One hash of a whole side: sha256 of JSON.stringify of its entries, sorted by name. */
+const sideHash = (m: Record<string, string>): string => sha(JSON.stringify(Object.entries(m).sort(([a], [b]) => a.localeCompare(b))));
 
 describe('the runbook\'s SQL, run live against the local stack, changes nothing', () => {
   beforeAll(async () => {
@@ -605,7 +773,12 @@ describe('the runbook\'s SQL, run live against the local stack, changes nothing'
 
   test('bracket — the fingerprint after the last fence equals the one before the first', async () => {
     const after = await bracket();
-    console.info(`bracket: ${Object.keys(after).length} components; tables ${Object.keys(after).filter((k) => /^\w+\.\w+$/.test(k)).length}`);
+    console.info([
+      `bracket: ${Object.keys(after).length} components; tables ${Object.keys(after).filter((k) => /^\w+\.\w+$/.test(k)).length}`,
+      `before ${sideHash(before)}`,
+      `after  ${sideHash(after)}`,
+      ...[...new Set([...Object.keys(before), ...Object.keys(after)])].sort().map((k) => `  ${k} ${sha(before[k] ?? '').slice(0, 16)} ${sha(after[k] ?? '').slice(0, 16)}`),
+    ].join('\n'));
     expect(Object.keys(before).length, 'the bracket was never opened').toBeGreaterThan(10);
     expect(moved(before, after), 'a RUN-HERE fence changed these components').toEqual([]);
     expect(after).toEqual(before);
@@ -613,10 +786,15 @@ describe('the runbook\'s SQL, run live against the local stack, changes nothing'
   });
 });
 
-/** The one fence an anchor keys in `docs`, and the partition it sits in. */
+/**
+ * A planted copy of the Supabase runbook, partitioned, and the fences whose body the plant
+ * changed. Compared by position in the corpus, not by line: a plant that adds a line moves
+ * every later fence's line without changing its body.
+ */
 function planted(text: string): { p: Partition; changed: CorpusFence[] } {
   const p = partition([{ doc: SUPABASE_DOC, text }, ...DOCS.slice(1)]);
-  return { p, changed: p.discovered.filter((f) => REAL_BODIES.get(keyOf(f)) !== f.body) };
+  if (p.discovered.length !== REAL.discovered.length) throw new Error(`the plant changed the number of fences (${p.discovered.length}, not ${REAL.discovered.length})`);
+  return { p, changed: p.discovered.filter((f, i) => REAL.discovered[i]?.body !== f.body) };
 }
 
 function fenceAt(anchor: string): CorpusFence {
@@ -631,7 +809,7 @@ describe('plants: each runs only its planted fence, from a copy of the runbook',
     const { p, changed } = planted(plantInFence(DOCS[0]?.text ?? '', f.line, 'from app.facility)', 'from app.facilityx)'));
     expect(p.errors).toEqual([]);
     expect(changed.map(keyOf), 'the plant did not land in exactly that fence').toEqual([keyOf(f)]);
-    const { violations, run } = runOne(changed[0] as CorpusFence, p.expectation.get(keyOf(f)), BASE);
+    const { violations, run } = runGated(p, changed[0] as CorpusFence, BASE);
     expect(violations.length, run === undefined ? '' : shown(run)).toBeGreaterThan(0);
     expect(violations.every((v) => v.startsWith(`${keyOf(f)}: `)), violations.join('\n')).toBe(true);
     expect(violations.join('\n')).toContain('relation "app.facilityx" does not exist');
@@ -642,7 +820,7 @@ describe('plants: each runs only its planted fence, from a copy of the runbook',
     const { p, changed } = planted(plantInFence(DOCS[0]?.text ?? '', f.line, "'RESULT: BOTH LEGS PROVED ON THE HOSTED ROLE GRAPH'", "'RESULT: DONE'"));
     expect(p.errors).toEqual([]);
     expect(changed.map(keyOf), 'the plant did not land in exactly that fence').toEqual([keyOf(f)]);
-    const { violations, run } = runOne(changed[0] as CorpusFence, p.expectation.get(keyOf(f)), BASE);
+    const { violations, run } = runGated(p, changed[0] as CorpusFence, BASE);
     expect(violations, run === undefined ? '' : shown(run)).toEqual([`${keyOf(f)}: its required line /RESULT: BOTH LEGS PROVED/ is missing`]);
   });
 
@@ -651,7 +829,7 @@ describe('plants: each runs only its planted fence, from a copy of the runbook',
     const { p, changed } = planted(plantInFence(DOCS[0]?.text ?? '', f.line, '"select (select count(*) from app.facility)', '"select \'$NEW_VAR\', (select count(*) from app.facility)'));
     expect(p.errors).toEqual([]);
     expect(changed.map(keyOf), 'the plant did not land in exactly that fence').toEqual([keyOf(f)]);
-    const { violations, run } = runOne(changed[0] as CorpusFence, p.expectation.get(keyOf(f)), BASE);
+    const { violations, run } = runGated(p, changed[0] as CorpusFence, BASE);
     expect(run, 'a fence with an unknown name was run').toBeUndefined();
     expect(violations).toEqual([`${keyOf(f)}: it expands $NEW_VAR, which is not DATABASE_URL, PATH or an inert value, so it was not run`]);
   });
@@ -670,18 +848,31 @@ describe('plants: each runs only its planted fence, from a copy of the runbook',
   });
 
   test('a ```sql fence appended to a runbook lands in RUN-HERE and runs through psql', () => {
-    const { p } = planted(`${DOCS[0]?.text ?? ''}\n\n### A planted step\n\n\`\`\`sql\nselect 1 as planted_one;\n\`\`\`\n`);
+    const p = partition([{ doc: SUPABASE_DOC, text: `${DOCS[0]?.text ?? ''}\n\n### A planted step\n\n\`\`\`sql\nselect 1 as planted_one;\n\`\`\`\n` }, ...DOCS.slice(1)]);
     expect(p.errors).toEqual([]);
     const f = p.runHere.at(-1) as CorpusFence;
     expect(f.label).toBe('sql');
-    const { violations, run } = runOne(f, undefined, BASE);
+    const { violations, run } = runGated(p, f, BASE);
     expect(violations, run === undefined ? '' : shown(run)).toEqual([]);
     expect(run?.stdout).toContain('planted_one');
+  });
+
+  test('plant — 897 against a closed port is red, naming psql: error', () => {
+    const f = fenceAt('**HOW TO CHECK THE CONDITION, rather than remembering it.**');
+    const { violations, run } = runGated(REAL, f, BASE, { DATABASE_URL: 'postgresql://postgres:postgres@127.0.0.1:1/postgres' });
+    expect(run, 'the fence did not run').toBeDefined();
+    expect(violations.every((v) => v.startsWith(`${keyOf(f)}: `)), violations.join('\n')).toBe(true);
+    expect(violations.join('\n'), run === undefined ? '' : shown(run)).toContain(`${keyOf(f)}: a red line on stderr: psql: error`);
   });
 });
 
 describe('the write plant: the bracket sees a real delete', () => {
   test('plant — 4744 run against a fixture moves app.facility_contact, and the fixture leaves nothing behind', async () => {
+    // A broken partition writes nothing at all (R-2026-09-29-166, EP-3).
+    expect(REAL.errors, `the partition has errors, so the write plant writes nothing:\n${REAL.errors.join('\n')}`).toEqual([]);
+    const anchored = fenceAt("**1. Delete the facility's contact row.**");
+    const f = REAL.runHere.find((x) => keyOf(x) === keyOf(anchored));
+    expect(f, '4744 is not in RUN-HERE').toBeDefined();
     const db = sql();
     const first = await bracket();
     try {
@@ -690,9 +881,14 @@ describe('the write plant: the bracket sees a real delete', () => {
       await db`insert into app.facility_contact (facility_id, full_name, job_title, email)
                values (${PLANT_FACILITY}::uuid, 'Synthetic Contact', 'Medical Director', 'contact@example.invalid')`;
       const second = await bracket();
-      const f = fenceAt("**1. Delete the facility's contact row.**");
-      expect(f.body).toContain('delete from app.facility_contact');
-      const r = runFence(f.body, {}, { base: { ...BASE, FACILITY_ID: PLANT_FACILITY }, cwd: REPO_ROOT });
+      expect(f?.body).toContain('delete from app.facility_contact');
+      const { violations, run } = runGated(REAL, f as CorpusFence, { ...BASE, FACILITY_ID: PLANT_FACILITY });
+      expect(run, `4744 did not run: ${violations.join('; ')}`).toBeDefined();
+      spawned += 1;
+      console.info(`fences spawned over the real partition: ${spawned} (${REAL.runHere.length} RUN-HERE + the write plant)`);
+      expect(spawned, 'the RUN-HERE legs and the write plant did not all run').toBe(REAL.runHere.length + 1);
+      const r = run as Run;
+      expect(violations, shown(r)).toEqual([]);
       expect(r.stderr, shown(r)).toBe('');
       const third = await bracket();
       expect(moved(second, third), `the fingerprint did not see the delete\n${shown(r)}`).toContain('app.facility_contact');

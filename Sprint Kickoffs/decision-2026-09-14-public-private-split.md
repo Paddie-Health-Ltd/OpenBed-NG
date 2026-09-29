@@ -9663,7 +9663,13 @@ _Issued as R-PROVISIONAL-2026-09-29-EO, by Cowork on 2026-09-29. It was designed
 
   With no expectation, by line and nearest heading: 85 (P. Prerequisites); 677, 728 and 748 (Sign-ups off, H2); 897 (4b. STOP — before the first facility); 1240 (before applying 017: pg_cron); 1373, 1412, 1463 and 1495 (after 017's apply); 1599 (before 018's apply); 2183 and 2241 (024's apply); 2333 and 2384 (025 and 026's apply); 3087 (the widened grant sweep); 3344 (after the probe); 3808 (10. Realtime publication); 4168 (12.3 H6); 4744 (12.6 Erasing a contact).
 - The sets are disjoint, their union is the 40, and none is empty. **29 fences were spawned, against a RUN-HERE count of 29.**
-- **A script-shaped fence that no entry names is a STOP.** On today's tree there is none. Each of 988, 1856, 1933 and 1953 carries an expectation, and 1265, 1873, 1887 and 1903 are EXCLUDED.
+- **A RUN-HERE fence is a STOP, naming the fence and the offending line, if it holds anything but the ruled lines (R-2026-09-29-166, EP-1).** That means:
+  - (a) an outer line that is not one of the six forms;
+  - (b) a URL;
+  - (c) a psql meta-command;
+  - or a dry-run or grants line that no expectation names.
+
+  On today's tree it finds nothing. *Corrected by -166: this bullet read "A script-shaped fence that no entry names is a STOP", a test that held only for three-line fences with no expectation.*
 - **EO-1 b corrects EM-2 c, and the slip is Cowork's.** EM-2 c named 3240 as an expected refusal. It is quoted history, and it is EXCLUDED so that superseded text never becomes a live constraint.
 
 **EO-1 c: HOW A FENCE RUNS. LANDED,** in `tests/db/runbook_sql_live.test.ts`.
@@ -9685,7 +9691,7 @@ _Issued as R-PROVISIONAL-2026-09-29-EO, by Cowork on 2026-09-29. It was designed
   - with FACILITY_ID as well: 4744.
 
   No other name was seen.
-- **Added beyond the letter, and found by the behavioural pass: no fence runs over a broken partition.** The first ledger row reworded 3240's anchor. 3240 then fell into RUN-HERE, and its two quoted tamper statements ran against the local stack. They changed nothing: app.audit_log holds 61 rows and none reads `tampered`, and the append-only triggers refuse both statements. But the same slip on 1265's or 1873's anchor would have run a real apply, or read hosted. `runGated()` now refuses to spawn any fence while the partition has an error, and a plant proves it.
+- **Added beyond the letter, and found by the behavioural pass: no fence in this file runs over a broken partition.** *Scoped and corrected by -166 (EP-3): at `b79997e` this was not yet true. The write plant called `runFence` directly, and it still ran over the broken partition in the first ledger row. It now goes through `runGated()`. The five LIVE fences run in `tests/db/runbook_12_4_12_5_sql_live.test.ts`, which the partition does not gate.* The first ledger row reworded 3240's anchor. 3240 then fell into RUN-HERE, and its two quoted tamper statements ran against the local stack. They changed nothing: app.audit_log holds 61 rows and none reads `tampered`, and the append-only triggers refuse both statements. But the same slip on 1265's or 1873's anchor would have run a real apply, or read hosted. `runGated()` now refuses to spawn any fence while the partition has an error, and a plant proves it.
 
 **EO-1 d: WHAT IS RED. LANDED,** as the letter lists. **4717 is given an expectation, not a header note.** On stdout, a red word is tolerated only after the second `|` of a row whose first field is one of the three retention jobs, which is the return_message column. stderr is read in full. A pure leg proves both halves.
 
@@ -9783,6 +9789,262 @@ The bracket's first plant was 3059 with its ROLLBACK changed to COMMIT. 3059's s
 **EO-5: REGISTER.** After its trigger, which stays, the survey row's Gate cell now reads "FIRED at 024; item 1, item 2's guard and the digest landed in S-a (R-2026-09-28-162, -163); item 2's runbook SQL in S-b (R-2026-09-29-165); the evidence tables and the charter in S-c". Recounted from the table: **59** (15 BOX, 33 TRIGGER, 11 VERSION). No row lands or leaves.
 
 Nothing hosted: S-b touches no migration, no app and no deploy script. S-c is not started. Next letter: **EP**, the merge word.
+
+### R-2026-09-29-166 — #104 (S-b) reviewed: what a RUN-HERE fence may hold, a classifier that fails open, and a gate that did not yet reach
+
+_Issued as R-PROVISIONAL-2026-09-29-EP, by Cowork on 2026-09-29, after its review of #104 at `b79997e` (a staff engineer and a QA reviewer reviewed it independently before it was pasted). Landed in #104 as a further commit. Number assigned on landing: R-2026-09-29-165 plus one. -165 named EP as the merge word; EP moves it. Next provisional letter: **EQ**, the merge word._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-29-EP — #104 (S-b): REVIEW, AND ONE MORE COMMIT
+> EP lands in #104 as -166, after -165, together with the commit it asks for. Next letter: EQ, the
+> merge word. (-165 named EP as the merge word. The merge word is now EQ.)
+> A staff engineer and a QA reviewer reviewed this letter independently before it was pasted. Their
+> findings are in EP-1 and EP-2.
+>
+> READ BY COWORK, from its own clone at b79997e453641159aff2d599a9f6e6bf4e1bc466:
+> - One commit on bbdefbf, touching 11 paths. It matches your report, and nothing is under scripts/.
+> - The record changes only by addition, apart from the survey row's Gate cell, which reads as EO-5
+>   gave it. The register is 59 (15 BOX, 33 TRIGGER, 11 VERSION).
+> - THE PARTITION, run by Cowork: 40 fences, split LIVE 5, EXCLUDED 6 and RUN-HERE 29. The members
+>   match yours, and there are no errors.
+> - THE COMPLIANCE PROJECT, run as a non-root user: 1632 of 1859 passed. All 227 failures come from
+>   the environment:
+>   - 156 fail on commit signing in Cowork's container;
+>   - 71 need built apps, which Cowork does not build.
+>   mode_000_precondition (10), runbook_psql_path (10), no_secrets (34), leg_coverage (38) and the
+>   five other files with a mode-000 leg are green. So is bundle_guards, apart from its eight legs
+>   that need a build.
+> - AS ROOT, over the six files holding a mode-000 leg: 17 failures. Nine fail with the
+>   precondition's message, which is exactly the nine legs. The other eight need a build.
+> - THE GUARD. Cowork planted three wrong trees:
+>   - prose :170 (the test.each site) with its line removed;
+>   - no_secrets :153's line aimed at another target;
+>   - audit :198's line moved after its runLint.
+>   Each was red and named file:line:target. The restored tree is green.
+> - THE REMOVED-ASSERTION CHECK (Standard O) finds two lines: the old readFileSync and cat forms. Each
+>   is replaced one-for-one, as EO-2 a asked.
+> - NOT VERIFIED BY COWORK: the db project, CI and the fresh-database count. Cowork's container has no
+>   database, and it gets 403 from the API. It relies on your quoted runs for these.
+>
+> EP-0  YOUR 3240 FINDING AND runGated() ARE RIGHT, AND ADOPTED. EO did not cover this gap; you
+>   found it. Both of the bad runs touched only the local stack. The grant they left behind was
+>   revoked, and you read the ACL back.
+>
+> EP-1  WHAT A RUN-HERE FENCE MAY DO IS NOT PINNED. THE GAP IS COWORK'S, IN EO-1 b.
+>   - EO-1 b made the STOP apply only to a fence of exactly three lines with no expectation. Cowork
+>     appended two governed fences to a copy of the runbook:
+>     - the PATH line, an echo, `bash scripts/run_migrations.sh` (a real apply), and the unset;
+>     - the PATH line, a comment, `bash scripts/readback_public_output.sh https://openbed.ng`, and
+>       the unset.
+>     Each partitioned clean, into RUN-HERE, and would have run.
+>   - THE REVIEW FOUND A SECOND HOLE: having an expectation does not pin the body. Five expectations
+>     check their fence with holds() (:187, :197, :204, :222, :228), which allows any extra line.
+>     Adding the hosted read-back line to 4717, or `bash scripts/run_migrations.sh` to 2715 or 1664,
+>     partitions clean and runs.
+>   - THE RULE. It holds for every RUN-HERE fence, whether or not it has an expectation. The fence is
+>     a STOP, naming the fence and the offending line, if:
+>     a) any line outside a quoted heredoc body is not one of these:
+>        - the PATH line;
+>        - `psql --version`;
+>        - a line starting `psql "$DATABASE_URL"` that holds, outside its quotes, no `;`, `&`, `|`,
+>          `>`, backtick or `$(`, and no `<` except its own heredoc opener;
+>        - a line starting `unset `;
+>        - exactly `bash scripts/run_migrations.sh --dry-run`;
+>        - exactly `bash scripts/readback_function_grants.sh`.
+>     b) the body, including heredoc bodies and -c strings, holds `://` anywhere;
+>     c) the body, including heredoc bodies and -c strings, holds a psql meta-command: `\!`, `\c`,
+>        `\connect`, `\i`, `\ir`, `\o`, `\copy`, `\g` or `\gexec`. psql runs these even from a quoted
+>        heredoc.
+>     This replaces the three-line test. Keep scriptShaped() only if EXCLUDED's shapes still use it.
+>     Keep the STOP when no expectation names a ruled script line, as now.
+>   - TODAY IT FINDS NOTHING. Cowork read all 29 bodies: every outer line is one of the six forms, no
+>     URL, no meta-command. Report the result as computed. If a current fence fails the rule, STOP and
+>     report it. Do not widen the list without a ruling.
+>   - The message names the offending line itself. :321 prints lines[1], which is wrong for a longer
+>     fence, so :532's expected text changes.
+>   - PLANTS, each a STOP naming that fence and line. Each one trips only the condition it is
+>     listed under, so each neuter isolates one condition:
+>     - a): Cowork's appended apply fence; 2715 with `; bash scripts/run_migrations.sh` added to the
+>       end of its psql line;
+>     - b): 4168 with a second psql line whose query is `select 'https://openbed.ng'`;
+>     - c): 3267 with a `\! true` line added inside its heredoc.
+>     Cowork's appended read-back fence, and 4717 with the hosted read-back line added, each trip a)
+>     and b). Keep them both, and keep your three-line plant.
+>   - RED FIRST: neuter each of a), b) and c) in turn, and show that its own plants go red.
+>   - Correct the STOP's words to match, in two places: the file's header (:31-32), and the built
+>     part of -165 (the bullet "A script-shaped fence that no entry names is a STOP"). Never touch EO
+>     as issued.
+>
+> EP-2  THE CLASSIFIER FAILS OPEN WHEN psql CANNOT CONNECT. FOUND BY THE REVIEW; EO MISSED IT.
+>   - A refused connection prints `psql: error: connection to server … failed`, with no uppercase
+>     ERROR or FATAL, so RED (:374) does not match it. The reviewer ran the 29 fences with no database,
+>     and 21 classified green, 4717 among them. The bracket's beforeAll hides this only while the
+>     whole stack is down.
+>   - THE FIX: add `psql: error` to RED.
+>   - PLANT: run 897 with DATABASE_URL pointed at a closed local port. It must be red, naming
+>     `psql: error`. RED FIRST: take the word back out of RED.
+>
+> EP-3  THE WRITE PLANT BYPASSES THE GATE, SO "NO FENCE RUNS OVER A BROKEN PARTITION" IS NOT YET TRUE.
+>   - -165, its ledger row and your report all say that no fence runs over a broken partition. But
+>     the write plant calls runFence directly (tests/db/runbook_sql_live.test.ts:695). That skips both
+>     the gate and the name scan. Your ledger's first row shows it running while the partition was
+>     broken.
+>   - THE FIX:
+>     - The write plant asserts REAL.errors is [] before it inserts the fixture, so a broken
+>       partition writes nothing at all.
+>     - It takes 4744 from REAL.runHere, by its anchor, and runs it through runGated() with
+>       FACILITY_ID set to the fixture's id. Its assertions stay. It also asserts that the fence ran
+>       and that there were no violations.
+>     - Count its spawn along with the RUN-HERE legs, and print the total.
+>   - THE PROOF: re-run your ledger's first row (3240's heading reworded). No fence spawns, the write
+>     plant's included. Quote the count, which should be 0.
+>   - Scope the claim to this file wherever it appears: "no fence in this file runs over a broken
+>     partition". The five LIVE fences run in runbook_12_4_12_5_sql_live with their own fixtures, and
+>     the partition does not gate them.
+>   - -166 records that the claim was not true at b79997e.
+>
+> EP-4  4717: THE CODE DOES NOT MATCH THE WORDS.
+>   - -165 says a red word is tolerated "only after the second `|`". The code tolerates the whole
+>     line once its start matches a retention job's row (:181, :229). Cowork classified
+>     `openbed_erase_lapsed_ward_logins|ERROR FATAL|fine` against 4717's expectation, and got [].
+>   - This cannot happen in today's output, because field 2 is always a timestamp or a count. But the
+>     record makes the claim, so the code must meet it.
+>   - THE FIX: tolerate a line only if its first two fields hold no red word. Align the header
+>     (:67-69) with it.
+>   - PLANT: add that line to the pure leg, where it must be red. RED FIRST: neuter the new condition.
+>
+> EP-5  ONE ITEM OF EO-6's EVIDENCE IS MISSING: the bracket's before and after digests. Quote them from
+>   the new run: one line per component, or one hash of each side with how it was taken.
+>
+> EP-6  RECORD AND REGISTER.
+>   - -166 holds:
+>     - EP as issued;
+>     - what was built;
+>     - red first, then green, for EP-1 to EP-4;
+>     - the re-run of the ledger's first row.
+>   - It records EP-1 and EP-2 as gaps in EO, which makes them Cowork's, and EP-3's claim as a slip in
+>     the report and in -165.
+>   - Standard P: file a behavioural-pass ledger row for each control this commit changes: the STOP
+>     rule, the classifier and 4717's tolerance. Plant each one in the tracked runbook on disk, and
+>     restore it with the sha256 checked.
+>   - Add a ledger row for EP.
+>   - The survey row's Gate cell: after "(R-2026-09-29-165" add ", -166". The register stays at 59.
+>     Recount it from the table.
+>
+> EP-7  THE REPORT, then STOP for EQ, the merge word.
+>   - The commit; git log --oneline origin/main..HEAD; git diff -M --name-status origin/main...HEAD.
+>   - EP-1: the rule's result over the 29 fences, each plant's message, each neutered line and its
+>     reds.
+>   - EP-2: the plant's message and the neuter.
+>   - EP-3: the diff of the write plant, and the spawn count from the re-run ledger row.
+>   - EP-4: the plant's message and the neuter.
+>   - EP-5: the digests.
+>   - Standard O's removed-assertion grep over bbdefbf..HEAD, with each hit paired to its
+>     replacement.
+>   - The new test count against 2734, ZERO-RED on a fresh database, and the uid of the run.
+>   - The leg register (still 342/315/27), and the register by kind.
+>   - The seven required checks on the new head, each quoted, with db-tests' duration.
+>   Nothing hosted. Do not merge. Do not start S-c.
+
+**EP-0:** adopted as issued. `runGated()` stays, and EP-3 finishes it.
+
+**EP-1: THE STOP RULE FOR EVERY RUN-HERE FENCE. LANDED. THE GAP WAS COWORK'S, IN EO-1 b.** `scriptShaped()` is gone: no EXCLUDED shape used it. `runHereStops()` reads each RUN-HERE fence as it runs (a ```sql fence in its psql heredoc) and returns one STOP per offending line, naming the fence and the line.
+- **(a)** A line outside a quoted heredoc body must be one of the six forms.
+- **(b)** `://` anywhere is a STOP.
+- **(c)** A psql meta-command anywhere is a STOP: `\!`, `\c`, `\connect`, `\i`, `\ir`, `\o`, `\copy`, `\g` or `\gexec`, each followed by a non-letter.
+- **The ruled-script STOP stays, with corrected words.** A dry-run or grants line that no expectation names is still a STOP, and its message now names the line itself. It used to print `lines[1]`.
+- **Three tightenings of EP-1's letter. None widens the list; each is named here for Cowork's check.**
+  1. A `psql "$DATABASE_URL"` line refuses a backtick or `$(` inside double quotes too. The shell runs those there, so `-c "$(bash scripts/run_migrations.sh)"` passes the letter as written. A plant holds it.
+  2. The `unset` form is `unset` followed by variable names only. As written, `unset DATABASE_URL; bash scripts/run_migrations.sh` would pass.
+  3. A blank outer line is skipped, because it runs nothing. Refusing it would refuse ordinary input (test-conventions section 8's fifth way).
+- **Today: 0 STOPs.** The rule, as computed over the 29 RUN-HERE fences, read their lines and found nothing. That agrees with Cowork's reading of the 29 bodies.
+- **The plants,** each a partition error naming the fence and the line:
+  - **(a)**
+    - Cowork's appended apply fence: two STOPs, `"echo applying": it is not one of the lines a RUN-HERE fence may hold`, then the same for `"bash scripts/run_migrations.sh"`.
+    - 2715 with `; bash scripts/run_migrations.sh` added: `";" outside its quotes`, at 2717.
+    - Added here: 897 with `"$(bash scripts/run_migrations.sh) select …"`, which reads `a $( command substitution`.
+  - **(b)** 4168 with `psql "$DATABASE_URL" -tAc "select 'https://openbed.ng'"` added: `holds a URL ("://"); a RUN-HERE fence never leaves the local stack`, at 4171.
+  - **(c)** 3267 with `\! true` inside its heredoc: `holds the psql meta-command \!, which psql runs even from a quoted heredoc`, at 3271.
+  - **(a) and (b)**
+    - Cowork's appended read-back fence: (a) on the comment, then (b) and (a) on the read-back line.
+    - 4717 with the hosted read-back line added: (b) and (a) at 4721.
+  - The three-line plant is kept: `: "bash scripts/run_migrations.sh --dry-run": it runs a ruled script, and no expectation names it`.
+- **Red first, through `scripts/neuter.sh`:**
+
+  | neuter | line neutered | legs that failed |
+  |---|---|---|
+  | N8 | `if (why !== null) out.push(`STOP (a)` → `if (false) …` | the three (a) plants and both (a)+(b) plants |
+  | N9 | `if (line.includes('://')) out.push(` → `if (false) …` | the (b) plant and both (a)+(b) plants |
+  | N10 | `if (m !== null) out.push(`STOP (c)` → `if (false) …` | the (c) plant |
+
+  Each neuter reddened only the plants listed under its own condition, plus the double-trip plants. Their assertions read `expected [] to deeply equal [ Array(1) ]` for single plants, and fewer entries than expected for the double ones.
+- **Found while building, and fixed before this commit.** My first run had three plant legs red on their own preconditions, not on the guard:
+  - the "changed fence" check compared by line, and a plant that adds a line moves every later fence's line;
+  - two plants had a multi-line `from`, which the line-by-line planter never lands;
+  - the appended ```sql plant changed the fence count.
+
+  Each was re-aimed. The check now compares by position, and refuses a changed fence count.
+
+**EP-2: THE CLASSIFIER. LANDED. THE GAP WAS COWORK'S, IN EO.**
+- `RED` gains `psql: error`, and moves above the expectations.
+- **The plant:** 897 run through `runGated()` with DATABASE_URL at `127.0.0.1:1`. It reads `a red line on stderr: psql: error: connection to server at "127.0.0.1", port 1 failed: Connection refused`, and every violation names 897.
+- **Red first:** N11 takes `psql: error` back out of `RED`, and the plant's leg fails, `exit 2` with no violation.
+
+**EP-3: THE GATE IS NOW STRUCTURAL. THE CLAIM WAS MY SLIP.**
+- -165, its ledger row and my report said no fence runs over a broken partition. At `b79997e` the write plant called `runFence` directly, skipping the gate and the name scan. The first ledger row shows it running while the partition was broken.
+- **Now:**
+  - `runFence` has one caller in this file, `runOne()`, and `runOne()` has one caller, `runGated()`;
+  - every plant runs through `runGated()`;
+  - the write plant asserts `REAL.errors` is `[]` before it inserts anything, takes 4744 from `REAL.runHere` by its anchor, and runs it through `runGated()` with FACILITY_ID set to the fixture's id;
+  - its existing assertions stay, and it also asserts that the fence ran and printed no violation.
+- **The count:** 30 fences spawned over the real partition (29 RUN-HERE plus the write plant). 34 spawned in the file, the 30 plus four plants. `afterAll` prints the file's count.
+- **The proof, the first ledger row re-run (3240's heading reworded): `fences spawned in this file: 0`.** 50 legs were red, and nothing ran, the write plant included.
+- **The claim is scoped** in the file's header, and in -165's built text and its ledger row: no fence in this file runs over a broken partition. The five LIVE fences run in `tests/db/runbook_12_4_12_5_sql_live.test.ts` with their own fixtures, and the partition does not gate them.
+
+**EP-4: 4717. LANDED.**
+- A line is tolerated only on stdout, only when it starts as a retention job's row, and only when its first two fields hold no red word. The header says so.
+- **The plant:** `openbed_erase_lapsed_ward_logins|ERROR FATAL|fine` is added to the pure leg, where it reads `a red line on stdout: openbed_erase_lapsed_ward_logins|ERROR FATAL|fine`.
+- **Red first:** N12 drops the field check, and the leg fails.
+
+**EP-5: THE BRACKET'S DIGESTS, from the run on this commit's tree before it was committed.** Each side's hash is the sha256 of `JSON.stringify` of its entries, sorted by component name. Each component's value is the sha256 of its fingerprint string, first 16 hex characters.
+- before `01431450a6e4d62d7e893c30afc05b93ae5a7ac8a0ab5e90c6558775f73825d4`
+- after `01431450a6e4d62d7e893c30afc05b93ae5a7ac8a0ab5e90c6558775f73825d4`
+- **Per component, before and after equal:**
+  - app.alert, app.challenge, app.device, app.notification_outbox, app.referral, app.ward_account and app.ward_alert_state are each `ba768b331fd86cec`, the empty table's hash;
+  - app.audit_log `ced084d159e1dada`;
+  - app.facility `1505ef06aefcf5a8`;
+  - app.facility_agreement `ce3bc6c7853325b2`;
+  - app.facility_contact `f029ecbd002684dc`;
+  - app.facility_ops `764247eead65e217`;
+  - app.invite `1d26b13d22fef6e1`;
+  - app.schema_migrations `fb61770822befc71`;
+  - app.system_heartbeat `c9bb8d9c78c4137f`;
+  - app.ward_status `390b4ffa33f7f56d`;
+  - app.ward_status_event `18af044ce3ddd14e`;
+  - auth.users count `e7f6c011776e8db7`;
+  - cron.job rows `efd7588cf3258f2b`;
+  - digest column_acl `140bedbf9c3f6d56`;
+  - digest relations `b49055bf0d339a29`;
+  - public.facility_public `6b25fc19ba1f4607`;
+  - public.lga_rollup `c88c52281fda9c1d`;
+  - public.ward_public `417314a3104dd8fd`.
+
+**Green: 56 of 56** in `tests/db/runbook_sql_live.test.ts`, 48 plus 8 new legs: EP-1's seven plants (the letter's six, and my `$(` plant) and the EP-2 plant. The three-line plant is changed, not new.
+
+**THE BEHAVIOURAL-PASS LEDGER (Standard P).** Each row plants into the runbook on disk, `docs/runbook-supabase-project-creation.md` (tracked, and outside this diff). It is restored from a copy, and the sha256 is checked. The unplanted control reads 56 of 56.
+
+| control | question asked | planted-wrong value | reported diff |
+|---|---|---|---|
+| the STOP rule | a RUN-HERE fence that chains a real apply | 2715's psql line + `; bash scripts/run_migrations.sh` | `STOP (a): …:2715, at …:2717: "psql "$DATABASE_URL" -Atc "select count(*) from app.schema_migrations"; bash scripts/run_migrations.sh": ";" outside its quotes`; `fences spawned in this file: 0` |
+| the classifier | a fence that cannot connect | 897's `psql "$DATABASE_URL"` → `psql "$DATABASE_URL"?port=1`, with no `://`, so (b) does not mask it | `897: a red line on stderr: psql: error: connection to server at "127.0.0.1", port 1 failed: Connection refused` |
+| 4717's tolerance | a red word in a retention row's first two fields | its first query selects `j.jobname, 'ERROR', count(…)` | `4717: a red line on stdout: openbed_check_withdrawn_facility_accounts\|ERROR\|0\|0`, and the same for the other two jobs |
+
+The classifier row also reddened the two 897-based plants, whose planted text it had changed. That is expected, and not a finding.
+
+**EP-6:** EP-1 and EP-2 are recorded above as gaps in EO, which makes them Cowork's. EP-3's claim is recorded as my slip, in the report and in -165. -165's built part is corrected in two places (its STOP bullet, and its broken-partition claim), each with a note naming this entry. EO as issued is untouched. The survey row's Gate cell now reads "… item 2's runbook SQL in S-b (R-2026-09-29-165, -166); the evidence tables and the charter in S-c". Recounted from the table: **59** (15 BOX, 33 TRIGGER, 11 VERSION). No row lands or leaves.
+
+Nothing hosted, and S-c is not started. Next letter: **EQ**, the merge word.
 
 ## The provisional ledger
 
@@ -9939,7 +10201,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | EL | R-2026-09-28-162 | 2026-09-28 | **PR S-a: the scripts/ survey's three guards.** Item 1: the duty-flag lint gains pass B (the negated equality, GUARD-AHEAD-OF-SUBJECT) and a wider flag name, and its `sed | grep` read, which failed open on an unreadable file, is its own step; three siblings with the same pipeline are reported, not fixed. Item 2: `scripts/lint_sql_quoted_in_prose.sh` (LIVE), this record out of scope by path. The digest gains relations, rls, functions, schemas and default_acl, as a map; the re-apply stays idempotent. EL-2 b's list is for the merge letter. Cowork's two EL-0 slips recorded. Register 59. Next letter EM. |
 | EM | R-2026-09-28-163 | 2026-09-28 | **#103 reviewed; the fail-open fixed at its root.** The meta-lint joins continued lines and gains a pipeline arm (a status captured after a piped grep); on the real tree it found exactly the three predicted sites. Each is fixed: replica, updated_at and audit_log each read in their own step, and audit's block read speaks for itself. The digest gains column_acl and type_acl, EL-3's omission and Cowork's slip. EL-2 b ruled with no text changes; the runbook compile check goes to S-b. Leg register 342/315/27. Register 59. Next letter EN. |
 | EN | R-2026-09-29-164 | 2026-09-29 | **#103 merged at `bbdefbf`** (parents `3bac730`, `4c375f2`), all seven required checks read `success` first; `s-a-survey-guards` deleted on both sides; register 59. EN's correction arrived with EO and is quoted in -164; EO-3 corrects it in turn. Main at `bbdefbf` holds eight mode-000 sites making nine legs: six added by S-a at five sites, two older legs in another form, one (:428) with none. EN's "five" and the correction's "nine sites" are Cowork's slips. EN-3 lands in S-b. Next letter EO. |
-| EO | R-2026-09-29-165 | 2026-09-29 | **PR S-b: the runbook's SQL, run live; one precondition for every unreadable-file leg.** The helpers move with no change in behaviour (the four touched files keep identical test names and states; leg register 342/315/27). `tests/db/runbook_sql_live.test.ts` partitions 40 fences into LIVE 5, EXCLUDED 6 and RUN-HERE 29, runs the 29 against the local stack over an allowlist environment with inert values, and brackets them with a 24-component fingerprint. Seven neuters red first; no fence runs over a broken partition, which the behavioural pass found. 3240 is EXCLUDED as quoted history, correcting EM-2 c (Cowork's slip). Every mode-000 leg carries the one accessSync precondition, held by `tests/compliance/mode_000_precondition.test.ts`: 8 sites, 9 legs. Register 59. S-c follows. Next letter EP. |
+| EO | R-2026-09-29-165 | 2026-09-29 | **PR S-b: the runbook's SQL, run live; one precondition for every unreadable-file leg.** The helpers move with no change in behaviour (the four touched files keep identical test names and states; leg register 342/315/27). `tests/db/runbook_sql_live.test.ts` partitions 40 fences into LIVE 5, EXCLUDED 6 and RUN-HERE 29, runs the 29 against the local stack over an allowlist environment with inert values, and brackets them with a 24-component fingerprint. Seven neuters red first; no fence in this file runs over a broken partition, which the behavioural pass found (true from -166: at `b79997e` the write plant bypassed the gate). 3240 is EXCLUDED as quoted history, correcting EM-2 c (Cowork's slip). Every mode-000 leg carries the one accessSync precondition, held by `tests/compliance/mode_000_precondition.test.ts`: 8 sites, 9 legs. Register 59. S-c follows. Next letter EP. |
+| EP | R-2026-09-29-166 | 2026-09-29 | **#104 reviewed; one more commit.** EP-1, Cowork's gap in EO-1 b: every RUN-HERE fence is a STOP naming its line if it holds anything but the six ruled line forms, a URL, or a psql meta-command. It finds nothing today, and three tightenings are named. EP-2, Cowork's gap in EO: `psql: error` is red. EP-3, my slip: the write plant bypassed the gate at `b79997e`; `runFence` now has one caller, and the reworded-anchor run spawns 0 fences. EP-4: 4717 tolerates a red word only after two clean fields. EP-5: the bracket's digests, before and after equal. Five neuters red first; 56 legs. Register 59. The merge word is now EQ. |
 
 ## Deferred items — this record is where the list lives
 
@@ -10017,7 +10280,7 @@ the record's own, except where CW-5 assigned one._
 | B1's onboarding checks: the first reporting login reads its own history as itself (12.4 step 6: 6a a ward's login, 6b the facility's, each ward), and the first publish reads back from `/beds.json` (12.4 step 9; a facility's login publishes two wards) (restated 2026-09-28, R-2026-09-27-144 DT Bundle 2; until then: "B1's onboarding checks: the first ward account reads its own history as itself (12.4 step 6), and the first publish reads back from `/beds.json` (12.4 step 9)") | R-2026-09-26-122 CX-1 (b) | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "The first ward account at facility one") |
 | `ward_reply` has a cap and no content validation (#63/#97) | R-2026-09-17-03 and -04 | TRIGGER | The first change that writes `app.referral.ward_reply` (referrals are unwired in v1; R-2026-09-26-122 CX-2) |
 | Gate 3's property test does not exist (#109) | R-2026-09-17-03 and -04 | TRIGGER | The next change under `packages/gate/` or `packages/snapshot/src/freshness.ts` (R-2026-09-26-122 CX-2) |
-| The `scripts/` survey items: PR evidence tables generated from artefacts; the idempotency digest's grants and RLS flags; item 1, the duty-flag lint missing `<> 'NO'`; item 2, nothing validates SQL quoted in prose | Deferred to the `scripts/` survey; R-2026-09-15-06 and -07; R-2026-09-17-05; R-2026-09-17-08 D2 | TRIGGER | The next migration file added (024) (R-2026-09-26-122 CX-2). FIRED at 024; item 1, item 2's guard and the digest landed in S-a (R-2026-09-28-162, -163); item 2's runbook SQL in S-b (R-2026-09-29-165); the evidence tables and the charter in S-c |
+| The `scripts/` survey items: PR evidence tables generated from artefacts; the idempotency digest's grants and RLS flags; item 1, the duty-flag lint missing `<> 'NO'`; item 2, nothing validates SQL quoted in prose | Deferred to the `scripts/` survey; R-2026-09-15-06 and -07; R-2026-09-17-05; R-2026-09-17-08 D2 | TRIGGER | The next migration file added (024) (R-2026-09-26-122 CX-2). FIRED at 024; item 1, item 2's guard and the digest landed in S-a (R-2026-09-28-162, -163); item 2's runbook SQL in S-b (R-2026-09-29-165, -166); the evidence tables and the charter in S-c |
 | The test-title citation convention | R-2026-09-23-65 E | TRIGGER | The first cited test title found not to exist in its file (R-2026-09-26-122 CX-2) |
 | A real-browser refusal check in CI | R-2026-09-23-70 C3 | TRIGGER | The first PR that adds a browser runner (Playwright or similar) as a dependency. If D1's screenshots add one, it fires in D1 and the check lands in D2 (R-2026-09-26-122 CX-2) |
 | Provisioning as a Supabase Edge Function | R-2026-09-23-71 C | TRIGGER | The first proposal to move ward-account setup into an app (R-2026-09-26-122 CX-2) |
