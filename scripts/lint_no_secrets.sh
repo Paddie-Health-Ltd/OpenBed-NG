@@ -88,6 +88,10 @@
 #     this repository, and whether its patterns cover this project's two Supabase
 #     key formats is OWED to the founder as a documentation check in that same
 #     runbook section (R-2026-09-19-19 B3).
+#     OBSERVED 2026-09-29 (R-2026-09-29-169): GitHub raised a secret-scanning
+#     ALERT, #1, for a generic "Postgres connection string" on pushed commit
+#     a61fccc. It did NOT block the push; the alert came after it. Push protection
+#     blocking a generic pattern has still never been observed here.
 # For a PUBLIC repository this check is a BACKSTOP, NOT A BOUNDARY: a pushed
 # credential cannot be rotated quietly (v1 kickoff, line 368), so by the time
 # CI reports it the exposure has happened.
@@ -127,15 +131,120 @@ while IFS= read -r _line; do FILES+=("$_line"); done < <(
 )
 [ "${#FILES[@]}" -gt 0 ] || { echo "ERROR: no files to scan under $ROOT" >&2; exit 2; }
 
+# THE TWO POSTGRES PATTERNS AND WHAT THEY GIVE UP (R-2026-09-29-169, ES-1 and its
+# amendment).
+#   URL: the scheme in any case, and a user part that may be empty -- libpq takes
+#   both, and until ES the pattern matched neither.
+#   KEYWORD DSN: the pass-word keyword, a word boundary before it, optional spaces
+#   round its `=`, then a non-empty value: bare, single-quoted or double-quoted.
+#   A BARE value may not begin with `=` or `>`, so a code comparison (two or three
+#   equals signs) or an arrow is not a detection; this repository holds one such
+#   comparison. WHAT THAT GIVES UP: an UNQUOTED libpq value that itself begins
+#   with `=` is not detected. A quoted one still is, and so is any URL.
+#   KNOWN FALSE POSITIVE, kept: a code assignment of the pass-word key from a
+#   variable (an environment read, say) reads as a keyword DSN with no host, so it
+#   is a finding. None is in the tree. If one appears, reword the code; the pattern
+#   is not narrowed without a ruling.
+KW_PW_RE="(^|[^[:alnum:]_])password[[:space:]]*=[[:space:]]*('[^']+'|\"[^\"]+\"|[^[:space:]'\"&=>][^[:space:]'\"&]*)"
+
 # Each entry: NAME|REGEX
 PATTERNS=(
   'JWT|eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'
   'Supabase secret key|sb_secret_[A-Za-z0-9_-]{16,}'
   'Private key block|-----BEGIN [A-Z ]*PRIVATE KEY-----'
   'AWS access key|AKIA[0-9A-Z]{16}'
-  'Postgres URL with password|postgres(ql)?://[^:@/[:space:]]+:[^@/[:space:]]+@'
+  'Postgres URL with password|[Pp][Oo][Ss][Tt][Gg][Rr][Ee][Ss]([Qq][Ll])?://[^:@/[:space:]]*:[^@/[:space:]]+@'
+  "Postgres keyword DSN with password|$KW_PW_RE"
   'Generic assigned secret|(api[_-]?key|secret[_-]?key|access[_-]?token)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'][A-Za-z0-9_\-]{24,}'
 )
+
+# A CREDENTIAL POINTING AT THE LOCAL STACK IS NOT A SECRET. Every developer's
+# `supabase start` uses the same published local password on 127.0.0.1:54322, it
+# is in the README, and it authenticates against a container on the machine
+# running it. A guard that reds on its own repository every run is a guard someone
+# switches off within a week, so a match is judged LOCAL and dropped -- but only
+# by reading EACH URL'S OWN HOST, never the line (R-2026-09-29-169, ES-1).
+#
+# Until ES this dropped a whole matched LINE if it held 127.0.0.1, localhost, @db:
+# or 0.0.0.0 anywhere. A hosted URL beside a local one, a host of
+# localhost.attacker.example.com, a local authority whose `?host=` names another
+# machine, and a password containing "localhost" all read as local. That is the
+# defect scripts/seed.sh fixed in its own host check (its "ANCHORED ON THE HOST"
+# note) and this scan never got. The parse below is seed.sh's: scheme first,
+# credentials stripped at the FIRST `@`, the authority up to the first `/`, `?`
+# or `#`, the port removed, a bracketed host kept whole, the host matched whole.
+#
+# A URL token is LOCAL only if ALL hold:
+#   - its host is exactly 127.0.0.1, localhost (any case), [::1], db or 0.0.0.0;
+#   - its authority holds no `,` -- libpq falls through a host list to the next
+#     host with the same password, so a local first host proves nothing;
+#   - it carries no `?` at all, even an empty one -- a host or hostaddr parameter
+#     overrides the authority;
+#   - it holds no second `://` -- two URLs run together are never read as one.
+# A line is a finding if ANY token on it is not local, or if the pattern matched
+# and no token came out: fail closed.
+#
+# THE DELIBERATE WIDENING. [::1], LOCALHOST in capitals, and a bare `db` with no
+# port were findings under the line filter (none of its four substrings) and are
+# local here. Each is the local stack, and each is named in R-2026-09-29-169.
+#
+# `case` rather than grep for every judgement: it forks nothing and cannot fail to
+# run, so a URL can never be judged local by a check that did not execute.
+URL_TOKEN_RE="[Pp][Oo][Ss][Tt][Gg][Rr][Ee][Ss]([Qq][Ll])?://[^[:space:]'\"\`)>]*"
+KW_HOST_RE="(^|[^[:alnum:]_])host(addr)?[[:space:]]*=[[:space:]]*('[^']*'|\"[^\"]*\"|[^[:space:]'\"&]*)"
+
+host_is_local() {
+    case "$1" in
+        127.0.0.1|0.0.0.0|db|'[::1]'|[Ll][Oo][Cc][Aa][Ll][Hh][Oo][Ss][Tt]) return 0 ;;
+    esac
+    return 1
+}
+
+url_is_local() {
+    local tok="$1" rest auth host
+    case "$tok" in *\?*) return 1 ;; esac
+    case "$tok" in *://*://*) return 1 ;; esac
+    rest="${tok#*://}"
+    rest="${rest#*@}"
+    auth="${rest%%[/?#]*}"
+    case "$auth" in *,*) return 1 ;; esac
+    case "$auth" in
+        '['*) host="${auth%%]*}]" ;;
+        *) host="${auth%%:*}" ;;
+    esac
+    host_is_local "$host"
+}
+
+# $1 a line number; reads URL_TOKENS, the `N:token` output of one grep -noE.
+url_line_is_local() {
+    local n="$1" t found=0
+    while IFS= read -r t; do
+        case "$t" in "$n":*) ;; *) continue ;; esac
+        found=1
+        url_is_local "${t#*:}" || return 1
+    done <<< "$URL_TOKENS"
+    [ "$found" -eq 1 ]
+}
+
+# $1 a line number; reads KW_HOSTS, the `N:host=value` output of one grep -noE.
+# Local only if the line names at least one host or hostaddr and every one is
+# local. A value holding `,` fails the whole-host match. A pass-word with NO host
+# on its line is a finding: libpq's default host is not a fact this scan can read.
+kw_line_is_local() {
+    local n="$1" h v seen=0
+    while IFS= read -r h; do
+        case "$h" in "$n":*) ;; *) continue ;; esac
+        seen=1
+        v="${h#*=}"
+        v="${v#"${v%%[![:space:]]*}"}"
+        case "$v" in
+            \'*\') v="${v#\'}"; v="${v%\'}" ;;
+            \"*\") v="${v#\"}"; v="${v%\"}" ;;
+        esac
+        host_is_local "$v" || return 1
+    done <<< "$KW_HOSTS"
+    [ "$seen" -eq 1 ]
+}
 
 VIOLATIONS=0
 
@@ -180,27 +289,37 @@ for f in "${FILES[@]}"; do
             *) echo "ERROR: grep exited $st scanning $f -- the secret scan did not run" >&2; exit 2 ;;
         esac
 
-        # A credential pointing at the local stack is not a secret. Every
-        # developer's `supabase start` uses postgres:postgres@127.0.0.1:54322, it
-        # is in the README, and it authenticates against a container on the
-        # machine running it.
-        #
-        # NARROWING THIS IS WHAT MAKES THE PATTERN USEFUL. Left as-is it fires on
-        # scripts/run_migrations.sh and scripts/seed.sh -- documentation and
-        # defaults -- and a guard that reds on its own repository every run is a
-        # guard someone switches off within a week. What remains after the filter
-        # is exactly the dangerous case: a password in a connection string
-        # pointing at a host that is not this machine.
-        if [ "$name" = 'Postgres URL with password' ]; then
-            # `|| true` here was the worst of the set and the hand sweep missed it:
-            # grep's exit 2 would empty $out, which reads as NO FINDINGS. A resource
-            # failure at this line silently drops every secret already matched.
-            fst=0
-            filtered=$(printf '%s\n' "$out" | grep -vE '127\.0\.0\.1|localhost|@db:|0\.0\.0\.0') || fst=$?
-            case "$fst" in
-                0|1) out="$filtered" ;;
-                *) echo "ERROR: the local-host narrowing filter exited $fst -- it did not run, so findings cannot be dropped" >&2; exit 2 ;;
+        # NARROWING TO THE DANGEROUS CASE: a password in a connection string whose
+        # own host is not this machine. The rule and its history are in the block
+        # above host_is_local(). Each read's status is captured: 0 and 1 are
+        # verdicts, anything else means a line was about to be judged unread.
+        if [ -n "$out" ] && [ "$name" = 'Postgres URL with password' ]; then
+            tst=0
+            URL_TOKENS=$(grep -noE -e "$URL_TOKEN_RE" "$f" 2>/dev/null) || tst=$?
+            case "$tst" in
+                0|1) ;;
+                *) echo "ERROR: grep exited $tst on $f -- the URL token read did not run, so no matched line is judged local" >&2; exit 2 ;;
             esac
+            kept=''
+            while IFS= read -r _l; do
+                [ -n "$_l" ] || continue
+                url_line_is_local "${_l%%:*}" || kept+="$_l"$'\n'
+            done <<< "$out"
+            out="${kept%$'\n'}"
+        fi
+        if [ -n "$out" ] && [ "$name" = 'Postgres keyword DSN with password' ]; then
+            hst=0
+            KW_HOSTS=$(grep -noE -e "$KW_HOST_RE" "$f" 2>/dev/null) || hst=$?
+            case "$hst" in
+                0|1) ;;
+                *) echo "ERROR: grep exited $hst on $f -- the host keyword read did not run, so no keyword line is judged local" >&2; exit 2 ;;
+            esac
+            kept=''
+            while IFS= read -r _l; do
+                [ -n "$_l" ] || continue
+                kw_line_is_local "${_l%%:*}" || kept+="$_l"$'\n'
+            done <<< "$out"
+            out="${kept%$'\n'}"
         fi
 
         [ -z "$out" ] && continue

@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { execFileSync } from 'node:child_process';
+import { chmodSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { REPO_ROOT } from './_scratch.js';
+import { REPO_ROOT, place, withScratch } from './_scratch.js';
 
 /**
  * GUARD OVER A GUARD -- scripts/seed.sh's local-only refusal.
@@ -12,8 +13,8 @@ import { REPO_ROOT } from './_scratch.js';
  * legitimate reason to do it, so there is no flag for it.
  *
  * THE LEG HAD NO PLANT, AND THE CHECK HAD A HOLE. It matched
- * `*127.0.0.1*|*localhost*|*@db:*` against the WHOLE URL, so
- * `postgresql://u:p@localhost.attacker.example.com/app` read as local -- the
+ * `*127.0.0.1*|*localhost*|*@db:*` against the WHOLE URL, so a URL with
+ * credentials whose host is `localhost.attacker.example.com` read as local -- the
  * substring is there, in a domain that is not. Demonstrated before the fix: that
  * URL passed the guard and reached the psql step. On a machine with psql
  * installed it would have seeded a remote database.
@@ -49,17 +50,49 @@ const SEED = join(REPO_ROOT, 'scripts/seed.sh');
 const pg = (rest: string): string => `postgres${'ql'}://${rest}`;
 const REFUSAL = 'seed data is synthetic and must never reach a non-local database';
 
-function runSeed(url: string): { status: number; out: string } {
-  try {
-    const out = execFileSync('bash', [SEED], {
-      encoding: 'utf8',
-      env: { ...process.env, DATABASE_URL: url, PATH: '/usr/bin:/bin' },
-    });
-    return { status: 0, out };
-  } catch (e) {
-    const err = e as { status?: number; stdout?: string; stderr?: string };
-    return { status: err.status ?? -1, out: `${err.stdout ?? ''}${err.stderr ?? ''}` };
-  }
+/** Inherited variables that would change what seed.sh or psql does; each run starts without them. */
+const SCRUBBED = ['OPENBED_PSQL', 'PGHOST', 'PGHOSTADDR', 'PGSERVICE', 'PGSERVICEFILE', 'PSQLRC'];
+
+/**
+ * A STUB psql (and docker, for the hatch) FIRST ON PATH, R-2026-09-29-170 ET-1.
+ * It records its arguments and the four PG variables seed.sh must remove, reads
+ * its stdin and exits 0, so a run that gets past every check completes without
+ * a connection. Plants name `.invalid` hosts, so even a red-first run against the
+ * unfixed script could not reach anything real.
+ */
+const STUB = [
+  '#!/bin/sh',
+  '{ printf "CALL %s" "$(basename "$0")"; for a in "$@"; do printf " [%s]" "$a"; done; printf "\\n"',
+  '  printf "ENV PGHOST=%s PGHOSTADDR=%s PGSERVICE=%s PGSERVICEFILE=%s\\n" "${PGHOST-<unset>}" "${PGHOSTADDR-<unset>}" "${PGSERVICE-<unset>}" "${PGSERVICEFILE-<unset>}"; } >> "$STUB_LOG"',
+  'cat > /dev/null',
+  'exit 0',
+  '',
+].join('\n');
+
+interface SeedRun { status: number; out: string; log: string }
+
+function runSeed(url: string, extra: Record<string, string> = {}): SeedRun {
+  return withScratch((stub) => {
+    for (const bin of ['psql', 'docker']) {
+      place(stub, `bin/${bin}`, STUB);
+      chmodSync(join(stub, 'bin', bin), 0o755);
+    }
+    const logPath = join(stub, 'calls.log');
+    const env: Record<string, string> = {};
+    for (const [k, v] of Object.entries(process.env)) if (v !== undefined && !SCRUBBED.includes(k)) env[k] = v;
+    Object.assign(env, { DATABASE_URL: url, PATH: `${join(stub, 'bin')}:/usr/bin:/bin`, STUB_LOG: logPath }, extra);
+    let status = 0;
+    let out = '';
+    try {
+      out = execFileSync('bash', [SEED], { encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (e) {
+      const err = e as { status?: number; stdout?: string; stderr?: string };
+      status = err.status ?? -1;
+      out = `${err.stdout ?? ''}${err.stderr ?? ''}`;
+    }
+    const log = existsSync(logPath) ? readFileSync(logPath, 'utf8') : '';
+    return { status, out, log };
+  });
 }
 
 describe('seed.sh refuses a non-local database', () => {
@@ -79,6 +112,92 @@ describe('seed.sh refuses a non-local database', () => {
     const res = runSeed(url);
     expect(res.status, `a non-local database was accepted:\n${res.out}`).toBe(2);
     expect(res.out, `it exited 2 but for a different reason:\n${res.out}`).toContain(REFUSAL);
+    expect(res.log, 'psql was reached after a refusal').toBe('');
+  });
+
+  test('plant — a host LIST with a local first host is refused (ES-2)', () => {
+    // libpq tries each host of a comma list in turn with the same password. The
+    // port strip read only the first, so this passed the check until
+    // R-2026-09-29-169. The first host carries a port on purpose: without one the
+    // whole list is the host and the old check already refused it.
+    const res = runSeed(pg('localhost:5432,evil.example.com:5432/app'));
+    expect(res.status, `a host list with a local first host was accepted:\n${res.out}`).toBe(2);
+    expect(res.out, `it exited 2 but for a different reason:\n${res.out}`)
+      .toContain('libpq falls through to the next host with the same password, so a local first host proves nothing.');
+    expect(res.log, 'psql was reached after a refusal').toBe('');
+  });
+
+  // ---- R-2026-09-29-170, ET-1: a host the check did not see. Each was run red
+  // first against aa72345's seed.sh, with the stub psql recording what it got.
+  const LOCAL = pg('postgres:postgres@127.0.0.1:54322/postgres');
+  const QUERY_REFUSAL = 'carries a query string -- a host or hostaddr parameter there overrides the host this check reads';
+  const SCHEME_REFUSAL = 'must begin with postgresql:// or postgres:// -- anything else psql reads as a database name';
+  const HATCH_REFUSAL = 'OPENBED_PSQL names a URL or a host -- the hatch exists to reach a local container';
+
+  test('plant — a local URL with ?host= naming another host is refused, and psql is never called (ET-1 a)', () => {
+    const res = runSeed(pg('postgres:postgres@127.0.0.1:54322/postgres?host=evil.invalid'));
+    expect(res.status, `a query override was accepted:\n${res.out}\n${res.log}`).toBe(2);
+    expect(res.out).toContain(QUERY_REFUSAL);
+    expect(res.log, `psql was reached:\n${res.log}`).toBe('');
+  });
+
+  test('plant — a bare localhost with PGHOST set is refused, and psql is never called (ET-1 b)', () => {
+    const res = runSeed('localhost', { PGHOST: 'evil.invalid' });
+    expect(res.status, `a bare host name was accepted:\n${res.out}\n${res.log}`).toBe(2);
+    expect(res.out).toContain(SCHEME_REFUSAL);
+    expect(res.log, `psql was reached:\n${res.log}`).toBe('');
+  });
+
+  test.each([
+    ['PGHOST', { PGHOST: 'evil.invalid' }],
+    ['PGHOSTADDR', { PGHOSTADDR: '192.0.2.1' }],
+    ['PGSERVICE and PGSERVICEFILE', { PGSERVICE: 'evil', PGSERVICEFILE: '/nonexistent/pg_service.conf' }],
+  ])('plant — %s beside the local URL never reaches psql (ET-1 c)', (_name, extra) => {
+    const res = runSeed(LOCAL, extra);
+    expect(res.log, `precondition: psql was never called, so this tests nothing:\n${res.out}`).toContain('CALL psql');
+    for (const line of res.log.split('\n').filter((l) => l.startsWith('ENV '))) {
+      for (const k of Object.keys(extra)) expect(line, `psql ran with ${k} set:\n${res.log}`).toContain(`${k}=<unset>`);
+    }
+  });
+
+  test('plant — a ~/.psqlrc in HOME is never read: psql runs with -X (ET-1 d)', () => {
+    withScratch((home) => {
+      place(home, '.psqlrc', '\\connect postgres evil.invalid\n');
+      expect(existsSync(join(home, '.psqlrc')), 'precondition: the planted psqlrc is not on disk').toBe(true);
+      const res = runSeed(LOCAL, { HOME: home });
+      expect(res.log, `precondition: psql was never called:\n${res.out}`).toContain('CALL psql');
+      for (const line of res.log.split('\n').filter((l) => l.startsWith('CALL psql'))) {
+        expect(line, `psql ran without -X, so a psqlrc could \\connect elsewhere:\n${res.log}`).toContain('[-X]');
+      }
+    });
+  });
+
+  test.each([
+    ['host=', 'psql host=evil.invalid dbname=postgres'],
+    ['hostaddr=', 'psql hostaddr=192.0.2.1 dbname=postgres'],
+    ['a URL', `psql ${pg('evil.invalid/postgres')}`],
+  ])('plant — an OPENBED_PSQL holding %s is refused, and nothing is run (ET-1 e)', (_name, hatch) => {
+    const res = runSeed(LOCAL, { OPENBED_PSQL: hatch });
+    expect(res.status, `a hatch naming a host was accepted:\n${res.out}\n${res.log}`).toBe(2);
+    expect(res.out).toContain(HATCH_REFUSAL);
+    expect(res.log, `the hatch was run:\n${res.log}`).toBe('');
+  });
+
+  test.each([
+    ['the non-local refusal', { DATABASE_URL: pg('postgres:s3cretpw@db.prod.invalid:5432/app') }, 's3cretpw'],
+    // A raw `@` in the password: the parse strips at the FIRST `@`, so the
+    // authority it prints would carry the rest of the password.
+    ['the host-list refusal', { DATABASE_URL: pg('postgres:s3c@retpw@localhost:5432,db.prod.invalid:5432/app') }, 'retpw'],
+    ['the query refusal', { DATABASE_URL: pg('postgres:s3cretpw@127.0.0.1:54322/postgres?host=evil.invalid') }, 's3cretpw'],
+    ['the scheme refusal', { DATABASE_URL: 'postgres:s3cretpw@localhost:5432/app' }, 's3cretpw'],
+    ['the hatch refusal', { OPENBED_PSQL: `psql ${pg('postgres:s3cretpw@db.prod.invalid/app')}` }, 's3cretpw'],
+  ])('plant — %s prints no credential and no query (ET-1 f)', (_name, extra, secret) => {
+    const { DATABASE_URL: url = LOCAL, ...rest } = extra as Record<string, string>;
+    const res = runSeed(url, rest);
+    expect(res.status, `not refused:\n${res.out}\n${res.log}`).toBe(2);
+    expect(res.out, 'the refusal printed a credential').not.toContain(secret);
+    expect(res.out, 'the refusal printed a query').not.toContain('?host');
+    expect(res.out, 'the refusal printed a host it read').not.toContain('.invalid');
   });
 
   test.each([
@@ -92,9 +211,21 @@ describe('seed.sh refuses a non-local database', () => {
     ['the docker-compose host `db`', pg('postgres:postgres@db:5432/postgres')],
   ])('positive control — %s is NOT refused', (_name, url) => {
     // A guard that refuses everything is a rubber stamp: these are the forms every
-    // developer and the CI job actually use. They may still fail further on (no
-    // psql on the stripped PATH here), but they must get past this leg.
+    // developer and the CI job actually use. Since ET-1 they run to completion
+    // against the stub psql, which must be reached with the URL and -X.
     const res = runSeed(url);
-    expect(res.out, `a local URL was refused:\n${res.out}`).not.toContain(REFUSAL);
+    expect(res.out, `a local URL was refused:\n${res.out}`).not.toContain('REFUSING');
+    expect(res.status, `a local URL did not complete:\n${res.out}`).toBe(0);
+    expect(res.log, `psql was not reached with the URL:\n${res.log}`).toContain(`[${url}]`);
+  });
+
+  test('positive control — the documented OPENBED_PSQL hatch is NOT refused, and is run (ET-1 e)', () => {
+    // The most ordinary valid hatch: scripts/run_migrations.sh's own example.
+    const res = runSeed(pg('postgres:postgres@127.0.0.1:54322/postgres'), {
+      OPENBED_PSQL: 'docker exec -i supabase_db_OpenBed-NG psql -U postgres -d postgres',
+    });
+    expect(res.out, `the documented hatch was refused:\n${res.out}`).not.toContain('REFUSING');
+    expect(res.status, res.out).toBe(0);
+    expect(res.log, `the hatch was not run:\n${res.log}`).toContain('CALL docker [exec] [-i]');
   });
 });

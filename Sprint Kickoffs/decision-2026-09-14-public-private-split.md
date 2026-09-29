@@ -10373,6 +10373,584 @@ Closing the alert as "Used in tests" is the founder's step.
 
 The merge follows this commit, on ER-2. Nothing hosted, and neither ES's work nor S-c is started. Next letter: **ES**.
 
+### R-2026-09-29-169 — PR S-s: the secret scan reads each URL's own host
+
+_Issued as R-PROVISIONAL-2026-09-29-ES, by Cowork on 2026-09-29, after #104 merged (a staff engineer and a QA reviewer reviewed it independently before it was pasted). Cowork's amendment to ES-1, its ruling on a third finding reported before any change to the tree, arrived the same day and is quoted below ES. Landed in PR S-s. Number assigned on landing: R-2026-09-29-168 plus one. Next provisional letter: **ET**, S-s's review or merge word. S-c follows S-s._
+
+**ADDENDUM TO -168: #104'S MERGE RECORD.** -168 landed inside #104's last commit, so it could not hold a merge that came after it (ER-4, corrected by ES). The facts were held, and land here as EN's landed in -164. Each was read from the API or from git on 2026-09-29:
+- **The head:** `2f4e00c23cf5cad2ad3b55abb5374f4fcf2c8ec4`. It was read from the API and passed to `--match-head-commit`, and the merge was a merge commit.
+- **The merge:** `d08e10dbbd7b78cca110de80b6ff9d268276d160`, at 2026-09-29T13:07:10Z. Its parents are `bbdefbf567900b263d0001c33150af07ed20b510` (main) and `2f4e00c23cf5cad2ad3b55abb5374f4fcf2c8ec4` (the head). State read back: `MERGED`.
+- **The branch:** `s-b-runbook-sql-live` was deleted on both sides, and read back as gone: `git ls-remote` empty, and no local branch.
+- **The checks:** all seven latest runs on `2f4e00c` read `completed success`:
+  - bundle-guards, 13:03:34Z;
+  - compliance-tests, 13:05:58Z;
+  - db-tests, 13:03:17Z to 13:05:27Z;
+  - golden-path, 13:04:46Z;
+  - migration-lint, 13:03:24Z;
+  - repo-lint, 13:03:50Z;
+  - secret-scan, 13:03:23Z.
+
+  An earlier run was cancelled by the PR-body edit.
+- **The attestation:** 2752 ZERO-RED on a fresh database at `2f4e00c`, uid 501. The ER-1 check printed nothing, and `scripts/lint_no_secrets.sh` exited 0.
+- **The alerts, as read:** the only one is #1, `postgres_connection_string`, at `tests/db/runbook_sql_live.test.ts`:980 on `a61fccc`. The founder resolved it as `used_in_tests` at 12:20:49Z. None were open, read with the default list and with ten generic types named.
+- **The founder's choice:** on 2026-09-29 the founder chose to merge on the corrected check, the one with the types named.
+- **ER-2's alert check was Cowork's slip.** The list endpoint leaves out generic-pattern alerts unless `secret_type` names them. It read `[]` while #1 was open. ES-5 is the corrected method.
+
+The ledger's ER row gains "merged at `d08e10d`".
+
+**As issued**, under the word on quoting it carries. It needs no rewording: every URL in it is already given without a credential-bearing scheme, and every keyword form already in words.
+
+> R-PROVISIONAL-2026-09-29-ES — PR S-s: THE SECRET SCAN READS EACH URL'S OWN HOST
+> ES lands in its own PR, S-s, as -169. -169 opens with an addendum holding #104's merge record.
+> Next letter: ET, S-s's review or merge word. S-c follows S-s.
+> A staff engineer and a QA reviewer reviewed this letter independently before it was pasted. They ran
+> every bypass below against the real script, and a trial of the fixed rule over the real tree.
+> Their findings are folded in.
+>
+> START from main at d08e10dbbd7b78cca110de80b6ff9d268276d160 (#104's merge), after reading it back.
+>
+> READ BY COWORK, from its own clone at d08e10d:
+> - The merge's parents are bbdefbf (main) and 2f4e00c (the head), and s-b-runbook-sql-live is gone.
+>   2f4e00c touches two paths. The ER-1 check prints nothing, lint_no_secrets.sh exits 0, and :980
+>   and :992 build their URLs from dbUrl().
+> - The register on main is 60 (15 BOX, 34 TRIGGER, 11 VERSION), counted from the table. The leg
+>   register is 342/315/27.
+> - ACCEPTED AS REPORTED: 2752 ZERO-RED at 2f4e00c; the seven checks; alert #1 resolved as
+>   used_in_tests, and nothing raised on 2f4e00c.
+> - YOUR TWO CORRECTIONS ARE RIGHT, AND BOTH SLIPS ARE COWORK'S:
+>   - ER-2's alert check read [] while alert #1 was open. The list endpoint leaves out
+>     generic-pattern alerts unless secret_type names them. The founder chose to merge on the check
+>     with the types named. The corrected method is ES-5.
+>   - -168 could not hold a merge that came after it. The merge facts land in -169's addendum.
+>
+> A WORD ON QUOTING, for the whole PR, the record and the PR body included. This PR must add no
+> credential-shaped text, because the fixed scan reads every .md. Quote any URL without its scheme,
+> and name keyword-form keys in words ("the host key", "the pass-word key"), never as key-equals
+> text. Plants build their text at run time, the way _plants.ts's PLANT_REMOTE_PG_URL does
+> (`postgres${'ql'}://…`). ES-3's whole-PR check enforces this.
+>
+> ES-0  WHAT IS WRONG, AS READ AT d08e10d.
+>   - scripts/lint_no_secrets.sh:199 drops a whole matched line if the line holds `127.0.0.1`,
+>     `localhost`, `@db:` or `0.0.0.0` anywhere. It never reads the matched URL's own host. Each of
+>     these exits 0 on the real script, where a plain hosted URL exits 1:
+>     a) a hosted password URL on a line that also mentions localhost;
+>     b) a host of localhost.attacker.example.com;
+>     c) a local authority with `?host=` naming another host, and the same with `?hostaddr=`;
+>     d) a password that contains `localhost`, on a hosted host;
+>     e) `0.0.0.0` inside a query value of a hosted URL;
+>     f) a local URL, then a hosted URL, on the same line.
+>   - A keyword-form connection string (host and password given as `key=value` words) matches no
+>     pattern at all.
+>   - A URL with an empty user part, or an uppercase scheme, matches no pattern.
+>   - scripts/seed.sh:35-60 fixed defect b) in its own host check. The secret scan never got that
+>     fix. And seed.sh's check shares the multi-host hole in ES-1: its host test at :52 reads the
+>     first host of a comma list.
+>
+> ES-1  THE FIX: JUDGE EACH MATCHED URL, NOT THE LINE.
+>   - DETECTION: the URL pattern's scheme is matched in any case, and its user part may be empty:
+>     `[Pp][Oo][Ss][Tt][Gg][Rr][Ee][Ss]([Qq][Ll])?://[^:@/[:space:]]*:[^@/[:space:]]+@`.
+>   - TOKENS: extract every URL on a matched line as a whole token, from the scheme to the first
+>     whitespace, quote, backtick, `)` or `>`. Use grep -noE, with its output captured in a variable
+>     and its status captured: 0 and 1 are verdicts, anything else is exit 2. Never read it through
+>     `< <(grep …)`, a blind spot the meta-lint documents.
+>   - PARSE each token as seed.sh does. Take the scheme first. Strip the credentials at the FIRST
+>     `@`. The authority runs to the first `/`, `?` or `#`. Then remove the port. A bracketed host
+>     is IPv6. The host is matched whole.
+>   - A token is LOCAL only if all of these hold:
+>     - its host is exactly one of 127.0.0.1, localhost (in any case), [::1], db or 0.0.0.0;
+>     - its authority holds no `,` (a multi-host list is never local: libpq falls through to the
+>       next host with the same password);
+>     - it carries no `?` at all, even an empty one.
+>     Match it with `case`, not grep.
+>   - A line is a finding if ANY token on it is not local, or if the pattern matched the line but no
+>     token came out (fail closed). The finding prints as today. The pattern keeps its name, so the
+>     allowlist for tests/setup/local-keys.ts still applies by name.
+>   - A NEW PATTERN, 'Postgres keyword DSN with password':
+>     - it detects `(^|[^[:alnum:]_])pass[w]ord[[:space:]]*=` followed by a non-empty value, bare,
+>       single-quoted or double-quoted. (The `[w]` keeps this letter from matching itself when it is
+>       quoted in -169; the script may spell it plainly, since its own lines are its patterns);
+>     - `host` and `hostaddr` are read with the same word boundary and the same optional spaces. A
+>       value ends at whitespace, `&` or its closing quote;
+>     - the line is local only if it holds at least one `host`/`hostaddr` value, and every such
+>       value is one of the local hosts above, with no `,`;
+>     - a password with no host on the line is a finding, because libpq's default host is not a fact
+>       this scan can read. The tree holds no such line today (ES-2).
+>   - HEADER. Rewrite the "NARROWING" paragraph to say what the code now does, and cite seed.sh's
+>     fix. Drop its claim that the pattern fires on scripts/run_migrations.sh, which holds no
+>     password URL. Add one observation to "ENABLED IS NOT COVERAGE": on 2026-09-29 GitHub raised a
+>     secret-scanning ALERT for a generic "Postgres connection string" on a pushed commit (alert
+>     #1, a61fccc). It did not block the push. Push protection blocking a generic pattern has still
+>     never been observed.
+>   - THE DELIBERATE WIDENING. [::1], LOCALHOST, and a bare `db` with no port each exit 1 on d08e10d.
+>     The fix accepts them. Quote each moving from 1 to 0, and name it as intended.
+>
+> ES-2  SEED'S HOST CHECK, AND THE TREE AFTER THE FIX.
+>   - scripts/seed.sh refuses an authority holding `,`, with its own message. Add a red plant to
+>     tests/compliance/seed_local_only.test.ts, built with pg(), and run it red first on d08e10d.
+>   - Report every finding the fixed scan makes on d08e10d before anything else is changed. The
+>     review's trial found exactly two, both documentation of the seed.sh defect:
+>     - scripts/seed.sh:38;
+>     - tests/compliance/seed_local_only.test.ts:16.
+>     Each quotes a URL with credentials on localhost.attacker.example.com. The [::1] line at
+>     tests/compliance/provision_ward_account.test.ts:240 stays green only if brackets parse as
+>     above. Check that it does.
+>   - Reword those two comments so they carry no credential-shaped URL, keeping what they say: for
+>     example, "a URL with credentials whose host is `localhost.attacker.example.com`". Do not
+>     allowlist them. seed_local_only's plant at :69 builds its URL with pg() and stays.
+>   - If the scan finds anything else, STOP and report it before changing it.
+>
+> ES-3  PLANTS, in tests/compliance/no_secrets.test.ts, each through the real script on a scratch tree.
+>   - RED, each exit 1, naming its pattern:
+>     - a) to f) from ES-0. In f the local URL comes FIRST;
+>     - `?host=` and `?hostaddr=`, as two plants;
+>     - a multi-host authority, local host first;
+>     - an empty `?`;
+>     - a host of 127.0.0.1.nip.io;
+>     - an empty user part;
+>     - an uppercase scheme;
+>     - a keyword DSN on a hosted host;
+>     - a keyword DSN with a password and no host;
+>     - a keyword DSN with spaces around `=`;
+>     - a keyword DSN with single-quoted values.
+>   - GREEN, each exit 0, as ordinary controls:
+>     - the local URL, as today;
+>     - localhost, LOCALHOST, [::1], db and 0.0.0.0;
+>     - a keyword DSN on host 127.0.0.1;
+>     - a local URL on the same line as prose mentioning a hosted host;
+>     - the real tree.
+>   - RED FIRST: run each red plant against d08e10d's script unchanged, and quote each exit 0 (the
+>     bypass). The keyword, empty-user and uppercase plants exit 0 there because no pattern matches.
+>     Then show each exit 1 after the fix.
+>   - NEUTERS through scripts/neuter.sh. For each, name in advance the plants you expect to redden,
+>     then show that exactly those do:
+>     - the host test always reads local;
+>     - the `,` test never fires;
+>     - the query test never fires;
+>     - the any-token loop reads only the first token;
+>     - the zero-token fail-closed never fires;
+>     - the keyword no-host branch reads local;
+>     - the keyword pattern is removed.
+>   - The meta-lint (scripts/lint_grep_exit_codes.sh) passes on the new code.
+>   - THE WHOLE-PR CHECK, which prints nothing:
+>     `git diff d08e10d..HEAD | grep '^+' | grep -iE 'postgres(ql)?://[^:@/[:space:]]*:[^@/[:space:]]+@|(^|[^[:alnum:]_])pass[w]ord[[:space:]]*=[[:space:]]*[^[:space:]]'`
+>     Then the fixed scan over the tree exits 0.
+>   - STANDARD P. Declare the stopping rule first. Then write one behavioural-pass ledger row per
+>     control: the host test, the `,` test, the query test, the any-token loop, the keyword pattern
+>     and seed's `,` refusal. Plant each in a tracked file outside the diff, and restore it with its
+>     sha256 checked. Quote planted values without their scheme.
+>   - THE LEG REGISTER. The :199 filter's registered leg ("it did not run, so findings cannot be
+>     dropped") leaves with the filter. Any new could-not-run leg that the prefilter shadows is
+>     registered, with its why. Every other new leg is reached. Record each leg added, changed or
+>     removed, with 342/315/27 before and the numbers after.
+>
+> ES-4  RECORD AND REGISTER.
+>   - -169 OPENS WITH "ADDENDUM TO -168: #104'S MERGE RECORD", holding the merge as you reported it:
+>     - the merge SHA d08e10dbbd7b78cca110de80b6ff9d268276d160, at 2026-09-29T13:07:10Z;
+>     - its parents;
+>     - MERGED read back;
+>     - the branch deleted on both sides;
+>     - the alerts as read;
+>     - the founder's choice to merge on the corrected check.
+>     It records ER-2's check as Cowork's slip. ER's ledger row gains "merged at d08e10d".
+>   - -169 then holds:
+>     - ES as issued, quoted as the word on quoting says;
+>     - what was built;
+>     - the tree's findings before and after;
+>     - red first, then green;
+>     - the ledger rows;
+>     - ES-5's method.
+>   - Add a ledger row for ES.
+>   - THE REGISTER: the TRIGGER row ER-3 added ("the secret scan's local-host exemption reads the
+>     line, not each URL's own host and query") leaves in this PR. The register is then 59 (15 BOX,
+>     33 TRIGGER, 11 VERSION). Recount it from the table.
+>
+> ES-5  READING GITHUB'S ALERTS, CORRECTED. Wherever a letter asks for the open alerts, read:
+>   - the plain list with state=open;
+>   - then state=open and, separately, state=resolved, each with secret_type naming every generic
+>     type.
+>   List the generic types you name, by name, in -169, and quote each count. The endpoint refuses
+>   state=all with a 400.
+>
+> ES-6  THE REPORT, then STOP for Cowork's check. Its word is ET.
+>   - The branch and HEAD; git log --oneline origin/main..HEAD; git diff -M --name-status
+>     origin/main...HEAD.
+>   - ES-1: each widening moving from 1 to 0.
+>   - ES-2: the findings on d08e10d, then on HEAD (none), and seed's `,` plant red first, then green.
+>   - ES-3:
+>     - each red plant's exit, on d08e10d and on HEAD;
+>     - each green control;
+>     - each neuter's line, its expected red set, and the set that reddened;
+>     - the meta-lint's result;
+>     - the whole-PR check, printing nothing;
+>     - the ledger rows;
+>     - the leg register before and after.
+>   - The alerts, read by ES-5's method, on the new head.
+>   - The test count against 2752, ZERO-RED on a fresh database, and the uid of the run.
+>   - The register by kind.
+>   - The seven required checks on the new head, each quoted.
+>   Nothing hosted. Do not merge. Do not start S-c.
+
+**ES-2's PREMISE DID NOT HOLD, AND COWORK AMENDED ES-1.** The fixed scan, run over d08e10d's tree with only the script changed, made **three** findings, not two. The third was the keyword pattern on `scripts/provision_target.mjs`:61, a code comparison of a URL's pass-word field, with three equals signs, to an empty string. The bare value it matched was the comparison's own `==`. It was reported under ES-2's STOP before anything was changed, and Cowork ruled as follows.
+
+**The amendment, as issued.** Three spans that were key-equals code are reworded in words, each marked in square brackets, under the word on quoting: as issued, all three would have matched the whole-PR check, and the third the fixed scan as well.
+
+> ES-1 AMENDMENT (Cowork's ruling on the third finding; record it in -169 beside ES):
+> - Take option 1, widened by one character. In 'Postgres keyword DSN with password', a BARE value
+>   may not begin with `=` or `>`. So `==`/`===` comparisons and `=>` arrows are not detections.
+>   Quoted values are unchanged.
+> - scripts/provision_target.mjs:61 stays as it is, and is not allowlisted.
+> - The tree's findings on d08e10d were three, not two. The third is the keyword pattern on :61.
+>   ES-2's "exactly two" was Cowork's slip, and its review's trial missed it too. After the
+>   amendment, the fixed scan finds only the two comments ES-2 names.
+> - NAME WHAT IT GIVES UP, in the header and in -169. An UNQUOTED libpq password that begins with `=`
+>   (libpq reads the value after the `=` up to whitespace) is not detected. A quoted one still is,
+>   and so is the URL pattern.
+> - NAME A KNOWN FALSE POSITIVE, in the header: a code assignment from a variable, such as a
+>   password key set from an environment read, still reads as a finding. None is in the tree.
+>   If one appears, reword the code; do not narrow the pattern without a ruling.
+> - CONTROLS in tests/compliance/no_secrets.test.ts, built at run time:
+>   - GREEN: a [comparison of the pass-word field, with three equals signs, to an empty string], a
+>     [comparison of the pass-word field, with two equals signs, to null], and an arrow whose
+>     parameter is named password;
+>   - RED: a [single-equals assignment of a quoted literal to the pass-word field], still a finding.
+>   - Add a neuter: the new first-character rule is removed, and the green comparison controls
+>     redden.
+> Then carry on with ES as issued.
+
+**WHAT IT GIVES UP, named here as the amendment asks.** An unquoted libpq pass-word value that itself begins with `=` is not detected. A quoted one still is, and so is any URL. The script's header names the same, and names the known false positive: a code assignment of the pass-word key from a variable.
+
+**ES-1: WHAT WAS BUILT,** in `scripts/lint_no_secrets.sh`.
+- **The URL pattern** matches its scheme in any case, and allows an empty user part. Its name is unchanged, so the local-keys.ts allowlist still applies.
+- **A new pattern, "Postgres keyword DSN with password".** It takes a word boundary, the pass-word keyword, optional spaces, `=`, then a non-empty value: bare, single-quoted or double-quoted. A bare value may not begin with `=` or `>`.
+- **The :199 line filter is gone.** For each file the URL pattern matched:
+  - one `grep -noE` reads every URL token on it, from the scheme to the first whitespace, quote, backtick, `)` or `>`. Its status is captured: 0 and 1 are verdicts, and anything else is exit 2 with its own ERROR;
+  - each matched line keeps only if a token on it is not local, or if no token came out (fail closed).
+- **The token parse follows seed.sh's:**
+  - the scheme is taken first;
+  - the credentials are stripped at the first `@`;
+  - the authority runs to the first `/`, `?` or `#`;
+  - the port is removed, and a bracketed host is kept whole;
+  - the host is matched whole, by `case`, against 127.0.0.1, localhost in any case, [::1], db and 0.0.0.0.
+- **A token is never local** if its authority holds `,`, if it carries any `?`, or if it holds a second `://` (two URLs run together). The last is beyond ES's list, and fails closed.
+- **The keyword branch** reads every host and hostaddr value on the file the same way, with one `grep -noE` whose status is captured.
+  - A matched line is local only if it names at least one such value, and every value passes the same host `case`. A value holding `,` fails the whole-host match.
+  - A pass-word with no host on its line is a finding.
+- **The header:**
+  - NARROWING is rewritten as the per-token rule, and cites seed.sh's anchored-host fix;
+  - the run_migrations.sh claim is dropped;
+  - alert #1 is added under ENABLED IS NOT COVERAGE;
+  - what the amendment gives up is named, and so is the known false positive.
+- **`scripts/seed.sh`** refuses an authority holding `,`, with its own REFUSING message, before any host is read.
+- **The two comments** at `scripts/seed.sh`:38 and `tests/compliance/seed_local_only.test.ts`:16 now read "a URL with credentials whose host is `localhost.attacker.example.com`". Neither is allowlisted.
+
+**ES-1: THE DELIBERATE WIDENING, each moving from 1 to 0.** Each was run as a scratch-tree plant through d08e10d's script, then through the new one:
+
+| Control | d08e10d | HEAD |
+|---|---|---|
+| LOCALHOST | 1 | 0 |
+| [::1] | 1 | 0 |
+| `db`, bare, with no port | 1 | 0 |
+
+Each is the local stack, and each is intended.
+
+**ES-2: THE TREE'S FINDINGS.** Each run is `bash` of the scan over the repository.
+
+| Tree | Findings |
+|---|---|
+| d08e10d, literal ES-1 | 3: `scripts/provision_target.mjs`:61 (keyword), `scripts/seed.sh`:38 (URL), `tests/compliance/seed_local_only.test.ts`:16 (URL) |
+| d08e10d, amended | 2: `scripts/seed.sh`:38 and `tests/compliance/seed_local_only.test.ts`:16, both URL |
+| HEAD | 0: `PASS (400 files scanned, 410 tracked files checked, 0 findings)` |
+
+`tests/compliance/provision_ward_account.test.ts`:240, the [::1] line, stays green: its bracketed host parses whole. Nothing else was found, so nothing else was changed.
+
+**ES-2: SEED'S `,` PLANT, RED FIRST.** The plant is `localhost:5432,evil.example.com:5432/app` with the scheme joined at run time. The first host carries a port on purpose. Without one, the whole list is the host, and the old check already refused it.
+- **d08e10d:** it passed the host check and reached the psql step. It exited 2 as `ERROR: psql not on PATH`, not as a refusal, so only the leg's message assertion told the two apart, and it did.
+- **HEAD:** refused, exit 2, with `libpq falls through to the next host with the same password, so a local first host proves nothing.`
+- The file reads 11 of 11.
+
+**ES-3: RED FIRST, THEN GREEN.** d08e10d's script was swapped in from a copy, the ES block of `tests/compliance/no_secrets.test.ts` was run, and the file was restored and its sha256 checked. Each red plant is asserted to name its pattern.
+
+| Red plant | d08e10d | HEAD |
+|---|---|---|
+| a) a hosted URL on a line that also mentions localhost | 0 | 1 |
+| b) a host of localhost.attacker.example.com | 0 | 1 |
+| c) a local authority with `?host=` naming another host | 0 | 1 |
+| c) the same with `?hostaddr=` | 0 | 1 |
+| d) a password containing localhost, on a hosted host | 0 | 1 |
+| e) 0.0.0.0 inside a query value of a hosted URL | 0 | 1 |
+| f) a local URL, then a hosted URL, on the same line | 0 | 1 |
+| a multi-host authority, local host first | 0 | 1 |
+| an empty `?` | 0 | 1 |
+| a host of 127.0.0.1.nip.io | 0 | 1 |
+| an empty user part (no pattern matched on d08e10d) | 0 | 1 |
+| an uppercase scheme (no pattern matched on d08e10d) | 0 | 1 |
+| a keyword DSN on a hosted host (no pattern) | 0 | 1 |
+| a keyword DSN with a password and no host (no pattern) | 0 | 1 |
+| a keyword DSN with spaces around `=` (no pattern) | 0 | 1 |
+| a keyword DSN with single-quoted values (no pattern) | 0 | 1 |
+| a keyword DSN whose host list starts local (beyond ES's list) | 0 | 1 |
+| the amendment's single-equals assignment of a quoted literal (no pattern) | 0 | 1 |
+
+**The green controls** are:
+- the local URL, localhost and 0.0.0.0, which read 0 on both;
+- LOCALHOST, [::1] and bare `db`, which read 1 then 0, as above;
+- a keyword DSN on host 127.0.0.1, and a local URL on the same line as prose naming a hosted host, both 0 on both;
+- the amendment's three: the two comparisons and a bare-parameter arrow named after the key, all 0 on both;
+- the real tree.
+
+**Three more legs go through a stub `grep`, first on PATH.** It passes every call through to the real grep except the one it is aimed at, the URL token read or the host keyword read. Each leg first asserts the stub was hit. They are:
+- a URL token read that returns nothing fails CLOSED, as exit 1 with a finding, where the same tree without the stub reads 0;
+- a URL token read that exits 2 is exit 2 with its ERROR;
+- a host keyword read that exits 2 is exit 2 with its ERROR.
+
+On d08e10d no such read exists, and each reads "stub not reached".
+
+**ES-3: NEUTERS,** through `scripts/neuter.sh` over `tests/compliance/no_secrets.test.ts`. Each expected set was written to a file before the run. The harness read `ALL 8 NEUTERS RED; every restore verified`.
+
+| Neuter | Expected to redden | Reddened |
+|---|---|---|
+| N1, the host test always reads local | a, b, d, e, f, nip.io, empty user, uppercase, the keyword hosted, spaces, single-quoted and host-list plants, and the older remote-URL plant: 13 | **12**: all but e |
+| N2, the `,` test never fires | the URL multi-host plant | exactly that |
+| N3, the `?` test never fires | `?host=`, `?hostaddr=`, empty `?` | exactly those |
+| N4, the loop reads only the first token | f | exactly f |
+| N5, the zero-token fail-closed never fires | the stub's empty token read | exactly that |
+| N6, the keyword no-host branch reads local | the no-host plant, and the amendment's assignment | exactly those |
+| N7, the keyword pattern removed | the six keyword red plants, and the stubbed host-read ERROR | exactly those seven |
+| N8, the amendment's first-character rule removed | the three amendment green controls, and "the real repository is clean" (`scripts/provision_target.mjs`:61) | exactly those four |
+
+**N1's miss is the prediction's, not the guard's.** e) carries a `?`, so the query test refuses it with the host test disabled. It is caught twice over, and the expectation was wrong.
+
+**ES-3: THE META-LINT.** `scripts/lint_grep_exit_codes.sh` reads `PASS (31 shell scripts scanned)`.
+
+**ES-3: STANDARD P.**
+- **The stopping rule, declared before the pass:**
+  - the question asked of each control is "does it judge a URL or a DSN by its own host, host list and query, on real tracked text?";
+  - the pass ends when every control has one plant, in a tracked file outside this change's diff, that the control reports.
+- **The ledger.** Each row plants a value into a tracked file outside the diff, confirms the file changed, runs the control, and restores the file from a copy. Every restore read back sha256 `986ad035…` for ci.yml and `b7f1873b…` for provision_target.mjs. Values are quoted without their scheme.
+
+| Control | Question asked | Tracked off-diff file | Planted-wrong value | Reported |
+|---|---|---|---|---|
+| the host test | is the host read whole? | `.github/workflows/ci.yml`:189 | the local URL's host changed to localhost.attacker.example.com | exit 1, `FAIL: … ci.yml — pattern: Postgres URL with password` |
+| the `,` test | is a host list ever local? | `.github/workflows/ci.yml`:189 | `,evil.example.com:5432` joined after the local host and port | exit 1, the same FAIL |
+| the query test | does a query override read as local? | `.github/workflows/ci.yml`:189 | `?host=evil.example.com` joined on | exit 1, the same FAIL |
+| the any-token loop | is every token on the line read? | `.github/workflows/ci.yml`:189 | a second URL, admin:hunter2@db.prod.example.com:5432/app, after the local one | exit 1, the same FAIL |
+| the keyword pattern | is a keyword DSN on a hosted host found? | `.github/workflows/ci.yml`:189 | the URL replaced by a keyword DSN naming host db.prod.example.com and a pass-word | exit 1, `FAIL: … ci.yml — pattern: Postgres keyword DSN with password` |
+| seed's `,` refusal | does seed.sh refuse a host list? | `.github/workflows/ci.yml`:194, the seed step's URL, read back from the file and passed as DATABASE_URL | `,evil.example.com:5432` joined after the local host and port | exit 2, `REFUSING: … libpq falls through to the next host with the same password, …` |
+| the first-character rule | does the narrowing still find a real assignment? | `scripts/provision_target.mjs`:61 | the comparison turned into a single-equals assignment of a quoted literal | exit 1, `FAIL: … provision_target.mjs — pattern: Postgres keyword DSN with password` |
+
+**ES-3: THE LEG REGISTER,** 342/315/27 before and 344/318/26 after, as `tests/compliance/leg_coverage.test.ts` measures it.
+- **Removed:** "it did not run, so findings cannot be dropped", which was registered and leaves with the filter.
+- **Added, both reached:**
+  - "the URL token read did not run, so no matched line is judged local";
+  - "the host keyword read did not run, so no keyword line is judged local".
+
+  The prefilter shadows an unreadable-file seam for both, so they are reached instead through the stub `grep`, the seam `lint_public_table_rls`'s stub perl uses, not registered.
+- **Added, reached:** seed.sh's refusal of a host list, reached by its red-first plant.
+
+**ES-4: THE REGISTER.** The TRIGGER row ER-3 added, "The secret scan's local-host exemption reads the line, not each URL's own host and query", leaves in this PR. Recounted from the table: **59 (15 BOX, 33 TRIGGER, 11 VERSION)**.
+
+**ES-5: READING GITHUB'S ALERTS.** The ten generic types named in `secret_type` are:
+- postgres_connection_string;
+- mysql_connection_string;
+- mongodb_connection_string;
+- http_basic_authentication_header;
+- http_bearer_authentication_header;
+- rsa_private_key;
+- openssh_private_key;
+- ec_private_key;
+- pgp_private_key;
+- password.
+
+Read at 2026-09-29T14:31:26Z, with main at d08e10d:
+
+| Read | Count |
+|---|---|
+| the plain list, `state=open` | 0 |
+| `state=open`, types named | 0 |
+| `state=resolved`, types named | 1: #1, postgres_connection_string, used_in_tests, resolved at 12:20:49Z |
+| `state=all` | refused, 400: "State needs to be either 'open' or 'resolved'" |
+
+The read on S-s's new head goes in the report.
+
+**FOUND, NOT FIXED: seed.sh reads its host after stripping the query.** A local authority whose `?host=` names another machine passes seed.sh's check and reaches the psql step. Observed: `127.0.0.1:54322/postgres?host=evil.example.com`, scheme joined at run time, printed `ERROR: psql not on PATH` on a stripped PATH, not the refusal. It is ES-0 c)'s shape in seed's own check. ES asks only for seed's `,` refusal, so it is reported to Cowork for a ruling, not fixed here.
+
+Nothing hosted. S-s is not merged, and S-c is not started. Next letter: **ET**.
+
+### R-2026-09-29-170 — #105 (S-s): the merge word, after one commit that closes seed.sh's unseen hosts
+
+_Issued as R-PROVISIONAL-2026-09-29-ET, by Cowork on 2026-09-29, after its review of #105 at `aa72345` (a staff engineer reviewed it independently before it was pasted). Landed in #105 with the commit it asks for; #105 merges on it. Number assigned on landing: R-2026-09-29-169 plus one. #105's merge record cannot sit here, inside #105: it lands in S-c's pull request as an addendum to this entry, as #104's did in -169. Next provisional letter: **EU**, S-c's letter._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-29-ET — #105 (S-s): THE MERGE WORD, AFTER ONE SMALL COMMIT TO seed.sh
+> ET lands in #105 as -170, with the commit it asks for. Next letter: EU, S-c's letter. #105's
+> merge record cannot sit in -170, which is inside #105. It lands in S-c's PR as an addendum, as
+> #104's did in -169.
+> A staff engineer reviewed this letter independently before it was pasted. The review confirmed
+> your finding 3 with a stub psql, and found the further holes in ET-1.
+>
+> READ BY COWORK, from its own clone at aa72345d42bfdee3cd533757832254bb5253cc3e:
+> - One commit on d08e10d, touching six paths. It matches your report.
+> - The whole-PR check prints nothing (grep exit 1). lint_no_secrets.sh reads PASS with 0
+>   findings. The meta-lint reads PASS over 31 scripts. The register is 59 (15 BOX, 33 TRIGGER,
+>   11 VERSION).
+> - As a non-root user, no_secrets, seed_local_only and leg_coverage are green.
+>   no_phantom_paths' one red is the two unbuilt version.json outputs, which is Cowork's
+>   environment, as before.
+> - COWORK'S OWN PLANTS against the fixed scan, on a scratch tree:
+>   - RED (exit 1): [::1] with a comma list; a percent-encoded host; a fragment followed by
+>     `?host=`; the pass-word key as a query parameter on a local URL; the same with `host=`
+>     naming another host; a keyword host list starting local; a keyword line whose real host is
+>     hosted while its comment names a local one; a URL inside a Markdown link; two URLs run
+>     together.
+>   - GREEN (exit 0): the local URL; a local keyword DSN; `hostaddr` local.
+> - ACCEPTED AS REPORTED:
+>   - your three additions: a second `://` fails closed, the extra keyword plant, and the two
+>     could-not-run legs reached through a stub grep;
+>   - N1's count, whose miss was in the prediction, not the guard;
+>   - the ledger;
+>   - 2785 ZERO-RED;
+>   - the leg register at 344/318/26;
+>   - the alerts;
+>   - the seven checks.
+>
+> ET-1  seed.sh CAN STILL REACH A HOST ITS CHECK DID NOT SEE. YOUR FINDING 3 IS RIGHT; CLOSE THE
+>   CLASS HERE. Each item was confirmed with a stub psql on PATH at aa72345.
+>   a) THE QUERY. seed strips the query before it reads the host, so a local authority with
+>      `?host=` reaches psql whole. Refuse any DATABASE_URL holding `?`, before the host is read.
+>   b) THE SCHEME. A bare `localhost`, `db` or `127.0.0.1` passes the check. psql then reads it as a
+>      database name and takes the host from PGHOST (the review observed it with PGHOST set to a
+>      `.invalid` host). Require the URL to begin with `postgresql://` or `postgres://` and refuse
+>      anything else, as scripts/provision_target.mjs does.
+>   c) THE ENVIRONMENT. libpq takes PGHOSTADDR, and a service named by PGSERVICE, from the
+>      environment when the connection string does not set them. Beside a local URL, PGHOSTADDR
+>      redirects psql. seed's own psql runs as
+>      `env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE psql -X "$URL" …`.
+>      These are removed, not refused, so a developer who exports them is not stopped. Removing
+>      PGHOST is also what closes b) for any form that slips past it. `env -u` works on macOS and
+>      Linux.
+>   d) THE STARTUP FILE. `-X`, above, so that ~/.psqlrc, $PSQLRC or the system psqlrc cannot run a
+>      `\connect` after the check.
+>   e) OPENBED_PSQL, the deliberate escape hatch, stays. But refuse an OPENBED_PSQL value holding
+>      `://`, `host=` or `hostaddr=`, since the hatch exists to reach a local container.
+>   f) THE MESSAGES. No refusal prints the URL's credentials or query. The existing refusal prints
+>      `${URL%%\?*}`, which includes the credentials; fix it too. Print the host alone, or nothing.
+>   - PLANTS in tests/compliance/seed_local_only.test.ts. Each runs red first on aa72345, with a
+>     stub psql first on PATH that records its arguments and environment, and a `.invalid` host,
+>     so the red-first run never makes a real connection:
+>     - a local URL with `?host=`, refused, and the stub never called;
+>     - a bare `localhost` with PGHOST set, refused, and the stub never called;
+>     - PGHOSTADDR set beside the local URL: the stub is called without PGHOSTADDR;
+>     - PGSERVICE set: the stub is called without it;
+>     - a ~/.psqlrc in a scratch HOME: the stub is called with -X;
+>     - an OPENBED_PSQL holding `host=`, refused;
+>     - each refusal's output holds no credential and no query.
+>   - NEUTERS, one per fix, each reddening only its own plants.
+>
+> ET-2  RECORD. -170 holds ET as issued, what ET-1 built, and red first then green. Add a ledger row
+>   for ET. The register stays at 59. The leg register moves by the legs ET-1 adds. The team
+>   expects three refusals (the query, the scheme and OPENBED_PSQL), each reached: 347/321/26.
+>   Report and explain any difference.
+>
+> ET-3  THE MERGE WORD. Merge #105 when all of these hold, and only then:
+>   - `git diff --name-only d08e10d..HEAD` lists only these: scripts/lint_no_secrets.sh,
+>     scripts/seed.sh, tests/compliance/no_secrets.test.ts, tests/compliance/seed_local_only.test.ts,
+>     packages/fixtures/leg-coverage.json, and `Sprint Kickoffs/decision-2026-09-14-public-private-split.md`;
+>   - ES-3's whole-PR check over d08e10d..HEAD prints nothing;
+>   - lint_no_secrets.sh exits 0, and the meta-lint reads PASS;
+>   - the leg register reads as ET-2 predicts, or as your report explains;
+>   - the full suite is ZERO-RED on a fresh database, and its count equals 2785 plus the tests this
+>     commit adds, each named;
+>   - the seven required checks on the new head, read from the API, each read `completed success`.
+>     Skipped, neutral and cancelled do not count;
+>   - by ES-5's method, the plain open list and the typed open list are both empty.
+>   Merge as a merge commit, passing the head to --match-head-commit, and read MERGED back. Then
+>   delete s-s-secret-scan-host on both sides. If any condition fails, do not merge: report and
+>   STOP.
+>
+> ET-4  THE REPORT, after the merge or the STOP:
+>   - the commit and its diff stat;
+>   - each plant, red first and then green, and each neuter;
+>   - the whole-PR check, the scan and the meta-lint;
+>   - the test count and its ZERO-RED line, with the uid of the run;
+>   - the seven checks, each quoted;
+>   - the alerts, as read;
+>   - the merge SHA and its parents, MERGED read back, and the branch gone on both sides;
+>   - the register by kind, and the leg register, from main.
+>   Nothing hosted. Do not start S-c before EU.
+
+**ET's premises, checked before acting.** Each holds:
+- scripts/provision_target.mjs's classifyDb refuses any scheme but postgresql: and postgres:;
+- the non-local refusal did print `${URL%%\?*}`, credentials included;
+- `env -u` with several names runs on this machine's macOS env;
+- run_migrations.sh's documented hatch value, `docker exec -i … psql -U postgres -d postgres`, holds none of `://`, `host=` or `hostaddr=`, so ET-1 e leaves it untouched. It is now a positive control.
+
+**ET-1: WHAT WAS BUILT,** in `scripts/seed.sh`. The checks run in this order:
+1. **The scheme (b).** DATABASE_URL must begin with `postgresql://` or `postgres://`, or it is refused.
+2. **The query (a).** Any `?` in it is refused. The host is read only after both of these.
+3. **The host list,** unchanged from -169.
+4. **The host,** unchanged.
+
+**The environment and the startup file (c, d).** seed's own psql runs as `env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE psql -X "$URL" -v ON_ERROR_STOP=1`.
+
+**The hatch (e).** An OPENBED_PSQL holding `://`, `host=` or `hostaddr=` is refused before it is word-split.
+
+**The messages (f).** No refusal prints any part of the URL.
+- The non-local refusal's "points at" line is gone.
+- The host-list refusal no longer prints the authority it read.
+- It goes further than ET's "the host alone" on purpose. Credentials are stripped at the FIRST `@`, so a password holding a raw `@` leaves the rest of itself in what the parse calls the host. On aa72345 the host-list refusal printed exactly such a fragment; the plant below shows it.
+
+**ET-1: THE PLANTS,** in `tests/compliance/seed_local_only.test.ts`. They run through a stub psql and a stub docker, first on PATH. Each stub records its arguments and the four PG variables, reads its stdin and exits 0. Every run starts with OPENBED_PSQL, PGHOST, PGHOSTADDR, PGSERVICE, PGSERVICEFILE and PSQLRC scrubbed from the inherited environment.
+- **Red first:** aa72345's seed.sh was swapped in from a copy, the file was run, and seed.sh was restored and its sha256 checked (`0ee15b35…`).
+- **Green:** every plant then passes on the fix, 26 of 26.
+
+| Plant (15 new tests) | aa72345 | HEAD |
+|---|---|---|
+| a) a local URL with `?host=` naming a `.invalid` host: refused, psql never called | red: "a query override was accepted" | green |
+| b) a bare `localhost` with PGHOST set: refused, psql never called | red: "a bare host name was accepted" | green |
+| c) PGHOST beside the local URL: psql runs without it | red: "psql ran with PGHOST set" | green |
+| c) PGHOSTADDR beside the local URL | red: "psql ran with PGHOSTADDR set" | green |
+| c) PGSERVICE and PGSERVICEFILE beside the local URL | red: "psql ran with PGSERVICE set" | green |
+| d) a psqlrc holding a `\connect` in a scratch HOME: psql runs with `-X` | red: "psql ran without -X" | green |
+| e) OPENBED_PSQL holding `host=`: refused, nothing run | red: accepted | green |
+| e) OPENBED_PSQL holding `hostaddr=` | red: accepted | green |
+| e) OPENBED_PSQL holding a URL | red: accepted | green |
+| f) the non-local refusal prints no credential, query or host | red: printed the password | green |
+| f) the host-list refusal, with a raw `@` in the password | red: printed the password's tail | green |
+| f) the query refusal | red: not refused | green |
+| f) the scheme refusal | red: not refused | green |
+| f) the hatch refusal | red: not refused | green |
+| positive control: the documented `docker exec` hatch runs | green | green |
+
+**Existing legs.** The seven existing refusal plants and the four positive controls are green on both. They were tightened to run through the stub:
+- every refusal now also asserts psql was never called;
+- every positive control now asserts no REFUSING line, exit 0, and psql reached with the URL.
+
+**ET-1: NEUTERS,** through `scripts/neuter.sh` over the seed file. Each expected set was written to a file before the run. The harness read `ALL 6 NEUTERS RED; every restore verified`, and each reddened exactly its predicted set and nothing else:
+
+| Neuter | Reddened |
+|---|---|
+| the query refusal never fires | a, and f's query row (2) |
+| the scheme check accepts anything | b, and f's scheme row (2) |
+| `env -u` removed | the three c rows (3) |
+| `-X` removed | d (1) |
+| the hatch refusal never fires | the three e rows, and f's hatch row (4) |
+| the non-local "points at" line and the host-list `($AUTH)` restored | f's non-local and host-list rows (2) |
+
+**ET-2: THE LEG REGISTER,** 344/318/26 to **347/321/26**, as the team predicted, with one thing the prediction did not name.
+- **Three new legs, each reached:** the scheme refusal, the query refusal and the hatch refusal.
+- **One renamed:** the host-list refusal's identity was `); libpq falls through …`, because its message printed the authority before it. It is now `DATABASE_URL names more than one host -- libpq falls through …`. The rename is f's consequence, and it moves no count.
+
+**THE REGISTER** stays at 59 (15 BOX, 33 TRIGGER, 11 VERSION).
+
+**FOUND, NOT FIXED: the hatch can still name a host.** Both were observed on HEAD with a stub psql.
+- OPENBED_PSQL set to `psql -h evil.invalid -U postgres` passes ET-1 e's refusal, and is run with `-h evil.invalid`.
+- The hatch's own psql still inherits PGHOST, because `env -u` wraps only seed's own psql.
+
+Both need a developer to set the hatch deliberately. ET-1 e scoped its refusal to three forms, and this commit merges without another review, so neither is widened here. Reported to Cowork for EU.
+
+The merge follows this commit, on ET-3. Nothing hosted, and S-c is not started. Next letter: **EU**.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -10531,7 +11109,9 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | EO | R-2026-09-29-165 | 2026-09-29 | **PR S-b: the runbook's SQL, run live; one precondition for every unreadable-file leg.** The helpers move with no change in behaviour (the four touched files keep identical test names and states; leg register 342/315/27). `tests/db/runbook_sql_live.test.ts` partitions 40 fences into LIVE 5, EXCLUDED 6 and RUN-HERE 29, runs the 29 against the local stack over an allowlist environment with inert values, and brackets them with a 24-component fingerprint. Seven neuters red first; no fence in this file runs over a broken partition, which the behavioural pass found (true from -166: at `b79997e` the write plant bypassed the gate). 3240 is EXCLUDED as quoted history, correcting EM-2 c (Cowork's slip). Every mode-000 leg carries the one accessSync precondition, held by `tests/compliance/mode_000_precondition.test.ts`: 8 sites, 9 legs. Register 59. S-c follows. Next letter EP. |
 | EP | R-2026-09-29-166 | 2026-09-29 | **#104 reviewed; one more commit.** EP-1, Cowork's gap in EO-1 b: every RUN-HERE fence is a STOP naming its line if it holds anything but the six ruled line forms, a URL, or a psql meta-command. It finds nothing today, and three tightenings are named. EP-2, Cowork's gap in EO: `psql: error` is red. EP-3, my slip: the write plant bypassed the gate at `b79997e`; `runFence` now has one caller, and the reworded-anchor run spawns 0 fences. EP-4: 4717 tolerates a red word only after two clean fields. EP-5: the bracket's digests, before and after equal. Five neuters red first; 56 legs. Register 59. The merge word is now EQ. |
 | EQ | R-2026-09-29-167 | 2026-09-29 | **#104 reviewed again; one more commit.** EQ-1, Cowork's gap in EP-1 a: a word rule pins where psql connects, with the second word exactly `"$DATABASE_URL"` and later words only `-v`, `-c`, `-tAc`, `-Atc` or the heredoc opener. 37 psql lines read, 0 refused. EQ-2, Cowork's gap in EP-1 c: rule (c) is any backslash followed by a letter or `!`. EQ-3: runOne() refuses, before any spawn, a DATABASE_URL that does not parse, names another host or carries a query string, and any key outside FENCE_KEYS. EQ-4: SQL that opens its own connection is named NOT ASSERTED, and rule (b)'s message no longer claims the stack is never left. Four neuters red first; 66 legs. Register 59. The merge word is now ER. |
-| ER | R-2026-09-29-168 | 2026-09-29 | **#104's merge word, after one commit.** GitHub's secret scanning raised alert #1 (Postgres connection string) on `a61fccc`:980, the Supabase CLI's public local default with `?host=` joined on; it is not a secret. ER-1: :980 and :992 build their URLs from dbUrl() at run time, and no password-bearing URL is added anywhere. ER-2's alert probe fails open (generic patterns need `secret_type`), so it was read with the types named. The merge record lands in ES's PR, because -168 precedes the merge. ER-3: a TRIGGER row for the secret scan's line-level local-host exemption; register 60. Next letter ES. |
+| ER | R-2026-09-29-168 | 2026-09-29 | **#104's merge word, after one commit.** GitHub's secret scanning raised alert #1 (Postgres connection string) on `a61fccc`:980, the Supabase CLI's public local default with `?host=` joined on; it is not a secret. ER-1: :980 and :992 build their URLs from dbUrl() at run time, and no password-bearing URL is added anywhere. ER-2's alert probe fails open (generic patterns need `secret_type`), so it was read with the types named. The merge record lands in ES's PR, because -168 precedes the merge. ER-3: a TRIGGER row for the secret scan's line-level local-host exemption; register 60. Next letter ES. **Merged at `d08e10d`** (parents `bbdefbf`, `2f4e00c`); the merge record is -169's addendum. |
+| ES | R-2026-09-29-169 | 2026-09-29 | **PR S-s: the secret scan reads each URL's own host.** Opens with #104's merge record (-168's addendum); ER-2's alert check and -168's merge record were Cowork's slips. `scripts/lint_no_secrets.sh` judges every Postgres URL token on a matched line by its own host, host list and query, and gains a keyword-DSN pattern; the line-level filter is gone. ES-2 found three on d08e10d, not two: Cowork's amendment keeps a bare keyword value from beginning with `=` or `>`, and names what that gives up. `scripts/seed.sh` refuses a host list. 18 red plants read 0 on d08e10d and 1 on HEAD; 8 neuters all red, N1 one fewer than predicted (e is caught by the query test too). Leg register 344/318/26; register 59. Found, not fixed: seed.sh reads its host after stripping the query. Next letter ET. |
+| ET | R-2026-09-29-170 | 2026-09-29 | **#105's merge word, after one commit to seed.sh.** ET-1 closes the hosts seed.sh's check did not see: a DATABASE_URL must be a postgresql:// or postgres:// URL with no query; seed's own psql runs under `env -u` for PGHOST, PGHOSTADDR, PGSERVICE and PGSERVICEFILE, and with `-X`; an OPENBED_PSQL naming a URL or a host is refused; no refusal prints any part of the URL. 15 new tests, each plant red first on `aa72345`; 6 neuters each red on exactly their own plants. Leg register 347/321/26 as predicted, plus one leg renamed by ET-1 f. Found, not fixed: the hatch still takes `-h` and inherits PGHOST. #105's merge record lands in S-c's PR. Next letter EU. |
 
 ## Deferred items — this record is where the list lives
 
@@ -10626,7 +11206,6 @@ the record's own, except where CW-5 assigned one._
 | Restate `operator_record_registration`'s allow-list comment in `supabase-proxy/allow-list.json` (apps/admin calls it since DT Bundle 3) | R-2026-09-28-151 EA-4 | TRIGGER | The next commit that changes supabase-proxy/ |
 | Read the kept log, name the failing test and its cause, and report it; the 2026-09-28 red on 95c1b83's first gate run is the open instance | R-2026-09-28-152 EB-2 | TRIGGER | The next time tests (db+compliance) is red in scripts/gate.sh |
 | That change brings its block under a live test | R-2026-09-28-152 EB-4 | TRIGGER | The next runbook change that adds or edits a psql line outside the fences tests/db/runbook_12_4_12_5_sql_live.test.ts runs |
-| The secret scan's local-host exemption reads the line, not each URL's own host and query | R-2026-09-29-168 ER-3 | TRIGGER | #104's merge: it fires when #104 merges; ES, the next letter, fixes it, and the row leaves when ES merges |
 
 ## Method notes — how rulings reach the implementer
 

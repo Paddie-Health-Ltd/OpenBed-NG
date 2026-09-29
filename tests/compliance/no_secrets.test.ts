@@ -69,6 +69,168 @@ const DENY_SAMPLE: Record<string, string> = {
 // asserts this constant's contents, which is exactly why it could have rotted.
 const DEMO_DEV_VARS = `SUPABASE_SERVICE_ROLE_KEY=${LOCAL_SERVICE_ROLE_KEY}\n`;
 
+/**
+ * EACH URL JUDGED BY ITS OWN HOST (R-2026-09-29-169, ES and its amendment).
+ *
+ * The local-host exemption used to drop a whole matched LINE if it held 127.0.0.1,
+ * localhost, @db: or 0.0.0.0 anywhere. Every RED plant below exited 0 against that
+ * script (the bypass), and the keyword, empty-user and uppercase plants matched no
+ * pattern at all; each was run there first and is quoted in -169.
+ *
+ * Every string is ASSEMBLED AT RUN TIME, as _plants.ts's are: the scheme is split
+ * and the pass-word keyword is split, so this file holds no credential-shaped text
+ * for the scan it tests to find.
+ */
+const pg = (rest: string): string => `postgres${'ql'}://${rest}`;
+const PG_UP = (rest: string): string => `POSTGRES${'QL'}://${rest}`;
+const PW = `pass${'word'}`;
+const HOSTED = 'admin:hunter2@db.prod.example.com:5432/app';
+const LOCAL = 'postgres:postgres@127.0.0.1:54322/postgres';
+const URL_PAT = 'Postgres URL with password';
+const KW_PAT = 'Postgres keyword DSN with password';
+
+/** The red plants: [name, line, pattern that must be named]. */
+const ES_RED: ReadonlyArray<readonly [string, string, string]> = [
+  ['a) a hosted URL on a line that also mentions localhost', `const u = "${pg(HOSTED)}"; // not localhost`, URL_PAT],
+  ['b) a host of localhost.attacker.example.com', `const u = "${pg('admin:hunter2@localhost.attacker.example.com:5432/app')}";`, URL_PAT],
+  ['c) a local authority with ?host= naming another host', `const u = "${pg(`${LOCAL}?host=db.prod.example.com`)}";`, URL_PAT],
+  ['c) a local authority with ?hostaddr= naming another host', `const u = "${pg(`${LOCAL}?hostaddr=203.0.113.7`)}";`, URL_PAT],
+  ['d) a password containing localhost, on a hosted host', `const u = "${pg('admin:localhost@db.prod.example.com:5432/app')}";`, URL_PAT],
+  ['e) 0.0.0.0 inside a query value of a hosted URL', `const u = "${pg(`${HOSTED}?application_name=0.0.0.0`)}";`, URL_PAT],
+  ['f) a local URL, then a hosted URL, on the same line', `const us = ["${pg(LOCAL)}", "${pg(HOSTED)}"];`, URL_PAT],
+  ['a multi-host authority, local host first', `const u = "${pg('admin:hunter2@localhost:5432,db.prod.example.com:5432/app')}";`, URL_PAT],
+  ['an empty ?', `const u = "${pg(`${LOCAL}?`)}";`, URL_PAT],
+  ['a host of 127.0.0.1.nip.io', `const u = "${pg('admin:hunter2@127.0.0.1.nip.io:5432/app')}";`, URL_PAT],
+  ['an empty user part', `const u = "${pg(':hunter2@db.prod.example.com:5432/app')}";`, URL_PAT],
+  ['an uppercase scheme', `const u = "${PG_UP(HOSTED)}";`, URL_PAT],
+  ['a keyword DSN on a hosted host', `const dsn = "host=db.prod.example.com port=5432 dbname=app user=admin ${PW}=hunter2";`, KW_PAT],
+  ['a keyword DSN with a password and no host', `const dsn = "dbname=app user=admin ${PW}=hunter2";`, KW_PAT],
+  ['a keyword DSN with spaces around =', `const dsn = "host = db.prod.example.com user = admin ${PW} = hunter2";`, KW_PAT],
+  ['a keyword DSN with single-quoted values', `const dsn = "host='db.prod.example.com' user='admin' ${PW}='hunter 2'";`, KW_PAT],
+  // Beyond ES-3's list: the keyword form's own host list.
+  ['a keyword DSN whose host list starts local', `const dsn = "host=127.0.0.1,db.prod.example.com user=admin ${PW}=hunter2";`, KW_PAT],
+  // The amendment: a single `=` assigning a quoted literal is still a finding.
+  ['an assignment of a quoted literal to the pass-word key', `u.${PW} = 'hunter2';`, KW_PAT],
+];
+
+/** The ordinary controls: [name, line]. Each must exit 0. */
+const ES_GREEN: ReadonlyArray<readonly [string, string]> = [
+  ['the local URL', `DATABASE_URL=${pg(LOCAL)}`],
+  ['localhost', `DATABASE_URL=${pg('postgres:postgres@localhost:54322/postgres')}`],
+  ['LOCALHOST', `DATABASE_URL=${pg('postgres:postgres@LOCALHOST:54322/postgres')}`],
+  ['[::1]', `DATABASE_URL=${pg('postgres:postgres@[::1]:54322/postgres')}`],
+  ['db, bare, with no port', `DATABASE_URL=${pg('postgres:postgres@db/postgres')}`],
+  ['0.0.0.0', `DATABASE_URL=${pg('postgres:postgres@0.0.0.0:54322/postgres')}`],
+  ['a keyword DSN on host 127.0.0.1', `const dsn = "host=127.0.0.1 port=54322 user=postgres ${PW}=postgres";`],
+  ['a local URL on the same line as prose naming a hosted host', `DATABASE_URL=${pg(LOCAL)} # the hosted one is db.prod.example.com`],
+  // The amendment's three: comparisons and an arrow are not keyword DSNs.
+  ['a triple-equals comparison of the pass-word key to empty', `if (u.${PW} === '') return;`],
+  ['a double-equals comparison of the pass-word key to null', `if (u.${PW} == null) return;`],
+  ['an arrow whose bare parameter is the pass-word key', `const f = ${PW} => ${PW}.trim();`],
+];
+
+describe('secret scan — each URL judged by its own host (ES)', () => {
+  test.each(ES_RED)('plant — %s is caught', (_name, line, pattern) => {
+    withScratch((root) => {
+      place(root, 'src/leak.ts', `${line}\n`);
+      track(root);
+      const res = runLint(LINT, root);
+      expect(res.status, `plant was accepted:\n${line}\n${res.stdout}`).toBe(1);
+      expect(res.stdout, `the finding did not name ${pattern}:\n${res.stdout}`).toContain(`pattern: ${pattern}`);
+    });
+  });
+
+  test.each(ES_GREEN)('positive control — %s is not a finding', (_name, line) => {
+    withScratch((root) => {
+      place(root, 'src/ok.ts', `${line}\n`);
+      track(root);
+      const res = runLint(LINT, root);
+      expect(res.status, `an ordinary line was refused:\n${line}\n${res.stdout}`).toBe(0);
+    });
+  });
+
+  /**
+   * THE READS THAT JUDGE A LINE, FAILED ON PURPOSE. A stub `grep` goes first on PATH
+   * and passes every call through to the real grep except one: the URL token read
+   * or the host keyword read, told apart by their arguments. The same seam as
+   * lint_public_table_rls's stub perl. Each leg first asserts the stub was hit, so a
+   * green cannot come from a stub that never ran.
+   */
+  const REAL_GREP = execFileSync('bash', ['-c', 'command -v grep'], { encoding: 'utf8' }).trim();
+  const STUB = [
+    '#!/usr/bin/env bash',
+    'if [ "${1:-}" = -noE ]; then',
+    '  case "$*" in *"host(addr)"*) kind=kw ;; *) kind=url ;; esac',
+    '  if [ "$kind" = "$STUB_TARGET" ]; then echo hit > "$STUB_MARK"; exit "$STUB_EXIT"; fi',
+    'fi',
+    `exec ${REAL_GREP} "$@"`,
+    '',
+  ].join('\n');
+
+  function runStubbed(root: string, stubDir: string, target: 'url' | 'kw', exit: number): { status: number; out: string; hit: boolean } {
+    const mark = join(stubDir, 'hit');
+    let status = 0;
+    let out = '';
+    try {
+      out = execFileSync('bash', [join(REPO_ROOT, 'scripts', LINT), root], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, PATH: `${stubDir}:${process.env.PATH ?? ''}`, STUB_TARGET: target, STUB_EXIT: String(exit), STUB_MARK: mark },
+      });
+    } catch (e) {
+      const err = e as { status?: number; stdout?: string; stderr?: string };
+      status = err.status ?? -1;
+      out = `${err.stdout ?? ''}${err.stderr ?? ''}`;
+    }
+    return { status, out, hit: existsSync(mark) };
+  }
+
+  function withStub(fn: (stubDir: string) => void): void {
+    withScratch((stubDir) => {
+      place(stubDir, 'grep', STUB);
+      chmodSync(join(stubDir, 'grep'), 0o755);
+      fn(stubDir);
+    });
+  }
+
+  test('plant — a URL token read that returns nothing fails CLOSED: the matched line is a finding', () => {
+    withStub((stubDir) => withScratch((root) => {
+      place(root, 'scripts/run.sh', `DATABASE_URL=${pg(LOCAL)}\n`);
+      track(root);
+      const control = runLint(LINT, root);
+      expect(control.status, `precondition: the local URL is not green without the stub:\n${control.stdout}`).toBe(0);
+      const res = runStubbed(root, stubDir, 'url', 1);
+      expect(res.hit, `the stub was never called for the URL token read:\n${res.out}`).toBe(true);
+      expect(res.status, `a line with no token read as local:\n${res.out}`).toBe(1);
+      expect(res.out).toContain(`pattern: ${URL_PAT}`);
+    }));
+  });
+
+  test('could not run — a URL token read that exits 2 is an ERROR, never a verdict', () => {
+    withStub((stubDir) => withScratch((root) => {
+      place(root, 'scripts/run.sh', `DATABASE_URL=${pg(LOCAL)}\n`);
+      track(root);
+      const res = runStubbed(root, stubDir, 'url', 2);
+      expect(res.hit, `the stub was never called for the URL token read:\n${res.out}`).toBe(true);
+      expect(res.status, `a token read that did not run produced a verdict:\n${res.out}`).toBe(2);
+      expect(res.out).toContain('the URL token read did not run, so no matched line is judged local');
+      expect(res.out).not.toContain('lint_no_secrets.sh: PASS');
+    }));
+  });
+
+  test('could not run — a host keyword read that exits 2 is an ERROR, never a verdict', () => {
+    withStub((stubDir) => withScratch((root) => {
+      place(root, 'src/dsn.ts', `const dsn = "host=127.0.0.1 user=postgres ${PW}=postgres";\n`);
+      track(root);
+      const res = runStubbed(root, stubDir, 'kw', 2);
+      expect(res.hit, `the stub was never called for the host keyword read:\n${res.out}`).toBe(true);
+      expect(res.status, `a host read that did not run produced a verdict:\n${res.out}`).toBe(2);
+      expect(res.out).toContain('the host keyword read did not run, so no keyword line is judged local');
+      expect(res.out).not.toContain('lint_no_secrets.sh: PASS');
+    }));
+  });
+});
+
 describe('secret scan', () => {
   test('the real repository is clean', () => {
     const res = runLint(LINT, REPO_ROOT);
