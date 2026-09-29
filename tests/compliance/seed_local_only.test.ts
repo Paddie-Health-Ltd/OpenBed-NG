@@ -12,8 +12,8 @@ import { REPO_ROOT } from './_scratch.js';
  * legitimate reason to do it, so there is no flag for it.
  *
  * THE LEG HAD NO PLANT, AND THE CHECK HAD A HOLE. It matched
- * `*127.0.0.1*|*localhost*|*@db:*` against the WHOLE URL, so
- * `postgresql://u:p@localhost.attacker.example.com/app` read as local -- the
+ * `*127.0.0.1*|*localhost*|*@db:*` against the WHOLE URL, so a URL with
+ * credentials whose host is `localhost.attacker.example.com` read as local -- the
  * substring is there, in a domain that is not. Demonstrated before the fix: that
  * URL passed the guard and reached the psql step. On a machine with psql
  * installed it would have seeded a remote database.
@@ -79,6 +79,17 @@ describe('seed.sh refuses a non-local database', () => {
     const res = runSeed(url);
     expect(res.status, `a non-local database was accepted:\n${res.out}`).toBe(2);
     expect(res.out, `it exited 2 but for a different reason:\n${res.out}`).toContain(REFUSAL);
+  });
+
+  test('plant — a host LIST with a local first host is refused (ES-2)', () => {
+    // libpq tries each host of a comma list in turn with the same password. The
+    // port strip read only the first, so this passed the check until
+    // R-2026-09-29-169. The first host carries a port on purpose: without one the
+    // whole list is the host and the old check already refused it.
+    const res = runSeed(pg('localhost:5432,evil.example.com:5432/app'));
+    expect(res.status, `a host list with a local first host was accepted:\n${res.out}`).toBe(2);
+    expect(res.out, `it exited 2 but for a different reason:\n${res.out}`)
+      .toContain('libpq falls through to the next host with the same password, so a local first host proves nothing.');
   });
 
   test.each([

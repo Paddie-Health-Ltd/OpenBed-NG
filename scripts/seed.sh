@@ -35,8 +35,8 @@ URL="${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}"
 # ANCHORED ON THE HOST, NOT ON A SUBSTRING OF THE WHOLE URL.
 #
 # This was `*127.0.0.1*|*localhost*|*@db:*`, matched against the entire URL, so
-# `postgresql://u:p@localhost.attacker.example.com/app` READ AS LOCAL -- the
-# substring is there, in a domain that is not. Same for a host such as
+# a URL with credentials whose host is `localhost.attacker.example.com` READ AS
+# LOCAL -- the substring is there, in a domain that is not. Same for a host such as
 # `my127.0.0.1.example.net`, or either string appearing in the password or the
 # database name. The host is extracted first and matched whole.
 # SCHEME FIRST, THEN CREDENTIALS. Order matters and the other way round is a
@@ -47,9 +47,19 @@ URL="${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}"
 # URL stopped working.
 REST="${URL#*://}"            # strip scheme
 REST="${REST#*@}"             # strip credentials IF PRESENT (no-op without an @)
-HOST="${REST%%/*}"            # strip path
-HOST="${HOST%%\?*}"           # strip query
-HOST="${HOST%%:*}"            # strip port
+AUTH="${REST%%/*}"            # strip path
+AUTH="${AUTH%%\?*}"           # strip query
+# A HOST LIST IS NEVER LOCAL (R-2026-09-29-169, ES-2). libpq tries each host of a
+# comma list in turn, with the same password, so the port strip below read only
+# the FIRST: a local first host with a port, then a remote one, passed this check.
+# Refused here, before any host is read.
+case "$AUTH" in
+    *,*)
+        echo "REFUSING: DATABASE_URL names more than one host ($AUTH); libpq falls through to the next host with the same password, so a local first host proves nothing." >&2
+        exit 2
+        ;;
+esac
+HOST="${AUTH%%:*}"            # strip port
 case "$HOST" in
     127.0.0.1|localhost|db|0.0.0.0|'[::1]'|::1) ;;
     *)
