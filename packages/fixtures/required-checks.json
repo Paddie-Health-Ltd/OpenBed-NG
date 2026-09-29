@@ -1,0 +1,12 @@
+{
+  "comment": "THE SEVEN REQUIRED CHECKS, one list with two readers (R-2026-09-29-171, EU-3 b). tests/compliance/ci_required_checks_not_paths_filtered.test.ts holds ci.yml's job set equal to this list, so it decays LOUDLY: adding or renaming a job reds that test, and adding a job to CI should require someone to decide whether it gates merges. scripts/pr_evidence.mjs reads it from its own checkout and requires each of these jobs, from the named attempt, in the evidence block. Neither reader restates the list.",
+  "jobs": [
+    "bundle-guards",
+    "compliance-tests",
+    "db-tests",
+    "golden-path",
+    "migration-lint",
+    "repo-lint",
+    "secret-scan"
+  ]
+}

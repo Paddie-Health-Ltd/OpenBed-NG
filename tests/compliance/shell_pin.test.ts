@@ -58,6 +58,11 @@ export function pinViolations(dir: string): string[] {
   if (shell.length === 0) return [`no shell scripts found in ${dir} — the pin checked nothing`];
 
   for (const n of entries) {
+    // A TYPE DECLARATION BESIDE ITS MODULE (R-2026-09-29-171, EU-3 a). `<stem>.d.mts`
+    // declares the types of `<stem>.mjs` for a TypeScript test, and is accepted only
+    // when that module sits beside it: an orphan declaration is a file under another
+    // name, which is what this refusal exists to catch.
+    if (n.endsWith('.d.mts') && entries.includes(`${n.slice(0, -'.d.mts'.length)}.mjs`)) continue;
     if (!n.endsWith('.sh') && !n.endsWith('.mjs')) {
       out.push(`${n}: not .sh or .mjs — a script under another name is outside the shell pin`);
     }
@@ -120,6 +125,15 @@ describe('shell pin — bash, strict, from the first command', () => {
   test('plant — a shell script under another extension is rejected as outside the pin', () => {
     const v = planted({ 'helper.bash': `#!/bin/zsh\necho hi\n` });
     expect(v.join('\n')).toContain('helper.bash: not .sh or .mjs — a script under another name is outside the shell pin');
+  });
+
+  test('plant — an orphan x.d.mts, with no x.mjs beside it, is rejected (EU-3 a)', () => {
+    const v = planted({ 'x.d.mts': 'export declare const X: string;\n' });
+    expect(v.join('\n')).toContain('x.d.mts: not .sh or .mjs — a script under another name is outside the shell pin');
+  });
+
+  test('positive control — a x.d.mts beside its x.mjs is accepted (EU-3 a)', () => {
+    expect(planted({ 'x.mjs': 'export const X = 1;\n', 'x.d.mts': 'export declare const X: number;\n' })).toEqual([]);
   });
 
   test('positive control — an ordinary pinned script with a long header is accepted', () => {

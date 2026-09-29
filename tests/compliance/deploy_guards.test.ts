@@ -436,11 +436,31 @@ describe('deploy_pages.sh — the accident case, refused', () => {
 });
 
 /** Runs the real run_e2e.sh against a scratch tree whose `npx` is a stub. */
-function runE2e(root: string): Run {
+function runE2e(root: string, env: Record<string, string> = {}): Run {
   const bin = join(root, 'bin');
   mkdirSync(bin, { recursive: true });
   const log = join(root, 'ran.log');
-  writeFileSync(join(bin, 'npx'), `#!/usr/bin/env bash\necho "npx $*" >> "$STUB_LOG"\nprintf '<testsuites tests="0"></testsuites>' > "$4"\nexit 0\n`, 'utf8');
+  // The stub reads --outputFile= (not "$4", which is the word `e2e`), writes that file unless
+  // told not to, and exits by phase: STUB_E2E_EXIT for junit-e2e.xml, STUB_RATCHET_EXIT for
+  // junit-ratchet.xml. A non-zero phase writes a report holding one failure.
+  const npxStub = [
+    '#!/usr/bin/env bash',
+    'echo "npx $*" >> "$STUB_LOG"',
+    'out=""',
+    'for a in "$@"; do case "$a" in --outputFile=*) out="${a#--outputFile=}" ;; esac; done',
+    'st=0; nofile=""',
+    'case "$out" in',
+    '  junit-e2e.xml) st="${STUB_E2E_EXIT:-0}"; nofile="${STUB_E2E_NOFILE:-}" ;;',
+    '  junit-ratchet.xml) st="${STUB_RATCHET_EXIT:-0}" ;;',
+    'esac',
+    'if [ -n "$out" ] && [ -z "$nofile" ]; then',
+    '  if [ "$st" -ne 0 ]; then f=1; else f=0; fi',
+    `  printf '<testsuites tests="1" failures="%s" errors="0"><testsuite><testcase name="a"></testcase></testsuite></testsuites>' "$f" > "$out"`,
+    'fi',
+    'exit "$st"',
+    '',
+  ].join('\n');
+  writeFileSync(join(bin, 'npx'), npxStub, 'utf8');
   chmodSync(join(bin, 'npx'), 0o755);
   writeFileSync(join(bin, 'node'), `#!/usr/bin/env bash\necho "node $*" >> "$STUB_LOG"\nexit 0\n`, 'utf8');
   chmodSync(join(bin, 'node'), 0o755);
@@ -449,6 +469,7 @@ function runE2e(root: string): Run {
   const r = exec('bash', [join(root, 'scripts', 'run_e2e.sh')], {
     PATH: `${bin}:${process.env['PATH'] ?? ''}`,
     STUB_LOG: log,
+    ...env,
   });
   return { ...r, ran: existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n').filter(Boolean) : [] };
 }
@@ -496,5 +517,65 @@ describe('run_e2e.sh — no file in tests/e2e is silently omitted', () => {
       expect(res.status, `an empty corpus was accepted:\n${res.out}`).toBe(2);
       expect(res.out).toContain('is missing — the golden path and the ratchet are named in the frontier and in this runner.');
     });
+  });
+});
+
+/**
+ * run_e2e.sh's TWO PHASES, each with its own exit (R-2026-09-29-172, EV-2 b).
+ *
+ * THE DEFECT, older than S-c. The npx stub above wrote to "$4", which is the word `e2e` (the
+ * arguments are `vitest run --project e2e ...`), so it never wrote junit-e2e.xml. Both tests
+ * above that reach phase 1 therefore exited 2 at "phase 1 produced no junit-e2e.xml", and
+ * phase 2 ran in none: the "phase 1 may be red, phase 2 gates" contract in the script's header
+ * was asserted by no test, and the register recorded its leg as needing a chmod 000 seam that
+ * the stub had been reaching all along without asserting it.
+ *
+ * THE STUB NOW reads --outputFile=, writes that file, and exits STUB_E2E_EXIT for phase 1 or
+ * STUB_RATCHET_EXIT for phase 2. STUB_E2E_NOFILE skips phase 1's write. `node` stays a
+ * recorder, so what the script attested is read from its call log.
+ */
+describe('run_e2e.sh — phase 1 may be red, and only phase 2 gates', () => {
+  const ATTEST_RATCHET = 'node scripts/attest_counts.mjs junit-ratchet.xml';
+  const drive = (env: Record<string, string>): Run =>
+    withScratch((root) => {
+      place(root, 'tests/e2e/golden-path.test.ts', '// golden path\n');
+      place(root, 'tests/e2e/ratchet.test.ts', '// ratchet\n');
+      return runE2e(root, env);
+    });
+  /** Every attestation the script ran, from the recorder. */
+  const attested = (r: Run): string[] => r.ran.filter((l) => l.startsWith('node ') && l.includes('attest_counts.mjs'));
+  const expectAttestedOnlyTheRatchet = (r: Run): void => {
+    expect(attested(r), `attest_counts must run once, on the ratchet's file and never phase 1's:\n${r.out}\n${r.ran.join('\n')}`).toEqual([ATTEST_RATCHET]);
+  };
+
+  test('plant — phase 1 red and the ratchet green exits 0: phase 1 never gates', () => {
+    const r = drive({ STUB_E2E_EXIT: '1' });
+    expect(r.status, `a red phase 1 gated the run:\n${r.out}`).toBe(0);
+    expectAttestedOnlyTheRatchet(r);
+  });
+
+  test('plant — phase 1 green and the ratchet red exits 1: phase 2 gates', () => {
+    const r = drive({ STUB_RATCHET_EXIT: '1' });
+    expect(r.status, `a red ratchet passed:\n${r.out}`).toBe(1);
+    expectAttestedOnlyTheRatchet(r);
+  });
+
+  test('plant — both phases red exits 1, with the ratchet still attested', () => {
+    const r = drive({ STUB_E2E_EXIT: '1', STUB_RATCHET_EXIT: '1' });
+    expect(r.status, `a red ratchet passed behind a red phase 1:\n${r.out}`).toBe(1);
+    expectAttestedOnlyTheRatchet(r);
+  });
+
+  test('positive control — both phases green exits 0, with the ratchet attested', () => {
+    const r = drive({});
+    expect(r.status, r.out).toBe(0);
+    expectAttestedOnlyTheRatchet(r);
+  });
+
+  test('plant — a phase 1 that writes no junit-e2e.xml is refused by name, exit 2, and the ratchet never runs', () => {
+    const r = drive({ STUB_E2E_NOFILE: '1' });
+    expect(r.status, `a missing phase 1 report was accepted:\n${r.out}`).toBe(2);
+    expect(r.out).toContain('phase 1 produced no junit-e2e.xml — the golden path did not run at all.');
+    expect(r.ran.some((l) => l.includes('junit-ratchet.xml')), `the ratchet ran over a phase 1 that never reported:\n${r.ran.join('\n')}`).toBe(false);
   });
 });

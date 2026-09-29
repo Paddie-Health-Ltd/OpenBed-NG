@@ -143,11 +143,25 @@ jobs:
       - name: Red-disposition counts (Standard O)
         if: always()
         run: node scripts/attest_counts.mjs junit-compliance.xml
+      # THE PROVENANCE OF THIS ARTEFACT (R-2026-09-29-171, EU-2). A pull_request run
+      # tests refs/pull/N/merge, a merge the API's run object and the JUnit files never
+      # name. So the run's identifiers, then the raw commit object HEAD is, go into the
+      # artefact beside the JUnit. scripts/pr_evidence.mjs hashes the object itself and
+      # reads the base and the head from its parents. The object runs to end of file:
+      # GitHub's merge commits end without a newline, so nothing follows it and nothing
+      # trims it. No expression in run: -- the runner's own variables need none.
+      # tests/compliance/ci_required_checks_not_paths_filtered.test.ts pins this step.
+      - name: Provenance of the artefact (EU-2)
+        if: always()
+        run: |
+          { printf 'github_sha=%s\nrun_id=%s\nrun_attempt=%s\njob=%s\nobject_size=%s\n---\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_JOB" "$(git cat-file -s HEAD)"; git cat-file commit HEAD; } > ci-provenance.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: junit-compliance
-          path: junit-compliance.xml
+          path: |
+            junit-compliance.xml
+            ci-provenance.txt
 
   db-tests:
     name: db-tests
@@ -203,11 +217,25 @@ jobs:
         if: always()
         run: node scripts/attest_counts.mjs junit-db.xml
 
+      # THE PROVENANCE OF THIS ARTEFACT (R-2026-09-29-171, EU-2). A pull_request run
+      # tests refs/pull/N/merge, a merge the API's run object and the JUnit files never
+      # name. So the run's identifiers, then the raw commit object HEAD is, go into the
+      # artefact beside the JUnit. scripts/pr_evidence.mjs hashes the object itself and
+      # reads the base and the head from its parents. The object runs to end of file:
+      # GitHub's merge commits end without a newline, so nothing follows it and nothing
+      # trims it. No expression in run: -- the runner's own variables need none.
+      # tests/compliance/ci_required_checks_not_paths_filtered.test.ts pins this step.
+      - name: Provenance of the artefact (EU-2)
+        if: always()
+        run: |
+          { printf 'github_sha=%s\nrun_id=%s\nrun_attempt=%s\njob=%s\nobject_size=%s\n---\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_JOB" "$(git cat-file -s HEAD)"; git cat-file commit HEAD; } > ci-provenance.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: junit-db
-          path: junit-db.xml
+          path: |
+            junit-db.xml
+            ci-provenance.txt
 
       - name: Supabase logs on failure
         if: failure()
@@ -284,6 +312,18 @@ jobs:
         if: always()
         run: node scripts/attest_counts.mjs junit-ratchet.xml
 
+      # THE PROVENANCE OF THIS ARTEFACT (R-2026-09-29-171, EU-2). A pull_request run
+      # tests refs/pull/N/merge, a merge the API's run object and the JUnit files never
+      # name. So the run's identifiers, then the raw commit object HEAD is, go into the
+      # artefact beside the JUnit. scripts/pr_evidence.mjs hashes the object itself and
+      # reads the base and the head from its parents. The object runs to end of file:
+      # GitHub's merge commits end without a newline, so nothing follows it and nothing
+      # trims it. No expression in run: -- the runner's own variables need none.
+      # tests/compliance/ci_required_checks_not_paths_filtered.test.ts pins this step.
+      - name: Provenance of the artefact (EU-2)
+        if: always()
+        run: |
+          { printf 'github_sha=%s\nrun_id=%s\nrun_attempt=%s\njob=%s\nobject_size=%s\n---\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_JOB" "$(git cat-file -s HEAD)"; git cat-file commit HEAD; } > ci-provenance.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -291,6 +331,7 @@ jobs:
           path: |
             junit-e2e.xml
             junit-ratchet.xml
+            ci-provenance.txt
 
       - name: Supabase logs on failure
         if: failure()

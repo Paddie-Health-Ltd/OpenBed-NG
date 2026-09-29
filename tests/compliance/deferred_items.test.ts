@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { REPO_ROOT } from './_scratch.js';
+import { HEADER, KINDS, SECTION, parseRegister } from '../../scripts/deferred_register.mjs';
+import type { Row } from '../../scripts/deferred_register.mjs';
 
 /**
  * GUARD: THE DEFERRED-ITEMS REGISTER AND THE FACILITY-ONE CHECKLIST HOLD EACH OTHER
@@ -32,6 +34,10 @@ import { REPO_ROOT } from './_scratch.js';
  * unticked one is still open, so (e) needs every box that carries it ticked.
  * A BOX row's Ruling must also be an R-YYYY-MM-DD-nn id, or (c) could not check it.
  *
+ * THE REGISTER'S PARSER LIVES IN scripts/deferred_register.mjs (R-2026-09-29-171, EU-3 a),
+ * moved there unchanged so scripts/pr_evidence.mjs can print the register by kind from
+ * the same code. This file imports it; the boxes' parser stays here.
+ *
  * STRICT PARSING. Both files are markdown, and a lenient parser fails open. A missing
  * section, a missing header or separator, a row without exactly four cells, a row after
  * the table has ended (added by R-2026-09-26-126), an empty register and a step 1 with no
@@ -52,67 +58,14 @@ import { REPO_ROOT } from './_scratch.js';
 const RECORD = join(REPO_ROOT, 'Sprint Kickoffs', 'decision-2026-09-14-public-private-split.md');
 const RUNBOOK = join(REPO_ROOT, 'docs', 'runbook-supabase-project-creation.md');
 
-export const SECTION = '## Deferred items — this record is where the list lives';
-export const HEADER = '| Item | Ruling | Gate kind | Gate |';
 export const STEP_HEADING = '### 12.4 Creating a facility';
 const STEP_END = /^2\. \*\*Create\*\*/;
-export const KINDS = ['BOX', 'TRIGGER', 'VERSION'] as const;
 const NOT_A_GATE = new Set(['', 'tbd', '?', 'pending']);
 const RULING_ID = /^R-\d{4}-\d{2}-\d{2}-\d+(?![\w-])/;
-
-export interface Row {
-  item: string;
-  ruling: string;
-  kind: string;
-  gate: string;
-  line: number;
-}
 
 export interface Box {
   ticked: boolean;
   text: string;
-}
-
-/** The register's rows, and every way the table failed to parse. */
-export function parseRegister(record: string): { rows: Row[]; errors: string[] } {
-  const lines = record.split('\n');
-  const start = lines.indexOf(SECTION);
-  if (start === -1) return { rows: [], errors: [`no section "${SECTION}" in the record`] };
-  let end = lines.findIndex((l, i) => i > start && l.startsWith('## '));
-  if (end === -1) end = lines.length;
-
-  const header = lines.findIndex((l, i) => i > start && i < end && l === HEADER);
-  if (header === -1) return { rows: [], errors: [`no table headed "${HEADER}" in the register section`] };
-  if (!/^\|(?:\s*:?-{3,}:?\s*\|){4}$/.test(lines[header + 1] ?? '')) {
-    return { rows: [], errors: [`line ${header + 2}: the register's header row has no four-column separator under it`] };
-  }
-
-  const rows: Row[] = [];
-  const errors: string[] = [];
-  for (let i = header + 2; i < end && (lines[i] ?? '').startsWith('|'); i += 1) {
-    const raw = lines[i] as string;
-    if (!raw.trimEnd().endsWith('|')) {
-      errors.push(`line ${i + 1}: malformed register row (it does not end with "|"): ${raw.slice(0, 80)}`);
-      continue;
-    }
-    const cells = raw.trim().slice(1, -1).split('|').map((c) => c.trim());
-    if (cells.length !== 4) {
-      errors.push(`line ${i + 1}: malformed register row, 4 cells expected and ${cells.length} found: ${raw.slice(0, 80)}`);
-      continue;
-    }
-    const [item, ruling, kind, gate] = cells as [string, string, string, string];
-    rows.push({ item, ruling, kind, gate, line: i + 1 });
-  }
-  // A line that is not a row ends the table. A row after that point would be silently
-  // dropped, so it is a violation, not a row (R-2026-09-26-126: DB-6 asked for a note
-  // "under" a row, and a note there would have cut every row below it out of the guard).
-  let tableEnd = header + 2;
-  while (tableEnd < end && (lines[tableEnd] ?? '').startsWith('|')) tableEnd += 1;
-  for (let i = tableEnd; i < end; i += 1) {
-    if ((lines[i] ?? '').startsWith('|')) errors.push(`line ${i + 1}: a table row after the table ended -- every row must be in one unbroken table, or it is not read at all`);
-  }
-  if (rows.length === 0 && errors.length === 0) errors.push('the register has no rows: a guard over an empty table is not a pass');
-  return { rows, errors };
 }
 
 /** The boxes at runbook 12.4 step 1, each with its continuation lines. */

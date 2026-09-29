@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { REPO_ROOT, place, withScratch } from './_scratch.js';
@@ -51,7 +51,7 @@ const pg = (rest: string): string => `postgres${'ql'}://${rest}`;
 const REFUSAL = 'seed data is synthetic and must never reach a non-local database';
 
 /** Inherited variables that would change what seed.sh or psql does; each run starts without them. */
-const SCRUBBED = ['OPENBED_PSQL', 'PGHOST', 'PGHOSTADDR', 'PGSERVICE', 'PGSERVICEFILE', 'PSQLRC'];
+const SCRUBBED = ['OPENBED_PSQL', 'PGHOST', 'PGHOSTADDR', 'PGSERVICE', 'PGSERVICEFILE', 'PSQLRC', 'BASHOPTS'];
 
 /**
  * A STUB psql (and docker, for the hatch) FIRST ON PATH, R-2026-09-29-170 ET-1.
@@ -71,7 +71,7 @@ const STUB = [
 
 interface SeedRun { status: number; out: string; log: string }
 
-function runSeed(url: string, extra: Record<string, string> = {}): SeedRun {
+function runSeed(url: string, extra: Record<string, string> = {}, bashArgs: string[] = []): SeedRun {
   return withScratch((stub) => {
     for (const bin of ['psql', 'docker']) {
       place(stub, `bin/${bin}`, STUB);
@@ -84,7 +84,7 @@ function runSeed(url: string, extra: Record<string, string> = {}): SeedRun {
     let status = 0;
     let out = '';
     try {
-      out = execFileSync('bash', [SEED], { encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe'] });
+      out = execFileSync('bash', [...bashArgs, SEED], { encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe'] });
     } catch (e) {
       const err = e as { status?: number; stdout?: string; stderr?: string };
       status = err.status ?? -1;
@@ -132,7 +132,7 @@ describe('seed.sh refuses a non-local database', () => {
   const LOCAL = pg('postgres:postgres@127.0.0.1:54322/postgres');
   const QUERY_REFUSAL = 'carries a query string -- a host or hostaddr parameter there overrides the host this check reads';
   const SCHEME_REFUSAL = 'must begin with postgresql:// or postgres:// -- anything else psql reads as a database name';
-  const HATCH_REFUSAL = 'OPENBED_PSQL names a URL or a host -- the hatch exists to reach a local container';
+  const HATCH_REFUSAL = 'OPENBED_PSQL must be exactly: docker exec -i supabase_db_<project> psql [-U <name>] [-d <name>] -- the hatch reaches a local container only';
 
   test('plant — a local URL with ?host= naming another host is refused, and psql is never called (ET-1 a)', () => {
     const res = runSeed(pg('postgres:postgres@127.0.0.1:54322/postgres?host=evil.invalid'));
@@ -219,13 +219,119 @@ describe('seed.sh refuses a non-local database', () => {
     expect(res.log, `psql was not reached with the URL:\n${res.log}`).toContain(`[${url}]`);
   });
 
-  test('positive control — the documented OPENBED_PSQL hatch is NOT refused, and is run (ET-1 e)', () => {
+  // ---- R-2026-09-29-171, EU-1: THE HATCH NAMES ITS WHOLE SHAPE. ET-1 e refused three
+  // words; each of these passed it, and was run, on 96aa95b. Now the value must be exactly
+  // `docker exec -i supabase_db_<project> psql`, then at most one -U <name> and one -d
+  // <name>, in either order, and nothing else. Every plant names a `.invalid` host or a
+  // distinctive planted token, so a red-first run could not reach anything real.
+  const DOC = 'docker exec -i supabase_db_x psql';
+  test.each([
+    ['psql -h naming a host', 'psql -h evil.invalid -U postgres'],
+    ['psql --host naming a host', 'psql --host evil.invalid'],
+    ['env PGHOST=… before psql', 'env PGHOST=evil.invalid psql'],
+    ['the container psql with -h', `${DOC} -h evil.invalid`],
+    ['docker exec -e PGHOST=…', 'docker exec -i -e PGHOST=evil.invalid supabase_db_x psql'],
+    ['docker -H naming a daemon', 'docker -H evil.invalid:2375 exec -i supabase_db_x psql'],
+    ['docker --context', 'docker --context remote exec -i supabase_db_x psql'],
+    ['-d naming a service', `${DOC} -d service=evil`],
+    ['a container not named supabase_db_*', 'docker exec -i other_db psql'],
+    ['supabase_db_ not at the start of the name', 'docker exec -i evil_supabase_db_x psql'],
+    ['a container name carrying @host', 'docker exec -i supabase_db_x@evil.invalid psql'],
+    ['exec -it instead of -i', 'docker exec -it supabase_db_x psql'],
+    ['-U given twice', `${DOC} -U plantuserone -U plantusertwo`],
+    ['a trailing bare -U', `${DOC} -U`],
+    ['the documented shape with one trailing word', `${DOC} -U postgres -d postgres extra`],
+    ['the documented shape, a newline, then -h', `${DOC} -U postgres -d postgres\n-h evil.invalid`],
+    ['a whitespace-only value', '   '],
+  ])('plant — an OPENBED_PSQL of %s is refused, and nothing is run (EU-1)', (_name, hatch) => {
+    const res = runSeed(LOCAL, { OPENBED_PSQL: hatch });
+    expect(res.status, `a hatch outside the shape was accepted:\n${res.out}\n${res.log}`).toBe(2);
+    expect(res.out).toContain(HATCH_REFUSAL);
+    expect(res.log, `the hatch was run:\n${res.log}`).toBe('');
+    // The refusal is fixed text: it prints none of the value's own words. Only planted
+    // tokens are checked, never a word the fixed message itself holds.
+    for (const token of ['evil.invalid', 'other_db', 'plantuserone', 'plantusertwo', 'remote', 'service=evil']) {
+      expect(res.out, `the refusal printed the planted ${token}`).not.toContain(token);
+    }
+  });
+
+  const DOCUMENTED = 'docker exec -i supabase_db_OpenBed-NG psql -U postgres -d postgres';
+
+  test.each([
+    ['PGHOST', { PGHOST: 'evil.invalid' }],
+    ['PGHOSTADDR', { PGHOSTADDR: '192.0.2.1' }],
+    ['PGSERVICE', { PGSERVICE: 'evil' }],
+    ['PGSERVICEFILE', { PGSERVICEFILE: '/nonexistent/pg_service.conf' }],
+  ])('plant — %s beside the documented hatch never reaches docker (EU-1 b)', (name, extra) => {
+    const res = runSeed(LOCAL, { OPENBED_PSQL: DOCUMENTED, ...extra });
+    expect(res.log, `precondition: docker was never called, so this tests nothing:\n${res.out}`).toContain('CALL docker');
+    const envLines = res.log.split('\n').filter((l) => l.startsWith('ENV '));
+    expect(envLines.length, `no ENV line was recorded:\n${res.log}`).toBeGreaterThan(0);
+    for (const line of envLines) expect(line, `docker ran with ${name} set:\n${res.log}`).toContain(`${name}=<unset>`);
+  });
+
+  test('plant — the documented hatch runs with -X and ON_ERROR_STOP last (EU-1 b)', () => {
+    const res = runSeed(LOCAL, { OPENBED_PSQL: DOCUMENTED });
+    const calls = res.log.split('\n').filter((l) => l.startsWith('CALL docker'));
+    expect(calls.length, `docker was never called:\n${res.out}`).toBeGreaterThan(0);
+    for (const line of calls) {
+      expect(line, `the hatch ran without -X, so a psqlrc in the container could \\connect elsewhere:\n${res.log}`)
+        .toMatch(/ \[-X\] \[-v\] \[ON_ERROR_STOP=1\]$/);
+    }
+  });
+
+  test.each([
     // The most ordinary valid hatch: scripts/run_migrations.sh's own example.
-    const res = runSeed(pg('postgres:postgres@127.0.0.1:54322/postgres'), {
-      OPENBED_PSQL: 'docker exec -i supabase_db_OpenBed-NG psql -U postgres -d postgres',
-    });
-    expect(res.out, `the documented hatch was refused:\n${res.out}`).not.toContain('REFUSING');
+    ['the documented shape', DOCUMENTED, 'CALL docker [exec] [-i] [supabase_db_OpenBed-NG] [psql] [-U] [postgres] [-d] [postgres] [-X]'],
+    ['-d before -U', 'docker exec -i supabase_db_OpenBed-NG psql -d postgres -U postgres', 'CALL docker [exec] [-i] [supabase_db_OpenBed-NG] [psql] [-d] [postgres] [-U] [postgres] [-X]'],
+    ['the shape with neither flag', 'docker exec -i supabase_db_OpenBed-NG psql', 'CALL docker [exec] [-i] [supabase_db_OpenBed-NG] [psql] [-X]'],
+  ])('positive control — the OPENBED_PSQL hatch as %s is NOT refused, and is run (EU-1)', (_name, hatch, call) => {
+    const res = runSeed(LOCAL, { OPENBED_PSQL: hatch });
+    expect(res.out, `the hatch was refused:\n${res.out}`).not.toContain('REFUSING');
     expect(res.status, res.out).toBe(0);
-    expect(res.log, `the hatch was not run:\n${res.log}`).toContain('CALL docker [exec] [-i]');
+    expect(res.log, `the hatch was not run as given:\n${res.log}`).toContain(call);
+  });
+
+  // ---- R-2026-09-29-172, EV-1 d: nocasematch FROM THE ENVIRONMENT. bash imports BASHOPTS,
+  // so a caller can hand this script a shell in which `[[ == ]]`, `[[ =~ ]]` and `case` all
+  // match without regard to case. On 27751c5 a partly upper-cased hatch then passed the shape
+  // check and was run, and the scheme and host `case` checks were case-blind too.
+  //
+  // THE ENTRY IS NOT ALWAYS BASHOPTS. bash 4 and later import it; macOS's /bin/bash is 3.2,
+  // which has no BASHOPTS, so there `-O nocasematch` puts the same option on at entry. The
+  // helper below picks whichever mechanism this bash honours and FAILS LOUDLY when neither
+  // does, so a plant can never run against a shell it did not change.
+  function nocasematchEntry(): { env: Record<string, string>; args: string[] } {
+    const on = (env: Record<string, string>, args: string[]): boolean =>
+      spawnSync('bash', [...args, '-c', 'shopt -q nocasematch'], { env: { ...process.env, ...env } as NodeJS.ProcessEnv }).status === 0;
+    if (on({ BASHOPTS: 'nocasematch' }, [])) return { env: { BASHOPTS: 'nocasematch' }, args: [] };
+    if (on({}, ['-O', 'nocasematch'])) return { env: {}, args: ['-O', 'nocasematch'] };
+    throw new Error('neither BASHOPTS=nocasematch nor bash -O nocasematch turned nocasematch on in this bash, so the plants below would test nothing');
+  }
+
+  test('precondition — the nocasematch entry really turns the option on in the shell under test (EV-1 d)', () => {
+    const { env, args } = nocasematchEntry();
+    const res = spawnSync('bash', [...args, '-c', 'shopt nocasematch'], { encoding: 'utf8', env: { ...process.env, ...env } as NodeJS.ProcessEnv });
+    expect(res.stdout, `nocasematch was not on: ${res.stdout}${res.stderr}`).toMatch(/nocasematch\s+on/);
+  });
+
+  test.each([
+    ['an upper-case -I', 'docker exec -I supabase_db_x psql'],
+    ['an upper-case container prefix', 'docker exec -i SUPABASE_DB_x psql'],
+    ['an upper-case psql', 'docker exec -i supabase_db_x PSQL'],
+  ])('plant — under nocasematch an OPENBED_PSQL with %s is refused, and nothing is run (EV-1 d)', (_name, hatch) => {
+    const { env, args } = nocasematchEntry();
+    const res = runSeed(LOCAL, { OPENBED_PSQL: hatch, ...env }, args);
+    expect(res.status, `a case-folded hatch was accepted:\n${res.out}\n${res.log}`).toBe(2);
+    expect(res.out).toContain(HATCH_REFUSAL);
+    expect(res.log, `the hatch was run:\n${res.log}`).toBe('');
+  });
+
+  test('positive control — under nocasematch the documented hatch is still accepted and run (EV-1 d)', () => {
+    const { env, args } = nocasematchEntry();
+    const res = runSeed(LOCAL, { OPENBED_PSQL: DOCUMENTED, ...env }, args);
+    expect(res.out, `the documented hatch was refused under nocasematch:\n${res.out}`).not.toContain('REFUSING');
+    expect(res.status, res.out).toBe(0);
+    expect(res.log, `the hatch was not run:\n${res.log}`).toContain('CALL docker [exec] [-i] [supabase_db_OpenBed-NG] [psql] [-U] [postgres] [-d] [postgres] [-X]');
   });
 });

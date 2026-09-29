@@ -529,6 +529,46 @@ describe('leg evidence collector', () => {
     }
   });
 
+  // ---- R-2026-09-29-172, EV-1 e: WHICH SCRIPTS A TEST IS MAPPED TO, from the AST only.
+  // The mapping used to run three regexes over raw text, comments included, so a comment
+  // naming a script mapped the whole test to it and let its other literals credit that
+  // script's legs. Found on S-c: a test quoting a script's path among the paths its warning
+  // names credited a registered leg it never ran.
+  const mapped = (source: string): Map<string, string[]> => {
+    const dir = mkdtempSync(join(tmpdir(), 'openbed-legs-mapper-'));
+    try {
+      writeFileSync(join(dir, 'mapper.test.ts'), source, 'utf8');
+      return assertedByScript(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const MAPPER_CLAIM = 'a planted claim the mapper may credit';
+
+  test.each([
+    ['a line comment holding an UPPER_CASE const', `// const LINT = 'lint_planted.sh';\nexpect(out).toContain('${MAPPER_CLAIM}');`],
+    ['a block comment holding a runLint call', `/* runLint('lint_planted.sh', root) */\nexpect(out).toContain('${MAPPER_CLAIM}');`],
+    ['a line comment holding a quoted scripts/ path', `// run('scripts/lint_planted.sh') is the guard\nexpect(out).toContain('${MAPPER_CLAIM}');`],
+    ['a comment holding a join call', `// join(ROOT, 'scripts', 'lint_planted.sh')\nexpect(out).toContain('${MAPPER_CLAIM}');`],
+  ])('plant — %s maps the test to no script, so none of its literals credit a leg (EV-1 e)', (_name, source) => {
+    expect([...mapped(source).keys()], 'a comment mapped the test to a script').toEqual([]);
+  });
+
+  test.each([
+    ['an UPPER_CASE const initialised by a script name', "const LINT = 'lint_planted.sh';"],
+    ['the first literal argument of runLint', "runLint('lint_planted.sh', root);"],
+    ['a string literal beginning scripts/', "const p = ['scripts', 'lint_planted.sh'].join('/'); run('scripts/lint_planted.sh');"],
+    ['a join call ending in scripts and the name', "const p = join(REPO_ROOT, 'scripts', 'lint_planted.sh');"],
+  ])('positive control — %s maps the test to the script and credits its literals (EV-1 e)', (_name, spelling) => {
+    const claims = mapped(`${spelling}\nexpect(out).toContain('${MAPPER_CLAIM}');`).get('lint_planted.sh') ?? [];
+    expect(claims, 'the spelling did not map the test to the script').toContain(MAPPER_CLAIM);
+  });
+
+  test('a join call whose last two arguments are not scripts and a name maps to nothing (EV-1 e)', () => {
+    const src = `const a = join(ROOT, 'other', 'lint_planted.sh'); const b = join(ROOT, 'scripts');\nexpect(out).toContain('${MAPPER_CLAIM}');`;
+    expect([...mapped(src).keys()]).toEqual([]);
+  });
+
   test('plant — a test file that will not parse FAILS rather than crediting nothing', () => {
     expect(() => stringLiteralsInCode("expect(out).toContain('unterminated", 'broken.test.ts')).toThrow(
       'leg evidence collector could not parse this test file, so its assertions were never collected',
