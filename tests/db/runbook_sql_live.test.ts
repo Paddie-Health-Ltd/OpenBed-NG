@@ -31,19 +31,29 @@ import { BLOCKS, commandFenceAt, fingerprint, runFence, shown, tables, type Bloc
  *   - RUN-HERE: everything else, run below. A fence added to a runbook lands here unaided.
  * WHAT A RUN-HERE FENCE MAY HOLD (R-2026-09-29-166, EP-1). Every RUN-HERE fence, with or without
  * an expectation, is a STOP naming the fence and the offending line if:
- *   a) a line outside a quoted heredoc body is not one of: the PATH line; `psql --version`; a
- *      line starting `psql "$DATABASE_URL"` with, outside its quotes, no ; & | < > or backtick
+ *   a) a line outside a quoted heredoc body is not one of: the PATH line; exactly
+ *      `psql --version`; a psql line that passes the WORD RULE (below); `unset` and variable
+ *      names only; exactly the dry run; exactly the grants read-back. Blank lines run nothing
+ *      and are skipped. A psql line also holds, outside its quotes, no ; & | < > or backtick
  *      (its own heredoc opener aside), and no backtick or $( outside single quotes, since the
- *      shell runs those inside double quotes too; `unset` and variable names only; exactly the
- *      dry run; exactly the grants read-back. Blank lines run nothing and are skipped;
- *   b) the body, heredocs and -c strings included, holds `://`: a RUN-HERE fence never leaves
- *      the local stack;
- *   c) the body holds a psql meta-command (\!, \c, \connect, \i, \ir, \o, \copy, \g, \gexec),
- *      which psql runs even from a quoted heredoc.
+ *      shell runs those inside double quotes too;
+ *   b) the body, heredocs and -c strings included, holds `://`, which a RUN-HERE fence may not;
+ *   c) the body, heredocs and -c strings included, holds a backslash followed by a letter or `!`
+ *      (\!, \out, \include_relative …): psql reads each as a meta-command, even from a quoted
+ *      heredoc (R-2026-09-29-167, EQ-2).
+ * THE WORD RULE (R-2026-09-29-167, EQ-1) pins where psql connects. A psql line's second word is
+ * exactly "$DATABASE_URL", ending at a space or the line's end, so no ?host=, ?hostaddr= or
+ * ?port= reaches the URI. Every later word is -v NAME=VALUE (VALUE one whole quoted word or
+ * [A-Za-z0-9_]+), or -c, -tAc or -Atc followed by one whole quoted word, or its own heredoc
+ * opener as the last word. So -d, -h and every other option are refused, naming the word, and
+ * an unterminated quote is refused.
  * And a fence running the dry run or the grants read-back that no expectation names is a STOP:
  * what it prints has not been ruled.
  *
- * HOW A FENCE RUNS. No fence in this file runs over a broken partition: an EXCLUDED anchor that
+ * HOW A FENCE RUNS. Before any spawn, runOne() refuses a DATABASE_URL that does not parse,
+ * names a host other than 127.0.0.1 or localhost, or carries a query string, and an environment
+ * holding any key outside FENCE_KEYS (R-2026-09-29-167, EQ-3). No fence in this file runs over
+ * a broken partition: an EXCLUDED anchor that
  * stopped matching would drop a real apply, or a call to hosted, into RUN-HERE. Every spawn in
  * this file goes through runGated(), the write plant's included (R-2026-09-29-166, EP-3), and a
  * plant below proves the refusal. The five LIVE fences run in
@@ -114,6 +124,10 @@ import { BLOCKS, commandFenceAt, fingerprint, runFence, shown, tables, type Bloc
  *   - Sequence values. A rolled-back insert still consumes an id (3267's probe does, observed
  *     at audit_log id 213 on the first run), and the fingerprint hashes rows, not sequences.
  *   - How zsh treats a paste. tests/compliance/runbook_read_pasted_alone.test.ts holds that.
+ *   - SQL that opens its own connection (R-2026-09-29-167, EQ-4). Rules (a) to (c), the word
+ *     rule and the spawn check pin psql's own connection and the shell. They do not stop a
+ *     statement from connecting elsewhere itself: dblink or postgres_fdw with a 'host=…' string,
+ *     or pg_net with a URL built by concatenation. No current fence uses any of them.
  *
  * LIVE: the SQL it runs exists now. It runs in the db-tests job.
  */
@@ -265,7 +279,8 @@ export function corpus(docs: readonly Doc[]): { fences: CorpusFence[]; errors: s
 const DRY_RUN_LINE = 'bash scripts/run_migrations.sh --dry-run';
 const GRANTS_LINE = 'bash scripts/readback_function_grants.sh';
 const HEREDOC = /<<-?\s*(?:(['"])(\w+)\1|\\(\w+)|(\w+))/;
-const META = /\\(?:!|connect|copy|gexec|ir|i|o|c|g)(?![A-Za-z])/;
+/** Any backslash followed by a letter or `!`: psql reads each as a meta-command (EQ-2). */
+const META = /\\(?:[A-Za-z][A-Za-z_]*|!)/;
 
 /** Why a `psql "$DATABASE_URL"` line is not clean, or null. Its own trailing heredoc opener is allowed. */
 function psqlLineOffence(line: string): string | null {
@@ -285,11 +300,64 @@ function psqlLineOffence(line: string): string | null {
   return null;
 }
 
+/** A shell line's words, each keeping its quotes, or null when a quote never closes. */
+function shellWords(line: string): string[] | null {
+  const words: string[] = [];
+  let cur = '';
+  let quote: string | null = null;
+  for (let i = 0; i < line.length; i += 1) {
+    const c = line[i] ?? '';
+    if (quote !== null) {
+      cur += c;
+      if (c === '\\' && quote === '"') { cur += line[i + 1] ?? ''; i += 1; continue; }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'") { quote = c; cur += c; continue; }
+    if (c === '\\') { cur += c + (line[i + 1] ?? ''); i += 1; continue; }
+    if (/\s/.test(c)) { if (cur !== '') words.push(cur); cur = ''; continue; }
+    cur += c;
+  }
+  if (quote !== null) return null;
+  if (cur !== '') words.push(cur);
+  return words;
+}
+
+const WHOLE_QUOTED = /^(?:"(?:[^"\\]|\\.)*"|'[^']*')$/;
+const V_ASSIGN = /^[A-Za-z_][A-Za-z0-9_]*=(?:[A-Za-z0-9_]+|"(?:[^"\\]|\\.)*"|'[^']*')$/;
+const HEREDOC_WORD = /^<<-?(?:'\w+'|"\w+"|\\\w+|\w+)$/;
+
+/**
+ * THE WORD RULE (R-2026-09-29-167, EQ-1): why a `psql "$DATABASE_URL"` line may connect
+ * somewhere else, or null. It names the word it refuses.
+ */
+function psqlWordOffence(line: string): string | null {
+  const w = shellWords(line);
+  if (w === null) return 'it has an unterminated quote';
+  if (w[1] !== '"$DATABASE_URL"') return `its second word is ${w[1] ?? '(none)'}, not exactly "$DATABASE_URL"`;
+  for (let i = 2; i < w.length; i += 1) {
+    const word = w[i] as string;
+    const next = w[i + 1];
+    if (word === '-v') {
+      if (next === undefined || !V_ASSIGN.test(next)) return `the word -v ${next ?? '(none)'} is not -v NAME=VALUE`;
+      i += 1;
+    } else if (word === '-c' || word === '-tAc' || word === '-Atc') {
+      if (next === undefined || !WHOLE_QUOTED.test(next)) return `the word ${word} ${next ?? '(none)'} is not followed by one whole quoted word`;
+      i += 1;
+    } else if (HEREDOC_WORD.test(word) && i === w.length - 1) {
+      // its own heredoc opener, as the last word
+    } else {
+      return `the word ${word} is not one a psql line may hold`;
+    }
+  }
+  return null;
+}
+
 /** Why an outer line may not stand in a RUN-HERE fence, or null (EP-1 a). */
 function outerLineOffence(line: string): string | null {
   if (line === PATH_LINE || line === 'psql --version' || line === DRY_RUN_LINE || line === GRANTS_LINE) return null;
   if (/^unset( [A-Za-z_][A-Za-z0-9_]*)+$/.test(line)) return null;
-  if (line.startsWith('psql "$DATABASE_URL"')) return psqlLineOffence(line);
+  if (line.startsWith('psql "$DATABASE_URL"')) return psqlLineOffence(line) ?? psqlWordOffence(line);
   return 'it is not one of the lines a RUN-HERE fence may hold';
 }
 
@@ -304,7 +372,7 @@ export function runHereStops(f: CorpusFence, hasExpectation: boolean): string[] 
   let heredoc: { word: string; quoted: boolean } | null = null;
   body.forEach((line, i) => {
     const where = `${keyOf(f)}, at ${at(i)}: "${line}"`;
-    if (line.includes('://')) out.push(`STOP (b): ${where} holds a URL ("://"); a RUN-HERE fence never leaves the local stack`);
+    if (line.includes('://')) out.push(`STOP (b): ${where} holds a URL ("://"), which a RUN-HERE fence may not`);
     const m = META.exec(line);
     if (m !== null) out.push(`STOP (c): ${where} holds the psql meta-command ${m[0]}, which psql runs even from a quoted heredoc`);
     if (heredoc !== null) {
@@ -469,6 +537,9 @@ export function classify(where: string, r: Run, exp?: Expectation): string[] {
   return out;
 }
 
+/** Every key a fence's environment may hold (EQ-3). LANG only when the process has one. */
+const FENCE_KEYS = new Set(['PATH', 'LANG', 'LC_MESSAGES', 'HOME', 'PSQLRC', 'DATABASE_URL', 'PGOPTIONS', 'FACILITY_ID', 'PROBE', 'APPLY_TS']);
+
 /** The environment a fence runs in: an allowlist, never process.env. */
 export function fenceBase(home: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {
@@ -489,7 +560,20 @@ export function fenceBase(home: string): NodeJS.ProcessEnv {
 /** A ```sql fence runs through psql on stdin, under bash like every other fence. */
 const script = (f: CorpusFence): string => (f.label === 'sql' ? `psql "$DATABASE_URL" <<'OPENBED_SQL_FENCE'\n${f.body}\nOPENBED_SQL_FENCE` : f.body);
 
-/** One fence, through the whole pipeline: the name scan, the run, the classifier. */
+/** Why a DATABASE_URL could reach anything but the local stack, or null. Never throws. */
+function targetOffence(url: string): string | null {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return `its DATABASE_URL (${url}) does not parse as a URL`;
+  }
+  if (!LOCAL_HOSTS.includes(u.hostname)) return `its DATABASE_URL names the host ${u.hostname}, not the local stack`;
+  if (u.search !== '') return `its DATABASE_URL carries a query string (${u.search})`;
+  return null;
+}
+
+/** One fence, through the whole pipeline: the name scan, the spawn check, the run, the classifier. */
 let spawnsTotal = 0;
 
 function runOne(f: CorpusFence, exp: Expectation | undefined, base: NodeJS.ProcessEnv, env: Record<string, string> = {}): { violations: string[]; run?: Run } {
@@ -498,6 +582,12 @@ function runOne(f: CorpusFence, exp: Expectation | undefined, base: NodeJS.Proce
   if (unknown.length > 0) {
     return { violations: unknown.map((n) => `${where}: it expands $${n}, which is not DATABASE_URL, PATH or an inert value, so it was not run`) };
   }
+  // THE SPAWN CHECK (R-2026-09-29-167, EQ-3): where this fence will connect, and what reaches
+  // it, read from the environment runFence will build: base, then DATABASE_URL, then env.
+  const target = targetOffence(env['DATABASE_URL'] ?? dbUrl());
+  if (target !== null) return { violations: [`${where}: ${target}, so it was not run`] };
+  const extra = Object.keys({ ...base, DATABASE_URL: dbUrl(), ...env }).filter((k) => !FENCE_KEYS.has(k)).sort();
+  if (extra.length > 0) return { violations: [`${where}: its environment holds ${extra.join(', ')}, outside the allowlist, so it was not run`] };
   spawnsTotal += 1;
   const r = runFence(script(f), env, { base, cwd: REPO_ROOT });
   return { violations: classify(where, r, exp), run: r };
@@ -579,6 +669,7 @@ describe('the partition of the runbooks\' psql and sql fences', () => {
       `EXCLUDED ${REAL.excluded.length}: ${REAL.excluded.map((x) => `"${x.entry.anchor}" (${keyOf(x.fence)}: ${x.entry.reason})`).join('; ')}`,
       `RUN-HERE ${REAL.runHere.length}: ${REAL.runHere.map((f) => `${keyOf(f)} [${REAL.expectation.get(keyOf(f))?.anchor ?? headingOf(DOCS, f)}]`).join('; ')}`,
       `EP-1's rule over the ${REAL.runHere.length} RUN-HERE fences: ${REAL.runHere.reduce((n, f) => n + script(f).split('\n').length, 0)} lines read, ${REAL.runHere.flatMap((f) => runHereStops(f, REAL.expectation.has(keyOf(f)))).length} STOPs`,
+      `EQ-1's word rule over the same fences: ${REAL.runHere.flatMap((f) => script(f).split('\n')).filter((l) => l.startsWith('psql "$DATABASE_URL"')).length} psql lines read, ${REAL.runHere.flatMap((f) => script(f).split('\n')).filter((l) => l.startsWith('psql "$DATABASE_URL"') && psqlWordOffence(l) !== null).length} refused`,
     ].join('\n'));
   });
 
@@ -657,7 +748,7 @@ describe('the partition of the runbooks\' psql and sql fences', () => {
     const psqlLine = `psql "$DATABASE_URL" -tAc "select count(*) from app.ward_account where role = 'PLATFORM_ADMIN' and is_active"`;
     const { p, changed } = planted(plantInFence(DOCS[0]?.text ?? '', g.line, psqlLine, `${psqlLine}\n${added}`));
     expect(changed.map(keyOf), 'the plant did not land in exactly that fence').toEqual([keyOf(g)]);
-    expect(p.errors).toEqual([`STOP (b): ${keyOf(g)}, at ${at(g.line + 3)}: "${added}" holds a URL ("://"); a RUN-HERE fence never leaves the local stack`]);
+    expect(p.errors).toEqual([`STOP (b): ${keyOf(g)}, at ${at(g.line + 3)}: "${added}" holds a URL ("://"), which a RUN-HERE fence may not`]);
   });
 
   test('plant (c) — 3267 with a \\! meta-command inside its quoted heredoc is a STOP', () => {
@@ -667,12 +758,37 @@ describe('the partition of the runbooks\' psql and sql fences', () => {
     expect(p.errors).toEqual([`STOP (c): ${keyOf(f)}, at ${at(f.line + 4)}: "\\! true" holds the psql meta-command \\!, which psql runs even from a quoted heredoc`]);
   });
 
+  test.each([
+    ['?host=db.example.invalid joined onto "$DATABASE_URL"', 'psql "$DATABASE_URL"?host=db.example.invalid -tAc', 'its second word is "$DATABASE_URL"?host=db.example.invalid, not exactly "$DATABASE_URL"'],
+    ['?hostaddr=192.0.2.1 joined onto "$DATABASE_URL"', 'psql "$DATABASE_URL"?hostaddr=192.0.2.1 -tAc', 'its second word is "$DATABASE_URL"?hostaddr=192.0.2.1, not exactly "$DATABASE_URL"'],
+    ['-d "host=db.example.invalid dbname=postgres" after it', 'psql "$DATABASE_URL" -d "host=db.example.invalid dbname=postgres" -tAc', 'the word -d is not one a psql line may hold'],
+    // Not a redirect: the URI's host overrides -h. A plant for the word rule, nothing more.
+    ['-h db.example.invalid after it', 'psql "$DATABASE_URL" -h db.example.invalid -tAc', 'the word -h is not one a psql line may hold'],
+  ])('plant (a), the word rule — 897 with %s is a STOP naming the word', (_what, head, message) => {
+    const f = fenceAt('**HOW TO CHECK THE CONDITION, rather than remembering it.**');
+    const { p, changed } = planted(plantInFence(DOCS[0]?.text ?? '', f.line, 'psql "$DATABASE_URL" -tAc', head));
+    expect(changed.map(keyOf), 'the plant did not land in exactly that fence').toEqual([keyOf(f)]);
+    const line = (changed[0]?.body.split('\n') ?? [])[1] ?? '';
+    expect(line.startsWith(`${head} "select (select count(*) from app.facility)`), 'the plant did not land on the psql line').toBe(true);
+    expect(p.errors).toEqual([`STOP (a): ${keyOf(f)}, at ${at(f.line + 2)}: "${line}": ${message}`]);
+  });
+
+  test.each([
+    ['\\out |bash scripts/run_migrations.sh', '\\out'],
+    ['\\include_relative x.sql', '\\include_relative'],
+  ])('plant (c) — 3267 with %s inside its quoted heredoc is a STOP naming the sequence', (planted_, seq) => {
+    const f = fenceAt('### The probe — run verbatim, connected with `DATABASE_URL` (step P first)');
+    const { p, changed } = planted(plantInFence(DOCS[0]?.text ?? '', f.line, 'begin;', `begin;\n${planted_}`));
+    expect(changed.map(keyOf), 'the plant did not land in exactly that fence').toEqual([keyOf(f)]);
+    expect(p.errors).toEqual([`STOP (c): ${keyOf(f)}, at ${at(f.line + 4)}: "${planted_}" holds the psql meta-command ${seq}, which psql runs even from a quoted heredoc`]);
+  });
+
   test('plant (a)+(b) — an appended fence reading hosted is a STOP under both rules', () => {
     const readback = 'bash scripts/readback_public_output.sh https://openbed.ng';
     const { p, key, line } = appended(`\`\`\`bash\n${PATH_LINE}\n# read the hosted output\n${readback}\nunset DATABASE_URL\n\`\`\``);
     expect(p.errors).toEqual([
       `STOP (a): ${key}, at ${at(line + 2)}: "# read the hosted output": it is not one of the lines a RUN-HERE fence may hold`,
-      `STOP (b): ${key}, at ${at(line + 3)}: "${readback}" holds a URL ("://"); a RUN-HERE fence never leaves the local stack`,
+      `STOP (b): ${key}, at ${at(line + 3)}: "${readback}" holds a URL ("://"), which a RUN-HERE fence may not`,
       `STOP (a): ${key}, at ${at(line + 3)}: "${readback}": it is not one of the lines a RUN-HERE fence may hold`,
     ]);
   });
@@ -683,7 +799,7 @@ describe('the partition of the runbooks\' psql and sql fences', () => {
     const { p, changed } = planted(plantInFence(DOCS[0]?.text ?? '', f.line, 'unset DATABASE_URL', `${readback}\nunset DATABASE_URL`));
     expect(changed.map(keyOf), 'the plant did not land in exactly that fence').toEqual([keyOf(f)]);
     expect(p.errors).toEqual([
-      `STOP (b): ${keyOf(f)}, at ${at(f.line + 4)}: "${readback}" holds a URL ("://"); a RUN-HERE fence never leaves the local stack`,
+      `STOP (b): ${keyOf(f)}, at ${at(f.line + 4)}: "${readback}" holds a URL ("://"), which a RUN-HERE fence may not`,
       `STOP (a): ${keyOf(f)}, at ${at(f.line + 4)}: "${readback}": it is not one of the lines a RUN-HERE fence may hold`,
     ]);
   });
@@ -856,6 +972,20 @@ describe('plants: each runs only its planted fence, from a copy of the runbook',
     expect(violations, run === undefined ? '' : shown(run)).toEqual([]);
     expect(run?.stdout).toContain('planted_one');
   });
+
+  test.each([
+    // No password in this URL: scripts/lint_no_secrets.sh refuses a Postgres URL with one on any
+    // host but the local stack, and the host is all the spawn check reads.
+    ['a DATABASE_URL naming another host', { DATABASE_URL: 'postgresql://postgres@db.example.invalid:5432/postgres' }, 'its DATABASE_URL names the host db.example.invalid, not the local stack'],
+    ['the local URL with ?host=db.example.invalid', { DATABASE_URL: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres?host=db.example.invalid' }, 'its DATABASE_URL carries a query string (?host=db.example.invalid)'],
+    ['a DATABASE_URL that does not parse as a URL', { DATABASE_URL: 'host=127.0.0.1 port=54322' }, 'its DATABASE_URL (host=127.0.0.1 port=54322) does not parse as a URL'],
+    ['PGHOSTADDR beside the local URL', { PGHOSTADDR: '192.0.2.1' }, 'its environment holds PGHOSTADDR, outside the allowlist'],
+  ] as const)('plant — the spawn check refuses 897 with %s, and it is not run', (_what, env, message) => {
+    const f = fenceAt('**HOW TO CHECK THE CONDITION, rather than remembering it.**');
+    const { violations, run } = runGated(REAL, f, BASE, { ...env });
+    expect(run, `a fence was run with ${JSON.stringify(env)}`).toBeUndefined();
+    expect(violations).toEqual([`${keyOf(f)}: ${message}, so it was not run`]);
+  }, 90_000);
 
   test('plant — 897 against a closed port is red, naming psql: error', () => {
     const f = fenceAt('**HOW TO CHECK THE CONDITION, rather than remembering it.**');

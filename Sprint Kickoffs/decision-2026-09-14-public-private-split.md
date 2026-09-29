@@ -9950,9 +9950,9 @@ _Issued as R-PROVISIONAL-2026-09-29-EP, by Cowork on 2026-09-29, after its revie
 **EP-0:** adopted as issued. `runGated()` stays, and EP-3 finishes it.
 
 **EP-1: THE STOP RULE FOR EVERY RUN-HERE FENCE. LANDED. THE GAP WAS COWORK'S, IN EO-1 b.** `scriptShaped()` is gone: no EXCLUDED shape used it. `runHereStops()` reads each RUN-HERE fence as it runs (a ```sql fence in its psql heredoc) and returns one STOP per offending line, naming the fence and the line.
-- **(a)** A line outside a quoted heredoc body must be one of the six forms.
+- **(a)** A line outside a quoted heredoc body must be one of the six forms. *Corrected by -167 (EQ-1): a psql line must also pass the word rule, which pins where psql connects. Its second word is exactly `"$DATABASE_URL"`, and every later word is `-v NAME=VALUE`, `-c`, `-tAc` or `-Atc` with one whole quoted word, or its heredoc opener.*
 - **(b)** `://` anywhere is a STOP.
-- **(c)** A psql meta-command anywhere is a STOP: `\!`, `\c`, `\connect`, `\i`, `\ir`, `\o`, `\copy`, `\g` or `\gexec`, each followed by a non-letter.
+- **(c)** A psql meta-command anywhere is a STOP: `\!`, `\c`, `\connect`, `\i`, `\ir`, `\o`, `\copy`, `\g` or `\gexec`, each followed by a non-letter. *Corrected by -167 (EQ-2): that list missed the long forms (`\out`, `\include_relative` and others). The rule is now any backslash followed by a letter or `!`.*
 - **The ruled-script STOP stays, with corrected words.** A dry-run or grants line that no expectation names is still a STOP, and its message now names the line itself. It used to print `lines[1]`.
 - **Three tightenings of EP-1's letter. None widens the list; each is named here for Cowork's check.**
   1. A `psql "$DATABASE_URL"` line refuses a backtick or `$(` inside double quotes too. The shell runs those there, so `-c "$(bash scripts/run_migrations.sh)"` passes the letter as written. A plant holds it.
@@ -10045,6 +10045,194 @@ The classifier row also reddened the two 897-based plants, whose planted text it
 **EP-6:** EP-1 and EP-2 are recorded above as gaps in EO, which makes them Cowork's. EP-3's claim is recorded as my slip, in the report and in -165. -165's built part is corrected in two places (its STOP bullet, and its broken-partition claim), each with a note naming this entry. EO as issued is untouched. The survey row's Gate cell now reads "… item 2's runbook SQL in S-b (R-2026-09-29-165, -166); the evidence tables and the charter in S-c". Recounted from the table: **59** (15 BOX, 33 TRIGGER, 11 VERSION). No row lands or leaves.
 
 Nothing hosted, and S-c is not started. Next letter: **EQ**, the merge word.
+
+### R-2026-09-29-167 — #104 (S-b) reviewed again: where psql connects, every meta-command, and a check at the point of spawn
+
+_Issued as R-PROVISIONAL-2026-09-29-EQ, by Cowork on 2026-09-29, after its second review of #104 at `993e0a3` (a staff engineer and a QA reviewer reviewed it independently, against psql 16 and libpq, before it was pasted). Landed in #104 as a further commit. Number assigned on landing: R-2026-09-29-166 plus one. EP named EQ as the merge word; EQ moves it. Next provisional letter: **ER**, the merge word._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-29-EQ — #104 (S-b): SECOND REVIEW, AND ONE MORE COMMIT
+> EQ lands in #104 as -167, after -166, together with the commit it asks for. Next letter: ER, the
+> merge word. (EP named EQ as the merge word. The merge word is now ER.)
+> A staff engineer and a QA reviewer reviewed this letter independently before it was pasted. They
+> checked it against psql 16 and libpq. Their findings are folded into EQ-1 to EQ-3.
+>
+> READ BY COWORK, from its own clone at 993e0a33a051d66cb7a72c0086e657997eb683a7:
+> - One commit on b79997e, touching two paths. The branch still touches the same 11 paths.
+> - The partition is clean. EP-1's rule reads all 29 RUN-HERE fences with no STOP.
+> - Cowork's own neuters give the same reds you report:
+>   - rule (a) reddened its three plants and both (a)+(b) plants;
+>   - rule (b) reddened its plant and both (a)+(b) plants;
+>   - 4717's new condition reddened its leg.
+>   The restored file is green, 36 of 36 in the partition's describe.
+> - The compliance project reads 1632 of 1859, the same as on b79997e. All 227 failures still come
+>   from Cowork's environment: 156 on commit signing, and 71 needing a build.
+> - ACCEPTED AS REPORTED:
+>   - your three tightenings of rule (a): command substitution inside double quotes, unset with
+>     variable names only, and blank lines skipped;
+>   - the gated write plant, and the re-run ledger row reading "fences spawned in this file: 0";
+>   - the digests;
+>   - 2742 ZERO-RED on a fresh database;
+>   - the seven checks on 993e0a3;
+>   - the Standard O hits, each paired.
+> - NOT VERIFIED BY COWORK: the db project and CI. Cowork has no database, and it gets 403 from the
+>   API.
+>
+> EQ-1  PSQL'S CONNECTION TARGET IS NOT PINNED. THE GAP IS COWORK'S, IN EP-1 a.
+>   - Your classifier ledger row planted `psql "$DATABASE_URL"?port=1`. It passed rule (a), and it
+>     changed where psql connected. The same form reaches any host. Each of these, on a copy of 897,
+>     partitions with no errors, and each redirects psql (checked against psql 16):
+>     - `"$DATABASE_URL"?host=db.example.invalid`, because a URI query parameter overrides the host;
+>     - `"$DATABASE_URL"?hostaddr=192.0.2.1`, the same way;
+>     - `psql "$DATABASE_URL" -d "host=db.example.invalid dbname=postgres"`, because psql's -d wins
+>       and the positional URL becomes the user name.
+>     None holds `://`, so rule (b) does not see them.
+>   - THE FIX: a WORD RULE for lines starting `psql "$DATABASE_URL"`. `psql --version` stays an
+>     exact match and is not governed by it. Such a line passes only if:
+>     - its second word is exactly `"$DATABASE_URL"`, ending at a space or at the end of the line;
+>     - every later word is one of:
+>       - `-v NAME=VALUE`. NAME is an identifier. VALUE is either one whole quoted word or
+>         [A-Za-z0-9_]+ unquoted, so no brace or glob expansion reaches it;
+>       - `-c`, `-tAc` or `-Atc`, each followed by exactly one whole quoted word;
+>       - its own heredoc opener, as the last word.
+>     - it has no unterminated quote.
+>   - TODAY'S 29 FENCES use only these shapes: `-tAc "…"`, `-Atc "…"`, `-c "…"`, `-v ON_ERROR_STOP=1`
+>     before `-c`, `-tAc` or a heredoc, `-v apply_ts="…"` before a heredoc, and a bare heredoc.
+>     Report the result as computed. If a current line fails, STOP and report it. Do not widen the
+>     list without a ruling. The message names the word refused.
+>   - PLANTS on 897's psql line. Each is a STOP (a) naming the line and the word refused:
+>     - `?host=db.example.invalid` joined onto `"$DATABASE_URL"`;
+>     - `?hostaddr=192.0.2.1` joined onto it;
+>     - `-d "host=db.example.invalid dbname=postgres"` after it;
+>     - `-h db.example.invalid` after it. This one does NOT redirect, because the URI's host
+>       overrides -h. It is a plant for the word rule, so do not report it as a redirect.
+>     RED FIRST: neuter the word rule, and show that the four go red.
+>
+> EQ-2  RULE (c) FAILS OPEN ON THE LONG-FORM META-COMMANDS. FOUND BY THE REVIEW; EP MISSED IT.
+>   - META misses `\out`, `\include`, `\include_relative`, `\gx`, `\w`, `\write`, `\setenv`,
+>     `\lo_import`, `\s`, `\cd` and `\password`. Each, planted in 3267's quoted heredoc, partitions
+>     with no errors. `\out |bash scripts/run_migrations.sh` would be a real apply, and
+>     `\out |psql -h …` leaves the stack with no `://`.
+>   - THE FIX: any backslash followed by a letter or `!`, anywhere in the body, is a STOP (c). None of
+>     the 29 fences holds one. The message names the sequence.
+>   - PLANTS: `\out |bash scripts/run_migrations.sh` and `\include_relative x.sql` in 3267's
+>     heredoc, each a STOP (c). Keep the `\!` plant. RED FIRST: neuter the new pattern.
+>
+> EQ-3  THE LOCAL-STACK CHECK SITS IN beforeAll, BUT A SPAWN CAN CARRY ANOTHER TARGET.
+>   - beforeAll checks dbUrl() once. But runGated() and runOne() now take an env, and runFence builds
+>     `{ ...base, DATABASE_URL: dbUrl(), ...env }` (tests/setup/runbook.ts:101). Nothing at the point
+>     of spawn checks where the fence will connect. PGHOSTADDR=192.0.2.1 next to the local URL
+>     redirects psql, and OPENBED_PSQL changes what run_migrations.sh runs.
+>   - THE FIX, in runOne(), before it spawns. It refuses, with a named violation and no spawn, if:
+>     - the value runFence will pass, `env.DATABASE_URL ?? dbUrl()`, does not parse as a URL, or
+>       its host is not 127.0.0.1 or localhost, or it has a query string. The port is free, so
+>       your closed-port plant still runs. A value that does not parse is a named refusal, never a
+>       throw;
+>     - the final environment (base, then DATABASE_URL, then env) holds any key outside
+>       fenceBase()'s keys.
+>   - PLANTS, over REAL, each not run and named:
+>     - DATABASE_URL at `postgresql://postgres@db.example.invalid:5432/postgres` [the letter's password segment removed; see the note below];
+>     - the local URL with `?host=db.example.invalid`;
+>     - `host=127.0.0.1 port=54322`, which does not parse as a URL;
+>     - env `{ PGHOSTADDR: '192.0.2.1' }`.
+>     RED FIRST: neuter each of the two conditions in turn.
+>
+> EQ-4  SCOPE THE CLAIM. Rules (a) to (c) and EQ-3 pin psql's own connection and the shell. They do
+>   not stop SQL from opening its own connection: dblink or postgres_fdw with a `'host=…'` string,
+>   or pg_net with a URL built by concatenation. No current fence uses any of these. Say so, under
+>   the header's NOT ASSERTED HERE, and word the header's claim to match.
+>
+> EQ-5  RECORD AND REGISTER.
+>   - -167 holds:
+>     - EQ as issued;
+>     - what was built;
+>     - red first, then green, for EQ-1 to EQ-3;
+>     - EQ-1's result over the 29 fences.
+>   - It records EQ-1 and EQ-2 as gaps in EP's rule, which makes them Cowork's.
+>   - Correct the header's wording of rules (a) and (c) to match, in the file and in -166's built
+>     text. Never touch EP as issued.
+>   - Standard P: behavioural-pass ledger rows for the word rule, for rule (c) and for the spawn
+>     check, each planted in a tracked file on disk and restored with its sha256 checked. For the
+>     word rule, plant 897's line with `?host=` in the runbook, and report the STOP and 0 spawns.
+>   - Add a ledger row for EQ.
+>   - In the survey row's Gate cell, "(R-2026-09-29-165, -166)" becomes "(R-2026-09-29-165, -166,
+>     -167)". The register stays at 59. Recount it from the table.
+>
+> EQ-6  THE REPORT, then STOP for ER, the merge word.
+>   - The commit; git log --oneline origin/main..HEAD; git diff -M --name-status origin/main...HEAD.
+>   - EQ-1: the result over the 29 fences, each plant's message, the neutered line and its reds.
+>   - EQ-2 and EQ-3: each plant's message, each neutered line and its reds.
+>   - The ledger rows.
+>   - Standard O's removed-assertion grep over this commit, with each hit paired.
+>   - The test count against 2742, ZERO-RED on a fresh database, and the uid of the run.
+>   - The leg register (still 342/315/27), and the register by kind.
+>   - The seven required checks on the new head, each quoted, with db-tests' duration.
+>   Nothing hosted. Do not merge. Do not start S-c.
+
+**One edit to EQ as quoted above, and why.** EQ-3's first plant URL is quoted without its password segment. The letter gave the user `postgres` a password of `postgres` on the host db.example.invalid. `scripts/lint_no_secrets.sh` refuses any Postgres URL with a password on a host other than 127.0.0.1, localhost or `db`, and it has no threshold. The line fails the secret gate however it is quoted, and allowlisting the record would widen a security control without a ruling. The spawn check reads only the host, so the test's plant uses the same form, and the refusal it proves is unchanged. This is the only change to EQ's text. It is put to Cowork.
+
+**EQ-1: THE WORD RULE. LANDED. THE GAP WAS COWORK'S, IN EP-1 a.**
+- `psqlWordOffence()` splits a `psql "$DATABASE_URL"` line into shell words, each keeping its quotes, so `"$DATABASE_URL"?port=1` is one word. It refuses the line, naming the word, if:
+  - a quote never closes;
+  - the second word is not exactly `"$DATABASE_URL"`;
+  - any later word is not `-v NAME=VALUE` (VALUE being `[A-Za-z0-9_]+` or one whole quoted word), not `-c`, `-tAc` or `-Atc` followed by one whole quoted word, and not its own heredoc opener as the last word.
+- `outerLineOffence()` runs EP's character scan first and the word rule second, so EP's plants keep their messages. `psql --version` stays an exact match.
+- **Over the 29 RUN-HERE fences:** the word rule read 37 psql lines and refused none (`EQ-1's word rule over the same fences: 37 psql lines read, 0 refused`). Combined, the rule read 213 lines and found 0 STOPs.
+- **The plants,** on 897's psql line, each `STOP (a): …:897, at …:899: "<the line>": <the word>`:
+  - `?host=db.example.invalid` joined on: `its second word is "$DATABASE_URL"?host=db.example.invalid, not exactly "$DATABASE_URL"`;
+  - `?hostaddr=192.0.2.1` joined on: the same, naming `"$DATABASE_URL"?hostaddr=192.0.2.1`;
+  - `-d "host=db.example.invalid dbname=postgres"` after it: `the word -d is not one a psql line may hold`;
+  - `-h db.example.invalid` after it: `the word -h is not one a psql line may hold`. This is a plant for the word rule, not a redirect, because the URI's host overrides `-h`.
+- **Red first:** N13 turns `return psqlLineOffence(line) ?? psqlWordOffence(line);` into `?? null`, and the four go red with `expected [] to deeply equal [ Array(1) ]`.
+
+**EQ-2: RULE (c) IS ANY BACKSLASH FOLLOWED BY A LETTER OR `!`. LANDED. THE GAP WAS COWORK'S, IN EP-1 c.**
+- `META` becomes `/\\(?:[A-Za-z][A-Za-z_]*|!)/`, so the message names the whole sequence. None of the 29 fences holds one. The runbook's other backslash sequences are all in curl and printf fences, none of them RUN-HERE.
+- **The plants,** in 3267's quoted heredoc, each `STOP (c): …:3267, at …:3271: "<line>" holds the psql meta-command <seq>, which psql runs even from a quoted heredoc`:
+  - `\out |bash scripts/run_migrations.sh`, naming `\out`;
+  - `\include_relative x.sql`, naming `\include_relative`.
+
+  The `\!` plant is kept.
+- **Red first:** N14 restores EP's `META`, and both new plants go red. The `\!` plant stays green, because EP's pattern still names it.
+
+**EQ-3: THE SPAWN CHECK. LANDED.** `runOne()`, before it spawns, reads the environment runFence will build (base, then `DATABASE_URL: dbUrl()`, then env). It refuses with a named violation, and no spawn, if either of these holds:
+- **the target:** `env.DATABASE_URL ?? dbUrl()` does not parse as a URL (a named refusal, never a throw), names a host other than 127.0.0.1 or localhost, or carries a query string. The port is free, so the closed-port plant still runs;
+- **the keys:** the environment holds any key outside `FENCE_KEYS` (PATH, LANG, LC_MESSAGES, HOME, PSQLRC, DATABASE_URL, PGOPTIONS, FACILITY_ID, PROBE and APPLY_TS).
+
+**The plants,** over `REAL` on 897. Each is not run, and each reads `…:897: <reason>, so it was not run`:
+- `postgresql://postgres@db.example.invalid:5432/postgres`, with no password: `its DATABASE_URL names the host db.example.invalid, not the local stack`;
+- the local URL with `?host=db.example.invalid`: `its DATABASE_URL carries a query string (?host=db.example.invalid)`;
+- `host=127.0.0.1 port=54322`: `its DATABASE_URL (host=127.0.0.1 port=54322) does not parse as a URL`;
+- env `{ PGHOSTADDR: '192.0.2.1' }`: `its environment holds PGHOSTADDR, outside the allowlist`.
+
+**Red first:**
+- N15 turns `if (target !== null) return` into `if (false) return`, and the three URL plants run (`a fence was run with …`, exit 2).
+- N16 does the same to `if (extra.length > 0) return`, and the PGHOSTADDR plant runs.
+
+The neutered URL runs could reach nothing: `.invalid` never resolves, and the conninfo form connects only locally. A 90 s leg timeout covers PGHOSTADDR's hang.
+
+**EQ-4: THE CLAIM IS SCOPED. LANDED.**
+- The header's NOT ASSERTED HERE now names SQL that opens its own connection: dblink or postgres_fdw with a `'host=…'` string, or pg_net with a concatenated URL. No current fence uses any of them.
+- The header says rules (a) to (c), the word rule and the spawn check pin psql's own connection and the shell, and nothing more.
+- Rule (b)'s message said "a RUN-HERE fence never leaves the local stack". That is a claim this file cannot make, so it now reads `holds a URL ("://"), which a RUN-HERE fence may not`, and EP's four plant texts changed with it.
+
+**Green: 66 of 66** in `tests/db/runbook_sql_live.test.ts`, which is 56 plus 10 new legs: four word-rule plants, two rule-(c) plants and four spawn-check plants. The bracket held (before equals after); 30 fences spawned over the real partition, and 34 in the file.
+
+**THE BEHAVIOURAL-PASS LEDGER (Standard P).** Each row plants into a file tracked in git and outside this commit's diff. It is restored from a copy, and its sha256 is checked. The unplanted control is 66 of 66.
+
+| control | tracked file | planted-wrong value | reported diff |
+|---|---|---|---|
+| the word rule | `docs/runbook-supabase-project-creation.md` | 897's line `psql "$DATABASE_URL"?host=db.example.invalid -tAc …` | `STOP (a): …:897, at …:899: "psql "$DATABASE_URL"?host=db.example.invalid -tAc …": its second word is …`; `fences spawned in this file: 0` |
+| rule (c) | the runbook | 3267's heredoc gains `\out \|bash scripts/run_migrations.sh` | `STOP (c): …:3267, at …:3271: "\out \|bash scripts/run_migrations.sh" holds the psql meta-command \out, …`; `fences spawned in this file: 0` |
+| the spawn check | `tests/setup/local-keys.ts`:30 | `LOCAL_DB_URL` gains `?sslmode=disable`, run with DATABASE_URL unset | every RUN-HERE leg: `its DATABASE_URL carries a query string (?sslmode=disable), so it was not run`; `fences spawned in this file: 1`, the closed-port plant, which carries its own URL |
+
+**Why the spawn-check row plants `?sslmode=disable`, read before the choice.** postgres.js sends an unknown query parameter to the server as a setting, so a planted `?host=` in `local-keys.ts` fails global-setup with `unrecognized configuration parameter "host"`, before any test. `sslmode` is a parameter both postgres.js and psql accept. `beforeAll` checks only the host and the port, so only the spawn check can refuse it.
+
+**Observed in that row, and not a defect.** The write plant inserted its fixture before the gate refused 4744. Its `finally` removed it, and it was read back as 0 facility rows and 0 contact rows.
+
+**EQ-5:** EQ-1 and EQ-2 are recorded as gaps in EP's rule, which makes them Cowork's. -166's built text is corrected for rules (a) and (c), with a note naming this entry. EP as issued is untouched. The survey row's Gate cell now reads "(R-2026-09-29-165, -166, -167)". Recounted from the table: **59** (15 BOX, 33 TRIGGER, 11 VERSION). No row lands or leaves.
+
+Nothing hosted, and S-c is not started. Next letter: **ER**, the merge word.
 
 ## The provisional ledger
 
@@ -10203,6 +10391,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | EN | R-2026-09-29-164 | 2026-09-29 | **#103 merged at `bbdefbf`** (parents `3bac730`, `4c375f2`), all seven required checks read `success` first; `s-a-survey-guards` deleted on both sides; register 59. EN's correction arrived with EO and is quoted in -164; EO-3 corrects it in turn. Main at `bbdefbf` holds eight mode-000 sites making nine legs: six added by S-a at five sites, two older legs in another form, one (:428) with none. EN's "five" and the correction's "nine sites" are Cowork's slips. EN-3 lands in S-b. Next letter EO. |
 | EO | R-2026-09-29-165 | 2026-09-29 | **PR S-b: the runbook's SQL, run live; one precondition for every unreadable-file leg.** The helpers move with no change in behaviour (the four touched files keep identical test names and states; leg register 342/315/27). `tests/db/runbook_sql_live.test.ts` partitions 40 fences into LIVE 5, EXCLUDED 6 and RUN-HERE 29, runs the 29 against the local stack over an allowlist environment with inert values, and brackets them with a 24-component fingerprint. Seven neuters red first; no fence in this file runs over a broken partition, which the behavioural pass found (true from -166: at `b79997e` the write plant bypassed the gate). 3240 is EXCLUDED as quoted history, correcting EM-2 c (Cowork's slip). Every mode-000 leg carries the one accessSync precondition, held by `tests/compliance/mode_000_precondition.test.ts`: 8 sites, 9 legs. Register 59. S-c follows. Next letter EP. |
 | EP | R-2026-09-29-166 | 2026-09-29 | **#104 reviewed; one more commit.** EP-1, Cowork's gap in EO-1 b: every RUN-HERE fence is a STOP naming its line if it holds anything but the six ruled line forms, a URL, or a psql meta-command. It finds nothing today, and three tightenings are named. EP-2, Cowork's gap in EO: `psql: error` is red. EP-3, my slip: the write plant bypassed the gate at `b79997e`; `runFence` now has one caller, and the reworded-anchor run spawns 0 fences. EP-4: 4717 tolerates a red word only after two clean fields. EP-5: the bracket's digests, before and after equal. Five neuters red first; 56 legs. Register 59. The merge word is now EQ. |
+| EQ | R-2026-09-29-167 | 2026-09-29 | **#104 reviewed again; one more commit.** EQ-1, Cowork's gap in EP-1 a: a word rule pins where psql connects, with the second word exactly `"$DATABASE_URL"` and later words only `-v`, `-c`, `-tAc`, `-Atc` or the heredoc opener. 37 psql lines read, 0 refused. EQ-2, Cowork's gap in EP-1 c: rule (c) is any backslash followed by a letter or `!`. EQ-3: runOne() refuses, before any spawn, a DATABASE_URL that does not parse, names another host or carries a query string, and any key outside FENCE_KEYS. EQ-4: SQL that opens its own connection is named NOT ASSERTED, and rule (b)'s message no longer claims the stack is never left. Four neuters red first; 66 legs. Register 59. The merge word is now ER. |
 
 ## Deferred items — this record is where the list lives
 
@@ -10280,7 +10469,7 @@ the record's own, except where CW-5 assigned one._
 | B1's onboarding checks: the first reporting login reads its own history as itself (12.4 step 6: 6a a ward's login, 6b the facility's, each ward), and the first publish reads back from `/beds.json` (12.4 step 9; a facility's login publishes two wards) (restated 2026-09-28, R-2026-09-27-144 DT Bundle 2; until then: "B1's onboarding checks: the first ward account reads its own history as itself (12.4 step 6), and the first publish reads back from `/beds.json` (12.4 step 9)") | R-2026-09-26-122 CX-1 (b) | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "The first ward account at facility one") |
 | `ward_reply` has a cap and no content validation (#63/#97) | R-2026-09-17-03 and -04 | TRIGGER | The first change that writes `app.referral.ward_reply` (referrals are unwired in v1; R-2026-09-26-122 CX-2) |
 | Gate 3's property test does not exist (#109) | R-2026-09-17-03 and -04 | TRIGGER | The next change under `packages/gate/` or `packages/snapshot/src/freshness.ts` (R-2026-09-26-122 CX-2) |
-| The `scripts/` survey items: PR evidence tables generated from artefacts; the idempotency digest's grants and RLS flags; item 1, the duty-flag lint missing `<> 'NO'`; item 2, nothing validates SQL quoted in prose | Deferred to the `scripts/` survey; R-2026-09-15-06 and -07; R-2026-09-17-05; R-2026-09-17-08 D2 | TRIGGER | The next migration file added (024) (R-2026-09-26-122 CX-2). FIRED at 024; item 1, item 2's guard and the digest landed in S-a (R-2026-09-28-162, -163); item 2's runbook SQL in S-b (R-2026-09-29-165, -166); the evidence tables and the charter in S-c |
+| The `scripts/` survey items: PR evidence tables generated from artefacts; the idempotency digest's grants and RLS flags; item 1, the duty-flag lint missing `<> 'NO'`; item 2, nothing validates SQL quoted in prose | Deferred to the `scripts/` survey; R-2026-09-15-06 and -07; R-2026-09-17-05; R-2026-09-17-08 D2 | TRIGGER | The next migration file added (024) (R-2026-09-26-122 CX-2). FIRED at 024; item 1, item 2's guard and the digest landed in S-a (R-2026-09-28-162, -163); item 2's runbook SQL in S-b (R-2026-09-29-165, -166, -167); the evidence tables and the charter in S-c |
 | The test-title citation convention | R-2026-09-23-65 E | TRIGGER | The first cited test title found not to exist in its file (R-2026-09-26-122 CX-2) |
 | A real-browser refusal check in CI | R-2026-09-23-70 C3 | TRIGGER | The first PR that adds a browser runner (Playwright or similar) as a dependency. If D1's screenshots add one, it fires in D1 and the check lands in D2 (R-2026-09-26-122 CX-2) |
 | Provisioning as a Supabase Edge Function | R-2026-09-23-71 C | TRIGGER | The first proposal to move ward-account setup into an app (R-2026-09-26-122 CX-2) |
