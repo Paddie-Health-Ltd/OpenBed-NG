@@ -16,6 +16,12 @@
 # ============================================================
 
 set -euo pipefail
+shopt -u nocasematch
+# NO nocasematch FROM THE ENVIRONMENT (R-2026-09-29-172, EV-1 d). bash imports BASHOPTS, and
+# with nocasematch on every `[[ == ]]`, `[[ =~ ]]` and `case` below matches without regard to
+# case: a partly upper-cased hatch passed the shape check and was run, and the scheme and host
+# checks were case-blind too. It is turned off here, on the line after strict mode, before any
+# of them runs.
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SEED_DIR="$ROOT/database/seed"
@@ -142,6 +148,9 @@ fi
 #     current context in the docker config choose it, and refusing the `-H` and
 #     `--context` words does not cover them. DOCKER_HOST is left alone because rootless
 #     setups need it. Recorded, not a register row.
+#   - BASH_ENV, and functions exported by the invoking shell. They are that shell's own code:
+#     a function named `env` would replace the `env -u` wrapper below, as a wrapper docker on
+#     PATH would replace docker. Out of scope as the docker daemon is.
 #   - The environment inside the container. The hatch reaches whatever database a
 #     container named supabase_db_* on that daemon points psql at. Hosted OpenBed is
 #     managed Supabase and never a container, so it is not reached directly; a container

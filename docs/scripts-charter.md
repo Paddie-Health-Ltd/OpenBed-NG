@@ -21,7 +21,7 @@ _Added by R-2026-09-29-171 (EU-4), the last item of the `scripts/` survey. One r
 | attest_counts.mjs | Derive the six red-disposition counts from the JUnit artefact, never a terminal summary. | `tests/compliance/attest_counts.test.ts`, `tests/compliance/pr_evidence.test.ts` | yes | probed | 15 / 0 | OK |
 | check_pr_migration_line.mjs | A migration PR must answer the template's runbook-expectations line; a template cannot force it. | `tests/compliance/pr_migration_line.test.ts` | yes | probed | 6 / 0 | OK |
 | commit.sh | The one commit entry point: the gate is the commit's precondition, not a remembered step. | `tests/compliance/commit_gate.test.ts`, `tests/compliance/runner_aggregation.test.ts` | yes | probed | 3 / 1 | OK |
-| deferred_register.d.mts | Types for deferred_register.mjs, so a TypeScript test imports its parser, not a copy. | via deferred_register.mjs, deferred_items.test.ts (a type-only import, checked by typecheck alone): `tests/compliance/deferred_items.test.ts` | no | outcome only | 0 / 0 | FINDING |
+| deferred_register.d.mts | Types for deferred_register.mjs, so a TypeScript test imports its parser, not a copy. | via deferred_register.mjs, the module it declares: `tests/compliance/deferred_register_types.test.ts` | yes | probed | 0 / 0 | OK |
 | deferred_register.mjs | The register's strict parser, importable by its test and by pr_evidence.mjs alike. | via deferred_items.test.ts, pr_evidence.mjs: `tests/compliance/deferred_items.test.ts`, `tests/compliance/pr_evidence.test.ts` | yes | probed | 0 / 0 | OK |
 | deploy_pages.sh | Deploy a Pages app, refusing a dirty or unmerged tree and an unknown app. | `tests/compliance/deploy_guards.test.ts` | yes | probed | 15 / 1 | NOT ASSERTED |
 | deploy_worker.sh | Deploy the api.openbed.ng Worker with deploy_pages.sh's refusals, then read its stamp back. | `tests/compliance/deploy_worker.test.ts` | yes | probed | 10 / 1 | NOT ASSERTED |
@@ -45,7 +45,7 @@ _Added by R-2026-09-29-171 (EU-4), the last item of the `scripts/` survey. One r
 | lint_sql_quoted_in_prose.sh | Prose SQL comparing to an unquoted YES, NO or UNKNOWN is caught; readers copy it. | `tests/compliance/lint_sql_quoted_in_prose.test.ts` | yes | probed | 9 / 0 | OK |
 | neuter.sh | The tracked neuter harness: plant, run the named tests, restore; an untracked one lied. | `tests/compliance/neuter.test.ts` | yes | probed | 10 / 2 | OK |
 | neuter_plant.mjs | neuter.sh's plant half; a plant that does not land is fatal. | `tests/compliance/neuter.test.ts` | yes | probed | 13 / 0 | OK |
-| pr_evidence.mjs | The PR evidence block, only from one CI run's artefacts, bound to the tested merge. | `tests/compliance/pr_evidence.test.ts` | yes | probed | 40 / 0 | OK |
+| pr_evidence.mjs | The PR evidence block, only from one CI run's artefacts, bound to the tested merge. | `tests/compliance/pr_evidence.test.ts` | yes | probed | 42 / 0 | OK |
 | predict_counts.mjs | Predict totals from an artefact baseline plus typed deltas; a typed baseline is refused. | `tests/compliance/predict_counts.test.ts` | yes | probed | 22 / 0 | OK |
 | provision_target.mjs | The host check: a local run never reaches hosted; hosted writes only the named project. | via provision_ward_account.mjs: `tests/compliance/provision_ward_account.test.ts`, `tests/db/provision_script.test.ts` | yes | probed | 0 / 0 | OK |
 | provision_ward_account.mjs | Provision one reporting account through the SQL gates, with one confirmed Auth user. | `tests/db/provision_script.test.ts`, `tests/compliance/provision_ward_account.test.ts` | yes | probed | 18 / 2 | NOT ASSERTED |
@@ -58,12 +58,12 @@ _Added by R-2026-09-29-171 (EU-4), the last item of the `scripts/` survey. One r
 | readback_ward_console.sh | The ward console read-back: its stamp, the deployed key accepted, a wrong key refused. | `tests/compliance/readback_scripts.test.ts` | yes | probed | 0 / 0 | NOT ASSERTED |
 | readback_worker.sh | The Worker read-back: each probe proves by header who answered, plus the stamp. | `tests/compliance/readback_scripts.test.ts` | yes | probed | 2 / 0 | NOT ASSERTED |
 | render_headers.mjs | Fill the CSP placeholder with the build target's origin only; there is no default target. | `tests/compliance/security_headers.test.ts`, `tests/compliance/readback_scripts.test.ts` | yes | probed | 7 / 0 | OK |
-| run_e2e.sh | The golden path in two phases: generate, which may be red, then the ratchet gates. | `tests/compliance/deploy_guards.test.ts` | yes | outcome only | 1 / 1 | FINDING |
-| run_migrations.sh | Apply migrations in order, each file atomically, skipping those already in the ledger. | `tests/db/migration_runner_atomicity.test.ts`, `tests/db/migration_runner_connection_failure.test.ts` | yes | probed | 4 / 3 | OK |
+| run_e2e.sh | The golden path in two phases: generate, which may be red, then the ratchet gates. | `tests/compliance/deploy_guards.test.ts` | yes | probed | 2 / 0 | OK |
+| run_migrations.sh | Apply migrations in order, each file atomically, skipping those already in the ledger. | `tests/db/migration_runner_atomicity.test.ts`, `tests/db/migration_runner_connection_failure.test.ts`, `tests/compliance/run_migrations_guards.test.ts` | yes | probed | 4 / 3 | OK |
 | scan_bundle_credentials.mjs | The bundle guard's matching half: parsed, so documentation of the hazard never fires. | `tests/compliance/bundle_guards.test.ts` | yes | probed | 6 / 1 | OK |
 | seed.sh | Load the synthetic seed, and refuse any database that is not obviously local. | `tests/compliance/seed_local_only.test.ts` | yes | probed | 5 / 3 | OK |
 | stamp_build.mjs | Write the commit into the build, so what is deployed is fetched, not remembered. | `tests/compliance/build_stamp.test.ts` | yes | probed | 4 / 2 | OK |
 
-**The FINDING rows, for the merge letter:**
-- **`deferred_register.d.mts`.** Nothing executes a declaration file. Its only consumer is a type-only import, checked by typecheck, and no plant shows a wrong declaration being caught.
-- **`run_e2e.sh`.** Its plants cover the corpus-by-directory fix: a missing golden path is refused by name, and a new e2e file runs. Nothing plants its stated reason, that phase 1 may be red while phase 2 gates.
+**The charter reads 0 FINDING rows** (R-2026-09-29-172, EV-2). It read two when it landed, in R-2026-09-29-171, and the merge letter ruled on both by fixing them in the same pull request, with no register row for either:
+- **`deferred_register.d.mts`** had no test that executes it. `tests/compliance/deferred_register_types.test.ts` now parses it with TypeScript's parser and compares it with the module as it runs: the declared value exports, the KINDS tuple, and Row's members with their types.
+- **`run_e2e.sh`** had no plant for its stated reason. Its test stub wrote to the word `e2e` rather than to the report file, so phase 2 had run in no test. The stub now reads `--outputFile=`, and plants cover phase 1 red with the ratchet green, phase 1 green with the ratchet red, both red, both green, and a phase 1 that writes no report.

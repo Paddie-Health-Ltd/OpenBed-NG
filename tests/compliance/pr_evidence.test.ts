@@ -124,6 +124,8 @@ const MSG = {
   disagree: 'the three provenance files name different tested commits',
   noBase: 'is not in this clone; run git fetch origin main, then run this again',
   noJob: 'has no job named',
+  dupJob: 'each required job must appear exactly once',
+  runHead: 'not to this HEAD',
   jobAttempt: ", not the provenance's attempt",
   attest: 'attest_counts.mjs gave no attestation for',
   noRecord: 'the decision record is not readable at',
@@ -175,6 +177,10 @@ interface Plant {
   jobs?: (j: JobObj[]) => JobObj[];
   /** Routes replaced or added after the builder has made them. */
   routes?: (r: Map<string, Route>, ids: { head: string }) => void;
+  /** Empty commits between B and H, made with git fast-import, so B..HEAD's log is long. */
+  extraCommits?: number;
+  /** Read the script's stdout through `| (sleep 1; cat)`, as a slow reader on a pipe would. */
+  slowPipe?: boolean;
   /** 'no-unzip': PATH holds only git, node and the stub. 'no-gh': no gh anywhere on PATH. */
   path?: 'no-unzip' | 'no-gh';
   args?: string[];
@@ -270,6 +276,14 @@ function run(plant: Plant = {}): Result {
     g('add', '-A');
     g('commit', '-q', '-m', 'base');
     const base = g('rev-parse', 'HEAD');
+    if (plant.extraCommits) {
+      const stream = Array.from({ length: plant.extraCommits }, (_, i) => {
+        const subject = `padding commit ${String(i).padStart(4, '0')} keeps the block above sixty-four KiB`;
+        return `commit refs/heads/main\ncommitter Plant <plant@example.invalid> ${1759161600 + i} +0000\ndata ${Buffer.byteLength(subject)}\n${subject}\n${i === 0 ? `from ${base}\n` : ''}\n`;
+      }).join('');
+      execFileSync('git', ['-C', root, 'fast-import', '--quiet'], { input: stream, env: gitEnv(home) });
+      g('reset', '-q', '--hard', 'main');
+    }
     const headPath = plant.headPath ?? 'docs/change.md';
     mkdirSync(join(root, dirname(headPath)), { recursive: true });
     writeFileSync(join(root, headPath), 'the head change\n');
@@ -358,7 +372,16 @@ function run(plant: Plant = {}): Result {
     const env: NodeJS.ProcessEnv = { PATH, HOME: home, TMPDIR: tmp, GH_CONFIG_DIR: ghConfig, STUB_LOG: log, STUB_ROUTES: routes };
     for (const k of ['GH_TOKEN', 'GITHUB_TOKEN', 'GH_HOST', 'GH_REPO', 'GH_ENTERPRISE_TOKEN']) delete env[k];
 
-    const r = spawnSync(process.execPath, [SCRIPT_PATH, ...(plant.args ?? ['--root', root])], { encoding: 'utf8', env, cwd: tmp });
+    // A slow reader: bash pipes the script's stdout to `(sleep 1; cat)`. PIPESTATUS[0] is the
+    // script's own exit status, which the pipeline's would otherwise hide behind cat's.
+    const r = plant.slowPipe
+      ? spawnSync('/bin/bash', ['-c', '"$OPENBED_T_NODE" "$OPENBED_T_SCRIPT" --root "$OPENBED_T_ROOT" | (sleep 1; cat); exit ${PIPESTATUS[0]}'], {
+          encoding: 'utf8',
+          env: { ...env, OPENBED_T_NODE: process.execPath, OPENBED_T_SCRIPT: SCRIPT_PATH, OPENBED_T_ROOT: root },
+          cwd: tmp,
+          maxBuffer: 64 * 1024 * 1024,
+        })
+      : spawnSync(process.execPath, [SCRIPT_PATH, ...(plant.args ?? ['--root', root])], { encoding: 'utf8', env, cwd: tmp });
     let calls: string[] = [];
     try {
       calls = readFileSync(log, 'utf8').split('\n').filter((l) => l !== '').map((l) => l.slice(REPO.length + 1));
@@ -487,6 +510,19 @@ describe('pr_evidence.mjs: the green fixture, and the controls', () => {
   });
 });
 
+describe('pr_evidence.mjs: a long block reaches a slow reader whole (EV-1 b)', () => {
+  test('plant — a block over 64 KiB read through a slow pipe arrives whole, with its Disposition and its closing fence, exit 0', () => {
+    // process.exit() after console.log drops whatever a pipe has not yet flushed. Measured on
+    // 27751c5: a 120 KB block through this reader arrived as exactly 65536 bytes, exit 0.
+    const r = run({ extraCommits: 2000, slowPipe: true });
+    expect(r.status, out(r).slice(0, 2000)).toBe(0);
+    expect(Buffer.byteLength(r.stdout), 'precondition: the block is not over 64 KiB, so this tests nothing').toBeGreaterThan(65536);
+    expect(r.stdout.trimEnd().endsWith('```'), `the block has no closing fence: it was cut off at ${Buffer.byteLength(r.stdout)} bytes`).toBe(true);
+    expect(r.stdout, 'the block has no Disposition line').toContain('Disposition: ZERO-RED');
+    expect(r.stdout.match(/^ {2}[0-9a-f]{7,} padding commit \d{4} /gm)?.length, 'a commit line was lost').toBe(2000);
+  });
+});
+
 describe('pr_evidence.mjs: exit 1, the block marked RED', () => {
   test.each([
     ['junit-compliance.xml', 'compliance: attest_counts reads RED'],
@@ -503,6 +539,13 @@ describe('pr_evidence.mjs: exit 1, the block marked RED', () => {
     expect(r.status, out(r)).toBe(1);
     expect(r.stdout).toContain(`  ${'db-tests'.padEnd(18)} failure`);
     expect(r.stdout).toContain('Disposition: RED -- job db-tests concluded failure');
+  });
+
+  test('plant — a run concluding failure with seven green jobs prints the block marked RED, exit 1 (EV-1 c)', () => {
+    const r = run({ runs: (rs) => rs.map((x) => ({ ...x, conclusion: 'failure' })) });
+    expect(r.status, out(r)).toBe(1);
+    expect(r.stdout).toContain(`Disposition: RED -- run ${RUN} concluded failure`);
+    expect(r.calls).toEqual(greenCalls(r.head));
   });
 
   test('plant — exit 2 outranks exit 1: a failed job and a truncated junit is exit 2, no block', () => {
@@ -738,6 +781,18 @@ describe('pr_evidence.mjs: exit 2, no block', () => {
     const r = run({ jobs: (js) => js.filter((j) => j.name !== 'secret-scan') });
     refused(r, MSG.noJob, 7);
     expect(r.stderr).toContain('has no job named secret-scan');
+  });
+
+  test('plant — a duplicate job name, the second failing after a green one, is refused, never read as green (EV-1 a)', () => {
+    const r = run({ jobs: (js) => [...js, { ...(js.find((j) => j.name === 'db-tests') as JobObj), conclusion: 'failure' }] });
+    refused(r, MSG.dupJob, 7);
+    expect(r.stderr).toContain('has 2 jobs named db-tests');
+  });
+
+  test('plant — a run whose head_sha is not HEAD is refused (EV-1 c)', () => {
+    const r = run({ runs: (rs) => rs.map((x) => ({ ...x, head_sha: 'f'.repeat(40) })) });
+    refused(r, MSG.runHead, 2);
+    expect(r.stderr).toContain(`the run ${RUN} belongs to head ${'f'.repeat(40)}`);
   });
 
   test('plant — a job from another attempt', () => {

@@ -287,12 +287,12 @@ export function assertedByScript(testsDir: string): Map<string, string[]> {
   for (const name of readdirSync(testsDir).filter((n) => n.endsWith('.test.ts'))) {
     const raw = readFileSync(join(testsDir, name), 'utf8');
 
-    const scripts = new Set<string>();
-    for (const m of raw.matchAll(/\b[A-Z][A-Z0-9_]*\s*=\s*['"]([\w.]+\.(?:sh|mjs))['"]/g)) scripts.add(m[1] as string);
-    for (const m of raw.matchAll(/runLint\(\s*['"]([\w.]+\.sh)['"]/g)) scripts.add(m[1] as string);
-    // .mjs as well as .sh -- the guards are not all shell any more, and a mapper
-    // that only knows one extension reports a real test as covering nothing.
-    for (const m of raw.matchAll(/['"`]scripts\/([\w.]+\.(?:sh|mjs))['"`]/g)) scripts.add(m[1] as string);
+    // WHICH SCRIPTS THIS TEST NAMES, from TypeScript's parser and never from raw text
+    // (R-2026-09-29-172, EV-1 e). Three regexes over the raw source used to do this, comments
+    // included: a comment naming a script mapped the whole test to it, and the test's other
+    // literals then credited that script's legs. Found on S-c, when a test quoting a script's
+    // path among the paths its warning names credited a registered leg it never ran.
+    const scripts = scriptsNamedInCode(raw, name);
     if (scripts.size === 0) continue;
 
     // CODE, NOT PROSE -- and the line is drawn there deliberately.
@@ -317,6 +317,85 @@ export function assertedByScript(testsDir: string): Map<string, string[]> {
     for (const script of scripts) out.set(script, [...(out.get(script) ?? []), ...asserted]);
   }
   return out;
+}
+
+/** Parse a test source, refusing loudly when the parse cannot be verified or has errors. */
+function checkedParse(source: string, file: string, parse: (file: string, source: string) => ts.SourceFile): ts.SourceFile {
+  const sf = parse(file, source);
+  // parseDiagnostics is not in the public .d.ts, but it is where createSourceFile
+  // records syntax errors. Its ABSENCE would mean this check cannot run, which is
+  // itself fatal rather than a pass.
+  const diags = (sf as unknown as { parseDiagnostics?: readonly ts.Diagnostic[] }).parseDiagnostics;
+  if (diags === undefined) {
+    throw new Error(
+      `leg evidence collector cannot verify a parse: the typescript parser exposed no parseDiagnostics for ${file}`,
+    );
+  }
+  if (diags.length > 0) {
+    const first = ts.flattenDiagnosticMessageText(diags[0]?.messageText ?? '', ' ');
+    throw new Error(`leg evidence collector could not parse this test file, so its assertions were never collected: ${file}: ${first}`);
+  }
+  return sf;
+}
+
+/**
+ * THE SCRIPTS A TEST FILE NAMES, FROM THE AST ONLY (R-2026-09-29-172, EV-1 e).
+ *
+ * Four spellings, and only these. A comment is not one of them, because a comment is not
+ * code and nothing in it runs:
+ *   1. an UPPER_CASE `const` initialised by a string literal ending .sh or .mjs
+ *      (`const SCRIPT = 'x.mjs'`);
+ *   2. the first literal argument of `runLint(` (`runLint('lint_x.sh', root)`);
+ *   3. a string literal that is a whole `scripts/<name>` path;
+ *   4. a `join(` call whose last two arguments are the literals 'scripts' and '<name>'
+ *      (`join(REPO_ROOT, 'scripts', 'x.sh')`).
+ * Measured on 27751c5: test-to-script pairs 79 before and 71 after, and no leg flipped.
+ *
+ * NOT ASSERTED HERE, deliberately: that a test named this way RUNS the script. Naming is
+ * what maps a test to a script; that its literals are assertions on the script's output is
+ * still only what stringLiteralsInCode's own note says, and the neutering discipline is what
+ * proves a leg can fail.
+ */
+const SCRIPT_NAME = /^[\w.]+\.(?:sh|mjs)$/;
+const SCRIPT_PATH = /^scripts\/([\w.]+\.(?:sh|mjs))$/;
+
+export function scriptsNamedInCode(
+  source: string,
+  file: string,
+  parse: (file: string, source: string) => ts.SourceFile = (f, s) =>
+    ts.createSourceFile(f, s, ts.ScriptTarget.Latest, false, ts.ScriptKind.TS),
+): Set<string> {
+  const sf = checkedParse(source, file, parse);
+  const found = new Set<string>();
+  const literal = (n: ts.Node | undefined): string | null =>
+    n !== undefined && (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) ? n.text : null;
+  const visit = (node: ts.Node): void => {
+    // The `const` flag lives on the declaration LIST, and the source file is parsed without
+    // parent pointers, so the list is read and its declarations walked from here.
+    if (ts.isVariableDeclarationList(node) && (node.flags & ts.NodeFlags.Const) !== 0) {
+      for (const d of node.declarations) {
+        const v = literal(d.initializer);
+        if (ts.isIdentifier(d.name) && /^[A-Z][A-Z0-9_]*$/.test(d.name.text) && v !== null && SCRIPT_NAME.test(v)) found.add(v);
+      }
+    }
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+      if (node.expression.text === 'runLint') {
+        const v = literal(node.arguments[0]);
+        if (v !== null && /^[\w.]+\.sh$/.test(v)) found.add(v);
+      }
+      if (node.expression.text === 'join' && node.arguments.length >= 2) {
+        const dir = literal(node.arguments[node.arguments.length - 2]);
+        const name = literal(node.arguments[node.arguments.length - 1]);
+        if (dir === 'scripts' && name !== null && SCRIPT_NAME.test(name)) found.add(name);
+      }
+    }
+    const v = literal(node);
+    const m = v === null ? null : SCRIPT_PATH.exec(v);
+    if (m) found.add(m[1] as string);
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return found;
 }
 
 /**
@@ -364,9 +443,9 @@ export function assertedByScript(testsDir: string): Map<string, string[]> {
  *     credited. That is a known over-credit channel, deliberately left open: the
  *     boundary this collector draws is comment-vs-code, and the neutering
  *     discipline -- not this register -- is what proves a leg can fail.
- *   - NOT COVERED HERE: which scripts a test file is mapped to. That mapping is
- *     still regex over raw text, including comments, in assertedByScript above;
- *     it is outside R-2026-09-18-15's scope and is named in that PR.
+ *   - NOT COVERED HERE: which scripts a test file is mapped to. That mapping was
+ *     regex over raw text, comments included, until R-2026-09-29-172 (EV-1 e); it is
+ *     now scriptsNamedInCode above, from the same parser.
  *
  * A NEW DEPENDENCE, STATED: this collector's behaviour now tracks the pinned
  * `typescript` devDependency's parser. It is pinned by plants in
@@ -385,20 +464,7 @@ export function stringLiteralsInCode(
   parse: (file: string, source: string) => ts.SourceFile = (f, s) =>
     ts.createSourceFile(f, s, ts.ScriptTarget.Latest, false, ts.ScriptKind.TS),
 ): string[] {
-  const sf = parse(file, source);
-  // parseDiagnostics is not in the public .d.ts, but it is where createSourceFile
-  // records syntax errors. Its ABSENCE would mean this check cannot run, which is
-  // itself fatal rather than a pass.
-  const diags = (sf as unknown as { parseDiagnostics?: readonly ts.Diagnostic[] }).parseDiagnostics;
-  if (diags === undefined) {
-    throw new Error(
-      `leg evidence collector cannot verify a parse: the typescript parser exposed no parseDiagnostics for ${file}`,
-    );
-  }
-  if (diags.length > 0) {
-    const first = ts.flattenDiagnosticMessageText(diags[0]?.messageText ?? '', ' ');
-    throw new Error(`leg evidence collector could not parse this test file, so its assertions were never collected: ${file}: ${first}`);
-  }
+  const sf = checkedParse(source, file, parse);
   const out: string[] = [];
   const visit = (node: ts.Node): void => {
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {

@@ -26,7 +26,8 @@
  *   1. HEAD is on GitHub (the commits endpoint answers for it).
  *   2. The run: the newest pull_request run of ci.yml for HEAD whose status is
  *      completed. None completed, or the newest completed was cancelled, is a
- *      refusal. A newer run still in progress is printed, not waited for.
+ *      refusal. A newer run still in progress is printed, not waited for. The run's
+ *      own head_sha must be HEAD, and a conclusion but success marks the block RED.
  *   3. The artefacts junit-compliance, junit-db and junit-golden-path: exactly one
  *      of each; made by this run for HEAD; not expired; not created before this
  *      attempt started; the zip's sha256 equals its recorded digest; its entries are
@@ -35,8 +36,8 @@
  *      object_size bytes; its sha1 is github_sha; exactly two parents, the second
  *      HEAD; run_id and run_attempt this run's; the job its own; the three agree.
  *   5. The base B is in this clone. Nothing is fetched.
- *   6. The seven required jobs, from this attempt: any conclusion but success
- *      marks the block RED.
+ *   6. The seven required jobs, from this attempt, each present EXACTLY ONCE: any
+ *      conclusion but success marks the block RED.
  *   7. The counts, only through scripts/attest_counts.mjs. Its exit 2 is this
  *      script's exit 2; its exit 1 marks the block RED. Golden path phase 1 is
  *      corpus, not attested (scripts/run_e2e.sh).
@@ -229,6 +230,16 @@ async function main(work) {
     console.error(`ERROR: the newest completed run, ${run.id}, was cancelled -- runs in progress after it: ${newer.join(', ') || 'none'}`);
     throw REFUSED;
   }
+  // THE RUN ITSELF (R-2026-09-29-172, EV-1 c). The query names HEAD, but the answer is
+  // checked rather than trusted, as each artefact's is. And a run that did not conclude
+  // success marks the block RED even when every job it holds reads green: the jobs and
+  // the run are two facts.
+  if (run.head_sha !== head) {
+    console.error(`ERROR: the run ${run.id} belongs to head ${run.head_sha}, not to this HEAD`);
+    throw REFUSED;
+  }
+  const red = [];
+  if (run.conclusion !== 'success') red.push(`run ${run.id} concluded ${run.conclusion}`);
   const attempt = run.run_attempt;
 
   // ---- the artefacts ----------------------------------------------------------------
@@ -390,15 +401,22 @@ async function main(work) {
   }
 
   // ---- the seven jobs, from this attempt ----------------------------------------------
-  const red = [];
   const jobs = ghJson(`actions/runs/${run.id}/attempts/${attempt}/jobs?per_page=100`, 'jobs').jobs;
   const jobLines = [];
   for (const name of REQUIRED) {
-    const j = jobs.find((x) => x.name === name);
-    if (j === undefined) {
+    // EXACTLY ONE PER NAME (R-2026-09-29-172, EV-1 a). `find` took the first match, so a
+    // second db-tests concluding failure after a green one printed ZERO-RED, exit 0. The
+    // artefacts are held to one each; the jobs are held to the same.
+    const same = jobs.filter((x) => x.name === name);
+    if (same.length === 0) {
       console.error(`ERROR: attempt ${attempt} of run ${run.id} has no job named ${name}`);
       throw REFUSED;
     }
+    if (same.length > 1) {
+      console.error(`ERROR: attempt ${attempt} of run ${run.id} has ${same.length} jobs named ${name}; each required job must appear exactly once`);
+      throw REFUSED;
+    }
+    const j = same[0];
     if (j.run_attempt !== attempt) {
       console.error(`ERROR: job ${name} ran in attempt ${j.run_attempt}, not the provenance's attempt ${attempt}`);
       throw REFUSED;
@@ -465,7 +483,7 @@ async function main(work) {
   const out = [
     '```text',
     'PR EVIDENCE -- node scripts/pr_evidence.mjs, from CI\'s own artefacts',
-    `Run        : ${run.id}, attempt ${attempt}, ${url}`,
+    `Run        : ${run.id}, attempt ${attempt}, ${url}, concluded ${run.conclusion}`,
   ];
   if (newer.length > 0) out.push(`Newer runs : ${newer.join(', ')} -- in progress, not used`);
   out.push('Artefacts  :');
@@ -510,4 +528,10 @@ try {
 } finally {
   rmSync(work, { recursive: true, force: true });
 }
-process.exit(code);
+// THE EXIT STATUS IS SET, NOT FORCED (R-2026-09-29-172, EV-1 b). process.exit() after
+// console.log drops whatever a pipe has not yet flushed: a 120 KB block through a slow
+// reader arrived as exactly 65536 bytes, with no Disposition line and no closing fence,
+// exit 0. Letting the process end drains stdout. fs.writeSync is no cure: once console has
+// touched stdout the pipe is non-blocking, and writeSync makes a partial write without
+// throwing (measured: 64838 of 200001 bytes, exit 0).
+process.exitCode = code;
