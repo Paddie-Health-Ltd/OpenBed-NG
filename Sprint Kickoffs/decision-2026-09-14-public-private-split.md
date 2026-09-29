@@ -11454,6 +11454,259 @@ The fixture's green object is the no-newline shape, and the live run is the with
 
 Nothing hosted, and no merge. S-c is STOPPED for Cowork's word: **EV**.
 
+### R-2026-09-29-172 — #106 (S-c): the merge word, after one commit; the charter's two findings ruled; the survey row leaves
+
+_Issued as R-PROVISIONAL-2026-09-29-EV, by Cowork on 2026-09-29, after its review of #106 at `27751c5` (a staff engineer reviewed it adversarially, prototyped each fix in a worktree and measured it; a QA reviewer then reviewed the letter independently before it was pasted). Landed in #106 with the commit it asks for; #106 merges on it. Number assigned on landing: R-2026-09-29-171 plus one. #106's merge record cannot sit here, inside #106: it lands in the next pull request as an addendum to this entry, as #105's did in -171. Next provisional letter: **EW**, the facility-one build sprint. The S-series ends with this merge._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-29-EV — #106 (S-c): THE MERGE WORD, AFTER ONE COMMIT; THE CHARTER'S TWO FINDINGS RULED; THE SURVEY ROW LEAVES
+> EV lands in #106 as -172, with the commit it asks for. #106 merges on it. #106's merge record
+> cannot sit in -172, so it lands as an addendum in the next PR, as #105's did in -171.
+> Next letter: EW, the facility-one build sprint. The S-series ends with this merge.
+> A staff engineer reviewed #106 adversarially before this letter was written, prototyped each fix
+> below in a worktree and measured it. A QA reviewer then reviewed this letter independently before
+> it was pasted.
+>
+> READ BY COWORK, from its own clone at 27751c55f7cbec107ff9ac03f1226d2496f1d58b:
+> - Four commits on 96aa95b, 16 paths, as your report lists. scripts/ holds 45 files. The register is
+>   59 (15 BOX, 33 TRIGGER, 11 VERSION). The leg register is 387/361/26. The charter has 45 rows and
+>   two FINDINGs. -171 opens with -170's addendum. The ledger has EU's row and ET's "merged at".
+> - The whole-PR check over 96aa95b..27751c5 prints nothing. lint_no_secrets.sh: PASS, 0 findings.
+>   The meta-lint: PASS over 31 scripts.
+> - The staff engineer ran pr_evidence, scripts_charter, leg_coverage and seed_local_only green,
+>   169/169, and read each ci.yml provenance step byte-identical, one line, `if: always()`, directly
+>   before its upload, with no `${{` in those jobs. Sixteen more hatch values were tried against
+>   seed.sh with stub docker and psql; every non-shape value was refused with nothing run. Six
+>   charter rows' "probed" claims were read against their tests; all hold.
+> - ACCEPTED AS REPORTED: 2917 ZERO-RED, uid 501; the seven checks on 27751c5; the alerts; the live
+>   blocks on 7a5c3d7 and 27751c5, each exit 0.
+> - YOUR THREE PREMISE NOTES ARE RIGHT. -171 naming 7a5c3d7's run is correct. Two slips are Cowork's:
+>   - EU-2 a said GitHub's merge commits end without a newline. That holds for the merge button, not
+>     for refs/pull/N/merge. The step and the script are byte-exact, so nothing depended on it.
+>   - EU-2 a's recipe was wrapped across lines inside the paste block, and bash would have run
+>     `"$GITHUB_SHA"` as a command. Your guard caught it before any push. A recipe meant for one line
+>     must say so.
+>
+> EV-1  THE COMMIT. Each code fix red first on 27751c5, then green, with a neuter through
+>   scripts/neuter.sh that reddens only its own plants. Where no code changes (f, and EV-2), the
+>   neuter is the proof.
+>   a) pr_evidence.mjs:397, A DUPLICATE JOB NAME READS ZERO-RED. `jobs.find` takes the first match.
+>      With a second `db-tests` concluding `failure` after a green one, the script printed ZERO-RED,
+>      exit 0. Take `jobs.filter`; anything but exactly one per required name is exit 2, as the
+>      artefacts already are. Plant: the duplicate, failing second.
+>   b) pr_evidence.mjs:497 and :513, A LONG BLOCK IS CUT OFF AND STILL EXITS 0. `console.log` then
+>      `process.exit` drops unflushed output to a pipe. Measured: a 120 KB block through a slow reader
+>      arrived as 65536 bytes, with no Disposition line and no closing fence, exit 0. Set
+>      `process.exitCode = code` and let the process end. Do not call `process.exit`, and do not use
+>      `fs.writeSync`: once console has touched stdout the pipe is non-blocking, and writeSync makes a
+>      partial write without throwing (measured: 64838 of 200001 bytes, exit 0). Plant: a scratch repo
+>      whose B..HEAD holds about 2,000 commits, so the block exceeds 64 KiB, read through
+>      `| (sleep 1; cat)`, arrives whole and ends with its fence.
+>   c) THE RUN ITSELF. Check `run.head_sha` equals HEAD and `run.conclusion` is `success`; anything
+>      but success (cancelled stays exit 2) marks the block RED, exit 1. Plants: the run's head_sha
+>      wrong (exit 2); the run concluding `failure` with seven green jobs (RED, exit 1).
+>   d) seed.sh, `nocasematch` FROM THE ENVIRONMENT. bash imports BASHOPTS, and with nocasematch set
+>      a partly upper-cased hatch passed the shape check and ran. `shopt -u nocasematch` goes on the
+>      line directly after `set -euo pipefail`, because the scheme and host `case` checks are
+>      case-sensitive too. Plants, each under BASHOPTS=nocasematch, each refused with nothing run:
+>      `docker exec -I supabase_db_x psql`; `docker exec -i SUPABASE_DB_x psql`;
+>      `docker exec -i supabase_db_x PSQL`. Add to seed.sh's NOT ASSERTED: BASH_ENV and exported
+>      functions (a function named `env` would replace the `env -u` wrapper) are the invoking shell's
+>      own code, out of scope as the docker daemon is.
+>   e) THE MAPPER, which you reported. _legs.ts:285-296 runs its three script-name regexes over the
+>      raw text, comments included. Take these four spellings from the TypeScript AST only: (1) an
+>      UPPER_CASE const initialised by a string literal ending .sh or .mjs; (2) the first literal
+>      argument of `runLint(`; (3) a string literal beginning `scripts/`; (4) a `join(` call whose last
+>      two arguments are the literals `'scripts'` and `'<name>'`. Measured on 27751c5: test-to-script
+>      pairs 79 to 71; 0 legs flip. Plants: a test whose only mention of a script is in a comment
+>      credits none of its legs; a test naming a script only through `join(…, 'scripts', '<name>')`
+>      credits its legs (red on 27751c5). A neuter for each spelling. Report the pairs before and
+>      after, by name.
+>   f) ONE LEG WHOSE ONLY CREDIT IS A WORD. run_migrations.sh's "no forward migrations found in" is
+>      credited only by the 10-character literal `'migrations'`. Plant it in a new
+>      tests/compliance/run_migrations_guards.test.ts with `const SCRIPT = 'run_migrations.sh'`,
+>      passing a scratch root as $1 (the script takes it there; do not copy the script), DATABASE_URL
+>      set and a stub psql first on PATH. Assert the message, exit 2, and psql never called. No code
+>      changes, so its proof is a neuter deleting run_migrations.sh:144's check, which reddens it
+>      alone. Register nothing.
+>
+> EV-2  THE CHARTER'S TWO FINDINGS, RULED. Both are fixed in this commit; neither gets a row.
+>   a) deferred_register.d.mts. Nothing checked that the declaration matches the module, and
+>      TypeScript trusts a .d.mts. A compliance test, tests/compliance/deferred_register_types.test.ts,
+>      parses the .d.mts with the TypeScript parser and
+>      compares it with the runtime module: the declared value exports against Object.keys of the
+>      import; the KINDS tuple against runtime KINDS; Row's members against a parsed row's keys.
+>      Plants, each on a planted copy of the .d.mts: a missing export, an extra export, KINDS
+>      reordered, Row without `line`. The row then reads probed, OK.
+>   b) run_e2e.sh. A DEFECT OLDER THAN THIS PR. The npx stub at deploy_guards.test.ts:443 writes to
+>      `"$4"`, which is the word `e2e`, so it never writes junit-e2e.xml. Both run_e2e tests that reach
+>      phase 1 have exited 2 at "phase 1 produced no junit-e2e.xml", and phase 2 has run in none. That
+>      leg's registered reason ("needs chmod 000 seam") is wrong: the stub has reached it all along
+>      without asserting it.
+>      - The stub reads `--outputFile=`, exits STUB_E2E_EXIT or STUB_RATCHET_EXIT by phase, and
+>        STUB_E2E_NOFILE skips the write.
+>      - Plants: phase 1 red, ratchet green, exit 0; phase 1 green, ratchet red, exit 1; both red,
+>        exit 1; both green, exit 0. Each asserts attest_counts ran on junit-ratchet.xml and never on
+>        junit-e2e.xml. The no-junit plant asserts its message.
+>      - Red first against the old stub, green under the new one. Neuters: `|| true` removed;
+>        `|| RATCHET_ST=$?` made `|| true`.
+>      - The phase-1 leg leaves the leg register as reached. Measured alone: 387/362/25. The row then
+>        reads probed, OK.
+>   c) The charter shows 0 FINDINGs after this commit; its legs cells follow leg-coverage.json.
+>
+> EV-3  RECORD AND REGISTER.
+>   - -172 holds EV as issued, what was built, red first then green, and the ledger row for EV.
+>   - THE SURVEY ROW LEAVES in this commit: "its work done, recorded in -171 and -172". The register
+>     is then 58 (15 BOX, 32 TRIGGER, 11 VERSION). Recount it from the table.
+>   - The leg register: 387/361/26 before. Expected after: 389/364/25, if EV-1 a and c each add one
+>     single-line refusal (reached), EV-2 b reaches the phase-1 leg, and EV-1 e adds no `throw`. The
+>     nested-pairs pin at leg_coverage.test.ts:346 is unchanged, or each new pair is reported. Record
+>     each leg added, changed or removed, and explain any difference.
+>   - #106's merge record is held for the next PR's addendum.
+>
+> EV-4  THE MERGE WORD. Merge #106 when all of these hold, and only then:
+>   - `git diff --name-only 27751c5..HEAD` lists only: scripts/pr_evidence.mjs, scripts/seed.sh,
+>     tests/compliance/_legs.ts, tests/compliance/leg_coverage.test.ts, tests/compliance/deploy_guards.test.ts,
+>     tests/compliance/pr_evidence.test.ts, tests/compliance/_zip.ts if touched,
+>     tests/compliance/seed_local_only.test.ts, tests/compliance/deferred_register_types.test.ts,
+>     tests/compliance/run_migrations_guards.test.ts, tests/compliance/scripts_charter.test.ts if
+>     touched, docs/scripts-charter.md, packages/fixtures/leg-coverage.json, and
+>     `Sprint Kickoffs/decision-2026-09-14-public-private-split.md`. Anything else is a STOP;
+>   - the whole-PR check over 96aa95b..HEAD prints nothing; lint_no_secrets.sh exits 0; the
+>     meta-lint reads PASS;
+>   - the leg register and the register read as EV-3 predicts, or as your report explains;
+>   - the full suite ZERO-RED on a fresh database, its count 2917 plus the tests this commit adds,
+>     each named;
+>   - the seven required checks on the new head, read from the API, each `completed success`;
+>   - by ES-5's method, the plain open list and the typed open list both empty;
+>   - scripts/pr_evidence.mjs, run on the new head after its CI, exits 0, and its block is in the PR
+>     body whole.
+>   Merge as a merge commit, passing the head to --match-head-commit, and read MERGED back. Then
+>   delete s-c-pr-evidence on both sides. If any condition fails, do not merge: report and STOP.
+>
+> EV-5  THE REPORT, after the merge or the STOP:
+>   - the commit and its diff stat;
+>   - each plant red first then green, and each neuter;
+>   - the mapper's pairs before and after, and EV-1 f's plant and neuter;
+>   - the charter's FINDING count;
+>   - the whole-PR check, the scan and the meta-lint;
+>   - the test count and its ZERO-RED line, with the uid;
+>   - the seven checks, each quoted; the alerts;
+>   - the final evidence block, condensed, with its run id;
+>   - the merge SHA and parents, MERGED read back, the branch gone on both sides;
+>   - the register by kind and the leg register, from main.
+>   Nothing hosted. Do not start anything after the merge: EW comes next.
+
+
+**EV's premises, checked before acting.** Each holds:
+- **The lines.** pr_evidence.mjs:397 is `jobs.find`; :497 and :513 are `console.log` and `process.exit`; _legs.ts:285-296 holds the three regexes; run_migrations.sh:144 is the empty-corpus check; deploy_guards.test.ts:443 is the npx stub writing to `"$4"`, the word `e2e`; the run_e2e leg's registered reason was a chmod 000 seam.
+- **The measurements.** Test-to-script pairs were 79 on `27751c5`, and script legs reached were 351 of 377, which is 361 of 387 with the ten instrument legs. Both are as Cowork measured.
+- **Cowork's two slips are noted,** and nothing depended on either: the merge-button commit ends without a newline and refs/pull/N/merge ends with one, and EU-2 a's recipe was wrapped.
+- **One premise held only in part: EV-1 d's `BASHOPTS`.** bash 4 and later import BASHOPTS. This machine's /bin/bash is 3.2, which has no BASHOPTS, so there `bash -O nocasematch` puts the same option on at entry. The plants pick whichever mechanism the bash under test honours, and fail loudly if neither does (a precondition test). CI runs bash 5, where BASHOPTS itself is what is exercised.
+
+**EV-1 a: A DUPLICATE JOB NAME.** `jobs.find` is now `jobs.filter`: none is the existing "has no job named" refusal, and more than one is a new refusal, "…has N jobs named X; each required job must appear exactly once", exit 2. The block's Run line also names the run's conclusion.
+- **Red first on `27751c5`:** a second `db-tests` concluding failure after a green one was not refused. The script printed a block, ZERO-RED, exit 0. Re-run against `27751c5`'s script at the end, the four EV-1 pr_evidence plants read exactly that: three ZERO-RED with exit 0, and the long block at 65536 bytes.
+
+**EV-1 b: THE LONG BLOCK.** `process.exit(code)` is `process.exitCode = code`, with the reason in a comment beside it. `fs.writeSync` is not used, for the reason EV gives.
+- **The plant:** a scratch repository whose B..HEAD holds 2000 empty commits (made with git fast-import), so the block is over 64 KiB, read through `| (sleep 1; cat)` with the script's own status taken from PIPESTATUS.
+- **Red first on `27751c5`:** the block arrived as exactly 65536 bytes ("expected 65536 to be greater than 65536"), with no closing fence and exit 0, as measured.
+- **Green:** the whole block arrives, ends with its fence, has its Disposition line, and holds all 2000 commit lines.
+
+**EV-1 c: THE RUN ITSELF.** The run's `head_sha` must equal HEAD, or it is exit 2: "the run N belongs to head X, not to this HEAD". A `conclusion` other than success marks the block RED, exit 1: "RED -- run N concluded failure". Cancelled stays exit 2.
+- **Red first on `27751c5`:** a wrong head_sha printed a block, ZERO-RED, exit 0, and so did a failed run over seven green jobs.
+
+**EV-1 d: nocasematch.** seed.sh runs `shopt -u nocasematch` on the line directly after `set -euo pipefail`, and its NOT ASSERTED gains BASH_ENV and exported functions.
+- **Red first on `27751c5`:** each of the three plants, under nocasematch, was accepted and run.
+  - `docker exec -I supabase_db_x psql`;
+  - `docker exec -i SUPABASE_DB_x psql`;
+  - `docker exec -i supabase_db_x PSQL`.
+- **Green:** all three are refused, and nothing is run. A positive control shows the documented hatch is still accepted under nocasematch.
+
+**EV-1 e: THE MAPPER.** assertedByScript takes a test's scripts from `scriptsNamedInCode`, which walks TypeScript's AST for the four spellings and nothing else.
+- **Red first on `27751c5`:** the three comment plants (a comment holding an UPPER_CASE const, a comment holding a runLint call, and a comment holding a quoted scripts/ path) each mapped the test to a script. The `join(REPO_ROOT, 'scripts', '<name>')` spelling mapped it to none.
+- **The pairs,** measured over every test directory with one call of the mapper per test file: **79 before, 71 after** the mapper's change, on the same tree. The new `run_migrations_guards.test.ts` then makes 72.
+  - **Removed (12),** each a pair the old regexes made from a comment or a quoted path in prose and the AST does not:
+    - dashboard_empty_state.test.ts to run_e2e.sh;
+    - frozen_migrations.test.ts to get_publishable_key.sh;
+    - leg_coverage.test.ts to lint_audit_log_columns.sh;
+    - leg_coverage.test.ts to lint_planted.sh;
+    - runbook_migration_expectation.test.ts to freeze_applied_migrations.mjs;
+    - runbook_psql_path.test.ts to get_publishable_key.sh;
+    - runbook_psql_path.test.ts to run_migrations.sh;
+    - seed_local_only.test.ts to lint_no_secrets.sh;
+    - tracked_client_keys.test.ts to get_publishable_key.sh;
+    - migration_idempotency.test.ts (db) to lint_migration_header.sh;
+    - migration_idempotency.test.ts (db) to run_migrations.sh;
+    - migration_runner_connection_failure.test.ts (db) to lint_no_secrets.sh.
+  - **Added (4),** all by the `join` spelling:
+    - readback_scripts.test.ts to render_headers.mjs;
+    - runbook_ward_console_deploy.test.ts to readback_ward_console.sh;
+    - function_grants.test.ts (db) to readback_function_grants.sh;
+    - readback_public_output_sql.test.ts (db) to readback_public_output.sh.
+  - **No leg flipped.** Script legs reached went from 351 to 353, and that is the two new legs of EV-1 a and c.
+
+**EV-1 f: THE WORD-CREDITED LEG.** `tests/compliance/run_migrations_guards.test.ts`, with `const SCRIPT = 'run_migrations.sh'`, runs the real script over a scratch root through its `$1` argument, with DATABASE_URL set (with no credential in it) and a stub psql first on PATH.
+- **The plants:** an empty `database/migrations`, and a directory holding only a `.down.sql`, a rollback that must never count as forward. Each asserts the message and the directory named, exit 2, and psql never called.
+- **The positive control:** one forward migration gets past the check and reaches the stub.
+- **No code changed,** so the proof is the neuter below. Nothing is registered.
+
+**EV-2 a: `deferred_register.d.mts`.** `tests/compliance/deferred_register_types.test.ts` parses the declaration with TypeScript's parser and compares it with the module as it runs: the declared value exports against `Object.keys` of the import in both directions, the KINDS tuple against runtime KINDS in order, and Row's members with their types against a row the runtime parser returns. Its plants, each on a planted copy of the declaration: a missing export, an extra export, KINDS reordered, Row without `line`, and Row.line declared a string. Seven tests, with the real declaration accepted and an anti-vacuity leg.
+
+**EV-2 b: `run_e2e.sh`, A DEFECT OLDER THAN THIS PR.** The npx stub in deploy_guards.test.ts wrote to `"$4"`, which is the word `e2e`, so no run reached phase 2.
+- **The stub now** reads `--outputFile=`, writes that file, and exits STUB_E2E_EXIT or STUB_RATCHET_EXIT by phase. STUB_E2E_NOFILE skips phase 1's write.
+- **The plants:**
+  - phase 1 red, ratchet green: exit 0;
+  - phase 1 green, ratchet red: exit 1;
+  - both red: exit 1;
+  - both green: exit 0.
+
+  Each asserts that attest_counts ran once, on `junit-ratchet.xml`, and never on `junit-e2e.xml`. The no-report plant asserts its message and that the ratchet never ran.
+- **Red first on the old stub:** the four exited 2 at "phase 1 produced no junit-e2e.xml". Run by hand over the old stub, the script writes a stray file literally named `e2e` in the working directory, and phase 2 never starts.
+- **A finding inside the finding:** the no-report plant was GREEN on the old stub. That is the defect itself: the stub never wrote the report, so the message fired every time and nothing asserted it. Only the new stub's STUB_E2E_NOFILE makes the plant discriminate, and its neuter below proves it does.
+- **The phase-1 leg leaves the register as reached,** and its registered reason (a chmod 000 seam) was wrong.
+
+**NEUTERS,** through `scripts/neuter.sh`, with every expected set written to a file first. Every one reddened exactly its expected set, except one prediction miss, in the safe direction:
+
+| Neuter | Reddened |
+|---|---|
+| a: `jobs.filter(...)` narrowed to its first match | the duplicate-job plant (1) |
+| b: `process.exit(code)` restored | the long-block plant (1) |
+| c: the run's head_sha unchecked | the wrong-head_sha plant (1) |
+| c: the run's conclusion unchecked | the failed-run plant (1) |
+| d: `shopt -u nocasematch` removed | the three plants (3) |
+| e: the const spelling removed | its positive control, and two register tests (the register and the scripts agree; the recorded baseline), **and a fourth: the older leg_coverage test that maps through that spelling. That fourth was the prediction's miss** (4) |
+| e: the runLint spelling removed | its positive control (1) |
+| e: the `scripts/` spelling removed | its positive control, and the same two register tests (3) |
+| e: the join spelling removed | its positive control (1) |
+| e: comments credited again (a raw regex) | the quoted-comment plant (1) |
+| f: run_migrations.sh:144's check deleted | the empty-directory plant and the down-only plant (2) |
+| EV-2 a: six neuters, one per comparison | one plant each (6) |
+| EV-2 b: `\|\| true` removed from phase 1 | phase 1 red with ratchet green, and both red (2) |
+| EV-2 b: `\|\| RATCHET_ST=$?` made `\|\| true` | phase 1 green with ratchet red, and both red (2) |
+| EV-2 b: the missing-report check disabled | the no-report plant (1) |
+
+For the mapper, the register-level effect of each removal was measured on a scratch copy of the instrument before the neuters ran, and the expected sets were written from that. The runLint and join spellings, and comments credited again, change no leg in the real tree (0 disagreements with the register), so each reddens only its own plant. The const and `scripts/` spellings are load-bearing: 183 and 133 legs.
+
+**THE LEG REGISTER** moved from 387/361/26 to **389/364/25**, as EV predicted.
+- **Added, 2, both reached:** pr_evidence.mjs's ", not to this HEAD" (EV-1 c) and "; each required job must appear exactly once" (EV-1 a). The mapper's two parse refusals move into one helper and stay two legs, so the instrument's own legs are unchanged, and nothing else here adds a `throw`.
+- **Changed, 1:** run_e2e.sh's "phase 1 produced no junit-e2e.xml — the golden path did not run at all." goes from registered to reached.
+- **Removed or renamed:** none.
+- **The nested pairs** pinned in leg_coverage.test.ts are unchanged, at 22.
+
+**THE CHARTER** reads 0 FINDING rows, and 45 rows. deferred_register.d.mts reads probed, OK, with the type test as its planting test and a "via" note. run_e2e.sh reads probed, OK, 2 / 0. run_migrations.sh gains its new test. pr_evidence.mjs reads 42 / 0. A note at the end of the charter records how both findings were closed.
+
+**THE REGISTER.** The survey row leaves, as "its work done, recorded in -171 and -172". It is not by rule: `deferred_items.test.ts` has no leave rule for a TRIGGER row. The register is recounted from the table at **58 (15 BOX, 32 TRIGGER, 11 VERSION)**.
+
+**Process notes,** not findings:
+- EV asks for one commit. There are two: the code commit `b07eb9d`, then this record's. A record cannot name the run its own head produces, so the code went first and was run through CI, and the record names that run.
+- The mapper's "pairs" are measured with one call of assertedByScript per test file, and its before and after lists are in this entry by name above.
+- **A prediction of mine was wrong in the safe direction:** the const neuter reddened one test more than I predicted.
+
+**THE LIVE RUN** on `b07eb9d516815e9ab6a9cf3d8283cf147c2fe08d`, the code commit, exited 0 after its CI: run 36630237595, attempt 1, ZERO-RED, with compliance 2057, db 893 and ratchet 10. Its merge M is `c5b77f002e52193ae94b69ce61ff40d29759c7d4`. The block for the final head is in the PR body, not here.
+
+Nothing hosted. #106's merge record is held for the next PR's addendum. The S-series ends with the merge; EW is next.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -11616,6 +11869,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | ES | R-2026-09-29-169 | 2026-09-29 | **PR S-s: the secret scan reads each URL's own host.** Opens with #104's merge record (-168's addendum); ER-2's alert check and -168's merge record were Cowork's slips. `scripts/lint_no_secrets.sh` judges every Postgres URL token on a matched line by its own host, host list and query, and gains a keyword-DSN pattern; the line-level filter is gone. ES-2 found three on d08e10d, not two: Cowork's amendment keeps a bare keyword value from beginning with `=` or `>`, and names what that gives up. `scripts/seed.sh` refuses a host list. 18 red plants read 0 on d08e10d and 1 on HEAD; 8 neuters all red, N1 one fewer than predicted (e is caught by the query test too). Leg register 344/318/26; register 59. Found, not fixed: seed.sh reads its host after stripping the query. Next letter ET. |
 | ET | R-2026-09-29-170 | 2026-09-29 | **#105's merge word, after one commit to seed.sh.** ET-1 closes the hosts seed.sh's check did not see: a DATABASE_URL must be a postgresql:// or postgres:// URL with no query; seed's own psql runs under `env -u` for PGHOST, PGHOSTADDR, PGSERVICE and PGSERVICEFILE, and with `-X`; an OPENBED_PSQL naming a URL or a host is refused; no refusal prints any part of the URL. 15 new tests, each plant red first on `aa72345`; 6 neuters each red on exactly their own plants. Leg register 347/321/26 as predicted, plus one leg renamed by ET-1 f. Found, not fixed: the hatch still takes `-h` and inherits PGHOST. #105's merge record lands in S-c's PR. Next letter EU. **Merged at `96aa95b`** (parents `d08e10d`, `bda9acb`); the merge record is -171's addendum. |
 | EU | R-2026-09-29-171 | 2026-09-29 | **PR S-c (#106): the hatch pinned; PR evidence from CI's own artefacts; the scripts charter.** Opens with #105's merge record (-170's addendum). EU-1: seed.sh's OPENBED_PSQL is accepted only as `docker exec -i supabase_db_<project> psql` with at most one -U and one -d, run under `env -u` with -X; 17 plants red first on `96aa95b`, 5 neuters; -170's two gaps closed. EU-2: each uploading job writes `ci-provenance.txt` (one line: EU-2 a's wrapped text would have split printf), pinned by a js-yaml guard. EU-3: the register parser moves to `scripts/deferred_register.mjs` unchanged (29 pairs identical); one jobs list; `scripts/pr_evidence.mjs`, 40 legs, 65 tests over real zips, digests and merge objects, 44 neuters; its live run on `7a5c3d7` read run 36619926438 ZERO-RED on its first try. EU-4: `docs/scripts-charter.md`, 45 rows, FINDING deferred_register.d.mts and run_e2e.sh. Leg register 387/361/26; register 59. Found: the leg mapper credits through a quoted script path; the refs/pull merge ends with a newline. Next letter EV. |
+| EV | R-2026-09-29-172 | 2026-09-29 | **#106's merge word, after two commits (code, then this record).** EV-1: a required job present twice is exit 2, never read from its first match; the block is no longer cut off at a pipe (process.exitCode, not process.exit); the run's head_sha must be HEAD and a run not concluding success marks the block RED; seed.sh turns nocasematch off; the leg mapper reads four spellings from the AST only (pairs 79 -> 71, no leg flipped); run_migrations.sh's empty-corpus refusal is planted through its root argument. EV-2: tests/compliance/deferred_register_types.test.ts holds the .d.mts to the module, and run_e2e.sh's test stub, which wrote to the word e2e, now reads --outputFile= and plants both phases. The charter reads 0 FINDING rows. The survey row leaves: register 58 (15 BOX, 32 TRIGGER, 11 VERSION). Leg register 389/364/25. Every fix red first on `27751c5`, 20 neuters, one prediction miss in the safe direction. #106's merge record lands in the next PR. Next letter EW. |
 
 ## Deferred items — this record is where the list lives
 
@@ -11693,7 +11947,6 @@ the record's own, except where CW-5 assigned one._
 | B1's onboarding checks: the first reporting login reads its own history as itself (12.4 step 6: 6a a ward's login, 6b the facility's, each ward), and the first publish reads back from `/beds.json` (12.4 step 9; a facility's login publishes two wards) (restated 2026-09-28, R-2026-09-27-144 DT Bundle 2; until then: "B1's onboarding checks: the first ward account reads its own history as itself (12.4 step 6), and the first publish reads back from `/beds.json` (12.4 step 9)") | R-2026-09-26-122 CX-1 (b) | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "The first ward account at facility one") |
 | `ward_reply` has a cap and no content validation (#63/#97) | R-2026-09-17-03 and -04 | TRIGGER | The first change that writes `app.referral.ward_reply` (referrals are unwired in v1; R-2026-09-26-122 CX-2) |
 | Gate 3's property test does not exist (#109) | R-2026-09-17-03 and -04 | TRIGGER | The next change under `packages/gate/` or `packages/snapshot/src/freshness.ts` (R-2026-09-26-122 CX-2) |
-| The `scripts/` survey items: PR evidence tables generated from artefacts; the idempotency digest's grants and RLS flags; item 1, the duty-flag lint missing `<> 'NO'`; item 2, nothing validates SQL quoted in prose | Deferred to the `scripts/` survey; R-2026-09-15-06 and -07; R-2026-09-17-05; R-2026-09-17-08 D2 | TRIGGER | The next migration file added (024) (R-2026-09-26-122 CX-2). FIRED at 024; item 1, item 2's guard and the digest landed in S-a (R-2026-09-28-162, -163); item 2's runbook SQL in S-b (R-2026-09-29-165, -166, -167); the evidence tables and the charter in S-c |
 | The test-title citation convention | R-2026-09-23-65 E | TRIGGER | The first cited test title found not to exist in its file (R-2026-09-26-122 CX-2) |
 | A real-browser refusal check in CI | R-2026-09-23-70 C3 | TRIGGER | The first PR that adds a browser runner (Playwright or similar) as a dependency. If D1's screenshots add one, it fires in D1 and the check lands in D2 (R-2026-09-26-122 CX-2) |
 | Provisioning as a Supabase Edge Function | R-2026-09-23-71 C | TRIGGER | The first proposal to move ward-account setup into an app (R-2026-09-26-122 CX-2) |
