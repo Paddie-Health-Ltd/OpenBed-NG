@@ -427,6 +427,9 @@ describe('service-role bundle guard', () => {
       const built = join(root, 'apps/x/.functions-build/index.js');
       chmodSync(built, 0o000);
       try {
+        // The precondition is the plant (R-2026-09-29-165, EO-2): a user who can read a
+        // mode-000 file (root) cannot run this leg, and must see why rather than a status.
+        expect(() => accessSync(built, constants.R_OK), 'this user can read a mode-000 file; the plant did not take').toThrow();
         const res = runLint(LINT, root);
         expect(res.status, `an unreadable Function bundle did not stop the scan:\n${res.stdout}`).toBe(2);
         expect(res.stdout, 'the shell half did not relay the server-side refusal').toContain(
@@ -800,7 +803,7 @@ describe('lint_no_third_party_fonts.sh', () => {
       chmodSync(target, 0o000);
       try {
         // CONFIRM THE PLANT LANDED: as root the mode is ignored and this leg would test nothing.
-        expect(() => execFileSync('cat', [target], { stdio: 'ignore' }), 'the planted file is still readable -- running as root?').toThrow();
+        expect(() => accessSync(target, constants.R_OK), 'this user can read a mode-000 file; the plant did not take').toThrow();
         const res = runLint(LINT, root);
         expect(res.status, res.stdout).toBe(2);
         expect(res.stdout).toContain('over the built apps -- the check did not run');

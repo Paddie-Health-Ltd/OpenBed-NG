@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { accessSync, chmodSync, constants, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { runLint, withScratch, place, REPO_ROOT } from './_scratch.js';
@@ -154,7 +154,7 @@ describe('secret scan', () => {
       try {
         // CONFIRM THE PLANT LANDED: as root the mode is ignored and this leg would
         // test nothing, so an unreadable file is a precondition, not an assumption.
-        expect(() => readFileSync(target), 'the planted file is still readable -- running as root?').toThrow();
+        expect(() => accessSync(target, constants.R_OK), 'this user can read a mode-000 file; the plant did not take').toThrow();
         const res = runLint(LINT, root);
         expect(res.status, `an unreadable file did not stop the scan:\n${res.stdout}`).toBe(2);
         expect(res.stdout).toContain('against every pattern -- no file it cannot read is ever reported clean');

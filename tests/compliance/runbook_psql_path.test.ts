@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { REPO_ROOT } from './_scratch.js';
+import { bashFences, isGoverned, loadRunbooks, PSQL_SCRIPTS } from './_fences.js';
 
 /**
  * EVERY RUNBOOK BLOCK THAT NEEDS `psql` CARRIES STEP P'S PATH LINE ITSELF
@@ -50,14 +49,6 @@ import { REPO_ROOT } from './_scratch.js';
  * to two questions.
  */
 
-const RUNBOOKS = [
-  join('docs', 'runbook-supabase-project-creation.md'),
-  join('docs', 'runbook-cloudflare-pages-beds-json.md'),
-  // PR 3.4b-app C (R-2026-09-24-88 BP-11): the admin deploy runbook's psql blocks carry
-  // step P's line too. It holds none today; it is in the corpus so the next one is held.
-  join('docs', 'runbook-admin-deploy.md'),
-];
-
 /**
  * The total governed-fence count today. Asserted by identity -- see `anti-vacuity`.
  * 24 -> 27 on 2026-09-24 (PR 3.4b-app A.2): step 3's H2 section adds three blocks that
@@ -86,57 +77,11 @@ const RUNBOOKS = [
  */
 const GOVERNED_TODAY = 39;
 
-export interface Fence {
-  /** Which runbook it came from. */
-  doc: string;
-  /** 1-indexed line of the opening ```bash. */
-  line: number;
-  /** The fence's body, dedented by its own opening indent. */
-  body: string;
-}
-
 /**
- * Every ```bash fence in a document, at any indentation.
- *
- * The closing marker must match the OPENING indent, so a nested fence inside a
- * list item closes where it actually closes rather than at the first ``` found.
+ * THE READER MOVED (R-2026-09-29-165, EO-1 a). RUNBOOKS, bashFences(), PSQL_SCRIPTS and
+ * isGoverned() live in tests/compliance/_fences.ts, so tests/db/runbook_sql_live.test.ts reads
+ * the same corpus without importing this file.
  */
-export function bashFences(doc: string, text: string): Fence[] {
-  const lines = text.split('\n');
-  const out: Fence[] = [];
-  let open: { indent: string; line: number } | null = null;
-  let buf: string[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i] ?? '';
-    const m = /^(\s*)```bash\s*$/.exec(line);
-    if (open === null) {
-      if (m !== null) { open = { indent: m[1] ?? '', line: i + 1 }; buf = []; }
-      continue;
-    }
-    if (line === `${open.indent}\`\`\`` || line.trimEnd() === `${open.indent}\`\`\``) {
-      out.push({ doc, line: open.line, body: buf.map((l) => l.slice(open?.indent.length ?? 0)).join('\n') });
-      open = null;
-      continue;
-    }
-    buf.push(line);
-  }
-  return out;
-}
-
-/**
- * The scripts that call `psql` themselves, so a fence running one needs the PATH line
- * as much as a fence calling psql directly. scripts/readback_public_output.sh joined
- * on 2026-09-24 (R-2026-09-24-73 BA-2): its two fences in step 5 carried the line, and
- * the guard did not know they had to. Widened by name, with a plant.
- * scripts/readback_function_grants.sh joined the same way on 2026-09-24 (R-2026-09-24-74
- * BB-2), for fence 6.
- */
-const PSQL_SCRIPTS = /(run_migrations|readback_public_output|readback_function_grants)\.sh/;
-
-/** A fence is GOVERNED when running it needs `psql` on PATH. */
-export function isGoverned(body: string): boolean {
-  return /(^|[\s|(])psql\s/m.test(body) || PSQL_SCRIPTS.test(body);
-}
 
 /** The first line of a body that needs `psql`, 1-indexed within the body. */
 function firstGovernedCall(body: string): number {
@@ -202,11 +147,7 @@ export function pathViolations(docs: { doc: string; text: string }[]): string[] 
   return out.sort();
 }
 
-function loadRunbooks(): { doc: string; text: string }[] {
-  return RUNBOOKS.map((doc) => ({ doc, text: readFileSync(join(REPO_ROOT, doc), 'utf8') }));
-}
-
-const DOCS = loadRunbooks();
+const DOCS = loadRunbooks(REPO_ROOT);
 const SUPABASE = DOCS[0]?.text ?? '';
 
 describe('runbook psql PATH line', () => {
