@@ -10776,6 +10776,181 @@ The read on S-s's new head goes in the report.
 
 Nothing hosted. S-s is not merged, and S-c is not started. Next letter: **ET**.
 
+### R-2026-09-29-170 — #105 (S-s): the merge word, after one commit that closes seed.sh's unseen hosts
+
+_Issued as R-PROVISIONAL-2026-09-29-ET, by Cowork on 2026-09-29, after its review of #105 at `aa72345` (a staff engineer reviewed it independently before it was pasted). Landed in #105 with the commit it asks for; #105 merges on it. Number assigned on landing: R-2026-09-29-169 plus one. #105's merge record cannot sit here, inside #105: it lands in S-c's pull request as an addendum to this entry, as #104's did in -169. Next provisional letter: **EU**, S-c's letter._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-29-ET — #105 (S-s): THE MERGE WORD, AFTER ONE SMALL COMMIT TO seed.sh
+> ET lands in #105 as -170, with the commit it asks for. Next letter: EU, S-c's letter. #105's
+> merge record cannot sit in -170, which is inside #105. It lands in S-c's PR as an addendum, as
+> #104's did in -169.
+> A staff engineer reviewed this letter independently before it was pasted. The review confirmed
+> your finding 3 with a stub psql, and found the further holes in ET-1.
+>
+> READ BY COWORK, from its own clone at aa72345d42bfdee3cd533757832254bb5253cc3e:
+> - One commit on d08e10d, touching six paths. It matches your report.
+> - The whole-PR check prints nothing (grep exit 1). lint_no_secrets.sh reads PASS with 0
+>   findings. The meta-lint reads PASS over 31 scripts. The register is 59 (15 BOX, 33 TRIGGER,
+>   11 VERSION).
+> - As a non-root user, no_secrets, seed_local_only and leg_coverage are green.
+>   no_phantom_paths' one red is the two unbuilt version.json outputs, which is Cowork's
+>   environment, as before.
+> - COWORK'S OWN PLANTS against the fixed scan, on a scratch tree:
+>   - RED (exit 1): [::1] with a comma list; a percent-encoded host; a fragment followed by
+>     `?host=`; the pass-word key as a query parameter on a local URL; the same with `host=`
+>     naming another host; a keyword host list starting local; a keyword line whose real host is
+>     hosted while its comment names a local one; a URL inside a Markdown link; two URLs run
+>     together.
+>   - GREEN (exit 0): the local URL; a local keyword DSN; `hostaddr` local.
+> - ACCEPTED AS REPORTED:
+>   - your three additions: a second `://` fails closed, the extra keyword plant, and the two
+>     could-not-run legs reached through a stub grep;
+>   - N1's count, whose miss was in the prediction, not the guard;
+>   - the ledger;
+>   - 2785 ZERO-RED;
+>   - the leg register at 344/318/26;
+>   - the alerts;
+>   - the seven checks.
+>
+> ET-1  seed.sh CAN STILL REACH A HOST ITS CHECK DID NOT SEE. YOUR FINDING 3 IS RIGHT; CLOSE THE
+>   CLASS HERE. Each item was confirmed with a stub psql on PATH at aa72345.
+>   a) THE QUERY. seed strips the query before it reads the host, so a local authority with
+>      `?host=` reaches psql whole. Refuse any DATABASE_URL holding `?`, before the host is read.
+>   b) THE SCHEME. A bare `localhost`, `db` or `127.0.0.1` passes the check. psql then reads it as a
+>      database name and takes the host from PGHOST (the review observed it with PGHOST set to a
+>      `.invalid` host). Require the URL to begin with `postgresql://` or `postgres://` and refuse
+>      anything else, as scripts/provision_target.mjs does.
+>   c) THE ENVIRONMENT. libpq takes PGHOSTADDR, and a service named by PGSERVICE, from the
+>      environment when the connection string does not set them. Beside a local URL, PGHOSTADDR
+>      redirects psql. seed's own psql runs as
+>      `env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE psql -X "$URL" …`.
+>      These are removed, not refused, so a developer who exports them is not stopped. Removing
+>      PGHOST is also what closes b) for any form that slips past it. `env -u` works on macOS and
+>      Linux.
+>   d) THE STARTUP FILE. `-X`, above, so that ~/.psqlrc, $PSQLRC or the system psqlrc cannot run a
+>      `\connect` after the check.
+>   e) OPENBED_PSQL, the deliberate escape hatch, stays. But refuse an OPENBED_PSQL value holding
+>      `://`, `host=` or `hostaddr=`, since the hatch exists to reach a local container.
+>   f) THE MESSAGES. No refusal prints the URL's credentials or query. The existing refusal prints
+>      `${URL%%\?*}`, which includes the credentials; fix it too. Print the host alone, or nothing.
+>   - PLANTS in tests/compliance/seed_local_only.test.ts. Each runs red first on aa72345, with a
+>     stub psql first on PATH that records its arguments and environment, and a `.invalid` host,
+>     so the red-first run never makes a real connection:
+>     - a local URL with `?host=`, refused, and the stub never called;
+>     - a bare `localhost` with PGHOST set, refused, and the stub never called;
+>     - PGHOSTADDR set beside the local URL: the stub is called without PGHOSTADDR;
+>     - PGSERVICE set: the stub is called without it;
+>     - a ~/.psqlrc in a scratch HOME: the stub is called with -X;
+>     - an OPENBED_PSQL holding `host=`, refused;
+>     - each refusal's output holds no credential and no query.
+>   - NEUTERS, one per fix, each reddening only its own plants.
+>
+> ET-2  RECORD. -170 holds ET as issued, what ET-1 built, and red first then green. Add a ledger row
+>   for ET. The register stays at 59. The leg register moves by the legs ET-1 adds. The team
+>   expects three refusals (the query, the scheme and OPENBED_PSQL), each reached: 347/321/26.
+>   Report and explain any difference.
+>
+> ET-3  THE MERGE WORD. Merge #105 when all of these hold, and only then:
+>   - `git diff --name-only d08e10d..HEAD` lists only these: scripts/lint_no_secrets.sh,
+>     scripts/seed.sh, tests/compliance/no_secrets.test.ts, tests/compliance/seed_local_only.test.ts,
+>     packages/fixtures/leg-coverage.json, and `Sprint Kickoffs/decision-2026-09-14-public-private-split.md`;
+>   - ES-3's whole-PR check over d08e10d..HEAD prints nothing;
+>   - lint_no_secrets.sh exits 0, and the meta-lint reads PASS;
+>   - the leg register reads as ET-2 predicts, or as your report explains;
+>   - the full suite is ZERO-RED on a fresh database, and its count equals 2785 plus the tests this
+>     commit adds, each named;
+>   - the seven required checks on the new head, read from the API, each read `completed success`.
+>     Skipped, neutral and cancelled do not count;
+>   - by ES-5's method, the plain open list and the typed open list are both empty.
+>   Merge as a merge commit, passing the head to --match-head-commit, and read MERGED back. Then
+>   delete s-s-secret-scan-host on both sides. If any condition fails, do not merge: report and
+>   STOP.
+>
+> ET-4  THE REPORT, after the merge or the STOP:
+>   - the commit and its diff stat;
+>   - each plant, red first and then green, and each neuter;
+>   - the whole-PR check, the scan and the meta-lint;
+>   - the test count and its ZERO-RED line, with the uid of the run;
+>   - the seven checks, each quoted;
+>   - the alerts, as read;
+>   - the merge SHA and its parents, MERGED read back, and the branch gone on both sides;
+>   - the register by kind, and the leg register, from main.
+>   Nothing hosted. Do not start S-c before EU.
+
+**ET's premises, checked before acting.** Each holds:
+- scripts/provision_target.mjs's classifyDb refuses any scheme but postgresql: and postgres:;
+- the non-local refusal did print `${URL%%\?*}`, credentials included;
+- `env -u` with several names runs on this machine's macOS env;
+- run_migrations.sh's documented hatch value, `docker exec -i … psql -U postgres -d postgres`, holds none of `://`, `host=` or `hostaddr=`, so ET-1 e leaves it untouched. It is now a positive control.
+
+**ET-1: WHAT WAS BUILT,** in `scripts/seed.sh`. The checks run in this order:
+1. **The scheme (b).** DATABASE_URL must begin with `postgresql://` or `postgres://`, or it is refused.
+2. **The query (a).** Any `?` in it is refused. The host is read only after both of these.
+3. **The host list,** unchanged from -169.
+4. **The host,** unchanged.
+
+**The environment and the startup file (c, d).** seed's own psql runs as `env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE psql -X "$URL" -v ON_ERROR_STOP=1`.
+
+**The hatch (e).** An OPENBED_PSQL holding `://`, `host=` or `hostaddr=` is refused before it is word-split.
+
+**The messages (f).** No refusal prints any part of the URL.
+- The non-local refusal's "points at" line is gone.
+- The host-list refusal no longer prints the authority it read.
+- It goes further than ET's "the host alone" on purpose. Credentials are stripped at the FIRST `@`, so a password holding a raw `@` leaves the rest of itself in what the parse calls the host. On aa72345 the host-list refusal printed exactly such a fragment; the plant below shows it.
+
+**ET-1: THE PLANTS,** in `tests/compliance/seed_local_only.test.ts`. They run through a stub psql and a stub docker, first on PATH. Each stub records its arguments and the four PG variables, reads its stdin and exits 0. Every run starts with OPENBED_PSQL, PGHOST, PGHOSTADDR, PGSERVICE, PGSERVICEFILE and PSQLRC scrubbed from the inherited environment.
+- **Red first:** aa72345's seed.sh was swapped in from a copy, the file was run, and seed.sh was restored and its sha256 checked (`0ee15b35…`).
+- **Green:** every plant then passes on the fix, 26 of 26.
+
+| Plant (15 new tests) | aa72345 | HEAD |
+|---|---|---|
+| a) a local URL with `?host=` naming a `.invalid` host: refused, psql never called | red: "a query override was accepted" | green |
+| b) a bare `localhost` with PGHOST set: refused, psql never called | red: "a bare host name was accepted" | green |
+| c) PGHOST beside the local URL: psql runs without it | red: "psql ran with PGHOST set" | green |
+| c) PGHOSTADDR beside the local URL | red: "psql ran with PGHOSTADDR set" | green |
+| c) PGSERVICE and PGSERVICEFILE beside the local URL | red: "psql ran with PGSERVICE set" | green |
+| d) a psqlrc holding a `\connect` in a scratch HOME: psql runs with `-X` | red: "psql ran without -X" | green |
+| e) OPENBED_PSQL holding `host=`: refused, nothing run | red: accepted | green |
+| e) OPENBED_PSQL holding `hostaddr=` | red: accepted | green |
+| e) OPENBED_PSQL holding a URL | red: accepted | green |
+| f) the non-local refusal prints no credential, query or host | red: printed the password | green |
+| f) the host-list refusal, with a raw `@` in the password | red: printed the password's tail | green |
+| f) the query refusal | red: not refused | green |
+| f) the scheme refusal | red: not refused | green |
+| f) the hatch refusal | red: not refused | green |
+| positive control: the documented `docker exec` hatch runs | green | green |
+
+**Existing legs.** The seven existing refusal plants and the four positive controls are green on both. They were tightened to run through the stub:
+- every refusal now also asserts psql was never called;
+- every positive control now asserts no REFUSING line, exit 0, and psql reached with the URL.
+
+**ET-1: NEUTERS,** through `scripts/neuter.sh` over the seed file. Each expected set was written to a file before the run. The harness read `ALL 6 NEUTERS RED; every restore verified`, and each reddened exactly its predicted set and nothing else:
+
+| Neuter | Reddened |
+|---|---|
+| the query refusal never fires | a, and f's query row (2) |
+| the scheme check accepts anything | b, and f's scheme row (2) |
+| `env -u` removed | the three c rows (3) |
+| `-X` removed | d (1) |
+| the hatch refusal never fires | the three e rows, and f's hatch row (4) |
+| the non-local "points at" line and the host-list `($AUTH)` restored | f's non-local and host-list rows (2) |
+
+**ET-2: THE LEG REGISTER,** 344/318/26 to **347/321/26**, as the team predicted, with one thing the prediction did not name.
+- **Three new legs, each reached:** the scheme refusal, the query refusal and the hatch refusal.
+- **One renamed:** the host-list refusal's identity was `); libpq falls through …`, because its message printed the authority before it. It is now `DATABASE_URL names more than one host -- libpq falls through …`. The rename is f's consequence, and it moves no count.
+
+**THE REGISTER** stays at 59 (15 BOX, 33 TRIGGER, 11 VERSION).
+
+**FOUND, NOT FIXED: the hatch can still name a host.** Both were observed on HEAD with a stub psql.
+- OPENBED_PSQL set to `psql -h evil.invalid -U postgres` passes ET-1 e's refusal, and is run with `-h evil.invalid`.
+- The hatch's own psql still inherits PGHOST, because `env -u` wraps only seed's own psql.
+
+Both need a developer to set the hatch deliberately. ET-1 e scoped its refusal to three forms, and this commit merges without another review, so neither is widened here. Reported to Cowork for EU.
+
+The merge follows this commit, on ET-3. Nothing hosted, and S-c is not started. Next letter: **EU**.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -10936,6 +11111,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | EQ | R-2026-09-29-167 | 2026-09-29 | **#104 reviewed again; one more commit.** EQ-1, Cowork's gap in EP-1 a: a word rule pins where psql connects, with the second word exactly `"$DATABASE_URL"` and later words only `-v`, `-c`, `-tAc`, `-Atc` or the heredoc opener. 37 psql lines read, 0 refused. EQ-2, Cowork's gap in EP-1 c: rule (c) is any backslash followed by a letter or `!`. EQ-3: runOne() refuses, before any spawn, a DATABASE_URL that does not parse, names another host or carries a query string, and any key outside FENCE_KEYS. EQ-4: SQL that opens its own connection is named NOT ASSERTED, and rule (b)'s message no longer claims the stack is never left. Four neuters red first; 66 legs. Register 59. The merge word is now ER. |
 | ER | R-2026-09-29-168 | 2026-09-29 | **#104's merge word, after one commit.** GitHub's secret scanning raised alert #1 (Postgres connection string) on `a61fccc`:980, the Supabase CLI's public local default with `?host=` joined on; it is not a secret. ER-1: :980 and :992 build their URLs from dbUrl() at run time, and no password-bearing URL is added anywhere. ER-2's alert probe fails open (generic patterns need `secret_type`), so it was read with the types named. The merge record lands in ES's PR, because -168 precedes the merge. ER-3: a TRIGGER row for the secret scan's line-level local-host exemption; register 60. Next letter ES. **Merged at `d08e10d`** (parents `bbdefbf`, `2f4e00c`); the merge record is -169's addendum. |
 | ES | R-2026-09-29-169 | 2026-09-29 | **PR S-s: the secret scan reads each URL's own host.** Opens with #104's merge record (-168's addendum); ER-2's alert check and -168's merge record were Cowork's slips. `scripts/lint_no_secrets.sh` judges every Postgres URL token on a matched line by its own host, host list and query, and gains a keyword-DSN pattern; the line-level filter is gone. ES-2 found three on d08e10d, not two: Cowork's amendment keeps a bare keyword value from beginning with `=` or `>`, and names what that gives up. `scripts/seed.sh` refuses a host list. 18 red plants read 0 on d08e10d and 1 on HEAD; 8 neuters all red, N1 one fewer than predicted (e is caught by the query test too). Leg register 344/318/26; register 59. Found, not fixed: seed.sh reads its host after stripping the query. Next letter ET. |
+| ET | R-2026-09-29-170 | 2026-09-29 | **#105's merge word, after one commit to seed.sh.** ET-1 closes the hosts seed.sh's check did not see: a DATABASE_URL must be a postgresql:// or postgres:// URL with no query; seed's own psql runs under `env -u` for PGHOST, PGHOSTADDR, PGSERVICE and PGSERVICEFILE, and with `-X`; an OPENBED_PSQL naming a URL or a host is refused; no refusal prints any part of the URL. 15 new tests, each plant red first on `aa72345`; 6 neuters each red on exactly their own plants. Leg register 347/321/26 as predicted, plus one leg renamed by ET-1 f. Found, not fixed: the hatch still takes `-h` and inherits PGHOST. #105's merge record lands in S-c's PR. Next letter EU. |
 
 ## Deferred items — this record is where the list lives
 

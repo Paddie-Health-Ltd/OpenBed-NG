@@ -45,17 +45,42 @@ URL="${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}"
 # -- an entirely ordinary form -- parsed its host as `postgresql` and was
 # REFUSED. It failed closed, so nothing unsafe passed, but a legitimate local
 # URL stopped working.
+#
+# NO REFUSAL PRINTS THE URL (R-2026-09-29-170, ET-1 f). The refusal used to print
+# the URL up to its query, credentials included. Nor does any print the host it
+# read: credentials are stripped at the FIRST `@`, so a password holding a raw `@`
+# leaves a fragment of itself in what this parse calls the host.
+#
+# A URL, AND NOTHING ELSE (ET-1 b). A bare `localhost`, `db` or `127.0.0.1` passed
+# the host check, and psql then read it as a DATABASE NAME and took the host from
+# PGHOST. scripts/provision_target.mjs refuses any other scheme the same way.
+case "$URL" in
+    postgresql://*|postgres://*) ;;
+    *)
+        echo "REFUSING: DATABASE_URL must begin with postgresql:// or postgres:// -- anything else psql reads as a database name, and takes the host from its environment." >&2
+        exit 2
+        ;;
+esac
+# NO QUERY AT ALL (ET-1 a). A host or hostaddr parameter overrides the authority
+# this check reads, and the check used to strip the query before reading the host,
+# so a local authority carrying one reached psql whole. Refused before any host is
+# read, as the secret scan refuses any `?` on a URL it would call local.
+case "$URL" in
+    *\?*)
+        echo "REFUSING: DATABASE_URL carries a query string -- a host or hostaddr parameter there overrides the host this check reads, so no query is accepted." >&2
+        exit 2
+        ;;
+esac
 REST="${URL#*://}"            # strip scheme
 REST="${REST#*@}"             # strip credentials IF PRESENT (no-op without an @)
 AUTH="${REST%%/*}"            # strip path
-AUTH="${AUTH%%\?*}"           # strip query
 # A HOST LIST IS NEVER LOCAL (R-2026-09-29-169, ES-2). libpq tries each host of a
 # comma list in turn, with the same password, so the port strip below read only
 # the FIRST: a local first host with a port, then a remote one, passed this check.
 # Refused here, before any host is read.
 case "$AUTH" in
     *,*)
-        echo "REFUSING: DATABASE_URL names more than one host ($AUTH); libpq falls through to the next host with the same password, so a local first host proves nothing." >&2
+        echo "REFUSING: DATABASE_URL names more than one host -- libpq falls through to the next host with the same password, so a local first host proves nothing." >&2
         exit 2
         ;;
 esac
@@ -64,7 +89,6 @@ case "$HOST" in
     127.0.0.1|localhost|db|0.0.0.0|'[::1]'|::1) ;;
     *)
         echo "REFUSING: seed data is synthetic and must never reach a non-local database." >&2
-        echo "  DATABASE_URL points at: ${URL%%\?*}" >&2
         exit 2
         ;;
 esac
@@ -83,12 +107,30 @@ fi
 
 # Same OPENBED_PSQL escape hatch as scripts/run_migrations.sh; see the comment
 # there. Files go on STDIN so a containerised psql can read them.
+#
+# THE HATCH STAYS, BUT IT NAMES NO HOST (ET-1 e). It exists to reach a local
+# container, as run_migrations.sh's `docker exec -i ... psql -U postgres` example
+# does, so a value carrying a URL or a host keyword is refused: the check above
+# never read it.
+#
+# SEED'S OWN psql SEES ONLY THE URL THE CHECK READ (ET-1 c and d). libpq takes
+# PGHOST, PGHOSTADDR and a service named by PGSERVICE from the environment where
+# the connection string leaves them unset, and PGHOSTADDR beside a local URL
+# redirects the connection. They are REMOVED, not refused, so a developer who
+# exports them is not stopped. `-X` keeps ~/.psqlrc, $PSQLRC and the system psqlrc
+# from running a \connect after the check. `env -u` is in macOS's and GNU's env.
 if [[ -n "${OPENBED_PSQL:-}" ]]; then
+    case "$OPENBED_PSQL" in
+        *://*|*host=*|*hostaddr=*)
+            echo "REFUSING: OPENBED_PSQL names a URL or a host -- the hatch exists to reach a local container, and the host check never read it." >&2
+            exit 2
+            ;;
+    esac
     read -r -a PSQL <<< "$OPENBED_PSQL"
     PSQL+=(-v ON_ERROR_STOP=1)
 else
     command -v psql >/dev/null 2>&1 || { echo "ERROR: psql not on PATH. Install postgresql-client, or set OPENBED_PSQL." >&2; exit 2; }
-    PSQL=(psql "$URL" -v ON_ERROR_STOP=1)
+    PSQL=(env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE psql -X "$URL" -v ON_ERROR_STOP=1)
 fi
 
 # PAUSE 017's pg_cron JOBS BEFORE ANY SEED FILE (R-2026-09-16-11). Here, after the
