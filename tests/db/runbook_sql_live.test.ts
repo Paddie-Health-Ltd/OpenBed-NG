@@ -977,7 +977,7 @@ describe('plants: each runs only its planted fence, from a copy of the runbook',
     // No password in this URL: scripts/lint_no_secrets.sh refuses a Postgres URL with one on any
     // host but the local stack, and the host is all the spawn check reads.
     ['a DATABASE_URL naming another host', { DATABASE_URL: 'postgresql://postgres@db.example.invalid:5432/postgres' }, 'its DATABASE_URL names the host db.example.invalid, not the local stack'],
-    ['the local URL with ?host=db.example.invalid', { DATABASE_URL: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres?host=db.example.invalid' }, 'its DATABASE_URL carries a query string (?host=db.example.invalid)'],
+    ['the local URL with ?host=db.example.invalid', { DATABASE_URL: ((): string => { const u = new URL(dbUrl()); u.search = '?host=db.example.invalid'; return String(u); })() }, 'its DATABASE_URL carries a query string (?host=db.example.invalid)'],
     ['a DATABASE_URL that does not parse as a URL', { DATABASE_URL: 'host=127.0.0.1 port=54322' }, 'its DATABASE_URL (host=127.0.0.1 port=54322) does not parse as a URL'],
     ['PGHOSTADDR beside the local URL', { PGHOSTADDR: '192.0.2.1' }, 'its environment holds PGHOSTADDR, outside the allowlist'],
   ] as const)('plant — the spawn check refuses 897 with %s, and it is not run', (_what, env, message) => {
@@ -989,7 +989,7 @@ describe('plants: each runs only its planted fence, from a copy of the runbook',
 
   test('plant — 897 against a closed port is red, naming psql: error', () => {
     const f = fenceAt('**HOW TO CHECK THE CONDITION, rather than remembering it.**');
-    const { violations, run } = runGated(REAL, f, BASE, { DATABASE_URL: 'postgresql://postgres:postgres@127.0.0.1:1/postgres' });
+    const { violations, run } = runGated(REAL, f, BASE, { DATABASE_URL: ((): string => { const u = new URL(dbUrl()); u.port = '1'; return String(u); })() });
     expect(run, 'the fence did not run').toBeDefined();
     expect(violations.every((v) => v.startsWith(`${keyOf(f)}: `)), violations.join('\n')).toBe(true);
     expect(violations.join('\n'), run === undefined ? '' : shown(run)).toContain(`${keyOf(f)}: a red line on stderr: psql: error`);

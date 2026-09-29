@@ -10234,6 +10234,145 @@ The neutered URL runs could reach nothing: `.invalid` never resolves, and the co
 
 Nothing hosted, and S-c is not started. Next letter: **ER**, the merge word.
 
+### R-2026-09-29-168 — #104 (S-b): the merge word, after one commit that adds no password-bearing URL
+
+_Issued as R-PROVISIONAL-2026-09-29-ER, by Cowork on 2026-09-29, after its review of #104 at `a61fccc` (a staff engineer and a QA reviewer reviewed it independently before it was pasted). Landed in #104 with the commit it asks for; #104 merges on it. Number assigned on landing: R-2026-09-29-167 plus one. Next provisional letter: **ES**, the secret scan's own pull request; S-c follows ES._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-29-ER — #104 (S-b): THE MERGE WORD, AFTER ONE SMALL COMMIT
+> ER lands in #104 as -168, with the commit it asks for. Next letter: ES, the secret scan's own
+> PR (ER-3). S-c follows ES.
+> A staff engineer and a QA reviewer reviewed this letter independently before it was pasted.
+>
+> READ BY COWORK, from its own clone at a61fcccfc60dc93ca77826979c27951eafec3de2:
+> - One commit on 993e0a3, touching two paths. The branch still touches the same 11 paths.
+> - The partition and every pure plant are green, among them EQ-1's word rule, EQ-2's (c) plants and
+>   EQ-3's four spawn-check plants (28 of 28 in Cowork's filtered run).
+> - The compliance project reads 1632 of 1859, unchanged. All 227 failures still come from Cowork's
+>   environment.
+> - scripts/lint_no_secrets.sh exits 0 on the tree.
+> - ACCEPTED AS REPORTED:
+>   - your two decisions: the password-free quote in -167, marked in place, and `?sslmode=disable`
+>     for the spawn-check ledger row;
+>   - N13 to N16;
+>   - the ledger;
+>   - 2752 ZERO-RED;
+>   - the seven checks on a61fccc.
+> - EQ's first EQ-3 plant URL carried a password on a non-local host. That was Cowork's slip, and you
+>   were right to refuse it rather than allowlist the record.
+>
+> ER-0  GITHUB RAISED A SECRET-SCANNING ALERT on a61fccc, at tests/db/runbook_sql_live.test.ts:980:
+>   "Postgres connection string".
+>   - THE STRING is postgres:postgres@127.0.0.1:54322, the Supabase CLI's public local default.
+>     Password-bearing URLs to the local stack are in 16 other tracked lines besides :992. Among
+>     them are tests/setup/local-keys.ts:30, scripts/seed.sh:23 and six in
+>     .github/workflows/ci.yml. It is not a secret, and nothing needs rotating.
+>   - WHY ONLY :980. Most likely because it is the one line that joins `?host=db.example.invalid`
+>     onto the URL. A libpq query parameter overrides the host, so the URL reads as a password sent
+>     to a remote host. How GitHub's detector decides is not documented, so this is a best reading,
+>     not a finding.
+>   - The founder closes the alert in GitHub as "Used in tests". That is his step, not yours.
+>
+> ER-1  THE COMMIT: NO PASSWORD-BEARING URL LITERAL ADDED ANYWHERE.
+>   - Build :980 and :992's URLs from dbUrl() at run time:
+>     `const u = new URL(dbUrl()); u.search = '?host=db.example.invalid';` for :980, and
+>     `u.port = '1'` on a fresh URL for :992, each passed as String(u).
+>   - Every test title, expected message and assertion stays unchanged, byte for byte.
+>     targetOffence prints only u.search, so nothing needs to change.
+>   - -168 gives any URL it quotes without its scheme, as ER-0 does.
+>   - THE CHECK, over the whole of this commit, the record included:
+>     `git diff a61fccc..HEAD | grep '^+' | grep -E 'postgres(ql)?://[^:@/[:space:]]+:[^@/[:space:]]+@'`
+>     prints nothing. Quote it.
+>   - Both plants still read as before: the query-string refusal, and `psql: error` on port 1.
+>
+> ER-2  THE MERGE WORD. Merge #104 when all of these hold, and only then:
+>   - the commit touches only tests/db/runbook_sql_live.test.ts and the record;
+>   - the ER-1 check prints nothing;
+>   - scripts/lint_no_secrets.sh exits 0;
+>   - the full suite is ZERO-RED on a fresh database, at 2752 (this commit adds no leg);
+>   - the seven required checks on the new head, read from the API, each read `completed success`.
+>     Skipped, neutral and cancelled do not count;
+>   - no secret-scanning alert raised on the new head:
+>     `gh api repos/Paddie-Health-Ltd/OpenBed-NG/secret-scanning/alerts?state=open`
+>     lists only the one on a61fccc, or none once the founder has closed it. If your token cannot
+>     read that endpoint, say so, do not merge, and STOP: the founder reads it and tells Cowork.
+>   Merge as a merge commit, passing the head to --match-head-commit, and read MERGED back. Then
+>   delete s-b-runbook-sql-live on both sides. If any condition fails, do not merge: report and
+>   STOP.
+>
+> ER-3  A GAP IN THE SECRET SCAN ITSELF. This alert found it. It is fixed in its own PR, under a
+>   register row.
+>   - Asked why the repo's own scan passed a URL GitHub flagged, Cowork read
+>     scripts/lint_no_secrets.sh:199. The local-host exemption drops a whole matched LINE if the
+>     line holds `127.0.0.1`, `localhost`, `@db:` or `0.0.0.0` anywhere. It never reads the matched
+>     URL's own host. The review ran the real script on scratch trees, and each of these passed
+>     (exit 0) where a plain hosted URL exits 1:
+>     - a hosted password URL on a line that also mentions localhost;
+>     - …@localhost.attacker.example.com/…, the very shape scripts/seed.sh:38 records as a defect in
+>       seed.sh's own host check;
+>     - a local authority with `?host=` or `?hostaddr=` pointing elsewhere.
+>   - It is not fixed here. S-b is tests only (EO-0), #104 adds no non-local credential, and the
+>     gap is already on main. The CI scan detects; it does not block pushes. It gets its own PR, with
+>     its own letter (ES), which Cowork issues as soon as #104 merges and before S-c.
+>   - THE ROW, in -168: add one TRIGGER row, "the secret scan's local-host exemption reads the line,
+>     not each URL's own host and query". Its gate: it fires when #104 merges, ES is the next letter,
+>     and it leaves when ES merges. Recount the register: 60 (15 BOX, 34 TRIGGER, 11 VERSION).
+>
+> ER-4  RECORD.
+>   - -168 holds:
+>     - ER as issued;
+>     - the alert, and why it most likely fired;
+>     - what ER-1 changed;
+>     - the merge record: the SHA, its parents, MERGED read back, and the branch deleted;
+>     - ER-3's row.
+>   - Add a ledger row for ER.
+>   - The survey row's Gate cell stays as it is.
+>
+> ER-5  THE REPORT, after the merge or the STOP:
+>   - the commit and its diff stat; the ER-1 check, printing nothing; lint_no_secrets.sh's exit;
+>   - 2752 ZERO-RED, and the uid of the run;
+>   - the seven checks, each quoted, with db-tests' duration;
+>   - the open secret-scanning alerts, as read;
+>   - the merge SHA and its parents, MERGED read back, and the branch gone on both sides;
+>   - the register by kind, from main.
+>   Nothing hosted. Do not start ES's work or S-c before their letters.
+
+**ER-0: THE ALERT, AS READ FROM THE API.** Secret-scanning alert #1:
+- type `postgres_connection_string`, shown as "Postgres connection string";
+- **open**, validity unknown, created 2026-09-29T11:48:26Z;
+- one location: `tests/db/runbook_sql_live.test.ts`:980, at commit `a61fcccfc60dc93ca77826979c27951eafec3de2`.
+
+The string is the Supabase CLI's public local default, postgres:postgres@127.0.0.1:54322. It is not a secret, and nothing needs rotating. Why only :980 fired is ER-0's best reading, not a finding: it is the one line that joins `?host=db.example.invalid` onto that URL, and a libpq query parameter overrides the host. ER-0's count holds. 20 tracked lines match the secret scan's URL pattern:
+- :980 and :992;
+- the two comments quoting the `u:p@localhost.attacker.example.com` defect shape;
+- 16 others to the local stack.
+
+Closing the alert as "Used in tests" is the founder's step.
+
+**TWO PREMISES OF ER DO NOT HOLD. Each is named here, and the instruction survives on the reason that does.**
+1. **ER-2's alert probe fails open.** `gh api repos/Paddie-Health-Ltd/OpenBed-NG/secret-scanning/alerts?state=open` returned `[]` while #1 was open, and `state=resolved` returned `[]` too.
+   - GitHub's list endpoint returns only its default patterns, unless a generic pattern is named in `secret_type`. `…&secret_type=postgres_connection_string` is what lists #1.
+   - The condition was therefore read with the types named: the default list, plus postgres_connection_string, mysql_connection_string, mongodb_connection_string, http_basic_authentication_header, http_bearer_authentication_header, rsa_private_key, openssh_private_key, ec_private_key, pgp_private_key and password.
+   - It holds only if the one alert listed anywhere is #1 on `a61fccc`, or none. The founder chose, on 2026-09-29, to merge on that corrected probe.
+   - The same gap will read "no alert" in any later check that copies ER-2's command, so ES should carry it.
+2. **-168 cannot hold the merge record.** It lands in #104's own commit, and that commit exists before the merge does. The merge SHA, its parents, MERGED read back and the branch deletion are held, and land in ES's pull request as an addendum to this entry, as EN's merge facts landed in -164.
+
+**ER-1: NO PASSWORD-BEARING URL LITERAL ADDED. LANDED.**
+- `tests/db/runbook_sql_live.test.ts`:980 now builds its `DATABASE_URL` at run time: `const u = new URL(dbUrl()); u.search = '?host=db.example.invalid'; return String(u);`.
+- :992 does the same with `u.port = '1'`.
+- Every test title, expected message and assertion is unchanged, byte for byte.
+- **Both plants read as before:**
+  - `its DATABASE_URL carries a query string (?host=db.example.invalid), so it was not run`;
+  - `a red line on stderr: psql: error … port 1 failed`.
+
+  The file is 66 of 66.
+- This entry gives every URL it quotes without its scheme. The check over this commit, the record included, `git diff a61fccc..HEAD | grep '^+' | grep -E` with the scan's URL pattern, prints nothing.
+
+**ER-3: THE ROW.** The register gains one TRIGGER row, "The secret scan's local-host exemption reads the line, not each URL's own host and query". Its gate: it fires when #104 merges, ES is the next letter, and it leaves when ES merges. Recounted from the table: **60 (15 BOX, 34 TRIGGER, 11 VERSION)**. The survey row's Gate cell stays as it is.
+
+The merge follows this commit, on ER-2. Nothing hosted, and neither ES's work nor S-c is started. Next letter: **ES**.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -10392,6 +10531,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | EO | R-2026-09-29-165 | 2026-09-29 | **PR S-b: the runbook's SQL, run live; one precondition for every unreadable-file leg.** The helpers move with no change in behaviour (the four touched files keep identical test names and states; leg register 342/315/27). `tests/db/runbook_sql_live.test.ts` partitions 40 fences into LIVE 5, EXCLUDED 6 and RUN-HERE 29, runs the 29 against the local stack over an allowlist environment with inert values, and brackets them with a 24-component fingerprint. Seven neuters red first; no fence in this file runs over a broken partition, which the behavioural pass found (true from -166: at `b79997e` the write plant bypassed the gate). 3240 is EXCLUDED as quoted history, correcting EM-2 c (Cowork's slip). Every mode-000 leg carries the one accessSync precondition, held by `tests/compliance/mode_000_precondition.test.ts`: 8 sites, 9 legs. Register 59. S-c follows. Next letter EP. |
 | EP | R-2026-09-29-166 | 2026-09-29 | **#104 reviewed; one more commit.** EP-1, Cowork's gap in EO-1 b: every RUN-HERE fence is a STOP naming its line if it holds anything but the six ruled line forms, a URL, or a psql meta-command. It finds nothing today, and three tightenings are named. EP-2, Cowork's gap in EO: `psql: error` is red. EP-3, my slip: the write plant bypassed the gate at `b79997e`; `runFence` now has one caller, and the reworded-anchor run spawns 0 fences. EP-4: 4717 tolerates a red word only after two clean fields. EP-5: the bracket's digests, before and after equal. Five neuters red first; 56 legs. Register 59. The merge word is now EQ. |
 | EQ | R-2026-09-29-167 | 2026-09-29 | **#104 reviewed again; one more commit.** EQ-1, Cowork's gap in EP-1 a: a word rule pins where psql connects, with the second word exactly `"$DATABASE_URL"` and later words only `-v`, `-c`, `-tAc`, `-Atc` or the heredoc opener. 37 psql lines read, 0 refused. EQ-2, Cowork's gap in EP-1 c: rule (c) is any backslash followed by a letter or `!`. EQ-3: runOne() refuses, before any spawn, a DATABASE_URL that does not parse, names another host or carries a query string, and any key outside FENCE_KEYS. EQ-4: SQL that opens its own connection is named NOT ASSERTED, and rule (b)'s message no longer claims the stack is never left. Four neuters red first; 66 legs. Register 59. The merge word is now ER. |
+| ER | R-2026-09-29-168 | 2026-09-29 | **#104's merge word, after one commit.** GitHub's secret scanning raised alert #1 (Postgres connection string) on `a61fccc`:980, the Supabase CLI's public local default with `?host=` joined on; it is not a secret. ER-1: :980 and :992 build their URLs from dbUrl() at run time, and no password-bearing URL is added anywhere. ER-2's alert probe fails open (generic patterns need `secret_type`), so it was read with the types named. The merge record lands in ES's PR, because -168 precedes the merge. ER-3: a TRIGGER row for the secret scan's line-level local-host exemption; register 60. Next letter ES. |
 
 ## Deferred items — this record is where the list lives
 
@@ -10486,6 +10626,7 @@ the record's own, except where CW-5 assigned one._
 | Restate `operator_record_registration`'s allow-list comment in `supabase-proxy/allow-list.json` (apps/admin calls it since DT Bundle 3) | R-2026-09-28-151 EA-4 | TRIGGER | The next commit that changes supabase-proxy/ |
 | Read the kept log, name the failing test and its cause, and report it; the 2026-09-28 red on 95c1b83's first gate run is the open instance | R-2026-09-28-152 EB-2 | TRIGGER | The next time tests (db+compliance) is red in scripts/gate.sh |
 | That change brings its block under a live test | R-2026-09-28-152 EB-4 | TRIGGER | The next runbook change that adds or edits a psql line outside the fences tests/db/runbook_12_4_12_5_sql_live.test.ts runs |
+| The secret scan's local-host exemption reads the line, not each URL's own host and query | R-2026-09-29-168 ER-3 | TRIGGER | #104's merge: it fires when #104 merges; ES, the next letter, fixes it, and the row leaves when ES merges |
 
 ## Method notes — how rulings reach the implementer
 
