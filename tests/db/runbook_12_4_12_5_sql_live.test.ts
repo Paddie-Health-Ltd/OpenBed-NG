@@ -1,10 +1,8 @@
-import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
-import { shellFences } from '../compliance/_fences.js';
 import { sql } from '../setup/db.js';
-import { dbUrl } from '../setup/local-keys.js';
+import { BLOCKS, commandFence, fingerprint, runFence, shown, tables, type BlockId, type Run } from '../setup/runbook.js';
 
 /**
  * THE RUNBOOK'S OWN SQL FOR 12.4 STEPS 6a AND 6b AND 12.5 STEPS 1 TO 3, RUN AGAINST THE
@@ -59,7 +57,6 @@ import { dbUrl } from '../setup/local-keys.js';
  */
 
 const RUNBOOK = join(import.meta.dirname, '..', '..', 'docs', 'runbook-supabase-project-creation.md');
-const DOC = 'docs/runbook-supabase-project-creation.md';
 
 const FAC_REPORTER = '0e000000-0000-4000-8000-0000000012a1';
 const FAC_WARD = '0e000000-0000-4000-8000-0000000012a2';
@@ -69,100 +66,10 @@ const U_REPORTER = '0e000000-0000-4000-8000-0000000012b1';
 const U_WARD = '0e000000-0000-4000-8000-0000000012b2';
 const U_WITHDRAW = '0e000000-0000-4000-8000-0000000012b3';
 
-/** One runbook block: the step it sits under, and what its fences must hold. */
-interface Block {
-  name: string;
-  /** The section heading the step sits under. */
-  section: string;
-  /** The step's own words, which open it. */
-  anchor: string;
-  /** The variables its connection fence reads, in order. */
-  reads: readonly string[];
-  /** How many psql lines its command fence runs. */
-  psql: number;
-}
-
-const BLOCKS = {
-  '6a': { name: '12.4 step 6a', section: '### 12.4 Creating a facility', anchor: "6a. **A ward's login.**", reads: ['DATABASE_URL', 'WARD_USER_ID', 'CATEGORY'], psql: 1 },
-  '6b': { name: '12.4 step 6b', section: '### 12.4 Creating a facility', anchor: "6b. **The facility's login**", reads: ['DATABASE_URL', 'REPORTER_USER_ID'], psql: 1 },
-  '12.5-1': { name: '12.5 step 1', section: '### 12.5 Withdrawing an agreement', anchor: '**1. Set `withdrawn_on`.**', reads: ['FACILITY_ID', 'DATABASE_URL'], psql: 2 },
-  '12.5-2': { name: '12.5 step 2', section: '### 12.5 Withdrawing an agreement', anchor: "**2. Deactivate the facility's ward accounts.**", reads: ['FACILITY_ID', 'DATABASE_URL'], psql: 2 },
-  '12.5-3': { name: '12.5 step 3', section: '### 12.5 Withdrawing an agreement', anchor: '**3. Clear `listed_at`**', reads: ['FACILITY_ID', 'DATABASE_URL'], psql: 2 },
-} as const satisfies Record<string, Block>;
-type BlockId = keyof typeof BLOCKS;
-
 /**
- * The command fence of one block, located in `text` by its section and anchor: the first
- * shell fence after the anchor is the connection line, which must read exactly the
- * block's variables; the next is the command fence, which must run exactly its psql
- * lines and end in their unset. Anything else throws, naming the block, so a block that
- * moved or changed shape fails here rather than testing nothing.
+ * THE LOCATOR, THE RUNNER, THE TABLE READER AND THE FINGERPRINT LIVE IN tests/setup/runbook.ts
+ * (R-2026-09-29-165, EO-1 a), so tests/db/runbook_sql_live.test.ts runs fences the same way.
  */
-function commandFence(text: string, id: BlockId): string {
-  const b: Block = BLOCKS[id];
-  const lines = text.split('\n');
-  const section = lines.findIndex((l) => l.trim() === b.section);
-  if (section < 0) throw new Error(`${b.name}: the runbook has no "${b.section}" heading`);
-  const next = lines.findIndex((l, i) => i > section && /^#{1,3} /.test(l));
-  const end = next < 0 ? lines.length : next;
-  const anchor = lines.findIndex((l, i) => i > section && i < end && l.includes(b.anchor));
-  if (anchor < 0) throw new Error(`${b.name}: "${b.anchor}" is not under "${b.section}"`);
-  const { fences, errors } = shellFences([{ doc: DOC, text }]);
-  if (errors.length > 0) throw new Error(`${b.name}: ${errors.join('; ')}`);
-  const after = fences.filter((f) => f.line > anchor + 1 && f.line <= end);
-  const [conn, cmd] = after;
-  if (conn === undefined || cmd === undefined) throw new Error(`${b.name}: fewer than two shell fences follow "${b.anchor}"`);
-  const read = conn.lines.map((l) => l.text).join('\n');
-  const vars = [...read.matchAll(/\bread -rs? (\w+)/g)].map((m) => m[1]);
-  if (JSON.stringify(vars) !== JSON.stringify(b.reads)) {
-    throw new Error(`${b.name}: its connection fence (${DOC}:${conn.line}) reads ${JSON.stringify(vars)}, not ${JSON.stringify(b.reads)}`);
-  }
-  const body = cmd.lines.map((l) => l.text);
-  const psql = body.filter((l) => /\bpsql\b/.test(l));
-  if (psql.length !== b.psql) throw new Error(`${b.name}: its command fence (${DOC}:${cmd.line}) runs ${psql.length} psql line(s), not ${b.psql}`);
-  const last = body.filter((l) => l.trim() !== '').at(-1) ?? '';
-  if (!/^unset /.test(last)) throw new Error(`${b.name}: its command fence (${DOC}:${cmd.line}) does not end in its unset`);
-  return body.join('\n');
-}
-
-interface Run {
-  status: number | null;
-  stdout: string;
-  stderr: string;
-}
-
-/** Run a command fence verbatim under bash, with the values its connection line reads. */
-function runFence(fence: string, env: Record<string, string>): Run {
-  const r = spawnSync('bash', ['-c', fence], { env: { ...process.env, DATABASE_URL: dbUrl(), ...env }, encoding: 'utf8', timeout: 60_000 });
-  return { status: r.status, stdout: r.stdout, stderr: r.stderr };
-}
-
-const shown = (r: Run): string => `exit ${String(r.status)}\n--- stdout ---\n${r.stdout}\n--- stderr ---\n${r.stderr}`;
-
-/** psql's aligned output, as the result tables it printed and the command tags between them. */
-interface Table {
-  columns: string[];
-  rows: string[][];
-}
-function tables(out: string): { tables: Table[]; tags: string[] } {
-  const lines = out.split('\n');
-  const found: Table[] = [];
-  const tags: string[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const l = lines[i]!;
-    if (/^-+(\+-+)*$/.test(lines[i + 1] ?? '') && l.trim() !== '') {
-      const columns = l.split('|').map((c) => c.trim());
-      const rows: string[][] = [];
-      let j = i + 2;
-      for (; j < lines.length && !/^\(\d+ rows?\)$/.test(lines[j]!); j++) rows.push(lines[j]!.split('|').map((c) => c.trim()));
-      found.push({ columns, rows });
-      i = j;
-    } else if (/^[A-Z]+( \d+)*$/.test(l.trim())) {
-      tags.push(l.trim());
-    }
-  }
-  return { tables: found, tags };
-}
 
 /** 6a's PASS: claims_set t, one history_rows count, the last line ROLLBACK. */
 function sixAViolations(r: Run): string[] {
@@ -192,23 +99,6 @@ function sixBViolations(r: Run, wards: readonly string[]): string[] {
   }
   if (t.tags.at(-1) !== 'ROLLBACK') v.push(`6b: the last line is not ROLLBACK (${String(t.tags.at(-1))})`);
   return v;
-}
-
-/** Every base table in app, and the three public mirrors, each as a digest of its rows. */
-async function fingerprint(): Promise<Record<string, string>> {
-  const db = sql();
-  const names = await db<{ t: string }[]>`
-    select format('%I.%I', table_schema, table_name) as t from information_schema.tables
-     where table_type = 'BASE TABLE'
-       and (table_schema = 'app' or (table_schema = 'public' and table_name in ('facility_public', 'ward_public', 'lga_rollup')))
-     order by 1`;
-  if (names.length < 10) throw new Error(`the fingerprint found ${names.length} tables: it would compare almost nothing`);
-  const out: Record<string, string> = {};
-  for (const { t } of names) {
-    const [r] = await db.unsafe<{ d: string }[]>(`select count(*) || ':' || coalesce(md5(string_agg(x::text, E'\\n' order by x::text)), '') as d from ${t} x`);
-    out[t] = r!.d;
-  }
-  return out;
 }
 
 async function removeFixtures(): Promise<void> {

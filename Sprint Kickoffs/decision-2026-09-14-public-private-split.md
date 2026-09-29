@@ -9199,6 +9199,591 @@ A ninth mode-000 leg, bundle_guards:428 (the server-side scan relay), predates S
 
 Nothing hosted, and S-b is not started. Next letter: **EN**, the merge word.
 
+### R-2026-09-29-164 — #103 (S-a) merged; EN's mode-000 count corrected, and the correction corrected
+
+_Issued as R-PROVISIONAL-2026-09-29-EN, by Cowork on 2026-09-29, as its check of #103 at `4c375f2` and the merge word. It was acted on the same day and HELD for the record, landing here as the first entry of S-b's pull request (EO-4). Its correction, issued by Cowork the same day, was not pasted at the time: it arrived with EO, and is quoted below EN, before EO-3, as it asks. Number assigned on landing: R-2026-09-28-163 plus one. Next provisional letter: **EO**._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-29-EN — #103 (S-a): MERGE WORD
+> EN lands as -164, as the first entry in S-b's pull request. Next letter: EO, S-b's letter.
+>
+> READ BY COWORK, from its own clone:
+> - main is still at 3bac730. #103's head is 4c375f27a07991512d5f73084270a6f35c70a655. main..head is
+>   4c375f2, 9a17d84 and c759fd6, and 18 paths.
+> - EM's commit touches 11 paths, and they match your report.
+> - The record's change is append-only (-163 and the EM ledger row), plus the survey row's Gate
+>   cell, which reads as EM-5 gave it.
+> - THE SIBLINGS. Each read is its own step with its status captured, and grep is fed from printf.
+>   - updated_at's first grep is captured on its own.
+>   - audit's awk now refuses in the script's words.
+>   - The false pipefail comments are corrected, and updated_at:49's claim with them.
+> - THE META-LINT. It joins continued lines and parses `$(` nesting and quotes, and the pipeline
+>   arm is as ruled. It reads PASS on the real tree. Cowork planted its own cases.
+>   Flagged:
+>   - `psql | grep`;
+>   - `find | grep`;
+>   - `printf | sort | grep`;
+>   - a `"$(sed ... "$f" | grep -E 'a|b')"`, with a quoted pipe in the pattern.
+>   Accepted:
+>   - `printf | grep | grep -v`;
+>   - pipelines with no grep.
+> - THE TESTS. The embedded sibling literals carry their provenance; the shape legs, the
+>   "live sibling no longer holds it" legs, the trailing-pipe plant and the two-line printf control
+>   are all as EM asked. The unjoined printf control would be flagged, so the control proves the join.
+> - THE DIGEST. column_acl and type_acl are as ruled. column_acl's precondition is exact ('none'),
+>   its after-assertion names app.facility.id and anon, and the list holds fourteen names.
+> - COWORK'S OWN RUN of the eight compliance suites S-a touches: 199 of 199 once the environment was
+>   taken out.
+>   - As root, the five mode-000 legs fail their preconditions, as designed. As a non-root user they
+>     pass.
+>   - The two commit.sh legs fail only on Cowork's container's commit signing.
+>   - updated_at's legs in bundle_guards pass as a non-root user (10 of 10).
+>   - Cowork did not build the apps or run the db project. It relies on your fresh-database run
+>     (2676, ZERO-RED) and your quoted checks for those.
+>
+> EN-1  MERGE WORD.
+>   - Read the seven required checks on 4c375f2 from the API and quote each one. Merge only if every
+>     one reads success; skipped, neutral or cancelled does not count.
+>   - Merge as a merge commit, read MERGED back, then delete s-a-survey-guards on both sides.
+>   - Report the merge SHA, its parents, and main's register count by kind (59: 15 BOX, 33 TRIGGER,
+>     11 VERSION).
+>   Then STOP.
+>
+> EN-2  ACCEPTED AS REPORTED:
+>   - EM-0's seven checks on 9a17d84, and the seven on 4c375f2;
+>   - EM-3 a: 11 of 36 red first (the 8 catch plants and the 3 live-sibling legs), then 36 of 36;
+>     the real tree hit exactly audit:174, replica:44 and updated_at:52;
+>   - EM-3 b: replica and updated_at read PASS on main; audit's red is the missing message; all three
+>     are green;
+>   - EM-4: both preconditions red first; neither plant moved the old twelve; then 18 of 18.
+>     column_acl reads 'none', then app.facility.id:acl=postgres/anon/SELECT/false, then 'none'.
+>     The re-apply is idempotent over fourteen components;
+>   - the leg register: 337/311/26 becomes 342/315/27;
+>   - 2676 = 2652 + 24;
+>   - the register at 59;
+>   - your two slips caught before the commit: the "could not read" message, and the scratch path
+>     no_phantom_paths caught. They need no new rule.
+>
+> EN-3  ONE FINDING FOR S-b, NOT FOR #103. You reported that bundle_guards:428 is a mode-000 leg
+>   with no precondition, so under root it fails its status assertion rather than saying why.
+>   - That leg predates S-a, and it is the same class as the ones EM-3 b gave the accessSync
+>     precondition.
+>   - It goes in S-b's letter: every mode-000 leg in tests/ carries that precondition, planted
+>     both ways.
+>   - Record it in -164. It needs no register row, because the survey row stays open until S-b.
+>
+> WHAT IS NEXT FOR YOU: S-b, when EO comes. Its letter carries the PR-evidence script, the charter
+> table, item 2's runbook compile check (EM-2 c) and EN-3. Do not start before then.
+
+**EN's correction, as issued.** It arrived with EO on 2026-09-29, and is recorded inside -164; it has no letter of its own.
+
+> R-PROVISIONAL-2026-09-29-EN — CORRECTION BEFORE LANDING (record it inside -164; no new letter)
+> This is the text as Cowork issued it on 2026-09-29. It was not pasted to you at the time. Quote it
+> verbatim in -164, beside EN and before EO-3, and note there that it arrived with EO. EO-3 then
+> corrects its "nine mode-000 sites" to eight sites making nine legs.
+>
+> ---
+>
+> Your count is right, and EN's "five" was Cowork's slip. EN's five counted the legs that failed their
+> precondition as root in the eight suites Cowork ran together. That group left out
+> tests/compliance/bundle_guards.test.ts, which holds the updated_at leg, and Cowork ran it separately.
+>
+> The count, read by Cowork on main at bbdefbf:
+> - MODE-000 SITES in tests/: nine.
+> - ADDED BY S-a, each with the accessSync R_OK precondition: SIX.
+>   - duty-flag :225 (EL);
+>   - prose :170, a test.each of two (EL);
+>   - replica :68 (EM);
+>   - audit :198 (EM);
+>   - bundle_guards :497, updated_at (EM).
+> - PREDATING S-a, WITH A PRECONDITION IN ANOTHER FORM: two.
+>   - no_secrets :153, using readFileSync;
+>   - bundle_guards :800, the built-file leg, using cat.
+> - NO PRECONDITION: one, bundle_guards :428 (EN-3).
+> - Legs that fail their precondition under root: 6 + 2 = EIGHT. :428 fails its status assertion
+>   instead.
+>
+> -164 cites these numbers, six added and eight with a precondition out of nine sites, and records
+> EN's "five" as Cowork's slip. EN-3 widens for S-b's letter: every mode-000 leg carries the SAME
+> accessSync R_OK precondition, including the two older forms, and :428 gains one. Nothing to do now.
+> S-b waits for EO.
+
+**EO-3, as issued in EO (quoted in full in -165):**
+
+> EO-3  A CORRECTION TO EN'S CORRECTION. THE SLIP IS COWORK'S. It said "nine mode-000 sites".
+>   There are eight sites, making nine legs. The rest of it stands for main at bbdefbf:
+>   - six legs added by S-a, at five sites;
+>   - two older legs that use another form of precondition;
+>   - one leg with no precondition;
+>   - eight legs that fail their precondition under root.
+>   Record this in -164, beside EN's correction.
+
+**THE COUNT, AS IT STANDS FOR MAIN AT `bbdefbf`.** Re-derived here rather than taken from either letter: `grep` for `chmodSync` in tests/ with each leg read, then the S-b guard's parse (below, in -165), then an executed vitest run that lists each leg by name.
+- **Mode-000 sites: eight, making nine legs.** `lint_sql_quoted_in_prose.test.ts:170` is one site and two legs, as a `test.each` of two.
+- **Added by S-a, each with the `accessSync(R_OK)` precondition: six legs at five sites.** They are duty-flag :225 (EL), prose :170 (two legs, EL), replica :68 (EM), audit :198 (EM) and bundle_guards :497, updated_at (EM).
+- **Predating S-a, with a precondition in another form: two.** no_secrets :153 uses `readFileSync`; bundle_guards :800 (the built-file leg) uses `cat`.
+- **No precondition: one,** bundle_guards :428 (EN-3).
+- **Under root:** eight legs fail their precondition (6 + 2), and :428 fails its status assertion instead.
+- **Two slips, both Cowork's, and each recorded as it asks.** EN's "five" counted only the eight suites Cowork ran together, which left out `tests/compliance/bundle_guards.test.ts`. The correction's "nine sites" counted legs as sites, and EO-3 corrects it. -163 already recorded eight legs with a precondition plus :428, so the record did not carry either slip.
+- My held note for landing this entry had called EN's "five" unreconciled. It is reconciled by the correction and EO-3, and by the count above.
+
+**EN-1: #103 MERGED.**
+- **The required checks** on `4c375f27a07991512d5f73084270a6f35c70a655` were read from the API on 2026-09-29 and re-read immediately before the merge. All seven were `completed success`, and they are exactly main's seven required contexts: repo-lint (22:38:32Z), migration-lint (22:38:04Z), compliance-tests (22:41:11Z), db-tests (22:39:52Z), bundle-guards (22:38:15Z), secret-scan (22:38:06Z) and golden-path (22:39:24Z).
+- **The merge:** `bbdefbf567900b263d0001c33150af07ed20b510`, at 2026-09-28T23:39:55Z, with parents `3bac7308434a828197cd57c1880011daaa9cd580` (main) and `4c375f27a07991512d5f73084270a6f35c70a655` (the head). The head was read from the API and passed to `--match-head-commit`, and the merge was a merge commit. `MERGED`, the merge SHA and the parents were read back again from the API and from git before this entry was written.
+- `s-a-survey-guards` was deleted on both sides after `MERGED` read back. Neither side shows it (read back again: `ls-remote` empty, no local branch).
+- **Main's register:** 59 (15 BOX, 33 TRIGGER, 11 VERSION), counted from the table.
+
+**EN-2:** accepted as reported, as listed.
+
+**EN-3:** landed in S-b as EO-2; see -165.
+
+Next letter: **EO**.
+
+### R-2026-09-29-165 — PR S-b: the runbook's SQL, run live; one precondition for every unreadable-file leg
+
+_Issued as R-PROVISIONAL-2026-09-29-EO, by Cowork on 2026-09-29. It was designed with a staff engineer and a platform/SRE reviewer, and reviewed independently by a staff engineer, a QA reviewer and a platform/SRE reviewer before it was pasted. Landed in its own pull request, S-b, branched from `bbdefbf` (#103's merge, read back first), after -164. Number assigned on landing: R-2026-09-29-164 plus one. Next provisional letter: **EP**, the merge word._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-29-EO — PR S-b: THE RUNBOOK'S SQL, RUN LIVE; ONE PRECONDITION FOR EVERY UNREADABLE-FILE LEG
+> EO lands in PR S-b as -165, after EN as -164. Next letter: EP, the merge word.
+> The letter was designed with a staff engineer and a platform/SRE reviewer. It was then reviewed
+> independently by a staff engineer, a QA reviewer and a platform/SRE reviewer before it was
+> pasted.
+>
+> START from main at bbdefbf567900b263d0001c33150af07ed20b510 (#103's merge), after reading it
+> back.
+>
+> EO-0  THE SPLIT, AND WHY. What was S-b becomes two PRs.
+>   - S-b (this letter) covers two things, and both are tests only; neither adds a file under
+>     scripts/:
+>     - the runbook's SQL, run live (EM-2 c);
+>     - one precondition for every unreadable-file leg (EN-3).
+>   - S-c (its own letter, after S-b merges): the PR-evidence script, then the charter table.
+>     The charter comes last so that it covers every script, S-c's own included. The evidence
+>     will come from CI's own artefacts rather than local files. The design is recorded, and
+>     S-c's letter carries it.
+>   The survey row leaves in S-c.
+>
+> READ BY COWORK, from its own clone at bbdefbf, with the team. Fences are cited by their opening
+> line.
+> - THE CORPUS is RUNBOOKS in tests/compliance/runbook_psql_path.test.ts:53-59: three runbooks.
+>   All 39 governed fences (isGoverned, :137) are in docs/runbook-supabase-project-creation.md,
+>   and its one ```sql fence (3240) is the only one in docs/. That makes 40 fences.
+> - tests/db/runbook_12_4_12_5_sql_live.test.ts runs five of them verbatim: 4565, 4590, 4650,
+>   4669 and 4686. It uses runFence (:135), which reads errors from stderr because a fence's
+>   exit status is its final unset's. It also uses fingerprint() (:198), tables() (:147), BLOCKS
+>   (:85) and commandFence (:101), all private to that test file. Importing a test file re-runs
+>   it (_fences.ts:9).
+> - The digest's relations and column_acl components live in a private digest() in
+>   tests/db/migration_idempotency.test.ts:72.
+> - _fences.ts:22's OPEN matches shell labels only.
+> - The writes:
+>   - 748 deletes from auth.users by $PROBE;
+>   - 4744 deletes from app.facility_contact by $FACILITY_ID;
+>   - 3059 runs a GRANT inside BEGIN ... ROLLBACK;
+>   - 3267 inserts inside begin ... rollback;
+>   - 1311 runs NOTIFY.
+>   Every heredoc is quoted (<<'SQL').
+> - run_migrations.sh:
+>   - 988, 1856 and 1933 run it with --dry-run, which only reads and prints "<n> migration(s)
+>     pending." (run_migrations.sh:300);
+>   - 2715 runs a psql select, then the dry-run;
+>   - 1265 and 1887 run it for real.
+> - 1873 and 1903 run readback_public_output.sh against https://openbed.ng, over the network.
+> - 1953 runs readback_function_grants.sh on DATABASE_URL, which tests/db/function_grants.test.ts
+>   also runs locally. It prints its STOP and ERROR lines on stdout (:62, :75, :119-123).
+> - 3240 IS QUOTED HISTORY. It sits under "The SQL this step used to carry was a no-op" and
+>   "It read:". No reader is asked to run it.
+> - WHY NOT THE OTHER MECHANISMS. The team checked each one.
+>   - Read-only mode. A GRANT is refused before any name is resolved; NOTIFY is allowed; DML is
+>     refused before its privileges are checked; a DO block dies at its first write.
+>   - A clone database. CREATE DATABASE ... TEMPLATE is refused while the stack holds
+>     connections.
+>   - Wrapping each fence in BEGIN ... ROLLBACK. That breaks the fences that carry their own
+>     (1664, 3059, 3267, 4565, 4590).
+> - THE BRACKET IS STABLE. The db project runs with fileParallelism: false (vitest.config.ts:33),
+>   and global-setup pauses the scheduled jobs (global-setup.ts:36-38). With the jobs running,
+>   heartbeat and rollup writes would move the fingerprint every minute.
+> - UNREADABLE-FILE LEGS on main: eight chmodSync(..., 0o000) sites, making nine legs (prose
+>   :170 is a test.each of two).
+>   - Five sites (six legs) use `accessSync(target, constants.R_OK)`.
+>   - no_secrets :153 uses readFileSync.
+>   - bundle_guards :800 uses cat.
+>   - bundle_guards :428 has no precondition.
+>   Every site calls runLint after its chmod. Seven name their target `target`; :428 names it
+>   `built`.
+>
+> EO-1  THE RUNBOOK'S SQL, RUN LIVE. It goes in a new db test file,
+>   tests/db/runbook_sql_live.test.ts (improve the name if you like).
+>
+>   a) HELPERS FIRST, with no change in behaviour. Move each of these into a helper module (not
+>      a test file), and have the existing test files import it:
+>      - isGoverned, bashFences and PSQL_SCRIPTS, and RUNBOOKS' loading, as a function that takes
+>        the docs;
+>      - BLOCKS, commandFence, runFence, tables and fingerprint;
+>      - digest() and moved() from migration_idempotency.test.ts, so that both files use one
+>        rendering.
+>      Add a ```sql reader to _fences.ts. Show the move changed nothing, two ways:
+>      - each touched file's vitest test names and counts, before and after (from
+>        --reporter=json);
+>      - leg_coverage green, with the register still at 342/315/27. Evidence is read only from
+>        *.test.ts files, and any string of 10 or more characters counts (_legs.ts:74, :287), so
+>        moving strings out of a test file can un-reach a leg. If a leg moves, report it and fix
+>        the cause; do not re-register it.
+>
+>   b) THE PARTITION: `partition(docs)`, a pure function of the doc texts it is given. Every
+>      governed fence and every ```sql fence in the corpus goes in exactly one set:
+>      - LIVE: the five fences BLOCKS names.
+>      - EXCLUDED: each with a named reason, keyed by anchor text rather than line number. Each
+>        fence has its own anchor, distinct from every other; where two bodies are the same, the
+>        body's shape is a check on each fence, not its key.
+>        - 1265 and 1887: a real migration apply. Two keys. Each body is exactly the PATH line,
+>          `bash scripts/run_migrations.sh` and the unset.
+>        - 1873 and 1903: hosted, over the network.
+>        - 1311: NOTIFY. There is nothing to compile, and a live schema reload would race
+>          rpc_over_http_live.
+>        - 3240: quoted history. Running it would make superseded text a live constraint. This
+>          corrects EM-2 c, which named 3240 as an expected refusal. That was Cowork's slip.
+>      - RUN-HERE: everything else. That includes the script-shaped dry-run fences 988, 1856 and
+>        1933, the psql-plus-dry-run fence 2715, and 1953. The team expects 29 on today's tree;
+>        report what the function computes.
+>      Assert that the sets are disjoint, that their union equals the discovered set, and that
+>      each set is non-empty. An EXCLUDED key must match exactly one fence, and one that matches
+>      none is red. A script-shaped fence (only the PATH line, one `bash scripts/<name>.sh
+>      [args]`, and the unset) that EO-1 b does not name is a STOP: report it.
+>
+>   c) HOW A FENCE RUNS: `runFences(fences, env)`, one vitest test per fence.
+>      - The moved runFence takes a BASE environment. For the existing live test the base
+>        defaults to process.env, so that test's behaviour is unchanged. The new file passes the
+>        allowlist below as its base.
+>      - runFence's spawn timeout is 60 s, and each fence's vitest timeout is 90 s.
+>      - The fingerprint extension in e) lives in a wrapper in the new file. The shared
+>        fingerprint() is unchanged.
+>      - FIRST, in beforeAll, assert that dbUrl() points at the local stack: host 127.0.0.1 or
+>        localhost, port 54322. Anything else is red, and nothing runs. The fences and plants
+>        delete by id, and they must never meet hosted.
+>      - Run each fence verbatim under bash, with cwd set to the repository root.
+>      - The environment is built from an ALLOWLIST, never from process.env:
+>        - PATH, LANG, and LC_MESSAGES=C;
+>        - HOME set to a scratch directory, and PSQLRC=/dev/null, so a developer's ~/.psqlrc
+>          or ~/.pgpass does not apply;
+>        - DATABASE_URL, set to the local stack;
+>        - PGOPTIONS='-c lock_timeout=5s -c statement_timeout=20s';
+>        - the INERT values:
+>          - FACILITY_ID: a fixed uuid, asserted to exist in no table that references
+>            app.facility;
+>          - PROBE: nobody@example.invalid, asserted to be absent from auth.users;
+>          - APPLY_TS: now.
+>        OPENBED_PSQL and every other PG* variable are left out, because run_migrations.sh
+>        prefers OPENBED_PSQL over DATABASE_URL (:117-122).
+>      - With these values every write touches 0 rows. A 0-row UPDATE or DELETE is still
+>        parsed, planned and privilege-checked.
+>      - For RUN-HERE fences only, scan for `$NAME`s the shell would expand. Skip the bodies of
+>        quoted heredocs, which the shell does not expand. Any name other than DATABASE_URL,
+>        PATH or an inert name is red, and named. The LIVE fences keep their own variables.
+>
+>   d) WHAT IS RED. A line holding ERROR, FATAL, WARNING, STOP, "command not found" or "No such
+>      file" is red, on stderr or on stdout, unless an EXPECTATION names it. Expectations are
+>      keyed by anchor text. An expectation that matches no fence is red, and so is one that is
+>      not met.
+>      - 1664: exactly one `ERROR:  permission denied for table snapshot_current`. It comes from
+>        the anon select, the statement before its rollback. No other ERROR.
+>      - 3267: `RESULT: BOTH LEGS PROVED` is present, and `FAIL`, `PARTIAL` and `NOT PROVED` are
+>        absent. Its notices are read, because its handler catches `others`. Locally the line
+>        ends "ON THE HOSTED ROLE GRAPH", which is not true here; the header says so.
+>      - 3059: the row anon / facility / SELECT, read through tables() (psql pads the columns).
+>        The fingerprint shows its ROLLBACK left no grant.
+>      - 1953: its `PASS:` line is required, and a missing PASS is red.
+>      - 988, 1856, 1933 and 2715: the n in the `<n> migration(s) pending.` line is 0, with no
+>        ERROR. 2715 also prints its count of schema_migrations first, which is not this line.
+>        Any other n is red with the message "the local stack is not migrated: npm run
+>        db:migrate", so a stale Mac stack does not read as a runbook defect.
+>      - 4717: it prints cron.job_run_details.return_message for failed runs. On a stack whose
+>        real retention job failed in its window, that message can hold "ERROR". Give 4717 an
+>        expectation that tolerates ERROR only inside that column, or name this in the header.
+>        Say which you chose.
+>
+>   e) NOTHING CHANGES.
+>      - The bracket starts with assertScheduledJobsPaused (tests/setup/db.ts:186).
+>      - fingerprint() is taken before the first fence and after the last. It is extended with:
+>        - the count of auth.users;
+>        - the rows of cron.job;
+>        - the digest's relations and column_acl components, from the moved helper.
+>      - Before and after must be equal. A difference is red, and moved() names the component.
+>
+>   f) PLANTS. Each runs only its planted fence, through the same classifier, from a copy of the
+>      runbook text; the real file is never touched. Each asserts that the plant landed, and
+>      that the red names that fence alone.
+>      - 897, with `app.facility` changed to `app.facilityx` INSIDE THAT FENCE ONLY. The name is
+>        a prefix of other tables. Expect red, `relation "app.facilityx" does not exist`.
+>      - A fence whose required line goes missing: 3267 with `BOTH LEGS PROVED` edited out of
+>        its copy. Expect red.
+>      - A fence with an unknown `$NEW_VAR`. Expect red, naming it.
+>      - An expectation whose anchor matches no fence. Expect red.
+>      - An EXCLUDED key that matches no fence. Expect red.
+>      - THE WRITE PLANT, in its own describe after the bracket closes:
+>        1. Take a fingerprint.
+>        2. Create a fixture: a facility and a facility_contact, with fixed uuids.
+>        3. Take a second fingerprint.
+>        4. Run a copy of 4744 with FACILITY_ID set to the fixture's id.
+>        5. Take a third fingerprint, and assert that moved() between the second and third names
+>           app.facility_contact.
+>        6. Delete the fixture in `finally`, and assert the fingerprint equals the first.
+>      Not catch plants:
+>      - a governed fence appended to a copy of the doc lands in RUN-HERE unaided;
+>      - the real corpus is green.
+>      RED FIRST, for a new file. For each catch plant, neuter the one check it targets, using
+>      scripts/neuter.sh:
+>      - the classifier ignores the stream;
+>      - the required-line check always passes;
+>      - the $NAME allowlist accepts everything;
+>      - anchor matching always succeeds;
+>      - moved() returns [].
+>      Show that the plant's leg fails, and name the line neutered and the assertion that fails.
+>
+>   g) THE HEADER. Classify the file LIVE. Under NOT ASSERTED HERE:
+>      - hosted behaviour and hosted data;
+>      - grants on platform-owned schemas (auth, cron), which can differ from local;
+>      - the effect a write would have on a real row. The test proves analysis and privilege
+>        only;
+>      - the EXCLUDED fences, with their reasons;
+>      - a fence that changes its session's transaction mode or timeouts;
+>      - the bracket's dependence on the paused scheduled jobs;
+>      - how zsh treats a paste (runbook_read_pasted_alone holds that).
+>      The file runs in the db-tests job.
+>
+> EO-2  ONE PRECONDITION FOR EVERY UNREADABLE-FILE LEG.
+>   a) Every chmodSync(<target>, 0o000) in tests/ is followed, inside the same test and before
+>      that test's next runLint, spawnSync or execFileSync, by exactly this line:
+>      `expect(() => accessSync(<target>, constants.R_OK), 'this user can read a mode-000 file; the plant did not take').toThrow();`
+>      - Convert no_secrets :153 and bundle_guards :800.
+>      - Add the line at bundle_guards :428, on `built`.
+>      - RED FIRST for a precondition: chmod the target to 0o644 instead of 0o000. The
+>        precondition must then fail with its message. Show this at each converted or added
+>        site.
+>   b) THE GUARD, a new compliance test.
+>      - It parses the TypeScript, as _legs.ts does, and does not match text. Text inside a
+>        string is therefore never a site, and the guard's own plants cannot trip it.
+>      - It has a root seam, and its plants run on a scratch tree of .ts files.
+>      - A site is a chmodSync call whose mode is 0o000, 0 or '000'. The required line names the
+>        same target argument, compared after whitespace is normalised.
+>      - Red:
+>        - a site with no precondition;
+>        - the readFileSync form;
+>        - a precondition on another target;
+>        - a site that no lint or spawn follows.
+>        Each is planted.
+>      - Green controls: the real tree, and a chmod to 0o644.
+>      - It derives the sites and prints them as file:line:target. Zero sites is red. Legs come
+>        from vitest's test list, not from the text.
+>   c) Report the sites and legs as derived. The team expects 8 and 9. After S-b, nine legs fail
+>      their precondition under root, because :428 now has one.
+>   d) THE LEG REGISTER. Record every leg this adds or changes, with the current numbers before
+>      (342/315/27) and after.
+>
+> EO-3  A CORRECTION TO EN'S CORRECTION. THE SLIP IS COWORK'S. It said "nine mode-000 sites".
+>   There are eight sites, making nine legs. The rest of it stands for main at bbdefbf:
+>   - six legs added by S-a, at five sites;
+>   - two older legs that use another form of precondition;
+>   - one leg with no precondition;
+>   - eight legs that fail their precondition under root.
+>   Record this in -164, beside EN's correction.
+>
+> EO-4  RECORD.
+>   - -164 holds EN as issued, EN's correction and EO-3.
+>   - -165 holds:
+>     - EO as issued;
+>     - what was built;
+>     - red first, then green, for each item;
+>     - the partition as computed, every set with its members by anchor;
+>     - EO-1 b's correction of EM-2 c, recorded as Cowork's slip.
+>   - Add a ledger row for each letter.
+>
+> EO-5  REGISTER. It stays at 59 (15 BOX, 33 TRIGGER, 11 VERSION), and no row lands or leaves.
+>   In the survey row's Gate cell, the trigger text stays. After it, the cell reads:
+>   "FIRED at 024; item 1, item 2's guard and the digest landed in S-a (R-2026-09-28-162, -163);
+>   item 2's runbook SQL in S-b (R-2026-09-29-165); the evidence tables and the charter in S-c".
+>   Recount from the table.
+>
+> EO-6  THE REPORT, then STOP for Cowork's check. The merge word is EP.
+>   - Branch and HEAD; git log --oneline origin/main..HEAD; git diff -M --name-status
+>     origin/main...HEAD.
+>   - EO-1 a: what moved; each touched file's test names and counts before and after; and the
+>     leg_coverage diff.
+>   - EO-1 b:
+>     - the discovered total (40 expected);
+>     - each set's size, with its members by anchor;
+>     - how many fences were spawned, against the RUN-HERE count.
+>   - EO-1 c: the inert-id checks (the tables searched, with 0 rows found), and the $NAMEs seen,
+>     fence by fence.
+>   - The full stdout and stderr of 1664, 3267 (its notices), 3059, 1953 and each dry-run
+>     fence; and psql --version from fence 85, locally and in CI.
+>   - The fingerprint's components and table count, with the before and after digests.
+>   - For each catch plant in EO-1 and EO-2: the line neutered, or the 0o644 swap, and the
+>     assertion that fails. Then green.
+>   - The guard's sites as file:line:target, and the legs.
+>   - The leg register before and after.
+>   - The test count against 2676, and the uid of the local run.
+>   - The register count by kind.
+>   - The seven required checks on the new HEAD, read from the API and each quoted, with
+>     db-tests' duration.
+>   Run the full gate. Nothing hosted: S-b touches no migration, no app and no deploy script.
+>   Merge only on Cowork's word. Do not start S-c.
+
+**EO-1 a: THE HELPERS MOVED, WITH NO CHANGE IN BEHAVIOUR. LANDED.**
+- **`tests/compliance/_fences.ts`** now holds `RUNBOOKS`, `loadRunbooks(root, docs = RUNBOOKS)`, `bashFences()` with its `Fence`, `PSQL_SCRIPTS` and `isGoverned()`, all moved from `tests/compliance/runbook_psql_path.test.ts`, which imports them. It gains `sqlFences()`, the ```sql reader. `shellFences()` and `sqlFences()` share one private walker, and `shellFences()`'s output and its error text are unchanged.
+- **`tests/setup/runbook.ts`** (a helper, not collected by vitest): `BLOCKS`, `commandFence()`, `runFence()`, `shown`, `tables()` and `fingerprint()`, moved verbatim from `tests/db/runbook_12_4_12_5_sql_live.test.ts`, which imports them.
+  - `commandFenceAt()` is new. It returns the command fence's line with its body, and `commandFence()` returns its body.
+  - `runFence(fence, env, { base, cwd })`: `base` defaults to `process.env` and `cwd` to the process's own, so the 12.4 and 12.5 test runs exactly as it did.
+- **`tests/setup/digest.ts`**: `digest()`, `Digest` and `moved()`, moved verbatim from `tests/db/migration_idempotency.test.ts`, which imports them. One comment is re-aimed: it said the plant that needs row contents was "below", which the move made false, so it now names the file.
+- **Proof, by test names and counts** (vitest `--reporter=json`, before on `bbdefbf` and after the move, diffed by full name and state): leg_coverage 38 and 38, runbook_psql_path 10 and 10, migration_idempotency 18 and 18, runbook_12_4_12_5_sql_live 16 and 16. The names and states are identical in all four.
+- **Proof, by the leg register:** leg_coverage is green, and the register is still 342/315/27. No leg moved.
+
+**EO-1 b: THE PARTITION, AS COMPUTED.** `partition(docs)` found **40** fences: 39 governed shell fences and one ```sql fence, all in `docs/runbook-supabase-project-creation.md`. A further leg holds that no ```sql fence anywhere under docs/ sits outside the three runbooks.
+- **LIVE, 5,** by BLOCKS name: 12.4 step 6a (4565), 12.4 step 6b (4590), 12.5 step 1 (4650), 12.5 step 2 (4669) and 12.5 step 3 (4686).
+- **EXCLUDED, 6,** by anchor:
+  - "Only after reading those lines, the apply:" keys 1265 (a real migration apply; the body is exactly the PATH line, the apply and the unset);
+  - "**3. The apply.** Only after fences 1 and 2 have both read as they must." keys 1887 (a real migration apply; the same exact body);
+  - "**2. The before-reading.**" keys 1873 (hosted, over the network);
+  - "**4. The after-reading.**" keys 1903 (hosted, over the network);
+  - "The reload. The first line waits silently" keys 1311 (NOTIFY);
+  - "### The SQL this step used to carry was a no-op, and that is observed" keys 3240 (quoted history).
+- **RUN-HERE, 29,** as the function computed it. With an expectation, by its anchor:
+  - 988 "The dry run. **Stop condition: …";
+  - 1664 "**The first line asks for the apply time**";
+  - 1856 "**1. The dry run.** …";
+  - 1933 "**5. The second dry run …**";
+  - 1953 "**6. Who can execute what …**";
+  - 2715 "**The ledger count and the pending count move together";
+  - 3059 "**Half 1 — the failing half. It must return a row.**";
+  - 3267 "### The probe — run verbatim, connected with `DATABASE_URL` (step P first)";
+  - 4717 "**5. On the 31st day after `withdrawn_on`, …".
+
+  With no expectation, by line and nearest heading: 85 (P. Prerequisites); 677, 728 and 748 (Sign-ups off, H2); 897 (4b. STOP — before the first facility); 1240 (before applying 017: pg_cron); 1373, 1412, 1463 and 1495 (after 017's apply); 1599 (before 018's apply); 2183 and 2241 (024's apply); 2333 and 2384 (025 and 026's apply); 3087 (the widened grant sweep); 3344 (after the probe); 3808 (10. Realtime publication); 4168 (12.3 H6); 4744 (12.6 Erasing a contact).
+- The sets are disjoint, their union is the 40, and none is empty. **29 fences were spawned, against a RUN-HERE count of 29.**
+- **A script-shaped fence that no entry names is a STOP.** On today's tree there is none. Each of 988, 1856, 1933 and 1953 carries an expectation, and 1265, 1873, 1887 and 1903 are EXCLUDED.
+- **EO-1 b corrects EM-2 c, and the slip is Cowork's.** EM-2 c named 3240 as an expected refusal. It is quoted history, and it is EXCLUDED so that superseded text never becomes a live constraint.
+
+**EO-1 c: HOW A FENCE RUNS. LANDED,** in `tests/db/runbook_sql_live.test.ts`.
+- `beforeAll` refuses anything but host 127.0.0.1 or localhost on port 54322, before anything runs.
+- Every fence runs verbatim under bash from the repository root, over the allowlist environment:
+  - PATH, LANG (when set) and `LC_MESSAGES=C`;
+  - a scratch HOME and `PSQLRC=/dev/null`;
+  - DATABASE_URL;
+  - `PGOPTIONS='-c lock_timeout=5s -c statement_timeout=20s'`;
+  - FACILITY_ID, PROBE and `APPLY_TS=now`.
+  A leg asserts the keys are exactly these.
+- runFence's spawn timeout is 60 s, and each fence's leg has 90 s.
+- **The inert checks.** FACILITY_ID was searched in `app.facility.id` and in every foreign-key column that references `app.facility`, found from `pg_constraint`: app.audit_log.facility_id, app.facility_agreement.facility_id, app.facility_contact.facility_id, app.facility_ops.facility_id, app.invite.facility_id, app.referral.receiving_facility_id, app.referral.referrer_facility_id, app.ward_account.facility_id, app.ward_status.facility_id and app.ward_status_event.facility_id. Each held 0 rows. PROBE was absent from auth.users (0).
+- **The `$NAME`s seen, fence by fence:**
+  - PATH only: 85, 988, 1856, 1933 and 1953;
+  - DATABASE_URL and PATH: 677, 897, 1240, 1373, 1412, 1463, 1495, 1599, 2183, 2241, 2333, 2384, 2715, 3059, 3087, 3267, 3344, 3808, 4168 and 4717;
+  - with PROBE as well: 728 and 748;
+  - with APPLY_TS as well: 1664;
+  - with FACILITY_ID as well: 4744.
+
+  No other name was seen.
+- **Added beyond the letter, and found by the behavioural pass: no fence runs over a broken partition.** The first ledger row reworded 3240's anchor. 3240 then fell into RUN-HERE, and its two quoted tamper statements ran against the local stack. They changed nothing: app.audit_log holds 61 rows and none reads `tampered`, and the append-only triggers refuse both statements. But the same slip on 1265's or 1873's anchor would have run a real apply, or read hosted. `runGated()` now refuses to spawn any fence while the partition has an error, and a plant proves it.
+
+**EO-1 d: WHAT IS RED. LANDED,** as the letter lists. **4717 is given an expectation, not a header note.** On stdout, a red word is tolerated only after the second `|` of a row whose first field is one of the three retention jobs, which is the return_message column. stderr is read in full. A pure leg proves both halves.
+
+**EO-1 e: NOTHING CHANGES. LANDED.** The bracket is 24 components:
+- the 20 tables of the shared fingerprint;
+- `auth.users count`;
+- `cron.job rows`;
+- `digest relations`;
+- `digest column_acl`.
+
+Before and after were equal on the real run. NOT ASSERTED, and named in the header: sequence values. 3267's rolled-back inserts consume ids (audit_log id 213 on the first run), and the fingerprint hashes rows.
+
+**EO-1 f: PLANTS. RED FIRST, THEN GREEN.** Each neuter was run through `scripts/neuter.sh` against the new file alone, with the spec in the session scratchpad. Every restore was verified by the harness and by a sha256 check.
+
+| neuter | line neutered | leg that failed | assertion |
+|---|---|---|---|
+| N1 the classifier ignores the stream | `if (!RED.test(line)) continue;` → `continue;` | 897 reading app.facilityx; and the 4717 tolerance leg | `exit 1` (no violation came back; the leg asserts at least one), and `expected [] to deeply equal [ …(2) ]` |
+| N2 the required-line check always passes | `if (!need.test(both)) out.push(` → `if (false) out.push(` | 3267 with its required line edited out | `exit 0` (it expected exactly the missing-line violation) |
+| N3 the `$NAME` allowlist accepts everything | `.filter((n) => !ALLOWED_NAMES.has(n))` → `.filter(() => false)` | the unknown `$NEW_VAR` | `a fence with an unknown name was run` |
+| N4 anchor matching always succeeds | a no-match anchor returns `{ fence: fences[0] }` instead of its error | the expectation-anchor and EXCLUDED-key plants | `expected [] to deeply equal [ Array(1) ]`, twice |
+| N5 the script-shaped STOP never fires | `if (scriptShaped(f) && !expectation.has(keyOf(f))) {` → `if (false) {` | a script-shaped fence no entry names | `expected +0 to be 1` |
+| N6 `moved()` returns `[]` | `tests/setup/digest.ts`'s return → `return [];` | the write plant | `the fingerprint did not see the delete` |
+| N7 the gate runs over a broken partition | `if (p.errors.length > 0) return` → `if (false) return` | a fence a reworded EXCLUDED anchor drops into RUN-HERE | `a fence was run over a broken partition` |
+
+N5 and N7 go beyond the letter's five: one each for the STOP and for the gate. Each neuter turned exactly its own leg red. **Green: 48 of 48.**
+
+The not-catch legs: a governed fence appended to a copy lands in RUN-HERE unaided; a ```sql fence appended lands in RUN-HERE and runs through psql; and the real corpus is green. **The write plant:** `moved(second, third)` names `app.facility_contact`, and after the fixture is deleted the fingerprint equals the first.
+
+**EO-1 g: THE HEADER. LANDED.** It is classified LIVE, and runs in db-tests. NOT ASSERTED HERE carries each item g lists, plus sequence values.
+
+**EO-2 a: THE PRECONDITION. LANDED.**
+- no_secrets :153 (from `readFileSync`) and bundle_guards :803 (the old :800, from `cat`) are converted to the one line.
+- bundle_guards :428 gains it, on `built`, before its `runLint`.
+- **Red first, a 0o644 swap at each of the three sites through `scripts/neuter.sh`.** Each failed exactly its own leg with `this user can read a mode-000 file; the plant did not take: expected [Function] to throw an error`:
+  - bundle_guards :428, "a server-side scan that could not run FAILS LOUDLY rather than reporting clean";
+  - :803, "could not run — an unreadable built file is an ERROR, never reported clean";
+  - no_secrets :153, "could not run — a file the prefilter cannot read is an ERROR, never reported clean".
+- **Green:** all of them.
+
+**EO-2 b: THE GUARD, `tests/compliance/mode_000_precondition.test.ts`. LANDED.**
+- It parses with TypeScript's own parser, with a root seam; its plants are written to a scratch tree.
+- **A site** is a `chmodSync` call whose mode is the numeric value 0 or the string `'000'`.
+- **Its scope** is the nearest callback passed to `test`, `it` or their `.each`. The required line must be an expression statement after the chmod and before the scope's next `runLint`, `spawnSync` or `execFileSync`. It must equal the one line for the same target, with whitespace normalised.
+- **Red, each planted:**
+  - no precondition;
+  - the readFileSync form;
+  - a precondition on another target;
+  - a precondition after the spawn;
+  - no lint or spawn following;
+  - zero sites (anti-vacuity).
+- **Green controls:**
+  - the real tree;
+  - the ordinary held site;
+  - a chmod to 0o644;
+  - a mode-000 chmod inside a string.
+- **Red first:** on the unconverted tree the real-tree leg failed, naming exactly bundle_guards:428:built, bundle_guards:800:target and no_secrets:153:target. It is green after the conversion: 10 of 10.
+
+**EO-2 c: THE SITES AND LEGS, AS DERIVED.**
+- **8 sites**, as the guard prints them:
+  - `tests/compliance/audit_log_no_identity_columns.test.ts`:198:target;
+  - `tests/compliance/bundle_guards.test.ts`:428:built, :500:target and :803:target;
+  - `tests/compliance/lint_no_replica_identity_full.test.ts`:68:target;
+  - `tests/compliance/lint_sql_bare_not_duty_flag.test.ts`:225:target;
+  - `tests/compliance/lint_sql_quoted_in_prose.test.ts`:170:target;
+  - `tests/compliance/no_secrets.test.ts`:153:target.
+
+  bundle_guards' :497 and :800 are now :500 and :803, because :428 gained three lines.
+- **9 legs**, counted from an executed vitest run's JSON, which expands `test.each`. `vitest list` does not: it lists prose :170's template once, with `%s` unexpanded. prose :170 makes two legs.
+- **After S-b every one of the nine carries the one precondition,** so under root all nine fail it, with its message.
+
+**EO-2 d: THE LEG REGISTER.** `packages/fixtures/leg-coverage.json` is **342/315/27 before and after**. S-b adds and changes no leg in any script, and leg_coverage is green on the head.
+
+The test legs this change adds or changes:
+- **48 new** in `tests/db/runbook_sql_live.test.ts`;
+- **10 new** in `tests/compliance/mode_000_precondition.test.ts`;
+- **3 changed:** bundle_guards :428 and :803, and no_secrets :153.
+
+**THE BEHAVIOURAL-PASS LEDGER (Standard P).** Each row plants into a file tracked in git and outside this change's diff. It is planted in place and restored from a copy, and the restore is sha256-verified. The unplanted control reads 48 of 48 on the live file. The first control run, made before the gate and its plant existed, read 67 of 67 over the live file, the guard and the replica test.
+
+| control | question asked | tracked off-diff file re-derived against | planted-wrong value | reported diff |
+|---|---|---|---|---|
+| the partition | an EXCLUDED anchor that no longer matches | `docs/runbook-supabase-project-creation.md` | 3240's heading reads "…a no-op, as observed" | `EXCLUDED: anchor "### The SQL this step used to carry was a no-op, and that is observed" matches no line`. After the gate, 41 legs red and no RUN-HERE fence spawned (the write plant, which calls runFence directly on its own fixture, still ran) |
+| the classifier | a fence the database refuses | the runbook | 1240 reads `pg_available_extensionsx` | `1240: a red line on stderr: ERROR:  relation "pg_available_extensionsx" does not exist` |
+| the required line | a read-back that does not PASS | `packages/fixtures/function-grants.json` | `operator_register()` executable by anon too | `1953: a red line on stdout: STOP: a line above reads WRONG …` and `its required line /^PASS: /m is missing` |
+| the name scan | an unknown shell variable | the runbook | 4168 expands `$OTHER` | `4168: it expands $OTHER … so it was not run`, and the bracket's `expected 28 to be 29` |
+| the dry-run count | a runner that reports pending work | `scripts/run_migrations.sh` | prints `$((pending + 1))` | 988, 1856, 1933 and 2715: `it reads "1 migration(s) pending.": the local stack is not migrated: npm run db:migrate` |
+| the bracket | a fence that commits a change | the runbook | 1599 runs `grant select on app.facility to anon;` first | `a RUN-HERE fence changed these components: expected [ 'digest relations' ] to deeply equal []`. The grant was revoked, and read back: anon cannot select, and the ACL is `{postgres=arwdDxtm/postgres}` |
+| the mode-000 guard | a site that lost its precondition | `tests/compliance/lint_no_replica_identity_full.test.ts` | the precondition line removed | `lint_no_replica_identity_full.test.ts:68:target: not followed, before its runLint at line 72, by the one precondition` |
+| the precondition | a plant that did not take | `tests/compliance/lint_no_replica_identity_full.test.ts` | `chmodSync(target, 0o644)` | `this user can read a mode-000 file; the plant did not take: expected [Function] to throw an error` |
+
+The bracket's first plant was 3059 with its ROLLBACK changed to COMMIT. 3059's shape check fired first ("whose body is not the sweep with its planted GRANT inside BEGIN ... ROLLBACK"), which is correct, so the row was re-aimed at 1599, a fence with no expectation. That first run also committed the GRANT, because the gate did not exist yet; it was revoked the same minute. The gate is what the run found.
+
+**EO-3:** recorded in -164, beside EN's correction.
+
+**EO-5: REGISTER.** After its trigger, which stays, the survey row's Gate cell now reads "FIRED at 024; item 1, item 2's guard and the digest landed in S-a (R-2026-09-28-162, -163); item 2's runbook SQL in S-b (R-2026-09-29-165); the evidence tables and the charter in S-c". Recounted from the table: **59** (15 BOX, 33 TRIGGER, 11 VERSION). No row lands or leaves.
+
+Nothing hosted: S-b touches no migration, no app and no deploy script. S-c is not started. Next letter: **EP**, the merge word.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -9353,6 +9938,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | EK | R-2026-09-28-161 | 2026-09-28 | **Hosted run 4 recorded** (the founder's readings, relayed by Cowork): the public dashboard deployed as `016b7b9f` from `3441c85` and read back PASS, both hosts serving `/assets/index-DRIWEa8y.js`, `/privacy` still Version 1.1; the founder's click on openbed.ng/privacy's logo opened the bed list. The read-back does not read the link; the test and the click do. No box ticked and no row moves: register 59. Next letter EL. |
 | EL | R-2026-09-28-162 | 2026-09-28 | **PR S-a: the scripts/ survey's three guards.** Item 1: the duty-flag lint gains pass B (the negated equality, GUARD-AHEAD-OF-SUBJECT) and a wider flag name, and its `sed | grep` read, which failed open on an unreadable file, is its own step; three siblings with the same pipeline are reported, not fixed. Item 2: `scripts/lint_sql_quoted_in_prose.sh` (LIVE), this record out of scope by path. The digest gains relations, rls, functions, schemas and default_acl, as a map; the re-apply stays idempotent. EL-2 b's list is for the merge letter. Cowork's two EL-0 slips recorded. Register 59. Next letter EM. |
 | EM | R-2026-09-28-163 | 2026-09-28 | **#103 reviewed; the fail-open fixed at its root.** The meta-lint joins continued lines and gains a pipeline arm (a status captured after a piped grep); on the real tree it found exactly the three predicted sites. Each is fixed: replica, updated_at and audit_log each read in their own step, and audit's block read speaks for itself. The digest gains column_acl and type_acl, EL-3's omission and Cowork's slip. EL-2 b ruled with no text changes; the runbook compile check goes to S-b. Leg register 342/315/27. Register 59. Next letter EN. |
+| EN | R-2026-09-29-164 | 2026-09-29 | **#103 merged at `bbdefbf`** (parents `3bac730`, `4c375f2`), all seven required checks read `success` first; `s-a-survey-guards` deleted on both sides; register 59. EN's correction arrived with EO and is quoted in -164; EO-3 corrects it in turn. Main at `bbdefbf` holds eight mode-000 sites making nine legs: six added by S-a at five sites, two older legs in another form, one (:428) with none. EN's "five" and the correction's "nine sites" are Cowork's slips. EN-3 lands in S-b. Next letter EO. |
+| EO | R-2026-09-29-165 | 2026-09-29 | **PR S-b: the runbook's SQL, run live; one precondition for every unreadable-file leg.** The helpers move with no change in behaviour (the four touched files keep identical test names and states; leg register 342/315/27). `tests/db/runbook_sql_live.test.ts` partitions 40 fences into LIVE 5, EXCLUDED 6 and RUN-HERE 29, runs the 29 against the local stack over an allowlist environment with inert values, and brackets them with a 24-component fingerprint. Seven neuters red first; no fence runs over a broken partition, which the behavioural pass found. 3240 is EXCLUDED as quoted history, correcting EM-2 c (Cowork's slip). Every mode-000 leg carries the one accessSync precondition, held by `tests/compliance/mode_000_precondition.test.ts`: 8 sites, 9 legs. Register 59. S-c follows. Next letter EP. |
 
 ## Deferred items — this record is where the list lives
 
@@ -9430,7 +10017,7 @@ the record's own, except where CW-5 assigned one._
 | B1's onboarding checks: the first reporting login reads its own history as itself (12.4 step 6: 6a a ward's login, 6b the facility's, each ward), and the first publish reads back from `/beds.json` (12.4 step 9; a facility's login publishes two wards) (restated 2026-09-28, R-2026-09-27-144 DT Bundle 2; until then: "B1's onboarding checks: the first ward account reads its own history as itself (12.4 step 6), and the first publish reads back from `/beds.json` (12.4 step 9)") | R-2026-09-26-122 CX-1 (b) | TRIGGER | Facility one's first reporting login (ward or facility) is provisioned (restated 2026-09-27, R-2026-09-27-141 DQ-3 e; until then: "The first ward account at facility one") |
 | `ward_reply` has a cap and no content validation (#63/#97) | R-2026-09-17-03 and -04 | TRIGGER | The first change that writes `app.referral.ward_reply` (referrals are unwired in v1; R-2026-09-26-122 CX-2) |
 | Gate 3's property test does not exist (#109) | R-2026-09-17-03 and -04 | TRIGGER | The next change under `packages/gate/` or `packages/snapshot/src/freshness.ts` (R-2026-09-26-122 CX-2) |
-| The `scripts/` survey items: PR evidence tables generated from artefacts; the idempotency digest's grants and RLS flags; item 1, the duty-flag lint missing `<> 'NO'`; item 2, nothing validates SQL quoted in prose | Deferred to the `scripts/` survey; R-2026-09-15-06 and -07; R-2026-09-17-05; R-2026-09-17-08 D2 | TRIGGER | The next migration file added (024) (R-2026-09-26-122 CX-2). FIRED at 024; item 1, item 2's guard and the digest landed in S-a (R-2026-09-28-162, -163); item 2's runbook compile check, the evidence tables and the charter in S-b |
+| The `scripts/` survey items: PR evidence tables generated from artefacts; the idempotency digest's grants and RLS flags; item 1, the duty-flag lint missing `<> 'NO'`; item 2, nothing validates SQL quoted in prose | Deferred to the `scripts/` survey; R-2026-09-15-06 and -07; R-2026-09-17-05; R-2026-09-17-08 D2 | TRIGGER | The next migration file added (024) (R-2026-09-26-122 CX-2). FIRED at 024; item 1, item 2's guard and the digest landed in S-a (R-2026-09-28-162, -163); item 2's runbook SQL in S-b (R-2026-09-29-165); the evidence tables and the charter in S-c |
 | The test-title citation convention | R-2026-09-23-65 E | TRIGGER | The first cited test title found not to exist in its file (R-2026-09-26-122 CX-2) |
 | A real-browser refusal check in CI | R-2026-09-23-70 C3 | TRIGGER | The first PR that adds a browser runner (Playwright or similar) as a dependency. If D1's screenshots add one, it fires in D1 and the check lands in D2 (R-2026-09-26-122 CX-2) |
 | Provisioning as a Supabase Edge Function | R-2026-09-23-71 C | TRIGGER | The first proposal to move ward-account setup into an app (R-2026-09-26-122 CX-2) |
