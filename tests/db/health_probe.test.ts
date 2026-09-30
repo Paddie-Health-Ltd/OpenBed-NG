@@ -196,6 +196,12 @@ describe('what the probe reads', () => {
   test('a job whose only run is older than two days reads no last run', async () => {
     const p = await asServiceRole(probe, async (tx) => {
       const id = await jobId(tx, SNAPSHOT_JOB);
+      // THE TEST'S OWN PREMISE, MADE TRUE (R-2026-09-30-175): "only run" holds only if the job has
+      // no real run. Migration 017 schedules it every minute and database/local/pause_scheduled_jobs.sql
+      // pauses it at seed, after every migration, so a minute boundary inside that window leaves a
+      // real run within two days (seen on CI, run 36741410618, as `expected 'succeeded' to be null`).
+      // The delete is inside withRole's rolled-back transaction, so no run is lost.
+      await tx.unsafe('delete from cron.job_run_details where jobid = $1::bigint', [id] as never[]);
       await tx.unsafe(
         `insert into cron.job_run_details (jobid, runid, job_pid, database, username, command, status, return_message, start_time, end_time)
          select $1::bigint, coalesce(max(runid), 0) + 1, 1, 'postgres', current_user, 'select 1', 'failed', '',
