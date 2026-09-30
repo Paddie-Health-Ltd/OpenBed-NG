@@ -24,7 +24,8 @@ import { REPO_ROOT } from './_scratch.js';
  *     read-backs moved from pasted fences into those scripts after the -70 H4 note,
  *     and a probe corpus left reading only docs/ would have seen none of them;
  *   - minus the calls that never pass through the Worker, each named with its ruling
- *     (`direct_origin_exceptions`): the /beds.json Function's direct read (-58 A5), and
+ *     (`direct_origin_exceptions`): the /beds.json Function's direct read (-58 A5), the
+ *     /api/health Function's direct probe (R-2026-09-29-173 EW-2 a), and
  *     GET /auth/v1/verify, where the emailed link is consumed (C2).
  * An unlisted call, an entry nothing calls, a probe path missing from the list, a
  * preflight for nothing, a query the code does not send, and a stamp path that could
@@ -324,6 +325,8 @@ describe('the allow-list against the code and the runbooks', () => {
         'packages/auth/src/request.ts',
         'packages/auth/src/holder.ts',
         'packages/snapshot/src/serve.ts',
+        'packages/snapshot/src/health_serve.ts',
+        'apps/public-dashboard/functions/api/health.ts',
       ]),
     );
     const { sites, unresolved } = callSites(realSources(), REPO_ROOT);
@@ -332,6 +335,8 @@ describe('the allow-list against the code and the runbooks', () => {
       'GET /rest/v1/snapshot_current?select=v,payload&order=v.desc&limit=1 @ packages/snapshot/src/serve.ts',
       'POST /auth/v1/otp @ packages/auth/src/request.ts',
       'POST /auth/v1/token?grant_type=refresh_token @ packages/auth/src/holder.ts',
+      // R-2026-09-29-173 EW-2 a: the /api/health Function's probe, direct by name like the /beds.json read.
+      'POST /rest/v1/rpc/health_probe @ packages/snapshot/src/health_serve.ts',
       'POST /rest/v1/rpc/my_reporting_wards @ apps/ward-console/src/main.ts',
       'POST /rest/v1/rpc/operator_add_category @ apps/admin/src/main.ts',
       'POST /rest/v1/rpc/operator_create_facility @ apps/admin/src/main.ts',

@@ -345,6 +345,24 @@ const noticePage = (file: string): string => `<!doctype html><html><body><main i
 const PRIVACY_PAGE = noticePage('privacy-notice-v1.1.md');
 /** Version 1.0, what 2633ccc0 serves today: the prior version, which this read-back must now refuse. */
 const PRIOR_PRIVACY_PAGE = noticePage('privacy-notice-v1.0.md');
+/**
+ * /api/health as the deployed Function answers it (R-2026-09-29-173 EW-2 h): a 200 whose
+ * marker header the SPA fallback can never carry. HEAD carries the same headers and no body.
+ */
+const HEALTH_HEADERS = {
+  'content-type': 'application/json; charset=utf-8',
+  'cache-control': 'no-store',
+  'x-openbed-health': 'ok',
+  'x-openbed-edge-cache': 'miss',
+  'x-robots-tag': 'noindex, nofollow',
+  'x-content-type-options': 'nosniff',
+};
+const HEALTH_BODY = '{"ok":true,"health":"openbed-ok","reasons":[],"snapshot_age_s":31,"checked_at":"2026-09-30T04:00:00.000+00:00","job":null}';
+const HEALTH_FAIL_ANSWER: Answer = {
+  status: 503,
+  headers: { ...HEALTH_HEADERS, 'x-openbed-health': 'fail' },
+  body: '{"ok":false,"health":"openbed-fail","reasons":["snapshot_stale"],"snapshot_age_s":400,"checked_at":"2026-09-30T04:00:00.000+00:00","job":null}',
+};
 const PRIVACY_ANSWER: Answer = { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' }, body: PRIVACY_PAGE };
 /** The dashboard's index as the SPA fallback serves it for a missing page: its bundle, and the #app root it fills. */
 const SPA_INDEX = `${DASH_PAGE}<main id="app"></main>`;
@@ -366,6 +384,11 @@ function pagesFixtures(head: string): Fixtures {
     [`GET ${DASH_DOMAIN}/favicon.ico`]: FAVICON_ANSWER,
     [`GET ${SITE}/assets/index-DTILzLDb.css`]: { status: 200, headers: { 'content-type': 'text/css; charset=utf-8' }, body: DASH_CSS },
     [`GET ${SITE}${FONT_PATH}`]: { status: 200, headers: { 'content-type': 'font/woff2' }, body: 'wOF2' },
+    // The health endpoint, GET and HEAD, on both hosts (R-2026-09-29-173 EW-2 h).
+    [`GET ${SITE}/api/health`]: { status: 200, headers: HEALTH_HEADERS, body: HEALTH_BODY },
+    [`HEAD ${SITE}/api/health`]: { status: 200, headers: HEALTH_HEADERS },
+    [`GET ${DASH_DOMAIN}/api/health`]: { status: 200, headers: HEALTH_HEADERS, body: HEALTH_BODY },
+    [`HEAD ${DASH_DOMAIN}/api/health`]: { status: 200, headers: HEALTH_HEADERS },
     // The privacy notice on both hosts (DL-1 e).
     [`GET ${SITE}/privacy`]: PRIVACY_ANSWER,
     [`GET ${DASH_DOMAIN}/privacy`]: PRIVACY_ANSWER,
@@ -407,7 +430,7 @@ describe('scripts/readback_pages.sh', () => {
       ]) {
         expect(r.out, `the check "${check}" never ran`).toContain(`  ok     ${check}: `);
       }
-      expect(r.out).toContain("PASS: read-backs 4, 6, 7 and 8, the page's security headers and scripts on both hosts, the favicon on both hosts, the privacy notice on both hosts, a self-hosted font, and the serve-time stamp read as they must.");
+      expect(r.out).toContain("PASS: read-backs 4, 6, 7 and 8, the page's security headers and scripts on both hosts, the favicon on both hosts, the health endpoint on both hosts, the privacy notice on both hosts, a self-hosted font, and the serve-time stamp read as they must.");
       for (const check of [
         'page scripts', 'openbed.ng content-security-policy', 'openbed.ng scripts', 'read-back 7 robots.txt', 'read-back 7 openbed.ng robots.txt',
         'favicon.ico status', 'favicon.ico', 'favicon.ico content-type', 'openbed.ng favicon.ico status', 'openbed.ng favicon.ico', 'openbed.ng favicon.ico content-type',
@@ -415,6 +438,10 @@ describe('scripts/readback_pages.sh', () => {
         'privacy status', 'privacy content-type', 'privacy controller', 'privacy version', 'privacy is not the SPA index', 'privacy scripts',
         'openbed.ng privacy status', 'openbed.ng privacy content-type', 'openbed.ng privacy controller', 'openbed.ng privacy version',
         'openbed.ng privacy is not the SPA index', 'openbed.ng privacy scripts',
+        'health GET status', 'health GET x-openbed-health', 'health GET x-robots-tag',
+        'health HEAD status', 'health HEAD x-openbed-health', 'health HEAD x-robots-tag',
+        'openbed.ng health GET status', 'openbed.ng health GET x-openbed-health', 'openbed.ng health GET x-robots-tag',
+        'openbed.ng health HEAD status', 'openbed.ng health HEAD x-openbed-health', 'openbed.ng health HEAD x-robots-tag',
       ]) {
         expect(r.out, `the check "${check}" never ran`).toContain(`  ok     ${check}: `);
       }
@@ -434,6 +461,14 @@ describe('scripts/readback_pages.sh', () => {
     ['no serve-time stamp at all', (f) => { f[`GET ${SITE}/beds.json`] = { status: 200, headers: BEDS_HEADERS, body: BEDS_BODY }; }, 'serve-time stamp, first read'],
     ['/beds.json without nosniff (BU-2 d)', (f) => { f[`HEAD ${SITE}/beds.json`] = { status: 200, headers: without(BEDS_HEADERS, 'x-content-type-options') }; }, 'read-back 8 HEAD x-content-type-options'],
     ['a page CSP that differs from the tracked one', (f) => { f[`GET ${SITE}/`] = { status: 200, headers: { ...trackedHeaders('public-dashboard'), 'content-security-policy': "default-src *" } }; }, 'page content-security-policy'],
+    // The health endpoint (R-2026-09-29-173 EW-2 h): the marker, not the status, is the signal.
+    ['a 503 fail from /api/health', (f) => { f[`GET ${SITE}/api/health`] = HEALTH_FAIL_ANSWER; }, 'health GET status'],
+    ['a 503 fail from /api/health, and its marker', (f) => { f[`GET ${SITE}/api/health`] = HEALTH_FAIL_ANSWER; }, 'health GET x-openbed-health'],
+    ['the SPA fallback answering HEAD /api/health: a 200 text/html with no marker', (f) => { f[`HEAD ${SITE}/api/health`] = { status: 200, headers: { 'content-type': 'text/html', 'x-robots-tag': 'noindex' } }; }, 'health HEAD x-openbed-health'],
+    ['the SPA fallback answering GET /api/health: a 200 text/html with no marker', (f) => { f[`GET ${SITE}/api/health`] = { status: 200, headers: { 'content-type': 'text/html', 'x-robots-tag': 'noindex' }, body: '<!doctype html><html></html>' }; }, 'health GET x-openbed-health'],
+    ['/api/health with the wrong robots tag', (f) => { f[`HEAD ${SITE}/api/health`] = { status: 200, headers: { ...HEALTH_HEADERS, 'x-robots-tag': 'noindex' } }; }, 'health HEAD x-robots-tag'],
+    ['openbed.ng alone failing /api/health', (f) => { f[`GET ${DASH_DOMAIN}/api/health`] = HEALTH_FAIL_ANSWER; }, 'openbed.ng health GET status'],
+    ['openbed.ng alone answering HEAD /api/health from the SPA', (f) => { f[`HEAD ${DASH_DOMAIN}/api/health`] = { status: 200, headers: { 'content-type': 'text/html' } }; }, 'openbed.ng health HEAD x-openbed-health'],
     ['a page with no Referrer-Policy', (f) => { f[`GET ${SITE}/`] = { status: 200, headers: without(trackedHeaders('public-dashboard'), 'referrer-policy') }; }, 'page referrer-policy'],
     // The design pass (D1; R-2026-09-26-122 CX-3): the favicon is never the SPA's HTML, on either host.
     ['/favicon.ico answered by the SPA fallback', (f) => { f[`GET ${SITE}/favicon.ico`] = { status: 200, headers: { 'content-type': 'text/html' }, body: DASH_PAGE }; }, 'favicon.ico content-type'],

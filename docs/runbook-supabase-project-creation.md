@@ -1015,11 +1015,15 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions.
 Restated 2026-09-14: until then this read `exactly 13 migration(s) pending.`, and
 migration 014 made that wrong.
 
-- **The hosted project today** holds 001 through 026 (see step 7), and so does the
-  repository. Every file up to and including
+- **The hosted project today** holds 001 through 026 (see step 7), and the
+  repository ends at 027. Every file up to and including
   `026_facility_reporter_and_checks.sql` must read `already applied`;
-  there must be no `WOULD APPLY` line; and the dry run must end
-  `0 migration(s) pending.`
+  there must be exactly one `WOULD APPLY` line, naming `027_scheduler_status.sql`; and the dry
+  run must end
+  `1 migration(s) pending.` Apply it by the fences below, in the order step 5 gives them.
+- **Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that ADDS 027.**
+  Until then this expected no `WOULD APPLY` line and `0 migration(s) pending.`, which
+  was right from 025's and 026's hosted apply while the repository also ended at 026.
 - **Restated 2026-09-28 (R-2026-09-28-149 DY-1), in the change that records 025's and
   026's hosted apply.** Until then this expected 001 through 024, exactly two
   `WOULD APPLY` lines naming `025_facility_reporter_role.sql` and then
@@ -1110,10 +1114,14 @@ migration 014 made that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line AT ALL, or any count other than
-  `0 migration(s) pending.`: stop and report.** Another file pending means
+- **Any `WOULD APPLY` line OTHER than the one named above, or any count other than
+  `1 migration(s) pending.`: stop and report.** Another file pending means
   either a migration reached the repository after the list was last restated, or
   hosted is not where this document says it is.
+  - *Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that adds 027.
+    Until then this bullet read "Any `WOULD APPLY` line AT ALL, or any count other than
+    `0 migration(s) pending.`", which was right from 025's and 026's hosted apply until
+    this change merged.*
   - *Restated 2026-09-28 (R-2026-09-28-149 DY-1), in the change that records 025's and
     026's hosted apply. Until then this bullet read "Any `WOULD APPLY` line OTHER than
     the two named above, or any count other than `2 migration(s) pending.`", which was
@@ -2411,12 +2419,17 @@ this apply. On 2026-09-28 it was (R-2026-09-28-149).
 
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 026 applied, and so does the repository
-end), the dry run prints twenty-six `already applied` lines and:
+**On the hosted project today** (001 through 026 applied, and the repository ends at
+027), the dry run prints twenty-six `already applied` lines and:
 
 ```
-0 migration(s) pending.
+  WOULD APPLY     : 027_scheduler_status.sql   <- dry run
+1 migration(s) pending.
 ```
+
+*Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that adds 027.* Until then
+this block showed twenty-six `already applied` lines, no WOULD APPLY line, and a count of
+zero -- right from 025's and 026's apply while the repository ended at 026.
 
 *Restated 2026-09-28 (R-2026-09-28-149 DY-1), in the change that records 025's and
 026's hosted apply.* Until then this block described the state BEFORE that apply:
@@ -2610,9 +2623,14 @@ Migrations complete (3 applied this run).   <- apply
 second is lower:
 
 ```
-26 migration(s) pending.          <- dry run
-Migrations complete (25 applied this run).   <- apply
+27 migration(s) pending.          <- dry run
+Migrations complete (26 applied this run).   <- apply
 ```
+
+*Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that adds 027. This block
+read `26` and `25` -- right while the repository ended at 026. Observed on the local
+stack in this change: a fresh `db:reset` printed `Migrations complete (26 applied this
+run).`*
 
 *Restated 2026-09-27 (R-2026-09-27-144 DT l), in the change that adds 025 and 026. This
 block read `24` and `23` -- right while the repository ended at 024. Observed on the
@@ -2646,13 +2664,15 @@ so from that merge it named a count one lower than a correct virgin run prints. 
 not one of the hosted expectations the guard parses; it was found by reading the
 section for this restatement.*
 
-**Twenty-five is correct there. Nothing was skipped.** Migration 001 creates the `app`
+**Twenty-six is correct there. Nothing was skipped.** Migration 001 creates the `app`
 schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
 recorded by a ledger that does not exist yet. The runner applies and ledgers it
 in a separate **bootstrap** step, and the apply loop then counts only what it
-applied itself -- 002 through 026, which is twenty-five. The dry run has no bootstrap
+applied itself -- 002 through 027, which is twenty-six. The dry run has no bootstrap
 branch: `is_applied` returns 0 while the ledger is absent, so it counts all
-twenty-six as pending. The two numbers are measuring different things.
+twenty-seven as pending. The two numbers are measuring different things.
+*Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that adds 027; until then this
+paragraph read twenty-five, 002 through 026, and twenty-six.*
 *Restated 2026-09-27 (R-2026-09-27-144 DT l), in the change that adds 025 and 026; until
 then this paragraph read twenty-three, 002 through 024, and twenty-four.*
 *Restated 2026-09-27 (R-2026-09-26-136 DL-2), in the change that adds 024; until then
@@ -2662,9 +2682,12 @@ this paragraph read twenty-two, 002 through 023, and twenty-three.*
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `26`, with `0 migration(s) pending.` from the
-dry run** -- the founder's second dry run after 025's and 026's apply, on 2026-09-28, read
-twenty-six `already applied` lines, 001 through 026.
+THAT PROJECT. **On hosted today that is `26`, with `1 migration(s) pending.` from the
+dry run** -- 027, in the repository and not yet applied. The founder's second dry run
+after 025's and 026's apply, on 2026-09-28, read twenty-six `already applied` lines,
+001 through 026.
+*Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that adds 027; until then it
+read `26` with `0 migration(s) pending.`, right while the repository ended at 026.*
 *Restated 2026-09-28 (R-2026-09-28-149 DY-1), in the change that records that apply;
 until then it read `24` with `2 migration(s) pending.`, naming
 `025_facility_reporter_role.sql` and `026_facility_reporter_and_checks.sql`.*
