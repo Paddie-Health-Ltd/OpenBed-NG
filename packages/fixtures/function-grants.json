@@ -35,6 +35,7 @@
     "public.operator_record_contact(text, text, text, text, text, boolean, integer)": { "execute": ["authenticated"], "why": "021: an operator records the facility's contact (BC-5 a, BD-1 c)" },
     "public.operator_record_registration(text, integer, text)": { "execute": ["authenticated"], "why": "026: an operator records a facility's HEFAMAA registration number, operator-only and never public (R-2026-09-27-144 DT k)" },
     "public.operator_register()": { "execute": ["authenticated"], "why": "021: the operator's register, 020's list as an envelope carrying server_now (AJ D8, BC-5 c)" },
+    "public.operator_scheduler_status()": { "execute": ["authenticated"], "why": "028: the operator's read of the scheduler's status (app.scheduler_status() behind app.assert_operator()), for the admin System status view (R-2026-09-30-175 EY-2)" },
     "public.operator_set_facility_listed(text, integer)": { "execute": ["authenticated"], "why": "020: an operator lists a facility (-71 B)" },
     "public.publish_ward_status(text, text, integer, boolean, text, integer, text, timestamp with time zone)": { "execute": ["authenticated"], "why": "014, restated in 026: a ward, or the facility reporting login, publishes" },
     "public.ward_status_history(text, timestamp with time zone, integer)": { "execute": ["authenticated"], "why": "015: a ward reads its own history" }

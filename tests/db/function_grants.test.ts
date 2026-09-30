@@ -151,7 +151,8 @@ describe('the function-EXECUTE surface, against packages/fixtures/function-grant
     ['a grant revoked from authenticated', 'revoke execute on function public.publish_ward_status(text, text, integer, boolean, text, integer, text, timestamptz) from authenticated', "  WRONG  public.publish_ward_status(text, text, integer, boolean, text, integer, text, timestamp with time zone) EXECUTE: read 'none', must be 'authenticated'"],
     ['a grant to anon on a provisioning gate', 'grant execute on function app.provision_begin(uuid, text, text) to anon', "  WRONG  app.provision_begin(uuid, text, text) EXECUTE: read 'anon', must be 'none'"],
     // A new function in public reads EXECUTE for all three roles with no GRANT written:
-    // Supabase's default privileges, observed here -- the default 020's REVOKEs remove.
+    // PostgreSQL's built-in EXECUTE for PUBLIC, observed here (R-2026-09-30-175 EY-1) --
+    // the grant 020's REVOKE ... FROM PUBLIC removes.
     ['a function the fixture does not name', "create function public.zz_planted() returns int language sql as 'select 1'", "  WRONG  public.zz_planted() EXECUTE: read 'anon,authenticated,service_role', must be '(not in the fixture)'"],
   ])('plant — %s reads STOP naming it', async (_name, plant, wrong) => {
     const read = await withRole('postgres', null, async (tx) => {

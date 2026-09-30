@@ -6,9 +6,11 @@
 # SOURCE (R-2026-09-24-74 BB-2). First run as fence 6 of 020's apply in
 # docs/runbook-supabase-project-creation.md.
 #
-# WHY IT EXISTS. Supabase's default privileges grant EXECUTE on a new function to
-# anon, authenticated and service_role. 020 is correct only if its REVOKEs removed
-# those grants on hosted, and that is a claim about a running system that no local
+# WHY IT EXISTS. A new function reaches anon, authenticated and service_role through
+# PostgreSQL's built-in EXECUTE for PUBLIC (and, for functions supabase_admin creates
+# in public, its named default too; R-2026-09-30-175 EY-1). 020 is correct only if
+# its REVOKEs removed those grants on hosted, and that is a claim about a running
+# system that no local
 # test can reach. So this reads, for every function in the schemas the fixture
 # names, which of the three roles can execute it (has_function_privilege, which
 # counts PUBLIC and role membership), and compares with

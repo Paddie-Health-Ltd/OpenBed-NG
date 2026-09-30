@@ -3,7 +3,7 @@ import type { TransactionSql } from 'postgres';
 import { SCHEDULED_JOBS, assertScheduledJobsPaused, withRole } from '../setup/db.js';
 import SHAPE from '../../packages/fixtures/snapshot-shape.json';
 import FUNCTION_GRANTS from '../../packages/fixtures/function-grants.json';
-import { SNAPSHOT_JOB, decideHealth, type ProbeInput } from '../../packages/snapshot/src/health.js';
+import { JOB_KEYS, SNAPSHOT_JOB, TOP_KEYS, decideHealth, type ProbeInput } from '../../packages/snapshot/src/health.js';
 
 /**
  * MIGRATION 027: app.scheduler_status() and public.health_probe() (R-2026-09-29-173 EW-1,
@@ -294,8 +294,8 @@ const PIN_DEFINITION_SQL = String.raw`select btrim(regexp_replace(p.prosrc, '\s+
      and p.prosecdef and p.proconfig = array['search_path=""'] as pinned
   from pg_proc p where p.oid = 'public.health_probe()'::regprocedure`;
 
-const TOP_KEYS = ['generated_at', 'jobs', 'last_snapshot_at', 'server_now'];
-const JOB_KEYS = ['active', 'last_start_time', 'last_status', 'name', 'schedule'];
+// TOP_KEYS and JOB_KEYS are imported from packages/snapshot/src/health.ts, the one list
+// tests/db/operator_scheduler_status.test.ts pins its result to as well (R-2026-09-30-175 EY-2).
 
 async function pinViolations(tx: TransactionSql): Promise<string[]> {
   const out: string[] = [];
