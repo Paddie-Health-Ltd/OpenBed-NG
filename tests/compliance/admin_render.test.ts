@@ -113,6 +113,21 @@ const REGISTER = {
   ],
 };
 
+
+/**
+ * THE SCHEDULER'S STATUS, healthy (R-2026-09-30-175 EY-3): the snapshot 30 seconds old on
+ * the database's clock, and the five openbed_ jobs all switched on with a succeeded last run.
+ * A default answer for operator_scheduler_status, so a fake that has no opinion about the
+ * System status still answers it the way a healthy server does.
+ */
+const JOB_NAMES = ['openbed_check_withdrawn_facility_accounts', 'openbed_erase_lapsed_ward_logins', 'openbed_prune_ended_auth_sessions', 'openbed_refresh_lga_rollup', 'openbed_regenerate_snapshot'];
+const HEALTHY_STATUS = {
+  server_now: SERVER_NOW,
+  generated_at: '2026-09-24T11:59:30.000Z',
+  last_snapshot_at: '2026-09-24T11:59:30.000Z',
+  jobs: JOB_NAMES.map((name) => ({ name, active: true, schedule: '* * * * *', last_status: 'succeeded', last_start_time: '2026-09-24T11:59:00.000Z' })),
+};
+
 const CONTACT = {
   contact: { full_name: MARK_NAME, job_title: 'Medical Director', email: MARK_EMAIL, mobile_e164: MARK_MOBILE, sms_opt_in: true, unreachable_since: null, version: 2 },
   agreement: { accepted_on: '2026-09-01', version: 'v1', signatory_role: 'Medical Director', withdrawn_on: null },
@@ -132,6 +147,8 @@ function server(over: Record<string, Route> = {}): Route {
     if (o !== undefined) return o(url, init);
     if (fn === 'operator_register') return json(200, REGISTER);
     if (fn === 'operator_get_contact') return json(200, CONTACT);
+    // R-2026-09-30-175 EY-3: the System status is loaded beside the register.
+    if (fn === 'operator_scheduler_status') return json(200, HEALTHY_STATUS);
     return json(500, { message: 'unexpected call' });
   };
 }

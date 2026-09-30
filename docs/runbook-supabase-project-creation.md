@@ -1019,12 +1019,17 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions.
 Restated 2026-09-14: until then this read `exactly 13 migration(s) pending.`, and
 migration 014 made that wrong.
 
-- **The hosted project today** holds 001 through 026 (see step 7), and the
-  repository ends at 027. Every file up to and including
-  `026_facility_reporter_and_checks.sql` must read `already applied`;
-  there must be exactly one `WOULD APPLY` line, naming `027_scheduler_status.sql`; and the dry
+- **The hosted project today** holds 001 through 027 (see step 7), and the
+  repository ends at 028. Every file up to and including
+  `027_scheduler_status.sql` must read `already applied`;
+  there must be exactly one `WOULD APPLY` line, naming `028_operator_scheduler_status.sql`; and the dry
   run must end
   `1 migration(s) pending.` Apply it by the fences below, in the order step 5 gives them.
+- **Restated 2026-09-30 (R-2026-09-30-175 EY-1, EY-2), in the change that records 027's
+  hosted apply and ADDS 028.** Until then this expected 001 through 026, exactly one
+  `WOULD APPLY` line naming `027_scheduler_status.sql`, and `1 migration(s) pending.`
+  The founder's second dry run printed twenty-seven `already applied` lines and no
+  `WOULD APPLY` line on 2026-09-30, after 027's apply.
 - **Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that ADDS 027.**
   Until then this expected no `WOULD APPLY` line and `0 migration(s) pending.`, which
   was right from 025's and 026's hosted apply while the repository also ended at 026.
@@ -1816,6 +1821,7 @@ node scripts/freeze_applied_migrations.mjs 19 YYYY-MM-DD R-YYYY-MM-DD-NN
 - [x] Frozen boundary recorded, 2026-09-16: 16 migrations, `001_app_schema_and_migration_ledger.sql` first, `016_snapshot.sql` last
 - [x] Frozen boundary recorded, 2026-09-17: 17 migrations, `001_app_schema_and_migration_ledger.sql` first, `017_snapshot_schedule.sql` last (R-2026-09-17-01), with the frozen_migrations placeholder moved to 018 in the same change
 - [x] Frozen boundary recorded, 2026-09-22: 18 migrations, `001_app_schema_and_migration_ledger.sql` first, `018_close_mirror_read_and_push_surfaces.sql` last (R-2026-09-22-52), with the frozen_migrations placeholder moved to 019 in the same change. `ledger_rows: 18`, matching the `18` read from hosted `app.schema_migrations` in the apply session; the recorder would have refused any other number.
+- [x] Frozen boundary recorded, 2026-09-30: 27 migrations, `001_app_schema_and_migration_ledger.sql` first, `027_scheduler_status.sql` last (R-2026-09-30-175 EY-1), recorded by `node scripts/freeze_applied_migrations.mjs 27 2026-09-30 R-2026-09-30-175`. `ledger_rows: 27`, matching the twenty-seven `already applied` lines of the founder's second dry run (fence 5 of "027's apply"). 027's sha256 is the tracked file's at `89c74b0`, the checkout the founder ran from. The recorder ran BEFORE 028's file was added to this change, because it refuses any row count other than the number of forward files.
 - [x] Frozen boundary recorded, 2026-09-28: 26 migrations, `001_app_schema_and_migration_ledger.sql` first, `026_facility_reporter_and_checks.sql` last (R-2026-09-28-149 DY-1), recorded by `node scripts/freeze_applied_migrations.mjs 26 2026-09-28 R-2026-09-28-149`. `ledger_rows: 26`, matching the twenty-six `already applied` lines of the founder's second dry run (fence 5 of "025 and 026's apply"). 025's and 026's sha256 are the tracked files' at `cd05de1`, the checkout the founder ran from.
 - [x] Frozen boundary recorded, 2026-09-27: 24 migrations, `001_app_schema_and_migration_ledger.sql` first, `024_retention_jobs.sql` last (R-2026-09-27-139 DO-1 a), recorded by `node scripts/freeze_applied_migrations.mjs 24 2026-09-27 R-2026-09-27-139`. `ledger_rows: 24`, matching the twenty-four `already applied` lines of the founder's second dry run (fence 5 of "024's apply"). 024's sha256 is the tracked file's at `3623d2b`, the checkout the founder ran from.
 - [x] Frozen boundary recorded, 2026-09-25: 23 migrations, `001_app_schema_and_migration_ledger.sql` first, `023_operator_register_location_and_phone.sql` last (R-2026-09-25-105), recorded by `node scripts/freeze_applied_migrations.mjs 23 2026-09-25 R-2026-09-25-105`. `ledger_rows: 23`, matching the twenty-three `already applied` lines of the founder's second dry run (fence 5 of the one run that applied 022 and 023 together, R-2026-09-25-103). 022's and 023's sha256 are the tracked files' at `06fe479`, the checkout the founder ran from.
@@ -1951,6 +1957,15 @@ unset DATABASE_URL
 **6. Who can execute what (R-2026-09-24-74 BB-2).** Supabase grants EXECUTE on every
 new function to anon, authenticated and service_role by default, and 020 is correct
 only if its REVOKEs removed those grants on hosted. No local test can show that.
+Corrected 2026-09-30 (R-2026-09-30-175 EY-1): the grant the three roles hold on a new
+function comes from PostgreSQL's built-in EXECUTE for PUBLIC and, for functions
+`supabase_admin` creates in public, from its own named default as well. The founder's
+nine-row read of the hosted default ACL for functions on 2026-09-30 shows no global
+default, and every named grant to those roles sits in `supabase_admin`'s rows (and in
+`postgres`'s row for storage), never in `postgres`'s row for public, which reads
+`{postgres=X/postgres}`. A per-schema default only adds to PUBLIC's grant and cannot
+remove it, so `REVOKE ... FROM PUBLIC` is the load-bearing line in every migration that
+grants, and the by-name REVOKEs are a second barrier.
 `scripts/readback_function_grants.sh` reads, for every function in `app`,
 `graphql_public` and `public`, which of the three roles can execute it. It compares
 the answer with `packages/fixtures/function-grants.json`, the same file the D3
@@ -2423,10 +2438,12 @@ this apply. On 2026-09-28 it was (R-2026-09-28-149).
 
 ### 027's apply — the scheduler's status; the first service_role grant (R-2026-09-29-173 EW-1)
 
-**Not yet run.** The founder runs it after the pull request that adds 027 merges, and
-before the public dashboard is redeployed from that merge: `/api/health` calls the
-function this creates, and answers 503 with `probe_failed` until it exists. Claude Code
-runs nothing hosted.
+**Run on 2026-09-30** by the founder from `~/Desktop/OpenBed-NG-deploy` at `89c74b0`
+(#107's merge), before the public dashboard was redeployed from that merge: `/api/health`
+calls the function this creates, and answers 503 with `probe_failed` until it exists.
+Each fence was read back by Cowork before the next (R-2026-09-30-175 EY-1). The readings
+are in the checkbox at the end of this step. Claude Code ran nothing hosted.
+*Restated 2026-09-30 (R-2026-09-30-175): until then this read "Not yet run."*
 
 **What 027 changes** (its header says why). Two functions and nothing else:
 `app.scheduler_status()`, owner-only, and `public.health_probe()`, executable by
@@ -2468,17 +2485,70 @@ that claim is asserted locally only, and no test here can assert it.
 functions and changes no data.
 
 **Afterwards:** the frozen boundary is recorded with `27`, in the change that records this
+apply. On 2026-09-30 it was (R-2026-09-30-175).
+
+- [x] On 2026-09-30, 027 applied, the probe read as `service_role`, and the public dashboard redeployed and read back, from `~/Desktop/OpenBed-NG-deploy` at `89c74b0d744a05f9a42304d8e982b4c866abd7fc` (#107's merge). The readings are the founder's, relayed by Cowork (R-2026-09-30-175 EY-1). Fence 1: twenty-six `already applied` (001 to 026), `WOULD APPLY` `027_scheduler_status.sql`, one pending. Fence 2: `FINGERPRINT beds.json=0/0:543f06c0b0c4,facility_public=0:d41d8cd98f00,ward_public=0:d41d8cd98f00,lga_rollup=0:d41d8cd98f00`, `RECORDED`. Fence 3: 027 applied (`CREATE FUNCTION`, `DO`, `CREATE FUNCTION`, `DO`, `INSERT 0 1`, `INSERT 0 0`); "1 applied this run". Fence 4: all four parts `ok`, "PASS (VACUOUS FOR B1)". Fence 5: twenty-seven `already applied` (001 to 027), "0 migration(s) pending." Fence 6: PASS, every function `ok`; `app.scheduler_status() EXECUTE: none`; `public.health_probe() EXECUTE: service_role`. The default ACL for functions (R-2026-09-30-174 EX-4): nine rows, every one per-schema, none with `defaclnamespace` 0, so no role holds a global default; `postgres`'s row in public reads `{postgres=X/postgres}`, as locally; named grants to anon, authenticated and service_role appear only in `supabase_admin`'s rows (public, graphql_public, graphql) and `postgres`'s row in storage. The probe as `service_role`: five `openbed_` jobs, all active, every last status `succeeded`; the snapshot job's last finished run `13:36:00Z`; `server_now` `13:36:18Z`; `generated_at` `13:36:00Z`. This is the first hosted proof that the definer owned by the migration role reads `cron.job_run_details`. The public dashboard redeployed as `e6711029` at `89c74b0` by `bash scripts/deploy_pages.sh --branch main public-dashboard`; `readback_pages.sh` PASS on every line, and `/api/health` GET and HEAD read 200 `openbed-ok` on both hosts. The founder's monitor (UptimeRobot free, keyword `openbed-ok` on `/api/health`, alerting when the keyword is absent, every 5 minutes, email and phone push) was created 2026-09-30 and reads green.
+
+### 028's apply — the operator's read of the scheduler's status (R-2026-09-30-175 EY-2)
+
+**Not yet run.** The founder runs it after the pull request that adds 028 merges, and
+BEFORE the Worker and the admin app are redeployed from that merge: the admin app's
+System status section calls the function this creates, and until it exists that section
+shows the server's "function is missing" sentence inside itself while the register loads
+as before. Claude Code runs nothing hosted.
+
+**What 028 changes** (its header says why). One function and nothing else:
+`public.operator_scheduler_status()`, which calls `app.assert_operator()` and then
+returns what `app.scheduler_status()` returns. It is executable by `authenticated`
+alone. It adds no table, column, job or data, and it adds no `service_role` grant:
+`public.health_probe()` stays the only function that role may execute.
+
+**Run the six fences of "020's apply" above, in the same order, with these
+expectations for 028.** Only what each must read changes:
+
+1. **The dry run:** exactly one `WOULD APPLY` line, naming
+   `028_operator_scheduler_status.sql`, and the count the list at the top of this step
+   states. Anything else: stop and report.
+2. **The before-reading:** as for 020. Keep the `FINGERPRINT` line.
+3. **The apply:** as for 020. It applies the one file, and ends by saying one was applied
+   this run.
+4. **The after-reading:** as for 020. `PASS (VACUOUS FOR B1)` is expected while hosted
+   lists no facility: 028 writes no row and changes no projection.
+5. **The second dry run:** twenty-eight `already applied` lines, naming
+   `001_app_schema_and_migration_ledger.sql` through `028_operator_scheduler_status.sql`,
+   no `WOULD APPLY` line, and the same last line as 020's fence 5, saying nothing is
+   pending. Anything else: stop and report.
+6. **Who can execute what:** as for 020, run after the apply. One line is new:
+   `public.operator_scheduler_status() EXECUTE: authenticated`. Every other line reads as
+   before, and `public.rls_auto_enable()` reads `ok` under `(hosted-only)`. This read-back
+   runs BEFORE the boundary is frozen. Anything else: stop and report.
+
+**Then read it as the operator.** A psql session cannot: the function reads the caller's
+identity from `auth.uid()`, which a psql session does not carry. The reading is the admin
+app's System status, in a browser, signed in as the operator, after the admin redeploy.
+It must show the five `openbed_` jobs, all five reading Running, and no caution line in
+the section.
+
+**The down migration is not applied here on anyone's own authority.** It removes the one
+function and changes no data.
+
+**Afterwards:** the frozen boundary is recorded with `28`, in the change that records this
 apply.
 
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 026 applied, and the repository ends at
-027), the dry run prints twenty-six `already applied` lines and:
+**On the hosted project today** (001 through 027 applied, and the repository ends at
+028), the dry run prints twenty-seven `already applied` lines and:
 
 ```
-  WOULD APPLY     : 027_scheduler_status.sql   <- dry run
+  WOULD APPLY     : 028_operator_scheduler_status.sql   <- dry run
 1 migration(s) pending.
 ```
+
+*Restated 2026-09-30 (R-2026-09-30-175 EY-1, EY-2), in the change that records 027's
+hosted apply and adds 028.* Until then this block showed twenty-six `already applied`
+lines, one WOULD APPLY line naming `027_scheduler_status.sql`, and a count of one --
+right while hosted was at 026 and the repository ended at 027.
 
 *Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that adds 027.* Until then
 this block showed twenty-six `already applied` lines, no WOULD APPLY line, and a count of
@@ -2676,9 +2746,14 @@ Migrations complete (3 applied this run).   <- apply
 second is lower:
 
 ```
-27 migration(s) pending.          <- dry run
-Migrations complete (26 applied this run).   <- apply
+28 migration(s) pending.          <- dry run
+Migrations complete (27 applied this run).   <- apply
 ```
+
+*Restated 2026-09-30 (R-2026-09-30-175 EY-2), in the change that adds 028. This block
+read `27` and `26` -- right while the repository ended at 027. Observed on the local
+stack in this change: a fresh `db:reset` printed `Migrations complete (27 applied this
+run).`*
 
 *Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that adds 027. This block
 read `26` and `25` -- right while the repository ended at 026. Observed on the local
@@ -2717,13 +2792,15 @@ so from that merge it named a count one lower than a correct virgin run prints. 
 not one of the hosted expectations the guard parses; it was found by reading the
 section for this restatement.*
 
-**Twenty-six is correct there. Nothing was skipped.** Migration 001 creates the `app`
+**Twenty-seven is correct there. Nothing was skipped.** Migration 001 creates the `app`
 schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
 recorded by a ledger that does not exist yet. The runner applies and ledgers it
 in a separate **bootstrap** step, and the apply loop then counts only what it
-applied itself -- 002 through 027, which is twenty-six. The dry run has no bootstrap
+applied itself -- 002 through 028, which is twenty-seven. The dry run has no bootstrap
 branch: `is_applied` returns 0 while the ledger is absent, so it counts all
-twenty-seven as pending. The two numbers are measuring different things.
+twenty-eight as pending. The two numbers are measuring different things.
+*Restated 2026-09-30 (R-2026-09-30-175 EY-2), in the change that adds 028; until then this
+paragraph read twenty-six, 002 through 027, and twenty-seven.*
 *Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that adds 027; until then this
 paragraph read twenty-five, 002 through 026, and twenty-six.*
 *Restated 2026-09-27 (R-2026-09-27-144 DT l), in the change that adds 025 and 026; until
@@ -2735,10 +2812,13 @@ this paragraph read twenty-two, 002 through 023, and twenty-three.*
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `26`, with `1 migration(s) pending.` from the
-dry run** -- 027, in the repository and not yet applied. The founder's second dry run
-after 025's and 026's apply, on 2026-09-28, read twenty-six `already applied` lines,
-001 through 026.
+THAT PROJECT. **On hosted today that is `27`, with `1 migration(s) pending.` from the
+dry run** -- 028, in the repository and not yet applied. The founder's second dry run
+after 027's apply, on 2026-09-30, read twenty-seven `already applied` lines, 001
+through 027.
+*Restated 2026-09-30 (R-2026-09-30-175 EY-1, EY-2), in the change that records 027's
+hosted apply and adds 028; until then it read `26` with `1 migration(s) pending.`, 027 in
+the repository and not yet applied.*
 *Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that adds 027; until then it
 read `26` with `0 migration(s) pending.`, right while the repository ended at 026.*
 *Restated 2026-09-28 (R-2026-09-28-149 DY-1), in the change that records that apply;

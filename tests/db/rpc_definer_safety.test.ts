@@ -81,6 +81,12 @@ const RPCS = [
     signature: 'public.operator_get_contact(text)',
     call: `select public.operator_get_contact('00000000-0000-4000-8000-000000000000')`,
   },
+  // 028 (R-2026-09-30-175 EY-2): the scheduler's status behind the operator check.
+  {
+    name: 'operator_scheduler_status',
+    signature: 'public.operator_scheduler_status()',
+    call: `select public.operator_scheduler_status()`,
+  },
 ] as const;
 
 /** Every function in public with an input parameter whose type lives in schema app. */

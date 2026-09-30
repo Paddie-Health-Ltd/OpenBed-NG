@@ -98,9 +98,15 @@ describe('a shell block that reads a value is pasted alone (DZ-3 c)', () => {
   test('anti-vacuity — the corpus holds the connection blocks it claims, and a docs/ with none fails', () => {
     const { fences } = shellFences(REAL);
     const reading = fences.filter((f) => f.lines.some((l) => READ.test(l.text)));
-    // 43 on 2026-09-28: 41 in the Supabase runbook and 2 in the Pages runbook (DZ-3 b).
-    expect(reading.length, `connection blocks read: ${reading.length}`).toBeGreaterThanOrEqual(43);
-    expect(new Set(reading.map((f) => f.doc))).toEqual(new Set([RUNBOOK, join(DOCS, 'runbook-cloudflare-pages-beds-json.md')]));
+    // THE COUNT IS AN EQUALITY, MEASURED, NOT A FLOOR (R-2026-09-30-176 EZ-4). It read
+    // toBeGreaterThanOrEqual(43) from 2026-09-28, the 43 of that day (41 in the Supabase runbook and 2 in
+    // the Pages runbook, DZ-3 b), and the floor let the real number move past it unseen: measured with
+    // this reader it was 45 at 89c74b0 (43 in the Supabase runbook, 2 in the Pages runbook), and it is 50
+    // at 1f84101 after docs/runbook-sensor.md's five (R-2026-09-30-175 EY-4), one before each of its psql
+    // blocks. A connection block added or removed now reds until this number is restated, in the same
+    // change, with the reason. The set of documents below is an equality too, with three members.
+    expect(reading.length, `connection blocks read: ${reading.length}`).toBe(50);
+    expect(new Set(reading.map((f) => f.doc))).toEqual(new Set([RUNBOOK, join(DOCS, 'runbook-cloudflare-pages-beds-json.md'), join(DOCS, 'runbook-sensor.md')]));
     expect(inScratch({ 'runbook-x.md': '```bash\necho no reads\n```\n' }).join('\n')).toContain('no shell fence under docs/ reads a value');
   });
 

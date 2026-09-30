@@ -54,6 +54,8 @@ Total 118. _Restated by R-2026-09-17-04 from the parser output in the reconcilia
 below. As committed, the table read 117: 66 / 21 / 12 / 7 / 11. The two checks
 handed over moved #12 and #27 from NOT CHECKABLE to FAILS, and #118 was added._
 
+*Note 2026-09-30 (R-2026-09-30-175 EY-5): the seven A1 items' dispositions are BUILT FOR THE SNAPSHOT (#87), BUILT IN PART (#88), RESTATED (#92), MOOT (#30), AMENDED (#28, #107) and OUT OF v1 (#89). FAILS stays 24 as a historical verdict.*
+
 Every item below ends with its verdict in bold; the last bold verdict
 word in an item is its verdict, and the table above is derived from those, not
 typed alongside them — see the reconciliation at the end.

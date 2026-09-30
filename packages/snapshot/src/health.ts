@@ -52,6 +52,16 @@ import { snapshotAge } from './freshness.js';
 
 export const SNAPSHOT_JOB = 'openbed_regenerate_snapshot';
 
+/**
+ * The keys of the scheduler status, both the top level and each job's, as
+ * app.scheduler_status() returns them. ONE list, imported by both db tests that pin the
+ * result of a function returning it (public.health_probe() and
+ * public.operator_scheduler_status(), R-2026-09-30-175 EY-2), so the two cannot be
+ * pinned to two different shapes. Sorted, as the tests compare them.
+ */
+export const TOP_KEYS: readonly string[] = ['generated_at', 'jobs', 'last_snapshot_at', 'server_now'];
+export const JOB_KEYS: readonly string[] = ['active', 'last_start_time', 'last_status', 'name', 'schedule'];
+
 /** How far ahead of server_now a generated_at may be before it stops reading as fresh. */
 export const FUTURE_TOLERANCE_MS = 5_000;
 

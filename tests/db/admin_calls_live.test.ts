@@ -11,10 +11,12 @@ import {
   recordContactBody,
   recordRegistrationBody,
   registerBody,
+  schedulerStatusBody,
   type ContactFields,
   type FacilityFields,
 } from '../../apps/admin/src/bodies.js';
-import { parseRegister } from '../../apps/admin/src/parse.js';
+import { parseRegister, parseSchedulerStatus } from '../../apps/admin/src/parse.js';
+import { JOB_KEYS, TOP_KEYS } from '../../packages/snapshot/src/health.js';
 import { adminMessageFor } from '../../apps/admin/src/messages.js';
 
 /**
@@ -172,6 +174,22 @@ describe('the admin app’s calls, live', () => {
     expect(mine?.kind === 'facility' ? [mine.reportingModel, mine.reporterLogin, mine.hefamaaRegNo] : null).toEqual(['NONE', 'none', null]);
   });
 
+  // THE TENTH CALL (R-2026-09-30-175 EY-3): the System status, through the page's own body and
+  // parser, over real PostgREST with a real operator session. A key 027 renamed or dropped reds
+  // here rather than showing every live status as unreadable; the keys are the shared list.
+  test("the page's own parser reads the live scheduler status: the shared keys, five openbed_ jobs, every one readable", async () => {
+    const r = await call(RPC.schedulerStatus, schedulerStatusBody());
+    expect(r.status, JSON.stringify(r.body)).toBe(200);
+    const body = r.body as Record<string, unknown>;
+    expect(Object.keys(body).sort()).toEqual([...TOP_KEYS]);
+    const jobs = body['jobs'] as Record<string, unknown>[];
+    expect(jobs.length, 'the live status holds no job, so the key check would be vacuous').toBeGreaterThan(0);
+    for (const j of jobs) expect(Object.keys(j).sort()).toEqual([...JOB_KEYS]);
+    const status = parseSchedulerStatus(r.body);
+    expect(status, 'the live status is unreadable to the page').not.toBeNull();
+    expect(status?.jobs.every((j) => j.name.startsWith('openbed_'))).toBe(true);
+  });
+
   // THE NINTH CALL (R-2026-09-27-144 DT Bundle 3): the Registration section's body, live.
   test('the HEFAMAA number, through the page\'s own body: saved and read back in the register, the facility version bumped, a repeat a no-op, and a padded value refused as the page\'s sentence', async () => {
     const id = await newFacility();
@@ -221,6 +239,20 @@ describe('the admin app’s calls, live', () => {
     wardUser = await signInWard(WARD_EMAIL);
     await sql()`insert into app.ward_account (id, role, facility_id, ward_category) values (${wardUser.userId}::uuid, 'WARD_STAFF', ${id}::uuid, 'MATERNITY')`;
     const r = await call(RPC.register, registerBody(), wardUser);
+    expect(r.status, JSON.stringify(r.body)).toBe(403);
+    expect(refusal(r).key).toBe('NOT_AN_OPERATOR');
+  });
+
+  // R-2026-09-30-175 EY-3: the same ward session on the tenth call. It follows the test above,
+  // which creates the ward account; alone, this one creates it.
+  test('ward staff on the System status is rejected NOT_AN_OPERATOR', async () => {
+    if (wardUser === null) {
+      const id = await newFacility();
+      expect((await call(RPC.addCategory, addCategoryBody(id, 'MATERNITY', 'OFFERED'))).status).toBe(200);
+      wardUser = await signInWard(WARD_EMAIL);
+      await sql()`insert into app.ward_account (id, role, facility_id, ward_category) values (${wardUser.userId}::uuid, 'WARD_STAFF', ${id}::uuid, 'MATERNITY')`;
+    }
+    const r = await call(RPC.schedulerStatus, schedulerStatusBody(), wardUser);
     expect(r.status, JSON.stringify(r.body)).toBe(403);
     expect(refusal(r).key).toBe('NOT_AN_OPERATOR');
   });
