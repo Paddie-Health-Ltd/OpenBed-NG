@@ -88,6 +88,8 @@ const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object
 const str = (x: unknown): x is string => typeof x === 'string';
 const strOrNull = (x: unknown): x is string | null => x === null || typeof x === 'string';
 const bool = (x: unknown): x is boolean => typeof x === 'boolean';
+const time = (x: unknown): x is string => typeof x === 'string' && !Number.isNaN(Date.parse(x));
+const timeOrNull = (x: unknown): x is string | null => x === null || time(x);
 
 function wardFrom(x: unknown): Ward | null {
   if (!isObj(x)) return null;
@@ -225,12 +227,15 @@ export function parseContact(x: unknown): ContactView | null {
 export function parseSchedulerStatus(x: unknown): SchedulerStatus | null {
   if (!isObj(x)) return null;
   const { server_now, generated_at, last_snapshot_at, jobs } = x;
-  if (!str(server_now) || !strOrNull(generated_at) || !strOrNull(last_snapshot_at) || !Array.isArray(jobs)) return null;
+  // A timestamp that is not one is unreadable (R-2026-09-30-176 EZ-2 c): the decision reads a
+  // server_now it cannot parse as a failed probe, which this page would otherwise show as
+  // nothing at all. A null is still a null: no snapshot yet, no heartbeat, no finished run.
+  if (!time(server_now) || !timeOrNull(generated_at) || !timeOrNull(last_snapshot_at) || !Array.isArray(jobs)) return null;
   const out: SchedulerJob[] = [];
   for (const j of jobs as unknown[]) {
     if (!isObj(j)) return null;
     const { name, active, schedule, last_status, last_start_time } = j;
-    if (!str(name) || !bool(active) || !str(schedule) || !strOrNull(last_status) || !strOrNull(last_start_time)) return null;
+    if (!str(name) || !bool(active) || !str(schedule) || !strOrNull(last_status) || !timeOrNull(last_start_time)) return null;
     out.push({ name, active, schedule, lastStatus: last_status, lastStartTime: last_start_time });
   }
   return { serverNow: server_now, generatedAt: generated_at, lastSnapshotAt: last_snapshot_at, jobs: out };

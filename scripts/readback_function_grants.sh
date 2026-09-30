@@ -8,12 +8,11 @@
 #
 # WHY IT EXISTS. A new function reaches anon, authenticated and service_role through
 # PostgreSQL's built-in EXECUTE for PUBLIC (and, for functions supabase_admin creates
-# in public, its named default too; R-2026-09-30-175 EY-1). 020 is correct only if
-# its REVOKEs removed those grants on hosted, and that is a claim about a running
-# system that no local
-# test can reach. So this reads, for every function in the schemas the fixture
-# names, which of the three roles can execute it (has_function_privilege, which
-# counts PUBLIC and role membership), and compares with
+# in public, its named default too; R-2026-09-30-175 EY-1). 020 is correct only if its
+# REVOKEs removed those grants on hosted, and that is a claim about a running system
+# that no local test can reach. So this reads, for every function in the schemas the
+# fixture names, which of the three roles can execute it (has_function_privilege,
+# which counts PUBLIC and role membership), and compares with
 # packages/fixtures/function-grants.json. The D3 closed-list test derives its list
 # from the same file, so there is no second copy to drift.
 #

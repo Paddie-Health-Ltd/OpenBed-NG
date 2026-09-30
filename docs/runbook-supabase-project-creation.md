@@ -2526,7 +2526,8 @@ expectations for 028.** Only what each must read changes:
 **Then read it as the operator.** A psql session cannot: the function reads the caller's
 identity from `auth.uid()`, which a psql session does not carry. The reading is the admin
 app's System status, in a browser, signed in as the operator, after the admin redeploy.
-It must show the five `openbed_` jobs.
+It must show the five `openbed_` jobs, all five reading Running, and no caution line in
+the section.
 
 **The down migration is not applied here on anyone's own authority.** It removes the one
 function and changes no data.

@@ -4,7 +4,7 @@ import { publishableKeyFor } from '@openbed/origins/keys';
 import { PRIVACY_NOTICE_URL } from '@openbed/origins/privacy';
 import { bedCountText, categoryLabel } from '@openbed/labels';
 import { ADMIN_CODES, ADMIN_FIXED, ADMIN_SCREENS as W, WARD_CATEGORIES } from '@openbed/labels/admin';
-import { SNAPSHOT_JOB, decideHealth, elapsedSince, freshnessBand, lagosTime, markFetch, snapshotAge, type FetchMark, type FreshnessBand } from '@openbed/snapshot';
+import { FUTURE_TOLERANCE_MS, SNAPSHOT_JOB, decideHealth, elapsedSince, freshnessBand, lagosTime, markFetch, snapshotAge, type FetchMark, type FreshnessBand } from '@openbed/snapshot';
 import '@openbed/design/tokens.css';
 import '@openbed/design/fonts.css';
 import './style.css';
@@ -171,7 +171,17 @@ const CALL = {
   schedulerStatus: (h, body) => h.authedFetch('rpc/operator_scheduler_status', { method: 'POST', headers: JSON_HEADERS, body }),
 } satisfies Record<keyof typeof RPC, Call>;
 
-async function post(holder: SessionHolder, call: keyof typeof CALL, body: unknown): Promise<CallResult> {
+/**
+ * `tolerant` is for READS only (R-2026-09-30-176 EZ-1). A read whose body cannot be read -- a 200 that
+ * is not JSON, or one cut off mid-read, or a refusal cut off the same way -- answers `ok` with no data
+ * (or a refusal with no text), which every reader already treats as "not the shape": the register's own
+ * UNRECOGNISED, or the System status section's own failure line. Without it the rejection reached the
+ * page's outer catch and replaced the whole page, register and section together, with no Reload.
+ * A WRITE is sent with `tolerant` false and sees exactly what it always saw: a body it cannot read
+ * still rejects, because a write must never be reported as read when its answer is unknown.
+ * SessionExpiredError is thrown before any body is read, so it still ends the page either way.
+ */
+async function post(holder: SessionHolder, call: keyof typeof CALL, body: unknown, tolerant = false): Promise<CallResult> {
   let res: Response;
   try {
     res = await CALL[call](holder, JSON.stringify(body));
@@ -181,16 +191,24 @@ async function post(holder: SessionHolder, call: keyof typeof CALL, body: unknow
     console.error('OpenBed admin: no answer from the server', RPC[call]);
     return { kind: 'unreachable' };
   }
+  if (tolerant) {
+    if (res.ok) {
+      const data: unknown = await res.json().catch(() => null);
+      return { kind: 'ok', data };
+    }
+    const text = await res.text().catch(() => '');
+    return { kind: 'refused', refusal: adminMessageFor(res.status, res.headers, text) };
+  }
   if (res.ok) return { kind: 'ok', data: await res.json() };
   return { kind: 'refused', refusal: adminMessageFor(res.status, res.headers, await res.text()) };
 }
 
 /** A read: one retry, after 300-600 ms, when no answer came. Never on an answer. */
 async function read(holder: SessionHolder, call: 'register' | 'getContact' | 'schedulerStatus', body: unknown): Promise<CallResult> {
-  const first = await post(holder, call, body);
+  const first = await post(holder, call, body, true);
   if (first.kind !== 'unreachable') return first;
   await new Promise((r) => setTimeout(r, 300 + Math.random() * 300));
-  return post(holder, call, body);
+  return post(holder, call, body, true);
 }
 
 /** A write: sent once. Its caller decides what a missing answer means, per call. */
@@ -355,7 +373,14 @@ function statusSection(load: StatusLoad, mark: FetchMark): HTMLElement {
   if (s.generatedAt === null) section.append(el('p', W.SNAPSHOT_NONE, 'system-age'));
   else if (decision.body.snapshot_age_s === null) section.append(el('p', `${W.SNAPSHOT_LABEL}: ${W.AGE_NOT_KNOWN}`, 'system-age'));
   else section.append(ageLine(W.SNAPSHOT_LABEL, s.generatedAt));
-  if (s.lastSnapshotAt !== null) section.append(ageLine(W.HEARTBEAT_LABEL, s.lastSnapshotAt));
+  // THE HEARTBEAT IS ITS OWN LINE (R-2026-09-30-176 EZ-2): read from its own timestamp, "age not
+  // known" when there is none, and "age not known" for one more than the decision's tolerance
+  // AHEAD of the database's clock, as a generated_at in the future is. The constant is the
+  // decision's, exported from the snapshot package, never a second 5_000.
+  const beat = s.lastSnapshotAt;
+  if (beat === null) section.append(el('p', `${W.HEARTBEAT_LABEL}: ${W.AGE_NOT_KNOWN}`, 'system-age'));
+  else if (Date.parse(beat) - Date.parse(s.serverNow) > FUTURE_TOLERANCE_MS) section.append(el('p', `${W.HEARTBEAT_LABEL}: ${W.AGE_NOT_KNOWN}`, 'system-age'));
+  else section.append(ageLine(W.HEARTBEAT_LABEL, beat));
 
   const jobs = el('ul', undefined, 'system-jobs');
   for (const j of s.jobs) {

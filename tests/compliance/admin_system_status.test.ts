@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import SHAPE from '../../packages/fixtures/snapshot-shape.json';
 import ADMIN_LABELS from '../../packages/labels/admin-labels.json';
 import { SNAPSHOT_JOB } from '../../packages/snapshot/src/health.js';
-import { lagosTime } from '../../packages/snapshot/src/index.js';
+import { FUTURE_TOLERANCE_MS, lagosTime } from '../../packages/snapshot/src/index.js';
 import { parseSchedulerStatus } from '../../apps/admin/src/parse.js';
 
 /**
@@ -83,6 +83,21 @@ const REGISTER = { server_now: SERVER_NOW, retention_alert: [], facilities: [fac
 type Route = (url: string, init?: RequestInit) => Response | Promise<Response>;
 const json = (status: number, body: unknown, headers: Record<string, string> = {}): Response =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
+
+/** A body that is not JSON, answered as a success (EZ-1). */
+const html200 = (): Response => new Response('<html></html>', { status: 200, headers: { 'content-type': 'text/html' } });
+
+/** A body cut off mid-read: the stream errors after its first bytes, so res.json() / res.text() reject (EZ-1). */
+const cutOff = (status: number): Response =>
+  new Response(
+    new ReadableStream({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('{"server_now":'));
+        c.error(new TypeError('cut off mid-read'));
+      },
+    }),
+    { status, headers: { 'content-type': 'application/json' } },
+  );
 
 /** The server: the register and the status, each answering as `over` says, by RPC name. */
 function server(over: { register?: Route; status?: Route | Status } = {}): Route {
@@ -200,6 +215,32 @@ describe('a stale snapshot', () => {
   });
 });
 
+describe('the heartbeat is its own line (R-2026-09-30-176 EZ-2)', () => {
+  test('plant — the heartbeat reads from ITS OWN timestamp: 10 minutes, beside a snapshot under a minute', async () => {
+    await renderAt(server({ status: healthy({ generated_at: secondsBefore(30), last_snapshot_at: secondsBefore(600) }) }));
+    // The fixture's two timestamps are one instant, so a view that read the snapshot's for both would pass.
+    expect(ageLines()).toEqual([`${W.SNAPSHOT_LABEL}: ${W.AGE_UNDER_MINUTE}`, `${W.HEARTBEAT_LABEL}: 10 ${W.AGE_MINUTES}`]);
+    expect(cautions(), 'an old heartbeat beside a fresh snapshot is not the alert\'s reason').toEqual([]);
+  });
+
+  test('plant — a heartbeat in the FUTURE reads "age not known", never a clamped zero', async () => {
+    const ahead = new Date(Date.parse(SERVER_NOW) + FUTURE_TOLERANCE_MS + 1).toISOString();
+    await renderAt(server({ status: healthy({ last_snapshot_at: ahead }) }));
+    expect(ageLines()[1]).toBe(`${W.HEARTBEAT_LABEL}: ${W.AGE_NOT_KNOWN}`);
+  });
+
+  test('a heartbeat exactly FUTURE_TOLERANCE_MS ahead is still an age, the boundary the decision uses', async () => {
+    const edge = new Date(Date.parse(SERVER_NOW) + FUTURE_TOLERANCE_MS).toISOString();
+    await renderAt(server({ status: healthy({ last_snapshot_at: edge }) }));
+    expect(ageLines()[1]).toBe(`${W.HEARTBEAT_LABEL}: ${W.AGE_UNDER_MINUTE}`);
+  });
+
+  test('plant — a null heartbeat is a line saying "age not known", never nothing', async () => {
+    await renderAt(server({ status: healthy({ last_snapshot_at: null }) }));
+    expect(ageLines()).toEqual([`${W.SNAPSHOT_LABEL}: ${W.AGE_UNDER_MINUTE}`, `${W.HEARTBEAT_LABEL}: ${W.AGE_NOT_KNOWN}`]);
+  });
+});
+
 describe('the jobs', () => {
   test('plant — a switched-off job shows its line and its row reads Switched off', async () => {
     await renderAt(server({ status: healthy({ jobs: withJob('openbed_refresh_lga_rollup', { active: false }) }) }));
@@ -235,6 +276,12 @@ describe('the two loads fail on their own', () => {
     ['no answer at all', () => { throw new TypeError('down'); }, F.UNREACHABLE],
     ['a status that is not the shape 027 returns', () => json(200, { server_now: SERVER_NOW }), F.UNRECOGNISED],
     ['a function that is not on the server', () => json(404, { code: 'PGRST202', message: 'not found' }), F.FUNCTION_MISSING],
+    // EZ-2 c: a status whose server_now is not a time is unreadable, never a healthy-looking section.
+    ['a status whose server_now is not a time', () => json(200, healthy({ server_now: 'not a time' })), F.UNRECOGNISED],
+    // EZ-1 (R-2026-09-30-176): a body that cannot be READ is the section's own failure, never the page's.
+    ['a 200 whose body is not JSON', html200, F.UNRECOGNISED],
+    ['a 200 whose body is cut off mid-read', () => cutOff(200), F.UNRECOGNISED],
+    ['a refusal whose body is cut off mid-read', () => cutOff(500), F.UNRECOGNISED],
   ])('plant — %s is a caution statusLine INSIDE the section, and the register still renders', async (_name, status, sentence) => {
     await renderAt(server({ status }));
     const line = section().querySelector('p.status');
@@ -247,6 +294,11 @@ describe('the two loads fail on their own', () => {
   test.each<[string, Route, string]>([
     ['a register the page does not recognise', () => json(500, { message: 'unexpected' }), F.UNRECOGNISED],
     ['a register that could not be reached', () => { throw new TypeError('down'); }, F.UNREACHABLE],
+    // EZ-1: the register's own UNRECOGNISED, exactly as an unrecognised shape is, with the section present.
+    ['a register that is not the shape the register returns', () => json(200, { server_now: SERVER_NOW }), F.UNRECOGNISED],
+    ['a register answering a 200 whose body is not JSON', html200, F.UNRECOGNISED],
+    ['a register whose 200 body is cut off mid-read', () => cutOff(200), F.UNRECOGNISED],
+    ['a register refusal whose body is cut off mid-read', () => cutOff(500), F.UNRECOGNISED],
   ])('plant — %s leaves the System status on the page, under its sentence', async (_name, register, sentence) => {
     await renderAt(server({ register }));
     expect(document.querySelector('#app > p.notice-caution')?.textContent).toBe(sentence);
@@ -281,6 +333,22 @@ describe('parseSchedulerStatus reads exactly the shape 027 returns', () => {
     const planted = plant(REAL);
     expect(planted, 'the plant did not change the input').not.toEqual(REAL);
     expect(parseSchedulerStatus(planted)).toBeNull();
+  });
+  // EZ-2 c (R-2026-09-30-176): a timestamp that is not one is unreadable, so the section says so and
+  // the decision's probe_failed is never silent.
+  test.each<[string, (s: Status) => unknown]>([
+    ['a server_now that is not a time', (s) => ({ ...s, server_now: 'not a time' })],
+    ['a generated_at that is not a time', (s) => ({ ...s, generated_at: 'yesterday-ish' })],
+    ['a last_snapshot_at that is not a time', (s) => ({ ...s, last_snapshot_at: 'soon' })],
+    ['a job last_start_time that is not a time', (s) => ({ ...s, jobs: [{ ...s.jobs[0], last_start_time: 'later' }, ...s.jobs.slice(1)] })],
+  ])('plant — %s is unreadable', (_name, plant) => {
+    const planted = plant(REAL);
+    expect(planted, 'the plant did not change the input').not.toEqual(REAL);
+    expect(parseSchedulerStatus(planted)).toBeNull();
+  });
+  test('null timestamps stay readable: a never-generated snapshot, no heartbeat, a job with no run', () => {
+    const s = healthy({ generated_at: null, last_snapshot_at: null, jobs: withJob('openbed_prune_ended_auth_sessions', { last_status: null, last_start_time: null }) });
+    expect(parseSchedulerStatus(s)).not.toBeNull();
   });
   test('anti-vacuity — null and an empty object are unreadable rather than an empty status', () => {
     expect(parseSchedulerStatus(null)).toBeNull();

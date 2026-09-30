@@ -12237,8 +12237,10 @@ The ledger's EX row gains "merged at `89c74b0`".
 1. **The word "paused".** EY-3 says each job is shown "active or paused". `tests/compliance/admin_design.test.ts` (`pausedViolations`, BC-6) refuses the word in every admin source, stylesheet, page and label file. The rows read **Running** and **Switched off**; the guard is unchanged. The drill's runbook is not an admin file and says "pause".
 2. **What `decideHealth`'s reasons cover.** `job_absent` and `job_inactive` are about the snapshot job only, and a failed last run is deliberately NOT a reason (`health.ts`: one transient failure would alarm while the page shows no banner). So the System status's caution lines are the decision's reasons, mapped to sentences, PLUS its own line for any of the five jobs that is switched off or whose last finished run did not succeed. The snapshot job's switched-off line is the decision's `job_inactive` and is not repeated. The alert and the view therefore differ on one point on purpose: a failed last run is shown to the operator and does not raise the alert.
 3. **The freeze's order.** `scripts/freeze_applied_migrations.mjs` refuses unless its row count equals the number of forward files, so `node scripts/freeze_applied_migrations.mjs 27 2026-09-30 R-2026-09-30-175` ran BEFORE 028's file was added, and 028 came in a later commit.
+   *Corrected 2026-09-30 (R-2026-09-30-176 EZ-4): "028 came in a later commit" is wrong. The recorder ran before 028's file existed in the working tree; both landed in `d6247b7`, one commit.*
 4. **Probe 4's counts are prose, not a test.** They are in `docs/runbook-cloudflare-worker-proxy.md`, are historical (12 POST, 1 GET, 12 OPTIONS) and nothing computes them. The file now reads **14 POST, 1 GET, 14 OPTIONS and 3 `direct_origin_exceptions`** (counted from `supabase-proxy/allow-list.json`, 13/1/13/3 before), which is the letter's figure. The runbook says a count written there goes stale, so none is written there.
 5. **Files the letter did not name and the change needed:** `tests/db/authenticated_executable_closed_list.test.ts` (a literal list), `tests/db/migration_028_round_trip.test.ts`, `database/migrations/README.md`, `tests/db/migration_runner_connection_failure.test.ts` (the virgin `27` to `28`), and three existing assertions over sets of documents, each moved and named below. `runbook_psql_path.test.ts:39` is a comment, not a second constant: `GOVERNED_TODAY` is at :78 only. The allow-list is `supabase-proxy/allow-list.json`.
+   *Corrected 2026-09-30 (R-2026-09-30-176 EZ-4): the sentence on `runbook_psql_path.test.ts:39` corrects a slip that was not one. The letter's "(:78, 39)" meant line 78, value 39 (`GOVERNED_TODAY = 39` at :78). It was my misreading.*
 
 **EY-1, 027's HOSTED APPLY RECORDED.** The boundary is frozen at 27 (`applied-hosted.json`: observed 2026-09-30, ruling `R-2026-09-30-175`, 27 rows, 027's sha256 the tracked file's at `89c74b0`). The runbook's "027's apply" reads **Run on 2026-09-30**, with the founder's fence readings, the nine-row default-ACL reading, the probe read (five jobs active, every last status succeeded; the first hosted proof that the definer owned by the migration role reads `cron.job_run_details`) and the redeploy `e6711029`. All are the founder's readings, relayed by Cowork.
 
@@ -12248,7 +12250,11 @@ The ledger's EX row gains "merged at `89c74b0`".
 
 **EY-3, THE ADMIN SYSTEM STATUS.** Loaded beside the register on the register's clock. The two ages come from `snapshotAge`, the function the public banner uses; the five jobs show their name, Running or Switched off, and the last finished run's status and Lagos time. Caution lines come from `decideHealth`'s reasons (see premise 2). A failed status load is a caution `statusLine` inside the section, never `show()`; a failed register leaves the section under its sentence; Reload reloads both. The status's `statusLine` is always present, empty until there is something to say, as every screen's is, so the `p.status` count of the register screen moved from 9 to 10 (`admin_design.test.ts`'s 7 for the facility view is unchanged: that view holds no section). The stale Notice reads with a full stop, "The public page is warning that counts may be out of date." `supabase-proxy/allow-list.json` gained the POST and its OPTIONS, and `proxy_allow_list.test.ts` its expected site. The tone table moved from 27 to 32 rows (five: stale, a job switched off, a job whose last run failed, the snapshot job missing, the load failed).
 
+*Corrected 2026-09-30 (R-2026-09-30-176 EZ-1): the rule recorded above, that a failed status load never hides the register and a failed register never hides the section, was NOT met for a body that was not JSON or was cut off mid-read: `post()` rejected, and the page's outer catch replaced the whole page. It is met by EZ-1.*
+
 **EY-4, `docs/runbook-sensor.md`.** It absorbs the planned snapshot-stopped runbook: `no_phantom_paths` was run red first with both entries merely deleted (it named `docs/runbook-sensor.md` and `docs/runbook-snapshot-stopped.md`), then green with the absorbed path in `DELIBERATE_ABSENCES` and the file written. It joins `RUNBOOKS`; `GOVERNED_TODAY` moves 39 to 44 (five psql fences: the probe read, the jobs read, the drill's pause and restore, the restore read-back). Its pause and restore fences are `EXCLUDED` in `runbook_sql_live.test.ts` (reason "writes cron.job: hosted only; run here it un-pauses the local jobs"), keyed by their own anchor text. Three existing assertions over SETS OF DOCUMENTS gained the third document, each still an equality: `runbook_read_pasted_alone.test.ts`'s anti-vacuity (two documents to three, and 43 connection blocks to 48), `runbook_no_history_expansion.test.ts`'s list of documents with shell fences, and two `runbook_sql_live.test.ts` legs that took the corpus's last RUN-HERE fence to be the one they appended to the Supabase runbook (now the last of that document's). Runbook 12.4's sensor box is NOT ticked here.
+
+*Corrected 2026-09-30 (R-2026-09-30-176 EZ-4): `runbook_read_pasted_alone.test.ts`'s count leg was a FLOOR (`toBeGreaterThanOrEqual`), not an equality; only the set of documents was. Measured with the test's own reader, the connection blocks read 45 at `89c74b0` (the 43 of 2026-09-28 had gone stale) and 50 at `1f84101`, so "43 connection blocks to 48" above is wrong on both numbers. The leg is now `toBe(50)`.*
 
 **EY-5, THE PROCESSOR TABLE, THE A1 MARKERS, THE REGISTER.** Proton's row reads closed by box 1 (R-2026-09-30-174 EX-3), with the Sieve filter and the monthly Sent-folder clear-out named, and a new UptimeRobot row stands beside it. The seven A1 markers in the v1 kickoff carry a dated note each: #87 BUILT FOR THE SNAPSHOT by /api/health (the sweep arm and `last_sweep_at` stay with B5); #88 BUILT IN PART by the scheduler view (alert delivery and acknowledgement figures stay with B5); for both, the alarm is the external monitor, not an email from the prober; #92 RESTATED as the fire drill (its sweep half stays with B5); #30 MOOT (Vercel is gone; Pages Functions and the kept Worker serve the API); #28 and #107 already AMENDED, closed with a note; #89 (the daily 07:00 digest) OUT OF v1. The counts table, which exists twice, gained the same dated note in both places, not a rewrite. A new VERSION row for #89 arrives.
 
@@ -12259,6 +12265,214 @@ The ledger's EX row gains "merged at `89c74b0`".
 **THE LEG REGISTER** reads **389/364/25**, unchanged: nothing under `scripts/` gained a refusal line (the only script touched is `readback_function_grants.sh`, by a comment), and `leg_coverage.test.ts` passes against the recorded 389, 364 and 25. **THE COUNT** is stated in this PR's body from the run of its head, not here: one commit cannot name the run its own head produces.
 
 Nothing hosted. Do not merge; W3 is not started. EZ is next.
+
+### R-2026-09-30-176 — #108 (W2): the merge word, after one commit; the status section's last failure path closed; the drill bounded
+
+_Issued as R-PROVISIONAL-2026-09-30-EZ, by Cowork on 2026-09-30, after its review of #108 at `1f84101e6f50eaf85d82bb945a327f6f509a2a28` (a staff engineer/SRE and a QA reviewer reviewed it adversarially from Cowork's side, each in a clean worktree at `1f84101`, before the letter was written). Landed in #108 with the commit it asks for; #108 merges on it. Number assigned on landing: R-2026-09-30-175 plus one. #108's merge record cannot sit here, inside #108: it lands in W3's PR as an addendum to this entry. Next: Cowork issues the founder's hosted steps one at a time (EZ-5), then FA, W3._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-30-EZ — #108 (W2): THE MERGE WORD, AFTER ONE COMMIT; THE STATUS SECTION'S LAST FAILURE PATH CLOSED; THE DRILL BOUNDED
+> EZ lands in #108 as -176, with the commit it asks for. #108 merges on it. #108's merge record lands
+> as an addendum in W3's PR. Next: Cowork issues the founder's hosted steps one at a time (EZ-5), then
+> FA, W3.
+> A staff engineer/SRE and a QA reviewer reviewed #108 adversarially from Cowork's side, each in a
+> clean worktree at 1f84101, before this letter was written.
+>
+> READ BY COWORK, from its own clone at 1f84101e6f50eaf85d82bb945a327f6f509a2a28:
+> - Five commits on 89c74b0, 40 paths. 028 is as EY-2 asked: definer, STABLE, `search_path = ''`,
+>   assert_operator then scheduler_status; REVOKE from PUBLIC first, then by name, then GRANT to
+>   authenticated. Its down drops the one function and its ledger row, so it returns exactly to 027.
+> - The reviewers confirmed EY-1's correction on a throwaway PostgreSQL 16: under a per-schema default
+>   of `{postgres=X/postgres}` a new function's proacl is NULL and another role can execute it through
+>   PUBLIC.
+> - The freeze at 27 carries 027's sha256 as at 89c74b0. The fence-6 anchor is byte-identical on one
+>   line. 027's "Run on 2026-09-30" matches EY's readings.
+> - The sensor runbook's five psql fences (GOVERNED_TODAY 39 to 44, counted); the two EXCLUDED anchors
+>   are unique across RUNBOOKS; cron.alter_job resolves one job by jobid; only the pause and restore
+>   fences write; no URL scheme and nothing credential-shaped in the diff. Five openbed_ jobs (017 two,
+>   024 three), so "five rows, all t" holds.
+> - index.ts exports health.ts only; admin never imports health_serve; no service_role in the bundle.
+> - The allow-list reads 14 POST, 1 GET, 14 OPTIONS, 3 direct-origin exceptions.
+> - The register recounts to 58 (13 BOX, 33 TRIGGER, 12 VERSION) by scripts/deferred_register.mjs.
+> - Run by the reviewers after `npm ci` and `npm run build`: typecheck and eslint clean;
+>   lint_no_service_role_in_bundle passes; compliance 2192, the only reds being the nine mode-000
+>   plants when run as root, 318 of 318 of those files green with the capabilities dropped. The db
+>   suite was NOT run on Cowork's side (no Docker): it rests on your CI.
+> - The reviewers' own neuters, each red then restored: ten admin arms (the stale arm, snapshotAge as a
+>   literal, the future guard, the failure line, a failed load hiding the register, the other job's
+>   line, the failed-run line, decideHealth bypassed, the section dropped on an unreachable register,
+>   the snapshot job's line duplicated); the absence entry; a stripped PATH line.
+> - ACCEPTED AS REPORTED: the seven checks on 1f84101 (run 36742286129, and the founder's relay that
+>   run 36742789868 on the same head also passed); 3141 ZERO-RED (uid 501); the alerts 0/0/1; the
+>   evidence block; the db tests; the health_probe race fix (the delete is inside the rolled-back
+>   setup and the assertion is unchanged).
+> - YOUR DEVIATIONS ARE ACCEPTED: Running and Switched off for the refused word; the view's own
+>   per-job lines for a failed run and a switched-off non-snapshot job, beside decideHealth's (the view
+>   can never read healthy while the alert reads stale); the freeze before 028's file; probe 4 as
+>   prose; the files the letter left out; the stale Notice's full stop.
+> - YOUR REPORT'S HOSTED STEPS: not needed from you. Cowork composes them from the runbooks, as it did
+>   for 027 (EZ-5).
+>
+> EZ-1  THE ONE DEFECT: A BODY THAT IS NOT JSON HIDES THE WHOLE PAGE. post() calls `res.json()`
+>   outside its try (apps/admin/src/main.ts:184). A 200 whose body is not JSON, or one cut off mid-read,
+>   throws; that rejects the Promise.all at :444, and the catch replaces the page with
+>   show(REGISTER_HEADING, UNRECOGNISED): render()'s catch (:1097-1106) on the first load, guarded()
+>   (:200-207) on Reload and the back buttons. The register and the System status section both go,
+>   with no Reload. That breaks EY-3's rule in both directions, and -175 records the rule as met. Fix:
+>   - a status body that cannot be read is the section's own failure: loadStatus returns
+>     `{ kind: 'failed', sentence: ADMIN_FIXED.UNRECOGNISED }`, the register unaffected;
+>   - a register body that cannot be read is the register's own UNRECOGNISED, exactly as an
+>     unrecognised shape is (:462-466): the section is still appended;
+>   - SessionExpiredError still ends the page, in both.
+>   How is yours; do not change what any write sees. Plants in admin_system_status.test.ts; the first
+>   two are red on 1f84101, then green:
+>   - `['a 200 whose body is not JSON', () => new Response('<html></html>', { status: 200, headers: { 'content-type': 'text/html' } }), F.UNRECOGNISED]`
+>     in the status failure table (:233-238), with the register rendered;
+>   - a register answering the same, with the section present and its lines rendered;
+>   - the row QA found missing at :247: `['a register that is not the shape the register returns', () => json(200, { server_now: SERVER_NOW }), F.UNRECOGNISED]`,
+>     section present. It is already green on 1f84101 (the append at :465 exists); its red is its
+>     neuter, that append removed.
+>
+> EZ-2  THE VIEW'S SMALLER GAPS, in the same commit, each with a plant red first on its neuter:
+>   a) THE HEARTBEAT IS TESTED AGAINST ITS OWN TIMESTAMP. The healthy() fixture sets generated_at and
+>      last_snapshot_at to one instant. Plant: last_snapshot_at 10 minutes before server_now,
+>      generated_at 30 s before; ageLines() is exactly the snapshot under a minute and the heartbeat at
+>      10 minutes. Neuter: main.ts:358 reading s.generatedAt, red.
+>   b) A FUTURE OR MISSING HEARTBEAT. A last_snapshot_at more than FUTURE_TOLERANCE_MS after server_now
+>      reads "age not known", as generated_at does (export FUTURE_TOLERANCE_MS from
+>      packages/snapshot/src/index.ts; never a second 5_000); a null last_snapshot_at reads a
+>      heartbeat line with "age not known", never nothing. Plants for both.
+>   c) probe_failed IS NEVER SILENT. parseSchedulerStatus (parse.ts) refuses a server_now that does not
+>      parse as a timestamp, and a non-null generated_at, last_snapshot_at or last_start_time that does
+>      not; the section then reads UNRECOGNISED. Plant: server_now 'not a time' reads UNRECOGNISED.
+>   New words, if any, go in admin-labels.json with tone-table rows.
+>
+> EZ-3  THE SENSOR RUNBOOK, docs/runbook-sensor.md. Doc only, except the two WHERE clauses:
+>   a) Section 2, the `snapshot_stale` bullet (:76-78), becomes: "**`snapshot_stale`.** Open the admin
+>      app's System status and read the two ages and the five jobs. If every job reads Running and the
+>      snapshot is old, the snapshot job is failing: its row on System status shows its last run, and
+>      the probe read below shows the same as `last_status`. Stop and report."
+>   b) The `job_inactive` bullet (:79-81) becomes: "A job that reads `f` is switched off: someone did
+>      it, or a drill was left unrestored. If it is `openbed_regenerate_snapshot`, restore it by section
+>      3's steps 4 and 5. If it is any other job, stop and report: the restore fence switches on the
+>      snapshot job only. A job that is missing is a defect: stop and report."
+>   c) Section 2 gains a first branch: the tab reads 200 `openbed-ok`: it has recovered. Write down
+>      the time, and read System status for a failed last run.
+>   d) The probe read says "It prints `SET`, then one line of JSON".
+>   e) THE DRILL IS BOUNDED. Add to "Before you start": "**If you stop the drill for any reason after
+>      step 1, go straight to step 4 and then step 5. Never leave the job switched off.**" Replace step
+>      2's release condition: keep the job switched off until the reasons include `snapshot_stale` AND
+>      both alerts have arrived. Add to step 3: "If neither alert has arrived 15 minutes after the tab
+>      first read 503, go to step 4 anyway, restore, and report that the monitor did not alert."
+>   f) Each of the pause and restore fences' WHERE clauses gains `and username = current_user`, as
+>      database/local/pause_scheduled_jobs.sql:66 has. The EXCLUDED shapes (holds('active := false'),
+>      holds('active := true')) still hold; confirm.
+>   g) After step 1's fence, in prose: "It must print `(1 row)`. `(0 rows)`, or any `ERROR` line: stop
+>      and report; nothing was switched off." After step 4's: "It must print `(1 row)`. Then step 5,
+>      whatever it printed."
+>   h) docs/runbook-supabase-project-creation.md, "028's apply" (:2529): the operator read adds "all
+>      five reading Running, and no caution line in the section".
+>   Not taken: a forwarded probe for the new route in readback_worker.sh (the version stamp already
+>   proves the deployed Worker matches the checkout). Recorded in -176.
+>
+> EZ-4  THE RECORD, in this commit.
+>   - -176 holds: EZ as issued; what EZ-1 to EZ-3 built, red first then green; the reviewers' readings
+>     above, including that the db suite rests on CI.
+>   - -175 CORRECTIONS, each a dated note beside the passage, its text left as written:
+>     - premise 3 (:12239): "028 came in a later commit" is wrong. The recorder ran before 028's file
+>       existed in the working tree; both landed in d6247b7.
+>     - premise 5 (:12241): the sentence on "runbook_psql_path.test.ts:39" corrects a slip that was not
+>       one: the letter's "(:78, 39)" meant line 78, value 39. Recorded as your misreading.
+>     - EY-4 (:12251): runbook_read_pasted_alone's count leg is a FLOOR (toBeGreaterThanOrEqual), not an
+>       equality; only the set of documents is an equality. Measured, it was 45 at 89c74b0 (the 43 of
+>       2026-09-28 had gone stale) and is 50 at 1f84101. Measure both yourself and state them; in the
+>       test, make the leg `toBe(<measured>)` with the comment restated.
+>     - EY-3 (the section never hidden, nor the register): as recorded it was not met for a body that
+>       is not JSON; met by EZ-1.
+>   - Sprint Kickoffs/sprint-kickoff-bedspace-v1-2026-09-08.md :75 (#28) and :386 (#107): each
+>     2026-09-30 note sits inside the SWEEP bracket, and at :386 splits a sentence. Move each to after
+>     its paragraph's closing `]**`, its text unchanged.
+>   - scripts/readback_function_grants.sh:9-13: rewrap the comment. Comment only.
+>   - The register stays 58. The leg register: state it, and why it moved if it did.
+>   - A ledger row for EZ.
+>
+> EZ-5  THE HOSTED STEPS. Nothing hosted is yours. After the merge, Cowork issues the founder's steps
+>   one at a time from the merged runbooks: 028's apply (020's six fences with "028's apply"'s
+>   expectations); the Worker redeploy and readback_worker.sh; the admin redeploy and
+>   readback_admin.sh, then System status read in the browser; then the fire drill. The drill's alert
+>   closes the sensor box in W3's record.
+>
+> EZ-6  THE MERGE WORD. Merge #108 when all of these hold, and only then:
+>   - `git diff --name-only 1f84101..HEAD` lists only: apps/admin/src/main.ts, apps/admin/src/parse.ts,
+>     packages/labels/admin-labels.json if touched, packages/snapshot/src/index.ts (the
+>     FUTURE_TOLERANCE_MS export only), tests/compliance/admin_system_status.test.ts,
+>     tests/compliance/admin_design.test.ts if touched, tests/compliance/runbook_read_pasted_alone.test.ts,
+>     tests/db/runbook_sql_live.test.ts if touched, docs/runbook-sensor.md,
+>     docs/runbook-supabase-project-creation.md, scripts/readback_function_grants.sh,
+>     packages/fixtures/leg-coverage.json if touched,
+>     Sprint Kickoffs/sprint-kickoff-bedspace-v1-2026-09-08.md and
+>     `Sprint Kickoffs/decision-2026-09-14-public-private-split.md`. Anything else is a STOP;
+>   - the whole-PR check over 89c74b0..HEAD prints nothing; lint_no_secrets.sh exits 0; the meta-lint
+>     reads PASS;
+>   - the register reads 58, and the leg register as EZ-4 states it;
+>   - the full suite ZERO-RED on a fresh database, its count 3141 plus the tests this commit adds, each
+>     named;
+>   - the seven required checks on the new head, read from the API, each `completed success`, and no
+>     later run on that head in any other state;
+>   - by ES-5's method, the plain open list and the typed open list both empty;
+>   - scripts/pr_evidence.mjs, run on the new head after its CI, exits 0, and its block is in the PR
+>     body whole.
+>   Merge as a merge commit, passing the head to --match-head-commit, and read MERGED back. Then delete
+>   w2-operator-scheduler-view on both sides. If any condition fails, do not merge: report and STOP.
+>
+> EZ-7  THE REPORT, after the merge or the STOP:
+>   - the commit and its diff stat;
+>   - each plant red first then green, and each neuter with its red set;
+>   - the measured connection-block counts, at 89c74b0 and at the head;
+>   - the whole-PR check, the scan and the meta-lint;
+>   - the test count and its ZERO-RED line, with the uid;
+>   - the seven checks, each quoted, with the run id; the alerts;
+>   - the evidence block, condensed, with its run id;
+>   - the merge SHA and parents, MERGED read back, the branch gone on both sides;
+>   - the register by kind and the leg register, from main.
+>   Nothing hosted. Do not start W3: FA comes after the founder's hosted steps.
+
+**EZ's premises, checked before acting.** Each was read, not taken. All hold but one line number.
+- **Hold:** `main.ts` :184 (`res.json()` outside `post()`'s try), :444 (the `Promise.all`), :200-207 (`guarded()`), the catch in `render()`, :358 (the heartbeat line) and :465 (the append after a register parse failure); `admin_system_status.test.ts` :233-238 (the status failure table) and the register table that followed it; `database/local/pause_scheduled_jobs.sql:66` (`AND username = current_user`); `docs/runbook-sensor.md` :76-81; this record's -175 passages at :12239, :12241 and :12251; the v1 kickoff's :75 and :386.
+- **Does not hold as written:** "028's apply" (letter :2529) is at :2526 in `docs/runbook-supabase-project-creation.md`; edited by content.
+- **Read, and narrower than the letter says:** the 2026-09-30 notes sat inside the SWEEP bracket at :75 and :386 only. Bracket-balanced over all seven markers, the notes at #30, #87, #88, #89 and #92 were already after their closing `]**`; two moved, not seven.
+- **Accepted as reported, not read here:** the reviewers' own readings (the throwaway PostgreSQL 16 reading of EY-1, the clean-worktree runs, the nine mode-000 plants as root, their ten admin neuters, the absence entry and the stripped PATH line) and the founder's relay that run `36742789868` also passed. **The db suite was not run on Cowork's side (no Docker): it rests on CI.** I ran it on a fresh database as well, and CI ran it.
+
+**EZ-1, A BODY THAT IS NOT JSON NO LONGER HIDES THE PAGE. Red first, then green.** The plants were written and run against `1f84101`'s code before any fix: six reds (a status whose 200 is not JSON, cut off mid-read, and a refusal cut off mid-read; and the same three for the register), each reading as the page never reaching the System status section, because the catch had replaced the whole page. The fix is in `post()` and `read()` only. `post()` takes a fourth parameter, `tolerant`, false by default, and `read()` passes true: a read whose body cannot be read answers `ok` with no data (or a refusal with no text), which every reader already treats as "not the shape", so the status section shows its own UNRECOGNISED line with the register intact, and the register shows its own UNRECOGNISED with the section appended. **Every write is sent with `tolerant` false and sees exactly what it saw before.** `SessionExpiredError` is thrown before any body is read, so it still ends the page in both loads. One widening, named: a non-JSON `getContact` body used to replace the page, and now reads as `CONTACT_UNREADABLE`, which `readDetail` already handled. The row QA found missing (a register that is not the shape the register returns) was green on `1f84101`, as the letter said; its neuter (E3: the append after a register parse failure removed) reds it with two siblings.
+
+**EZ-2, THE VIEW'S SMALLER GAPS. Each plant red first on its own neuter.** (a) the heartbeat is read from its own timestamp: a fixture with `last_snapshot_at` 10 minutes back and `generated_at` 30 seconds back reads exactly the snapshot under a minute and the heartbeat at 10 minutes; (b) a heartbeat more than `FUTURE_TOLERANCE_MS` ahead of `server_now` reads "age not known", a null heartbeat reads that line too and never nothing, and a heartbeat exactly on the tolerance still reads an age; the constant is `health.ts`'s, exported from `packages/snapshot/src/index.ts`, never a second `5_000`; (c) `parseSchedulerStatus` refuses a `server_now`, and a non-null `generated_at`, `last_snapshot_at` or job `last_start_time`, that does not parse as a timestamp, and the section then reads UNRECOGNISED (on the page, and as four unit plants). No new words, so no tone-table row and no count moved.
+
+**THE NEUTERS (`scripts/neuter.sh`, nine, every one red, every restore verified).**
+
+| Neuter | What it does | Red |
+|---|---|---|
+| E1 | `res.json().catch(...)` loses its catch | 4: the 200-not-JSON and the 200-cut-off plants, status and register |
+| E2 | `res.text().catch(...)` loses its catch | 2: the cut-off refusals, status and register |
+| E3 | the section not appended after a register parse failure | 3 |
+| E4 | the heartbeat line reads `s.generatedAt` | 1 |
+| E5 | the heartbeat's future guard cannot fire | 1 |
+| E6 | the null heartbeat adds no line | 1 |
+| E7 | `server_now` not validated | 2 |
+| E8 | the optional timestamps not validated | 3 |
+| C1 | the sensor runbook's five connection lines removed | 1: the connection-block equality |
+
+**EZ-3, `docs/runbook-sensor.md`.** The letter's text, as given, for the `snapshot_stale` and `job_inactive` bullets, the new first branch (the tab reads 200 `openbed-ok`), the probe read's "It prints `SET`, then one line of JSON", the bounded drill (the "never leave the job switched off" sentence under "Before you start", step 2's release on `snapshot_stale` AND both alerts, step 3's 15-minute fallback), and the two prose lines after the pause and restore fences. Both WHERE clauses gained `and username = current_user`. **Read by running, not by reading:** locally the probe read prints `SET` then one JSON line; the pause form and the restore form (the restore inside a rolled-back transaction, so the local jobs stayed paused, read back as 0 active) each print `(1 row)`; and a WHERE that matches nothing prints `(0 rows)`. The EXCLUDED shapes (`holds('active := false')`, `holds('active := true')`) still hold, `runbook_sql_live.test.ts` passes, the two anchors are unchanged and unique, and `GOVERNED_TODAY` is still 44 (no fence added or removed). "028's apply" now reads the operator's read as "all five reading Running, and no caution line in the section". **Not taken, and recorded:** a forwarded probe for the new route in `readback_worker.sh`: the version stamp already proves the deployed Worker matches the checkout.
+
+**EZ-4, THE RECORD.** Four dated notes stand beside the -175 passages, their text left as written: premise 3 (the recorder ran before 028's file existed in the working tree, and both landed in `d6247b7`, not in two commits), premise 5 (the letter's "(:78, 39)" meant line 78, value 39; my misreading), EY-4 (the count leg below), and EY-3 (the rule was not met for a body that was not JSON, and is met by EZ-1). **The connection-block count, measured with `runbook_read_pasted_alone.test.ts`'s own reader (`shellFences` over `docsUnder`, its `READ` pattern):** **45 at `89c74b0`** (43 in the Supabase runbook, 2 in the Pages runbook: the 43 of 2026-09-28 had gone stale) and **50 at `1f84101`** (the same 43 and 2, and the sensor runbook's 5), and 50 in the working tree of this commit. The leg was a floor (`toBeGreaterThanOrEqual`), which let the number move unseen; it is now `toBe(50)` with its comment restated, and neuter C1 shows it reds when five lines go. The v1 kickoff's #28 and #107 notes now follow their SWEEP bracket's closing `]**`, text unchanged. `scripts/readback_function_grants.sh`'s comment is rewrapped (comment only: `bash -n` passes and no non-comment line changed).
+
+**THE REGISTER** stays **58 (13 BOX, 33 TRIGGER, 12 VERSION)**, recounted from the table and by `parseRegister`. **THE LEG REGISTER** reads **389/364/25**, unchanged: no script gained a refusal line (the only script touched is `readback_function_grants.sh`, by a comment), and `leg_coverage.test.ts` passes against the recorded values.
+
+**THE COUNT**, from this working tree on a fresh database, uid 501: **compliance 2209** (was 2192), **db 949** (unchanged) and the **ratchet 10**, each ZERO-RED (`attest_counts.mjs`: collected, ran and passed equal in all three; failed 0, errored 0, skipped 0), the db and ratchet runs each after a `db:reset` of their own. **3158 against 3141: +17, all in `admin_system_status.test.ts`, named:** eight load-failure plants (for the status: a 200 that is not JSON, a 200 cut off mid-read, a refusal cut off mid-read, a `server_now` that is not a time; for the register: a 200 that is not JSON, a 200 cut off mid-read, a refusal cut off mid-read, and the shape the register does not return), four heartbeat tests (its own timestamp, a future heartbeat, a heartbeat exactly on the tolerance, a null heartbeat), and five parser tests (a `server_now`, a `generated_at`, a `last_snapshot_at` and a job `last_start_time` that are not times, and null timestamps that stay readable). The db count did not move: thirteen `runbook_sql_live` names changed only by line number (the runbook grew), and one `provision_script` name carries a random uuid. The attestation of the head is CI's, in the PR body.
+
+**#108's MERGE RECORD** lands in W3's PR as an addendum to this entry, as EZ says. **The merge conditions (EZ-6) are read in this PR's body and this session's report, not here:** one commit cannot name the run its own head produces.
+
+Nothing hosted. W3 is not started: FA comes after the founder's hosted steps.
 
 ## The provisional ledger
 
@@ -12426,6 +12640,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | EW | R-2026-09-29-173 | 2026-09-29 | **PR W1 (#107): the scheduler's status and /api/health.** Opens with #106's merge record (-172's addendum). Migration 027: `app.scheduler_status()` (owner-only) and `public.health_probe()`, executable by service_role alone, the first such grant; decision 3 quoted and faced, read as not forbidding a read-only wrapper, for Cowork to rule in EX. /api/health: a pure decision (`snapshotAge` on the database's clock, reasons snapshot_stale, job_absent, job_inactive, probe_failed), a handler that stores both 200 and 503 for 30 s on a key with no query, GET and HEAD. The -58 A exception extended by name to /beds.json and /api/health. R-2026-09-17-12 G answered: Pages Functions have no Cron Triggers, so the sensor is an external monitor. Runbook step 5 restated for 027 pending. 21 neuters, all red, three prediction misses in the safe direction; a local-default-ACL finding. Register 58 (15 BOX, 32 TRIGGER, 11 VERSION), leg register 389/364/25. Not merged; nothing hosted. Next letter EX. |
 | EX | R-2026-09-30-174 | 2026-09-30 | **#107's merge word, after one commit.** EX-1: decision 3 faced, not reopened; dated notes on :620, :727 and :906; any service_role wrapper that writes, reaches the generator or returns snapshot rows reopens it afresh. EX-2: a future generated_at reads stale (5 s tolerance, null age); the read-back requires the keyword and nosniff on both methods; the probe is pinned (definition, keys, fixture); the direct origin has exactly two holders. Two defects in the letter's own pg_proc query are measured and corrected. 16 neuters, all red, no prediction missed. EX-3: boxes 1 (CJ-2) and 9 (D2) closed, their BOX rows leave by rule (e); five stale present-tense sites restated; a TRIGGER row for the Workers Free pool; register 57 (13 BOX, 33 TRIGGER, 11 VERSION), leg register 389/364/25. #107's merge record lands in W2's PR. Next letter EY. **Merged at `89c74b0`** (parents `f882f72`, `7417ba6`); the merge record is -175's addendum. |
 | EY | R-2026-09-30-175 | 2026-09-30 | **PR W2: the operator's scheduler view, the sensor runbook, 027's hosted apply recorded.** Opens with #107's merge record (-174's addendum). EY-1: the boundary frozen at 27, 027's apply recorded with the founder's readings, and W1's finding 4 corrected (no named grant, not "no PUBLIC": PostgreSQL's built-in EXECUTE for PUBLIC reaches the three roles unless a migration revokes it). EY-2: migration 028, `public.operator_scheduler_status()` behind `app.assert_operator()`, authenticated alone, pinned, with grant plants that run the down and then the planted forward. EY-3: the admin System status, its cautions from `decideHealth`, a failed load a line inside its section, allow-list 14/1/14/3. EY-4: `docs/runbook-sensor.md` and the fire drill; the snapshot-stopped runbook absorbed. EY-5: the processor table, the seven A1 markers, a VERSION row for #89; register 58 (13 BOX, 33 TRIGGER, 12 VERSION). Five of the letter's premises did not hold as worded (the word "paused", what the decision's reasons cover, the freeze's order, probe 4's counts being prose, files the change needed). Next letter EZ. |
+| EZ | R-2026-09-30-176 | 2026-09-30 | **#108's merge word, after one commit.** EZ-1: a body that is not JSON, or is cut off mid-read, no longer replaces the whole page: `post()` takes a `tolerant` flag that `read()` sets, so the status section and the register each fail on their own line and the other stays; every write is unchanged. Six plants red on `1f84101`, then green; the row QA found missing was already green and its neuter (E3) reds it. EZ-2: the heartbeat read from its own timestamp, a future or null heartbeat reads "age not known" (`FUTURE_TOLERANCE_MS` exported, never retyped), and `parseSchedulerStatus` refuses a timestamp that is not one. EZ-3: the sensor runbook's two bullets, a first branch, the bounded drill (15-minute fallback, never leave the job switched off), both WHERE clauses `and username = current_user`, `(1 row)` and `(0 rows)` read by running them. EZ-4: four -175 notes (premises 3 and 5, EY-3, EY-4); the connection-block count measured 45 at `89c74b0` and 50 at `1f84101`, the leg now `toBe(50)`; two kickoff notes moved; one comment rewrapped. Nine neuters, all red. Register 58; leg register 389/364/25. #108's merge record lands in W3's PR. Next letter FA. |
 
 ## Deferred items — this record is where the list lives
 

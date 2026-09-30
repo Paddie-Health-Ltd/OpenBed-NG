@@ -20,6 +20,7 @@ export { lagosTime } from './time.js';
 export {
   decideHealth,
   SNAPSHOT_JOB,
+  FUTURE_TOLERANCE_MS,
   TOP_KEYS,
   JOB_KEYS,
   type HealthReason,

@@ -68,24 +68,27 @@ the age, after 3 minutes.
 `curl` for this: the tab is what the monitor would see, and it is enough. Then take the branch
 that matches.
 
+- **The tab reads 200 `openbed-ok`.** It has recovered. Write down the time, and read System status for a
+  failed last run.
 - **The page is the site's HTML, not JSON.** The Function did not run. Either the free daily pool is
   spent (fail open; read the Cloudflare dashboard's daily request count for the Pages project) or the
   Function is not deployed. **A spent pool never reads `probe_failed`:** a spent pool means the
   Function was never reached. If the pool is spent, the alert is the sensor working, and the fix is
   the plan, not the database.
-- **`snapshot_stale`.** Open the admin app's System status and read the two ages and the five jobs.
-  Then read the probe as `service_role`, below. If the jobs are all running and the snapshot is old,
-  the job is failing: read its last status in the jobs read.
+- **`snapshot_stale`.** Open the admin app's System status and read the two ages and the five jobs. If
+  every job reads Running and the snapshot is old, the snapshot job is failing: its row on System status
+  shows its last run, and the probe read below shows the same as `last_status`. Stop and report.
 - **`job_inactive` or `job_absent`.** Run the jobs read, below. A job that reads `f` is switched off:
-  someone did it, or a drill was left unrestored. Restore it by the restore fences in section 3, then
-  run the restore read-back there. A job that is missing is a defect: stop and report.
+  someone did it, or a drill was left unrestored. If it is `openbed_regenerate_snapshot`, restore it by
+  section 3's steps 4 and 5. If it is any other job, stop and report: the restore fence switches on the
+  snapshot job only. A job that is missing is a defect: stop and report.
 - **`probe_failed`.** First whether Supabase is up (its status page and the dashboard), then whether the
   Pages Function holds its `service_role` key: a rotated or removed key reads here, because the probe
   is refused. Do not paste the key anywhere. Redeploy from the runbook that deploys Pages if the key was
   changed.
 
-**The probe, read as `service_role`.** This is exactly what the Function reads. It prints one
-line of JSON: `server_now`, `generated_at`, `last_snapshot_at` and the five jobs.
+**The probe, read as `service_role`.** This is exactly what the Function reads. It prints `SET`,
+then one line of JSON: `server_now`, `generated_at`, `last_snapshot_at` and the five jobs.
 
 ```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
@@ -144,6 +147,9 @@ first.**
 **Before you start, open two things:** `openbed.ng/api/health` in a browser tab, and the phone with the
 monitor's app and the email inbox in view. Write down the time you pause.
 
+**If you stop the drill for any reason after step 1, go straight to step 4 and then step 5. Never leave
+the job switched off.**
+
 **1. Pause the snapshot job.**
 
 ```bash
@@ -154,16 +160,20 @@ Paste the line above on its own, and give it its value at its prompt. Then paste
 
 ```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-psql "$DATABASE_URL" -c "select cron.alter_job(jobid, active := false) from cron.job where jobname = 'openbed_regenerate_snapshot'"
+psql "$DATABASE_URL" -c "select cron.alter_job(jobid, active := false) from cron.job where jobname = 'openbed_regenerate_snapshot' and username = current_user"
 unset DATABASE_URL
 ```
 
+It must print `(1 row)`. `(0 rows)`, or any `ERROR` line: stop and report; nothing was switched off.
+
 **2. Watch `/api/health`.** Reload the tab. Within about 30 seconds (the edge cache) it reads 503 with
-`openbed-fail` and `job_inactive` among the reasons. **Keep the job switched off until the reasons ALSO
-include `snapshot_stale`, at least 3 minutes**, so the age arm is seen live and not only the job arm.
+`openbed-fail` and `job_inactive` among the reasons. **Keep the job switched off until the reasons include
+`snapshot_stale` AND both alerts have arrived** (`snapshot_stale` takes at least 3 minutes to appear), so the
+age arm is seen live and not only the job arm.
 
 **3. Record the alert's arrival, on the email AND on the phone.** The monitor checks every 5 minutes, so
-the first alert can take that long after the 503 begins. Write down both times.
+the first alert can take that long after the 503 begins. Write down both times. If neither alert has arrived
+15 minutes after the tab first read 503, go to step 4 anyway, restore, and report that the monitor did not alert.
 
 **4. Restore the job.**
 
@@ -175,9 +185,11 @@ Paste the line above on its own, and give it its value at its prompt. Then paste
 
 ```bash
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-psql "$DATABASE_URL" -c "select cron.alter_job(jobid, active := true) from cron.job where jobname = 'openbed_regenerate_snapshot'"
+psql "$DATABASE_URL" -c "select cron.alter_job(jobid, active := true) from cron.job where jobname = 'openbed_regenerate_snapshot' and username = current_user"
 unset DATABASE_URL
 ```
+
+It must print `(1 row)`. Then step 5, whatever it printed.
 
 **5. The restore read-back, in its own fence.** The jobs read must show FIVE rows, all `t`.
 **Anything else: STOP.** A `f` means a job is still switched off; do not go on to the next step, and do
