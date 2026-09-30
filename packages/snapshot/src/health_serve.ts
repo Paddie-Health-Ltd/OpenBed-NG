@@ -44,7 +44,9 @@
  *
  * THE HEADERS on every response, GET and HEAD alike: `x-openbed-health: ok` or `fail`,
  * `x-robots-tag: noindex, nofollow` and `x-content-type-options: nosniff`, set here because
- * Pages does not apply an app's `_headers` file to a Function's response.
+ * Pages is understood not to apply an app's `_headers` file to a Function's response (the
+ * understanding serve.ts records for /beds.json; the deployed read-back is
+ * scripts/readback_pages.sh, not a reading made here).
  *
  * This reads no clock: see health.ts.
  */

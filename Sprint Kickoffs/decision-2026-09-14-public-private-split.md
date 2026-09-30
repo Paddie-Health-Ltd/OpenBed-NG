@@ -11707,6 +11707,283 @@ For the mapper, the register-level effect of each removal was measured on a scra
 
 Nothing hosted. #106's merge record is held for the next PR's addendum. The S-series ends with the merge; EW is next.
 
+### R-2026-09-29-173 — PR W1: the scheduler's status and /api/health; #106's merge record; decision 3 faced; R-2026-09-17-12 G answered
+
+_Issued as R-PROVISIONAL-2026-09-29-EW, by Cowork on 2026-09-29, after #106 merged. A staff engineer, a QA reviewer and a platform/SRE reviewer reviewed it independently before it was pasted, and ran its plants and its no_phantom_paths effect on copies of f882f72. Landed in PR W1 (#107). Number assigned on landing: R-2026-09-29-172 plus one. Next provisional letter: **EX**, Cowork's review of W1. W1's merge record cannot sit here, inside W1: it lands in W2's PR as an addendum to this entry._
+
+**ADDENDUM TO -172: #106'S MERGE RECORD.** -172 landed inside #106, so it could not hold a merge that came after it. Each fact is marked with how it is known. **Read by me from git and the API on 2026-09-30:**
+- **The head:** `dd2e36cd11b3eea1b314725ccbe07f052b708cb5` (`headRefOid` from the API), a merge commit.
+- **The merge:** `f882f72c74913a068c568ee51fad5bcdbfcd597f`, at 2026-09-29T21:18:28Z (`mergedAt`; the commit's own date reads 22:18:28 +01:00, the same instant). Its parents are `96aa95b4be5fe795f7871d47c4dcfc1d93cbae38` (main) and `dd2e36cd11b3eea1b314725ccbe07f052b708cb5` (the head). State read back: `MERGED`.
+- **The branch:** `s-c-pr-evidence` is gone on both sides: `git ls-remote --heads origin s-c-pr-evidence` prints nothing, and no local branch of that name exists.
+- **The checks:** the API lists two sets of runs on `dd2e36c`, one started 21:09:41Z and one 21:15:24Z. All seven jobs read `completed success` in both sets. The later set, the one the merge followed: bundle-guards 21:15:43Z, compliance-tests 21:18:00Z, db-tests 21:17:42Z, golden-path 21:17:04Z, migration-lint 21:15:32Z, repo-lint 21:16:00Z, secret-scan 21:15:30Z (completion times).
+
+**Accepted as reported (Cowork's reading of the EV report; not re-derived here):** 2950 ZERO-RED at `dd2e36c`, uid 501; the alerts by ES-5's method at 21:18:16Z; and the final evidence block on run 36631387432. I did not re-read the alerts or that run.
+
+The ledger's EV row gains "merged at `f882f72`".
+
+**As issued**, under the word on quoting it carries. Nothing in it needed rewording: no URL carries a scheme, no keyword key appears in credential form, and its backticked repo paths either exist or are registered as planned (`docs/runbook-sensor.md` and `docs/runbook-snapshot-stopped.md` in PLANNED_ARTEFACTS, cited from a planning document only).
+
+> R-PROVISIONAL-2026-09-29-EW — THE FACILITY-ONE BUILD SPRINT; PR W1: SENSOR DATA AND /api/health
+> EW lands in its own PR, W1, as -173. -173 opens with an addendum holding #106's merge record.
+> Next letter: EX, Cowork's review of W1.
+> The S-series is closed. This sprint builds the five facility-one boxes that need code: the sensor
+> bundle (R-2026-09-22-54 B), and the proxy's surface, attribution, availability and magic-link host
+> (R-2026-09-19-23 D3, D4, D5; R-2026-09-22-55 C). Four PRs, W1 to W4, one letter each.
+> Cowork scoped it with a platform/SRE and a CTO reviewer, each reading main at f882f72. A staff
+> engineer, a QA reviewer and a platform/SRE reviewer then reviewed this letter independently before
+> it was pasted, and ran its plants and its no_phantom_paths effect on copies of f882f72. Their
+> findings are folded in.
+>
+> START from main at f882f72c74913a068c568ee51fad5bcdbfcd597f (#106's merge), after reading it back.
+>
+> THE KICKOFF: /Users/KWB/Documents/Claude/Projects/BedSpace/Build records/Rulings and Board reads/
+> sprint-kickoff-facility-one-build-2026-09-29.md. Read it whole, and commit it unchanged to
+> `Sprint Kickoffs/sprint-kickoff-facility-one-build-2026-09-29.md` in W1. It cites
+> `docs/runbook-sensor.md`, which W2 builds, so add `'docs/runbook-sensor.md': { stage: 'W2' }` to
+> PLANNED_ARTEFACTS in tests/compliance/no_phantom_paths.test.ts (:115). `docs/runbook-snapshot-stopped.md`
+> is already planned there for the same runbook; W2 builds one path and retires the other with its reason.
+> Any OTHER red the kickoff causes: report it, and do not edit the kickoff. The kickoff is the
+> scope for W2 to W4; this letter builds W1 only.
+>
+> READ BY COWORK, from its own clone at f882f72, with the team:
+> - #106 merged at f882f72, parents 96aa95b and dd2e36c; s-c-pr-evidence gone. Register 58 (15 BOX,
+>   32 TRIGGER, 11 VERSION). Leg register 389/364/25. The charter: 45 rows, 0 FINDING.
+> - Five pg_cron jobs (017:227-228; 024:415-417). app.system_heartbeat.last_snapshot_at (016:141) is
+>   written in the snapshot's transaction (019:205-221). service_role has no USAGE on app (017:30).
+> - tests/setup/db.ts:144-155 and global-setup.ts:37-38 hold every openbed_ job paused for the whole
+>   db run. pg_cron cannot see uncommitted changes.
+> - pg_cron's RLS on cron.job and cron.job_run_details is `username = current_user`. Inside a definer
+>   that is the owner. 026's operator_register, owned by postgres and applied on hosted, already reads
+>   both tables, and admin parses its result (apps/admin/src/parse.ts:57).
+> - No health endpoint exists. beds.json.ts:13-22 documents that a route exporting GET alone answers
+>   HEAD with the SPA's 200. serveBedsCached caches a 200 only (serve.ts:515), keys on the full URL
+>   (:439), and every failure is no-store (:119).
+> - eslint's no-wall-clock rule covers apps/**/*.ts (eslint.config.mjs:164), with exactly two pinned
+>   exemptions (eslint_wall_clock.test.ts:97-131).
+> - The -58 A direct-origin exception is named in packages/origins, in origins.json's `why` ("Nothing
+>   else may take it", :19), and in supabase-proxy/allow-list.json's direct_origin_exceptions, which
+>   proxy_allow_list.test.ts:211 enforces.
+> - 017:30-35 and the decision record (:620, :727, :906) name "a public wrapper with EXECUTE for
+>   service_role" as the shape that reopens decision 3.
+> - Pages Functions cannot run on a schedule; Cron Triggers are Workers-only. This answers
+>   R-2026-09-17-12 G, and it is the scope change the A1 kickoff (:376-379) asked to have reported. The
+>   external sensor is an external uptime monitor polling /api/health with a GET keyword check (the
+>   free monitors cannot assert headers), set up by the founder in W2. Sources:
+>   developers.cloudflare.com/workers/static-assets/migration-guides/migrate-from-pages/ and
+>   developers.cloudflare.com/pages/functions/api-reference/.
+> - ACCEPTED AS REPORTED (your EV report): the merge facts, 2950 ZERO-RED at dd2e36c (uid 501), the
+>   seven checks, the alerts, and the final evidence block on run 36631387432.
+>
+> The word on quoting stands for the whole PR: no credential-shaped text; ES-3's whole-PR check prints
+> nothing. The PR body's evidence block is scripts/pr_evidence.mjs's output, pasted whole. W1 adds a
+> migration, so the PR body answers the runbook line (check_pr_migration_line).
+>
+> EW-1  MIGRATION 027_scheduler_status.sql, with its down.
+>   a) app.scheduler_status(): SECURITY DEFINER, STABLE, `search_path = ''`, owned as the house's other
+>      definers are, read-only. One result holding:
+>      - server_now: Postgres now();
+>      - generated_at: snapshot_current's newest row by `v`, as /beds.json reads it (serve.ts:292).
+>        NULL when there is none, never coerced;
+>      - last_snapshot_at;
+>      - for each job whose name starts `openbed_`: name, active, schedule, and its latest FINISHED run
+>        (end_time not null, highest runid) with status and start_time, looked up only over
+>        `start_time > now() - interval '2 days'`, null when none.
+>      Revoke it from PUBLIC, anon, authenticated and service_role by name, as 024:395-409 does, and
+>      add it to packages/fixtures/function-grants.json with `execute: []`.
+>   b) public.health_probe(): SECURITY DEFINER, STABLE, `search_path = ''`, returns jsonb from a). REVOKE
+>      from PUBLIC, anon and authenticated by name; GRANT EXECUTE to service_role only. It is the repo's
+>      FIRST service_role grant:
+>      - packages/fixtures/function-grants.json gains it with execute ["service_role"], and its comment's
+>        "service_role holds EXECUTE on none" is restated;
+>      - the anon allow-list and the authenticated closed list are NOT edited;
+>      - each must red on a plant of 027 with its matching REVOKE removed.
+>   c) DECISION 3. health_probe is the shape 017 named. Quote decision 3 in -173. The team's reading:
+>      it guards the generator, and health_probe is read-only and triggers nothing, so it does not
+>      reopen it. If decision 3's text forbids any service_role wrapper whatever it does, STOP and
+>      report before building EW-2.
+>   d) Prove locally that the definer reads cron.job and cron.job_run_details. Hosted is NOT ASSERTED
+>      until EW-4 c's read-back.
+>   e) The header, down, symmetry test, idempotency digest and frozen boundary follow house rules. The
+>      boundary stays at 26 in the repo until the founder's apply.
+>   f) A TRIGGER row: "cron.job_run_details is never pruned (about 1,440 rows a day); the lookup is
+>      bounded to two days". Trigger: "the table passes 500,000 rows, or health_probe takes over 1 s
+>      on hosted".
+>
+> EW-2  /api/health.
+>   a) apps/public-dashboard/functions/api/health.ts, a thin adapter over a pure decision in
+>      packages/snapshot/src/health.ts. It calls health_probe through the direct origin with the
+>      SUPABASE_SERVICE_ROLE_KEY the Pages project already holds. Extend the -58 A exception by name to
+>      /beds.json and /api/health, and nothing else, in all three places: packages/origins, origins.json's
+>      `why`, and allow-list.json's direct_origin_exceptions. The URL is a template literal
+>      `${origin}/rest/v1/rpc/health_probe` in ONE named file, with a literal `method: 'POST'` in the
+>      fetch. The allow-list entry's `file` is that file, and proxy_allow_list.test.ts's expected-sites
+>      list (:317 on) gains `POST /rest/v1/rpc/health_probe @ <that file>`.
+>   b) ONE CLOCK. The Function reads no clock. Age is snapshotAge(generated_at, server_now, 0), the
+>      function the public banner uses. checked_at is server_now, or null when the probe failed. The
+>      wall-clock exemptions stay at two.
+>   c) THE DECISION returns {ok, reasons[]}. 503 when any reason holds, else 200:
+>      - snapshot_stale: the age is at or past snapshotBannerAfterMinutes, or generated_at is NULL;
+>      - job_absent: no openbed_regenerate_snapshot row;
+>      - job_inactive: that row is not active;
+>      - probe_failed: the probe errored, timed out (5 s, injectable), returned 401, 404, `[]`, `null` or
+>        non-JSON, or SUPABASE_SERVICE_ROLE_KEY is missing. A top-level catch answers probe_failed.
+>      A failed last run is NOT a reason: one transient failure would alarm while the public page shows
+>      no banner, and the age arm catches repeated failure. The last finished status is in the body.
+>   d) The body: {ok, health, reasons, snapshot_age_s, checked_at, job}, where health is `openbed-ok` or
+>      `openbed-fail` and job is the snapshot job only (name, active, last finished status and time).
+>      The other four jobs are the operator's, in W2. Ages and one job name, nothing else. The monitor
+>      is a GET keyword monitor on `openbed-ok`.
+>   e) GET and HEAD are both exported. Both carry `x-openbed-health: ok` or `fail`,
+>      `x-robots-tag: noindex, nofollow` and `x-content-type-options: nosniff`.
+>   f) THE CACHE, unlike serveBedsCached: both 200 and 503 are stored, with
+>      `cache-control: public, s-maxage=30` on the stored copy and no stale-while-revalidate. The key
+>      is `new Request(new URL('/api/health', request.url), { method: 'GET' })`: the query is dropped,
+>      and it is a GET because cache.put refuses HEAD. The outgoing response carries
+>      `cache-control: no-store` and an `x-openbed-edge-cache` marker.
+>   g) PLANTS.
+>      - THE PURE DECISION, in a compliance test. Every plant is the fresh baseline (asserted 200) with
+>        ONE field changed, and asserts its exact reasons. Boundaries come from
+>        BANDS.snapshotBannerAfterMinutes, never a literal; a parsed leg asserts health.ts calls
+>        snapshotAge. Cases: one second under the banner, 200; exactly at it, 503; generated_at NULL,
+>        503; the job row absent, 503; inactive, 503; last finished run failed, 200; last run running or
+>        starting, 200; rollup inactive and a retention run failed, 200; a probe 401, 404, `[]`, `null`,
+>        non-JSON, and a missing key, each 503; a timeout, 503 on its own assertion inside 1 s. The 503
+>        cases red first against an always-200 decision; the 200 cases against an always-503 decision.
+>      - THE MIGRATION, in a db test inside withRole's rolled-back transaction, so nothing commits and
+>        the local pause holds: cron.alter_job(<the snapshot job's jobid>, active := true); select
+>        app.regenerate_snapshot(); public.health_probe() as service_role, its result fed to the pure
+>        decision: 200. Red first against a probe returning no job rows. Then, in the same
+>        transaction: active := false gives 503 [job_inactive]; with it active again, generated_at set
+>        BANDS.snapshotBannerAfterMinutes * 60 + 1 seconds back gives 503 [snapshot_stale]. withRole
+>        runs its setup before `SET LOCAL ROLE` (db.ts:123-124), so each later setup step runs after
+>        `RESET ROLE`, and the probe after `SET LOCAL ROLE service_role` again.
+>        assertScheduledJobsPaused before and after.
+>      - THE HANDLER, with an injected fetch: a probe result gives 200 and `openbed-ok`; a closed port
+>        gives 503; HEAD carries the marker on a cold cache (the beds_json_served fake whose put refuses
+>        non-GET, :255-266); ?a=1 and ?a=2 share one entry; two calls within 30 s after a failed probe
+>        make ONE origin fetch. The HEAD plant is red first with the HEAD export removed.
+>      - NEUTERS through scripts/neuter.sh, one per reason, plus "cache 200 only" and "key on the
+>        incoming request". Write the spec and each expected full red set to a file first; each
+>        neuter reddens only its own.
+>   h) readback_pages.sh reads /api/health by GET and by HEAD on both $SITE and $DOMAIN: 200,
+>      `x-openbed-health: ok`, `x-robots-tag: noindex, nofollow`, else STOP naming it. Planted both
+>      ways in readback_scripts.test.ts: PASS; a 503 `fail`; the SPA's 200 text/html with no marker on
+>      HEAD; openbed.ng alone failing. The charter's reason cell for it gains "/api/health", still 15
+>      words or fewer.
+>
+> EW-3  RECORD AND REGISTER.
+>   - -173 OPENS WITH "ADDENDUM TO -172: #106'S MERGE RECORD", from your EV report: the head dd2e36c, a
+>     merge commit; the merge f882f72c74913a068c568ee51fad5bcdbfcd597f at 2026-09-29T21:18:28Z,
+>     parents 96aa95b and dd2e36c; MERGED read back; s-c-pr-evidence gone on both sides; the seven
+>     checks on dd2e36c; 2950 ZERO-RED, uid 501; the alerts at 21:18:16Z; the evidence block's run
+>     36631387432. EV's ledger row gains "merged at f882f72".
+>   - -173 then holds:
+>     - EW as issued;
+>     - R-2026-09-17-12 G answered, with the sources;
+>     - decision 3 quoted and EW-1 c's reading;
+>     - the kickoff committed;
+>     - what W1 built, red first then green;
+>     - a ledger row for EW.
+>   - THE REGISTER. The R-2026-09-17-12 G TRIGGER row (:11930, "the sensor bundle is scoped") leaves,
+>     its trigger fired and answered. EW-1 f's TRIGGER row arrives. The register stays 58 (15 BOX, 32
+>     TRIGGER, 11 VERSION). Recount it from the table. No box is ticked in W1.
+>   - THE LEG REGISTER: expected 389/364/25, unchanged. rb_expect reads are not legs, and nothing new
+>     lands under scripts/. Any difference: record why.
+>
+> EW-4  THE REPORT, then STOP for Cowork's check. Its word is EX.
+>   a) Branch and HEAD as a full SHA; git log --oneline origin/main..HEAD; name-status.
+>   b) Each plant red first then green; the neuter spec's path and each neuter's full red set; the
+>      PLANNED_ARTEFACTS entry; the allow-list diff; decision 3 as quoted.
+>   c) The founder's hosted steps, written as fenced commands with real addresses, NOT run by you, to
+>      run after EX's merge word:
+>      - apply 027 by runbook step 5;
+>      - `bash scripts/readback_function_grants.sh` (runbook §5 step 6), before the freeze;
+>      - `SET ROLE service_role; SELECT public.health_probe();` reads 5 openbed_ jobs, the snapshot job
+>        active, a finished run in the last 2 min. Anything else is a STOP;
+>      - freeze at 27;
+>      - redeploy the public dashboard with deploy_pages.sh;
+>      - readback_pages.sh on both hosts.
+>   d) The whole-PR check, the scan and the meta-lint; the test count against 2950, each new test named,
+>      ZERO-RED on a fresh database, with the uid; the seven checks on HEAD, quoted; the alerts by
+>      ES-5's method; the evidence block, whole in the PR body, and its register-by-kind line.
+>   e) The register by kind and the leg register.
+>   Nothing hosted. Do not merge. Do not start W2.
+
+**EW's premises, checked before acting.** Each was read, not taken; one does not hold as worded and one is a reading, not a text.
+- **Holds:** beds.json.ts's header records that a route exporting GET alone answered `HEAD /beds.json` with the SPA's 200 (2026-09-21). serveBedsCached stores a 200 only, keys on the full URL and marks every failure no-store. The five jobs are at 017 and 024. `service_role` has no USAGE on `app` (asserted here by a db test: 42501). The -58 A exception is named in the three places the letter says. eslint's no-wall-clock rule covers `apps/**` and `packages/snapshot/src/**`, with exactly two pinned exemptions, and both still pass with this change.
+- **Holds, read here for the first time:** pg_cron 1.6.4 on the local stack has one policy on each of `cron.job` and `cron.job_run_details`, `(username = CURRENT_USER)`, read from `pg_policy`. The claim that hosted reads the same is Cowork's and is **not asserted here**.
+- **Holds, with the source stated more exactly than the letter states it:** "Pages Functions cannot run on a schedule; Cron Triggers are Workers-only". Cloudflare's "Migrate from Pages to Workers" page says, on read today (its own date, 2026-09-22): "Unlike Pages, Workers has a distinctly broader set of features available to it, (including Durable Objects, Cron Triggers, and more comprehensive Observability)". The Workers pages read today (Cron Triggers, the scheduled handler) describe `scheduled()` for Workers only. **I did not read the Pages Functions API page the letter also cites**, and neither page states the negative in one sentence for Pages; it is what the first says by omission from Pages.
+- **Not mine to verify, marked so:** "the free monitors cannot assert headers" is Cowork's and the platform/SRE reviewer's reading of the monitors' terms. It shapes W1 (the keyword), and nothing here tests it. W2's founder step is where it is met.
+- **A reading, not a text, and the one that matters: decision 3.** See below. The letter's stop condition ("if decision 3's text forbids any service_role wrapper whatever it does") is not met, and I say why there rather than pass over it.
+
+**R-2026-09-17-12 G ANSWERED.** G asked whether Cloudflare Pages Functions support scheduled handlers or cron triggers. **They do not; Cron Triggers exist for Workers** (sources: the two pages read today, above, and the letter's citation of `developers.cloudflare.com/pages/functions/api-reference/`, unread by me). So the snapshot's external sensor cannot be a scheduled Pages Function. It is an external uptime monitor polling `/api/health` with a GET keyword check on `openbed-ok`, set up by the founder in W2, and it sits outside both Supabase and Cloudflare. This is the scope change the A1 kickoff (:376-379) asked to have reported. The G TRIGGER row leaves the register (below).
+
+**DECISION 3, QUOTED, AND THE READING.** The passages that name the shape, verbatim from the record and the migration:
+- The decision (the 016 scope ruling, 2026-09-15): "**3. The reader is `service_role` ONLY.** … An anon-readable `snapshot_current` would be a second serving path around the CDN, with no `s-maxage`, disagreeing with the edge on freshness. As built: RLS enabled and FORCEd, zero policies, every client role revoked by name, `GRANT SELECT TO service_role`."
+- Flagged forward to 017: "a `service_role` grant is no route for an external caller. The real options are pg_cron running as `postgres`, a direct connection as the owner, or a public wrapper with EXECUTE for `service_role` — which reopens decision 3 and must be faced deliberately."
+- 016's restatement: "**Decision 3 is unchanged in substance.** The reader is still `service_role` only, and the GRANT is what makes that true."
+- For 017: "**The wrapper still reopens decision 3** on the public-surface question. That is the reason to choose or reject it, not the role attributes."
+- 017's header, "THE ROUTE": "NO GRANT: service_role has no USAGE on schema app … and no public surface is added. Decision 3 stays closed. Rejected: a direct owner connection … and a public wrapper with EXECUTE for service_role (reopens decision 3)."
+- 017's kickoff, the fullest reason: the wrapper "reopens decision 3, closed on 2026-09-15 on prevention-over-detection grounds, and puts a generator trigger on the public API surface."
+
+**The reading.** The text does not **forbid** a `service_role` wrapper, and the letter's STOP does not fire. It says a wrapper "reopens decision 3 and must be faced deliberately", and the reasons it gives are two: a second serving path for the snapshot around the CDN, and **a generator trigger on the public API surface**. `public.health_probe()` does neither. It is STABLE, read-only, and calls nothing that writes; it returns ages, one job name and a status, none of which `/beds.json` does not already imply or which names a person; and it serves no snapshot payload. Read literally, though, the sentence at :727 and 017's header treat ANY such wrapper as reopening, and **that is a broader text than the reasons behind it**. So this is a reading, made by the team and by me, that the reopening is faced here and does not need a ruling to proceed. **Cowork rules on it in EX.** What was done to make it a reading and not a shrug: the surface added is one function, callable by the service key alone; anon and authenticated are refused with 42501 (asserted, `tests/db/health_probe.test.ts`); the read function behind it is owner-only; it is not in the Worker's allow-list, so no browser path reaches it; and `packages/fixtures/function-grants.json` lists both, with the first `service_role` entry this repository has, so a widening reds against a fixture. Two other passages, :903-904, pre-date -54 B ("a sensor needs a reader of `app.system_heartbeat.last_snapshot_at`, not an HTTP endpoint; that is the alerting sprint's") and are superseded by it, not contradicted.
+
+**THE KICKOFF COMMITTED**, unchanged: `Sprint Kickoffs/sprint-kickoff-facility-one-build-2026-09-29.md`, byte-identical to the file it was copied from (`cmp` reads no difference). It cites `docs/runbook-sensor.md`, so PLANNED_ARTEFACTS gains `'docs/runbook-sensor.md': { stage: 'W2' }`; no_phantom_paths reads green with it. **No other red came from the kickoff.**
+
+**WHAT W1 BUILT.**
+
+*EW-1, migration 027 (and its down).* `app.scheduler_status()` returns one jsonb: `server_now`, `generated_at` (the newest `snapshot_current` row by `v`, null when there is none), `last_snapshot_at`, and each `openbed_` job's name, `active`, schedule and latest FINISHED run over two days. Owner-only, revoked from PUBLIC, anon, authenticated and service_role by name. `public.health_probe()` returns the same, STABLE, definer, empty search_path, revoked from PUBLIC, anon and authenticated by name and granted to `service_role`. `function-grants.json` lists both and its comment is restated (service_role now holds EXECUTE on exactly one function this repository writes). The anon allow-list and the authenticated closed list are not edited. The local proof (EW-1 d): as `service_role`, `health_probe()` returns all five jobs from `cron.job`, and the definer reads `cron.job_run_details` (planted runs are found, in `tests/db/health_probe.test.ts`). **Hosted is NOT ASSERTED** until the founder's read of the probe after the apply. The frozen boundary stays 26 in the repo.
+
+*EW-2, /api/health.* `health.ts` is the pure decision: no fetch, no cache, no clock. Age is `snapshotAge(generated_at, server_now, 0)`, so the alarm and the banner share one function and one threshold, on the database's clock. `health_serve.ts` is the handler, and `functions/api/health.ts` is the thin adapter, GET and HEAD. Both answers are stored for 30 s (`public, s-maxage=30`, no stale-while-revalidate) on a GET key with no query; the outgoing response is no-store with the marker. The -58 A exception is extended by name to `/beds.json` and `/api/health` in packages/origins, origins.json's `why` and the allow-list's `direct_origin_exceptions`, and the expected-sites list gains `POST /rest/v1/rpc/health_probe @ packages/snapshot/src/health_serve.ts`. readback_pages.sh reads `/api/health` by GET and HEAD on both hosts; the charter's reason cell gains "/api/health" (15 words).
+
+**THREE THINGS I DECIDED, for Cowork to overrule in EX:**
+1. **A third file.** The letter names the pure decision and the adapter. The fetch, the cache and the POST live in `packages/snapshot/src/health_serve.ts`, so the handler can be driven with an injected fetch and cache the way serveBedsCached is. That file, not the adapter, is the allow-list entry's `file` and the expected-sites line's.
+2. **The marker sentence in origins.json changed, and its test constant with it.** `THE NARROW EXCEPTION, granted by name to ONE consumer` became `... to TWO routes of ONE consumer`. tracked_origins.test.ts pins the phrase in every built bundle, so its constant moved in the same commit and asserts exactly what it asserted before.
+3. **Runbook step 5 and its guard are restated for 027 pending**, which the letter did not list and which house rules require in the same change (the 026 change did the same). Five sites and the virgin-database block, each with a dated note; `tests/compliance/runbook_migration_expectation.test.ts` is re-aimed leg for leg (a plant per site, as before, now naming 027 and a count of one). A prose subsection, "027's apply", gives the founder's read-backs, with no psql fence, so `runbook_psql_path`'s count is unchanged. Every removed assertion has a replacement of equal strength (the diff check prints them, and each is a re-aimed count or name).
+
+**RED FIRST, THEN GREEN.** Each spec and each expected red set was written to a file **before** any neuter ran; the files are in the scratchpad (a session directory, not tracked): `ew-pure-neuters.json`, `ew-handler-neuters.json`, `ew-db-neuters.json`, and `ew-expected-red.json` for every set. All 21 neuters reddened, and every restore verified (the harness backs the file up, restores it, and for the database ones re-applies and re-reads a probe that must return).
+
+| Neuter | Plant | Reddened |
+|---|---|---|
+| D1 | `ok` forced true (an always-200 decision) | 26: every 503 plant, and the keyword test |
+| D2 | `ok` forced false (an always-503 decision) | 34: every plant (the baseline is asserted 200 inside each), and two body tests |
+| R-stale-age | the age arm's reason removed | 5: at the banner, past it, unparseable, stale AND inactive, the keyword test |
+| R-stale-null | the NULL arm's reason removed | 2 |
+| R-absent | job_absent removed | 3 |
+| R-inactive | job_inactive removed | 3 |
+| R-probe-status | the status check removed | 4 (the three refusals that carry a valid body, and the keyword test) |
+| R-probe-shape | the shape check removed | 8 |
+| N-elapsed | a client elapsed term passed to snapshotAge | 5, including the parsed leg |
+| H1 | cache a 200 only | 2 |
+| H2 | key on the incoming request | 3 |
+| H3 | the HEAD export removed | 1 |
+| H4 | the probe's timeout not applied | 1 |
+| H6 | the top-level catch removed | 1 |
+| M1 | the probe returns no job rows | 6 |
+| M2 | newest by time, not by `v` | 1 |
+| M4 | an unfinished run counts as the last run | 1 |
+| M5 | the two-day bound removed | 1 |
+| G-anon | 027 with the anon REVOKE removed | 6: the anon allow-list, function_grants (2), and this file's anon and EXECUTE legs |
+| G-authenticated | 027 with the authenticated REVOKE removed | 8: the closed list, function_grants (3), and this file's legs |
+| G-public | 027 with the PUBLIC REVOKE removed | 10 |
+
+**Predictions that missed, all in the safe direction, none edited into the prediction file:**
+- D1: one test I predicted red stayed green. It is not a neuter effect: my rule classified the "hand-rolled threshold" parsed-leg plant as a 503 case, and it is not one.
+- D2: 34 reddened, not 9. I forgot that every plant asserts the 200 baseline first, so an always-503 decision fails all of them. That is the design working, and my prediction not remembering it.
+- G-anon, G-authenticated, G-public: one to three more than predicted each. Those tests read the whole live catalogue, so any extra grant reddens their accept legs too.
+
+**A finding the grant neuters produced, and not one I predicted.** Locally, `pg_default_acl` for `postgres` in schema `public` on functions holds only `postgres=X`, so a new function here carries NO PUBLIC and NO anon grant whether or not 027 revokes anything, and the first G-anon run reported that its plant "did not reach its target". The by-name revokes therefore only bite where default privileges grant them. **Hosted's default privileges were not read here.** The three grant neuters apply 027 under a temporary hosted-style default (`GRANT EXECUTE ON FUNCTIONS TO public, anon, authenticated, service_role`) and revoke it afterwards; the default ACL was read back as `{postgres=X/postgres}` after the run. So "each must red on a plant with its matching REVOKE removed" is true of the plants as run, and **not asserted** of an ordinary local apply.
+
+**THE LEG REGISTER** reads **389/364/25**, unchanged, as expected: nothing under scripts/ gained a refusal, `rb_expect` reads are not legs, and `leg_coverage.test.ts` passes against the recorded baseline.
+
+**THE REGISTER.** The R-2026-09-17-12 G TRIGGER row leaves ("the sensor bundle is scoped" fired, and G is answered above), and EW-1 f's TRIGGER row arrives: "`cron.job_run_details` is never pruned (about 1,440 rows a day); the lookup is bounded to two days", trigger "the table passes 500,000 rows, or health_probe takes over 1 s on hosted". Recounted from the table: **58 (15 BOX, 32 TRIGGER, 11 VERSION)**. No box is ticked in W1.
+
+**THE COUNT** against 2950 (compliance 2057 plus db 893, as recorded at `b07eb9d` and unchanged by -172's record-only commit): **3043**, on a fresh database at `6480604`, uid 501: compliance 2132, db 911, and the ratchet 10 apart. +75 compliance and +18 db, named: the decision test (44), the handler test (21), seven read-back plants for `/api/health`, and the three per-migration symmetry cases 027 adds; and the probe test (14) and the round-trip test (4).
+
+**THE LIVE RUN** on `648060450afde1cf9b86b56086764d83edb37f59`, the code commit, exited 0 after its CI: run 36684578626, attempt 1, ZERO-RED, with compliance 2132, db 911 and ratchet 10, the same numbers as my fresh-database run before the push. All seven jobs read `success`. Tested as merge M `6cf292542445dc41a1f0c8785d032c7ecd1268dc`, base `f882f72`. The block for the final head is in the PR body, not here. A record cannot name the run its own head produces, so the code went first and the record names that run.
+
+Nothing hosted. W1 is not merged. W2 is not started. Next letter: **EX**.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -11869,7 +12146,8 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | ES | R-2026-09-29-169 | 2026-09-29 | **PR S-s: the secret scan reads each URL's own host.** Opens with #104's merge record (-168's addendum); ER-2's alert check and -168's merge record were Cowork's slips. `scripts/lint_no_secrets.sh` judges every Postgres URL token on a matched line by its own host, host list and query, and gains a keyword-DSN pattern; the line-level filter is gone. ES-2 found three on d08e10d, not two: Cowork's amendment keeps a bare keyword value from beginning with `=` or `>`, and names what that gives up. `scripts/seed.sh` refuses a host list. 18 red plants read 0 on d08e10d and 1 on HEAD; 8 neuters all red, N1 one fewer than predicted (e is caught by the query test too). Leg register 344/318/26; register 59. Found, not fixed: seed.sh reads its host after stripping the query. Next letter ET. |
 | ET | R-2026-09-29-170 | 2026-09-29 | **#105's merge word, after one commit to seed.sh.** ET-1 closes the hosts seed.sh's check did not see: a DATABASE_URL must be a postgresql:// or postgres:// URL with no query; seed's own psql runs under `env -u` for PGHOST, PGHOSTADDR, PGSERVICE and PGSERVICEFILE, and with `-X`; an OPENBED_PSQL naming a URL or a host is refused; no refusal prints any part of the URL. 15 new tests, each plant red first on `aa72345`; 6 neuters each red on exactly their own plants. Leg register 347/321/26 as predicted, plus one leg renamed by ET-1 f. Found, not fixed: the hatch still takes `-h` and inherits PGHOST. #105's merge record lands in S-c's PR. Next letter EU. **Merged at `96aa95b`** (parents `d08e10d`, `bda9acb`); the merge record is -171's addendum. |
 | EU | R-2026-09-29-171 | 2026-09-29 | **PR S-c (#106): the hatch pinned; PR evidence from CI's own artefacts; the scripts charter.** Opens with #105's merge record (-170's addendum). EU-1: seed.sh's OPENBED_PSQL is accepted only as `docker exec -i supabase_db_<project> psql` with at most one -U and one -d, run under `env -u` with -X; 17 plants red first on `96aa95b`, 5 neuters; -170's two gaps closed. EU-2: each uploading job writes `ci-provenance.txt` (one line: EU-2 a's wrapped text would have split printf), pinned by a js-yaml guard. EU-3: the register parser moves to `scripts/deferred_register.mjs` unchanged (29 pairs identical); one jobs list; `scripts/pr_evidence.mjs`, 40 legs, 65 tests over real zips, digests and merge objects, 44 neuters; its live run on `7a5c3d7` read run 36619926438 ZERO-RED on its first try. EU-4: `docs/scripts-charter.md`, 45 rows, FINDING deferred_register.d.mts and run_e2e.sh. Leg register 387/361/26; register 59. Found: the leg mapper credits through a quoted script path; the refs/pull merge ends with a newline. Next letter EV. |
-| EV | R-2026-09-29-172 | 2026-09-29 | **#106's merge word, after two commits (code, then this record).** EV-1: a required job present twice is exit 2, never read from its first match; the block is no longer cut off at a pipe (process.exitCode, not process.exit); the run's head_sha must be HEAD and a run not concluding success marks the block RED; seed.sh turns nocasematch off; the leg mapper reads four spellings from the AST only (pairs 79 -> 71, no leg flipped); run_migrations.sh's empty-corpus refusal is planted through its root argument. EV-2: tests/compliance/deferred_register_types.test.ts holds the .d.mts to the module, and run_e2e.sh's test stub, which wrote to the word e2e, now reads --outputFile= and plants both phases. The charter reads 0 FINDING rows. The survey row leaves: register 58 (15 BOX, 32 TRIGGER, 11 VERSION). Leg register 389/364/25. Every fix red first on `27751c5`, 20 neuters, one prediction miss in the safe direction. #106's merge record lands in the next PR. Next letter EW. |
+| EV | R-2026-09-29-172 | 2026-09-29 | **#106's merge word, after two commits (code, then this record).** EV-1: a required job present twice is exit 2, never read from its first match; the block is no longer cut off at a pipe (process.exitCode, not process.exit); the run's head_sha must be HEAD and a run not concluding success marks the block RED; seed.sh turns nocasematch off; the leg mapper reads four spellings from the AST only (pairs 79 -> 71, no leg flipped); run_migrations.sh's empty-corpus refusal is planted through its root argument. EV-2: tests/compliance/deferred_register_types.test.ts holds the .d.mts to the module, and run_e2e.sh's test stub, which wrote to the word e2e, now reads --outputFile= and plants both phases. The charter reads 0 FINDING rows. The survey row leaves: register 58 (15 BOX, 32 TRIGGER, 11 VERSION). Leg register 389/364/25. Every fix red first on `27751c5`, 20 neuters, one prediction miss in the safe direction. #106's merge record lands in the next PR. Next letter EW. **Merged at `f882f72`** (parents `96aa95b`, `dd2e36c`); the merge record is -173's addendum. |
+| EW | R-2026-09-29-173 | 2026-09-29 | **PR W1 (#107): the scheduler's status and /api/health.** Opens with #106's merge record (-172's addendum). Migration 027: `app.scheduler_status()` (owner-only) and `public.health_probe()`, executable by service_role alone, the first such grant; decision 3 quoted and faced, read as not forbidding a read-only wrapper, for Cowork to rule in EX. /api/health: a pure decision (`snapshotAge` on the database's clock, reasons snapshot_stale, job_absent, job_inactive, probe_failed), a handler that stores both 200 and 503 for 30 s on a key with no query, GET and HEAD. The -58 A exception extended by name to /beds.json and /api/health. R-2026-09-17-12 G answered: Pages Functions have no Cron Triggers, so the sensor is an external monitor. Runbook step 5 restated for 027 pending. 21 neuters, all red, three prediction misses in the safe direction; a local-default-ACL finding. Register 58 (15 BOX, 32 TRIGGER, 11 VERSION), leg register 389/364/25. Not merged; nothing hosted. Next letter EX. |
 
 ## Deferred items — this record is where the list lives
 
@@ -11927,7 +12205,6 @@ the record's own, except where CW-5 assigned one._
 | Per-ward rows versus a facility rollup on the public page | R-2026-09-24-76 BD-3 | TRIGGER | 30 days after facility one is listed (CW-5; the record read "until dispatcher validation") |
 | The granularity floor on a small published count | R1 (b) | TRIGGER | The first facility publishing a ward with offering OFFERED and a bed count of 2 or less |
 | The two regex readers, and their second task (-31 B) | R-2026-09-18-16 B | TRIGGER | Facility one is onboarded ("after facility one", -36 C's queue) |
-| Whether Pages Functions support scheduled handlers or cron triggers (re-pointed by -54 C) | R-2026-09-17-12 G | TRIGGER | The sensor bundle is scoped |
 | The failure path's headers observed at the edge, by a preview deployment against a non-production project | R-2026-09-20-32 B2 | TRIGGER | The failure path comes to carry data |
 | An assertion tying `s-maxage` to `pollCadenceSeconds` | R-2026-09-21-38 D2 | TRIGGER | The next change touching either value |
 | `npx supabase start` hitting the Docker Hub pull limit in stack jobs | R-2026-09-21-38 D3 | TRIGGER | The next stack-job failure of that shape |
@@ -11963,6 +12240,7 @@ the record's own, except where CW-5 assigned one._
 | Restate `operator_record_registration`'s allow-list comment in `supabase-proxy/allow-list.json` (apps/admin calls it since DT Bundle 3) | R-2026-09-28-151 EA-4 | TRIGGER | The next commit that changes supabase-proxy/ |
 | Read the kept log, name the failing test and its cause, and report it; the 2026-09-28 red on 95c1b83's first gate run is the open instance | R-2026-09-28-152 EB-2 | TRIGGER | The next time tests (db+compliance) is red in scripts/gate.sh |
 | That change brings its block under a live test | R-2026-09-28-152 EB-4 | TRIGGER | The next runbook change that adds or edits a psql line outside the fences tests/db/runbook_12_4_12_5_sql_live.test.ts runs |
+| `cron.job_run_details` is never pruned (about 1,440 rows a day); `health_probe`'s lookup is bounded to two days | R-2026-09-29-173 EW-1 f | TRIGGER | The table passes 500,000 rows, or health_probe takes over 1 s on hosted |
 
 ## Method notes — how rulings reach the implementer
 

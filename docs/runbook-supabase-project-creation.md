@@ -2417,6 +2417,55 @@ this apply. On 2026-09-28 it was (R-2026-09-28-149).
 
 - [x] On 2026-09-28, 025 and 026 applied, and the Worker redeployed and read back, from the deploy checkout at `cd05de15d248ad9462e98d96ac247f5f9beb3f55` (#93's merge, `git status` clean). The readings are the founder's, relayed by Cowork (R-2026-09-28-149 DY-1). A: `0` (scope rows); the email reading refused under zsh history expansion (R-2026-09-28-148 DX), and re-run in the `not (email ~ …)` form read `0`; `0` (`FACILITY_REPORTER` labels). The first attempt at fence 2 failed before reading anything: psql reached the local socket, because the pasted `read -rs` swallowed a line. It is not a reading; the re-run is. Fence 1: twenty-four `already applied` (001 to 024), `WOULD APPLY` `025_facility_reporter_role.sql` then `026_facility_reporter_and_checks.sql`, "2 migration(s) pending." Fence 2: `FINGERPRINT beds.json=0/0:543f06c0b0c4,facility_public=0:d41d8cd98f00,ward_public=0:d41d8cd98f00,lga_rollup=0:d41d8cd98f00`, `RECORDED`. Fence 3: 001 to 024 skipped; 025 applied (`ALTER TYPE`, `INSERT 0 1`, `INSERT 0 0`); 026 applied, with three expected DROP-IF-EXISTS NOTICEs (`trg_ward_account_one_reporting_source`, `facility_contact_email_form`, `facility_hefamaa_reg_no_form`); "Migrations complete (2 applied this run)." Fence 4: all four parts `ok` against the fingerprint, "PASS (VACUOUS FOR B1)". Fence 5: twenty-six `already applied` (001 to 026), no `WOULD APPLY` line, "0 migration(s) pending." Fence 6: PASS; `app.enforce_one_reporting_source()` reads `EXECUTE: none`, `public.my_reporting_wards()` and `public.operator_record_registration(text, integer, text)` read `EXECUTE: authenticated`, `my_facility_wards` is absent, and `public.rls_auto_enable()` reads `ok` (hosted-only). B: `1`, then `t|t|t`. The Worker: `deploy_worker.sh supabase-proxy`, Current Version ID `7d07e831-c2a8-4d84-8edb-dd731f16793e`, the stamp naming `cd05de1` on attempt 1 of 12; `readback_worker.sh https://api.openbed.ng` read PASS: probe 1 (`my_reporting_wards`) 401, `klrlpxysjsjpdkeqdhvl`, forwarded; probe 1b (`operator_record_registration`) the same; probe 2 GET 200 and HEAD 405, both forwarded; probe 3 404, refused with the proxy's body; the stamp `cd05de1`, dirty false, HEAD 200. Probe 4, Cowork's reading through the Cloudflare connector: the deployed `supabase-proxy` is the tracked handler with `supabase-proxy/allow-list.json` at `cd05de1`, entry for entry (forward: 13 POST, 1 GET, 13 OPTIONS; 2 `direct_origin_exceptions`; 1 `refusal_probes`), and its bundled `version.json` reads commit `cd05de1`, dirty false. PASS.
 
+### 027's apply — the scheduler's status; the first service_role grant (R-2026-09-29-173 EW-1)
+
+**Not yet run.** The founder runs it after the pull request that adds 027 merges, and
+before the public dashboard is redeployed from that merge: `/api/health` calls the
+function this creates, and answers 503 with `probe_failed` until it exists. Claude Code
+runs nothing hosted.
+
+**What 027 changes** (its header says why). Two functions and nothing else:
+`app.scheduler_status()`, owner-only, and `public.health_probe()`, executable by
+`service_role` alone. It adds no table, column, job or data, and changes no public row.
+It is the repository's first `service_role` grant on a function, and decision 3 was
+faced for it in the record (R-2026-09-29-173): the function is read-only and triggers
+nothing.
+
+**Run the six fences of "020's apply" above, in the same order, with these
+expectations for 027.** Only what each must read changes:
+
+1. **The dry run:** exactly one `WOULD APPLY` line, naming
+   `027_scheduler_status.sql`, and the count the list at the top of this step states.
+   Anything else: stop and report.
+2. **The before-reading:** as for 020. Keep the `FINGERPRINT` line.
+3. **The apply:** as for 020. It applies the one file, and ends by saying one was applied
+   this run.
+4. **The after-reading:** as for 020. `PASS (VACUOUS FOR B1)` is expected while hosted
+   lists no facility: 027 writes no row and changes no projection.
+5. **The second dry run:** twenty-seven `already applied` lines, naming
+   `001_app_schema_and_migration_ledger.sql` through `027_scheduler_status.sql`, no
+   `WOULD APPLY` line, and the same last line as 020's fence 5, saying nothing is
+   pending. Anything else: stop and report.
+6. **Who can execute what:** as for 020, run after the apply. Two lines are new:
+   - `app.scheduler_status() EXECUTE: none`;
+   - `public.health_probe() EXECUTE: service_role`.
+
+   Every other line reads as before, and `public.rls_auto_enable()` reads `ok` under
+   `(hosted-only)`. This read-back runs BEFORE the boundary is frozen. Anything else:
+   stop and report.
+
+**Then read the probe itself, as `service_role`.** It must show the five `openbed_` jobs,
+the snapshot job active, and a finished run of the snapshot job in the last two minutes.
+Anything else: stop and report. This is the first hosted reading of the claim that a
+definer owned by the migration role can read `cron.job_run_details`; until it is read,
+that claim is asserted locally only, and no test here can assert it.
+
+**The down migration is not applied here on anyone's own authority.** It removes both
+functions and changes no data.
+
+**Afterwards:** the frozen boundary is recorded with `27`, in the change that records this
+apply.
+
 ### Expected output, including the one line that looks like a failure and is not
 
 **On the hosted project today** (001 through 026 applied, and the repository ends at
