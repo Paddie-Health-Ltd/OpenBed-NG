@@ -857,6 +857,10 @@ provider's processor agreement (R-2026-09-25-108 CJ-2), which is the one remaini
 hosted gate. It is also every open item in the decision record whose trigger is
 "before facility one" (R-2026-09-25-116 CR-1). Both are listed at section 12.4 step 1.
 
+*Restated 2026-09-30 (R-2026-09-30-174 EX-3).* The processor agreement (CJ-2) is CLOSED:
+its box at 12.4 step 1 is ticked. What still stands between hosted and facility one is
+every other open item there whose trigger is "before facility one".
+
 **The trigger counts WARD accounts, not the operator's row** (R-2026-09-25-115 CQ-2).
 Until 2026-09-25 this section said "the first `app.ward_account` row", and its check
 expected `0|0`. But the operator's own row is an `app.ward_account` row
@@ -3708,6 +3712,9 @@ Until that agreement is approved, no hospital or ward address is sent a link. H6
 run before it: at H6 the only address Proton sends to is the operator's sign-in
 address, Paddie Health's own role address in a mailbox Proton already hosts.
 
+*Restated 2026-09-30 (R-2026-09-30-174 EX-3).* The processor agreement is done: CJ-2 is
+CLOSED and its box at 12.4 step 1 is ticked.
+
 *Restated 2026-09-25 (R-2026-09-25-108).* Until then this read: "**Not done yet.**
 Entered by the founder in the Supabase dashboard, as part of H3, together with custom
 SMTP and its processor agreement. Until all three are done, no ward and no operator can
@@ -3996,6 +4003,10 @@ Until then the second sentence read "**NOT YET RUN.**"
 (12.4), which is **BLOCKED by two gates, both open**: (a) the -45 gate, step 4b, whose
 row 5, the backup restore drill, has never run; and (b) R-2026-09-25-108 CJ-2, the email
 provider's s.29 processor agreement, not yet approved. Either one alone blocks it."
+
+*Restated 2026-09-30 (R-2026-09-30-174 EX-3).* Item 6 no longer names CJ-2 as a gate: it is
+CLOSED. Facility creation (12.4) waits on every open item at 12.4 step 1 whose trigger is
+"before facility one".
 
 *Restated 2026-09-25 (R-2026-09-25-113).* Until then items 5 and 6 read: "5. H6 (12.3),
 which ends with the operator bootstrap and an empty register; 6. and only when step 4b
@@ -4287,6 +4298,8 @@ until step 4b reads CLOSED on every row** (the -45 gate). *Since 2026-09-25 step
 reads CLOSED on every row (R-2026-09-25-115). Facility and ward logins now wait on the
 one remaining hosted gate, CJ-2, and on every open item with the trigger "before
 facility one" (section 12.4 step 1, R-2026-09-25-116).*
+*Restated 2026-09-30 (R-2026-09-30-174 EX-3): CJ-2 is CLOSED, so facility and ward logins
+now wait only on the open items at 12.4 step 1 with the trigger "before facility one".*
 
 - [x] H6: preconditions 1-7 read; steps 1-8 as above (date, Cowork's reading of each step)
   - **On 2026-09-25, all eight steps read as they must, and the admin app is LIVE**
@@ -4360,6 +4373,9 @@ facility one" (section 12.4 step 1, R-2026-09-25-116).*
 - **every open item in the decision record whose trigger is "before facility one"**,
   whether it is on hosted or not.
 
+*Restated 2026-09-30 (R-2026-09-30-174 EX-3).* The first of those two things is CLOSED: the
+processor agreement, CJ-2, is ticked at step 1. This section is still BLOCKED by the second.
+
 **The -45 gate is clear since 2026-09-25:** step 4b reads CLOSED on every row, now that
 the backup restore drill has passed.
 
@@ -4391,8 +4407,14 @@ through the admin app.
    CS-5 added them.* An item is ticked only by a
    ruling that closes it. **None is closed here.**
 
-   - [ ] **The email provider's processor agreement:** s.29 agreement, s.41 transfer
+   - [x] **The email provider's processor agreement:** s.29 agreement, s.41 transfer
      basis, retention. **The one remaining hosted gate.** (R-2026-09-25-108 CJ-2)
+     **CLOSED 2026-09-30 (R-2026-09-30-174 EX-3).** All three conditions are met: the s.29
+     written agreement and the s.41 transfer basis, approved by the founder on 2026-09-29
+     (paperwork register rows 1 to 4), and mail retention, by the Proton Sieve filter the
+     founder saved and tested on 2026-09-30. The evidence is the founder's processor pack,
+     section 3, which is outside this repository: it was reported to Cowork and is
+     accepted as reported here, not read.
    - [x] The production CSP names no local origin: admin AND the ward console, whose
      `connect-src` both carried `http://127.0.0.1:54321`. (R-2026-09-25-113 CO-3; built
      by R-2026-09-25-117 CS-2.) **Closes only when** the founder has redeployed admin
@@ -4427,9 +4449,11 @@ through the admin app.
      the custom-domain decision is needed. (R-2026-09-22-55 C)
    - [ ] The sensor bundle, sequenced after Bundle 3 and before facility one. Not
      started. (R-2026-09-22-54 B)
-   - [ ] The NDPA sub-processor scope cell for Cloudflare, still "to be completed" in
+   - [x] The NDPA sub-processor scope cell for Cloudflare, completed by DL-6 a in
      the processor-obligations table. (R-2026-09-19-23 D2, made a facility-one item by
      R-2026-09-22-56 A9)
+     **CLOSED 2026-09-30 (R-2026-09-30-174 EX-3).** The scope text landed as DL-6 a, and the
+     founder approved paperwork register row 3 on 2026-09-29 (accepted as reported).
    - [ ] The proxy's surface: methods, services reached, websocket upgrades,
      `Location` under `redirect: "manual"`, and CORS. (R-2026-09-19-23 D3, by
      R-2026-09-22-56 A9)

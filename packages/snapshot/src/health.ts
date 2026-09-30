@@ -16,7 +16,8 @@
  *
  * THE REASONS, and what is deliberately not one:
  *   snapshot_stale -- the age is at or past the banner threshold, or generated_at is
- *                     null (no snapshot at all is not fresh), or it cannot be parsed.
+ *                     null (no snapshot at all is not fresh), or it cannot be parsed, or it
+ *                     is LATER than the database's own clock by more than 5 seconds.
  *   job_absent     -- no pg_cron job named openbed_regenerate_snapshot.
  *   job_inactive   -- that job exists and is switched off.
  *   probe_failed   -- the probe did not produce a usable answer: an error, a timeout, a
@@ -24,6 +25,15 @@
  *                     something that is not JSON, a missing credential, or JSON of the
  *                     wrong shape. When the probe failed nothing else is evaluated,
  *                     because nothing else is known.
+ * A FUTURE generated_at IS NOT FRESH (R-2026-09-30-174 EX-2 b). snapshotAge clamps a
+ * negative age to zero, as freshnessBand does for a ward stamp ahead of server_now, where
+ * freshness.ts calls it "a clock problem on the writer, not a negative age". That is a
+ * sensible display rule, and for an alarm it hides a real fault: a manual write of a later
+ * timestamp, or the database clock stepping backwards, would read 200 for as long as the
+ * stamp stays ahead. So a generated_at more than FUTURE_TOLERANCE_MS after server_now is
+ * snapshot_stale, and its age is reported as null, because it is unmeasurable and not zero
+ * seconds. Five seconds is the ruled allowance, and exactly five is still fresh.
+ * snapshotAge itself is untouched, so the banner's shared function stays as it is.
  * A FAILED LAST RUN IS NOT A REASON. One transient failure would alarm while the public
  * page shows no banner. Repeated failure stops new snapshots, the age passes the
  * threshold, and snapshot_stale catches it. The last finished status is in the body for
@@ -41,6 +51,9 @@
 import { snapshotAge } from './freshness.js';
 
 export const SNAPSHOT_JOB = 'openbed_regenerate_snapshot';
+
+/** How far ahead of server_now a generated_at may be before it stops reading as fresh. */
+export const FUTURE_TOLERANCE_MS = 5_000;
 
 /** What the monitor's keyword check reads. Neither string contains the other. */
 export const HEALTH_OK = 'openbed-ok';
@@ -148,8 +161,14 @@ export function decideHealth(probe: ProbeInput): HealthDecision {
     reasons.push('snapshot_stale');
   } else {
     const age = snapshotAge(status.generated_at, status.server_now, 0);
-    if (age.stale) reasons.push('snapshot_stale');
-    if (age.known) ageSeconds = Math.round(age.ageMinutes * 60);
+    const aheadMs = Date.parse(status.generated_at) - Date.parse(status.server_now);
+    if (age.known && aheadMs > FUTURE_TOLERANCE_MS) {
+      // A stamp from the future has no age worth reporting: null, never a clamped zero.
+      reasons.push('snapshot_stale');
+    } else {
+      if (age.stale) reasons.push('snapshot_stale');
+      if (age.known) ageSeconds = Math.round(age.ageMinutes * 60);
+    }
   }
 
   const job = status.jobs.find((j) => j.name === SNAPSHOT_JOB) ?? null;

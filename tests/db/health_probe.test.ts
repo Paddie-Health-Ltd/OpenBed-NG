@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from 'vitest';
 import type { TransactionSql } from 'postgres';
 import { SCHEDULED_JOBS, assertScheduledJobsPaused, withRole } from '../setup/db.js';
 import SHAPE from '../../packages/fixtures/snapshot-shape.json';
+import FUNCTION_GRANTS from '../../packages/fixtures/function-grants.json';
 import { SNAPSHOT_JOB, decideHealth, type ProbeInput } from '../../packages/snapshot/src/health.js';
 
 /**
@@ -34,6 +35,16 @@ import { SNAPSHOT_JOB, decideHealth, type ProbeInput } from '../../packages/snap
  *   - THE RUN LOOKUP: the latest FINISHED run only, over two days only.
  *   - IT IS READ-ONLY: STABLE, a definer with an empty search_path, and calling it changes
  *     no row it reads.
+ *
+ *   - THE PIN (R-2026-09-30-174 EX-2 a): decision 3 was faced for a probe that is read-only
+ *     and returns no snapshot row. Prose does not hold that, so `pinViolations` does. The
+ *     function's definition must be EXACTLY the one 027 writes (a body that only delegates,
+ *     plpgsql, no arguments, jsonb, STABLE, a definer, an empty search_path); its result's
+ *     keys must be exactly the four ruled ones, and each job's exactly the five ruled ones,
+ *     so no payload can ride out inside a nested key; and among the functions in app and
+ *     public, health_probe must be the only entry the fixture lets service_role execute.
+ *     Anything else reopens decision 3 afresh (the ruling's own words). Each plant runs in a
+ *     rolled-back transaction, and the check takes that transaction's handle.
  *
  * NOT ASSERTED HERE, deliberately: that HOSTED pg_cron lets the migration role's definer
  * read cron.job_run_details. It is asserted locally, and the local PostgreSQL 17.6 and
@@ -260,6 +271,114 @@ describe('the probe is read-only', () => {
       return { before, after: await counts(tx) };
     }, freshSnapshot);
     expect(after).toEqual(before);
+  });
+});
+
+/**
+ * TWO DEFECTS IN THE RULING'S OWN QUERY, MEASURED HERE AND CORRECTED (R-2026-09-30-174).
+ * `btrim(p.prosrc)` trims spaces only, not the newlines a function body starts and ends with,
+ * so the ruling's comparison reads FALSE on the unmodified function; the whitespace is
+ * collapsed first and the result trimmed after. And `p.proconfig = '{search_path=""}'` is a
+ * malformed array literal (22P02, refused by the server), so the same comparison is written
+ * `array['search_path=""']`. Both keep the ruling's intent exactly: the normalised body is
+ * the one delegating statement, and the only setting is an empty search_path.
+ *
+ * THE PIN. Returns every way the probe is not exactly what decision 3 was faced for; empty
+ * means it is. `tx` is the caller's transaction handle, so a plant can change the objects
+ * inside it and be rolled back with it. Read as the role the caller has set (service_role in
+ * these tests, as the Function reads it); pg_proc is readable by every role.
+ */
+const PIN_DEFINITION_SQL = String.raw`select btrim(regexp_replace(p.prosrc, '\s+', ' ', 'g')) = 'BEGIN RETURN app.scheduler_status(); END;'
+     and p.prolang = (select oid from pg_language where lanname = 'plpgsql')
+     and p.pronargs = 0 and p.prorettype = 'jsonb'::regtype and p.provolatile = 's'
+     and p.prosecdef and p.proconfig = array['search_path=""'] as pinned
+  from pg_proc p where p.oid = 'public.health_probe()'::regprocedure`;
+
+const TOP_KEYS = ['generated_at', 'jobs', 'last_snapshot_at', 'server_now'];
+const JOB_KEYS = ['active', 'last_start_time', 'last_status', 'name', 'schedule'];
+
+async function pinViolations(tx: TransactionSql): Promise<string[]> {
+  const out: string[] = [];
+  const [def] = await tx.unsafe<{ pinned: boolean | null }[]>(PIN_DEFINITION_SQL);
+  if (def?.pinned !== true) out.push('definition: health_probe is not exactly the read-only delegating definer 027 writes');
+  const p = await probe(tx);
+  const top = Object.keys(p).sort();
+  if (JSON.stringify(top) !== JSON.stringify(TOP_KEYS)) out.push(`top-level keys: ${top.join(',')} is not exactly ${TOP_KEYS.join(',')}`);
+  const jobs = Array.isArray(p.jobs) ? (p.jobs as Row[]) : [];
+  if (jobs.length === 0) out.push('job keys: the result holds no job element, so the key check would be vacuous');
+  for (const j of jobs) {
+    const keys = Object.keys(j).sort();
+    if (JSON.stringify(keys) !== JSON.stringify(JOB_KEYS)) out.push(`job keys: ${keys.join(',')} is not exactly ${JOB_KEYS.join(',')}`);
+  }
+  return out;
+}
+
+/** Among the functions in app and public, the entries the fixture lets service_role execute. */
+type GrantFixture = { functions: Record<string, { execute: string[] }> };
+function fixtureViolations(fx: GrantFixture): string[] {
+  const held = Object.entries(fx.functions)
+    .filter(([id, e]) => /^(app|public)\./.test(id) && e.execute.includes('service_role'))
+    .map(([id]) => id)
+    .sort();
+  return JSON.stringify(held) === JSON.stringify(['public.health_probe()'])
+    ? []
+    : [`fixture: service_role may execute [${held.join(', ')}] among app and public, not exactly [public.health_probe()]`];
+}
+
+/** Rename the real read aside inside the plant's transaction, so a plant can wrap it. */
+const WRAP_READ = 'alter function app.scheduler_status() rename to scheduler_status_real';
+const wrapper = (body: string): string =>
+  `create function app.scheduler_status() returns jsonb language plpgsql stable security definer set search_path = '' as $$ begin ${body} end; $$`;
+
+describe('the pin: what decision 3 was faced for, held by a control', () => {
+  test('real health_probe is accepted — the definition, the keys and the fixture read no violation', async () => {
+    const v = await asServiceRole(pinViolations);
+    expect(v, v.join('; ')).toEqual([]);
+    expect(fixtureViolations(FUNCTION_GRANTS as GrantFixture)).toEqual([]);
+  });
+
+  test('plant — a body with an extra statement is rejected', async () => {
+    const v = await asServiceRole(pinViolations, async (tx) => {
+      await tx.unsafe(`create or replace function public.health_probe() returns jsonb language plpgsql stable security definer set search_path = '' as $$ begin perform 1; return app.scheduler_status(); end; $$`);
+    });
+    expect(v.filter((x) => x.startsWith('definition:')), v.join('; ')).toHaveLength(1);
+  });
+
+  test('plant — an extra top-level key is rejected', async () => {
+    const v = await asServiceRole(pinViolations, async (tx) => {
+      await tx.unsafe(WRAP_READ);
+      await tx.unsafe(wrapper(`return app.scheduler_status_real() || jsonb_build_object('payload', '[]'::jsonb);`));
+    });
+    expect(v.filter((x) => x.startsWith('top-level keys:') && x.includes('payload')), v.join('; ')).toHaveLength(1);
+  });
+
+  test('plant — an extra key on a job is rejected', async () => {
+    const v = await asServiceRole(pinViolations, async (tx) => {
+      await tx.unsafe(WRAP_READ);
+      await tx.unsafe(
+        wrapper(`return jsonb_set(app.scheduler_status_real(), '{jobs}', (select jsonb_agg(j || jsonb_build_object('payload', 'x')) from jsonb_array_elements(app.scheduler_status_real() -> 'jobs') j));`),
+      );
+    });
+    expect(v.filter((x) => x.startsWith('job keys:') && x.includes('payload')).length, v.join('; ')).toBeGreaterThan(0);
+  });
+
+  test('plant — a second service_role entry among app and public is rejected', () => {
+    const planted = JSON.parse(JSON.stringify(FUNCTION_GRANTS)) as GrantFixture;
+    planted.functions['app.scheduler_status()'] = { execute: ['service_role'] };
+    expect(planted.functions['app.scheduler_status()']?.execute, 'the plant did not land').toEqual(['service_role']);
+    expect(fixtureViolations(planted).join('; ')).toContain('app.scheduler_status()');
+  });
+
+  test('anti-vacuity — a result with no job element fails the key check rather than passing it', async () => {
+    const v = await asServiceRole(pinViolations, async (tx) => {
+      await tx.unsafe(WRAP_READ);
+      await tx.unsafe(wrapper(`return jsonb_set(app.scheduler_status_real(), '{jobs}', '[]'::jsonb);`));
+    });
+    expect(v.filter((x) => x.includes('vacuous')), v.join('; ')).toHaveLength(1);
+  });
+
+  test('anti-vacuity — a fixture with no entries fails rather than passing', () => {
+    expect(fixtureViolations({ functions: {} })).not.toEqual([]);
   });
 });
 

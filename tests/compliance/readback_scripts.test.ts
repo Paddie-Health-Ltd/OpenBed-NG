@@ -442,6 +442,9 @@ describe('scripts/readback_pages.sh', () => {
         'health HEAD status', 'health HEAD x-openbed-health', 'health HEAD x-robots-tag',
         'openbed.ng health GET status', 'openbed.ng health GET x-openbed-health', 'openbed.ng health GET x-robots-tag',
         'openbed.ng health HEAD status', 'openbed.ng health HEAD x-openbed-health', 'openbed.ng health HEAD x-robots-tag',
+        // R-2026-09-30-174 EX-2 c: the keyword the monitor keys on, and nosniff on both methods.
+        'health GET body', 'health GET x-content-type-options', 'health HEAD x-content-type-options',
+        'openbed.ng health GET body', 'openbed.ng health GET x-content-type-options', 'openbed.ng health HEAD x-content-type-options',
       ]) {
         expect(r.out, `the check "${check}" never ran`).toContain(`  ok     ${check}: `);
       }
@@ -468,6 +471,13 @@ describe('scripts/readback_pages.sh', () => {
     ['the SPA fallback answering GET /api/health: a 200 text/html with no marker', (f) => { f[`GET ${SITE}/api/health`] = { status: 200, headers: { 'content-type': 'text/html', 'x-robots-tag': 'noindex' }, body: '<!doctype html><html></html>' }; }, 'health GET x-openbed-health'],
     ['/api/health with the wrong robots tag', (f) => { f[`HEAD ${SITE}/api/health`] = { status: 200, headers: { ...HEALTH_HEADERS, 'x-robots-tag': 'noindex' } }; }, 'health HEAD x-robots-tag'],
     ['openbed.ng alone failing /api/health', (f) => { f[`GET ${DASH_DOMAIN}/api/health`] = HEALTH_FAIL_ANSWER; }, 'openbed.ng health GET status'],
+    // R-2026-09-30-174 EX-2 c: the monitor keys on the KEYWORD in the GET body, which a header cannot stand in for.
+    ['a 200 from /api/health carrying the marker header but no openbed-ok in the GET body', (f) => { f[`GET ${SITE}/api/health`] = { status: 200, headers: HEALTH_HEADERS, body: '{"ok":true,"health":"fine"}' }; }, 'health GET body'],
+    ['openbed.ng alone: a 200 from /api/health carrying the marker header but no openbed-ok in the GET body', (f) => { f[`GET ${DASH_DOMAIN}/api/health`] = { status: 200, headers: HEALTH_HEADERS, body: '{"ok":true,"health":"fine"}' }; }, 'openbed.ng health GET body'],
+    ['/api/health GET without nosniff', (f) => { f[`GET ${SITE}/api/health`] = { status: 200, headers: without(HEALTH_HEADERS, 'x-content-type-options'), body: HEALTH_BODY }; }, 'health GET x-content-type-options'],
+    ['/api/health HEAD without nosniff', (f) => { f[`HEAD ${SITE}/api/health`] = { status: 200, headers: without(HEALTH_HEADERS, 'x-content-type-options') }; }, 'health HEAD x-content-type-options'],
+    ['openbed.ng alone: /api/health GET without nosniff', (f) => { f[`GET ${DASH_DOMAIN}/api/health`] = { status: 200, headers: without(HEALTH_HEADERS, 'x-content-type-options'), body: HEALTH_BODY }; }, 'openbed.ng health GET x-content-type-options'],
+    ['openbed.ng alone: /api/health HEAD without nosniff', (f) => { f[`HEAD ${DASH_DOMAIN}/api/health`] = { status: 200, headers: without(HEALTH_HEADERS, 'x-content-type-options') }; }, 'openbed.ng health HEAD x-content-type-options'],
     ['openbed.ng alone answering HEAD /api/health from the SPA', (f) => { f[`HEAD ${DASH_DOMAIN}/api/health`] = { status: 200, headers: { 'content-type': 'text/html' } }; }, 'openbed.ng health HEAD x-openbed-health'],
     ['a page with no Referrer-Policy', (f) => { f[`GET ${SITE}/`] = { status: 200, headers: without(trackedHeaders('public-dashboard'), 'referrer-policy') }; }, 'page referrer-policy'],
     // The design pass (D1; R-2026-09-26-122 CX-3): the favicon is never the SPA's HTML, on either host.

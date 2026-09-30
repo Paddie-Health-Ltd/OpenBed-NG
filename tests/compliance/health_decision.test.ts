@@ -50,6 +50,10 @@ const BANNER_S = BANNER_MINUTES * 60;
 
 const SERVER_NOW = '2026-09-30T04:00:00.000+00:00';
 const ago = (seconds: number): string => new Date(Date.parse(SERVER_NOW) - seconds * 1000).toISOString();
+/** A generated_at LATER than the database's own clock, by `seconds`. */
+const ahead = (seconds: number): string => ago(-seconds);
+/** The ruled tolerance for a generated_at in the future (R-2026-09-30-174 EX-2 b): 5 s, and no more. */
+const FUTURE_TOLERANCE_S = 5;
 
 interface Job {
   name: string;
@@ -98,6 +102,7 @@ type Case = [label: string, probe: () => ProbeInput, status: 200 | 503, reasons:
 const CASES_200: Case[] = [
   ['the fresh baseline', baseline, 200, []],
   [`one second under the banner (${BANNER_MINUTES} minutes) is still 200`, () => withBody((b) => { b.generated_at = ago(BANNER_S - 1); }), 200, []],
+  [`generated_at exactly ${FUTURE_TOLERANCE_S} s AHEAD of the database's clock is still 200: the tolerance is for clock jitter`, () => withBody((b) => { b.generated_at = ahead(FUTURE_TOLERANCE_S); }), 200, []],
   ['the snapshot job\'s last finished run FAILED: one failure is not an alarm', () => withBody((b) => { snapshotJob(b).last_status = 'failed'; }), 200, []],
   ['the snapshot job\'s last run is "running"', () => withBody((b) => { snapshotJob(b).last_status = 'running'; }), 200, []],
   ['the snapshot job\'s last run is "starting"', () => withBody((b) => { snapshotJob(b).last_status = 'starting'; }), 200, []],
@@ -119,6 +124,8 @@ const CASES_200: Case[] = [
 const CASES_503: Case[] = [
   [`exactly at the banner (${BANNER_MINUTES} minutes) is 503`, () => withBody((b) => { b.generated_at = ago(BANNER_S); }), 503, ['snapshot_stale']],
   ['one second past the banner is 503', () => withBody((b) => { b.generated_at = ago(BANNER_S + 1); }), 503, ['snapshot_stale']],
+  [`generated_at ${FUTURE_TOLERANCE_S + 55} s AHEAD of the database's clock is 503: a future stamp must not read fresh forever`, () => withBody((b) => { b.generated_at = ahead(FUTURE_TOLERANCE_S + 55); }), 503, ['snapshot_stale']],
+  [`generated_at one second past the ${FUTURE_TOLERANCE_S} s tolerance ahead is 503`, () => withBody((b) => { b.generated_at = ahead(FUTURE_TOLERANCE_S + 1); }), 503, ['snapshot_stale']],
   ['generated_at NULL (no snapshot at all) is 503', () => withBody((b) => { b.generated_at = null; }), 503, ['snapshot_stale']],
   ['generated_at that cannot be parsed is 503', () => withBody((b) => { b.generated_at = 'not a time'; }), 503, ['snapshot_stale']],
   ['the snapshot job row is absent', () => withBody((b) => { b.jobs = (b.jobs as Job[]).filter((j) => j.name !== SNAPSHOT_JOB); }), 503, ['job_absent']],
@@ -202,6 +209,12 @@ describe('the health decision', () => {
     expect(d.body.snapshot_age_s).toBeNull();
     expect(d.body.checked_at).toBeNull();
     expect(d.body.job).toBeNull();
+  });
+
+  test('a future-dated snapshot reports NO age: it is unmeasurable, not zero seconds old', () => {
+    const d = decideHealth(withBody((b) => { b.generated_at = ahead(60); }));
+    expect(d.body.snapshot_age_s).toBeNull();
+    expect(d.body.checked_at).toBe(SERVER_NOW);
   });
 
   test('the age is reported for a stale snapshot, on the database\'s clock', () => {

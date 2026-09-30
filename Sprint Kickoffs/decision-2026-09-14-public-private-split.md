@@ -617,7 +617,7 @@ Both clauses are asserted against the live function body in `tests/db/snapshot.t
 
 REVOKE from PUBLIC, anon, authenticated and `service_role`; no grant in 016. A grant through a schema wall the grantee cannot see is the shape M1 rejected at 014.
 
-**Flagged forward to 017:** a `service_role` grant is no route for an external caller. The real options are pg_cron running as `postgres`, a direct connection as the owner, or a public wrapper with EXECUTE for `service_role` — which reopens decision 3 and must be faced deliberately.
+**Flagged forward to 017:** a `service_role` grant is no route for an external caller. The real options are pg_cron running as `postgres`, a direct connection as the owner, or a public wrapper with EXECUTE for `service_role` — which reopens decision 3 and must be faced deliberately. *Dated note 2026-09-30 (R-2026-09-30-174 EX-1): faced, not reopened; see -174. Decision 3 makes the snapshot's reader service_role only, and this passage rejects a public wrapper as the way to CALL THE GENERATOR. public.health_probe() is read-only, triggers nothing and returns no snapshot row, so it does not reopen decision 3; a service_role wrapper that writes, reaches the generator or returns snapshot rows reopens it afresh.*
 
 ### Also in the 016 change
 
@@ -724,7 +724,7 @@ _#26 merged at 9e77e9c (merge commit 984ff1b)._
 
 **For 017.**
 - **Role attributes do not block the public-wrapper option:** `service_role` holds BYPASSRLS on hosted.
-- **The wrapper still reopens decision 3** on the public-surface question. That is the reason to choose or reject it, not the role attributes.
+- **The wrapper still reopens decision 3** on the public-surface question. That is the reason to choose or reject it, not the role attributes. *Dated note 2026-09-30 (R-2026-09-30-174 EX-1): faced, not reopened; see -174. Decision 3 makes the snapshot's reader service_role only, and this passage rejects a public wrapper as the way to CALL THE GENERATOR. public.health_probe() is read-only, triggers nothing and returns no snapshot row, so it does not reopen decision 3; a service_role wrapper that writes, reaches the generator or returns snapshot rows reopens it afresh.*
 
 **Method note 5 — the second mechanism claim this loop caught.** R-2026-09-15-06 item (3) said the count check "guards MATERIALIZED staying put".
 - **EXPLAIN showed otherwise:** a CTE referenced twice is materialised regardless, and `NOT MATERIALIZED` still reads under one statement snapshot.
@@ -903,7 +903,7 @@ _Ruled by Cowork in `Sprint Kickoffs/sprint-kickoff-017-schedule-2026-09-16.md`,
 - **The caller route and the scheduler shape were one decision, not two.** There is no server: `apps/public-dashboard` and `apps/ward-console` are static builds, and no `api` directory exists, so v1:293's `/api/sweep` and v1:294's `/api/health` never had a host. The external half of the "dual scheduler" could only have targeted PostgREST, and that is the public wrapper, which is decision 3.
 - **v1 contradicts itself about pausing.** v1:293 justifies the external caller as a keep-alive because free projects pause. v1:396 settles Supabase Pro, "no pausing", and the project has been on Pro since 2026-09-12. v1:363 still makes "is the project paused" the first diagnostic step. The sensor argument survives (pg_cron cannot report its own death), but a sensor needs a reader of `app.system_heartbeat.last_snapshot_at`, not an HTTP endpoint; that is the alerting sprint's.
 - **Cadence.** One minute (`* * * * *`), the nearest cron expression to v1:65's sixty seconds. v1:293's "every 10 minutes" is the alert sweep's cadence, not the snapshot's.
-- **No grant.** The job runs as the role that scheduled it (`cron.job.username = postgres`, observed), and `postgres` owns both functions. `service_role` has no USAGE on `app`, so a grant to it was never a route. Rejected: a direct owner connection (a host and a stored credential that do not exist), and a public wrapper with EXECUTE for `service_role` (reopens decision 3).
+- **No grant.** The job runs as the role that scheduled it (`cron.job.username = postgres`, observed), and `postgres` owns both functions. `service_role` has no USAGE on `app`, so a grant to it was never a route. Rejected: a direct owner connection (a host and a stored credential that do not exist), and a public wrapper with EXECUTE for `service_role` (reopens decision 3). *Dated note 2026-09-30 (R-2026-09-30-174 EX-1): faced, not reopened; see -174. Decision 3 makes the snapshot's reader service_role only, and this passage rejects a public wrapper as the way to CALL THE GENERATOR. public.health_probe() is read-only, triggers nothing and returns no snapshot row, so it does not reopen decision 3; a service_role wrapper that writes, reaches the generator or returns snapshot rows reopens it afresh.*
 
 **R-2026-09-16-08 — schedule the rollup too, and repair it first. Closes v2's finding 1.**
 - A second job, `openbed_refresh_lga_rollup`, every five minutes. 016 declined to be the caller because calling the refresh FROM THE GENERATOR would make the generator a writer of a published surface inside the public read path. A separate job is its own transaction, outside that path.
@@ -11984,6 +11984,233 @@ The ledger's EV row gains "merged at `f882f72`".
 
 Nothing hosted. W1 is not merged. W2 is not started. Next letter: **EX**.
 
+### R-2026-09-30-174 — #107 (W1): the merge word, after one commit; decision 3 ruled; boxes 1 and 9 closed
+
+_Issued as R-PROVISIONAL-2026-09-30-EX, by Cowork on 2026-09-30, after its review of #107 at `8b74290` (a staff engineer and a platform/SRE reviewer reviewed it adversarially from Cowork's side; a QA reviewer then reviewed the letter independently before it was pasted). Landed in #107 with the commit it asks for; #107 merges on it. Number assigned on landing: R-2026-09-29-173 plus one. #107's merge record cannot sit here, inside #107: it lands in W2's PR as an addendum to this entry. Next provisional letter: **EY**, W2 (the operator status view, the runbook and the fire drill)._
+
+**As issued:**
+
+> R-PROVISIONAL-2026-09-30-EX — #107 (W1): THE MERGE WORD, AFTER ONE COMMIT; DECISION 3 RULED; BOXES 1 AND 9 CLOSED
+> EX lands in #107 as -174, with the commit it asks for. #107 merges on it. #107's merge record lands
+> as an addendum in W2's PR. Next letter: EY, W2 (the operator status view, the runbook and the
+> fire drill).
+> A staff engineer and a platform/SRE reviewer reviewed #107 adversarially from Cowork's side before
+> this letter was written. A QA reviewer then reviewed this letter independently before it was
+> pasted.
+>
+> READ BY COWORK, from its own clone at 8b74290be685df9e035bebd2a95e0f311b9ef197:
+> - Two commits on f882f72, 25 paths, as your report lists. The built routes register /api/health for
+>   GET and HEAD, and there is no _routes.json, so HEAD cannot fall to the SPA. 027 is a STABLE,
+>   `search_path = ''` definer; its revokes are by name, and the only service_role grant is on
+>   health_probe. The latest-finished-run lookup is bounded to two days. The down restores 026.
+> - The decision's reasons are exactly EW-2 c's, on one clock (the database's). The cache stores both
+>   answers under a GET key with the query dropped; the outgoing response is no-store. The -58 A
+>   exception is named in all three places, with health_serve.ts as the allow-list file.
+> - Run by the reviewers after `npm run build`: tracked_origins, readback_scripts, health_decision and
+>   health_served, 256 of 256; no_phantom_paths, proxy_allow_list, runbook_migration_expectation,
+>   down_migration_symmetry and eslint_wall_clock, 179 of 179.
+> - The register is 58 (15 BOX, 32 TRIGGER, 11 VERSION). The -172 addendum matches git.
+> - ACCEPTED AS REPORTED: 3043 ZERO-RED (uid 501); the seven checks on 8b74290; the alerts; the
+>   evidence block on run 36685170517; the db tests.
+> - YOUR DEVIATIONS ARE ACCEPTED: health_serve.ts as a third file (it mirrors beds.json.ts and
+>   serve.ts); origins.json's new marker sentence; runbook step 5 restated for 027 and its "027's
+>   apply" subsection.
+> - YOUR FINDING 4 IS RIGHT. The local default ACL for functions in public is `postgres=X` only, so a
+>   removed by-name REVOKE is inert on a local apply, and hosted's default ACL has never been read.
+>   The founder reads it at 027's apply (EX-4). What happens locally is ruled in EY on that reading.
+>
+> EX-1  DECISION 3: FACED, NOT REOPENED. Decision 3 (record :596-599) makes the snapshot's reader
+>   service_role only, so that no second public path serves it around the CDN. The passages at :620,
+>   :727 and :906 and 017:28-35 reject a public wrapper as the way to CALL THE GENERATOR, because that
+>   puts a generator trigger on the public API. health_probe:
+>   - is callable by service_role alone, which already reads the whole table;
+>   - returns generated_at, which /beds.json publishes already, plus job metadata;
+>   - returns no snapshot payload, triggers nothing and writes nothing;
+>   - has no forward entry on the Worker's allow-list, so no browser route reaches it.
+>   The ruling: this reading stands. Any service_role wrapper that writes, reaches the generator, or
+>   returns snapshot rows reopens decision 3 afresh. Add a dated note beside :620, :727 and :906
+>   pointing here, each appended to its cited line (citations are at 8b74290); their text stays as
+>   written, and 017 stays frozen. EX-2 a makes the reading a
+>   control, not prose.
+>
+> EX-2  THE COMMIT. Each code fix (b, c) red first on 8b74290, then green. Where no code changes (a, d),
+>   the plants are red on planted inputs and the neuter is the proof. Every item has a neuter through
+>   scripts/neuter.sh that reddens only its own plants.
+>   a) PIN THE PROBE. In tests/db/health_probe.test.ts:
+>      - health_probe's definition, read from pg_proc, is exactly:
+>        `select regexp_replace(btrim(p.prosrc), '\s+', ' ', 'g') = 'BEGIN RETURN app.scheduler_status(); END;'
+>           and p.prolang = (select oid from pg_language where lanname = 'plpgsql')
+>           and p.pronargs = 0 and p.prorettype = 'jsonb'::regtype and p.provolatile = 's'
+>           and p.prosecdef and p.proconfig = '{search_path=""}'
+>         from pg_proc p where p.oid = 'public.health_probe()'::regprocedure;`
+>      - its result's top-level keys are exactly server_now, generated_at, last_snapshot_at and jobs,
+>        and each jobs element's keys are exactly name, active, schedule, last_status and
+>        last_start_time, so no payload leaks through a nested key;
+>      - among `functions` in schemas app and public in function-grants.json, health_probe is the only
+>        entry service_role can execute. graphql_public.graphql and the hosted_only entries are
+>        Supabase's own, and are left as they are.
+>      Plants, each inside a rolled-back transaction, the check taking that transaction's handle: a
+>      body with an extra statement; an extra top-level key; an extra key on a job; a second
+>      service_role entry among app and public. The neuters use neuter.sh's APPLY step to re-apply 027
+>      locally.
+>   b) A FUTURE generated_at READS FRESH FOREVER. snapshotAge clamps with Math.max(0, …)
+>      (freshness.ts:107), so a manual write or a backward step of the database clock gives 200 [].
+>      In decideHealth, generated_at later than server_now by more than 5 s is snapshot_stale. The
+>      banner's shared function stays as it is. Plants: generated_at 60 s ahead, 503 [snapshot_stale];
+>      exactly 5 s ahead, 200. The 5 s plant is already 200 on 8b74290; its proof is the neuter that sets
+>      the tolerance to 0.
+>   c) readback_pages.sh also requires `openbed-ok` in the GET body, which is what the monitor keys
+>      on, and `x-content-type-options: nosniff` on both methods. Planted both ways in
+>      readback_scripts.test.ts: a 200 with the marker but no keyword reads STOP.
+>   d) ONE HOLDER OF THE DIRECT ORIGIN. A compliance test parses every .ts under apps/*/src,
+>      apps/*/functions and packages/*/src (proxy_allow_list's corpus), excluding
+>      packages/origins/src/index.ts. It holds the importers of supabaseDirectOrigin,
+>      PRODUCTION_SUPABASE_ORIGIN or LOCAL_SUPABASE_ORIGIN to exactly packages/snapshot/src/serve.ts and
+>      packages/snapshot/src/health_serve.ts. Anti-vacuity: exactly two are found. Plant: a third
+>      importer in that corpus is red.
+>   Not taken: `SET row_security = off` in scheduler_status. On hosted it could turn the cron RLS
+>   predicate into an error, and a lost bypass already fails closed (job_absent or snapshot_stale).
+>   Recorded here, not built.
+>
+> EX-3  RECORD AND REGISTER, in this commit.
+>   - -174 holds: EX as issued; EX-1's ruling and the dated notes; what EX-2 built, red first then
+>     green.
+>   - BOX 1 CLOSES (CJ-2, the email provider's processor agreement). Runbook 12.4 step 1 :4393: tick it,
+>     "CLOSED 2026-09-30 (R-2026-09-30-174 EX-3)". Its three conditions are met:
+>     - the s.29 DPA and the s.41 basis, approved by the founder on 2026-09-29 (paperwork register rows
+>       1 to 4);
+>     - mail retention, by the Proton Sieve filter the founder saved and tested on 2026-09-30.
+>     The founder's processor pack §3 is the evidence. Its BOX row leaves by rule (e).
+>   - BOX 9 CLOSES (R-2026-09-19-23 D2, the Cloudflare sub-processor scope cell). The scope text
+>     landed as DL-6 a, and the founder approved register row 3 on 2026-09-29. Tick :4429 the same
+>     way, and replace its `still "to be completed"` with `completed by DL-6 a`. Its BOX row leaves by
+>     rule (e).
+>   - Also record:
+>     - the founder's calls of 2026-09-29: an UptimeRobot free monitor (a 5-minute GET keyword check on
+>       `openbed-ok`), set up in W2; Supabase's custom-domain add-on declined, so W3 uses template T1;
+>     - the founder's reading of 2026-09-30: the Pages project is set to FAIL OPEN. Once the free daily
+>       pool is spent, /beds.json and /api/health serve the SPA index instead of running. The public
+>       page shows its outage state, and the keyword monitor alerts. Keep it.
+>     - the Proton Sent-folder finding: Supabase sends every sign-in email through
+>       support@openbed.ng by SMTP, so a copy lands in its Sent folder, which a Sieve filter never
+>       touches. The retention schedule now says the founder clears it monthly, keeping 30 days. The
+>       schedule is the founder's document, outside this repository: this is recorded in -174 only.
+>   - A NEW TRIGGER ROW, Ruling cell `R-2026-09-30-174 EX-3`: "The Cloudflare account stays on Workers Free (founder, 2026-09-29): Pages
+>     Functions and Workers share 100,000 requests a day." Trigger: "the first error 1027 seen, or daily
+>     Functions plus Workers requests passing 50,000, read in the Cloudflare dashboard: move to Workers
+>     Paid."
+>   - THE REGISTER is then 57 (13 BOX, 33 TRIGGER, 11 VERSION). Recount it from the table. The DN-2 row
+>     points at box 15, which stays open, and is unaffected.
+>   - THE LEG REGISTER: expected 389/364/25, unchanged. Any difference: record why.
+>   - A ledger row for EX.
+>
+> EX-4  THE HOSTED STEPS. Do NOT hand the founder your report's §c. Its first block put all six fences
+>   in one paste, and the runbook's own rule (:1850) says a stop condition never shares a fence with the
+>   step it gates. Cowork issues the founder's split fences itself after the merge, from the runbook's
+>   "027's apply" subsection, adding one read-only query to fence 6:
+>   `select defaclrole::regrole, defaclnamespace::regnamespace, defaclacl from pg_default_acl where defaclobjtype = 'f';`
+>
+> EX-5  THE MERGE WORD. Merge #107 when all of these hold, and only then:
+>   - `git diff --name-only 8b74290..HEAD` lists only: packages/snapshot/src/health.ts,
+>     scripts/readback_pages.sh, tests/db/health_probe.test.ts, tests/compliance/health_decision.test.ts,
+>     tests/compliance/readback_scripts.test.ts, one new compliance test for EX-2 d,
+>     docs/runbook-supabase-project-creation.md, docs/scripts-charter.md if touched,
+>     packages/fixtures/leg-coverage.json if touched, and
+>     `Sprint Kickoffs/decision-2026-09-14-public-private-split.md`. Anything else is a STOP;
+>   - the whole-PR check over f882f72..HEAD prints nothing; lint_no_secrets.sh exits 0; the meta-lint
+>     reads PASS;
+>   - the register reads 57 and the leg register as EX-3 predicts, or as your report explains;
+>   - the full suite ZERO-RED on a fresh database, its count 3043 plus the tests this commit adds, each
+>     named;
+>   - the seven required checks on the new head, read from the API, each `completed success`;
+>   - by ES-5's method, the plain open list and the typed open list both empty;
+>   - scripts/pr_evidence.mjs, run on the new head after its CI, exits 0, and its block is in the PR
+>     body whole.
+>   Merge as a merge commit, passing the head to --match-head-commit, and read MERGED back. Then delete
+>   w1-sensor-health on both sides. If any condition fails, do not merge: report and STOP.
+>
+> EX-6  THE REPORT, after the merge or the STOP:
+>   - the commit and its diff stat;
+>   - each plant red first then green, and each neuter;
+>   - the two ticked boxes as they read;
+>   - the whole-PR check, the scan and the meta-lint;
+>   - the test count and its ZERO-RED line, with the uid;
+>   - the seven checks, each quoted; the alerts;
+>   - the evidence block, condensed, with its run id;
+>   - the merge SHA and parents, MERGED read back, the branch gone on both sides;
+>   - the register by kind and the leg register, from main.
+>   Nothing hosted. Do not start W2: EY comes next.
+
+**EX's premises, checked before acting.** Each was read, not taken. Three do not hold as written, and are corrected below rather than passed over.
+- **Hold:**
+  - `8b74290be685df9e035bebd2a95e0f311b9ef197` reads back as HEAD, the tree was clean, and `origin/main` was still `f882f72c74913a068c568ee51fad5bcdbfcd597f`, so the branch is up to date.
+  - The register read 58 (15 BOX, 32 TRIGGER, 11 VERSION) before this commit, and the DN-2 row points at box 15.
+  - packages/origins exports `supabaseDirectOrigin`, `PRODUCTION_SUPABASE_ORIGIN` and `LOCAL_SUPABASE_ORIGIN`, and exactly two files in the declared corpus import them: serve.ts and health_serve.ts.
+  - freshness.ts:107 clamps with `Math.max(0, …)`.
+  - Lines :620, :727 and :906 of this record are the cited passages, each beginning as the letter says.
+- **Do not hold as written:**
+  1. **The runbook lines.** The letter's `:4393` and `:4429` are 4394 (box 1) and 4430 (the Cloudflare scope box). Both were edited by content, not by line.
+  2. **The ruled pg_proc query reads FALSE on the unmodified function.** `btrim(p.prosrc)` trims spaces only, not the newlines a body starts and ends with, so the normalised source read `' BEGIN RETURN app.scheduler_status(); END; '`, with a space at each end (measured, on the local server, clause by clause). It is written `btrim(regexp_replace(p.prosrc, '\s+', ' ', 'g'))`: collapse first, trim after. The intent, that the normalised body is exactly the one delegating statement, is unchanged.
+  3. **`p.proconfig = '{search_path=""}'` is a malformed array literal.** PostgreSQL refuses it (22P02, read on the local server). It is written `p.proconfig = array['search_path=""']`, which reads true on the real function. The intent, that the only setting is an empty search_path, is unchanged.
+- **Not in the letter, and needed:** the runbook said in present tense, at five places, that the processor agreement was open or the one remaining hosted gate (runbook lines 856, 3704, 3989, 4288 and 4355 at `8b74290`: section 4b's closing paragraph, the H3 section's "not done" paragraph, item 6 of section 12's sequence, 12.3's step 8 note, and the 12.4 preamble). Each now carries a dated `Restated 2026-09-30` note after it, its text left as written, so ticking box 1 does not leave a false present-tense claim (Clause 5). The processor table's email row in this record ("Still open") is the processor-obligations table that W2 revises; it is not touched here.
+- **Accepted as reported, not read here:** the founder's paperwork approvals (register rows 1 to 4, and row 3), the Proton Sieve filter and its test, the processor pack's section 3, the Pages FAIL OPEN reading, and the UptimeRobot and custom-domain calls. None is in this repository.
+
+**EX-1, DECISION 3: FACED, NOT REOPENED.** The ruling stands as issued: decision 3 makes the snapshot's reader `service_role` only, so that no second public path serves it around the CDN; the passages at :620, :727 and :906 and 017:28-35 reject a public wrapper as the way to CALL THE GENERATOR, which would put a generator trigger on the public API; `public.health_probe()` is callable by `service_role` alone, returns `generated_at` (which /beds.json already publishes) and job metadata, returns no snapshot payload, triggers nothing, writes nothing, and has no forward entry on the Worker's allow-list. **Any `service_role` wrapper that writes, reaches the generator, or returns snapshot rows reopens decision 3 afresh.** A dated note pointing here is appended to the end of each of :620, :727 and :906, whose text is otherwise as written; 017 stays frozen. EX-2 a makes the reading a control: the definition, the keys and the grant are held by `tests/db/health_probe.test.ts` (below).
+
+**WHAT EX-2 BUILT, RED FIRST THEN GREEN.**
+
+*b) A future generated_at no longer reads fresh.* `decideHealth` now treats a `generated_at` later than `server_now` by more than 5 seconds (`FUTURE_TOLERANCE_MS`) as `snapshot_stale`. `snapshotAge` and freshness.ts are untouched, so the banner's shared function stays as it is. **Red first on `8b74290`:** four tests, the 60 s plant and the one-second-past-tolerance plant (both read 200), the keyword test, and the null-age test; the exactly-5 s plant was already 200, as the letter said, and its proof is the neuter that sets the tolerance to 0. Then green. **A choice of mine, for Cowork to overrule:** a future-dated snapshot reports `snapshot_age_s: null`, not 0: an age clamped to zero is exactly the false reading this closes, and the letter did not say.
+
+*c) The read-back requires the keyword and nosniff.* `scripts/readback_pages.sh` requires `openbed-ok` in the GET body of /api/health and `x-content-type-options: nosniff` on GET and on HEAD, on both hosts, with no new failure line (so no leg is added). **Red first on `8b74290`:** the accept leg (the new check names never ran) and five plants, the keyword plant on the site and nosniff missing on each method on each host. One plant, the keyword on openbed.ng alone, was not in that red run: its label lacked the string my name filter used, so it was skipped; it is proved by the body-check neuter instead, which reddens it. Then green, 17 of 17 in the filtered run, and the whole file in the full suite.
+
+*a) The probe is pinned.* `tests/db/health_probe.test.ts` gains `pinViolations`, which takes a transaction handle: the definition read from pg_proc (with the two corrections above), the result's top-level keys exactly `server_now`, `generated_at`, `last_snapshot_at` and `jobs`, every job's keys exactly `name`, `active`, `schedule`, `last_status` and `last_start_time` (and at least one job, or the check is vacuous), and `serviceRoleExecutables` over function-grants.json, which must be exactly `public.health_probe()` among the functions in app and public (graphql_public and the hosted_only entries are Supabase's own, and left). Plants, each in a rolled-back transaction: an extra statement in the body, an extra top-level key, an extra key on a job, a second `service_role` entry in a fixture copy, and a result with no job element. No code changed, so there was no red run on `8b74290`; the plants are red on planted inputs and the neuters below are the proof.
+
+*d) One holder of the direct origin.* New `tests/compliance/direct_origin_holders.test.ts` parses (TypeScript AST) every `.ts` under `apps/*/src`, `apps/*/functions` and `packages/*/src`, minus the definer, and holds the importers of the three names to exactly serve.ts and health_serve.ts. It walks the corpus itself, because importing proxy_allow_list.test.ts would run that file's tests and EX-5 forbids editing it; a scratch tree pins the walker to the declared locations. Plants: a third importer in each declared location, a relative import of the definer, an alias, each constant, a re-export, a star re-export and a namespace import; controls: a comment, a string, a local declaration, another name, another namespace are not imports. No code changed here either.
+
+**THE NEUTERS** (`scripts/neuter.sh`), 16, with the specs and each expected red set written to files **before** any ran (session scratchpad, not tracked: `.../scratchpad/ex/ex-neuters.json` and `ex-expected-red.json`). **All 16 reddened, every restore verified, and every red set matched its prediction exactly: no misses.** Each row names what reddened, and only that.
+
+| Neuter | Plant | Reddened |
+|---|---|---|
+| X-tol-zero | the future tolerance set to 0 | 2: the exactly-5 s plant, and the keyword test |
+| X-future-removed | the future check removed | 4: the 60 s plant, the one-second-past plant, the keyword test, the null-age test |
+| X-body-check-removed | the GET-body keyword check removed | 3: the read-back accept leg, and the keyword plant on each host |
+| X-nosniff-removed | both nosniff checks removed | 5: the accept leg, and nosniff missing on each method on each host |
+| X-nosniff-GET-skipped | nosniff skipped on GET only | 3: the accept leg, and the GET plant on each host |
+| X-nosniff-HEAD-skipped | nosniff skipped on HEAD only | 3: the accept leg, and the HEAD plant on each host |
+| X-pin-extra-statement | 027's `health_probe` body gets an extra statement | 1: the pin's accept leg |
+| X-pin-extra-top-key | an extra top-level key in `scheduler_status` | 1 |
+| X-pin-extra-job-key | an extra key on each job | 1 |
+| X-pin-volatile | `health_probe` declared VOLATILE | 2: the pin's accept leg, and the STABLE-definer test |
+| X-pin-second-grant | function-grants.json lists `app.scheduler_status()` for `service_role` | 1 |
+| X-holder-package-src | a third importer in a package src | 2: the holders' accept leg and its anti-vacuity leg |
+| X-holder-reexport | a re-export of the name | 2 |
+| X-holder-app-functions | a third importer in an app functions file | 2 |
+| X-holder-app-src | a third importer in an app src file | 2 |
+| X-holder-import-removed | serve.ts's import removed | 2 |
+
+The pin's neuters redden the accept leg by design: the pin's own plants change objects inside a rolled-back transaction and are red or green on their own inputs, so what a neuter of the migration proves is that the accept leg is live against the real function. The 027 neuters re-applied the file with the harness's APPLY step and read the function definitions back before and after. The local default ACL for functions in `public` is not touched by any of them, so no by-name REVOKE plant is used here (finding 4 of EW, accepted).
+
+**NOT TAKEN, and recorded, not built:** `SET row_security = off` in `app.scheduler_status()`. On hosted it could turn the cron row-security predicate into an error, and a lost bypass already fails closed (`job_absent` or `snapshot_stale`).
+
+**EX-3, THE BOXES AS THEY NOW READ.**
+- **Box 1, the email provider's processor agreement (CJ-2), CLOSED 2026-09-30 (R-2026-09-30-174 EX-3).** Ticked. Its three conditions are the s.29 agreement, the s.41 transfer basis and retention. The first two were approved by the founder on 2026-09-29 (paperwork register rows 1 to 4), and retention is the Proton Sieve filter the founder saved and tested on 2026-09-30. The evidence is the founder's processor pack, section 3, outside this repository: accepted as reported. Its BOX row leaves by rule (e), and `deferred_items.test.ts` was run with the row present and the box ticked to read the rule fire, then with the row gone.
+- **Box 9, the Cloudflare scope cell (R-2026-09-19-23 D2), CLOSED 2026-09-30 (R-2026-09-30-174 EX-3).** Ticked, and its `still "to be completed"` replaced with `completed by DL-6 a`. The founder approved register row 3 on 2026-09-29 (accepted as reported). Its BOX row leaves by rule (e).
+
+**ALSO RECORDED, as reported to Cowork and not verifiable here:**
+- **The founder's calls of 2026-09-29:** an UptimeRobot free monitor, a 5-minute GET keyword check on `openbed-ok`, set up in W2; Supabase's custom-domain add-on declined, so W3 uses template T1.
+- **The founder's reading of 2026-09-30:** the Pages project is set to FAIL OPEN. Once the free daily pool is spent, /beds.json and /api/health serve the SPA index instead of running. The public page shows its outage state, and the keyword monitor alerts. Keep it.
+- **The Proton Sent-folder finding:** Supabase sends every sign-in email through the support address by SMTP, so a copy lands in its Sent folder, which a Sieve filter never touches. The retention schedule now says the founder clears it monthly, keeping 30 days. The schedule is the founder's document, outside this repository: it is recorded here only.
+
+**THE REGISTER.** Both BOX rows leave, and one TRIGGER row arrives: "The Cloudflare account stays on Workers Free (founder, 2026-09-29): Pages Functions and Workers share 100,000 requests a day", gate "The first error 1027 seen, or daily Functions plus Workers requests passing 50,000, read in the Cloudflare dashboard: move to Workers Paid" (Ruling `R-2026-09-30-174 EX-3`). Recounted from the table, and by `parseRegister` (57 rows, 0 errors): **57 (13 BOX, 33 TRIGGER, 11 VERSION)**. The DN-2 row points at box 15, which stays open, and is unaffected.
+
+**THE LEG REGISTER** reads **389/364/25**, unchanged, as expected: nothing under scripts/ gained a refusal line (readback_pages.sh gained `rb_expect` and `rb_ok`/`rb_wrong` calls, which are not legs), and `leg_coverage.test.ts` and `scripts_charter.test.ts` pass against the recorded baseline. The charter's reason cell for readback_pages.sh is unchanged at 15 words.
+
+**THE COUNT** against 3043 (compliance 2132 plus db 911, at `8b74290`): **3081**, ZERO-RED on a fresh database, uid 501: compliance 2163, db 918, and the ratchet 10 apart. That run was of the working tree this commit holds; its bytes differ from the commit only by one comment in health.ts, corrected after the run (a rationale I had invented for the clamp, replaced with freshness.ts's own words), and by this paragraph. The attestation of the head is CI's, in the PR body. **+38, named:** `tests/compliance/health_decision.test.ts` +4 (the exactly-5 s, 60 s and one-second-past plants, and the null-age test); `tests/compliance/readback_scripts.test.ts` +6 (the keyword plant on each host, and nosniff missing on each method on each host); `tests/compliance/direct_origin_holders.test.ts` +21 (a new file); `tests/db/health_probe.test.ts` +7 (the pin's accept leg, four plants and two anti-vacuity legs).
+
+**THE LIVE RUN.** The block for this head is in the PR body, not here: one commit cannot name the run its own head produces.
+
+Nothing hosted. #107's merge record is held for W2's PR, as an addendum to this entry. W2 is not started; EY is next.
+
 ## The provisional ledger
 
 _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row when it lands.** A letter with no row either never arrived or has not landed yet, and Cowork can be told which._
@@ -12148,6 +12375,7 @@ _Added by R-2026-09-20-28 C2. **Every provisional letter received gets a row whe
 | EU | R-2026-09-29-171 | 2026-09-29 | **PR S-c (#106): the hatch pinned; PR evidence from CI's own artefacts; the scripts charter.** Opens with #105's merge record (-170's addendum). EU-1: seed.sh's OPENBED_PSQL is accepted only as `docker exec -i supabase_db_<project> psql` with at most one -U and one -d, run under `env -u` with -X; 17 plants red first on `96aa95b`, 5 neuters; -170's two gaps closed. EU-2: each uploading job writes `ci-provenance.txt` (one line: EU-2 a's wrapped text would have split printf), pinned by a js-yaml guard. EU-3: the register parser moves to `scripts/deferred_register.mjs` unchanged (29 pairs identical); one jobs list; `scripts/pr_evidence.mjs`, 40 legs, 65 tests over real zips, digests and merge objects, 44 neuters; its live run on `7a5c3d7` read run 36619926438 ZERO-RED on its first try. EU-4: `docs/scripts-charter.md`, 45 rows, FINDING deferred_register.d.mts and run_e2e.sh. Leg register 387/361/26; register 59. Found: the leg mapper credits through a quoted script path; the refs/pull merge ends with a newline. Next letter EV. |
 | EV | R-2026-09-29-172 | 2026-09-29 | **#106's merge word, after two commits (code, then this record).** EV-1: a required job present twice is exit 2, never read from its first match; the block is no longer cut off at a pipe (process.exitCode, not process.exit); the run's head_sha must be HEAD and a run not concluding success marks the block RED; seed.sh turns nocasematch off; the leg mapper reads four spellings from the AST only (pairs 79 -> 71, no leg flipped); run_migrations.sh's empty-corpus refusal is planted through its root argument. EV-2: tests/compliance/deferred_register_types.test.ts holds the .d.mts to the module, and run_e2e.sh's test stub, which wrote to the word e2e, now reads --outputFile= and plants both phases. The charter reads 0 FINDING rows. The survey row leaves: register 58 (15 BOX, 32 TRIGGER, 11 VERSION). Leg register 389/364/25. Every fix red first on `27751c5`, 20 neuters, one prediction miss in the safe direction. #106's merge record lands in the next PR. Next letter EW. **Merged at `f882f72`** (parents `96aa95b`, `dd2e36c`); the merge record is -173's addendum. |
 | EW | R-2026-09-29-173 | 2026-09-29 | **PR W1 (#107): the scheduler's status and /api/health.** Opens with #106's merge record (-172's addendum). Migration 027: `app.scheduler_status()` (owner-only) and `public.health_probe()`, executable by service_role alone, the first such grant; decision 3 quoted and faced, read as not forbidding a read-only wrapper, for Cowork to rule in EX. /api/health: a pure decision (`snapshotAge` on the database's clock, reasons snapshot_stale, job_absent, job_inactive, probe_failed), a handler that stores both 200 and 503 for 30 s on a key with no query, GET and HEAD. The -58 A exception extended by name to /beds.json and /api/health. R-2026-09-17-12 G answered: Pages Functions have no Cron Triggers, so the sensor is an external monitor. Runbook step 5 restated for 027 pending. 21 neuters, all red, three prediction misses in the safe direction; a local-default-ACL finding. Register 58 (15 BOX, 32 TRIGGER, 11 VERSION), leg register 389/364/25. Not merged; nothing hosted. Next letter EX. |
+| EX | R-2026-09-30-174 | 2026-09-30 | **#107's merge word, after one commit.** EX-1: decision 3 faced, not reopened; dated notes on :620, :727 and :906; any service_role wrapper that writes, reaches the generator or returns snapshot rows reopens it afresh. EX-2: a future generated_at reads stale (5 s tolerance, null age); the read-back requires the keyword and nosniff on both methods; the probe is pinned (definition, keys, fixture); the direct origin has exactly two holders. Two defects in the letter's own pg_proc query are measured and corrected. 16 neuters, all red, no prediction missed. EX-3: boxes 1 (CJ-2) and 9 (D2) closed, their BOX rows leave by rule (e); five stale present-tense sites restated; a TRIGGER row for the Workers Free pool; register 57 (13 BOX, 33 TRIGGER, 11 VERSION), leg register 389/364/25. #107's merge record lands in W2's PR. Next letter EY. |
 
 ## Deferred items — this record is where the list lives
 
@@ -12183,13 +12411,11 @@ the record's own, except where CW-5 assigned one._
 
 | Item | Ruling | Gate kind | Gate |
 |---|---|---|---|
-| The email provider's processor agreement: s.29 agreement, s.41 transfer basis, retention | R-2026-09-25-108 CJ-2 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 | The clinicians confirm the freshness thresholds and the public wording (with -68 C3). Wording note, R-2026-09-26-126 DB-6: "not yet reporting — updated N min ago" reads as a contradiction | R-2026-09-23-67 A7 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 | Each facility's public number answered 24/7, with a test call | R-2026-09-23-66 C4 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 | A staffed phone or WhatsApp line for wards, with honest hours | R-2026-09-23-67 B3 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 | Where the magic-link emails point (the custom-domain decision) | R-2026-09-22-55 C | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 | The sensor bundle | R-2026-09-22-54 B | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
-| The NDPA sub-processor scope cell for Cloudflare (made a facility-one item by -56 A9) | R-2026-09-19-23 D2 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 | The proxy's surface (by -56 A9) | R-2026-09-19-23 D3 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 | Attribution: which client address Supabase sees (by -56 A9) | R-2026-09-19-23 D4 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
 | Availability of the proxy on the clinical path (by -56 A9) | R-2026-09-19-23 D5 | BOX | Its box at runbook 12.4 step 1, ticked by a ruling that closes it |
@@ -12241,6 +12467,7 @@ the record's own, except where CW-5 assigned one._
 | Read the kept log, name the failing test and its cause, and report it; the 2026-09-28 red on 95c1b83's first gate run is the open instance | R-2026-09-28-152 EB-2 | TRIGGER | The next time tests (db+compliance) is red in scripts/gate.sh |
 | That change brings its block under a live test | R-2026-09-28-152 EB-4 | TRIGGER | The next runbook change that adds or edits a psql line outside the fences tests/db/runbook_12_4_12_5_sql_live.test.ts runs |
 | `cron.job_run_details` is never pruned (about 1,440 rows a day); `health_probe`'s lookup is bounded to two days | R-2026-09-29-173 EW-1 f | TRIGGER | The table passes 500,000 rows, or health_probe takes over 1 s on hosted |
+| The Cloudflare account stays on Workers Free (founder, 2026-09-29): Pages Functions and Workers share 100,000 requests a day | R-2026-09-30-174 EX-3 | TRIGGER | The first error 1027 seen, or daily Functions plus Workers requests passing 50,000, read in the Cloudflare dashboard: move to Workers Paid |
 
 ## Method notes — how rulings reach the implementer
 

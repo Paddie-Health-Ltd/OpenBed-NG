@@ -154,6 +154,13 @@ for host in "$SITE_BEFORE" "$DOMAIN"; do
         rb_expect "$label $m status" "$RB_CODE" 200
         rb_expect "$label $m x-openbed-health" "$(rb_header x-openbed-health)" "ok"
         rb_expect "$label $m x-robots-tag" "$(rb_header x-robots-tag)" "$ROBOTS"
+        rb_expect "$label $m x-content-type-options" "$(rb_header x-content-type-options)" "$NOSNIFF"
+        # The monitor keys on the KEYWORD in the GET body (R-2026-09-30-174 EX-2 c), which no
+        # header can stand in for: a fallback page can carry a header, never this word.
+        if [ "$m" = GET ]; then
+            rb_matches 'openbed-ok'
+            if [ "$RB_COUNT" -gt 0 ]; then rb_ok "$label $m body" "openbed-ok"; else rb_wrong "$label $m body" "(absent)" "the monitor keys on openbed-ok in the GET body"; fi
+        fi
     done
 done
 SITE="$SITE_BEFORE"
