@@ -137,6 +137,8 @@ describe('no shell block in docs/ holds a "!" (zsh history expansion)', () => {
       join(DOCS, 'runbook-cloudflare-pages-beds-json.md'),
       join(DOCS, 'runbook-cloudflare-worker-proxy.md'),
       join(DOCS, 'runbook-key-rotation.md'),
+      // R-2026-09-30-175 EY-4: the sensor runbook holds shell fences, and none holds a "!".
+      join(DOCS, 'runbook-sensor.md'),
       join(DOCS, 'runbook-supabase-project-creation.md'),
       join(DOCS, 'runbook-ward-console-deploy.md'),
     ]);

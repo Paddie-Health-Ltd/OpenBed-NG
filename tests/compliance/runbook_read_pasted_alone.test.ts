@@ -99,8 +99,10 @@ describe('a shell block that reads a value is pasted alone (DZ-3 c)', () => {
     const { fences } = shellFences(REAL);
     const reading = fences.filter((f) => f.lines.some((l) => READ.test(l.text)));
     // 43 on 2026-09-28: 41 in the Supabase runbook and 2 in the Pages runbook (DZ-3 b).
-    expect(reading.length, `connection blocks read: ${reading.length}`).toBeGreaterThanOrEqual(43);
-    expect(new Set(reading.map((f) => f.doc))).toEqual(new Set([RUNBOOK, join(DOCS, 'runbook-cloudflare-pages-beds-json.md')]));
+    // 48 on 2026-09-30 (R-2026-09-30-175 EY-4): docs/runbook-sensor.md adds five, one before each
+    // of its psql blocks. The set of documents is still an equality, now with three members.
+    expect(reading.length, `connection blocks read: ${reading.length}`).toBeGreaterThanOrEqual(48);
+    expect(new Set(reading.map((f) => f.doc))).toEqual(new Set([RUNBOOK, join(DOCS, 'runbook-cloudflare-pages-beds-json.md'), join(DOCS, 'runbook-sensor.md')]));
     expect(inScratch({ 'runbook-x.md': '```bash\necho no reads\n```\n' }).join('\n')).toContain('no shell fence under docs/ reads a value');
   });
 

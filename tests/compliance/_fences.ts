@@ -110,6 +110,9 @@ export const RUNBOOKS: readonly string[] = [
   // PR 3.4b-app C (R-2026-09-24-88 BP-11): the admin deploy runbook's psql blocks carry
   // step P's line too. It holds none today; it is in the corpus so the next one is held.
   join('docs', 'runbook-admin-deploy.md'),
+  // W2 (R-2026-09-30-175 EY-4): the sensor runbook. Its psql blocks are the probe read, the
+  // jobs read, the drill's pause and restore, and the restore read-back.
+  join('docs', 'runbook-sensor.md'),
 ];
 
 /** The named docs under `root`, read, in the order given. */

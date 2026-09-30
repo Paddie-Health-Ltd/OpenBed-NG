@@ -74,8 +74,12 @@ import { bashFences, isGoverned, loadRunbooks, PSQL_SCRIPTS } from './_fences.js
  * history as the facility's login through psql, carrying step P's PATH line. The same change
  * split every block that reads a value into a connection line and a command block
  * (R-2026-09-28-150 DZ-3 b); a connection line calls no psql, so that split moved nothing.
+ * 39 -> 44 on 2026-09-30 (R-2026-09-30-175 EY-4): docs/runbook-sensor.md joins RUNBOOKS and
+ * holds five blocks that call psql -- the probe read, the jobs read, the drill's pause and its
+ * restore, and the restore read-back -- each carrying step P's PATH line. Its connection lines
+ * call no psql and move nothing.
  */
-const GOVERNED_TODAY = 39;
+const GOVERNED_TODAY = 44;
 
 /**
  * THE READER MOVED (R-2026-09-29-165, EO-1 a). RUNBOOKS, bashFences(), PSQL_SCRIPTS and

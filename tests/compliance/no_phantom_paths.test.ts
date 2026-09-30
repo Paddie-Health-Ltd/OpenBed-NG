@@ -92,6 +92,9 @@ const DELIBERATE_ABSENCES: Record<string, string> = {
     'cites it too; the record keeps its history as written (method note 8), and the kickoff ' +
     'is committed byte-identical, so each remaining citation names a path whose absence is ' +
     'now the design. Every live reference -- code, tests, the ward console -- was moved.',
+  'docs/runbook-snapshot-stopped.md':
+    'ABSORBED into docs/runbook-sensor.md by W2 (R-2026-09-30-175 EY-4); the planning documents ' +
+    'keep their citations as written, so each names a path whose absence is now the design.',
   'apps/public-dashboard/src/public-labels.json':
     'MOVED to packages/labels/public-labels.json by PR 3.4a (R-2026-09-23-70 E), so the ' +
     'ward console reads the same words. The decision record cites the old path in its ' +
@@ -113,9 +116,6 @@ const DELIBERATE_ABSENCES: Record<string, string> = {
  * executable artefacts, and a reader of one has no reason to expect a plan.
  */
 const PLANNED_ARTEFACTS: Record<string, { stage: number | string }> = {
-  'docs/runbook-snapshot-stopped.md': { stage: 1 },
-  // The sensor runbook: cited by the facility-one kickoff, built by its W2 (R-2026-09-29-173 EW). W2 builds ONE of this path and the one above and retires the other with its reason.
-  'docs/runbook-sensor.md': { stage: 'W2' },
   'packages/fixtures/referral-columns.json': { stage: 5 },
   'scripts/lint_referral_ward_to_ward.sh': { stage: 5 },
   'tests/compliance/referral_ward_to_ward.test.ts': { stage: 5 },

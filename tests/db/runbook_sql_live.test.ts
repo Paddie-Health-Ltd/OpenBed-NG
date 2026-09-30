@@ -191,6 +191,10 @@ export const EXCLUDED: readonly Excluded[] = [
   { anchor: '**2. The before-reading.**', reason: 'hosted, over the network', shapeIs: 'the public read-back of https://openbed.ng, with no fingerprint', shape: exactly([PATH_LINE, 'bash scripts/readback_public_output.sh https://openbed.ng', 'unset DATABASE_URL']) },
   { anchor: '**4. The after-reading.**', reason: 'hosted, over the network', shapeIs: 'the public read-back of https://openbed.ng, with the fingerprint', shape: holds("bash scripts/readback_public_output.sh https://openbed.ng 'PASTE-THE-FINGERPRINT-HERE'") },
   { anchor: 'The reload. The first line waits silently', reason: 'NOTIFY: nothing to compile, and a live schema reload would race rpc_over_http_live', shapeIs: 'the pgrst reload notify', shape: holds("notify pgrst, 'reload schema'") },
+  // W2 (R-2026-09-30-175 EY-4): the fire drill's two writes to cron.job, in docs/runbook-sensor.md. Run here
+  // the restore would switch the LOCAL jobs back on, and every db test holds them paused.
+  { anchor: '**1. Pause the snapshot job.**', reason: 'writes cron.job: hosted only; run here it un-pauses the local jobs', shapeIs: 'the drill\'s pause: cron.alter_job with active := false', shape: holds('active := false') },
+  { anchor: '**4. Restore the job.**', reason: 'writes cron.job: hosted only; run here it un-pauses the local jobs', shapeIs: 'the drill\'s restore: cron.alter_job with active := true', shape: holds('active := true') },
   { anchor: '### The SQL this step used to carry was a no-op, and that is observed', reason: 'quoted history: running it would make superseded text a live constraint', shapeIs: 'the ```sql fence of the old tamper statements', shape: (f) => f.label === 'sql' && f.body.includes("set action = 'tampered'") },
 ];
 
@@ -809,7 +813,9 @@ describe('the partition of the runbooks\' psql and sql fences', () => {
     const p = partition([{ doc: SUPABASE_DOC, text }, ...DOCS.slice(1)]);
     expect(p.errors).toEqual([]);
     expect(p.runHere.length).toBe(REAL.runHere.length + 1);
-    expect(p.runHere.at(-1)?.body).toContain('psql "$DATABASE_URL" -tAc "select 1"');
+    // R-2026-09-30-175 EY-4: the sensor runbook now comes after the Supabase one in the corpus, so the
+    // appended fence is the last RUN-HERE fence OF ITS DOCUMENT, not of the corpus.
+    expect(p.runHere.filter((f) => f.doc === SUPABASE_DOC).at(-1)?.body).toContain('psql "$DATABASE_URL" -tAc "select 1"');
   });
 
   test('anti-vacuity — the partition over an empty corpus fails', () => {
@@ -966,7 +972,8 @@ describe('plants: each runs only its planted fence, from a copy of the runbook',
   test('a ```sql fence appended to a runbook lands in RUN-HERE and runs through psql', () => {
     const p = partition([{ doc: SUPABASE_DOC, text: `${DOCS[0]?.text ?? ''}\n\n### A planted step\n\n\`\`\`sql\nselect 1 as planted_one;\n\`\`\`\n` }, ...DOCS.slice(1)]);
     expect(p.errors).toEqual([]);
-    const f = p.runHere.at(-1) as CorpusFence;
+    // The last RUN-HERE fence of the Supabase runbook (R-2026-09-30-175 EY-4: not of the corpus).
+    const f = p.runHere.filter((x) => x.doc === SUPABASE_DOC).at(-1) as CorpusFence;
     expect(f.label).toBe('sql');
     const { violations, run } = runGated(p, f, BASE);
     expect(violations, run === undefined ? '' : shown(run)).toEqual([]);
