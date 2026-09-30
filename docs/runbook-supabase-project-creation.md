@@ -857,6 +857,10 @@ provider's processor agreement (R-2026-09-25-108 CJ-2), which is the one remaini
 hosted gate. It is also every open item in the decision record whose trigger is
 "before facility one" (R-2026-09-25-116 CR-1). Both are listed at section 12.4 step 1.
 
+*Restated 2026-09-30 (R-2026-09-30-174 EX-3).* The processor agreement (CJ-2) is CLOSED:
+its box at 12.4 step 1 is ticked. What still stands between hosted and facility one is
+every other open item there whose trigger is "before facility one".
+
 **The trigger counts WARD accounts, not the operator's row** (R-2026-09-25-115 CQ-2).
 Until 2026-09-25 this section said "the first `app.ward_account` row", and its check
 expected `0|0`. But the operator's own row is an `app.ward_account` row
@@ -1015,11 +1019,15 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions.
 Restated 2026-09-14: until then this read `exactly 13 migration(s) pending.`, and
 migration 014 made that wrong.
 
-- **The hosted project today** holds 001 through 026 (see step 7), and so does the
-  repository. Every file up to and including
+- **The hosted project today** holds 001 through 026 (see step 7), and the
+  repository ends at 027. Every file up to and including
   `026_facility_reporter_and_checks.sql` must read `already applied`;
-  there must be no `WOULD APPLY` line; and the dry run must end
-  `0 migration(s) pending.`
+  there must be exactly one `WOULD APPLY` line, naming `027_scheduler_status.sql`; and the dry
+  run must end
+  `1 migration(s) pending.` Apply it by the fences below, in the order step 5 gives them.
+- **Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that ADDS 027.**
+  Until then this expected no `WOULD APPLY` line and `0 migration(s) pending.`, which
+  was right from 025's and 026's hosted apply while the repository also ended at 026.
 - **Restated 2026-09-28 (R-2026-09-28-149 DY-1), in the change that records 025's and
   026's hosted apply.** Until then this expected 001 through 024, exactly two
   `WOULD APPLY` lines naming `025_facility_reporter_role.sql` and then
@@ -1110,10 +1118,14 @@ migration 014 made that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line AT ALL, or any count other than
-  `0 migration(s) pending.`: stop and report.** Another file pending means
+- **Any `WOULD APPLY` line OTHER than the one named above, or any count other than
+  `1 migration(s) pending.`: stop and report.** Another file pending means
   either a migration reached the repository after the list was last restated, or
   hosted is not where this document says it is.
+  - *Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that adds 027.
+    Until then this bullet read "Any `WOULD APPLY` line AT ALL, or any count other than
+    `0 migration(s) pending.`", which was right from 025's and 026's hosted apply until
+    this change merged.*
   - *Restated 2026-09-28 (R-2026-09-28-149 DY-1), in the change that records 025's and
     026's hosted apply. Until then this bullet read "Any `WOULD APPLY` line OTHER than
     the two named above, or any count other than `2 migration(s) pending.`", which was
@@ -2409,14 +2421,68 @@ this apply. On 2026-09-28 it was (R-2026-09-28-149).
 
 - [x] On 2026-09-28, 025 and 026 applied, and the Worker redeployed and read back, from the deploy checkout at `cd05de15d248ad9462e98d96ac247f5f9beb3f55` (#93's merge, `git status` clean). The readings are the founder's, relayed by Cowork (R-2026-09-28-149 DY-1). A: `0` (scope rows); the email reading refused under zsh history expansion (R-2026-09-28-148 DX), and re-run in the `not (email ~ …)` form read `0`; `0` (`FACILITY_REPORTER` labels). The first attempt at fence 2 failed before reading anything: psql reached the local socket, because the pasted `read -rs` swallowed a line. It is not a reading; the re-run is. Fence 1: twenty-four `already applied` (001 to 024), `WOULD APPLY` `025_facility_reporter_role.sql` then `026_facility_reporter_and_checks.sql`, "2 migration(s) pending." Fence 2: `FINGERPRINT beds.json=0/0:543f06c0b0c4,facility_public=0:d41d8cd98f00,ward_public=0:d41d8cd98f00,lga_rollup=0:d41d8cd98f00`, `RECORDED`. Fence 3: 001 to 024 skipped; 025 applied (`ALTER TYPE`, `INSERT 0 1`, `INSERT 0 0`); 026 applied, with three expected DROP-IF-EXISTS NOTICEs (`trg_ward_account_one_reporting_source`, `facility_contact_email_form`, `facility_hefamaa_reg_no_form`); "Migrations complete (2 applied this run)." Fence 4: all four parts `ok` against the fingerprint, "PASS (VACUOUS FOR B1)". Fence 5: twenty-six `already applied` (001 to 026), no `WOULD APPLY` line, "0 migration(s) pending." Fence 6: PASS; `app.enforce_one_reporting_source()` reads `EXECUTE: none`, `public.my_reporting_wards()` and `public.operator_record_registration(text, integer, text)` read `EXECUTE: authenticated`, `my_facility_wards` is absent, and `public.rls_auto_enable()` reads `ok` (hosted-only). B: `1`, then `t|t|t`. The Worker: `deploy_worker.sh supabase-proxy`, Current Version ID `7d07e831-c2a8-4d84-8edb-dd731f16793e`, the stamp naming `cd05de1` on attempt 1 of 12; `readback_worker.sh https://api.openbed.ng` read PASS: probe 1 (`my_reporting_wards`) 401, `klrlpxysjsjpdkeqdhvl`, forwarded; probe 1b (`operator_record_registration`) the same; probe 2 GET 200 and HEAD 405, both forwarded; probe 3 404, refused with the proxy's body; the stamp `cd05de1`, dirty false, HEAD 200. Probe 4, Cowork's reading through the Cloudflare connector: the deployed `supabase-proxy` is the tracked handler with `supabase-proxy/allow-list.json` at `cd05de1`, entry for entry (forward: 13 POST, 1 GET, 13 OPTIONS; 2 `direct_origin_exceptions`; 1 `refusal_probes`), and its bundled `version.json` reads commit `cd05de1`, dirty false. PASS.
 
+### 027's apply — the scheduler's status; the first service_role grant (R-2026-09-29-173 EW-1)
+
+**Not yet run.** The founder runs it after the pull request that adds 027 merges, and
+before the public dashboard is redeployed from that merge: `/api/health` calls the
+function this creates, and answers 503 with `probe_failed` until it exists. Claude Code
+runs nothing hosted.
+
+**What 027 changes** (its header says why). Two functions and nothing else:
+`app.scheduler_status()`, owner-only, and `public.health_probe()`, executable by
+`service_role` alone. It adds no table, column, job or data, and changes no public row.
+It is the repository's first `service_role` grant on a function, and decision 3 was
+faced for it in the record (R-2026-09-29-173): the function is read-only and triggers
+nothing.
+
+**Run the six fences of "020's apply" above, in the same order, with these
+expectations for 027.** Only what each must read changes:
+
+1. **The dry run:** exactly one `WOULD APPLY` line, naming
+   `027_scheduler_status.sql`, and the count the list at the top of this step states.
+   Anything else: stop and report.
+2. **The before-reading:** as for 020. Keep the `FINGERPRINT` line.
+3. **The apply:** as for 020. It applies the one file, and ends by saying one was applied
+   this run.
+4. **The after-reading:** as for 020. `PASS (VACUOUS FOR B1)` is expected while hosted
+   lists no facility: 027 writes no row and changes no projection.
+5. **The second dry run:** twenty-seven `already applied` lines, naming
+   `001_app_schema_and_migration_ledger.sql` through `027_scheduler_status.sql`, no
+   `WOULD APPLY` line, and the same last line as 020's fence 5, saying nothing is
+   pending. Anything else: stop and report.
+6. **Who can execute what:** as for 020, run after the apply. Two lines are new:
+   - `app.scheduler_status() EXECUTE: none`;
+   - `public.health_probe() EXECUTE: service_role`.
+
+   Every other line reads as before, and `public.rls_auto_enable()` reads `ok` under
+   `(hosted-only)`. This read-back runs BEFORE the boundary is frozen. Anything else:
+   stop and report.
+
+**Then read the probe itself, as `service_role`.** It must show the five `openbed_` jobs,
+the snapshot job active, and a finished run of the snapshot job in the last two minutes.
+Anything else: stop and report. This is the first hosted reading of the claim that a
+definer owned by the migration role can read `cron.job_run_details`; until it is read,
+that claim is asserted locally only, and no test here can assert it.
+
+**The down migration is not applied here on anyone's own authority.** It removes both
+functions and changes no data.
+
+**Afterwards:** the frozen boundary is recorded with `27`, in the change that records this
+apply.
+
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 026 applied, and so does the repository
-end), the dry run prints twenty-six `already applied` lines and:
+**On the hosted project today** (001 through 026 applied, and the repository ends at
+027), the dry run prints twenty-six `already applied` lines and:
 
 ```
-0 migration(s) pending.
+  WOULD APPLY     : 027_scheduler_status.sql   <- dry run
+1 migration(s) pending.
 ```
+
+*Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that adds 027.* Until then
+this block showed twenty-six `already applied` lines, no WOULD APPLY line, and a count of
+zero -- right from 025's and 026's apply while the repository ended at 026.
 
 *Restated 2026-09-28 (R-2026-09-28-149 DY-1), in the change that records 025's and
 026's hosted apply.* Until then this block described the state BEFORE that apply:
@@ -2610,9 +2676,14 @@ Migrations complete (3 applied this run).   <- apply
 second is lower:
 
 ```
-26 migration(s) pending.          <- dry run
-Migrations complete (25 applied this run).   <- apply
+27 migration(s) pending.          <- dry run
+Migrations complete (26 applied this run).   <- apply
 ```
+
+*Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that adds 027. This block
+read `26` and `25` -- right while the repository ended at 026. Observed on the local
+stack in this change: a fresh `db:reset` printed `Migrations complete (26 applied this
+run).`*
 
 *Restated 2026-09-27 (R-2026-09-27-144 DT l), in the change that adds 025 and 026. This
 block read `24` and `23` -- right while the repository ended at 024. Observed on the
@@ -2646,13 +2717,15 @@ so from that merge it named a count one lower than a correct virgin run prints. 
 not one of the hosted expectations the guard parses; it was found by reading the
 section for this restatement.*
 
-**Twenty-five is correct there. Nothing was skipped.** Migration 001 creates the `app`
+**Twenty-six is correct there. Nothing was skipped.** Migration 001 creates the `app`
 schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
 recorded by a ledger that does not exist yet. The runner applies and ledgers it
 in a separate **bootstrap** step, and the apply loop then counts only what it
-applied itself -- 002 through 026, which is twenty-five. The dry run has no bootstrap
+applied itself -- 002 through 027, which is twenty-six. The dry run has no bootstrap
 branch: `is_applied` returns 0 while the ledger is absent, so it counts all
-twenty-six as pending. The two numbers are measuring different things.
+twenty-seven as pending. The two numbers are measuring different things.
+*Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that adds 027; until then this
+paragraph read twenty-five, 002 through 026, and twenty-six.*
 *Restated 2026-09-27 (R-2026-09-27-144 DT l), in the change that adds 025 and 026; until
 then this paragraph read twenty-three, 002 through 024, and twenty-four.*
 *Restated 2026-09-27 (R-2026-09-26-136 DL-2), in the change that adds 024; until then
@@ -2662,9 +2735,12 @@ this paragraph read twenty-two, 002 through 023, and twenty-three.*
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `26`, with `0 migration(s) pending.` from the
-dry run** -- the founder's second dry run after 025's and 026's apply, on 2026-09-28, read
-twenty-six `already applied` lines, 001 through 026.
+THAT PROJECT. **On hosted today that is `26`, with `1 migration(s) pending.` from the
+dry run** -- 027, in the repository and not yet applied. The founder's second dry run
+after 025's and 026's apply, on 2026-09-28, read twenty-six `already applied` lines,
+001 through 026.
+*Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that adds 027; until then it
+read `26` with `0 migration(s) pending.`, right while the repository ended at 026.*
 *Restated 2026-09-28 (R-2026-09-28-149 DY-1), in the change that records that apply;
 until then it read `24` with `2 migration(s) pending.`, naming
 `025_facility_reporter_role.sql` and `026_facility_reporter_and_checks.sql`.*
@@ -3636,6 +3712,9 @@ Until that agreement is approved, no hospital or ward address is sent a link. H6
 run before it: at H6 the only address Proton sends to is the operator's sign-in
 address, Paddie Health's own role address in a mailbox Proton already hosts.
 
+*Restated 2026-09-30 (R-2026-09-30-174 EX-3).* The processor agreement is done: CJ-2 is
+CLOSED and its box at 12.4 step 1 is ticked.
+
 *Restated 2026-09-25 (R-2026-09-25-108).* Until then this read: "**Not done yet.**
 Entered by the founder in the Supabase dashboard, as part of H3, together with custom
 SMTP and its processor agreement. Until all three are done, no ward and no operator can
@@ -3924,6 +4003,10 @@ Until then the second sentence read "**NOT YET RUN.**"
 (12.4), which is **BLOCKED by two gates, both open**: (a) the -45 gate, step 4b, whose
 row 5, the backup restore drill, has never run; and (b) R-2026-09-25-108 CJ-2, the email
 provider's s.29 processor agreement, not yet approved. Either one alone blocks it."
+
+*Restated 2026-09-30 (R-2026-09-30-174 EX-3).* Item 6 no longer names CJ-2 as a gate: it is
+CLOSED. Facility creation (12.4) waits on every open item at 12.4 step 1 whose trigger is
+"before facility one".
 
 *Restated 2026-09-25 (R-2026-09-25-113).* Until then items 5 and 6 read: "5. H6 (12.3),
 which ends with the operator bootstrap and an empty register; 6. and only when step 4b
@@ -4215,6 +4298,8 @@ until step 4b reads CLOSED on every row** (the -45 gate). *Since 2026-09-25 step
 reads CLOSED on every row (R-2026-09-25-115). Facility and ward logins now wait on the
 one remaining hosted gate, CJ-2, and on every open item with the trigger "before
 facility one" (section 12.4 step 1, R-2026-09-25-116).*
+*Restated 2026-09-30 (R-2026-09-30-174 EX-3): CJ-2 is CLOSED, so facility and ward logins
+now wait only on the open items at 12.4 step 1 with the trigger "before facility one".*
 
 - [x] H6: preconditions 1-7 read; steps 1-8 as above (date, Cowork's reading of each step)
   - **On 2026-09-25, all eight steps read as they must, and the admin app is LIVE**
@@ -4288,6 +4373,9 @@ facility one" (section 12.4 step 1, R-2026-09-25-116).*
 - **every open item in the decision record whose trigger is "before facility one"**,
   whether it is on hosted or not.
 
+*Restated 2026-09-30 (R-2026-09-30-174 EX-3).* The first of those two things is CLOSED: the
+processor agreement, CJ-2, is ticked at step 1. This section is still BLOCKED by the second.
+
 **The -45 gate is clear since 2026-09-25:** step 4b reads CLOSED on every row, now that
 the backup restore drill has passed.
 
@@ -4319,8 +4407,14 @@ through the admin app.
    CS-5 added them.* An item is ticked only by a
    ruling that closes it. **None is closed here.**
 
-   - [ ] **The email provider's processor agreement:** s.29 agreement, s.41 transfer
+   - [x] **The email provider's processor agreement:** s.29 agreement, s.41 transfer
      basis, retention. **The one remaining hosted gate.** (R-2026-09-25-108 CJ-2)
+     **CLOSED 2026-09-30 (R-2026-09-30-174 EX-3).** All three conditions are met: the s.29
+     written agreement and the s.41 transfer basis, approved by the founder on 2026-09-29
+     (paperwork register rows 1 to 4), and mail retention, by the Proton Sieve filter the
+     founder saved and tested on 2026-09-30. The evidence is the founder's processor pack,
+     section 3, which is outside this repository: it was reported to Cowork and is
+     accepted as reported here, not read.
    - [x] The production CSP names no local origin: admin AND the ward console, whose
      `connect-src` both carried `http://127.0.0.1:54321`. (R-2026-09-25-113 CO-3; built
      by R-2026-09-25-117 CS-2.) **Closes only when** the founder has redeployed admin
@@ -4355,9 +4449,11 @@ through the admin app.
      the custom-domain decision is needed. (R-2026-09-22-55 C)
    - [ ] The sensor bundle, sequenced after Bundle 3 and before facility one. Not
      started. (R-2026-09-22-54 B)
-   - [ ] The NDPA sub-processor scope cell for Cloudflare, still "to be completed" in
+   - [x] The NDPA sub-processor scope cell for Cloudflare, completed by DL-6 a in
      the processor-obligations table. (R-2026-09-19-23 D2, made a facility-one item by
      R-2026-09-22-56 A9)
+     **CLOSED 2026-09-30 (R-2026-09-30-174 EX-3).** The scope text landed as DL-6 a, and the
+     founder approved paperwork register row 3 on 2026-09-29 (accepted as reported).
    - [ ] The proxy's surface: methods, services reached, websocket upgrades,
      `Location` under `redirect: "manual"`, and CORS. (R-2026-09-19-23 D3, by
      R-2026-09-22-56 A9)

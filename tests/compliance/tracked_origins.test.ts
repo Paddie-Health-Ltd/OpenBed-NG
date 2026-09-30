@@ -56,7 +56,7 @@ const SERVE = join(REPO_ROOT, 'packages', 'snapshot', 'src', 'serve.ts');
 const FUNCTION_ADAPTER = join(REPO_ROOT, 'apps', 'public-dashboard', 'functions', 'beds.json.ts');
 
 /** A string that exists in origins.json and nowhere else in this repository. */
-const TRACKED_FILE_MARKER = 'THE NARROW EXCEPTION, granted by name to ONE consumer';
+const TRACKED_FILE_MARKER = 'THE NARROW EXCEPTION, granted by name to TWO routes of ONE consumer';
 
 /** The Supabase project id supabase-proxy builds its origin from. Throws rather than returning null. */
 function proxyProjectId(source: string): string {

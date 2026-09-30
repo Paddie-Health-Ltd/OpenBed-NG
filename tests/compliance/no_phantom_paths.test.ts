@@ -114,6 +114,8 @@ const DELIBERATE_ABSENCES: Record<string, string> = {
  */
 const PLANNED_ARTEFACTS: Record<string, { stage: number | string }> = {
   'docs/runbook-snapshot-stopped.md': { stage: 1 },
+  // The sensor runbook: cited by the facility-one kickoff, built by its W2 (R-2026-09-29-173 EW). W2 builds ONE of this path and the one above and retires the other with its reason.
+  'docs/runbook-sensor.md': { stage: 'W2' },
   'packages/fixtures/referral-columns.json': { stage: 5 },
   'scripts/lint_referral_ward_to_ward.sh': { stage: 5 },
   'tests/compliance/referral_ward_to_ward.test.ts': { stage: 5 },

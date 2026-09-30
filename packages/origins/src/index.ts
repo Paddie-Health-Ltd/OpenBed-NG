@@ -73,7 +73,8 @@ export function apiOrigin(hostname: string): string {
 }
 
 /**
- * The address the public dashboard's /beds.json Function uses, and ONLY it.
+ * The address the public dashboard's /beds.json and /api/health Functions use, and ONLY
+ * those two routes (R-2026-09-22-58 A, extended to /api/health by R-2026-09-29-173 EW-2 a).
  *
  * This is the narrow exception of R-2026-09-22-58 A. If you are reaching for it from
  * anywhere else, the answer is apiOrigin() and the exception does not extend to you.
