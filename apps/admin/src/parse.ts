@@ -67,6 +67,23 @@ export interface Register {
   readonly retentionAlert: readonly RetentionAlert[];
 }
 
+/** One pg_cron job in the scheduler's status (027's app.scheduler_status()). */
+export interface SchedulerJob {
+  readonly name: string;
+  readonly active: boolean;
+  readonly schedule: string;
+  readonly lastStatus: string | null;
+  readonly lastStartTime: string | null;
+}
+
+/** The scheduler's status, as public.operator_scheduler_status() returns it (028). */
+export interface SchedulerStatus {
+  readonly serverNow: string;
+  readonly generatedAt: string | null;
+  readonly lastSnapshotAt: string | null;
+  readonly jobs: readonly SchedulerJob[];
+}
+
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
 const str = (x: unknown): x is string => typeof x === 'string';
 const strOrNull = (x: unknown): x is string | null => x === null || typeof x === 'string';
@@ -198,4 +215,23 @@ export function parseContact(x: unknown): ContactView | null {
     agreement = { acceptedOn: accepted_on, version, signatoryRole: signatory_role, withdrawnOn: withdrawn_on };
   }
   return { contact, agreement };
+}
+
+/**
+ * The scheduler's status, or null when it is not exactly the shape 027 returns. Strict, as
+ * parseRegister is: a job that cannot be read makes the whole answer unreadable, never a
+ * shorter list, because a job left out is a job the page would report as absent.
+ */
+export function parseSchedulerStatus(x: unknown): SchedulerStatus | null {
+  if (!isObj(x)) return null;
+  const { server_now, generated_at, last_snapshot_at, jobs } = x;
+  if (!str(server_now) || !strOrNull(generated_at) || !strOrNull(last_snapshot_at) || !Array.isArray(jobs)) return null;
+  const out: SchedulerJob[] = [];
+  for (const j of jobs as unknown[]) {
+    if (!isObj(j)) return null;
+    const { name, active, schedule, last_status, last_start_time } = j;
+    if (!str(name) || !bool(active) || !str(schedule) || !strOrNull(last_status) || !strOrNull(last_start_time)) return null;
+    out.push({ name, active, schedule, lastStatus: last_status, lastStartTime: last_start_time });
+  }
+  return { serverNow: server_now, generatedAt: generated_at, lastSnapshotAt: last_snapshot_at, jobs: out };
 }

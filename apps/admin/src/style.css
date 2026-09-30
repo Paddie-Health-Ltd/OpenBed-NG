@@ -196,6 +196,22 @@ ul.wards li:first-child { border-top: 0; }
 /* The facility's reporting model (DT Bundle 3): a label over its ward lines, no new colour. */
 .reporting-model { margin: 0; font: var(--text-label); color: var(--text-strong); }
 
+/* THE SYSTEM STATUS (R-2026-09-30-175 EY-3): a card like a facility's, holding its own
+   cautions (Notices, above), two ages and the five jobs, in the tokens the register uses
+   and no new colour. Cautions come first, so the line that matters at 4am is at the top. */
+section.system-status {
+  display: grid;
+  gap: var(--space-2);
+  background: var(--surface-card);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+.system-age { font: var(--text-body-sm); color: var(--text-body); }
+ul.system-jobs { list-style: none; margin: 0; padding: 0; font: var(--text-body-sm); color: var(--text-body); }
+ul.system-jobs li { padding: var(--space-2) 0; border-top: var(--border-width) solid var(--border-hairline); overflow-wrap: anywhere; }
+ul.system-jobs li:first-child { border-top: 0; }
+
 /* THE REGISTER. Below 960 px each facility is a card; at 960 px and wider the same
    elements are the rows of a table (the kickoff's D3), five columns in the card's own
    reading order: the facility, Listed / Not listed with any warning, the checklist, the

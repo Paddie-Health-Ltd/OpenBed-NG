@@ -13,8 +13,9 @@
  */
 
 /**
- * The nine functions the app calls (R-2026-09-24-88 BP-2; the ninth, operator_record_registration,
- * since R-2026-09-27-144 DT Bundle 3), by the name PostgREST routes on.
+ * The ten functions the app calls (R-2026-09-24-88 BP-2; the ninth, operator_record_registration,
+ * since R-2026-09-27-144 DT Bundle 3; the tenth, operator_scheduler_status, since
+ * R-2026-09-30-175 EY-3), by the name PostgREST routes on.
  */
 export const RPC = {
   register: 'operator_register',
@@ -26,6 +27,7 @@ export const RPC = {
   recordAgreement: 'operator_record_agreement',
   setListed: 'operator_set_facility_listed',
   recordRegistration: 'operator_record_registration',
+  schedulerStatus: 'operator_scheduler_status',
 } as const;
 
 export interface FacilityFields {
@@ -47,6 +49,8 @@ export interface ContactFields {
 }
 
 export const registerBody = (): Record<string, never> => ({});
+
+export const schedulerStatusBody = (): Record<string, never> => ({});
 
 export const getContactBody = (facilityId: string): { p_facility_id: string } => ({ p_facility_id: facilityId });
 

@@ -4,7 +4,7 @@ import { publishableKeyFor } from '@openbed/origins/keys';
 import { PRIVACY_NOTICE_URL } from '@openbed/origins/privacy';
 import { bedCountText, categoryLabel } from '@openbed/labels';
 import { ADMIN_CODES, ADMIN_FIXED, ADMIN_SCREENS as W, WARD_CATEGORIES } from '@openbed/labels/admin';
-import { elapsedSince, freshnessBand, lagosTime, markFetch, type FetchMark, type FreshnessBand } from '@openbed/snapshot';
+import { SNAPSHOT_JOB, decideHealth, elapsedSince, freshnessBand, lagosTime, markFetch, snapshotAge, type FetchMark, type FreshnessBand } from '@openbed/snapshot';
 import '@openbed/design/tokens.css';
 import '@openbed/design/fonts.css';
 import './style.css';
@@ -19,10 +19,11 @@ import {
   recordContactBody,
   recordRegistrationBody,
   registerBody,
+  schedulerStatusBody,
   setListedBody,
   type FacilityFields,
 } from './bodies.js';
-import { parseContact, parseRegister, type ContactView, type Facility, type Register, type ReportingModel, type Ward } from './parse.js';
+import { parseContact, parseRegister, parseSchedulerStatus, type ContactView, type Facility, type Register, type ReportingModel, type SchedulerStatus, type Ward } from './parse.js';
 import { adminMessageFor, type Refusal } from './messages.js';
 
 /**
@@ -148,11 +149,11 @@ function show(heading: string, detail: string, kind: 'caution' | 'lead' = 'cauti
 // ------------------------------------------------------------------ calls
 
 /**
- * THE NINE CALLS, EACH A LITERAL PATH (-58 A5; the ninth since R-2026-09-27-144 DT Bundle 3). The Worker's allow-list is derived from
+ * THE TEN CALLS, EACH A LITERAL PATH (-58 A5; the ninth since R-2026-09-27-144 DT Bundle 3, the tenth since R-2026-09-30-175 EY-3). The Worker's allow-list is derived from
  * the code's call sites by tests/compliance/proxy_allow_list.test.ts, which reads a
  * `.authedFetch('<literal>')` and refuses a computed path as unresolved. So each call
  * names its path here, in full, rather than building `rpc/${name}` -- which would be
- * one call site the derivation cannot read, standing for nine. The method is written
+ * one call site the derivation cannot read, standing for ten. The method is written
  * at each call too, because that is where the derivation reads it.
  */
 type Call = (holder: SessionHolder, body: string) => Promise<Response>;
@@ -167,6 +168,7 @@ const CALL = {
   recordAgreement: (h, body) => h.authedFetch('rpc/operator_record_agreement', { method: 'POST', headers: JSON_HEADERS, body }),
   setListed: (h, body) => h.authedFetch('rpc/operator_set_facility_listed', { method: 'POST', headers: JSON_HEADERS, body }),
   recordRegistration: (h, body) => h.authedFetch('rpc/operator_record_registration', { method: 'POST', headers: JSON_HEADERS, body }),
+  schedulerStatus: (h, body) => h.authedFetch('rpc/operator_scheduler_status', { method: 'POST', headers: JSON_HEADERS, body }),
 } satisfies Record<keyof typeof RPC, Call>;
 
 async function post(holder: SessionHolder, call: keyof typeof CALL, body: unknown): Promise<CallResult> {
@@ -184,7 +186,7 @@ async function post(holder: SessionHolder, call: keyof typeof CALL, body: unknow
 }
 
 /** A read: one retry, after 300-600 ms, when no answer came. Never on an answer. */
-async function read(holder: SessionHolder, call: 'register' | 'getContact', body: unknown): Promise<CallResult> {
+async function read(holder: SessionHolder, call: 'register' | 'getContact' | 'schedulerStatus', body: unknown): Promise<CallResult> {
   const first = await post(holder, call, body);
   if (first.kind !== 'unreachable') return first;
   await new Promise((r) => setTimeout(r, 300 + Math.random() * 300));
@@ -280,7 +282,91 @@ function canList(f: Facility): boolean {
   return f.isActive && f.hasContact && f.agreementState === 'recorded' && f.categories.length > 0;
 }
 
-function renderRegister(holder: SessionHolder, reg: Register, mark: FetchMark, notice?: string): void {
+// ------------------------------------------------------------------ system status
+
+/**
+ * THE SYSTEM STATUS (R-2026-09-30-175 EY-3): what the scheduler is doing, for the operator.
+ * Loaded beside the register, in the same clock (the `mark` taken before both reads), and
+ * NEVER a filter on it: a facility is where it would be whatever this reads.
+ *
+ * THE CAUTION LINES COME FROM decideHealth, the function /api/health answers with, so the
+ * page and the alert cannot disagree about whether the snapshot is stale: a generated_at in
+ * the future is snapshot_stale in both. snapshotAge gives the DISPLAYED age only. A job that
+ * is switched off, or whose last finished run did not succeed, is this page's own line; the
+ * alert deliberately does not raise a failed run (health.ts), the operator is told here.
+ *
+ * A FAILED LOAD is a caution line INSIDE this section, and never show(): that replaces the
+ * whole app, and a status that cannot be read must not hide the register (nor the reverse:
+ * a register that cannot be read leaves this section on the page).
+ */
+type StatusLoad = { readonly kind: 'ok'; readonly status: SchedulerStatus } | { readonly kind: 'failed'; readonly sentence: string };
+
+async function loadStatus(holder: SessionHolder): Promise<StatusLoad> {
+  const r = await read(holder, 'schedulerStatus', schedulerStatusBody());
+  if (r.kind === 'unreachable') return { kind: 'failed', sentence: ADMIN_FIXED.UNREACHABLE };
+  if (r.kind === 'refused') return { kind: 'failed', sentence: r.refusal.sentence };
+  const status = parseSchedulerStatus(r.data);
+  return status === null ? { kind: 'failed', sentence: ADMIN_FIXED.UNRECOGNISED } : { kind: 'ok', status };
+}
+
+/** An age in words, from minutes: the resolution an operator acts on. */
+function ageWords(minutes: number): string {
+  if (minutes < 1) return W.AGE_UNDER_MINUTE;
+  if (minutes < 2) return W.AGE_ONE_MINUTE;
+  if (minutes < 120) return `${Math.floor(minutes)} ${W.AGE_MINUTES}`;
+  return `${Math.floor(minutes / 60)} ${W.AGE_HOURS}`;
+}
+
+function statusSection(load: StatusLoad, mark: FetchMark): HTMLElement {
+  const section = el('section', undefined, 'system-status');
+  section.append(el('h2', W.SYSTEM_STATUS_HEADING));
+  // The section's own status line, as every screen has one: empty until there is something
+  // to say, and here that is only a status that could not be read.
+  const line = statusLine('', 'caution');
+  section.append(line);
+  if (load.kind === 'failed') {
+    say(line, load.sentence, 'caution');
+    return section;
+  }
+  const s = load.status;
+  const caution = (text: string): HTMLParagraphElement => el('p', text, 'notice notice-caution system-caution');
+  const decision = decideHealth({
+    outcome: 'answered',
+    status: 200,
+    body: { server_now: s.serverNow, generated_at: s.generatedAt, jobs: s.jobs.map((j) => ({ name: j.name, active: j.active, last_status: j.lastStatus, last_start_time: j.lastStartTime })) },
+  });
+  for (const reason of decision.reasons) {
+    if (reason === 'snapshot_stale') section.append(caution(W.STALE_NOTICE));
+    else if (reason === 'job_absent') section.append(caution(`${W.JOB_MISSING_LEAD} ${SNAPSHOT_JOB}. ${W.SCHEDULER_ACTION}`));
+    else if (reason === 'job_inactive') section.append(caution(`${W.JOB_INACTIVE_LEAD} ${SNAPSHOT_JOB}. ${W.SCHEDULER_ACTION}`));
+  }
+  for (const j of s.jobs) {
+    // The snapshot job's switched-off line is the decision's job_inactive, above.
+    if (!j.active && j.name !== SNAPSHOT_JOB) section.append(caution(`${W.JOB_INACTIVE_LEAD} ${j.name}. ${W.SCHEDULER_ACTION}`));
+    if (j.lastStatus !== null && j.lastStatus !== 'succeeded') section.append(caution(`${W.JOB_FAILED_LEAD} ${j.name}. ${W.SCHEDULER_ACTION}`));
+  }
+
+  const elapsed = elapsedSince(mark);
+  const ageLine = (label: string, iso: string): HTMLParagraphElement => {
+    const age = snapshotAge(iso, s.serverNow, elapsed);
+    return el('p', `${label}: ${age.known ? ageWords(age.ageMinutes) : W.AGE_NOT_KNOWN}`, 'system-age');
+  };
+  // A generated_at in the future has no age worth showing: the decision reports it as null.
+  if (s.generatedAt === null) section.append(el('p', W.SNAPSHOT_NONE, 'system-age'));
+  else if (decision.body.snapshot_age_s === null) section.append(el('p', `${W.SNAPSHOT_LABEL}: ${W.AGE_NOT_KNOWN}`, 'system-age'));
+  else section.append(ageLine(W.SNAPSHOT_LABEL, s.generatedAt));
+  if (s.lastSnapshotAt !== null) section.append(ageLine(W.HEARTBEAT_LABEL, s.lastSnapshotAt));
+
+  const jobs = el('ul', undefined, 'system-jobs');
+  for (const j of s.jobs) {
+    const run = j.lastStatus === null || j.lastStartTime === null ? W.JOB_NO_RUN : `${W.JOB_LAST_RUN} ${j.lastStatus}, ${lagosTime(j.lastStartTime)}`;
+    jobs.append(el('li', `${j.name}: ${j.active ? W.JOB_RUNNING : W.JOB_SWITCHED_OFF} — ${run}`));
+  }
+  section.append(jobs);
+  return section;
+}
+
+function renderRegister(holder: SessionHolder, reg: Register, mark: FetchMark, system: HTMLElement, notice?: string): void {
   const root = appRoot();
   if (root === null) return;
   const reload = el('button', W.RELOAD);
@@ -342,34 +428,44 @@ function renderRegister(holder: SessionHolder, reg: Register, mark: FetchMark, n
   const alerts = reg.retentionAlert.map((a) =>
     el('p', `${W.RETENTION_ALERT_LEAD} ${a.job}, ${lagosTime(a.endTime)}. ${W.RETENTION_ALERT_ACTION}`, 'notice notice-caution retention-alert'),
   );
-  root.replaceChildren(el('h1', W.REGISTER_HEADING), ...alerts, actions, status);
+  root.replaceChildren(el('h1', W.REGISTER_HEADING), ...alerts, actions, status, system);
   if (reg.facilities.length === 0) root.append(el('p', W.REGISTER_EMPTY, 'lead'));
   root.append(list);
 }
 
-/** Reads the register and renders it. Returns it, or null when it could not be shown. */
+/**
+ * Reads the register and the system status TOGETHER, on one clock, and renders both. Each
+ * fails on its own: a status that could not be read is a line inside its section, and a
+ * register that could not be read leaves the section under its sentence. Reload reloads both.
+ * Returns the register, or null when it could not be shown.
+ */
 async function loadRegister(holder: SessionHolder, notice?: string): Promise<Register | null> {
   const mark = markFetch();
-  const r = await read(holder, 'register', registerBody());
+  const [r, load] = await Promise.all([read(holder, 'register', registerBody()), loadStatus(holder)]);
+  const system = statusSection(load, mark);
   if (r.kind === 'unreachable') {
     show(W.REGISTER_HEADING, ADMIN_FIXED.UNREACHABLE);
     // The register's own Reload (DP-5 b 1), so the sentence's "reload" has a control.
     const again = el('button', W.RELOAD);
     again.type = 'button';
     again.addEventListener('click', () => guarded(loadRegister(holder, notice)));
-    appRoot()?.append(again);
+    appRoot()?.append(again, system);
     return null;
   }
   if (r.kind === 'refused') {
-    if (!stopFor(r.refusal)) show(W.REGISTER_HEADING, r.refusal.sentence);
+    if (!stopFor(r.refusal)) {
+      show(W.REGISTER_HEADING, r.refusal.sentence);
+      appRoot()?.append(system);
+    }
     return null;
   }
   const reg = parseRegister(r.data);
   if (reg === null) {
     show(W.REGISTER_HEADING, ADMIN_FIXED.UNRECOGNISED);
+    appRoot()?.append(system);
     return null;
   }
-  renderRegister(holder, reg, mark, notice);
+  renderRegister(holder, reg, mark, system, notice);
   return reg;
 }
 

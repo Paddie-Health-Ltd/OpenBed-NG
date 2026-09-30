@@ -106,6 +106,21 @@ const facility = (id: string, over: Record<string, unknown> = {}): Record<string
   ...over,
 });
 
+
+/**
+ * THE SCHEDULER'S STATUS, healthy (R-2026-09-30-175 EY-3): the snapshot 30 seconds old on
+ * the database's clock, and the five openbed_ jobs all switched on with a succeeded last run.
+ * A default answer for operator_scheduler_status, so a fake that has no opinion about the
+ * System status still answers it the way a healthy server does.
+ */
+const JOB_NAMES = ['openbed_check_withdrawn_facility_accounts', 'openbed_erase_lapsed_ward_logins', 'openbed_prune_ended_auth_sessions', 'openbed_refresh_lga_rollup', 'openbed_regenerate_snapshot'];
+const HEALTHY_STATUS = {
+  server_now: SERVER_NOW,
+  generated_at: '2026-09-24T11:59:30.000Z',
+  last_snapshot_at: '2026-09-24T11:59:30.000Z',
+  jobs: JOB_NAMES.map((name) => ({ name, active: true, schedule: '* * * * *', last_status: 'succeeded', last_start_time: '2026-09-24T11:59:00.000Z' })),
+};
+
 const CONTACT = {
   contact: { full_name: 'Ada Example', job_title: 'Medical Director', email: 'ada@example.invalid', mobile_e164: '+2348000007373', sms_opt_in: true, unreachable_since: null, version: 2 },
   agreement: { accepted_on: '2026-09-01', version: 'v1', signatory_role: 'Medical Director', withdrawn_on: null },
@@ -131,6 +146,8 @@ function server(facilities: () => Record<string, unknown>[], over: Record<string
     if (o !== undefined) return o(url, init);
     if (fn === 'operator_register') return json(200, { server_now: SERVER_NOW, retention_alert: [], facilities: facilities() });
     if (fn === 'operator_get_contact') return json(200, contact());
+    // R-2026-09-30-175 EY-3: the System status is loaded beside the register.
+    if (fn === 'operator_scheduler_status') return json(200, HEALTHY_STATUS);
     return json(500, { message: 'unexpected call' });
   };
 }
@@ -323,9 +340,27 @@ describe('every outcome is a Notice in the design system\'s tone, and every stat
     rows.push({ what: 'registration saved', el: pageStatus(), text: W.REGISTRATION_SAVED, tone: 'info' });
     await detail({}, () => { setInput('record-registration', 'hefamaa_reg_no', ' HEF/LA/0042'); submit('record-registration'); });
     rows.push({ what: 'registration refused on the page', el: formStatus('record-registration'), text: C['INVALID_ARGUMENT:p_hefamaa_reg_no'] as string, tone: 'caution' });
-    await renderAt(sessionFragment(), () => json(200, { server_now: SERVER_NOW, retention_alert: [{ job: 'openbed_erase_lapsed_ward_logins', end_time: SERVER_NOW }], facilities: [] }));
+    await renderAt(sessionFragment(), (url) => (url.endsWith('/rpc/operator_scheduler_status') ? json(200, HEALTHY_STATUS) : json(200, { server_now: SERVER_NOW, retention_alert: [{ job: 'openbed_erase_lapsed_ward_logins', end_time: SERVER_NOW }], facilities: [] })));
     await until(() => document.querySelector('p.retention-alert') !== null);
     rows.push({ what: 'retention alert', el: document.querySelector('p.retention-alert'), text: `${W.RETENTION_ALERT_LEAD} openbed_erase_lapsed_ward_logins, ${lagosTime(SERVER_NOW)}. ${W.RETENTION_ALERT_ACTION}`, tone: 'caution' });
+    // The System status (R-2026-09-30-175 EY-3): each Notice and line its section can say.
+    const statusPage = async (status: () => Response | Promise<Response>) => {
+      await renderAt(sessionFragment(), server(() => [], { operator_scheduler_status: status }));
+      await until(() => document.querySelector('section.system-status') !== null);
+    };
+    const stat = (patch: Record<string, unknown>) => () => json(200, { ...HEALTHY_STATUS, ...patch });
+    const jobOff = (name: string, patch: Record<string, unknown>) => HEALTHY_STATUS.jobs.map((j) => (j.name === name ? { ...j, ...patch } : j));
+    await statusPage(stat({ generated_at: '2026-09-24T11:00:00.000Z' }));
+    rows.push({ what: 'system status: stale snapshot', el: document.querySelector('section.system-status p.system-caution'), text: W.STALE_NOTICE, tone: 'caution' });
+    await statusPage(stat({ jobs: jobOff('openbed_refresh_lga_rollup', { active: false }) }));
+    rows.push({ what: 'system status: a job switched off', el: document.querySelector('section.system-status p.system-caution'), text: `${W.JOB_INACTIVE_LEAD} openbed_refresh_lga_rollup. ${W.SCHEDULER_ACTION}`, tone: 'caution' });
+    await statusPage(stat({ jobs: jobOff('openbed_erase_lapsed_ward_logins', { last_status: 'failed' }) }));
+    rows.push({ what: 'system status: a job whose last run failed', el: document.querySelector('section.system-status p.system-caution'), text: `${W.JOB_FAILED_LEAD} openbed_erase_lapsed_ward_logins. ${W.SCHEDULER_ACTION}`, tone: 'caution' });
+    await statusPage(stat({ jobs: HEALTHY_STATUS.jobs.filter((j) => j.name !== 'openbed_regenerate_snapshot') }));
+    rows.push({ what: 'system status: the snapshot job is missing', el: document.querySelector('section.system-status p.system-caution'), text: `${W.JOB_MISSING_LEAD} openbed_regenerate_snapshot. ${W.SCHEDULER_ACTION}`, tone: 'caution' });
+    await statusPage(() => json(500, { message: 'unexpected call' }));
+    rows.push({ what: 'system status: the load failed', el: document.querySelector('section.system-status p.status'), text: F.UNRECOGNISED, tone: 'caution' });
+
     await openA(server(() => [facility(FAC_A)], {}, () => ({ not: 'a contact' })));
     rows.push({ what: 'contact could not be read', el: document.querySelector('section.contact-detail p'), text: W.CONTACT_UNREADABLE, tone: 'caution' });
     rows.push({ what: 'agreement waits on the contact', el: document.querySelector('section.agreement-detail p'), text: W.AGREEMENT_NEEDS_CONTACT, tone: 'caution' });
@@ -341,7 +376,8 @@ describe('every outcome is a Notice in the design system\'s tone, and every stat
     rows.push({ what: 'sign-in answered', el: await signIn(() => json(200, {})), text: W.REQUEST_ANSWERED, tone: 'info' });
     rows.push({ what: 'sign-in unreachable', el: await signIn(() => { throw new TypeError('down'); }), text: W.REQUEST_UNREACHABLE, tone: 'caution' });
 
-    expect(rows.length).toBe(27);
+    // 27 until R-2026-09-30-175 EY-3, which adds the System status's five Notices and lines.
+    expect(rows.length).toBe(32);
     const out = toneViolations(rows);
     expect(out, out.join('\n')).toEqual([]);
   });
@@ -365,7 +401,9 @@ describe('every outcome is a Notice in the design system\'s tone, and every stat
     statuses.push(...Array.from(document.querySelectorAll('p.status')));
     await renderAt('', () => json(500, {}));
     statuses.push(...Array.from(document.querySelectorAll('p.status')));
-    expect(statuses.length).toBe(9);
+    // R-2026-09-30-175 EY-3: the register now holds the System status section's own line, so
+    // the register adds one and the total is 10. The detail view (7, above) has no section.
+    expect(statuses.length).toBe(10);
     for (const s of statuses) expect(s.getAttribute('role'), 'a status line is not announced').toBe('status');
   });
 });
