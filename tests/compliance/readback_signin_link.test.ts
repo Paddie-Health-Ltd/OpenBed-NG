@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { REPO_ROOT } from './_scratch.js';
+import ORIGINS from '../../packages/origins/origins.json';
 
 /**
  * THE REDIRECT READ-BACK -- scripts/readback_signin_link.mjs (R-2026-09-24-73 BA-1;
@@ -189,6 +190,39 @@ function networkViolations(src: string): string[] {
   }
   return out;
 }
+
+/**
+ * The host the read-back requires is the tracked API origin (packages/origins/origins.json,
+ * `api.production`). The script cannot import it (it is a standalone node file), so it holds
+ * a constant, and THIS is what holds the constant to the record: the behavioural pass over
+ * W3's controls (Standard P) found the host written in two places with nothing holding them.
+ */
+export function proxyHostDrift(script: string, originsApiProduction: string): string[] {
+  const here = /^const PROXY_HOST = '([^']+)';$/m.exec(script)?.[1];
+  if (here === undefined) return ['PROXY HOST UNREADABLE: the script names no PROXY_HOST, so nothing was compared'];
+  const there = new URL(originsApiProduction).host;
+  return here === there ? [] : [`PROXY HOST DRIFT: the script requires ${here} and packages/origins/origins.json names ${there}`];
+}
+
+describe('readback_signin_link requires the tracked API origin as the link host', () => {
+  const API_PRODUCTION = (ORIGINS as { api: { production: string } }).api.production;
+  const REAL = readFileSync(TOOL, 'utf8');
+
+  test('real script is accepted — PROXY_HOST equals the tracked api origin', () => {
+    expect(proxyHostDrift(REAL, API_PRODUCTION)).toEqual([]);
+  });
+
+  test('plant — a PROXY_HOST that has drifted from origins.json is rejected', () => {
+    const planted = REAL.replace("const PROXY_HOST = 'api.openbed.ng';", "const PROXY_HOST = 'api.openbed.example';");
+    expect(planted, 'the plant did not change PROXY_HOST').not.toBe(REAL);
+    expect(proxyHostDrift(planted, API_PRODUCTION)).toEqual(['PROXY HOST DRIFT: the script requires api.openbed.example and packages/origins/origins.json names api.openbed.ng']);
+    expect(proxyHostDrift(REAL, 'https://api.elsewhere.example')).toEqual(['PROXY HOST DRIFT: the script requires api.openbed.ng and packages/origins/origins.json names api.elsewhere.example']);
+  });
+
+  test('anti-vacuity — a script with no PROXY_HOST fails rather than passing', () => {
+    expect(proxyHostDrift('', API_PRODUCTION)).toEqual(['PROXY HOST UNREADABLE: the script names no PROXY_HOST, so nothing was compared']);
+  });
+});
 
 describe('readback_signin_link makes no request and follows nothing', () => {
   const REAL = readFileSync(TOOL, 'utf8');

@@ -4,6 +4,7 @@ import ts from 'typescript';
 import { describe, expect, test, vi } from 'vitest';
 import LIST from '../../supabase-proxy/allow-list.json';
 import WRANGLER from '../../supabase-proxy/wrangler.json';
+import ORIGINS from '../../packages/origins/origins.json';
 import { admits, limitKey, makeHandler, NO_ADDRESS_KEY, PROXY_HEADER, STAMP_PATH, VERIFY_LIMITED_TEXT, type AllowList, type ProxyEnv } from '../../supabase-proxy/handler.js';
 import { PROXY_HEADER as CLIENT_PROXY_HEADER, requestSignInLink } from '../../packages/auth/src/request.js';
 import { REPO_ROOT } from './_scratch.js';
@@ -225,6 +226,13 @@ const TEMPLATE_TYPES: Readonly<Record<string, string>> = {
   [`${TEMPLATE_DIR}/confirm-signup.html`]: 'signup',
 };
 const ANY_ACTION = /\{\{[^}]*\}\}/g;
+/**
+ * THE HOST A TEMPLATE'S LINK MUST BE ON IS THE TRACKED API ORIGIN, read from
+ * packages/origins/origins.json (`api.production`), never retyped here: the behavioural pass
+ * over this guard (Standard P) found it had the host as a literal, a second copy of a fact
+ * the repository already records, which could drift from it with both staying green.
+ */
+const API_HOST = new URL((ORIGINS as { api: { production: string } }).api.production).host;
 
 export interface TemplateSite {
   readonly file: string;
@@ -243,7 +251,7 @@ export interface TemplateSite {
  * 'the template corpus is the declared one' below holds the real directory to the two
  * declared files by identity.
  */
-export function templateSites(templates: Record<string, string>): { sites: TemplateSite[]; violations: string[] } {
+export function templateSites(templates: Record<string, string>, apiHost: string = API_HOST): { sites: TemplateSite[]; violations: string[] } {
   const sites: TemplateSite[] = [];
   const violations: string[] = [];
   const declared = Object.keys(TEMPLATE_TYPES);
@@ -279,8 +287,8 @@ export function templateSites(templates: Record<string, string>): { sites: Templ
     } catch {
       url = null;
     }
-    if (url === null || url.protocol !== 'https:' || url.host !== 'api.openbed.ng') {
-      violations.push(`TEMPLATE LINKS: ${file}'s link is not on https://api.openbed.ng (read ${url === null ? 'something that is not an absolute URL' : url.origin})`);
+    if (url === null || url.protocol !== 'https:' || url.host !== apiHost) {
+      violations.push(`TEMPLATE LINKS: ${file}'s link is not on https://${apiHost} (read ${url === null ? 'something that is not an absolute URL' : url.origin})`);
     }
     const got = query.split('&').filter((x) => x !== '').sort();
     const want = ['redirect_to={{.RedirectTo}}', 'token={{.TokenHash}}', `type=${type}`].sort();
@@ -712,6 +720,15 @@ describe('the email templates are the third corpus the Worker is held against', 
   test('real templates are accepted — every rule over the two real files reads clean', () => {
     expect(templateSites(real()).violations).toEqual([]);
     expect(check()).toEqual([]);
+  });
+
+  test("the host a link must be on is read from packages/origins/origins.json, and a different tracked origin rejects both real templates", () => {
+    expect(API_HOST, 'origins.json names no api host').toBe('api.openbed.ng');
+    const v = templateSites(real(), 'api.elsewhere.example').violations;
+    expect(v).toEqual([
+      `TEMPLATE LINKS: ${SIGNUP}'s link is not on https://api.elsewhere.example (read https://api.openbed.ng)`,
+      `TEMPLATE LINKS: ${MAGIC}'s link is not on https://api.elsewhere.example (read https://api.openbed.ng)`,
+    ]);
   });
 
   test('plant — the templates removed leaves verify with no reason, and the entry is refused (FA-2 c)', () => {
