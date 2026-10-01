@@ -1,11 +1,13 @@
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 import { describe, expect, test, vi } from 'vitest';
 import LIST from '../../supabase-proxy/allow-list.json';
 import WRANGLER from '../../supabase-proxy/wrangler.json';
 import ORIGINS from '../../packages/origins/origins.json';
-import { admits, limitKey, makeHandler, NO_ADDRESS_KEY, PROXY_HEADER, STAMP_PATH, VERIFY_LIMITED_TEXT, type AllowList, type ProxyEnv } from '../../supabase-proxy/handler.js';
+import { admits, LIMITER_TIMEOUT_MS, limitKey, makeHandler, NO_ADDRESS_KEY, PROXY_HEADER, STAMP_PATH, VERIFY_LIMITED_TEXT, type AllowList, type ProxyEnv } from '../../supabase-proxy/handler.js';
 import { PROXY_HEADER as CLIENT_PROXY_HEADER, requestSignInLink } from '../../packages/auth/src/request.js';
 import { REPO_ROOT } from './_scratch.js';
 
@@ -269,8 +271,12 @@ export function templateSites(templates: Record<string, string>, apiHost: string
     if ((text.match(ANY_ACTION) ?? []).length > total) {
       violations.push(`TEMPLATE ACTIONS: ${file} holds a template action inside a comment, and the dashboard expands one wherever it is pasted`);
     }
-    const hrefs = [...stripped.matchAll(/\bhref\s*=\s*"([^"]*)"/gi)].map((m) => m[1] ?? '');
-    if (hrefs.length !== 1) violations.push(`TEMPLATE LINKS: ${file} holds ${hrefs.length} links, and exactly one is allowed`);
+    // Every `<a` tag and every `href` attribute, however it is quoted (FB-3 a): counting only the double-quoted
+    // form let a second link in single quotes, or with no quotes, or with no href at all, through. `<a[\s>]` does
+    // not match `<abbr>`.
+    const tags = (stripped.match(/<a[\s>]/gi) ?? []).length;
+    const hrefs = [...stripped.matchAll(/\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>"']+))/gi)].map((m) => m[1] ?? m[2] ?? m[3] ?? '');
+    if (tags !== 1 || hrefs.length !== 1) violations.push(`TEMPLATE LINKS: ${file} holds ${Math.max(tags, hrefs.length)} links, and exactly one is allowed`);
     const href = hrefs[0];
     if (href === undefined) continue;
     const inLink = (href.match(ANY_ACTION) ?? []).length;
@@ -780,6 +786,20 @@ describe('the email templates are the third corpus the Worker is held against', 
     expect(templateSites(planted(MAGIC, /(<a href="https:\/\/api\.openbed\.ng[^\n]*<\/a><\/p>\n)/, '$1<p><a href="https://api.openbed.ng/auth/v1/verify">again</a></p>\n')).violations).toContain(`TEMPLATE LINKS: ${MAGIC} holds 2 links, and exactly one is allowed`);
   });
 
+  test.each([
+    ['in single quotes', `<p><a href='https://api.openbed.ng/auth/v1/verify'>again</a></p>\n`],
+    ['with no quotes', `<p><a href=https://api.openbed.ng/auth/v1/verify>again</a></p>\n`],
+    ['with no href at all', `<p><a name="again">again</a></p>\n`],
+  ])('plant — a second link %s is rejected (FB-3 a)', (_label, extra) => {
+    const t = planted(MAGIC, /(<a href="https:\/\/api\.openbed\.ng[^\n]*<\/a><\/p>\n)/, `$1${extra}`);
+    expect(templateSites(t).violations).toContain(`TEMPLATE LINKS: ${MAGIC} holds 2 links, and exactly one is allowed`);
+  });
+
+  test('positive control — an `<abbr>` tag is not a link', () => {
+    const t = planted(MAGIC, /(<a href="https:\/\/api\.openbed\.ng[^\n]*<\/a><\/p>\n)/, '$1<p><abbr title="x">y</abbr></p>\n');
+    expect(templateSites(t).violations).toEqual([]);
+  });
+
   test('plant — a third template action is rejected, and so is one in the header comment', () => {
     expect(templateSites(planted(MAGIC, /&redirect_to=\{\{ \.RedirectTo \}\}">Sign in</, '&redirect_to={{ .RedirectTo }}">Sign in {{ .Email }}<')).violations).toContain(
       `TEMPLATE ACTIONS: ${MAGIC} holds 3 template actions (2 inside its link); exactly two, both inside the one link, are allowed`,
@@ -925,6 +945,18 @@ describe('the Worker refuses an upgrade, and counts and limits per client (R-202
     expect(upstream, 'an upgrade request reached the origin').not.toHaveBeenCalled();
   });
 
+  test.each([
+    ['Upgrade: h2c on GET /auth/v1/settings', 'GET', '/auth/v1/settings', { upgrade: 'h2c', connection: 'Upgrade, HTTP2-Settings', apikey: 'k' }],
+    ['an Upgrade on HEAD /auth/v1/verify', 'HEAD', '/auth/v1/verify?token=t&type=magiclink&redirect_to=https%3A%2F%2Fadmin.openbed.ng%2F', { upgrade: 'websocket' }],
+    ['a mixed-case UPGRADE header on GET /auth/v1/settings', 'GET', '/auth/v1/settings', { UpGrAdE: 'websocket', apikey: 'k' }],
+  ])('plant — %s is refused here, and the origin is never called (FB-3 c)', async (_label, method, path, headers) => {
+    const { handle, upstream } = worker(fakeLimits().env);
+    const res = await handle(new Request(`https://api.openbed.ng${path}`, { method, headers }));
+    expect(res.status).toBe(404);
+    expect(res.headers.get(PROXY_HEADER)).toBe('refused');
+    expect(upstream, 'an upgrade request reached the origin').not.toHaveBeenCalled();
+  });
+
   test('positive control — the same request without Upgrade is forwarded', async () => {
     const { handle, upstream } = worker();
     const res = await handle(get('/auth/v1/settings', { apikey: 'k' }));
@@ -992,7 +1024,6 @@ describe('the Worker refuses an upgrade, and counts and limits per client (R-202
     expect(limitKey('2001:db8::1')).toBe(limitKey('2001:db8::ffff:1'));
     expect(limitKey('2001:db8::1')).not.toBe(limitKey('2001:db8:0:1::1'));
     expect(limitKey('2001:0db8:0000:0000:0000:0000:0000:0001'), 'the expanded form must equal the compressed one').toBe(limitKey('2001:db8::1'));
-    expect(limitKey('::ffff:192.0.2.1'), 'an IPv4-mapped address must still read as IPv6').toBe(limitKey('::ffff:c000:201'));
     expect(limitKey('not an address:::')).toBe('not an address:::');
     const { env } = fakeLimits();
     const { handle } = worker(env);
@@ -1000,6 +1031,29 @@ describe('the Worker refuses an upgrade, and counts and limits per client (R-202
     for (let i = 0; i < limit; i++) await send(handle, 'POST', '/auth/v1/otp', { [IP]: '2001:db8::1' });
     expect((await send(handle, 'POST', '/auth/v1/otp', { [IP]: '2001:db8::ffff:1' })).status, 'one /64 did not share a count').toBe(429);
     expect((await send(handle, 'POST', '/auth/v1/otp', { [IP]: '2001:db8:0:1::1' })).headers.get(PROXY_HEADER), 'a different /64 shared the count').toBe('forwarded');
+  });
+
+  test('IPv4-MAPPED addresses are keyed on the embedded IPv4 address, exactly as the plain dotted address is (FB-3 g)', async () => {
+    // Documentation-range addresses only. Before FB every mapped address collapsed into ONE /64 key.
+    expect(limitKey('::ffff:192.0.2.1')).toBe(limitKey('192.0.2.1'));
+    expect(limitKey('::ffff:c000:201'), 'the hex form').toBe(limitKey('192.0.2.1'));
+    expect(limitKey('::ffff:198.51.100.7')).not.toBe(limitKey('::ffff:203.0.113.9'));
+    const { env } = fakeLimits();
+    const { handle } = worker(env);
+    const limit = LIMITS['LIMIT_OTP'] ?? 0;
+    for (let i = 0; i < limit; i++) await send(handle, 'POST', '/auth/v1/otp', { [IP]: '::ffff:192.0.2.1' });
+    expect((await send(handle, 'POST', '/auth/v1/otp', { [IP]: '192.0.2.1' })).status, 'a mapped address did not share with its plain dotted form').toBe(429);
+    expect((await send(handle, 'POST', '/auth/v1/otp', { [IP]: '::ffff:198.51.100.7' })).headers.get(PROXY_HEADER), 'two different mapped addresses shared a count').toBe('forwarded');
+    expect((await send(handle, 'POST', '/auth/v1/otp', { [IP]: '::ffff:203.0.113.9' })).headers.get(PROXY_HEADER), 'two different mapped addresses shared a count').toBe('forwarded');
+  });
+
+  test('an absent cf-connecting-ip with x-forwarded-for present still uses the constant key — a client cannot choose its key by omission (H8)', async () => {
+    const { env, calls } = fakeLimits();
+    const { handle } = worker(env);
+    const limit = LIMITS['LIMIT_OTP'] ?? 0;
+    for (let i = 0; i < limit; i++) await send(handle, 'POST', '/auth/v1/otp', { 'x-forwarded-for': `198.51.100.${i + 1}` });
+    expect((await send(handle, 'POST', '/auth/v1/otp', { 'x-forwarded-for': '203.0.113.250' })).status).toBe(429);
+    expect(new Set(calls['LIMIT_OTP'])).toEqual(new Set([NO_ADDRESS_KEY]));
   });
 
   test('the same cf-connecting-ip with different x-forwarded-for shares a count — a client cannot choose its key', async () => {
@@ -1031,14 +1085,22 @@ describe('the Worker refuses an upgrade, and counts and limits per client (R-202
     expect(Object.values(calls).flat(), 'a request with no limit was counted').toEqual([]);
   });
 
-  test('a refused path and an Upgrade request consume no count', async () => {
+  test('a refused path and an Upgrade request consume no count, and a refused request is never limited either', async () => {
     const { env, calls } = fakeLimits();
-    const { handle } = worker(env);
-    for (let i = 0; i < 5; i++) {
-      expect((await send(handle, 'POST', '/auth/v1/signup', { [IP]: '198.51.100.8' })).headers.get(PROXY_HEADER)).toBe('refused');
+    const { handle, upstream } = worker(env);
+    // One more than the largest limit, read from wrangler.json: if refused requests were counted, this is
+    // enough of them to exhaust any binding and turn a refusal into a 429.
+    const n = Math.max(...Object.values(LIMITS)) + 1;
+    for (let i = 0; i < n; i++) {
+      for (const [method, path] of [['POST', '/auth/v1/signup'], ['POST', '/auth/v1/token?grant_type=password']] as const) {
+        const res = await send(handle, method, path, { [IP]: '198.51.100.8' });
+        expect(res.headers.get(PROXY_HEADER), `${method} ${path} #${i}`).toBe('refused');
+        expect(res.status, `${method} ${path} #${i} must stay a 404, never a 429`).toBe(404);
+      }
       expect((await send(handle, 'GET', VERIFY, { [IP]: '198.51.100.8', upgrade: 'websocket' })).headers.get(PROXY_HEADER)).toBe('refused');
     }
     expect(Object.values(calls).flat(), 'a refused request was counted').toEqual([]);
+    expect(upstream, 'a refused request reached the origin').not.toHaveBeenCalled();
   });
 
   test('FAIL OPEN — an absent binding forwards, and a limiter that throws or rejects forwards', async () => {
@@ -1058,6 +1120,25 @@ describe('the Worker refuses an upgrade, and counts and limits per client (R-202
     }
   });
 
+  test('FAIL OPEN — a limiter that NEVER answers forwards after the timeout, and the timer is cleared when it answers first (FB-3 i)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const hung = { limit: () => new Promise<never>(() => undefined) };
+      const { handle, upstream } = worker({ LIMIT_OTP: hung });
+      const pending = send(handle, 'POST', '/auth/v1/otp', { [IP]: '198.51.100.3' });
+      await vi.advanceTimersByTimeAsync(LIMITER_TIMEOUT_MS);
+      const res = await pending;
+      expect(res.headers.get(PROXY_HEADER), 'a limiter that never answered held the request, or limited it').toBe('forwarded');
+      expect(upstream).toHaveBeenCalledTimes(1);
+      // And when the limiter DOES answer, no timer is left behind.
+      const { handle: h2 } = worker(fakeLimits().env);
+      expect((await send(h2, 'POST', '/auth/v1/otp', { [IP]: '198.51.100.4' })).headers.get(PROXY_HEADER)).toBe('forwarded');
+      expect(vi.getTimerCount(), 'the limiter timer was not cleared when limit() settled first').toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   test('a missing cf-connecting-ip still limits, on one constant key — never unlimited', async () => {
     const { env, calls } = fakeLimits();
     const { handle } = worker(env);
@@ -1073,6 +1154,47 @@ describe('the Worker refuses an upgrade, and counts and limits per client (R-202
     expect(await stamp(fakeLimits(['LIMIT_OTP', 'LIMIT_REFRESH']).env)).toEqual({ ...STAMP, limits_bound: { otp: true, verify: false, refresh: true } });
     expect(await stamp(fakeLimits(['LIMIT_VERIFY']).env)).toEqual({ ...STAMP, limits_bound: { otp: false, verify: true, refresh: false } });
     expect(await stamp({ LIMIT_OTP: {} })).toEqual({ ...STAMP, limits_bound: { otp: false, verify: false, refresh: false } });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// env REACHES THE HANDLER, behaviourally (R-2026-09-30-178 FB-3 h).
+// ---------------------------------------------------------------------------
+
+describe('the Worker entry points hand env to the handler — called, not parsed', () => {
+  /**
+   * index.js imports the gitignored ./version.json, so it cannot be imported in a clean clone, and this test
+   * never writes supabase-proxy/version.json. It copies index.js's REAL text, handler.ts and allow-list.json into
+   * a scratch directory beside a test version.json, and imports the copy. dev.js carries no stamp file and is
+   * copied the same way. `mutate` is the plant: it edits the copy's text before it is imported.
+   */
+  async function entry(name: 'index.js' | 'dev.js', mutate?: (text: string) => string): Promise<{ fetch: (r: Request, env?: ProxyEnv) => Promise<Response> }> {
+    const dir = mkdtempSync(join(tmpdir(), 'openbed-entry-'));
+    try {
+      mkdirSync(dir, { recursive: true });
+      const real = readFileSync(join(REPO_ROOT, 'supabase-proxy', name), 'utf8');
+      const text = mutate === undefined ? real : mutate(real);
+      if (mutate !== undefined) expect(text, `the plant did not change ${name}`).not.toBe(real);
+      writeFileSync(join(dir, name), text);
+      for (const f of ['handler.ts', 'allow-list.json']) writeFileSync(join(dir, f), readFileSync(join(REPO_ROOT, 'supabase-proxy', f)));
+      writeFileSync(join(dir, 'version.json'), JSON.stringify(STAMP));
+      const mod = (await import(/* @vite-ignore */ pathToFileURL(join(dir, name)).href)) as { default: { fetch: (r: Request, env?: ProxyEnv) => Promise<Response> } };
+      return mod.default;
+    } finally {
+      // The module is already loaded: the files are not read again, so the directory can go.
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+  const bound = async (e: { fetch: (r: Request, env?: ProxyEnv) => Promise<Response> }) =>
+    ((await (await e.fetch(new Request(`https://api.openbed.ng${STAMP_PATH}`), fakeLimits().env)).json()) as { limits_bound: Record<string, boolean> }).limits_bound;
+
+  test.each(['index.js', 'dev.js'] as const)('real %s hands env to the handler: the stamp reads all three bindings bound', async (name) => {
+    expect(await bound(await entry(name))).toEqual({ otp: true, verify: true, refresh: true });
+  });
+
+  test.each(['index.js', 'dev.js'] as const)('plant — %s whose handle call passes {} reads all three bindings unbound', async (name) => {
+    const e = await entry(name, (t) => t.replace('return handle(request, env);', 'return handle(request, {});'));
+    expect(await bound(e)).toEqual({ otp: false, verify: false, refresh: false });
   });
 });
 

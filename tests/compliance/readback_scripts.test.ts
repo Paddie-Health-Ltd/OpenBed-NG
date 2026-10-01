@@ -156,13 +156,17 @@ if (head) method = 'HEAD';
 // (R-2026-09-30-177 FA-1 d): a fixture is keyed on the whole URL, so a probe that drops a parameter has no answer.
 if (getMode && data.length) url += (url.includes('?') ? '&' : '?') + data.map((d) => { const j = d.indexOf('='); return d.slice(0, j) + '=' + encodeURIComponent(d.slice(j + 1)); }).join('&');
 const upgrade = hdrs.some((h) => /^Upgrade:\\s*websocket/i.test(h));
+// The three headers that make a websocket upgrade one (R-2026-09-30-178 FB-3 l): without Connection and the two Sec-WebSocket
+// headers Cloudflare's own edge answers 400 before the Worker runs, so a probe that drops one tests nothing.
+const hv = (name) => { const h = hdrs.find((x) => x.toLowerCase().startsWith(name.toLowerCase() + ':')); return h ? h.slice(name.length + 1).trim() : ''; };
+const conn = hv('Connection'), wsv = hv('Sec-WebSocket-Version'), wsk = hv('Sec-WebSocket-Key');
 // -H @FILE reads headers from a file, one per line (readback_admin.sh's Access token).
 // The stub records only WHETHER the token came, never its value.
 for (const h of hdrs.filter((x) => x.startsWith('@'))) hdrs.push(...fs.readFileSync(h.slice(1), 'utf8').split('\\n').filter(Boolean));
 const access = hdrs.some((h) => /^CF-Access-Client-Id:\\s*\\S/i.test(h)) && hdrs.some((h) => /^CF-Access-Client-Secret:\\s*\\S/i.test(h));
 const apikey = (hdrs.map((h) => /^apikey:\\s*(.*)$/i.exec(h)).find(Boolean) || [])[1];
 const browser = hdrs.some((h) => /^User-Agent:.*Mozilla\\//i.test(h)) && hdrs.some((h) => /^Accept:.*text\\/html/i.test(h));
-fs.appendFileSync(process.env.STUB_LOG, method + ' ' + url + (apikey ? ' apikey=' + apikey : '') + (browser ? ' browser' : '') + (access ? ' access' : '') + (http11 ? ' http1.1' : '') + (upgrade ? ' upgrade' : '') + '\\n');
+fs.appendFileSync(process.env.STUB_LOG, method + ' ' + url + (apikey ? ' apikey=' + apikey : '') + (browser ? ' browser' : '') + (access ? ' access' : '') + (http11 ? ' http1.1' : '') + (upgrade ? ' upgrade' : '') + (conn ? ' connection=' + conn : '') + (wsv ? ' ws-version=' + wsv : '') + (wsk ? ' ws-key=' + wsk : '') + '\\n');
 const fx = JSON.parse(fs.readFileSync(process.env.STUB_FIXTURES, 'utf8'));
 const base = method + ' ' + url;
 const cands = (apikey ? [base + ' apikey=' + apikey] : [])
@@ -678,6 +682,8 @@ const workerStampOf = (commit: string, bound: { otp?: boolean; verify?: boolean;
   JSON.stringify({ commit, dirty: false, built_at: '2026-09-23T18:46:32.411Z', limits_bound: { otp: true, verify: true, refresh: true, ...bound } });
 
 const REFUSED_BODY = '{"message":"not forwarded by the OpenBed proxy"}';
+/** What the stub logs for a request sent as probes 5 and 5b send it: HTTP/1.1, an upgrade, and all three companion headers. */
+const WS_TAIL = ' http1.1 upgrade connection=Upgrade ws-version=13 ws-key=dGhlIHNhbXBsZSBub25jZQ==';
 const ADMIN = 'https://admin.openbed.ng';
 /** Probe 7's request as curl builds it from -G and --data-urlencode: three parameters, the redirect percent-encoded. */
 const VERIFY_PROBE_URL = `${API}/auth/v1/verify?token=probe&type=magiclink&redirect_to=https%3A%2F%2Fadmin.openbed.ng%2F`;
@@ -761,8 +767,8 @@ describe('scripts/readback_worker.sh', () => {
       expect(r.out).toContain('PASS: probes 1 to 3, 5, 5b, 6 and 7 and the stamp read as they must. Probe 4, the deployed source, is Cowork');
       expect(r.calls, 'probe 2 did not send the tracked key').toContain(`GET ${API}/auth/v1/settings apikey=${TRACKED_KEY}`);
       // Probe 5 and 5b must reach the stub as HTTP/1.1 upgrades: over HTTP/2 curl drops the header and the probe tests nothing.
-      expect(r.calls, 'probe 5 was not sent as an HTTP/1.1 websocket upgrade').toContain(`GET ${API}/realtime/v1/websocket http1.1 upgrade`);
-      expect(r.calls, 'probe 5b was not sent as an HTTP/1.1 upgrade WITH the tracked key').toContain(`GET ${API}/auth/v1/settings apikey=${TRACKED_KEY} http1.1 upgrade`);
+      expect(r.calls, 'probe 5 was not sent as an HTTP/1.1 websocket upgrade with Connection and both Sec-WebSocket headers').toContain(`GET ${API}/realtime/v1/websocket${WS_TAIL}`);
+      expect(r.calls, 'probe 5b was not sent as an HTTP/1.1 upgrade WITH the tracked key and the same headers').toContain(`GET ${API}/auth/v1/settings apikey=${TRACKED_KEY}${WS_TAIL}`);
       expect(r.calls, 'probe 6 was not sent').toContain(`GET ${API}/storage/v1/object/public/probe`);
       // Probe 7 carries all three parameters, the redirect percent-encoded, and the verify path has no other form.
       const seven = r.calls.filter((c) => c.startsWith(`GET ${API}/auth/v1/verify`));
@@ -790,6 +796,8 @@ describe('scripts/readback_worker.sh', () => {
     ['a redirect to the Supabase host', (f) => { f[VERIFY_GET] = { status: 303, headers: { 'x-openbed-proxy': 'forwarded', location: 'https://klrlpxysjsjpdkeqdhvl.supabase.co/auth/v1/verify' } }; }, 'probe 7 Location origin'],
     ['a redirect to api.openbed.ng itself', (f) => { f[VERIFY_GET] = { status: 303, headers: { 'x-openbed-proxy': 'forwarded', location: `${API}/auth/v1/verify` } }; }, 'probe 7 Location origin'],
     ["a redirect to the ward console: the Site URL GoTrue falls back to when redirect_to is lost", (f) => { f[VERIFY_GET] = { status: 303, headers: { 'x-openbed-proxy': 'forwarded', location: 'https://app.openbed.ng/' } }; }, 'probe 7 Location origin'],
+    ['a Location on the admin host over plain http', (f) => { f[VERIFY_GET] = { status: 303, headers: { 'x-openbed-proxy': 'forwarded', location: 'http://admin.openbed.ng/' } }; }, 'probe 7 Location origin'],
+    ['a Location on a subdomain of the admin host', (f) => { f[VERIFY_GET] = { status: 303, headers: { 'x-openbed-proxy': 'forwarded', location: 'https://evil.admin.openbed.ng/' } }; }, 'probe 7 Location origin'],
     ['a relative Location', (f) => { f[VERIFY_GET] = { status: 303, headers: { 'x-openbed-proxy': 'forwarded', location: '/' } }; }, 'probe 7 Location origin'],
     ['no Location at all', (f) => { f[VERIFY_GET] = { status: 303, headers: { 'x-openbed-proxy': 'forwarded' } }; }, 'probe 7 Location origin'],
     ['the previous Worker still serving its stamp', (f) => { f[`GET ${API}/__openbed/version`] = { status: 200, headers: { 'x-openbed-proxy': 'stamp' }, body: workerStampOf('0'.repeat(40)) }; }, 'stamp commit'],
@@ -874,11 +882,14 @@ describe('scripts/readback_worker.sh', () => {
 
 describe('scripts/readback_worker_limits.sh (R-2026-09-30-177 FA-3 i)', () => {
   const LIMIT = (JSON.parse(readFileSync(join(REPO_ROOT, 'supabase-proxy', 'wrangler.json'), 'utf8')) as { ratelimits: { name: string; simple: { limit: number } }[] }).ratelimits.find((b) => b.name === 'LIMIT_VERIFY')?.simple.limit ?? 0;
-  const TOTAL = LIMIT + 5;
+  // 3L requests (FB-1 f): counting is eventually consistent, so a limited answer needs room to appear.
+  const TOTAL = LIMIT * 3;
   const fwd: Answer = { status: 303, headers: { 'x-openbed-proxy': 'forwarded', location: `${ADMIN}/#error=access_denied` } };
   const lim: Answer = { status: 429, headers: { 'x-openbed-proxy': 'limited', 'retry-after': '60' } };
-  /** L forwarded, then 5 limited: the answers a live limit gives. */
-  const live = (): Answer[] => [...Array.from({ length: LIMIT }, () => fwd), ...Array.from({ length: 5 }, () => lim)];
+  /** L forwarded, then the rest limited: the answers a live limit gives. */
+  const live = (): Answer[] => [...Array.from({ length: LIMIT }, () => fwd), ...Array.from({ length: TOTAL - LIMIT }, () => lim)];
+  /** The limited tail after one planted answer at position L+1. */
+  const tail = (): Answer[] => Array.from({ length: TOTAL - LIMIT - 1 }, () => lim);
   const go = (answers: Answer[] | Answer, env: Record<string, string> = {}, mutate?: (work: string) => void) =>
     withScratch((root) => {
       const work = repo(root);
@@ -890,11 +901,11 @@ describe('scripts/readback_worker_limits.sh (R-2026-09-30-177 FA-3 i)', () => {
     expect(LIMIT, 'wrangler.json holds no LIMIT_VERIFY limit, so every leg below tested a limit of zero').toBeGreaterThan(0);
   });
 
-  test('real read-back is accepted — L forwarded then a `limited` 429 gives PASS, after L+5 requests with all three parameters', () => {
+  test('real read-back is accepted — L forwarded then a `limited` 429 gives PASS, after 3L requests with all three parameters', () => {
     const r = go(live());
     expect(r.status, r.out).toBe(0);
     expect(r.out).toContain(`PASS: the first ${LIMIT} verify requests were forwarded and a later one was limited by the Worker`);
-    expect(r.calls.length, 'the proof did not send L+5 requests').toBe(TOTAL);
+    expect(r.calls.length, 'the proof did not send 3L requests').toBe(LIMIT * 3);
     expect(r.calls.every((c) => c === `GET ${VERIFY_PROBE_URL}`), r.calls.join('\n')).toBe(true);
     expect(r.out).toContain(`  ok     request ${LIMIT + 1} of ${TOTAL}: 429, x-openbed-proxy 'limited'`);
   });
@@ -914,10 +925,13 @@ describe('scripts/readback_worker_limits.sh (R-2026-09-30-177 FA-3 i)', () => {
   });
 
   test.each<[string, Answer[], string, string]>([
-    ["a 429 without `limited`, which is Supabase's own bucket", [...Array.from({ length: LIMIT }, () => fwd), { status: 429, headers: { 'x-openbed-proxy': 'forwarded' } }, lim, lim, lim, lim], `request ${LIMIT + 1} of ${TOTAL}`, "a 429 must read 'limited': this one is Supabase's own bucket, not the Worker's"],
+    ["a 429 without `limited`, which is Supabase's own bucket", [...Array.from({ length: LIMIT }, () => fwd), { status: 429, headers: { 'x-openbed-proxy': 'forwarded' } }, ...tail()], `request ${LIMIT + 1} of ${TOTAL}`, "a 429 must read 'limited': this one is Supabase's own bucket, not the Worker's"],
     ['`limited` on one of the first L', [fwd, fwd, lim, ...Array.from({ length: TOTAL - 3 }, () => fwd)], 'request 3 of ' + TOTAL, `must be 'forwarded': one of the first ${LIMIT} was limited`],
     ['an answer that is neither forwarded nor limited', [fwd, { status: 404, headers: { 'x-openbed-proxy': 'refused' } }, ...Array.from({ length: TOTAL - 2 }, () => lim)], 'request 2 of ' + TOTAL, `must be 'forwarded', or 'limited' after the first ${LIMIT}`],
-    ['`limited` carried by a status that is not 429', [...Array.from({ length: LIMIT }, () => fwd), { status: 200, headers: { 'x-openbed-proxy': 'limited' } }, lim, lim, lim, lim], `request ${LIMIT + 1} of ${TOTAL}`, 'a limited answer must be a 429'],
+    ['`limited` carried by a status that is not 429', [...Array.from({ length: LIMIT }, () => fwd), { status: 200, headers: { 'x-openbed-proxy': 'limited' } }, ...tail()], `request ${LIMIT + 1} of ${TOTAL}`, 'a limited answer must be a 429'],
+    // THE BOUNDARY (FB-3 d): L-1 forwarded, then `limited` at request L itself. One of the first L, and the off-by-one a
+    // loop of `<` for `<=` would accept.
+    ['`limited` at request L, the last of the first L (the boundary)', [...Array.from({ length: LIMIT - 1 }, () => fwd), lim, ...Array.from({ length: TOTAL - LIMIT }, () => lim)], `request ${LIMIT} of ${TOTAL}`, `must be 'forwarded': one of the first ${LIMIT} was limited`],
   ])('plant — %s is a STOP', (_label, answers, check, msg) => {
     const r = go(answers);
     expectStopAt(r, check);
@@ -928,6 +942,7 @@ describe('scripts/readback_worker_limits.sh (R-2026-09-30-177 FA-3 i)', () => {
     const r = go(fwd);
     expectStopAt(r, 'a limited answer');
     expect(r.out).toContain('wait 2 minutes and run this once more. A second run with no 429 is a real STOP for Cowork');
+    expect(r.out, "the STOP did not print the loop's elapsed seconds").toMatch(/none in \d+ requests, loop took \d+s/);
     expect(r.calls.length).toBe(TOTAL);
   });
 

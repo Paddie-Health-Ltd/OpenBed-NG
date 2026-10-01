@@ -2,22 +2,28 @@
 # ============================================================
 # scripts/readback_worker_limits.sh
 # ============================================================
-# THE HOSTED PROOF THAT api.openbed.ng'S VERIFY LIMIT IS LIVE (R-2026-09-30-177 FA-3 i).
-# Run ONCE, at W3's hosted step b, after scripts/readback_worker.sh. It is NEVER part
-# of the routine read-back, because it spends the caller's own limit: it sends L+5
-# junk GET /auth/v1/verify requests in one loop, where L is LIMIT_VERIFY's
-# `simple.limit` in supabase-proxy/wrangler.json (read from there, never a literal), and
-# reads who answered each one from the Worker's `x-openbed-proxy` header.
+# THE HOSTED PROOF THAT api.openbed.ng'S VERIFY LIMIT IS LIVE (R-2026-09-30-177 FA-3 i;
+# re-sized by R-2026-09-30-178 FB-1 f). Run ONCE, at W3's hosted step b, after
+# scripts/readback_worker.sh. It is NEVER part of the routine read-back, because it spends
+# the caller's own limit: it sends 3L junk GET /auth/v1/verify requests in one loop, where L
+# is LIMIT_VERIFY's `simple.limit` in supabase-proxy/wrangler.json (read from there, never a
+# literal), and reads who answered each one from the Worker's `x-openbed-proxy` header. Three
+# times the limit, not the limit plus a few, because counting is permissive and eventually
+# consistent per Cloudflare location, so a limited answer needs room to appear.
 #
-# WHAT IT SPENDS. Up to L+5 tokens of Supabase's shared per-IP verify bucket (the first L
-# are forwarded; the Worker answers the rest itself and spends nothing). It must run only
-# AFTER the Supabase bucket has been raised (W3 hosted step a): at the dashboard's
-# default of 30 it would use two thirds of the bucket every ward on this address shares.
+# WHAT IT SPENDS. At most 3L tokens of Supabase's shared per-IP verify bucket, and only if
+# the loop is slow enough to cross windows: the first L are forwarded in the first 10-second
+# window, and the Worker answers the rest itself and spends nothing. Supabase's verify bucket
+# BURSTS TO A FIXED 30 that no setting changes (GoTrue's apilimiter.go, `SetBurst(30)`), and
+# its REFILL is what W3 hosted step a raises; the sleep below also lets that burst refill
+# first. So the proof is safe only AFTER step a has raised the refill: at the dashboard's
+# default it could use half the burst every ward on this address shares.
 #
 # IT SLEEPS 61 SECONDS BEFORE SENDING, so that probe 7 of readback_worker.sh, or any link
-# opened from the same network a moment ago, counted in an EARLIER 60-second window and
-# cannot make the first L read `limited`. READBACK_LIMITS_SLEEP overrides the 61 (the
-# test harness sets it to 0); it is not for use on hosted.
+# opened from the same network a moment ago, counted in an EARLIER 10-second window and
+# cannot make the first L read `limited`, and so that Supabase's verify burst has refilled.
+# READBACK_LIMITS_SLEEP overrides the 61 (the test harness sets it to 0); it is not for use
+# on hosted.
 #
 # THE VERDICT.
 #   PASS  the first L all read `forwarded`, and at least one later answer reads a 429
@@ -28,7 +34,9 @@
 #         - any answer that reads neither `forwarded` nor `limited`;
 #         - no 429 at all. Counting is permissive and eventually consistent, and counters
 #           are local to each Cloudflare location, so wait 2 minutes and run it once
-#           more. A SECOND run with no 429 is a real STOP for Cowork.
+#           more. A SECOND run with no 429 is a real STOP for Cowork. The STOP prints the
+#           loop's elapsed seconds: a loop longer than about 10 seconds can cross a window
+#           boundary, and that number says whether it did.
 #   ERROR (exit 2) a curl failure (rb_fetch), a wrangler.json with no usable limit, or a
 #         sleep override that is not a whole number: nothing was proved.
 #
@@ -75,11 +83,12 @@ case "$PAUSE" in
         exit 2 ;;
 esac
 
-TOTAL=$((LIMIT + 5))
-echo "=== LIMIT_VERIFY is $LIMIT a minute (supabase-proxy/wrangler.json): sleeping ${PAUSE}s, then sending $TOTAL verify requests ==="
+TOTAL=$((LIMIT * 3))
+echo "=== LIMIT_VERIFY is $LIMIT per 10 seconds (supabase-proxy/wrangler.json): sleeping ${PAUSE}s, then sending $TOTAL verify requests ==="
 sleep "$PAUSE"
 
 limited_seen=0
+SECONDS=0
 i=1
 while [ "$i" -le "$TOTAL" ]; do
     api_probe GET /auth/v1/verify -G --data-urlencode 'token=probe' --data-urlencode 'type=magiclink' --data-urlencode "redirect_to=$ADMIN_ORIGIN/"
@@ -106,7 +115,7 @@ while [ "$i" -le "$TOTAL" ]; do
 done
 
 if [ "$limited_seen" -eq 0 ] && [ "$RB_OK" = 1 ]; then
-    rb_wrong "a limited answer" "none in $TOTAL requests" "at least one 429 marked 'limited' after the first $LIMIT. Counting is eventually consistent: wait 2 minutes and run this once more. A second run with no 429 is a real STOP for Cowork"
+    rb_wrong "a limited answer" "none in $TOTAL requests, loop took ${SECONDS}s" "at least one 429 marked 'limited' after the first $LIMIT. Counting is eventually consistent: wait 2 minutes and run this once more. A second run with no 429 is a real STOP for Cowork (a loop over about 10s can cross a window boundary: the elapsed seconds say whether it did)"
 fi
 
 rb_verdict "the first $LIMIT verify requests were forwarded and a later one was limited by the Worker, so LIMIT_VERIFY is live at this address and location."

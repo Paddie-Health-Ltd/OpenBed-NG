@@ -84,10 +84,10 @@ describe('readback_signin_link — real links accepted', () => {
     expect(r.out).toContain('redirect_to is exactly https://app.openbed.ng/');
   });
 
-  test('an unknown parameter and the fragment are redacted by NAME as well as value', () => {
-    const r = run(link(ADMIN, `&${TOKEN}=1&%E0=${TOKEN}#access_token=${TOKEN}`));
+  test('the fragment alone is redacted and does not change the verdict — a link with no other parameter still reads PASS', () => {
+    const r = run(link(ADMIN, `#access_token=${TOKEN}`));
     expect(r.status, r.out).toBe(0);
-    expect(r.out).toContain('&<param>=<redacted>&<param>=<redacted>#<redacted>');
+    expect(r.out).toContain(`redirect_to=${ADMIN}#<redacted>`);
   });
 });
 
@@ -101,6 +101,7 @@ describe('readback_signin_link — every other link is STOP', () => {
     ["another project's Supabase host", link(ADMIN).replace('api.openbed.ng', 'zyxwvutsrqponmlkjihg.supabase.co'), 1, `${PROXY_HOST_STOP} zyxwvutsrqponmlkjihg.supabase.co`],
     ['a lookalike of the old host', link(ADMIN).replace('api.openbed.ng', `${REF}.supabase.co.example.com`), 1, `${PROXY_HOST_STOP} ${REF}.supabase.co.example.com`],
     ['a lookalike of the proxy host', link(ADMIN).replace('api.openbed.ng', 'api.openbed.ng.example.com'), 1, `${PROXY_HOST_STOP} api.openbed.ng.example.com`],
+    ['a SUBDOMAIN of the proxy host (FB-3 f)', link(ADMIN).replace('api.openbed.ng', 'evil.api.openbed.ng'), 1, `${PROXY_HOST_STOP} evil.api.openbed.ng`],
     ['only token_hash, which GET verify does not read', withQuery(`token_hash=${TOKEN}&type=magiclink`), 1, 'STOP: the link does not carry exactly one non-empty token, which is the one parameter GET verify reads the token hash from'],
     ['an empty token', withQuery('token=&type=magiclink'), 1, 'STOP: the link does not carry exactly one non-empty token'],
     ['two tokens', withQuery(`token=${TOKEN}&token=${TOKEN}&type=magiclink`), 1, 'STOP: the link does not carry exactly one non-empty token'],
@@ -124,6 +125,20 @@ describe('readback_signin_link — every other link is STOP', () => {
     expect(r.status, r.out).toBe(status);
     expect(r.out).toContain(message);
     expect(r.out, 'a STOP also printed PASS').not.toContain('PASS');
+  });
+
+  // R-2026-09-30-178 FB-3 f: the template carries exactly token, type and redirect_to, so a link carrying anything
+  // else is not the one it builds. Until FB this was a PASS that only redacted the extra name and value.
+  test('an unknown parameter and a token_hash beside a token are STOP, and each is still redacted by NAME as well as value', () => {
+    const unknown = run(link(ADMIN, `&${TOKEN}=1&%E0=${TOKEN}#access_token=${TOKEN}`));
+    expect(unknown.status, unknown.out).toBe(1);
+    expect(unknown.out).toContain('&<param>=<redacted>&<param>=<redacted>#<redacted>');
+    expect(unknown.out).toContain('STOP: the link carries 2 parameter(s) other than token, type and redirect_to, and the template carries no others');
+    const both = run(link(ADMIN, `&token_hash=${TOKEN}`));
+    expect(both.status, both.out).toBe(1);
+    expect(both.out).toContain('&token_hash=<redacted>');
+    expect(both.out).toContain('STOP: the link carries 1 parameter(s) other than token, type and redirect_to, and the template carries no others');
+    for (const r of [unknown, both]) expect(r.out, 'an over-parameterised link also printed PASS').not.toContain('PASS');
   });
 
   test("plant — the old host's STOP names the host and prints nothing else of the link, redirect_to included", () => {

@@ -183,8 +183,8 @@ that moves, turns the build red until this page is restated.
 <!-- surface:begin -->
 | Method | Path | Pinned query | Limit | Reason |
 |---|---|---|---|---|
-| POST | /auth/v1/otp | — | LIMIT_OTP (20 per 60 s) | packages/auth/src/request.ts: a ward, or the operator on admin.openbed.ng, asks for its own sign-in link |
-| POST | /auth/v1/token | grant_type=refresh_token | LIMIT_REFRESH (60 per 60 s) | packages/auth/src/holder.ts: session refresh, the only grant the code sends |
+| POST | /auth/v1/otp | — | LIMIT_OTP (5 per 10 s) | packages/auth/src/request.ts: a ward, or the operator on admin.openbed.ng, asks for its own sign-in link |
+| POST | /auth/v1/token | grant_type=refresh_token | LIMIT_REFRESH (10 per 10 s) | packages/auth/src/holder.ts: session refresh, the only grant the code sends |
 | POST | /rest/v1/rpc/my_reporting_wards | — | — | apps/ward-console: the handover load |
 | POST | /rest/v1/rpc/publish_ward_status | — | — | apps/ward-console: a ward publishes |
 | POST | /rest/v1/rpc/operator_register | — | — | apps/admin: the register load, and reload after every write |
@@ -196,9 +196,9 @@ that moves, turns the build red until this page is restated.
 | POST | /rest/v1/rpc/operator_record_contact | — | — | apps/admin: the operator records a facility's contact |
 | POST | /rest/v1/rpc/operator_record_agreement | — | — | apps/admin: the operator records a facility's agreement |
 | POST | /rest/v1/rpc/operator_set_facility_listed | — | — | apps/admin: the operator lists a facility |
-| POST | /rest/v1/rpc/operator_record_registration | — | — | runbook probe: probe 1b of docs/runbook-cloudflare-worker-proxy.md, run by scripts/readback_worker.sh, until apps/admin records a facility's HEFAMAA number through it (R-2026-09-27-144 DT k, Bundle 3) |
+| POST | /rest/v1/rpc/operator_record_registration | — | — | apps/admin: the operator records a facility's HEFAMAA registration number (R-2026-09-27-144 DT k, Bundle 3), and probe 1b of docs/runbook-cloudflare-worker-proxy.md, run by scripts/readback_worker.sh |
 | GET | /auth/v1/settings | — | — | runbook probe: the ward console's live-key probe (docs/runbook-ward-console-deploy.md step 3, run by scripts/readback_ward_console.sh; R-2026-09-23-65 B2), and probe 2 of docs/runbook-cloudflare-worker-proxy.md, run by scripts/readback_worker.sh |
-| GET | /auth/v1/verify | — | LIMIT_VERIFY (20 per 60 s) | the emailed sign-in link: docs/auth-email-templates/ (R-2026-09-22-55 C, option T1) |
+| GET | /auth/v1/verify | — | LIMIT_VERIFY (5 per 10 s) | the emailed sign-in link: docs/auth-email-templates/ (R-2026-09-22-55 C, option T1) |
 | OPTIONS | /auth/v1/otp | — | — | preflight for POST /auth/v1/otp |
 | OPTIONS | /auth/v1/token | — | — | preflight for POST /auth/v1/token |
 | OPTIONS | /rest/v1/rpc/my_reporting_wards | — | — | preflight for POST /rest/v1/rpc/my_reporting_wards |
@@ -238,14 +238,37 @@ reads where it lands.
 which of them it got. Preflights reach the gateway only for paths a browser calls by
 `fetch`; verify has none, because a sign-in link is a navigation.
 
-**The limits** (FA-3). Three `ratelimits` bindings in `wrangler.json` count sign-in
-requests, link opens and session refreshes per client address, over 60 seconds, at the
-Cloudflare location that served each. Counters are local to each location, permissive and
-eventually consistent; the bindings are not shown in the dashboard. A request over its
-limit is answered by the Worker, `429`, `x-openbed-proxy: limited`, `retry-after: 60`, and
-Supabase is not contacted. A missing binding, or a limiter that fails, forwards: a limiter
-must never take sign-in down, and `limits_bound` in the stamp is where that would show.
-The sizing argument is in the header of `tests/compliance/proxy_limits_config.test.ts`.
+**The limits** (FA-3, re-sized by FB-1). Three `ratelimits` bindings in `wrangler.json` count
+sign-in requests, link opens and session refreshes per client address, over a 10-second
+window, at the Cloudflare location that served each. Counters are local to each location,
+permissive and eventually consistent; the bindings are not shown in the dashboard. A request
+over its limit is answered by the Worker, `429`, `x-openbed-proxy: limited`, `retry-after: 60`
+(deliberately conservative: the window is 10 seconds, but a fixed window can be crossed at a
+boundary), and Supabase is not contacted. A missing binding, a limiter that fails, and a
+limiter that does not answer within a quarter of a second, all forward: a limiter must never
+take sign-in down, and `limits_bound` in the stamp is where a missing binding would show.
+
+**Why 10 seconds, and why the limits are small.** The key is the client address, so one
+hospital's NAT address is one key. **Supabase's per-IP buckets burst to a FIXED 30** that the
+dashboard cannot change (GoTrue's `apilimiter.go` builds them with `SetBurst(30)`; the
+dashboard figure sets only the refill rate), and every facility shares that 30 through the
+Worker's one address. A Cloudflare `simple` limit counts per period and does not spread
+requests across it, so with a fixed window one address can get about twice its limit in any
+10 seconds, and **twice the limit must stay under 30** (the test holds it). At that design
+bound one address alone cannot empty a bucket; three can for otp or verify, and two for
+refresh, which is the register's trigger on a distributed drain. At a shift change, six links
+opened in one 10-second window at one address is possible at a teaching hospital, and the
+sixth gets the flat "answered" message with no email: whether it gets its own message is
+W4's ruling. Refresh is lazy and a limited refresh is terminal today, so `LIMIT_REFRESH`
+bounds how many handsets behind one address may refresh in one window; facility one has one
+login. The full argument is in the header of `tests/compliance/proxy_limits_config.test.ts`.
+
+*Restated 2026-10-01 (R-2026-09-30-178 FB-1 c). Until then this paragraph read:* "Three
+`ratelimits` bindings in `wrangler.json` count sign-in requests, link opens and session
+refreshes per client address, over 60 seconds, at the Cloudflare location that served each.
+[...] A request over its limit is answered by the Worker, `429`, `x-openbed-proxy: limited`,
+`retry-after: 60`, and Supabase is not contacted." *The 60-second figures could let one
+address empty the 30-burst in one second.*
 
 ## W3 hosted steps (R-2026-09-30-177 FA-6)
 
@@ -257,7 +280,9 @@ from before W3 breaks every sign-in link. Put the templates back first** (step c
 rollback).
 
 a. **Supabase: Authentication, Rate Limits, and the Email provider settings.** Read and
-   record everything first: each value, and its burst if shown. Then set sign-ups and
+   record everything first: each value, and its burst if shown. **The burst is fixed at 30 in
+   GoTrue and cannot be set** (`SetBurst(30)` in `apilimiter.go`, read at `ce9a8eee`): the
+   raise below sets the refill rate, and "its burst if shown" stays a read. Then set sign-ups and
    sign-ins per IP to 600 per 5 minutes; token verifications per IP to 600 per 5 minutes;
    token refreshes per IP to 1500 per 5 minutes; Email OTP length to the longest the
    dashboard offers (wards click links and never type the code, and the verify raise lets
@@ -265,13 +290,20 @@ a. **Supabase: Authentication, Rate Limits, and the Email provider settings.** R
    expiration, and emails sent per hour (project-wide, not per IP; Cowork compares it with
    the shift-change arithmetic before step b). **If a field will not take its value, or is
    not editable, record what it shows and STOP. Do not run step b; Cowork rules.**
-b. **The Worker.** Redeploy by section 1. **If the upload refuses a binding: STOP, and do
-   not run step c** (the founder's call on Workers Paid then belongs to the register's
+b. **The Worker.** **First, read the zone's Pseudo IPv4 setting** (R-2026-09-30-178 FB-1 i):
+   in the Cloudflare dashboard, on the `openbed.ng` zone, Network, Pseudo IPv4, and record it.
+   If it reads "Overwrite Headers", `cf-connecting-ip` carries a pseudo IPv4 value in place of
+   the client's IPv6 address, which defeats the /64 key: **STOP for Cowork.** "Off" or "Add
+   header" proceeds. Then redeploy by section 1. **If the upload refuses a binding: STOP, and
+   do not run step c** (the founder's call on Workers Paid then belongs to the register's
    plan trigger). Then, from the deploy checkout: 1. `bash scripts/readback_worker.sh
    https://api.openbed.ng` with probes 5, 5b, 6 and 7 and `limits_bound` all true;
    2. `bash scripts/readback_worker_limits.sh https://api.openbed.ng`, once (it sleeps 61
-   seconds, then sends the limit plus five verify requests; run it only after step a); 3.
-   probe 4, by Cowork. Record the status probe 7 returned.
+   seconds, then sends three times the limit in verify requests; run it only after step a);
+   3. probe 4, by Cowork. Record the status probe 7 returned.
+   *Restated 2026-10-01 (R-2026-09-30-178 FB-1 c, f, i): until then step b.2 read "...it sleeps
+   61 seconds, then sends the limit plus five verify requests; run it only after step a...",
+   and step b had no Pseudo IPv4 read.*
 c. **The templates, only after a and b read as they must.** 1. Read the dashboard's
    current Magic Link and Confirm signup templates and give them to Cowork, who compares
    them with the tracked files in `docs/auth-email-templates/` before anything is pasted;

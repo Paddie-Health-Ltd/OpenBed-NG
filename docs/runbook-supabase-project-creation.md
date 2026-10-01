@@ -4587,7 +4587,7 @@ through the admin app.
      box read "The sensor bundle, sequenced after Bundle 3 and before facility one. Not
      started."*
    - [ ] `snapshot_stale` seen on hosted: a drill records when it first appeared
-     (R-2026-09-30-177)
+     (R-2026-09-30-177 FA-5 e)
      The 2026-09-30 drill restored the job once both alerts had arrived and did not note
      when `job_inactive` or `snapshot_stale` first showed; by the timings `snapshot_stale`
      was showing from about 20:57:30Z, which is inference, not a reading. It closes on the

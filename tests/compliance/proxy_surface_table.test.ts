@@ -28,6 +28,11 @@ import { renderSurface, surfaceBetween, SURFACE_BEGIN, SURFACE_END, type Surface
 const RUNBOOK = join(REPO_ROOT, 'docs', 'runbook-cloudflare-worker-proxy.md');
 const FORWARD = (LIST as unknown as { forward: SurfaceEntry[] }).forward;
 const WR = WRANGLER as unknown as SurfaceWrangler;
+/** A binding's limit as the table's limit column prints it, from wrangler.json: no number is typed twice. */
+const limitCell = (name: string): string => {
+  const b = (WR.ratelimits ?? []).find((x) => x.name === name);
+  return `${name} (${String(b?.simple?.limit)} per ${String(b?.simple?.period)} s)`;
+};
 const LEAD_INS = ['**Methods.**', '**Services reached.**', '**Websocket upgrades.**', '**Location under manual redirect.**', '**CORS.**'];
 
 export function surfaceViolations(doc: string, forward: readonly SurfaceEntry[], wrangler: SurfaceWrangler): string[] {
@@ -43,6 +48,9 @@ export function surfaceViolations(doc: string, forward: readonly SurfaceEntry[],
       break;
     }
   }
+  // The markers must sit in prose: inside a fence, a probe parser reads the table as a command block.
+  const fences = doc.slice(0, doc.indexOf(SURFACE_BEGIN)).split('\n').filter((l) => /^\s*```/.test(l)).length;
+  if (fences % 2 === 1) out.push('SURFACE FENCED: the surface markers are inside a fenced block, and the table must be outside any fence');
   const after = doc.slice(doc.indexOf(SURFACE_END));
   for (const lead of LEAD_INS) if (!after.includes(lead)) out.push(`SURFACE PROPERTY: the paragraph that begins ${lead} is missing after the table`);
   return out;
@@ -65,9 +73,9 @@ describe('the runbook surface table equals the allow-list (FA-1 e)', () => {
     const rows = (surfaceBetween(real) ?? '').split('\n').slice(2);
     expect(rows.length, 'a row per forward entry').toBe(FORWARD.length);
     expect(rows.filter((r) => /LIMIT_[A-Z]+ \(/.test(r)).map((r) => r.split('|').slice(1, 5).map((c) => c.trim()).join(' / '))).toEqual([
-      'POST / /auth/v1/otp / — / LIMIT_OTP (20 per 60 s)',
-      'POST / /auth/v1/token / grant_type=refresh_token / LIMIT_REFRESH (60 per 60 s)',
-      'GET / /auth/v1/verify / — / LIMIT_VERIFY (20 per 60 s)',
+      `POST / /auth/v1/otp / — / ${limitCell('LIMIT_OTP')}`,
+      `POST / /auth/v1/token / grant_type=refresh_token / ${limitCell('LIMIT_REFRESH')}`,
+      `GET / /auth/v1/verify / — / ${limitCell('LIMIT_VERIFY')}`,
     ]);
   });
 
@@ -87,16 +95,25 @@ describe('the runbook surface table equals the allow-list (FA-1 e)', () => {
     // and a plant there leaves the table alone, so the guard is right to stay green.
     expect(surfaceViolations(planted(/(\| POST \| \/rest\/v1\/rpc\/publish_ward_status \|[^\n]*)a ward publishes/, '$1a ward publishes twice'), FORWARD, WR).join('\n')).toContain('SURFACE DRIFT: line ');
     expect(surfaceViolations(planted(/(\| POST \| \/auth\/v1\/token \| )grant_type=refresh_token/, '$1grant_type=password'), FORWARD, WR).join('\n')).toContain('SURFACE DRIFT: line ');
-    expect(surfaceViolations(planted(/(\| POST \| \/auth\/v1\/otp \| — \| )LIMIT_OTP \(20 per 60 s\)/, '$1LIMIT_OTP (200 per 60 s)'), FORWARD, WR).join('\n')).toContain('SURFACE DRIFT: line ');
+    const otp = limitCell('LIMIT_OTP');
+    const escaped = otp.replace(/[()]/g, '\\$&');
+    expect(surfaceViolations(planted(new RegExp(`(\\| POST \\| \\/auth\\/v1\\/otp \\| — \\| )${escaped}`), `$1${otp.replace(/\d+ per/, '200 per')}`), FORWARD, WR).join('\n')).toContain('SURFACE DRIFT: line ');
   });
 
   test('plant — the same table against a wrangler.json whose number moved is rejected: the limit column is read from it', () => {
-    const moved: SurfaceWrangler = { ratelimits: (WR.ratelimits ?? []).map((b) => (b.name === 'LIMIT_OTP' ? { ...b, simple: { ...b.simple, limit: 21 } } : b)) };
+    const moved: SurfaceWrangler = { ratelimits: (WR.ratelimits ?? []).map((b) => (b.name === 'LIMIT_OTP' ? { ...b, simple: { ...b.simple, limit: (b.simple?.limit ?? 0) + 1 } } : b)) };
     expect(surfaceViolations(real, FORWARD, moved).join('\n')).toContain('SURFACE DRIFT: line ');
   });
 
   test('plant — missing markers are rejected', () => {
     expect(surfaceViolations(planted(SURFACE_BEGIN, ''), FORWARD, WR)).toEqual([`SURFACE MARKERS: the runbook has no ${SURFACE_BEGIN} ... ${SURFACE_END} pair, so nothing was compared`]);
+  });
+
+  test('the markers are outside any fence, and a plant that wraps them in one is rejected (FB-3 k)', () => {
+    expect(surfaceViolations(real, FORWARD, WR).filter((x) => x.startsWith('SURFACE FENCED'))).toEqual([]);
+    const wrapped = planted(SURFACE_BEGIN, '```\n' + SURFACE_BEGIN).replace(SURFACE_END, SURFACE_END + '\n```');
+    expect(wrapped, 'the plant did not wrap the markers').not.toBe(real);
+    expect(surfaceViolations(wrapped, FORWARD, WR)).toContain('SURFACE FENCED: the surface markers are inside a fenced block, and the table must be outside any fence');
   });
 
   test('plant — a property paragraph removed is rejected', () => {

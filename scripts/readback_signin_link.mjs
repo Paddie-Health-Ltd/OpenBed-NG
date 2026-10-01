@@ -162,6 +162,14 @@ if (sent.length > 1) {
   console.error("STOP: the link carries more than one redirect_to, and which one Auth reads is not this script's to guess");
   process.exit(1);
 }
+// THE TEMPLATE CARRIES EXACTLY THREE PARAMETERS (R-2026-09-30-178 FB-3 f; the rule the tracked templates are
+// held to, FA-2 c), so a link carrying a fourth, `token_hash` beside a token included, is not the one the
+// template builds. Its name is never printed: a name can carry a token.
+const OTHERS = params.filter((p) => p.key === null || !['token', 'type', 'redirect_to'].includes(p.key));
+if (OTHERS.length > 0) {
+  console.error(`STOP: the link carries ${OTHERS.length} parameter(s) other than token, type and redirect_to, and the template carries no others`);
+  process.exit(1);
+}
 const decoded = link.searchParams.get('redirect_to') ?? '';
 console.log(`redirect_to, as sent : ${sent[0]}`);
 console.log(`redirect_to, decoded : ${decoded}`);

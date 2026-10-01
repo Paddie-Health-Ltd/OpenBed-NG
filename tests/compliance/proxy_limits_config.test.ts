@@ -17,22 +17,40 @@ import { REPO_ROOT } from './_scratch.js';
  * second copy to drift. This file holds the two files together, and the handler's
  * `limited` answer and the way index.js and dev.js hand `env` to it.
  *
- * THE SIZING ARGUMENT (why 20, 20 and 60; the key is the client address, so one
- * hospital's NAT address is one key):
- *   - a handset refreshes about once an hour, so a 30-ward hospital sends about one
- *     refresh a minute;
- *   - at a 07:00 or 19:00 shift change, 20 wards each ask for a link and open it within a
- *     few minutes, which is under 20 a minute of each;
- *   - reconnect after an outage: refresh is lazy (packages/auth/src/holder.ts
- *     accessToken), so after an ISP or power cut longer than the token's life every
- *     handset behind one address refreshes when it next acts, and a limited refresh is
- *     terminal (holder.ts reads any non-2xx as SessionExpiredError). LIMIT_REFRESH must
- *     therefore exceed the reporting logins at the largest listed facility. Facility one
- *     is a small private hospital with one facility-level login; the register's TRIGGER
- *     holds it for later facilities;
- *   - one address held at these limits cannot drain Supabase's shared per-IP buckets once
- *     they are raised (runbook, W3 hosted steps a): draining takes more than six
- *     addresses for sign-in or verify and more than five for refresh.
+ * THE SIZING ARGUMENT (why 5, 5 and 10 per 10 seconds; restated by R-2026-09-30-178 FB-1 c
+ * after FA's was found false). Read the code that builds the bucket, not only the setting
+ * that tunes it:
+ *   - THE KEY is the client address, so one hospital's NAT address is one key.
+ *   - SUPABASE'S PER-IP BUCKETS BURST TO A FIXED 30. GoTrue builds its token and verify
+ *     buckets with a hard-coded `SetBurst(30)` and its OTP bucket with a limiter whose burst
+ *     is also 30 (supabase/auth, internal/api/apilimiter/apilimiter.go, read at ce9a8eee on
+ *     2026-09-22). The dashboard's per-5-minute figure sets only the REFILL rate, so the
+ *     burst cannot be raised, and every facility shares the 30 through the Worker's one
+ *     address (the attribution read of 2026-09-30).
+ *   - A CLOUDFLARE `simple` LIMIT COUNTS PER PERIOD and does not spread requests across it.
+ *     At 60 seconds one address could send its whole limit in one second and empty the
+ *     shared bucket, so a ward's refresh that landed while it was empty would get
+ *     Supabase's own 429, which holder.ts turns into a sign-out. The period is therefore 10
+ *     seconds, and the limit is chosen so ONE address's worst case stays under the burst:
+ *     with a fixed window an address can get about twice its limit in any 10 seconds (a
+ *     full window either side of a boundary), so 2 x limit must be under 30. At 5, 5 and 10
+ *     that is 10, 10 and 20; sustained, 30, 30 and 60 a minute. Counting is permissive,
+ *     eventually consistent and per Cloudflare location, so 2 x limit is the DESIGN bound,
+ *     not a guarantee. At that bound one address alone cannot empty a bucket; three can for
+ *     otp or verify, and two for refresh. That is the register's TRIGGER (a distributed
+ *     drain), and a city-wide reconnect can still empty the 30: a clinical-path question for
+ *     W4, not a number to tune here.
+ *   - SHIFT CHANGE: 30 links a minute per address is above 20 wards asking within a few
+ *     minutes, but six links opened in ONE 10-second window at one address is possible at a
+ *     teaching hospital, and the sixth gets the flat "answered" message with no email.
+ *     Whether that gets its own message is W4's ruling (R-2026-09-30-178 FB-4).
+ *   - RECONNECT: refresh is lazy (packages/auth/src/holder.ts accessToken), so after an ISP
+ *     or power cut longer than the token's life every handset behind one address refreshes
+ *     when it next acts, and a limited refresh is terminal today (holder.ts reads any
+ *     non-2xx as SessionExpiredError). LIMIT_REFRESH bounds how many handsets behind one
+ *     address may refresh in one 10-second window. Facility one is a small private
+ *     hospital with one facility-level login; the register's TRIGGER holds it for later
+ *     facilities.
  *
  * GUARD CLASS (Clause 5): LIVE. The bindings, the entries that name them and the handler
  * that reads them all exist at this commit.
@@ -57,6 +75,16 @@ interface Wrangler {
   ratelimits?: Ratelimit[];
 }
 
+/**
+ * SUPABASE'S FIXED PER-IP BURST. GoTrue's apilimiter.go builds the per-IP token and verify
+ * buckets with `SetBurst(30)`, and the OTP bucket through a limiter whose burst is also 30
+ * (supabase/auth at ce9a8eee, read 2026-09-22). The dashboard cannot change it: its
+ * per-5-minute figure sets only the refill rate.
+ */
+export const SUPABASE_PER_IP_BURST = 30;
+/** Every period is 10 seconds: a longer window lets one address send its whole limit at once. */
+export const WINDOW_SECONDS = 10;
+
 const LIST_TYPED = LIST as unknown as AllowList;
 const WRANGLER_TYPED = WRANGLER as unknown as Wrangler;
 
@@ -74,8 +102,11 @@ export function limitViolations(list: AllowList, wrangler: Wrangler): string[] {
   }
   for (const b of bindings) {
     if (!named.has(b.name ?? '')) out.push(`LIMIT UNUSED: wrangler.json binds ${b.name ?? '(unnamed)'} and no allow-list entry names it`);
-    if (b.simple?.period !== 60) out.push(`LIMIT PERIOD: ${b.name ?? '(unnamed)'} counts over ${String(b.simple?.period)} seconds, and every limit here is per 60`);
+    if (b.simple?.period !== WINDOW_SECONDS) out.push(`LIMIT PERIOD: ${b.name ?? '(unnamed)'} counts over ${String(b.simple?.period)} seconds, and every period here is ${WINDOW_SECONDS}: a longer window lets one address send its whole limit in one second`);
     if (!Number.isInteger(b.simple?.limit) || (b.simple?.limit ?? 0) < 1) out.push(`LIMIT VALUE: ${b.name ?? '(unnamed)'} has no positive integer simple.limit`);
+    else if (2 * (b.simple?.limit ?? 0) >= SUPABASE_PER_IP_BURST) {
+      out.push(`LIMIT BURST: ${b.name ?? '(unnamed)'} allows 2 x ${String(b.simple?.limit)} = ${2 * (b.simple?.limit ?? 0)} requests across a window boundary, which is not under Supabase's fixed per-IP burst of ${SUPABASE_PER_IP_BURST}`);
+    }
   }
   const ids = bindings.map((b) => b.namespace_id ?? '');
   for (const id of new Set(ids)) {
@@ -98,9 +129,9 @@ describe('the edge limits: wrangler.json is the one source of their numbers (FA-
 
   test('the three bindings are the ones the design names, by identity', () => {
     expect((WRANGLER_TYPED.ratelimits ?? []).map((b) => `${b.name} ${b.simple?.limit}/${b.simple?.period}`)).toEqual([
-      'LIMIT_OTP 20/60',
-      'LIMIT_VERIFY 20/60',
-      'LIMIT_REFRESH 60/60',
+      'LIMIT_OTP 5/10',
+      'LIMIT_VERIFY 5/10',
+      'LIMIT_REFRESH 10/10',
     ]);
     expect(LIST_TYPED.forward.filter((e) => e.limit !== undefined).map((e) => `${e.method} ${e.path} -> ${e.limit}`)).toEqual([
       'POST /auth/v1/otp -> LIMIT_OTP',
@@ -125,7 +156,7 @@ describe('the edge limits: wrangler.json is the one source of their numbers (FA-
   });
 
   test('plant — a binding no entry names is rejected', () => {
-    const planted = { ratelimits: [...(WRANGLER_TYPED.ratelimits ?? []), { name: 'LIMIT_SPARE', namespace_id: '3199', simple: { limit: 5, period: 60 } }] };
+    const planted = { ratelimits: [...(WRANGLER_TYPED.ratelimits ?? []), { name: 'LIMIT_SPARE', namespace_id: '3199', simple: { limit: 5, period: WINDOW_SECONDS } }] };
     expect(limitViolations(LIST_TYPED, planted)).toEqual(['LIMIT UNUSED: wrangler.json binds LIMIT_SPARE and no allow-list entry names it']);
   });
 
@@ -134,9 +165,25 @@ describe('the edge limits: wrangler.json is the one source of their numbers (FA-
     expect(limitViolations(LIST_TYPED, planted)).toEqual(['LIMIT NAMESPACE: namespace_id 3101 is shared, so those bindings would share counters']);
   });
 
-  test('plant — a period other than 60 is rejected', () => {
-    const planted = { ratelimits: (WRANGLER_TYPED.ratelimits ?? []).map((b) => (b.name === 'LIMIT_OTP' ? { ...b, simple: { limit: 20, period: 10 } } : b)) };
-    expect(limitViolations(LIST_TYPED, planted)).toEqual(['LIMIT PERIOD: LIMIT_OTP counts over 10 seconds, and every limit here is per 60']);
+  test('plant — a period other than 10 is rejected, and only the period rule fires', () => {
+    // The REAL limit is kept, so the burst rule stays quiet and the message is the period's alone.
+    const planted = { ratelimits: (WRANGLER_TYPED.ratelimits ?? []).map((b) => (b.name === 'LIMIT_OTP' ? { ...b, simple: { ...b.simple, period: 60 } } : b)) };
+    expect(planted.ratelimits.find((b) => b.name === 'LIMIT_OTP')?.simple?.period, 'the plant did not move the period').toBe(60);
+    expect(limitViolations(LIST_TYPED, planted)).toEqual([`LIMIT PERIOD: LIMIT_OTP counts over 60 seconds, and every period here is ${WINDOW_SECONDS}: a longer window lets one address send its whole limit in one second`]);
+  });
+
+  test("the burst rule: 2 x limit must be UNDER Supabase's fixed 30 — a limit of 14 is accepted, 15 is rejected", () => {
+    const withOtp = (limit: number): Wrangler => ({ ratelimits: (WRANGLER_TYPED.ratelimits ?? []).map((b) => (b.name === 'LIMIT_OTP' ? { ...b, simple: { ...b.simple, limit } } : b)) });
+    expect(limitViolations(LIST_TYPED, withOtp(14)), '2 x 14 = 28 is under 30 and must be accepted').toEqual([]);
+    expect(limitViolations(LIST_TYPED, withOtp(15))).toEqual([`LIMIT BURST: LIMIT_OTP allows 2 x 15 = 30 requests across a window boundary, which is not under Supabase's fixed per-IP burst of ${SUPABASE_PER_IP_BURST}`]);
+    expect(limitViolations(LIST_TYPED, withOtp(16))).toEqual([`LIMIT BURST: LIMIT_OTP allows 2 x 16 = 32 requests across a window boundary, which is not under Supabase's fixed per-IP burst of ${SUPABASE_PER_IP_BURST}`]);
+  });
+
+  test('plant — FA\'s own figures (20, 20 and 60 per 60 seconds) are rejected on both rules, which is how the false sizing would have been caught', () => {
+    const fa: Wrangler = { ratelimits: (WRANGLER_TYPED.ratelimits ?? []).map((b) => ({ ...b, simple: { limit: b.name === 'LIMIT_REFRESH' ? 60 : 20, period: 60 } })) };
+    const v = limitViolations(LIST_TYPED, fa);
+    expect(v.filter((x) => x.startsWith('LIMIT PERIOD')).length).toBe(3);
+    expect(v.filter((x) => x.startsWith('LIMIT BURST')).length).toBe(3);
   });
 
   test('plant — a limit on an OPTIONS entry is rejected', () => {
@@ -219,14 +266,31 @@ describe('the Worker entry points hand env to the handler (FA-3 f)', () => {
 // The sentence a nurse reads on a limited link.
 // ---------------------------------------------------------------------------
 
-describe('the limited-link sentence has one source (FA-3 e)', () => {
-  test('the handler copy equals packages/labels/ward-labels.json, and is one sentence-group a nurse can act on', () => {
-    expect(VERIFY_LIMITED_TEXT).toBe(WARD.proxy.VERIFY_LIMITED);
+/**
+ * The handler's copy of the limited-link sentence against the label it is held equal to. A
+ * checker, so a plant has something to be rejected BY (the FA version called expect() on a
+ * concatenation, which asserted nothing about any code).
+ */
+export function labelViolations(handlerCopy: string, label: string): string[] {
+  return handlerCopy === label ? [] : ["LABEL DRIFT: the handler's copy of the limited-link sentence differs from packages/labels/ward-labels.json proxy.VERIFY_LIMITED"];
+}
+
+describe('the limited-link sentence has one source (FA-3 e; FB-1 d, FB-3 j)', () => {
+  test('real pair is accepted — the handler copy equals the label, and says what is now true', () => {
+    expect(labelViolations(VERIFY_LIMITED_TEXT, WARD.proxy.VERIFY_LIMITED)).toEqual([]);
+    expect(VERIFY_LIMITED_TEXT).toContain('just now');
+    expect(VERIFY_LIMITED_TEXT, '"in the last minute" is no longer true of a 10-second window').not.toContain('in the last minute');
     expect(VERIFY_LIMITED_TEXT).toContain('Wait one minute');
     expect(VERIFY_LIMITED_TEXT).toContain('It has not been used.');
   });
 
-  test('plant — an edited copy is not equal to the label', () => {
-    expect(`${VERIFY_LIMITED_TEXT} Please try later.`, 'a diverged copy compared equal').not.toBe(WARD.proxy.VERIFY_LIMITED);
+  test('plant — one word changed in the handler copy is rejected, by its own message', () => {
+    const planted = VERIFY_LIMITED_TEXT.replace('Wait one minute', 'Wait a minute');
+    expect(planted, 'the plant did not change the copy').not.toBe(VERIFY_LIMITED_TEXT);
+    expect(labelViolations(planted, WARD.proxy.VERIFY_LIMITED)).toEqual(["LABEL DRIFT: the handler's copy of the limited-link sentence differs from packages/labels/ward-labels.json proxy.VERIFY_LIMITED"]);
+  });
+
+  test('anti-vacuity — an empty copy is not the label', () => {
+    expect(labelViolations('', WARD.proxy.VERIFY_LIMITED)).toHaveLength(1);
   });
 });

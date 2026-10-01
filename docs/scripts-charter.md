@@ -54,7 +54,7 @@ _Added by R-2026-09-29-171 (EU-4), the last item of the `scripts/` survey. One r
 | readback_function_grants.sh | Read who can EXECUTE each function, and hold the answer exactly to the fixture. | `tests/compliance/readback_scripts.test.ts`, `tests/db/function_grants.test.ts` | yes | probed | 6 / 0 | NOT ASSERTED |
 | readback_pages.sh | The public dashboard's deploy read-backs: 4, 6, 8, /api/health, the privacy notice and the stamp. | `tests/compliance/readback_scripts.test.ts` | yes | probed | 1 / 0 | NOT ASSERTED |
 | readback_public_output.sh | A hosted apply changes no public output: readings before and after are compared. | `tests/compliance/readback_scripts.test.ts` | yes | probed | 3 / 0 | NOT ASSERTED |
-| readback_signin_link.mjs | A sign-in link goes through api.openbed.ng and lands exactly on its redirect. | `tests/compliance/readback_signin_link.test.ts` | yes | probed | 16 / 0 | OK |
+| readback_signin_link.mjs | A sign-in link goes through api.openbed.ng and lands exactly on its redirect. | `tests/compliance/readback_signin_link.test.ts` | yes | probed | 17 / 0 | OK |
 | readback_ward_console.sh | The ward console read-back: its stamp, the deployed key accepted, a wrong key refused. | `tests/compliance/readback_scripts.test.ts` | yes | probed | 0 / 0 | NOT ASSERTED |
 | readback_worker.sh | The Worker read-back: each probe proves by header who answered, plus the stamp. | `tests/compliance/readback_scripts.test.ts` | yes | probed | 2 / 0 | NOT ASSERTED |
 | readback_worker_limits.sh | Prove the Worker's verify limit is live, once: L forwarded, then a limited 429. | `tests/compliance/readback_scripts.test.ts` | yes | probed | 2 / 0 | NOT ASSERTED |

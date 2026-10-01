@@ -29,10 +29,15 @@
  *
  * WHY THE LIMITS EXIST. Every request through this Worker reaches Supabase from one
  * Cloudflare address (observed, R-2026-09-30-177), so Supabase's per-IP auth buckets
- * are shared by every ward. The limits bound each CLIENT; they are not a defence
- * against a distributed drain (that is a register TRIGGER). The numbers are the
- * `simple.limit` of each binding in wrangler.json, which is their one source; the
- * sizing argument is in tests/compliance/proxy_limits_config.test.ts.
+ * are shared by every ward, and each bursts to a FIXED 30 that the dashboard cannot
+ * change (R-2026-09-30-178 FB-1). The limits bound each CLIENT, over a 10-second window
+ * so one address cannot send its whole limit at once; they are not a defence against a
+ * distributed drain (that is a register TRIGGER). The numbers are the `simple.limit` of
+ * each binding in wrangler.json, which is their one source; the sizing argument is in
+ * tests/compliance/proxy_limits_config.test.ts.
+ *
+ * A LIMITER THAT NEVER ANSWERS FORWARDS TOO (FB-3 i): the call is raced against a
+ * LIMITER_TIMEOUT_MS timer, so a hung binding cannot take sign-in down.
  *
  * WHY EVERY ANSWER SAYS WHO GAVE IT. A 404 or a 401 from here and one from Supabase
  * look alike, and a probe that cannot tell them apart passes on the wrong one. So
@@ -69,10 +74,12 @@ interface RateLimiter {
  * npm workspaces and cannot import it, and a test holds the two equal.
  */
 export const VERIFY_LIMITED_TEXT =
-  'Too many sign-in links were opened from this network in the last minute. Wait one minute, then open the same link again. It has not been used.';
+  'Too many sign-in links were opened from this network just now. Wait one minute, then open the same link again. It has not been used.';
 export const LIMITED_JSON = '{"message":"rate limited by the OpenBed proxy"}';
 /** Used when the request carries no client address (local, tests): still limited, never unlimited. */
 export const NO_ADDRESS_KEY = 'no-client-address';
+/** A limiter that has not answered by now is treated as absent: the request forwards. */
+export const LIMITER_TIMEOUT_MS = 250;
 
 export interface ForwardEntry {
   readonly method: string;
@@ -108,14 +115,24 @@ export function admits(list: AllowList, method: string, pathname: string, search
 /**
  * The key a client is counted under: Cloudflare's `cf-connecting-ip`, which Cloudflare
  * sets at our edge and a client cannot supply. An IPv6 address is keyed on its /64,
- * since one subscriber holds a whole /64. Nothing here is logged or stored.
+ * since one subscriber holds a whole /64; an IPv4-MAPPED address (`::ffff:a.b.c.d`, or
+ * its hex form) is keyed on the embedded IPv4 address, exactly as the plain dotted
+ * address is, because all of them share one /64 and would otherwise collapse into one
+ * key (FB-3 g; Cloudflare sends dotted IPv4 or IPv6, so this is defensive). Nothing here
+ * is logged or stored.
  */
 export function limitKey(address: string | null): string {
   const raw = (address ?? '').trim();
   if (raw === '') return NO_ADDRESS_KEY;
   if (!raw.includes(':')) return raw;
   const groups = expandV6(raw);
-  return groups === null ? raw : `${groups.slice(0, 4).join(':')}::/64`;
+  if (groups === null) return raw;
+  if (groups.slice(0, 5).every((g) => g === '0000') && groups[5] === 'ffff') {
+    const hi = parseInt(groups[6] ?? '0', 16);
+    const lo = parseInt(groups[7] ?? '0', 16);
+    return `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+  }
+  return `${groups.slice(0, 4).join(':')}::/64`;
 }
 
 /** Eight 4-digit hex groups, or null when `a` is not an IPv6 address this can read. */
@@ -168,6 +185,9 @@ export function limited(entry: ForwardEntry, method: string): Response {
     headers: {
       'content-type': isLink ? 'text/plain; charset=utf-8' : 'application/json',
       [PROXY_HEADER]: 'limited',
+      // "Wait one minute" and 60 are deliberately conservative: the window is 10 seconds, but a
+      // fixed window can be crossed at a boundary and Cloudflare's counting is eventually
+      // consistent per location, so a retry at 10 s could be limited again (FB-1 d).
       'retry-after': '60',
       'cache-control': 'no-store',
       'access-control-allow-origin': '*',
@@ -181,16 +201,26 @@ function limiterNamed(env: ProxyEnv | undefined, name: string): RateLimiter | un
   return typeof b?.limit === 'function' ? (b as RateLimiter) : undefined;
 }
 
-/** True only when a bound limiter counted this client and said no. Everything else forwards. */
+/**
+ * True only when a bound limiter counted this client and said no. Everything else
+ * forwards: a missing binding, a limiter that throws, and one that never answers within
+ * LIMITER_TIMEOUT_MS. The timer is cleared the moment `limit()` settles first.
+ */
 async function overLimit(env: ProxyEnv | undefined, entry: ForwardEntry, request: Request): Promise<boolean> {
   if (entry.limit === undefined) return false;
   const limiter = limiterNamed(env, entry.limit);
   if (limiter === undefined) return false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<'timeout'>((resolve) => {
+    timer = setTimeout(() => resolve('timeout'), LIMITER_TIMEOUT_MS);
+  });
   try {
-    const verdict = await limiter.limit({ key: limitKey(request.headers.get('cf-connecting-ip')) });
-    return verdict.success === false;
+    const verdict = await Promise.race([limiter.limit({ key: limitKey(request.headers.get('cf-connecting-ip')) }), timeout]);
+    return verdict !== 'timeout' && verdict.success === false;
   } catch {
     return false;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

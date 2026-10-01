@@ -20,6 +20,6 @@
     "NO_WARD": "This sign-in isn't linked to a ward, so there is nothing to hand over. If you run OpenBed, sign in at admin.openbed.ng instead."
   },
   "proxy": {
-    "VERIFY_LIMITED": "Too many sign-in links were opened from this network in the last minute. Wait one minute, then open the same link again. It has not been used."
+    "VERIFY_LIMITED": "Too many sign-in links were opened from this network just now. Wait one minute, then open the same link again. It has not been used."
   }
 }
