@@ -49,7 +49,9 @@ export function surfaceViolations(doc: string, forward: readonly SurfaceEntry[],
     }
   }
   // The markers must sit in prose: inside a fence, a probe parser reads the table as a command block.
-  const fences = doc.slice(0, doc.indexOf(SURFACE_BEGIN)).split('\n').filter((l) => /^\s*```/.test(l)).length;
+  // A fence opens with three or more backticks OR three or more tildes (FC-4): a `~~~` block hides the table from the
+  // parser just as a backtick block does.
+  const fences = doc.slice(0, doc.indexOf(SURFACE_BEGIN)).split('\n').filter((l) => /^\s*(?:`{3,}|~{3,})/.test(l)).length;
   if (fences % 2 === 1) out.push('SURFACE FENCED: the surface markers are inside a fenced block, and the table must be outside any fence');
   const after = doc.slice(doc.indexOf(SURFACE_END));
   for (const lead of LEAD_INS) if (!after.includes(lead)) out.push(`SURFACE PROPERTY: the paragraph that begins ${lead} is missing after the table`);
@@ -105,6 +107,12 @@ describe('the runbook surface table equals the allow-list (FA-1 e)', () => {
     expect(surfaceViolations(real, FORWARD, moved).join('\n')).toContain('SURFACE DRIFT: line ');
   });
 
+  test("plant — the same table against a wrangler.json whose PERIOD moved is rejected: the period column is read from it too (FC-3)", () => {
+    const moved: SurfaceWrangler = { ratelimits: (WR.ratelimits ?? []).map((b) => (b.name === 'LIMIT_OTP' ? { ...b, simple: { ...b.simple, period: 60 } } : b)) };
+    expect(moved.ratelimits?.find((b) => b.name === 'LIMIT_OTP')?.simple?.period, 'the plant did not move the period').toBe(60);
+    expect(surfaceViolations(real, FORWARD, moved).join('\n')).toContain('SURFACE DRIFT: line ');
+  });
+
   test('plant — missing markers are rejected', () => {
     expect(surfaceViolations(planted(SURFACE_BEGIN, ''), FORWARD, WR)).toEqual([`SURFACE MARKERS: the runbook has no ${SURFACE_BEGIN} ... ${SURFACE_END} pair, so nothing was compared`]);
   });
@@ -112,6 +120,12 @@ describe('the runbook surface table equals the allow-list (FA-1 e)', () => {
   test('the markers are outside any fence, and a plant that wraps them in one is rejected (FB-3 k)', () => {
     expect(surfaceViolations(real, FORWARD, WR).filter((x) => x.startsWith('SURFACE FENCED'))).toEqual([]);
     const wrapped = planted(SURFACE_BEGIN, '```\n' + SURFACE_BEGIN).replace(SURFACE_END, SURFACE_END + '\n```');
+    expect(wrapped, 'the plant did not wrap the markers').not.toBe(real);
+    expect(surfaceViolations(wrapped, FORWARD, WR)).toContain('SURFACE FENCED: the surface markers are inside a fenced block, and the table must be outside any fence');
+  });
+
+  test('plant — the markers wrapped in a ~~~ fence are rejected too (FC-4)', () => {
+    const wrapped = planted(SURFACE_BEGIN, '~~~\n' + SURFACE_BEGIN).replace(SURFACE_END, SURFACE_END + '\n~~~');
     expect(wrapped, 'the plant did not wrap the markers').not.toBe(real);
     expect(surfaceViolations(wrapped, FORWARD, WR)).toContain('SURFACE FENCED: the surface markers are inside a fenced block, and the table must be outside any fence');
   });

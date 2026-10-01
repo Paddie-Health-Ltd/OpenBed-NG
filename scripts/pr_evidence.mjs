@@ -31,7 +31,7 @@
  *   3. The artefacts junit-compliance, junit-db and junit-golden-path: exactly one
  *      of each; made by this run for HEAD; not expired; not created before this
  *      attempt started; the zip's sha256 equals its recorded digest; its entries are
- *      exactly the expected bare names.
+ *      exactly the expected bare names, in any order.
  *   4. The provenance in each: the five keys in order; the object exactly
  *      object_size bytes; its sha1 is github_sha; exactly two parents, the second
  *      HEAD; run_id and run_attempt this run's; the job its own; the three agree.
@@ -92,7 +92,12 @@ const TIMEOUT_MS = 12_000;
 const PROVENANCE = 'ci-provenance.txt';
 const PROVENANCE_KEYS = ['github_sha', 'run_id', 'run_attempt', 'job', 'object_size'];
 
-/** The three uploading jobs, their artefacts, and the entries each must hold, in order. */
+/**
+ * The three uploading jobs, their artefacts, and the entries each must hold: exactly these
+ * names, in any order, each once (compared sorted, R-2026-09-30-179 FC-5). The ORDER of a
+ * zip's entries is the runner's, and actions/upload-artifact promises none: comparing the
+ * ordered list refused a correct run on 2026-10-01 for nothing the repository did.
+ */
 const ARTEFACTS = [
   { name: 'junit-compliance', job: 'compliance-tests', entries: ['junit-compliance.xml', PROVENANCE] },
   { name: 'junit-db', job: 'db-tests', entries: ['junit-db.xml', PROVENANCE] },
@@ -305,7 +310,7 @@ async function main(work) {
       console.error(`ERROR: artefact ${spec.name} holds a path entry, ${JSON.stringify(pathy)}; only bare names are accepted`);
       throw REFUSED;
     }
-    if (JSON.stringify(entries) !== JSON.stringify(spec.entries)) {
+    if (JSON.stringify([...entries].sort()) !== JSON.stringify([...spec.entries].sort())) {
       console.error(`ERROR: artefact ${spec.name} holds the entries ${JSON.stringify(entries)}, not exactly ${JSON.stringify(spec.entries)}`);
       throw REFUSED;
     }

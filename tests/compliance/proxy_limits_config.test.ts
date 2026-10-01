@@ -41,9 +41,12 @@ import { REPO_ROOT } from './_scratch.js';
  *     drain), and a city-wide reconnect can still empty the 30: a clinical-path question for
  *     W4, not a number to tune here.
  *   - SHIFT CHANGE: 30 links a minute per address is above 20 wards asking within a few
- *     minutes, but six links opened in ONE 10-second window at one address is possible at a
- *     teaching hospital, and the sixth gets the flat "answered" message with no email.
- *     Whether that gets its own message is W4's ruling (R-2026-09-30-178 FB-4).
+ *     minutes, but six links REQUESTED in ONE 10-second window at one address is possible at
+ *     a teaching hospital, and the sixth REQUEST (POST /otp) gets the flat "answered" message
+ *     with no email. Six links OPENED (GET verify) in one window is the other case: the sixth
+ *     opened gets the VERIFY_LIMITED sentence and the link is not spent. Whether a limited
+ *     request gets its own message is W4's ruling (R-2026-09-30-178 FB-4; corrected by
+ *     R-2026-09-30-179 FC-6 b, which had said "opened" where it meant "requested").
  *   - RECONNECT: refresh is lazy (packages/auth/src/holder.ts accessToken), so after an ISP
  *     or power cut longer than the token's life every handset behind one address refreshes
  *     when it next acts, and a limited refresh is terminal today (holder.ts reads any

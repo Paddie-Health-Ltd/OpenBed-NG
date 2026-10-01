@@ -795,6 +795,17 @@ describe('the email templates are the third corpus the Worker is held against', 
     expect(templateSites(t).violations).toContain(`TEMPLATE LINKS: ${MAGIC} holds 2 links, and exactly one is allowed`);
   });
 
+  // FC-2: every plant above also adds a second `<a`, so the TAG count alone catches each. These have exactly ONE `<a` and a
+  // second href on another element, so only the HREF count can; and a bare second `<a>` that the tag regex must still see.
+  test.each([
+    ['an <area> with a single-quoted href on another host', `<p><area href='https://evil.example/x'></p>\n`],
+    ['a <link> with an unquoted href on another host', `<p><link href=https://evil.example/x></p>\n`],
+    ['a bare second <a> with no attributes', `<p><a>again</a></p>\n`],
+  ])('plant — %s is rejected by the link count (FC-2)', (_label, extra) => {
+    const t = planted(MAGIC, /(<a href="https:\/\/api\.openbed\.ng[^\n]*<\/a><\/p>\n)/, `$1${extra}`);
+    expect(templateSites(t).violations).toContain(`TEMPLATE LINKS: ${MAGIC} holds 2 links, and exactly one is allowed`);
+  });
+
   test('positive control — an `<abbr>` tag is not a link', () => {
     const t = planted(MAGIC, /(<a href="https:\/\/api\.openbed\.ng[^\n]*<\/a><\/p>\n)/, '$1<p><abbr title="x">y</abbr></p>\n');
     expect(templateSites(t).violations).toEqual([]);
@@ -1060,8 +1071,8 @@ describe('the Worker refuses an upgrade, and counts and limits per client (R-202
     const { env } = fakeLimits();
     const { handle } = worker(env);
     const limit = LIMITS['LIMIT_OTP'] ?? 0;
-    for (let i = 0; i < limit; i++) await send(handle, 'POST', '/auth/v1/otp', { [IP]: '198.51.100.9', 'x-forwarded-for': `10.0.0.${i}` });
-    expect((await send(handle, 'POST', '/auth/v1/otp', { [IP]: '198.51.100.9', 'x-forwarded-for': '10.9.9.9' })).status).toBe(429);
+    for (let i = 0; i < limit; i++) await send(handle, 'POST', '/auth/v1/otp', { [IP]: '198.51.100.9', 'x-forwarded-for': `203.0.113.${i + 1}` });
+    expect((await send(handle, 'POST', '/auth/v1/otp', { [IP]: '198.51.100.9', 'x-forwarded-for': '203.0.113.99' })).status).toBe(429);
   });
 
   test('the three limiters are separate: otp traffic does not limit refresh or verify', async () => {
@@ -1120,13 +1131,42 @@ describe('the Worker refuses an upgrade, and counts and limits per client (R-202
     }
   });
 
-  test('FAIL OPEN — a limiter that NEVER answers forwards after the timeout, and the timer is cleared when it answers first (FB-3 i)', async () => {
+  test('the limiter timeout is 250 ms — pinned, because every other test advances the clock by the imported constant and passes at any value (FC-1 a)', () => {
+    expect(LIMITER_TIMEOUT_MS).toBe(250);
+  });
+
+  test('FAIL OPEN, BOUNDARY — a limiter that answers {success:false} at the timeout minus 1 ms IS honoured: 429 limited, and the origin is not called (FC-1 b)', async () => {
+    // At a timeout of 0 this limiter would lose the race and be forwarded: the limits silently off while
+    // `limits_bound` reads true.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const slow = { limit: () => new Promise<{ success: boolean }>((resolve) => setTimeout(() => resolve({ success: false }), LIMITER_TIMEOUT_MS - 1)) };
+      const { handle, upstream } = worker({ LIMIT_OTP: slow });
+      const pending = send(handle, 'POST', '/auth/v1/otp', { [IP]: '198.51.100.3' });
+      await vi.advanceTimersByTimeAsync(LIMITER_TIMEOUT_MS - 1);
+      const res = await pending;
+      expect(res.status, 'a limiter that answered in time was overruled by the timer').toBe(429);
+      expect(res.headers.get(PROXY_HEADER)).toBe('limited');
+      expect(upstream, 'a limited request reached the origin').not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test('FAIL OPEN — a limiter that NEVER answers is still pending at the timeout minus 1 ms, forwards at the timeout, and the timer is cleared when it answers first (FB-3 i; FC-1 c)', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     try {
       const hung = { limit: () => new Promise<never>(() => undefined) };
       const { handle, upstream } = worker({ LIMIT_OTP: hung });
-      const pending = send(handle, 'POST', '/auth/v1/otp', { [IP]: '198.51.100.3' });
-      await vi.advanceTimersByTimeAsync(LIMITER_TIMEOUT_MS);
+      let settled = false;
+      const pending = send(handle, 'POST', '/auth/v1/otp', { [IP]: '198.51.100.3' }).then((r) => {
+        settled = true;
+        return r;
+      });
+      await vi.advanceTimersByTimeAsync(LIMITER_TIMEOUT_MS - 1);
+      expect(settled, 'the request was answered BEFORE the timeout: a timer shorter than the one pinned').toBe(false);
+      expect(upstream).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
       const res = await pending;
       expect(res.headers.get(PROXY_HEADER), 'a limiter that never answered held the request, or limited it').toBe('forwarded');
       expect(upstream).toHaveBeenCalledTimes(1);

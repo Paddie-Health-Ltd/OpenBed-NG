@@ -257,9 +257,10 @@ requests across it, so with a fixed window one address can get about twice its l
 10 seconds, and **twice the limit must stay under 30** (the test holds it). At that design
 bound one address alone cannot empty a bucket; three can for otp or verify, and two for
 refresh, which is the register's trigger on a distributed drain. At a shift change, six links
-opened in one 10-second window at one address is possible at a teaching hospital, and the
-sixth gets the flat "answered" message with no email: whether it gets its own message is
-W4's ruling. Refresh is lazy and a limited refresh is terminal today, so `LIMIT_REFRESH`
+REQUESTED in one 10-second window at one address is possible at a teaching hospital, and the
+sixth request (`POST /auth/v1/otp`) gets the flat "answered" message and no email; the sixth
+link OPENED (`GET /auth/v1/verify`) in one window gets the limited-link sentence instead, and
+the link is not spent. Whether a limited request gets its own message is W4's ruling. Refresh is lazy and a limited refresh is terminal today, so `LIMIT_REFRESH`
 bounds how many handsets behind one address may refresh in one window; facility one has one
 login. The full argument is in the header of `tests/compliance/proxy_limits_config.test.ts`.
 
