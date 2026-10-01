@@ -14,6 +14,11 @@
  * wrapper has no stamp to import and fails -- which is the point: the deployed
  * Worker names the commit it was built from at /__openbed/version.
  *
+ * SINCE R-2026-09-30-177 (W3) it also refuses an `Upgrade` request, counts sign-in,
+ * link and refresh requests per client address through the rate-limit bindings in
+ * wrangler.json, and forwards GET /auth/v1/verify -- the emailed sign-in link now opens
+ * on api.openbed.ng (R-2026-09-22-55 C, option T1).
+ *
  * NOT AN AUTH BOUNDARY. A forwarded request is authorised exactly as it would be
  * calling the Supabase origin directly, with whatever credentials the caller presented.
  */
@@ -27,7 +32,10 @@ const SUPABASE_ORIGIN = `https://${SUPABASE_PROJECT_ID}.supabase.co`;
 const handle = makeHandler({ origin: SUPABASE_ORIGIN, list: LIST, stamp: STAMP });
 
 export default {
-  fetch(request) {
-    return handle(request);
+  // `env` carries the rate-limit bindings (wrangler.json `ratelimits`). Dropping it
+  // would silently turn every limit off, because a missing binding forwards; the
+  // stamp's `limits_bound` is where that would show.
+  fetch(request, env) {
+    return handle(request, env);
   },
 };

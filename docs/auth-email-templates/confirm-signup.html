@@ -1,0 +1,39 @@
+<!--
+WHAT THIS FILE IS. The body of the "Confirm signup" email template for the OpenBed
+Supabase project, tracked so that it cannot send a link to the old host
+(R-2026-09-22-55 C, option T1; R-2026-09-30-177 FA-2).
+
+THIS MAIL IS NOT SENT TODAY. Wards are created already confirmed, by
+scripts/provision_ward_account.mjs, and sign in with create_user false, so no one is
+ever asked to confirm an address. It is switched anyway, so that if that ever changes
+the link in the mail goes through the Worker like the Magic Link one, and not to the
+project's own *.supabase.co host.
+
+WHAT CHANGED FROM SUPABASE'S DEFAULT, and only this. The default body is Supabase's
+own, from the supabase/auth repository, file
+internal/mailer/templatemailer/templatemailer.go (constant defaultConfirmationMail),
+read on 2026-10-01 at its last change, commit 2399fe5875cf0718eec54b614c3b2a227277c1b5:
+
+    <h2>Confirm your email address</h2>
+
+    <p>Follow the link below to confirm this email address and finish signing up.</p>
+    <p><a href="[the default confirmation URL variable]">Confirm email address</a></p>
+
+The one change is that link's href: https://api.openbed.ng, the Worker, with the token
+hash, the type (signup here, magiclink in the Magic Link file) and the redirect as
+three query parameters. GET verify reads `token`, not `token_hash`.
+
+WHO PASTES IT. The founder, into the dashboard (Authentication, Email Templates,
+Confirm signup), in the same step as the Magic Link file and under the same order
+(the Worker runbook's W3 hosted steps).
+
+THE ROLLBACK is to put the default confirmation URL variable back as the href, in
+words: the dashboard's own "confirmation URL" variable, as the default body above has it.
+
+THIS HEADER HOLDS NO TEMPLATE VARIABLE, on purpose: the dashboard expands one wherever
+it appears, comments included, and tests/compliance/proxy_allow_list.test.ts refuses it.
+-->
+<h2>Confirm your email address</h2>
+
+<p>Follow the link below to confirm this email address and finish signing up.</p>
+<p><a href="https://api.openbed.ng/auth/v1/verify?token={{ .TokenHash }}&type=signup&redirect_to={{ .RedirectTo }}">Confirm email address</a></p>

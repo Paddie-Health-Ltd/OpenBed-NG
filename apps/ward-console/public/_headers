@@ -4,8 +4,9 @@
 # origin from packages/origins/origins.json -- `npm run build`, which is what is
 # deployed, names the production origin only, and `npm run build:local`, for a local
 # `wrangler pages dev`, the local one only (R-2026-09-25-117 CS-2) -- and never the
-# direct *.supabase.co origin: the emailed sign-in link opens there as a navigation,
-# which connect-src does not govern. Until 2026-09-25 this read "the API origins
+# direct *.supabase.co origin. The emailed sign-in link is a navigation, which
+# connect-src does not govern: it opens on api.openbed.ng since R-2026-09-30-177 (W3,
+# option T1), and opened on the direct *.supabase.co origin until then. Until 2026-09-25 this read "the API origins
 # origins.json gives apiOrigin() -- production and local, because the origin is chosen
 # at run time by hostname", and every build named both. Runtime selection by hostname
 # is unchanged; this is the header, not the bundle.

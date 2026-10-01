@@ -1019,12 +1019,16 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions.
 Restated 2026-09-14: until then this read `exactly 13 migration(s) pending.`, and
 migration 014 made that wrong.
 
-- **The hosted project today** holds 001 through 027 (see step 7), and the
-  repository ends at 028. Every file up to and including
-  `027_scheduler_status.sql` must read `already applied`;
-  there must be exactly one `WOULD APPLY` line, naming `028_operator_scheduler_status.sql`; and the dry
-  run must end
-  `1 migration(s) pending.` Apply it by the fences below, in the order step 5 gives them.
+- **The hosted project today** holds 001 through 028 (see step 7), and so does the
+  repository. Every file up to and including
+  `028_operator_scheduler_status.sql` must read `already applied`;
+  there must be no `WOULD APPLY` line; and the dry run must end
+  `0 migration(s) pending.`
+- **Restated 2026-10-01 (R-2026-09-30-177 FA-5 b), in the change that records 028's
+  hosted apply.** Until then this expected 001 through 027, exactly one `WOULD APPLY`
+  line naming `028_operator_scheduler_status.sql`, and `1 migration(s) pending.` The
+  founder's dry run printed exactly that on 2026-09-30, and the apply that followed took
+  the ledger to 28.
 - **Restated 2026-09-30 (R-2026-09-30-175 EY-1, EY-2), in the change that records 027's
   hosted apply and ADDS 028.** Until then this expected 001 through 026, exactly one
   `WOULD APPLY` line naming `027_scheduler_status.sql`, and `1 migration(s) pending.`
@@ -1123,10 +1127,14 @@ migration 014 made that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line OTHER than the one named above, or any count other than
-  `1 migration(s) pending.`: stop and report.** Another file pending means
+- **Any `WOULD APPLY` line AT ALL, or any count other than
+  `0 migration(s) pending.`: stop and report.** Another file pending means
   either a migration reached the repository after the list was last restated, or
   hosted is not where this document says it is.
+  - *Restated 2026-10-01 (R-2026-09-30-177 FA-5 b), in the change that records 028's
+    hosted apply. Until then this bullet read "Any `WOULD APPLY` line OTHER than the one
+    named above, or any count other than `1 migration(s) pending.`", which was right from
+    #108's merge until the apply.*
   - *Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that adds 027.
     Until then this bullet read "Any `WOULD APPLY` line AT ALL, or any count other than
     `0 migration(s) pending.`", which was right from 025's and 026's hosted apply until
@@ -1821,6 +1829,7 @@ node scripts/freeze_applied_migrations.mjs 19 YYYY-MM-DD R-YYYY-MM-DD-NN
 - [x] Frozen boundary recorded, 2026-09-16: 16 migrations, `001_app_schema_and_migration_ledger.sql` first, `016_snapshot.sql` last
 - [x] Frozen boundary recorded, 2026-09-17: 17 migrations, `001_app_schema_and_migration_ledger.sql` first, `017_snapshot_schedule.sql` last (R-2026-09-17-01), with the frozen_migrations placeholder moved to 018 in the same change
 - [x] Frozen boundary recorded, 2026-09-22: 18 migrations, `001_app_schema_and_migration_ledger.sql` first, `018_close_mirror_read_and_push_surfaces.sql` last (R-2026-09-22-52), with the frozen_migrations placeholder moved to 019 in the same change. `ledger_rows: 18`, matching the `18` read from hosted `app.schema_migrations` in the apply session; the recorder would have refused any other number.
+- [x] Frozen boundary recorded, 2026-09-30: 28 migrations, `001_app_schema_and_migration_ledger.sql` first, `028_operator_scheduler_status.sql` last (R-2026-09-30-177 FA-5 b), recorded by `node scripts/freeze_applied_migrations.mjs 28 2026-09-30 R-2026-09-30-177`. `ledger_rows: 28`, matching the twenty-eight `already applied` lines of the founder's second dry run (fence 5 of "028's apply"). 028's sha256 is the tracked file's at `7b71b28`, the checkout the founder ran from; the file is unchanged since the commit that added it.
 - [x] Frozen boundary recorded, 2026-09-30: 27 migrations, `001_app_schema_and_migration_ledger.sql` first, `027_scheduler_status.sql` last (R-2026-09-30-175 EY-1), recorded by `node scripts/freeze_applied_migrations.mjs 27 2026-09-30 R-2026-09-30-175`. `ledger_rows: 27`, matching the twenty-seven `already applied` lines of the founder's second dry run (fence 5 of "027's apply"). 027's sha256 is the tracked file's at `89c74b0`, the checkout the founder ran from. The recorder ran BEFORE 028's file was added to this change, because it refuses any row count other than the number of forward files.
 - [x] Frozen boundary recorded, 2026-09-28: 26 migrations, `001_app_schema_and_migration_ledger.sql` first, `026_facility_reporter_and_checks.sql` last (R-2026-09-28-149 DY-1), recorded by `node scripts/freeze_applied_migrations.mjs 26 2026-09-28 R-2026-09-28-149`. `ledger_rows: 26`, matching the twenty-six `already applied` lines of the founder's second dry run (fence 5 of "025 and 026's apply"). 025's and 026's sha256 are the tracked files' at `cd05de1`, the checkout the founder ran from.
 - [x] Frozen boundary recorded, 2026-09-27: 24 migrations, `001_app_schema_and_migration_ledger.sql` first, `024_retention_jobs.sql` last (R-2026-09-27-139 DO-1 a), recorded by `node scripts/freeze_applied_migrations.mjs 24 2026-09-27 R-2026-09-27-139`. `ledger_rows: 24`, matching the twenty-four `already applied` lines of the founder's second dry run (fence 5 of "024's apply"). 024's sha256 is the tracked file's at `3623d2b`, the checkout the founder ran from.
@@ -2491,11 +2500,19 @@ apply. On 2026-09-30 it was (R-2026-09-30-175).
 
 ### 028's apply — the operator's read of the scheduler's status (R-2026-09-30-175 EY-2)
 
-**Not yet run.** The founder runs it after the pull request that adds 028 merges, and
-BEFORE the Worker and the admin app are redeployed from that merge: the admin app's
-System status section calls the function this creates, and until it exists that section
-shows the server's "function is missing" sentence inside itself while the register loads
-as before. Claude Code runs nothing hosted.
+**Run on 2026-09-30** by the founder from `~/Desktop/OpenBed-NG-deploy` at
+`7b71b28d66267b61aac8b498030a0687b208080c` (#108's merge), BEFORE the Worker and the
+admin app were redeployed from that merge: the admin app's System status section calls
+the function this creates, and until it exists that section shows the server's "function
+is missing" sentence inside itself while the register loads as before. Each fence was
+read back by Cowork before the next (R-2026-09-30-177 FA-5 b). The readings are in the
+checkbox at the end of this step. Claude Code ran nothing hosted.
+*Restated 2026-10-01 (R-2026-09-30-177 FA-5 b): until then this read "Not yet run. The
+founder runs it after the pull request that adds 028 merges, and BEFORE the Worker and
+the admin app are redeployed from that merge: the admin app's System status section calls
+the function this creates, and until it exists that section shows the server's "function
+is missing" sentence inside itself while the register loads as before. Claude Code runs
+nothing hosted."*
 
 **What 028 changes** (its header says why). One function and nothing else:
 `public.operator_scheduler_status()`, which calls `app.assert_operator()` and then
@@ -2533,16 +2550,30 @@ the section.
 function and changes no data.
 
 **Afterwards:** the frozen boundary is recorded with `28`, in the change that records this
-apply.
+apply. On 2026-10-01 it was (R-2026-09-30-177), with 028's sha256 as at `7b71b28`.
+
+- [x] On 2026-09-30, 028 applied; the Worker redeployed and the admin app redeployed from the same checkout; and the operator's read of System status taken, from `~/Desktop/OpenBed-NG-deploy` at `7b71b28d66267b61aac8b498030a0687b208080c` (#108's merge). The readings are the founder's, relayed by Cowork (R-2026-09-30-177 FA-5 b), who read each fence before the next. Fence 1: twenty-seven `already applied` (001 to 027), `WOULD APPLY` `028_operator_scheduler_status.sql`, one pending. Fence 2: `FINGERPRINT beds.json=0/0:543f06c0b0c4,facility_public=0:d41d8cd98f00,ward_public=0:d41d8cd98f00,lga_rollup=0:d41d8cd98f00`, `RECORDED`, identical to 027's. Fence 3: 028 applied (`CREATE FUNCTION`, `DO`, `INSERT 0 1`, `INSERT 0 0`); "1 applied this run". The `INSERT 0 0` is `run_migrations.sh`'s own ledger insert finding the row the file's `INSERT 0 1` had already written, as at 027: the expectation omitted that line, and the reading was right. Fence 4: all four parts `ok`, "PASS (VACUOUS FOR B1)". Fence 5: twenty-eight `already applied` (001 to 028), no `WOULD APPLY`, "0 migration(s) pending." Fence 6: thirty-seven lines, every one `ok`, including the new `public.operator_scheduler_status() EXECUTE: authenticated`; `public.health_probe()` is still the only `service_role` line apart from Supabase's own `graphql_public.graphql`. The Worker: `deploy_worker.sh supabase-proxy` at `7b71b28`, Current Version ID `ea15d63e-52a7-4dc5-89fb-67918591c5ad`; `readback_worker.sh` read PASS on probes 1 to 3 and the stamp; probe 4, read by Cowork through the Cloudflare connector, PASS, the bundled allow-list equal to the file entry for entry (forward 29: 14 `POST`, 1 `GET`, 14 `OPTIONS`; 3 direct-origin exceptions; 1 refusal probe), stamp `7b71b28`, dirty false. The admin app: `deploy_pages.sh --branch main admin`, deployed as `3151a953`, `readback_admin.sh` read PASS. The operator's read of System status (the founder's browser, a fresh private window, through Access and the sign-in link, read by Cowork from the founder's screenshots): no caution line; both ages "less than a minute ago"; five jobs, each "Running — last run succeeded"; no console error. This is the first hosted proof that `public.operator_scheduler_status()` answers the operator through the Worker.
 
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 027 applied, and the repository ends at
-028), the dry run prints twenty-seven `already applied` lines and:
+**On the hosted project today** (001 through 028 applied, and so does the repository
+end), the dry run prints twenty-eight `already applied` lines and:
+
+```
+0 migration(s) pending.
+```
+
+*Restated 2026-10-01 (R-2026-09-30-177 FA-5 b), in the change that records 028's hosted
+apply.* Until then this block showed twenty-seven `already applied` lines, one WOULD APPLY
+line naming `028_operator_scheduler_status.sql`, and a count of one -- right while hosted
+was at 027 and the repository ended at 028. That is exactly what the founder's dry run
+printed on 2026-09-30, and it is kept below with the other dated runs rather than
+overwritten:
 
 ```
   WOULD APPLY     : 028_operator_scheduler_status.sql   <- dry run
 1 migration(s) pending.
+Migrations complete (1 applied this run).
 ```
 
 *Restated 2026-09-30 (R-2026-09-30-175 EY-1, EY-2), in the change that records 027's
@@ -2812,10 +2843,14 @@ this paragraph read twenty-two, 002 through 023, and twenty-three.*
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `27`, with `1 migration(s) pending.` from the
-dry run** -- 028, in the repository and not yet applied. The founder's second dry run
-after 027's apply, on 2026-09-30, read twenty-seven `already applied` lines, 001
-through 027.
+THAT PROJECT. **On hosted today that is `28`, with `0 migration(s) pending.` from the
+dry run** -- the founder's second dry run after 028's apply, on 2026-09-30, read
+twenty-eight `already applied` lines, 001 through 028.
+*Restated 2026-10-01 (R-2026-09-30-177 FA-5 b), in the change that records that apply;
+until then it read `27` with `1 migration(s) pending.`, naming
+`028_operator_scheduler_status.sql`, in the repository and not yet applied. The founder's
+second dry run after 027's apply, on 2026-09-30, read twenty-seven `already applied`
+lines, 001 through 027.*
 *Restated 2026-09-30 (R-2026-09-30-175 EY-1, EY-2), in the change that records 027's
 hosted apply and adds 028; until then it read `26` with `1 migration(s) pending.`, 027 in
 the repository and not yet applied.*
@@ -4357,7 +4392,16 @@ clipboard holds something else. At H6 it held the terminal command itself, 42
 characters. Copy the address again and re-run the command. No new link is needed, and
 the frequency window does not apply, because nothing was requested.
 
-**PASS:** `PASS: this project's Auth link, and redirect_to is exactly https://admin.openbed.ng/`.
+**Since W3 the link goes through the Worker** (R-2026-09-30-177 FA-2 d; R-2026-09-22-55 C,
+option T1). The expected host is `api.openbed.ng`, the path `/auth/v1/verify`, with one
+non-empty `token`, one `type` equal to `magiclink`, and `redirect_to` exactly the target.
+A link still on `<ref>.supabase.co` reads `STOP: the link still points at the Supabase host
+<ref>.supabase.co: the templates are not switched`, which means the Magic Link template in
+the dashboard still holds Supabase's default, or was rolled back. `--project-ref` is kept
+for exactly that message. *Restated 2026-10-01 (R-2026-09-30-177 FA-2 d): until then this
+step expected the project's own Auth host and PASS read "this project's Auth link".*
+
+**PASS:** `PASS: the link goes through api.openbed.ng, and redirect_to is exactly https://admin.openbed.ng/`.
 Anything else is STOP. **Do not open that link.**
 
 **Step 7 — the sign-in order behind Access, both orders** (R-2026-09-24-89 BQ-2 c). Wait
@@ -4437,6 +4481,10 @@ now wait only on the open items at 12.4 step 1 with the trigger "before facility
       - `redirect_to` as sent, and decoded: both `https://admin.openbed.ng/`.
     - **PASS.** This was the first real email through custom SMTP (Proton, sender
       `support@openbed.ng`). It closes section 9's H3 `redirect_to` reading.
+    - *Restated 2026-10-01 (R-2026-09-30-177 FA-2 d): the link above was on the project's
+      own `*.supabase.co` host, as observed on that date. Since W3 the expected host is
+      `api.openbed.ng` and the PASS line is the one in step 6 above; this reading is kept
+      as observed.*
   - **Step 7.** Both orders signed in, and the register loaded. **The fragment
     survives the Access bounce.** Recorded in `docs/runbook-admin-deploy.md` section 4.
   - **Step 8.** "Facilities", "Reload", "New facility", "No facility exists yet."
@@ -4527,8 +4575,23 @@ through the admin app.
      This also carries -66's "an operator contact number". (R-2026-09-23-67 B3)
    - [ ] Where the magic-link emails point: the verify link is on `*.supabase.co`, and
      the custom-domain decision is needed. (R-2026-09-22-55 C)
-   - [ ] The sensor bundle, sequenced after Bundle 3 and before facility one. Not
-     started. (R-2026-09-22-54 B)
+     **Built 2026-10-01 (R-2026-09-30-177 FA-2), not closed.** The founder declined the
+     custom domain, so option T1: the two templates in `docs/auth-email-templates/` link
+     to `api.openbed.ng`, and `GET /auth/v1/verify` is forwarded by the Worker. It closes
+     on the hosted steps in the Worker runbook (step c's PASS, and the sign-in).
+   - [x] The sensor bundle, sequenced after Bundle 3 and before facility one.
+     (R-2026-09-22-54 B)
+     **CLOSED 2026-09-30 (R-2026-09-30-177 FA-5 d).** The sensor shipped as W1 and W2 and
+     is read by `docs/runbook-sensor.md`; the drill's alert arrived on 2026-09-30 at 20:59Z,
+     by email and by phone push (R-2026-09-30-175). *Restated 2026-10-01: until then this
+     box read "The sensor bundle, sequenced after Bundle 3 and before facility one. Not
+     started."*
+   - [ ] `snapshot_stale` seen on hosted: a drill records when it first appeared
+     (R-2026-09-30-177 FA-5 e)
+     The 2026-09-30 drill restored the job once both alerts had arrived and did not note
+     when `job_inactive` or `snapshot_stale` first showed; by the timings `snapshot_stale`
+     was showing from about 20:57:30Z, which is inference, not a reading. It closes on the
+     re-run of the drill (the Worker runbook's W3 hosted step e) with both times recorded.
    - [x] The NDPA sub-processor scope cell for Cloudflare, completed by DL-6 a in
      the processor-obligations table. (R-2026-09-19-23 D2, made a facility-one item by
      R-2026-09-22-56 A9)
@@ -4537,8 +4600,14 @@ through the admin app.
    - [ ] The proxy's surface: methods, services reached, websocket upgrades,
      `Location` under `redirect: "manual"`, and CORS. (R-2026-09-19-23 D3, by
      R-2026-09-22-56 A9)
+     **Built 2026-10-01 (R-2026-09-30-177 FA-1), not closed.** The surface is the Worker
+     runbook's section 5, and probes 5, 5b, 6 and 7 read it on hosted; it closes on those.
    - [ ] Attribution: which client address Supabase sees. (R-2026-09-19-23 D4, by
      R-2026-09-22-56 A9)
+     **Read 2026-09-30, built 2026-10-01, not closed (R-2026-09-30-177 FA-3).** Every
+     request through the Worker reached Supabase from one Cloudflare address, so every
+     ward shares one per-IP bucket; the edge limits bound each client. It closes on the
+     Worker runbook's hosted steps a and b and Cowork's attribution read.
    - [ ] Availability of the proxy on the clinical path. (R-2026-09-19-23 D5, by
      R-2026-09-22-56 A9)
    - [ ] Discoverability at facility one: `robots.txt` disallows everything today, and

@@ -15,7 +15,10 @@ const handle = makeHandler({
 });
 
 export default {
-  fetch(request) {
-    return handle(request);
+  // `env` carries the rate-limit bindings (wrangler.json `ratelimits`). Dropping it
+  // would silently turn every limit off, because a missing binding forwards; the
+  // stamp's `limits_bound` is where that would show.
+  fetch(request, env) {
+    return handle(request, env);
   },
 };

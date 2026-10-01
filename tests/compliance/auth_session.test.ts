@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import {
   MalformedTokenError,
   SessionHolder,
@@ -202,6 +202,27 @@ describe('the holder — an unusable session blocks the write', () => {
     });
     await expect(h.accessToken()).rejects.toThrow('tap the link again');
     await expect(h.accessToken()).rejects.toThrow('there is no session -- tap the link again');
+  });
+
+  test("pin — the Worker's own `limited` 429 on refresh reads as SessionExpiredError, signs out, and is not retried (R-2026-09-30-177 FA-3 g)", async () => {
+    // TODAY'S READING, pinned and NOT changed in W3. The real transport (#postRefresh) turns any non-2xx into
+    // an ANSWER, which ends the session, as Supabase's own 429 does. Whether a limited refresh should keep the
+    // session until its access token expires is a clinical-path question, so it is W4's (D5), and this test is
+    // the pin that makes the change a decision rather than an accident. A hospital reaches the limit only when
+    // more than the LIMIT_REFRESH figure (wrangler.json) of its handsets behind one address refresh in one
+    // 10-second window, which the register's TRIGGER holds. Supabase's OWN 429 on refresh, from its fixed 30-burst shared by every facility
+    // through the Worker's one address, reads the same way: whether ANY 429 on refresh keeps the session
+    // is W4's question (R-2026-09-30-178 FB-4).
+    const answered = vi.fn(async () => new Response('{"message":"rate limited by the OpenBed proxy"}', { status: 429, headers: { 'x-openbed-proxy': 'limited', 'retry-after': '60' } }));
+    vi.stubGlobal('fetch', answered);
+    try {
+      const h = new SessionHolder({ apiUrl: 'https://api.openbed.ng', anonKey: 'not-a-key', session: expiringSession(), sleep: async () => {} });
+      await expect(h.accessToken()).rejects.toThrow(SessionExpiredError);
+      expect(answered, 'a limited refresh was retried, or never sent').toHaveBeenCalledTimes(1);
+      expect(h.signedOut, 'a limited refresh left the session in place').toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   test('a TRANSPORT failure is retried, bounded, and then gives up in the same state', async () => {

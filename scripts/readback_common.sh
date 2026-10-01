@@ -51,6 +51,10 @@ RB_CODE=""
 RB_HEAD=""
 RB_COMMIT=""
 RB_DIRTY=""
+RB_LIMITS_OTP=""
+RB_LIMITS_VERIFY=""
+RB_LIMITS_REFRESH=""
+RB_LOCATION_ORIGIN=""
 RB_MATCHES=""
 RB_TMP="$(mktemp -d)"
 trap 'rm -rf "$RB_TMP"' EXIT
@@ -202,7 +206,11 @@ rb_body() {
 }
 
 # rb_stamp -- RB_COMMIT and RB_DIRTY from the last body, or "(not a stamp)" when the
-# body is not a {commit, dirty} object (the SPA fallback's HTML, for one).
+# body is not a {commit, dirty} object (the SPA fallback's HTML, for one). Also
+# RB_LIMITS_OTP, RB_LIMITS_VERIFY and RB_LIMITS_REFRESH from the Worker's `limits_bound`
+# (R-2026-09-30-177 FA-3 f): `true` or `false` as served, or "(absent)" when the stamp
+# carries no such boolean, which is what a Worker from before W3 serves. Only
+# readback_worker.sh reads them; the other callers' stamps have none.
 rb_stamp() {
     local st=0 out
     out="$(node -e '
@@ -210,14 +218,39 @@ const fs = require("fs");
 let s;
 try { s = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); } catch { process.exit(3); }
 if (s === null || typeof s.commit !== "string" || typeof s.dirty !== "boolean") process.exit(3);
-process.stdout.write(s.commit + " " + s.dirty);
+const lb = (s.limits_bound !== null && typeof s.limits_bound === "object") ? s.limits_bound : {};
+const b = (k) => (typeof lb[k] === "boolean" ? String(lb[k]) : "(absent)");
+process.stdout.write([s.commit, s.dirty, b("otp"), b("verify"), b("refresh")].join(" "));
 ' "$RB_TMP/body")" || st=$?
     case "$st" in
-        0) RB_COMMIT="${out%% *}"; RB_DIRTY="${out##* }" ;;
-        3) RB_COMMIT="(not a stamp)"; RB_DIRTY="(not a stamp)" ;;
+        0) read -r RB_COMMIT RB_DIRTY RB_LIMITS_OTP RB_LIMITS_VERIFY RB_LIMITS_REFRESH <<<"$out" ;;
+        3) RB_COMMIT="(not a stamp)"; RB_DIRTY="(not a stamp)"
+           RB_LIMITS_OTP="(not a stamp)"; RB_LIMITS_VERIFY="(not a stamp)"; RB_LIMITS_REFRESH="(not a stamp)" ;;
         *) echo "ERROR: node exited $st reading a version stamp -- the check did not run, so this read-back has no verdict"
            exit 2 ;;
     esac
+}
+
+# rb_location_origin -- RB_LOCATION_ORIGIN: the origin of the last response's Location
+# header, "(absent)" when there is none, "(relative)" when it is not an absolute URL.
+# Probe 7 reads it, because the redirect's whole point is where it lands. Called
+# directly, never inside $(...): the ERROR below must end the script, and an exit in a
+# command substitution ends only the substitution.
+rb_location_origin() {
+    local loc st=0
+    loc="$(rb_header location)"
+    if [ -z "$loc" ]; then
+        RB_LOCATION_ORIGIN="(absent)"
+        return 0
+    fi
+    RB_LOCATION_ORIGIN="$(node -e '
+try { const u = new URL(process.argv[1]); process.stdout.write(u.origin === "null" ? "(relative)" : u.origin); }
+catch { process.stdout.write("(relative)"); }
+' "$loc")" || st=$?
+    if [ "$st" -ne 0 ]; then
+        echo "ERROR: node exited $st reading a Location header -- the check did not run, so this read-back has no verdict"
+        exit 2
+    fi
 }
 
 # rb_matches REGEX -- every distinct match in the last body, one per line, into

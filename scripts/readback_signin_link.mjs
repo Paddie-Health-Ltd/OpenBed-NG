@@ -2,11 +2,20 @@
 // ============================================================
 // scripts/readback_signin_link.mjs
 // ============================================================
-// THE REDIRECT READ-BACK (R-2026-09-24-73 BA-1; R-2026-09-24-88 BP-7). The founder
-// gives it the sign-in link from the email, and it says whether the link will land
-// where it must: PASS only if the link is this project's own Auth link and its
-// redirect_to is EXACTLY https://admin.openbed.ng/ (--mode admin) or
-// https://app.openbed.ng/ (--mode ward). Everything else is STOP.
+// THE REDIRECT READ-BACK (R-2026-09-24-73 BA-1; R-2026-09-24-88 BP-7; since
+// R-2026-09-30-177 FA-2 d, the link through the Worker). The founder gives it the
+// sign-in link from the email, and it says whether the link will land where it must:
+// PASS only if the link is on https://api.openbed.ng, at /auth/v1/verify, carrying one
+// non-empty `token`, one `type` equal to magiclink, and a redirect_to that is EXACTLY
+// https://admin.openbed.ng/ (--mode admin) or https://app.openbed.ng/ (--mode ward).
+// Everything else is STOP.
+//
+// UNTIL W3 THE LINK WAS THE PROJECT'S OWN <ref>.supabase.co/auth/v1/verify. T1
+// (R-2026-09-22-55 C) switched the Magic Link and Confirm signup templates to
+// api.openbed.ng, so a link that still names the Supabase host is a STOP of its own,
+// "the templates are not switched": that is the one thing this read-back is most likely
+// to be run against first. `--project-ref` is kept for exactly that, and is used for
+// nothing else.
 //
 // WHY A SCRIPT AND NOT AN EYE. If Auth does not match a redirect it falls back to the
 // Site URL SILENTLY (R-2026-09-23-72 AZ-1), and an operator's link then lands on the
@@ -14,8 +23,7 @@
 // reader in two spellings, an email provider's click tracking can rewrite the whole
 // link, and a comparison made by eye is what the -70 H4 fix removed (BA-1). So the
 // value is decoded ONCE before it is compared, both forms are printed, a link to any
-// host but the project's own Auth host is refused, and the fallback reads STOP, never
-// PASS.
+// host but api.openbed.ng is refused, and the fallback reads STOP, never PASS.
 //
 // THE LINK IS A LIVE CREDENTIAL. So:
 //   - it is read from STANDARD INPUT ONLY: pbpaste | node scripts/readback_signin_link.mjs ...
@@ -33,6 +41,7 @@
 // link PASSes says where it will land, not that it has not expired.
 //
 // Usage: pbpaste | node scripts/readback_signin_link.mjs --mode admin|ward --project-ref <ref>
+//   --project-ref is the Supabase project's ref, used only to recognise the OLD host.
 // Exit: 0 PASS; 1 STOP on a link that was read and does not land where it must;
 //       2 the input or the arguments are unusable, and no verdict was reached.
 // ============================================================
@@ -40,6 +49,7 @@ import { readFileSync } from 'node:fs';
 
 const TARGETS = { admin: 'https://admin.openbed.ng/', ward: 'https://app.openbed.ng/' };
 const SITE_URL = 'https://app.openbed.ng';
+const PROXY_HOST = 'api.openbed.ng';
 const PRINTABLE = new Set(['redirect_to', 'type']);
 const NAMED = new Set(['redirect_to', 'type', 'token', 'token_hash']);
 
@@ -64,7 +74,7 @@ if (opts.bad || !Object.hasOwn(TARGETS, opts['--mode'] ?? '') || !/^[a-z0-9]{20}
 }
 const mode = opts['--mode'];
 const expected = TARGETS[mode];
-const authHost = `${opts['--project-ref']}.supabase.co`;
+const oldHost = `${opts['--project-ref']}.supabase.co`;
 
 if (process.stdin.isTTY) {
   console.error('STOP: nothing was piped in. Pass the link on standard input, as pbpaste | node scripts/readback_signin_link.mjs --mode <mode> --project-ref <ref>');
@@ -89,7 +99,7 @@ if (link === null || link.protocol !== 'https:' || link.username !== '' || link.
   process.exit(2);
 }
 
-// The link, printable once its host is known to be the project's: every value but
+// The link, printable once its host is known to be the Worker's: every value but
 // redirect_to and type redacted, and any parameter NAME this script does not know
 // replaced too.
 const params = link.search.replace(/^\?/, '').split('&').filter((p) => p !== '').map((p) => {
@@ -107,15 +117,39 @@ const shown = params.map(({ key, value }) => {
   return key !== null && PRINTABLE.has(key) && value !== null ? `${name}=${value}` : `${name}=<redacted>`;
 });
 
+// The OLD host is the project's own, named by the founder, so it is safe to print and
+// nothing else of the link is: the templates were not switched (FA-2 d).
+if (link.hostname === oldHost) {
+  console.error(`STOP: the link still points at the Supabase host ${oldHost}: the templates are not switched`);
+  process.exit(1);
+}
 // A foreign host is named and nothing else of it printed: a click-tracking rewrite
 // carries the whole original link, token included, encoded inside its own path.
-if (link.hostname !== authHost) {
-  console.error(`STOP: the link's host is not this project's Auth host. Expected ${authHost}, read ${link.hostname}`);
+if (link.hostname !== PROXY_HOST) {
+  console.error(`STOP: the link's host is not the OpenBed proxy's. Expected ${PROXY_HOST}, read ${link.hostname}`);
   process.exit(1);
 }
 console.log(`link (token redacted): ${link.origin}${link.pathname}${shown.length ? `?${shown.join('&')}` : ''}${link.hash ? '#<redacted>' : ''}`);
 if (link.pathname !== '/auth/v1/verify') {
   console.error(`STOP: the link's path is not /auth/v1/verify. Read ${link.pathname}`);
+  process.exit(1);
+}
+
+// GET verify reads `token` into the token hash. `token_hash` is the other spelling the
+// templates could carry, and it is NOT read there, so a link with only that one is
+// refused here rather than discovered when a nurse opens it.
+const tokens = params.filter((p) => p.key === 'token');
+if (tokens.length !== 1 || (tokens[0]?.value ?? '') === '') {
+  console.error('STOP: the link does not carry exactly one non-empty token, which is the one parameter GET verify reads the token hash from');
+  process.exit(1);
+}
+const types = params.filter((p) => p.key === 'type');
+if (types.length !== 1) {
+  console.error("STOP: the link does not carry exactly one type, and which one Auth reads is not this script's to guess");
+  process.exit(1);
+}
+if (types[0]?.value !== 'magiclink') {
+  console.error(`STOP: the link's type is not magiclink. Read ${types[0]?.value ?? ''}`);
   process.exit(1);
 }
 
@@ -126,6 +160,14 @@ if (sent.length === 0) {
 }
 if (sent.length > 1) {
   console.error("STOP: the link carries more than one redirect_to, and which one Auth reads is not this script's to guess");
+  process.exit(1);
+}
+// THE TEMPLATE CARRIES EXACTLY THREE PARAMETERS (R-2026-09-30-178 FB-3 f; the rule the tracked templates are
+// held to, FA-2 c), so a link carrying a fourth, `token_hash` beside a token included, is not the one the
+// template builds. Its name is never printed: a name can carry a token.
+const OTHERS = params.filter((p) => p.key === null || !['token', 'type', 'redirect_to'].includes(p.key));
+if (OTHERS.length > 0) {
+  console.error(`STOP: the link carries ${OTHERS.length} parameter(s) other than token, type and redirect_to, and the template carries no others`);
   process.exit(1);
 }
 const decoded = link.searchParams.get('redirect_to') ?? '';
@@ -145,4 +187,4 @@ if (decoded !== expected) {
   console.error(`STOP: redirect_to is not exactly ${expected}${slash}`);
   process.exit(1);
 }
-console.log(`PASS: this project's Auth link, and redirect_to is exactly ${expected}`);
+console.log(`PASS: the link goes through ${PROXY_HOST}, and redirect_to is exactly ${expected}`);

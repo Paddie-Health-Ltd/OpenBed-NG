@@ -703,6 +703,26 @@ describe('pr_evidence.mjs: exit 2, no block', () => {
     refused(r, MSG.entries, 5);
   });
 
+  // R-2026-09-30-179 FC-5: the entries are compared SORTED, so the runner's order is irrelevant. This refused a correct
+  // run on 2026-10-01, when junit-golden-path's zip listed junit-ratchet.xml, ci-provenance.txt, junit-e2e.xml.
+  test('positive control — the real entries in REVERSE order are accepted, on every artefact (FC-5)', () => {
+    const reversed = (es: ZipEntry[]): ZipEntry[] => [...es].reverse();
+    const r = run({ entries: { 'junit-compliance': reversed, 'junit-db': reversed, 'junit-golden-path': reversed } });
+    expect(r.status, out(r)).toBe(0);
+    expect(r.stdout).toContain('Disposition: ZERO-RED');
+  });
+
+  test('positive control — a three-entry artefact in the runner\'s observed order is accepted (FC-5)', () => {
+    const observed = (es: ZipEntry[]): ZipEntry[] => ['junit-ratchet.xml', 'ci-provenance.txt', 'junit-e2e.xml'].map((n) => es.find((e) => e.name === n) as ZipEntry);
+    const r = run({ entries: { 'junit-golden-path': observed } });
+    expect(r.status, out(r)).toBe(0);
+  });
+
+  test('plant — an entry duplicated IN ADDITION is refused: the lengths differ though the set of names is equal (FC-5)', () => {
+    const r = run({ entries: { 'junit-db': (es) => [...es, es.find((e) => e.name === 'ci-provenance.txt') as ZipEntry] } });
+    refused(r, MSG.entries, 5);
+  });
+
   test('plant — a zip with an extra entry', () => {
     const r = run({ entries: { 'junit-db': (es) => [...es, { name: 'extra.txt', data: Buffer.from('x') }] } });
     refused(r, MSG.entries, 5);

@@ -15,13 +15,24 @@
     "named: operator_record_registration, which apps/admin calls from R-2026-09-27-144 DT's Bundle 3.",
     "Its entries land with 026 so that bundle needs no second Worker redeploy (DT k), and until",
     "then its POST is a runbook probe's.",
+    "RESTATED 2026-10-01 (R-2026-09-30-178 FB-2 a), old text kept above: the entries landed with 026 ahead of",
+    "the app (DT k), and apps/admin has called operator_record_registration since DT Bundle 3, so it is no longer",
+    "an exception: its POST is a call site the coverage test derives, and probe 1b is a second reason, not the",
+    "only one (R-2026-09-28-151 EA-4, taken in -178).",
+    "`limit`, where present, names the wrangler.json `ratelimits` binding that counts that entry per client",
+    "address (R-2026-09-30-177 FA-3). wrangler.json holds the numbers, this file holds only the name, and",
+    "tests/compliance/proxy_limits_config.test.ts holds the two together. OPTIONS entries carry none.",
+    "Every `forward` path is one of /auth/v1/otp, /token, /verify, /settings or begins /rest/v1/rpc/ (FA-1 a):",
+    "proxy_allow_list.test.ts reds on any other service (SERVICE).",
     "`direct_origin_exceptions` are calls that never pass through this Worker, named so the",
     "coverage test does not require them here. Each carries the ruling that makes it an exception.",
+    "GET /auth/v1/verify WAS one until R-2026-09-30-177 (FA-2): the emailed link now opens on api.openbed.ng, so it",
+    "is forwarded, and the two templates that carry it are a third corpus the coverage test reads.",
     "`refusal_probes` are runbook probes that must be REFUSED -- the off-list probe."
   ],
   "forward": [
-    { "method": "POST", "path": "/auth/v1/otp", "reason": "packages/auth/src/request.ts: a ward, or the operator on admin.openbed.ng, asks for its own sign-in link" },
-    { "method": "POST", "path": "/auth/v1/token", "query": "grant_type=refresh_token", "reason": "packages/auth/src/holder.ts: session refresh, the only grant the code sends" },
+    { "method": "POST", "path": "/auth/v1/otp", "limit": "LIMIT_OTP", "reason": "packages/auth/src/request.ts: a ward, or the operator on admin.openbed.ng, asks for its own sign-in link" },
+    { "method": "POST", "path": "/auth/v1/token", "query": "grant_type=refresh_token", "limit": "LIMIT_REFRESH", "reason": "packages/auth/src/holder.ts: session refresh, the only grant the code sends" },
     { "method": "POST", "path": "/rest/v1/rpc/my_reporting_wards", "reason": "apps/ward-console: the handover load" },
     { "method": "POST", "path": "/rest/v1/rpc/publish_ward_status", "reason": "apps/ward-console: a ward publishes" },
     { "method": "POST", "path": "/rest/v1/rpc/operator_register", "reason": "apps/admin: the register load, and reload after every write" },
@@ -33,8 +44,9 @@
     { "method": "POST", "path": "/rest/v1/rpc/operator_record_contact", "reason": "apps/admin: the operator records a facility's contact" },
     { "method": "POST", "path": "/rest/v1/rpc/operator_record_agreement", "reason": "apps/admin: the operator records a facility's agreement" },
     { "method": "POST", "path": "/rest/v1/rpc/operator_set_facility_listed", "reason": "apps/admin: the operator lists a facility" },
-    { "method": "POST", "path": "/rest/v1/rpc/operator_record_registration", "reason": "runbook probe: probe 1b of docs/runbook-cloudflare-worker-proxy.md, run by scripts/readback_worker.sh, until apps/admin records a facility's HEFAMAA number through it (R-2026-09-27-144 DT k, Bundle 3)" },
+    { "method": "POST", "path": "/rest/v1/rpc/operator_record_registration", "reason": "apps/admin: the operator records a facility's HEFAMAA registration number (R-2026-09-27-144 DT k, Bundle 3), and probe 1b of docs/runbook-cloudflare-worker-proxy.md, run by scripts/readback_worker.sh" },
     { "method": "GET", "path": "/auth/v1/settings", "reason": "runbook probe: the ward console's live-key probe (docs/runbook-ward-console-deploy.md step 3, run by scripts/readback_ward_console.sh; R-2026-09-23-65 B2), and probe 2 of docs/runbook-cloudflare-worker-proxy.md, run by scripts/readback_worker.sh" },
+    { "method": "GET", "path": "/auth/v1/verify", "limit": "LIMIT_VERIFY", "reason": "the emailed sign-in link: docs/auth-email-templates/ (R-2026-09-22-55 C, option T1)" },
     { "method": "OPTIONS", "path": "/auth/v1/otp", "preflight_for": "POST /auth/v1/otp" },
     { "method": "OPTIONS", "path": "/auth/v1/token", "preflight_for": "POST /auth/v1/token" },
     { "method": "OPTIONS", "path": "/rest/v1/rpc/my_reporting_wards", "preflight_for": "POST /rest/v1/rpc/my_reporting_wards" },
@@ -52,10 +64,11 @@
   ],
   "direct_origin_exceptions": [
     { "method": "GET", "path": "/rest/v1/snapshot_current", "file": "packages/snapshot/src/serve.ts", "reason": "R-2026-09-22-58 A5: the /beds.json Function reads the Supabase origin directly, until -23 D5 closes" },
-    { "method": "POST", "path": "/rest/v1/rpc/health_probe", "file": "packages/snapshot/src/health_serve.ts", "reason": "R-2026-09-29-173 EW-2 a: the /api/health Function reads the scheduler's status through public.health_probe() on the Supabase origin directly, for the same reason as the /beds.json read above and one more: a health check routed through the Worker would report the Worker's health" },
-    { "method": "GET", "path": "/auth/v1/verify", "file": null, "reason": "R-2026-09-23-70 C2: the emailed sign-in link is consumed here, on the direct *.supabase.co origin, until -55 C. It lives in the email, not in code, so no parser can see it. IF -55 C's custom domain is routed through this Worker, GET /auth/v1/verify must move to `forward`, or every sign-in link breaks." }
+    { "method": "POST", "path": "/rest/v1/rpc/health_probe", "file": "packages/snapshot/src/health_serve.ts", "reason": "R-2026-09-29-173 EW-2 a: the /api/health Function reads the scheduler's status through public.health_probe() on the Supabase origin directly, for the same reason as the /beds.json read above and one more: a health check routed through the Worker would report the Worker's health" }
   ],
   "refusal_probes": [
-    { "method": "GET", "path": "/rest/v1/", "reason": "docs/runbook-cloudflare-worker-proxy.md probe 3, run by scripts/readback_worker.sh: the off-list probe, which must read the Worker's own 404" }
+    { "method": "GET", "path": "/rest/v1/", "reason": "docs/runbook-cloudflare-worker-proxy.md probe 3, run by scripts/readback_worker.sh: the off-list probe, which must read the Worker's own 404" },
+    { "method": "GET", "path": "/realtime/v1/websocket", "reason": "docs/runbook-cloudflare-worker-proxy.md probe 5, run by scripts/readback_worker.sh with a websocket upgrade: a service the Worker never reaches (R-2026-09-30-177 FA-1 a, b)" },
+    { "method": "GET", "path": "/storage/v1/object/public/probe", "reason": "docs/runbook-cloudflare-worker-proxy.md probe 6, run by scripts/readback_worker.sh: a service the Worker never reaches (R-2026-09-30-177 FA-1 a)" }
   ]
 }
