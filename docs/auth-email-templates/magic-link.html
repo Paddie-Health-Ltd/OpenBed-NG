@@ -1,0 +1,39 @@
+<!--
+WHAT THIS FILE IS. The body of the "Magic Link" email template for the OpenBed
+Supabase project: the mail a ward or the operator is sent when they ask for a
+sign-in link. It is tracked here so the link a nurse opens is a reviewed file and
+not a setting nobody can diff (R-2026-09-22-55 C, option T1; R-2026-09-30-177 FA-2).
+
+WHAT CHANGED FROM SUPABASE'S DEFAULT, and only this. The default body is Supabase's
+own, from the supabase/auth repository, file
+internal/mailer/templatemailer/templatemailer.go (constant defaultMagicLinkMail),
+read on 2026-10-01 at its last change, commit 2399fe5875cf0718eec54b614c3b2a227277c1b5:
+
+    <h2>Your sign-in link</h2>
+    <p>Follow the link below to sign in. This link expires shortly and can only be used once.</p>
+    <p><a href="[the default confirmation URL variable]">Sign in</a></p>
+
+The one change is that link's href. The default points at the project's own
+*.supabase.co host. This one points at https://api.openbed.ng, the Worker, with the
+token hash, the type and the redirect carried as three query parameters (GET verify
+reads `token`, not `token_hash`). Every other byte of the body is the default's.
+
+WHO PASTES IT. The founder, into the dashboard (Authentication, Email Templates,
+Magic Link), only after the Worker that forwards GET /auth/v1/verify is deployed and
+read back. The order is in the Worker runbook's W3 hosted steps. Cowork compares the
+dashboard's current body with this file before anything is pasted.
+
+THE ROLLBACK is to put the default confirmation URL variable back as the href, in
+words: the dashboard's own "confirmation URL" variable, exactly as the default body
+above has it. Do that FIRST if the Worker is rolled back to a version from before W3:
+that Worker refuses GET /auth/v1/verify, and every sign-in link would read as refused.
+
+THIS HEADER HOLDS NO TEMPLATE VARIABLE, on purpose: the dashboard expands one wherever
+it appears, comments included, and tests/compliance/proxy_allow_list.test.ts refuses a
+template whose header holds one. It also refuses a second link, any other host, and
+any parameter but the three.
+-->
+<h2>Your sign-in link</h2>
+
+<p>Follow the link below to sign in. This link expires shortly and can only be used once.</p>
+<p><a href="https://api.openbed.ng/auth/v1/verify?token={{ .TokenHash }}&type=magiclink&redirect_to={{ .RedirectTo }}">Sign in</a></p>

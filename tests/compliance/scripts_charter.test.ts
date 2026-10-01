@@ -58,6 +58,7 @@ export const HOSTED = [
   'readback_public_output.sh',
   'readback_ward_console.sh',
   'readback_worker.sh',
+  'readback_worker_limits.sh',
 ];
 
 /** Files with no entry point of their own, credited through their callers. */

@@ -6,10 +6,12 @@ import { REPO_ROOT } from './_scratch.js';
 
 /**
  * THE REDIRECT READ-BACK -- scripts/readback_signin_link.mjs (R-2026-09-24-73 BA-1;
- * R-2026-09-24-88 BP-7).
+ * R-2026-09-24-88 BP-7; moved to api.openbed.ng by R-2026-09-30-177 FA-2 d).
  *
- * PASS means one thing: this project's own Auth link, whose redirect_to decodes, ONCE,
- * to exactly the target the mode names. The plants below are the kickoff's four -- a
+ * PASS means one thing: a link on api.openbed.ng, at /auth/v1/verify, with one
+ * non-empty `token`, one `type` equal to magiclink, and a redirect_to that decodes,
+ * ONCE, to exactly the target the mode names. The old <ref>.supabase.co host is a STOP
+ * of its own, "the templates are not switched". The plants below are the kickoff's four -- a
  * Site URL fallback, a foreign host, a percent-encoded redirect_to, and a token that
  * must not appear in the output -- and every other way a link can fail to land.
  *
@@ -33,10 +35,13 @@ import { REPO_ROOT } from './_scratch.js';
 const TOOL = join(REPO_ROOT, 'scripts/readback_signin_link.mjs');
 const REF = 'abcdefghijklmnopqrst';
 const TOKEN = 'PLANTEDTOKEN77e1c0d93b';
-const AUTH = `https://${REF}.supabase.co/auth/v1/verify`;
+const API = 'https://api.openbed.ng/auth/v1/verify';
 const ADMIN = 'https://admin.openbed.ng/';
 const link = (redirect: string | null, extra = '') =>
-  `${AUTH}?token=${TOKEN}&type=magiclink${redirect === null ? '' : `&redirect_to=${redirect}`}${extra}`;
+  `${API}?token=${TOKEN}&type=magiclink${redirect === null ? '' : `&redirect_to=${redirect}`}${extra}`;
+/** A link with exactly the query given, for the rows about token and type. */
+const withQuery = (q: string) => `${API}?${q}&redirect_to=${ADMIN}`;
+const PROXY_HOST_STOP = "STOP: the link's host is not the OpenBed proxy's. Expected api.openbed.ng, read";
 
 function run(input: string, args = ['--mode', 'admin', '--project-ref', REF]): { status: number; out: string } {
   let r: { status: number; out: string };
@@ -54,8 +59,15 @@ describe('readback_signin_link — real links accepted', () => {
   test('the link exactly as GoTrue emits it reads PASS, printed with its token redacted', () => {
     const r = run(link(ADMIN));
     expect(r.status, r.out).toBe(0);
-    expect(r.out).toContain("PASS: this project's Auth link, and redirect_to is exactly https://admin.openbed.ng/");
-    expect(r.out).toContain(`link (token redacted): ${AUTH}?token=<redacted>&type=magiclink&redirect_to=${ADMIN}`);
+    expect(r.out).toContain('PASS: the link goes through api.openbed.ng, and redirect_to is exactly https://admin.openbed.ng/');
+    expect(r.out).toContain(`link (token redacted): ${API}?token=<redacted>&type=magiclink&redirect_to=${ADMIN}`);
+  });
+
+  test('a lower-case percent-encoded redirect_to reads PASS, and the two printed forms differ', () => {
+    const r = run(link(encodeURIComponent(ADMIN).toLowerCase()));
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).toContain('redirect_to, as sent : https%3a%2f%2fadmin.openbed.ng%2f');
+    expect(r.out).toContain('redirect_to, decoded : https://admin.openbed.ng/');
   });
 
   test('a percent-encoded correct target reads PASS, printing TWO DIFFERENT forms — the decode happens', () => {
@@ -82,9 +94,18 @@ describe('readback_signin_link — every other link is STOP', () => {
   test.each([
     ['the Site URL fallback in admin mode (AZ-1)', link('https://app.openbed.ng'), 1, 'STOP: redirect_to is the Site URL, https://app.openbed.ng: the fallback R-2026-09-23-72 AZ-1 names, never a working sign-in'],
     ['no redirect_to at all, which Auth also sends to the Site URL', link(null), 1, 'STOP: the link carries no redirect_to, so Auth sends it to the Site URL -- the fallback R-2026-09-23-72 AZ-1 names'],
-    ['a foreign host — a click-tracking rewrite', `https://click.example.com/c/${TOKEN}?u=${encodeURIComponent(link(ADMIN))}`, 1, "STOP: the link's host is not this project's Auth host. Expected abcdefghijklmnopqrst.supabase.co, read click.example.com"],
-    ['a lookalike Auth host', link(ADMIN).replace(`${REF}.supabase.co`, `${REF}.supabase.co.example.com`), 1, "STOP: the link's host is not this project's Auth host"],
-    ['another project', link(ADMIN).replace(REF, 'zyxwvutsrqponmlkjihg'), 1, "STOP: the link's host is not this project's Auth host"],
+    ['a foreign host — a click-tracking rewrite', `https://click.example.com/c/${TOKEN}?u=${encodeURIComponent(link(ADMIN))}`, 1, `${PROXY_HOST_STOP} click.example.com`],
+    // The OLD host: the founder has not pasted the templates yet, or has rolled them back.
+    ['the old Supabase host — the templates are not switched', link(ADMIN).replace('api.openbed.ng', `${REF}.supabase.co`), 1, `STOP: the link still points at the Supabase host ${REF}.supabase.co: the templates are not switched`],
+    ["another project's Supabase host", link(ADMIN).replace('api.openbed.ng', 'zyxwvutsrqponmlkjihg.supabase.co'), 1, `${PROXY_HOST_STOP} zyxwvutsrqponmlkjihg.supabase.co`],
+    ['a lookalike of the old host', link(ADMIN).replace('api.openbed.ng', `${REF}.supabase.co.example.com`), 1, `${PROXY_HOST_STOP} ${REF}.supabase.co.example.com`],
+    ['a lookalike of the proxy host', link(ADMIN).replace('api.openbed.ng', 'api.openbed.ng.example.com'), 1, `${PROXY_HOST_STOP} api.openbed.ng.example.com`],
+    ['only token_hash, which GET verify does not read', withQuery(`token_hash=${TOKEN}&type=magiclink`), 1, 'STOP: the link does not carry exactly one non-empty token, which is the one parameter GET verify reads the token hash from'],
+    ['an empty token', withQuery('token=&type=magiclink'), 1, 'STOP: the link does not carry exactly one non-empty token'],
+    ['two tokens', withQuery(`token=${TOKEN}&token=${TOKEN}&type=magiclink`), 1, 'STOP: the link does not carry exactly one non-empty token'],
+    ['no type', withQuery(`token=${TOKEN}`), 1, "STOP: the link does not carry exactly one type, and which one Auth reads is not this script's to guess"],
+    ['two types', withQuery(`token=${TOKEN}&type=magiclink&type=magiclink`), 1, 'STOP: the link does not carry exactly one type'],
+    ['type=signup, the Confirm signup template where the Magic Link one is expected', withQuery(`token=${TOKEN}&type=signup`), 1, "STOP: the link's type is not magiclink. Read signup"],
     ['a path that is not the verify endpoint', link(ADMIN).replace('/auth/v1/verify', '/auth/v1/other'), 1, "STOP: the link's path is not /auth/v1/verify. Read /auth/v1/other"],
     ['a double-encoded target', link(encodeURIComponent(encodeURIComponent(ADMIN))), 1, 'STOP: redirect_to still holds a percent-escape after one decode. It is never decoded twice to find a match'],
     ['a lookalike redirect target', link('https://admin.openbed.ng.example.com/'), 1, 'STOP: redirect_to is not exactly https://admin.openbed.ng/'],
@@ -94,12 +115,21 @@ describe('readback_signin_link — every other link is STOP', () => {
     ['empty standard input — the anti-vacuity leg', '', 2, 'STOP: expected exactly one line on standard input, the sign-in link, and no verdict was reached'],
     ['two lines', `${link(ADMIN)}\n${link(ADMIN)}`, 2, 'STOP: expected exactly one line on standard input'],
     ['something that is not a link, echoed nowhere', `not a link ${TOKEN}`, 2, 'STOP: the input is not an https link, and no verdict was reached'],
-    ['an http link', link(ADMIN).replace('https://', 'http://'), 2, 'STOP: the input is not an https link'],
+    // KEPT BEHAVIOUR, not new: the script already refused any non-https link before W3 (exit 2, no verdict), so this
+    // row is green on the previous script too. It is here so the api host is held to the same refusal.
+    ['an http link on the api host', link(ADMIN).replace('https://', 'http://'), 2, 'STOP: the input is not an https link'],
   ])('plant — %s', (_name, input, status, message) => {
     const r = run(input);
     expect(r.status, r.out).toBe(status);
     expect(r.out).toContain(message);
     expect(r.out, 'a STOP also printed PASS').not.toContain('PASS');
+  });
+
+  test("plant — the old host's STOP names the host and prints nothing else of the link, redirect_to included", () => {
+    const r = run(link(ADMIN).replace('api.openbed.ng', `${REF}.supabase.co`));
+    expect(r.status, r.out).toBe(1);
+    expect(r.out).not.toContain('link (token redacted)');
+    expect(r.out).not.toContain('redirect_to');
   });
 
   test("plant — a foreign host's path is never printed: it can carry the whole original link", () => {

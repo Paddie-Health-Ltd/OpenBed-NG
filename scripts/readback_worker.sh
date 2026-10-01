@@ -3,10 +3,30 @@
 # scripts/readback_worker.sh
 # ============================================================
 # THE api.openbed.ng WORKER'S READ-BACK: probes 1 to 3 (with 1b, the HEFAMAA write's
-# path, R-2026-09-27-144 DT k) and the stamp of
-# docs/runbook-cloudflare-worker-proxy.md (R-2026-09-23-70). Probe 4, the deployed
-# source equalling the repository's, is read by Cowork through the Cloudflare
-# connector, and nothing here can stand in for it. Why these are a script and not
+# path, R-2026-09-27-144 DT k), probes 5, 5b, 6 and 7 (R-2026-09-30-177 FA-1: no
+# service the Worker must not reach, no websocket upgrade, and the sign-in link's
+# redirect), and the stamp of docs/runbook-cloudflare-worker-proxy.md
+# (R-2026-09-23-70). Probe 4, the deployed source equalling the repository's, is read by
+# Cowork through the Cloudflare connector, and nothing here can stand in for it.
+#
+# PROBES 5, 5b, 6 AND 7 (FA-1 c, d):
+#   5   GET /realtime/v1/websocket with a websocket upgrade, over HTTP/1.1: refused by
+#       the Worker. Over HTTP/2, curl's default, curl drops Upgrade and Connection, and
+#       without the two Sec-WebSocket headers Cloudflare's own edge answers 400 before
+#       the Worker runs, so all four headers are sent.
+#   5b  the SAME four headers on GET /auth/v1/settings, a LISTED path, with the tracked
+#       key: refused by the Worker, because the handler refuses any request carrying
+#       Upgrade before it reads the allow-list. This is the only hosted test of that
+#       rule, and it is an ordinary probe of a listed path, not a refusal probe.
+#   6   GET /storage/v1/object/public/probe: a service the Worker never reaches.
+#   7   GET /auth/v1/verify with a junk token and redirect_to the admin origin: forwarded,
+#       a 3xx, and a Location whose origin is EXACTLY the admin origin. The Site URL
+#       (the ward console) is what GoTrue falls back to when it loses redirect_to, so
+#       a Worker that drops the parameter reads WRONG here. Probe 7 spends one token
+#       of the shared verify bucket per run.
+#   And `limits_bound` in the stamp: all three rate-limit bindings must read true. The
+#   bindings are invisible in the dashboard and Worker logging is off, so this is the
+#   only place a missing one is visible. Why these are a script and not
 # pasted fences, and the contract every read-back keeps, is in
 # scripts/readback_common.sh.
 #
@@ -80,14 +100,50 @@ rb_expect "probe 3 status" "$RB_CODE" 404
 rb_expect "probe 3 x-openbed-proxy" "$(rb_header x-openbed-proxy)" "refused"
 rb_expect_contains "probe 3 body" "$(rb_body 200)" '{"message":"not forwarded by the OpenBed proxy"}'
 
+# The admin origin probe 7 must land on. Held equal to TARGETS.admin in
+# scripts/readback_signin_link.mjs by tests/compliance/readback_scripts.test.ts.
+ADMIN_ORIGIN='https://admin.openbed.ng'
+
+echo
+echo "=== probe 5: a websocket upgrade on a service the Worker never reaches -- refused by the Worker ==="
+api_probe GET /realtime/v1/websocket --http1.1 -H 'Upgrade: websocket' -H 'Connection: Upgrade' -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ=='
+rb_expect "probe 5 status" "$RB_CODE" 404
+rb_expect "probe 5 x-openbed-proxy" "$(rb_header x-openbed-proxy)" "refused"
+rb_expect_contains "probe 5 body" "$(rb_body 200)" '{"message":"not forwarded by the OpenBed proxy"}'
+
+echo
+echo "=== probe 5b: the same upgrade on a LISTED path, with the tracked key -- refused by the Worker, never forwarded ==="
+api_probe GET /auth/v1/settings --http1.1 -H "apikey: $KEY" -H 'Upgrade: websocket' -H 'Connection: Upgrade' -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ=='
+rb_expect "probe 5b status" "$RB_CODE" 404
+rb_expect "probe 5b x-openbed-proxy" "$(rb_header x-openbed-proxy)" "refused"
+rb_expect_contains "probe 5b body" "$(rb_body 200)" '{"message":"not forwarded by the OpenBed proxy"}'
+
+echo
+echo "=== probe 6: Storage -- a service the Worker never reaches, refused by the Worker ==="
+api_probe GET /storage/v1/object/public/probe
+rb_expect "probe 6 status" "$RB_CODE" 404
+rb_expect "probe 6 x-openbed-proxy" "$(rb_header x-openbed-proxy)" "refused"
+rb_expect_contains "probe 6 body" "$(rb_body 200)" '{"message":"not forwarded by the OpenBed proxy"}'
+
+echo
+echo "=== probe 7: the sign-in link's redirect -- forwarded, a 3xx, landing on exactly $ADMIN_ORIGIN (spends one verify token) ==="
+api_probe GET /auth/v1/verify -G --data-urlencode 'token=probe' --data-urlencode 'type=magiclink' --data-urlencode "redirect_to=$ADMIN_ORIGIN/"
+rb_expect_prefix "probe 7 status" "$RB_CODE" 3
+rb_expect "probe 7 x-openbed-proxy" "$(rb_header x-openbed-proxy)" "forwarded"
+rb_location_origin
+rb_expect "probe 7 Location origin" "$RB_LOCATION_ORIGIN" "$ADMIN_ORIGIN"
+
 echo
 echo "=== the stamp: $API/__openbed/version, against this checkout's HEAD $RB_HEAD ==="
 api_probe GET /__openbed/version
 rb_stamp
 rb_expect "stamp commit" "$RB_COMMIT" "$RB_HEAD"
 rb_expect "stamp dirty" "$RB_DIRTY" "false"
+rb_expect "stamp limits_bound otp" "$RB_LIMITS_OTP" "true"
+rb_expect "stamp limits_bound verify" "$RB_LIMITS_VERIFY" "true"
+rb_expect "stamp limits_bound refresh" "$RB_LIMITS_REFRESH" "true"
 api_probe HEAD /__openbed/version
 rb_expect "stamp HEAD status" "$RB_CODE" 200
 rb_expect "stamp HEAD x-openbed-proxy" "$(rb_header x-openbed-proxy)" "stamp"
 
-rb_verdict "probes 1 to 3 and the stamp read as they must. Probe 4, the deployed source, is Cowork's, read through the Cloudflare connector."
+rb_verdict "probes 1 to 3, 5, 5b, 6 and 7 and the stamp read as they must. Probe 4, the deployed source, is Cowork's, read through the Cloudflare connector."

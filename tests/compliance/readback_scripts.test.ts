@@ -46,6 +46,7 @@ const SCRIPTS = {
   pages: join(REPO_ROOT, 'scripts', 'readback_pages.sh'),
   ward: join(REPO_ROOT, 'scripts', 'readback_ward_console.sh'),
   worker: join(REPO_ROOT, 'scripts', 'readback_worker.sh'),
+  limits: join(REPO_ROOT, 'scripts', 'readback_worker_limits.sh'),
   publicOutput: join(REPO_ROOT, 'scripts', 'readback_public_output.sh'),
   grants: join(REPO_ROOT, 'scripts', 'readback_function_grants.sh'),
   admin: join(REPO_ROOT, 'scripts', ADMIN_NAME),
@@ -100,6 +101,9 @@ function repo(root: string, opts: { pushed?: boolean; remote?: boolean; headers?
   if (opts.headers !== false) copyFileSync(join(REPO_ROOT, 'apps', 'ward-console', 'public', 'favicon.ico'), join(work, 'apps', 'ward-console', 'public', 'favicon.ico'));
   // And admin's, since D3 (R-2026-09-27-139 DO-4).
   if (opts.headers !== false) copyFileSync(join(REPO_ROOT, 'apps', 'admin', 'public', 'favicon.ico'), join(work, 'apps', 'admin', 'public', 'favicon.ico'));
+  // The limits proof reads LIMIT_VERIFY's number from the deploy checkout's wrangler.json, never a literal.
+  mkdirSync(join(work, 'supabase-proxy'), { recursive: true });
+  copyFileSync(join(REPO_ROOT, 'supabase-proxy', 'wrangler.json'), join(work, 'supabase-proxy', 'wrangler.json'));
   // The admin read-back reads its Pages project name from here, never retyped.
   mkdirSync(join(work, 'apps', 'admin'), { recursive: true });
   copyFileSync(join(REPO_ROOT, 'apps', 'admin', 'wrangler.toml'), join(work, 'apps', 'admin', 'wrangler.toml'));
@@ -131,8 +135,8 @@ function stubBin(root: string): string {
 const fs = require('fs');
 const a = process.argv.slice(2);
 if (a[0] === '--version') { process.stdout.write((process.env.STUB_CURL_VERSION || 'curl 8.7.1 (stub)') + '\\n'); process.exit(0); }
-let method = 'GET', head = false, out = null, dump = null, fmt = null, url = null;
-const hdrs = [];
+let method = 'GET', head = false, out = null, dump = null, fmt = null, url = null, http11 = false, getMode = false;
+const hdrs = [], data = [];
 for (let i = 0; i < a.length; i++) {
   const x = a[i];
   if (x === '-X') method = a[++i];
@@ -142,16 +146,23 @@ for (let i = 0; i < a.length; i++) {
   else if (x === '-w') fmt = a[++i];
   else if (x === '-H') hdrs.push(a[++i]);
   else if (x === '-d' || x === '-m') i++;
+  else if (x === '--http1.1') http11 = true;
+  else if (x === '-G') getMode = true;
+  else if (x === '--data-urlencode') data.push(a[++i]);
   else if (/^https?:/.test(x)) url = x;
 }
 if (head) method = 'HEAD';
+// -G with --data-urlencode puts each NAME=CONTENT in the query, the content percent-encoded as curl does
+// (R-2026-09-30-177 FA-1 d): a fixture is keyed on the whole URL, so a probe that drops a parameter has no answer.
+if (getMode && data.length) url += (url.includes('?') ? '&' : '?') + data.map((d) => { const j = d.indexOf('='); return d.slice(0, j) + '=' + encodeURIComponent(d.slice(j + 1)); }).join('&');
+const upgrade = hdrs.some((h) => /^Upgrade:\\s*websocket/i.test(h));
 // -H @FILE reads headers from a file, one per line (readback_admin.sh's Access token).
 // The stub records only WHETHER the token came, never its value.
 for (const h of hdrs.filter((x) => x.startsWith('@'))) hdrs.push(...fs.readFileSync(h.slice(1), 'utf8').split('\\n').filter(Boolean));
 const access = hdrs.some((h) => /^CF-Access-Client-Id:\\s*\\S/i.test(h)) && hdrs.some((h) => /^CF-Access-Client-Secret:\\s*\\S/i.test(h));
 const apikey = (hdrs.map((h) => /^apikey:\\s*(.*)$/i.exec(h)).find(Boolean) || [])[1];
 const browser = hdrs.some((h) => /^User-Agent:.*Mozilla\\//i.test(h)) && hdrs.some((h) => /^Accept:.*text\\/html/i.test(h));
-fs.appendFileSync(process.env.STUB_LOG, method + ' ' + url + (apikey ? ' apikey=' + apikey : '') + (browser ? ' browser' : '') + (access ? ' access' : '') + '\\n');
+fs.appendFileSync(process.env.STUB_LOG, method + ' ' + url + (apikey ? ' apikey=' + apikey : '') + (browser ? ' browser' : '') + (access ? ' access' : '') + (http11 ? ' http1.1' : '') + (upgrade ? ' upgrade' : '') + '\\n');
 const fx = JSON.parse(fs.readFileSync(process.env.STUB_FIXTURES, 'utf8'));
 const base = method + ' ' + url;
 const cands = (apikey ? [base + ' apikey=' + apikey] : [])
@@ -209,6 +220,7 @@ function run(root: string, script: string, args: string[], fixtures: Fixtures, e
     STUB_FIXTURES: join(root, 'fixtures.json'),
     STUB_COUNTS: join(root, 'counts.json'),
     READBACK_SERVED_AT_SLEEP: '0',
+    READBACK_LIMITS_SLEEP: '0',
     ...env,
   };
   const calls = (): string[] => readFileSync(log, 'utf8').split('\n').filter((l) => l !== '');
@@ -240,6 +252,7 @@ describe('scripts/readback_common.sh — a URL that is missing or not https:// i
     ['readback_pages.sh', SCRIPTS.pages],
     ['readback_ward_console.sh', SCRIPTS.ward],
     ['readback_worker.sh', SCRIPTS.worker],
+    ['readback_worker_limits.sh', SCRIPTS.limits],
   ])('plant — %s with no argument STOPs, names the missing URL, and probes nothing', (name, script) => {
     withScratch((root) => {
       const work = repo(root);
@@ -256,6 +269,7 @@ describe('scripts/readback_common.sh — a URL that is missing or not https:// i
     ['readback_pages.sh', 'http://abc.openbed-public-dashboard.pages.dev', "STOP: 'http://abc.openbed-public-dashboard.pages.dev' is not an https:// URL, so nothing was probed."],
     ['readback_ward_console.sh', 'abc.openbed-ward-console.pages.dev', "STOP: 'abc.openbed-ward-console.pages.dev' is not an https:// URL, so nothing was probed."],
     ['readback_worker.sh', 'https://', "STOP: 'https://' is not a usable https:// URL, so nothing was probed."],
+    ['readback_worker_limits.sh', 'http://api.openbed.ng', "STOP: 'http://api.openbed.ng' is not an https:// URL, so nothing was probed."],
     ['readback_pages.sh', 'https://abc.openbed-public-dashboard.pages.dev curl -sS', 'is not a usable https:// URL, so nothing was probed.'],
   ])('plant — %s refuses %s before any request', (name, url, expected) => {
     withScratch((root) => {
@@ -656,25 +670,53 @@ describe('scripts/readback_ward_console.sh', () => {
 });
 
 // ---------------------------------------------------------------------------
-// scripts/readback_worker.sh -- probes 1 to 3 and the stamp.
+// scripts/readback_worker.sh -- probes 1 to 3, 5, 5b, 6, 7 and the stamp.
 // ---------------------------------------------------------------------------
+
+/** The Worker's stamp since W3: the deploy stamp plus which rate-limit bindings it holds. */
+const workerStampOf = (commit: string, bound: { otp?: boolean; verify?: boolean; refresh?: boolean } = {}): string =>
+  JSON.stringify({ commit, dirty: false, built_at: '2026-09-23T18:46:32.411Z', limits_bound: { otp: true, verify: true, refresh: true, ...bound } });
+
+const REFUSED_BODY = '{"message":"not forwarded by the OpenBed proxy"}';
+const ADMIN = 'https://admin.openbed.ng';
+/** Probe 7's request as curl builds it from -G and --data-urlencode: three parameters, the redirect percent-encoded. */
+const VERIFY_PROBE_URL = `${API}/auth/v1/verify?token=probe&type=magiclink&redirect_to=https%3A%2F%2Fadmin.openbed.ng%2F`;
+/** The fixture key for it. */
+const VERIFY_GET = `GET ${VERIFY_PROBE_URL}`;
 
 function workerFixtures(head: string): Fixtures {
   const fwd = { 'x-openbed-proxy': 'forwarded' };
+  const refused = { status: 404, headers: { 'x-openbed-proxy': 'refused' }, body: REFUSED_BODY };
   return {
     [`POST ${API}/rest/v1/rpc/my_reporting_wards`]: { status: 401, headers: { 'sb-project-ref': 'klrlpxysjsjpdkeqdhvl', ...fwd }, body: '{"message":"No API key found in request"}' },
     // Probe 1b (R-2026-09-27-144 DT k): the HEFAMAA write's path, the same no-key answer.
     [`POST ${API}/rest/v1/rpc/operator_record_registration`]: { status: 401, headers: { 'sb-project-ref': 'klrlpxysjsjpdkeqdhvl', ...fwd }, body: '{"message":"No API key found in request"}' },
-    [`GET ${API}/auth/v1/settings apikey=${TRACKED_KEY}`]: { status: 200, headers: fwd, body: '{"external":{"email":true}}' },
+    // Probe 2's GET, then probe 5b's: the SAME request line with the tracked key, answered in call order.
+    [`GET ${API}/auth/v1/settings apikey=${TRACKED_KEY}`]: [{ status: 200, headers: fwd, body: '{"external":{"email":true}}' }, refused],
     [`HEAD ${API}/auth/v1/settings apikey=${TRACKED_KEY}`]: { status: 405, headers: fwd },
-    [`GET ${API}/rest/v1/`]: { status: 404, headers: { 'x-openbed-proxy': 'refused' }, body: '{"message":"not forwarded by the OpenBed proxy"}' },
-    [`GET ${API}/__openbed/version`]: { status: 200, headers: { 'x-openbed-proxy': 'stamp' }, body: stampOf(head) },
+    [`GET ${API}/rest/v1/`]: refused,
+    // Probes 5 and 6: services the Worker never reaches.
+    [`GET ${API}/realtime/v1/websocket`]: refused,
+    [`GET ${API}/storage/v1/object/public/probe`]: refused,
+    // Probe 7. A STUB value, not an observation: the status and the Location's fragment are what
+    // GoTrue is expected to answer a junk token with; the first hosted read records the real status
+    // (R-2026-09-30-177 FA-1 d). What the script holds is only 3xx, forwarded, and the Location's ORIGIN.
+    [VERIFY_GET]: { status: 303, headers: { ...fwd, location: `${ADMIN}/#error=access_denied&error_code=otp_expired` } },
+    [`GET ${API}/__openbed/version`]: { status: 200, headers: { 'x-openbed-proxy': 'stamp' }, body: workerStampOf(head) },
     [`HEAD ${API}/__openbed/version`]: { status: 200, headers: { 'x-openbed-proxy': 'stamp' } },
   };
 }
 
+/** probe 7 and the limits proof must name the same admin origin as the sign-in link read-back does. */
+export function adminOriginDrift(script: string, linkReadback: string): string[] {
+  const here = /^ADMIN_ORIGIN='([^']+)'$/m.exec(script)?.[1];
+  const there = /admin:\s*'([^']+)'/.exec(linkReadback)?.[1];
+  if (here === undefined || there === undefined) return ['ADMIN ORIGIN UNREADABLE: one of the two files names no admin origin, so nothing was compared'];
+  return `${here}/` === there ? [] : [`ADMIN ORIGIN DRIFT: the script probes ${here}/ and scripts/readback_signin_link.mjs expects ${there}`];
+}
+
 describe('scripts/readback_worker.sh', () => {
-  test('real read-back is accepted — the answers observed on 2026-09-23 give PASS, with every check ok', () => {
+  test('real read-back is accepted — the answers observed on 2026-09-23, plus probes 5, 5b, 6 and 7, give PASS, with every check ok', () => {
     withScratch((root) => {
       const work = repo(root);
       const head = git(work, 'rev-parse', 'HEAD').trim();
@@ -694,26 +736,63 @@ describe('scripts/readback_worker.sh', () => {
         'probe 3 status',
         'probe 3 x-openbed-proxy',
         'probe 3 body',
+        'probe 5 status',
+        'probe 5 x-openbed-proxy',
+        'probe 5 body',
+        'probe 5b status',
+        'probe 5b x-openbed-proxy',
+        'probe 5b body',
+        'probe 6 status',
+        'probe 6 x-openbed-proxy',
+        'probe 6 body',
+        'probe 7 status',
+        'probe 7 x-openbed-proxy',
+        'probe 7 Location origin',
         'stamp commit',
         'stamp dirty',
+        'stamp limits_bound otp',
+        'stamp limits_bound verify',
+        'stamp limits_bound refresh',
         'stamp HEAD status',
         'stamp HEAD x-openbed-proxy',
       ]) {
         expect(r.out, `the check "${check}" never ran`).toContain(`  ok     ${check}: `);
       }
-      expect(r.out).toContain('PASS: probes 1 to 3 and the stamp read as they must. Probe 4, the deployed source, is Cowork');
+      expect(r.out).toContain('PASS: probes 1 to 3, 5, 5b, 6 and 7 and the stamp read as they must. Probe 4, the deployed source, is Cowork');
       expect(r.calls, 'probe 2 did not send the tracked key').toContain(`GET ${API}/auth/v1/settings apikey=${TRACKED_KEY}`);
+      // Probe 5 and 5b must reach the stub as HTTP/1.1 upgrades: over HTTP/2 curl drops the header and the probe tests nothing.
+      expect(r.calls, 'probe 5 was not sent as an HTTP/1.1 websocket upgrade').toContain(`GET ${API}/realtime/v1/websocket http1.1 upgrade`);
+      expect(r.calls, 'probe 5b was not sent as an HTTP/1.1 upgrade WITH the tracked key').toContain(`GET ${API}/auth/v1/settings apikey=${TRACKED_KEY} http1.1 upgrade`);
+      expect(r.calls, 'probe 6 was not sent').toContain(`GET ${API}/storage/v1/object/public/probe`);
+      // Probe 7 carries all three parameters, the redirect percent-encoded, and the verify path has no other form.
+      const seven = r.calls.filter((c) => c.startsWith(`GET ${API}/auth/v1/verify`));
+      expect(seven).toEqual([`GET ${VERIFY_PROBE_URL}`]);
     });
   });
 
   test.each<[string, (f: Fixtures) => void, string]>([
     ['a 401 that did not come through the Worker', (f) => { f[`POST ${API}/rest/v1/rpc/my_reporting_wards`] = { status: 401, headers: { 'sb-project-ref': 'klrlpxysjsjpdkeqdhvl' } }; }, 'probe 1 x-openbed-proxy'],
     ['another project answering', (f) => { f[`POST ${API}/rest/v1/rpc/my_reporting_wards`] = { status: 401, headers: { 'sb-project-ref': 'someotherproject', 'x-openbed-proxy': 'forwarded' } }; }, 'probe 1 sb-project-ref'],
-    ["the HEFAMAA write's path dropped from the list", (f) => { f[`POST ${API}/rest/v1/rpc/operator_record_registration`] = { status: 404, headers: { 'x-openbed-proxy': 'refused' }, body: '{"message":"not forwarded by the OpenBed proxy"}' }; }, 'probe 1b status'],
+    ["the HEFAMAA write's path dropped from the list", (f) => { f[`POST ${API}/rest/v1/rpc/operator_record_registration`] = { status: 404, headers: { 'x-openbed-proxy': 'refused' }, body: REFUSED_BODY }; }, 'probe 1b status'],
     ['the settings path refused by the list', (f) => { f[`GET ${API}/auth/v1/settings apikey=${TRACKED_KEY}`] = { status: 404, headers: { 'x-openbed-proxy': 'refused' } }; }, 'probe 2 GET status'],
     ['HEAD answering 200, the value the runbook stated before it was observed', (f) => { f[`HEAD ${API}/auth/v1/settings apikey=${TRACKED_KEY}`] = { status: 200, headers: { 'x-openbed-proxy': 'forwarded' } }; }, 'probe 2 HEAD status'],
     ["Supabase's own 404 at the off-list path, as a Worker that forwards everything would give", (f) => { f[`GET ${API}/rest/v1/`] = { status: 404, body: '{"error":"requested path is invalid"}' }; }, 'probe 3 x-openbed-proxy'],
-    ['the previous Worker still serving its stamp', (f) => { f[`GET ${API}/__openbed/version`] = { status: 200, headers: { 'x-openbed-proxy': 'stamp' }, body: stampOf('0'.repeat(40)) }; }, 'stamp commit'],
+    // Probe 5 and 6: a Worker that forwards the service reads WRONG, and the script STOPs.
+    ['a Worker forwarding a websocket upgrade on Realtime', (f) => { f[`GET ${API}/realtime/v1/websocket`] = { status: 101, headers: { 'x-openbed-proxy': 'forwarded' } }; }, 'probe 5 status'],
+    ["Cloudflare's own 400 answering before the Worker ran, so the upgrade proved nothing", (f) => { f[`GET ${API}/realtime/v1/websocket`] = { status: 400 }; }, 'probe 5 status'],
+    ['a Worker forwarding Storage', (f) => { f[`GET ${API}/storage/v1/object/public/probe`] = { status: 400, headers: { 'x-openbed-proxy': 'forwarded' }, body: '{"error":"Bucket not found"}' }; }, 'probe 6 status'],
+    ['a Worker that answers Storage with a 404 of its own making but not marked', (f) => { f[`GET ${API}/storage/v1/object/public/probe`] = { status: 404, body: REFUSED_BODY }; }, 'probe 6 x-openbed-proxy'],
+    // Probe 5b: the only hosted test of the Upgrade rule on a LISTED path. A Worker without it forwards.
+    ['a Worker without the Upgrade refusal forwarding the upgrade on a listed path', (f) => { f[`GET ${API}/auth/v1/settings apikey=${TRACKED_KEY}`] = [{ status: 200, headers: { 'x-openbed-proxy': 'forwarded' }, body: '{}' }, { status: 200, headers: { 'x-openbed-proxy': 'forwarded' }, body: '{}' }]; }, 'probe 5b status'],
+    // Probe 7, one plant per checked line.
+    ['verify answering 200, not a redirect', (f) => { f[VERIFY_GET] = { status: 200, headers: { 'x-openbed-proxy': 'forwarded', location: `${ADMIN}/` } }; }, 'probe 7 status'],
+    ['verify answered by the Worker as a refusal', (f) => { f[VERIFY_GET] = { status: 303, headers: { 'x-openbed-proxy': 'refused', location: `${ADMIN}/` } }; }, 'probe 7 x-openbed-proxy'],
+    ['a redirect to the Supabase host', (f) => { f[VERIFY_GET] = { status: 303, headers: { 'x-openbed-proxy': 'forwarded', location: 'https://klrlpxysjsjpdkeqdhvl.supabase.co/auth/v1/verify' } }; }, 'probe 7 Location origin'],
+    ['a redirect to api.openbed.ng itself', (f) => { f[VERIFY_GET] = { status: 303, headers: { 'x-openbed-proxy': 'forwarded', location: `${API}/auth/v1/verify` } }; }, 'probe 7 Location origin'],
+    ["a redirect to the ward console: the Site URL GoTrue falls back to when redirect_to is lost", (f) => { f[VERIFY_GET] = { status: 303, headers: { 'x-openbed-proxy': 'forwarded', location: 'https://app.openbed.ng/' } }; }, 'probe 7 Location origin'],
+    ['a relative Location', (f) => { f[VERIFY_GET] = { status: 303, headers: { 'x-openbed-proxy': 'forwarded', location: '/' } }; }, 'probe 7 Location origin'],
+    ['no Location at all', (f) => { f[VERIFY_GET] = { status: 303, headers: { 'x-openbed-proxy': 'forwarded' } }; }, 'probe 7 Location origin'],
+    ['the previous Worker still serving its stamp', (f) => { f[`GET ${API}/__openbed/version`] = { status: 200, headers: { 'x-openbed-proxy': 'stamp' }, body: workerStampOf('0'.repeat(40)) }; }, 'stamp commit'],
     ['the stamp path answered by Supabase, not the Worker', (f) => { f[`HEAD ${API}/__openbed/version`] = { status: 404 }; }, 'stamp HEAD x-openbed-proxy'],
   ])('plant — %s is a STOP', (_label, plant, check) => {
     withScratch((root) => {
@@ -723,6 +802,44 @@ describe('scripts/readback_worker.sh', () => {
       plant(f);
       expectStopAt(run(root, SCRIPTS.worker, [API, work], f), check);
     });
+  });
+
+  test.each<[string, string, { otp?: boolean; verify?: boolean; refresh?: boolean }]>([
+    ['LIMIT_OTP unbound', 'stamp limits_bound otp', { otp: false }],
+    ['LIMIT_VERIFY unbound', 'stamp limits_bound verify', { verify: false }],
+    ['LIMIT_REFRESH unbound', 'stamp limits_bound refresh', { refresh: false }],
+  ])('plant — a Worker with %s is a STOP, so a limiter that silently forwards cannot read as live', (_label, check, bound) => {
+    withScratch((root) => {
+      const work = repo(root);
+      const head = git(work, 'rev-parse', 'HEAD').trim();
+      const f = workerFixtures(head);
+      f[`GET ${API}/__openbed/version`] = { status: 200, headers: { 'x-openbed-proxy': 'stamp' }, body: workerStampOf(head, bound) };
+      expectStopAt(run(root, SCRIPTS.worker, [API, work], f), check);
+    });
+  });
+
+  test('plant — a Worker from before W3, whose stamp carries no limits_bound at all, is a STOP on all three', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const head = git(work, 'rev-parse', 'HEAD').trim();
+      const f = workerFixtures(head);
+      f[`GET ${API}/__openbed/version`] = { status: 200, headers: { 'x-openbed-proxy': 'stamp' }, body: stampOf(head) };
+      const r = run(root, SCRIPTS.worker, [API, work], f);
+      for (const c of ['otp', 'verify', 'refresh']) expect(r.out).toContain(`  WRONG  stamp limits_bound ${c}: read '(absent)', must be 'true'`);
+      expectStopAt(r, 'stamp limits_bound otp');
+    });
+  });
+
+  test('probe 7 and the limits proof name the same admin origin as the sign-in link read-back, and a drifted one is rejected', () => {
+    const link = readFileSync(join(REPO_ROOT, 'scripts', 'readback_signin_link.mjs'), 'utf8');
+    for (const name of ['readback_worker.sh', 'readback_worker_limits.sh']) {
+      const text = readFileSync(join(REPO_ROOT, 'scripts', name), 'utf8');
+      expect(adminOriginDrift(text, link), name).toEqual([]);
+      const drifted = text.replace("ADMIN_ORIGIN='https://admin.openbed.ng'", "ADMIN_ORIGIN='https://app.openbed.ng'");
+      expect(drifted, `the plant did not change ${name}`).not.toBe(text);
+      expect(adminOriginDrift(drifted, link)).toEqual([`ADMIN ORIGIN DRIFT: the script probes https://app.openbed.ng/ and scripts/readback_signin_link.mjs expects https://admin.openbed.ng/`]);
+    }
+    expect(adminOriginDrift('', link), 'an empty script compared equal').toEqual(['ADMIN ORIGIN UNREADABLE: one of the two files names no admin origin, so nothing was compared']);
   });
 
   test('could not run — a checkout without the tracked key file is an ERROR, never a verdict', () => {
@@ -752,10 +869,116 @@ describe('scripts/readback_worker.sh', () => {
 });
 
 // ---------------------------------------------------------------------------
+// scripts/readback_worker_limits.sh -- the hosted proof of the verify limit, run once.
+// ---------------------------------------------------------------------------
+
+describe('scripts/readback_worker_limits.sh (R-2026-09-30-177 FA-3 i)', () => {
+  const LIMIT = (JSON.parse(readFileSync(join(REPO_ROOT, 'supabase-proxy', 'wrangler.json'), 'utf8')) as { ratelimits: { name: string; simple: { limit: number } }[] }).ratelimits.find((b) => b.name === 'LIMIT_VERIFY')?.simple.limit ?? 0;
+  const TOTAL = LIMIT + 5;
+  const fwd: Answer = { status: 303, headers: { 'x-openbed-proxy': 'forwarded', location: `${ADMIN}/#error=access_denied` } };
+  const lim: Answer = { status: 429, headers: { 'x-openbed-proxy': 'limited', 'retry-after': '60' } };
+  /** L forwarded, then 5 limited: the answers a live limit gives. */
+  const live = (): Answer[] => [...Array.from({ length: LIMIT }, () => fwd), ...Array.from({ length: 5 }, () => lim)];
+  const go = (answers: Answer[] | Answer, env: Record<string, string> = {}, mutate?: (work: string) => void) =>
+    withScratch((root) => {
+      const work = repo(root);
+      mutate?.(work);
+      return run(root, SCRIPTS.limits, [API, work], { [VERIFY_GET]: answers }, env);
+    });
+
+  test('the limit under test is read from wrangler.json, and is a real number', () => {
+    expect(LIMIT, 'wrangler.json holds no LIMIT_VERIFY limit, so every leg below tested a limit of zero').toBeGreaterThan(0);
+  });
+
+  test('real read-back is accepted — L forwarded then a `limited` 429 gives PASS, after L+5 requests with all three parameters', () => {
+    const r = go(live());
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).toContain(`PASS: the first ${LIMIT} verify requests were forwarded and a later one was limited by the Worker`);
+    expect(r.calls.length, 'the proof did not send L+5 requests').toBe(TOTAL);
+    expect(r.calls.every((c) => c === `GET ${VERIFY_PROBE_URL}`), r.calls.join('\n')).toBe(true);
+    expect(r.out).toContain(`  ok     request ${LIMIT + 1} of ${TOTAL}: 429, x-openbed-proxy 'limited'`);
+  });
+
+  test('it sleeps 61 seconds before the FIRST request, unless told otherwise', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      mkdirSync(join(root, 'bin'), { recursive: true });
+      writeFileSync(join(root, 'bin', 'sleep'), `#!/usr/bin/env bash\necho "SLEEP $1" >> "$STUB_LOG"\n`, 'utf8');
+      chmodSync(join(root, 'bin', 'sleep'), 0o755);
+      // An empty override reads as unset, so the script's own default is what runs.
+      const r = run(root, SCRIPTS.limits, [API, work], { [VERIFY_GET]: live() }, { READBACK_LIMITS_SLEEP: '' });
+      expect(r.status, r.out).toBe(0);
+      expect(r.calls[0], 'the pause was not the first thing the script did').toBe('SLEEP 61');
+      expect(r.calls.slice(1).every((c) => c.startsWith('GET '))).toBe(true);
+    });
+  });
+
+  test.each<[string, Answer[], string, string]>([
+    ["a 429 without `limited`, which is Supabase's own bucket", [...Array.from({ length: LIMIT }, () => fwd), { status: 429, headers: { 'x-openbed-proxy': 'forwarded' } }, lim, lim, lim, lim], `request ${LIMIT + 1} of ${TOTAL}`, "a 429 must read 'limited': this one is Supabase's own bucket, not the Worker's"],
+    ['`limited` on one of the first L', [fwd, fwd, lim, ...Array.from({ length: TOTAL - 3 }, () => fwd)], 'request 3 of ' + TOTAL, `must be 'forwarded': one of the first ${LIMIT} was limited`],
+    ['an answer that is neither forwarded nor limited', [fwd, { status: 404, headers: { 'x-openbed-proxy': 'refused' } }, ...Array.from({ length: TOTAL - 2 }, () => lim)], 'request 2 of ' + TOTAL, `must be 'forwarded', or 'limited' after the first ${LIMIT}`],
+    ['`limited` carried by a status that is not 429', [...Array.from({ length: LIMIT }, () => fwd), { status: 200, headers: { 'x-openbed-proxy': 'limited' } }, lim, lim, lim, lim], `request ${LIMIT + 1} of ${TOTAL}`, 'a limited answer must be a 429'],
+  ])('plant — %s is a STOP', (_label, answers, check, msg) => {
+    const r = go(answers);
+    expectStopAt(r, check);
+    expect(r.out).toContain(msg);
+  });
+
+  test('plant — no 429 at all is a STOP that says to wait 2 minutes and run it once more, and that a second such run is Cowork\'s', () => {
+    const r = go(fwd);
+    expectStopAt(r, 'a limited answer');
+    expect(r.out).toContain('wait 2 minutes and run this once more. A second run with no 429 is a real STOP for Cowork');
+    expect(r.calls.length).toBe(TOTAL);
+  });
+
+  test('could not run — a curl failure is an ERROR with no verdict', () => {
+    const r = go({ fail: 7 });
+    expect(r.status, r.out).toBe(2);
+    expect(r.out).toContain(`ERROR: curl exited 7 on GET ${API}/auth/v1/verify -- the check did not run`);
+    expect(r.out).not.toContain('PASS:');
+    expect(r.out).not.toContain('STOP:');
+  });
+
+  test('could not run — a wrangler.json with no LIMIT_VERIFY is an ERROR, and nothing is sent', () => {
+    const r = go(live(), {}, (work) => writeFileSync(join(work, 'supabase-proxy', 'wrangler.json'), '{"ratelimits":[]}'));
+    expect(r.status, r.out).toBe(2);
+    expect(r.out).toContain("ERROR: could not read LIMIT_VERIFY's simple.limit from");
+    expect(r.out).toContain('(node exited 3) -- nothing was sent');
+    expect(r.calls).toEqual([]);
+  });
+
+  test('could not run — a sleep override that is not a whole number is an ERROR, and nothing is sent', () => {
+    const r = go(live(), { READBACK_LIMITS_SLEEP: '1m' });
+    expect(r.status, r.out).toBe(2);
+    expect(r.out).toContain("ERROR: READBACK_LIMITS_SLEEP='1m' is not a whole number of seconds -- nothing was sent");
+    expect(r.calls).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // The shared file's own could-not-run legs, reached through a script.
 // ---------------------------------------------------------------------------
 
 describe('scripts/readback_common.sh — node failing is an ERROR, never a verdict', () => {
+  test('could not run — node failing while reading a Location header is an ERROR, never a verdict (probe 7)', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const head = git(work, 'rev-parse', 'HEAD').trim();
+      mkdirSync(join(root, 'bin'), { recursive: true });
+      // A node that fails ONLY on the Location read -- the one whose code names `u.origin` -- and
+      // delegates every other call (the tracked-key read, the stamp, the curl stub) to the real one,
+      // so the plant reaches the leg it is for and not an earlier one.
+      writeFileSync(join(root, 'bin', 'node'), `#!/usr/bin/env bash\ncase "$2" in *u.origin*) exit 9 ;; esac\nexec "${process.execPath}" "$@"\n`);
+      chmodSync(join(root, 'bin', 'node'), 0o755);
+      const r = run(root, SCRIPTS.worker, [API, work], workerFixtures(head));
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('ERROR: node exited 9 reading a Location header -- the check did not run, so this read-back has no verdict');
+      expect(r.out, 'probe 7 was never reached, so this planted an earlier failure').toContain('=== probe 7:');
+      expect(r.out).not.toContain('PASS:');
+      expect(r.out).not.toContain('STOP:');
+    });
+  });
+
   test('could not run — node failing while reading a stamp or searching a body is an ERROR', () => {
     withScratch((root) => {
       const work = repo(root);
