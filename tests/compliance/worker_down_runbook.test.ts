@@ -27,7 +27,11 @@ import { REPO_ROOT } from './_scratch.js';
  *     to check it (Clause 4);
  *   - that the table's per-outage behaviour is true on hosted. No hosted step takes the Worker away (DY-2), and the local
  *     behaviour is tests/db/ward_console_fallback_acceptance.test.ts's;
- *   - the numbered steps' commands. They are runbook fences, verified by pasting them (runbook fences exist to be pasted).
+ *   - the numbered steps' commands. They are runbook fences, verified by pasting them (runbook fences exist to be pasted);
+ *   - that migration 026's window IS two minutes. Section 6 says a publish tap's composed_at "ages at most 97.25 s, under
+ *     migration 026's two-minute STALE_MUTATION window", and this file holds the 97.25 to the constants and nothing to the
+ *     migration: that fact is read from the migration by tests/compliance/auth_fallback.test.ts, which goes red if the
+ *     window shrinks below the bound. Planting the migration's interval here changes nothing, by design (the behavioural pass, row V8).
  *
  * GUARD CLASS: LIVE.
  */

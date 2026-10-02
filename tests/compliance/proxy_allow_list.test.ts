@@ -1013,7 +1013,36 @@ describe('a template paste is the BODY only, by the command the runbook quotes (
   });
 });
 
+/** The marker scripts/readback_worker.sh's probe 8 expects the Worker to have written, read out of the script text. */
+export function probe8Marker(script: string): string | undefined {
+  return /rb_expect "probe 8 the Worker forwarded it, not answered it" "\$\(rb_header x-openbed-proxy\)" "([a-z]+)"/.exec(script)?.[1];
+}
+
 describe('the Worker, called as the Worker calls it', () => {
+  // R-2026-10-02-FF FF-5, found by the behavioural pass (row V9). Probe 8's fixtures in readback_scripts.test.ts TYPE the marker
+  // `forwarded`, so renaming the marker in supabase-proxy/handler.ts left every probe 8 test green: the script and the Worker
+  // were two derivation sites with nothing tying them, and a rename would have surfaced only as a STOP on hosted. This test
+  // calls the real handler with probe 8's exact request and holds the marker the script expects to the marker it writes.
+  test("probe 8's request, the key in the QUERY, is forwarded with the query intact, and the marker readback_worker.sh expects is the one the Worker writes", async () => {
+    const { handle, upstream } = worker();
+    const res = await handle(new Request('https://api.openbed.ng/auth/v1/settings?apikey=k', { method: 'GET' }));
+    expect(res.status).toBe(200);
+    const sent = upstream.mock.calls[0]?.[0] as Request;
+    expect(sent.url, 'the query was lost, or the path changed').toBe(`${ORIGIN}/auth/v1/settings?apikey=k`);
+    const expected = probe8Marker(realScripts()['scripts/readback_worker.sh'] ?? '');
+    expect(expected, 'readback_worker.sh states no expected marker for probe 8, so nothing is tied').toBeDefined();
+    expect(res.headers.get(PROXY_HEADER), 'the marker probe 8 expects is not the one the Worker writes: a rename would read as a STOP on hosted only').toBe(expected);
+  });
+
+  test('plant — a script whose probe 8 expects a different marker is read as different from the Worker\'s, and a script with no probe 8 reads as undefined', () => {
+    const real = realScripts()['scripts/readback_worker.sh'] ?? '';
+    const planted = real.replace('"$(rb_header x-openbed-proxy)" "forwarded"\n# The keyword', '"$(rb_header x-openbed-proxy)" "passed"\n# The keyword');
+    expect(planted, 'the plant did not change the script').not.toBe(real);
+    expect(probe8Marker(planted)).toBe('passed');
+    expect(probe8Marker(real)).toBe('forwarded');
+    expect(probe8Marker('')).toBeUndefined();
+  });
+
   test('a listed call is forwarded to the origin, Host rewritten, and the answer says so', async () => {
     const { handle, upstream } = worker();
     const res = await handle(new Request('https://api.openbed.ng/rest/v1/rpc/publish_ward_status', { method: 'POST', body: '{"x":1}', headers: { apikey: 'k' } }));
