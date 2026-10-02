@@ -5,6 +5,8 @@ import { describe, expect, test } from 'vitest';
 import { withScratch, REPO_ROOT } from './_scratch.js';
 import { deployableApps } from './_apps.js';
 import ORIGINS_JSON from '../../packages/origins/origins.json';
+import LIST_JSON from '../../supabase-proxy/allow-list.json';
+import { makeHandler, PROXY_HEADER, type AllowList } from '../../supabase-proxy/handler.js';
 
 /**
  * GUARD OVER THE DEPLOY READ-BACK SCRIPTS: scripts/readback_pages.sh,
@@ -966,6 +968,23 @@ describe('scripts/readback_worker_limits.sh (R-2026-09-30-177 FA-3 i; over ONE c
     expect(r.out).toContain(`  ok     request ${LIMIT + 1} of ${TOTAL}: 303, x-openbed-proxy 'forwarded'`);
     expect(r.out).toContain(`  ok     request ${LIMIT + 2} of ${TOTAL}: 429, x-openbed-proxy 'limited'`);
     expect(r.out).toContain('PASS: ');
+  });
+
+  // BEHAVIOURAL PASS, W3.1 row 2 (R-2026-09-30-180): the script's markers were typed, and nothing tied them to the file that
+  // writes them. Planting `limited` -> `throttled` in supabase-proxy/handler.ts reddened every handler test and left every
+  // test of this script green, so a renamed marker would have surfaced only as a STOP on hosted. The real handler's own
+  // answers are read here, and the script must test for exactly the header and the values it writes.
+  test('the proof tests for the header and the markers the real handler writes: `limited` on its 429, `forwarded` on a pass (behavioural pass)', async () => {
+    const origin = 'https://example-ref.supabase.co';
+    const handle = makeHandler({ origin, list: LIST_JSON as unknown as AllowList, stamp: { commit: 'a'.repeat(40), dirty: false, built_at: '2026-10-01T00:00:00.000Z' }, fetchImpl: async () => new Response('', { status: 303 }) });
+    const verify = (): Request => new Request('https://api.openbed.ng/auth/v1/verify?token=probe&type=magiclink&redirect_to=https%3A%2F%2Fadmin.openbed.ng%2F');
+    const over = await handle(verify(), { LIMIT_VERIFY: { limit: async () => ({ success: false }) } });
+    const under = await handle(verify(), { LIMIT_VERIFY: { limit: async () => ({ success: true }) } });
+    expect(over.status, 'the handler no longer answers an over-limit verify with a 429').toBe(429);
+    const script = readFileSync(SCRIPTS.limits, 'utf8');
+    expect(script, "the script tests for a marker the handler's 429 does not carry").toContain(`[ "$who" = "${String(over.headers.get(PROXY_HEADER))}" ]`);
+    expect(script, "the script tests for a marker the handler's forwarded answer does not carry").toContain(`[ "$who" = "${String(under.headers.get(PROXY_HEADER))}" ]`);
+    expect(readFileSync(SCRIPTS.common, 'utf8'), 'rb_fetch_times prints another header than the one the handler writes').toContain(`%header{${PROXY_HEADER}}`);
   });
 
   test('it sleeps 61 seconds before the FIRST request, unless told otherwise', () => {
