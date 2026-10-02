@@ -88,7 +88,7 @@ function bridge(handle: Handle): Promise<{ server: Server; url: string }> {
         headers.set(k, Array.isArray(v) ? v.join(', ') : v);
       }
       const hasBody = !['GET', 'HEAD'].includes(req.method ?? 'GET');
-      const request = new Request(`http://127.0.0.1${req.url ?? '/'}`, { method: req.method, headers, ...(hasBody ? { body: Buffer.concat(chunks) } : {}) });
+      const request = new Request(`http://127.0.0.1${req.url ?? '/'}`, { method: req.method ?? 'GET', headers, ...(hasBody ? { body: Buffer.concat(chunks) } : {}) });
       const answer = await handle(request);
       if (answer === null) {
         req.socket.destroy();
