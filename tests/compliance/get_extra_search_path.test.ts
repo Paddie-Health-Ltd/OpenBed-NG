@@ -118,6 +118,8 @@ function withStub(
       [
         '#!/bin/bash',
         `printf '%s\\n' "$@" > ${JSON.stringify(argvFile)}`,
+        // Every request starts with -q so curl ignores the caller's ~/.curlrc (R-2026-09-30-181 FE-5).
+        '[ "$1" = "-q" ] || { echo "curl stub: the first argument must be -q, so that ~/.curlrc is not read" >&2; exit 98; }',
         `cat > ${JSON.stringify(stdinFile)}`,
         `cat ${JSON.stringify(bodyFile)}`,
         `exit ${code}`,
@@ -420,6 +422,7 @@ describe('get_extra_search_path.sh — against the documented response shape', (
         `https://api.supabase.com/v1/projects/${REF}/postgrest`,
       );
       expect(r.argv, 'no --fail: an HTTP error body could be read as a config').toContain('--fail');
+      expect(r.argv[0], 'the first argument is not -q, so curl reads the caller\'s ~/.curlrc (R-2026-09-30-181 FE-5)').toBe('-q');
 
       const m = r.argv.indexOf('--max-time');
       expect(m, `no --max-time: ${JSON.stringify(r.argv)}`).toBeGreaterThanOrEqual(0);

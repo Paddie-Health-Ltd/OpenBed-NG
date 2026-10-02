@@ -139,7 +139,7 @@ URL="https://api.supabase.com/v1/projects/$PROJECT_REF/postgrest"
 raw=""
 curl_st=0
 raw="$(printf 'Authorization: Bearer %s\n' "$SUPABASE_ACCESS_TOKEN" \
-        | "${CURL[@]}" -sS --fail --max-time 12 --header @- "$URL" 2>/dev/null)" || curl_st=$?
+        | "${CURL[@]}" -q -sS --fail --max-time 12 --header @- "$URL" 2>/dev/null)" || curl_st=$?
 if [ "$curl_st" -ne 0 ]; then
     echo "ERROR: could not read the PostgREST config from the Supabase Management API." >&2
     echo "  curl exited $curl_st (22 means an HTTP error status: check the token and the project ref)." >&2

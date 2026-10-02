@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync, statSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
@@ -884,6 +885,121 @@ function worker(env?: ProxyEnv): { handle: (r: Request) => Promise<Response>; up
   const handle = makeHandler({ origin: ORIGIN, list: LIST_TYPED, stamp: STAMP, fetchImpl: upstream });
   return { handle: (r: Request) => handle(r, env), upstream };
 }
+
+// ---------------------------------------------------------------------------
+// WHAT A TEMPLATE PASTE IS (R-2026-09-30-181 FE-1). Cowork ruled on 2026-10-01 that only a template's BODY is pasted
+// into the dashboard: the header comment holds internal notes and would travel in every email's source. "From the
+// `<h2>` line down" is ambiguous, because each header quotes the default body with an indented `<h2>`, so an
+// unanchored `sed -n '/<h2>/,$p'` starts inside the comment. The command is anchored on the header's closing line,
+// it is quoted in the Worker runbook's step c.2, and THIS test reads it out of the runbook and runs it, so the quoted
+// command is the one that is held. GUARD CLASS (Clause 5): LIVE; the templates, the runbook and `sed` all exist.
+//
+// NOT ASSERTED HERE, deliberately: that the founder pastes what this prints. A paste is a dashboard action and
+// the read-back that follows it (the Worker runbook's step c) compares what the dashboard holds with the tracked body.
+// ---------------------------------------------------------------------------
+
+const WORKER_RUNBOOK = 'docs/runbook-cloudflare-worker-proxy.md';
+
+/** The sed program the runbook's step c.2 quotes for the Magic Link template, or null when it quotes none. */
+export function pasteCommand(runbook: string): string | null {
+  const m = /`sed '([^']+)' docs\/auth-email-templates\/magic-link\.html \| pbcopy`/.exec(runbook);
+  return m === null ? null : (m[1] ?? null);
+}
+
+/** Everything wrong with what pasting `raw` would put in the dashboard, given the `pasted` text the command printed. */
+export function pasteViolations(file: string, raw: string, pasted: string): string[] {
+  const out: string[] = [];
+  if (pasted.trim() === '') return [`PASTE: ${file}: nothing would be pasted, so nothing was checked`];
+  const closers = raw.split('-->').length - 1;
+  if (closers !== 1) out.push(`PASTE: ${file} holds ${closers} closing marks of a comment, and exactly one, on a line of its own, is allowed: a second one ends the header early`);
+  const first = pasted.split('\n')[0] ?? '';
+  if (!first.startsWith('<h2>')) out.push(`PASTE: ${file}: the pasted body starts with ${JSON.stringify(first.slice(0, 40))}, and it must start at the unindented <h2> line`);
+  if (pasted.includes('<!--') || pasted.includes('-->') || /R-20\d\d-\d\d-\d\d/.test(pasted)) out.push(`PASTE: ${file}: the pasted text still holds header-comment text (a comment mark or a ruling reference)`);
+  const links = (pasted.match(/<a[\s>]/gi) ?? []).length;
+  if (links !== 1) out.push(`PASTE: ${file}: the pasted body holds ${links} links, and exactly one is allowed`);
+  return out;
+}
+
+describe('a template paste is the BODY only, by the command the runbook quotes (FE-1)', () => {
+  const MAGIC = `${TEMPLATE_DIR}/magic-link.html`;
+  const SIGNUP = `${TEMPLATE_DIR}/confirm-signup.html`;
+  const runbook = (): string => readFileSync(join(REPO_ROOT, WORKER_RUNBOOK), 'utf8');
+  const run = (expr: string, text: string): string => {
+    const dir = mkdtempSync(join(tmpdir(), 'openbed-paste-'));
+    try {
+      const f = join(dir, 'template.html');
+      writeFileSync(f, text, 'utf8');
+      return execFileSync('sed', [expr, f], { encoding: 'utf8' });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const expr = (): string => {
+    const e = pasteCommand(runbook());
+    expect(e, "the runbook's step c.2 quotes no `sed '...' docs/auth-email-templates/magic-link.html | pbcopy` command").not.toBeNull();
+    return e ?? '';
+  };
+  const real = (): Record<string, string> => realTemplates();
+  /** A plant edits the real template; the precondition proves it changed. */
+  const planted = (file: string, from: string, to: string): string => {
+    const before = real()[file] ?? '';
+    const after = before.replace(from, to);
+    expect(after, `the plant did not change ${file}`).not.toBe(before);
+    return after;
+  };
+
+  test("the runbook quotes the anchored command, `1,/^-->$/d`, and it is the one that runs", () => {
+    expect(expr()).toBe('1,/^-->$/d');
+    expect(pasteCommand(runbook().replace("sed '1,/^-->$/d' docs/auth-email-templates/magic-link.html", "sed -n '/<h2>/,$p' docs/auth-email-templates/magic-link.html")), 'an unanchored command was read as the quoted one').toBeNull();
+    expect(pasteCommand(''), 'an empty runbook quoted a command').toBeNull();
+  });
+
+  test.each([[MAGIC], [SIGNUP]])('real template %s is accepted — the command prints its body, from the unindented <h2> line, with one link and no header text', (file) => {
+    const raw = real()[file] ?? '';
+    expect(raw, `${file} is missing from the corpus`).not.toBe('');
+    const pasted = run(expr(), raw);
+    expect(pasteViolations(file, raw, pasted), pasted).toEqual([]);
+    expect(pasted.startsWith('<h2>')).toBe(true);
+  });
+
+  test('plant — a second closing line inside the header makes the body start in the header, and is rejected twice over', () => {
+    const raw = planted(MAGIC, 'WHO PASTES IT.', '-->\nWHO PASTES IT.');
+    const v = pasteViolations(MAGIC, raw, run(expr(), raw));
+    expect(v.join('\n')).toContain('holds 2 closing marks of a comment');
+    expect(v.join('\n')).toContain('the pasted body starts with');
+  });
+
+  test('plant — a closing mark in the MIDDLE of a header line is rejected: it ends the comment early, though the command still finds the real closing line', () => {
+    const raw = planted(MAGIC, 'WHO PASTES IT. The founder', 'WHO PASTES --> IT. The founder');
+    expect(pasteViolations(MAGIC, raw, run(expr(), raw))).toEqual([`PASTE: ${MAGIC} holds 2 closing marks of a comment, and exactly one, on a line of its own, is allowed: a second one ends the header early`]);
+  });
+
+  test('plant — a body that does not start at the <h2> line is rejected', () => {
+    const raw = planted(SIGNUP, '-->\n<h2>', '-->\n<p>stray</p>\n<h2>');
+    const v = pasteViolations(SIGNUP, raw, run(expr(), raw));
+    expect(v.join('\n')).toContain('the pasted body starts with "<p>stray</p>"');
+  });
+
+  test('plant — the header text left in the paste (an unanchored command prints from the first <h2>, inside the comment) is rejected', () => {
+    const raw = real()[MAGIC] ?? '';
+    const v = pasteViolations(MAGIC, raw, run('/<h2>/,$!d', raw));
+    expect(v.join('\n'), 'the unanchored command was read as the body').toContain('the pasted body starts with');
+    expect(v.join('\n')).toContain('still holds header-comment text');
+  });
+
+  test('plant — a second link in the pasted body is rejected', () => {
+    // Aimed at the BODY: the header quotes the default link too, so a first-occurrence replace on its text lands in the comment.
+    const raw = planted(MAGIC, '<p><a href="https://api.openbed.ng', '<p><a href="https://example.invalid/">x</a></p>\n<p><a href="https://api.openbed.ng');
+    const pasted = run(expr(), raw);
+    expect(pasted, 'the plant landed in the header, not the pasted body').toContain('example.invalid');
+    expect(pasteViolations(MAGIC, raw, pasted).join('\n')).toContain('the pasted body holds 2 links');
+  });
+
+  test('anti-vacuity — a template that pastes nothing is rejected, not read as clean', () => {
+    expect(pasteViolations(MAGIC, '', '')).toEqual([`PASTE: ${MAGIC}: nothing would be pasted, so nothing was checked`]);
+    expect(pasteViolations(MAGIC, '<!--\nx\n-->\n', run(expr(), '<!--\nx\n-->\n'))).toEqual([`PASTE: ${MAGIC}: nothing would be pasted, so nothing was checked`]);
+  });
+});
 
 describe('the Worker, called as the Worker calls it', () => {
   test('a listed call is forwarded to the origin, Host rewritten, and the answer says so', async () => {

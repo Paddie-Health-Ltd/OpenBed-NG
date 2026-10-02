@@ -4619,8 +4619,8 @@ through the admin app.
      R-2026-09-22-56 A9)
      **CLOSED 2026-10-01 (R-2026-09-30-180 FD-4 b).** On the Worker runbook's step a
      (Supabase's per-IP limits raised, each read back after a reload); the one-connection
-     limits read (6 forwarded, then 9 answered `limited`, which is the limit of 5 plus one
-     from eventual consistency); `limits_bound` all true in the Worker's stamp; and
+     limits read (6 forwarded, which is the limit of 5 plus one from eventual consistency,
+     then 9 answered `limited`); `limits_bound` all true in the Worker's stamp; and
      Cowork's attribution reads of 2026-09-30 and 2026-10-01 (every request through the
      Worker reaches Supabase from one Cloudflare address). **What this does not claim:**
      the edge limits slow a careless or naive flood and do not bound a deliberate one

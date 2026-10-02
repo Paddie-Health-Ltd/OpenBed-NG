@@ -139,7 +139,14 @@ function stubBin(root: string): string {
     `#!/usr/bin/env node
 const fs = require('fs');
 const a = process.argv.slice(2);
-if (a[0] === '--version') { process.stdout.write((process.env.STUB_CURL_VERSION || 'curl 8.7.1 (stub)') + '\\n'); process.exit(0); }
+if (a[0] === '--version') {
+  // STUB_CURL_VERSION_FAIL makes the version call itself fail, as a broken ~/.curlrc or a missing library would (R-2026-09-30-181 FE-4 c).
+  if (process.env.STUB_CURL_VERSION_FAIL) { process.stderr.write('curl: (2) planted failure of --version\\n'); process.exit(Number(process.env.STUB_CURL_VERSION_FAIL)); }
+  process.stdout.write((process.env.STUB_CURL_VERSION || 'curl 8.7.1 (stub)') + '\\n'); process.exit(0);
+}
+// EVERY request starts with -q so curl ignores the caller's ~/.curlrc (R-2026-09-30-181 FE-5): a curl that does not is refused here, with
+// a status no script reads as an answer, so removing -q from any one site is red.
+if (a[0] !== '-q') { process.stderr.write('curl stub: the first argument must be -q, so that ~/.curlrc is not read\\n'); process.exit(98); }
 let method = 'GET', head = false, dump = null, fmt = null, http11 = false, getMode = false, failEarly = false;
 const urls = [], outs = [], hdrs = [], data = [];
 for (let i = 0; i < a.length; i++) {
@@ -184,6 +191,9 @@ const wline = (status, headers, connects) => fmt
   .replace(/\\\\n/g, '\\n');
 // STUB_CURL_DROP_W=N withholds the last N -w lines: the short output a curl that lost a transfer would print.
 const dropW = Number(process.env.STUB_CURL_DROP_W || 0);
+// STUB_CURL_EXTRA_W=1 prints ONE MORE -w line than there are URLs: the other way a count can be wrong (R-2026-09-30-181 FE-3).
+const extraW = Number(process.env.STUB_CURL_EXTRA_W || 0);
+let lastW = '';
 let rc = 0;
 for (let n = 0; n < urls.length; n++) {
   let url = urls[n];
@@ -218,8 +228,10 @@ for (let n = 0; n < urls.length; n++) {
   if (dump) fs.writeFileSync(dump, text);
   const body = head ? text : (ans.bodyBase64 ? Buffer.from(ans.bodyBase64, 'base64') : (ans.body || ''));
   if (outs[n]) fs.writeFileSync(outs[n], body); else process.stdout.write(body);
-  if (fmt && n < urls.length - dropW) process.stdout.write(wline(ans.status, ans.headers, ans.connects !== undefined ? ans.connects : (n === 0 ? 1 : 0)));
+  lastW = wline(ans.status, ans.headers, ans.connects !== undefined ? ans.connects : (n === 0 ? 1 : 0));
+  if (fmt && n < urls.length - dropW) process.stdout.write(lastW);
 }
+if (fmt && extraW > 0 && lastW !== '') for (let e = 0; e < extraW; e++) process.stdout.write(lastW);
 process.exit(rc);
 `,
     'utf8',
@@ -1103,10 +1115,57 @@ describe('scripts/readback_worker_limits.sh (R-2026-09-30-177 FA-3 i; over ONE c
     ['7.100.2, a minor number with three digits', 'curl 7.100.2 (stub)'],
     ['8.0.1, a higher major with a lower minor', 'curl 8.0.1 (stub)'],
     ['8.7.1, the ordinary current curl', 'curl 8.7.1 (stub)'],
+    // FE-4 a: a two-digit major. A gate that compares one digit, or only 8, rejects it.
+    ['10.0.0, a two-digit major', 'curl 10.0.0 (stub)'],
   ])('real read-back is accepted — curl %s passes the version check (FD-1 a)', (_label, line) => {
     const r = go(live(), { STUB_CURL_VERSION: line });
     expect(r.status, r.out).toBe(0);
     expect(r.out).toContain('PASS: ');
+  });
+
+  test('plant — a request after the first that reports TWO new connections reads WRONG too: the check is "not 0", not "not 1" (FE-4 b)', () => {
+    const answers = live();
+    answers[LIMIT + 3] = { ...lim, connects: 2 };
+    const r = go(answers);
+    expectStopAt(r, 'connection reuse');
+    expect(r.out).toContain(`read '1 of the ${TOTAL - 1} requests after the first opened a new connection'`);
+  });
+
+  test('could not run — MORE -w lines than requests is an ERROR too: the count must equal, not only reach (FE-3)', () => {
+    const r = go(live(), { STUB_CURL_EXTRA_W: '1' });
+    expect(r.status, r.out).toBe(2);
+    expect(r.out).toContain(`ERROR: curl printed ${TOTAL + 1} result lines for ${TOTAL} requests sent in one call, so the connection check has nothing to read -- nothing was proved`);
+    expect(r.out).not.toContain('PASS:');
+    expect(r.out).not.toContain('STOP:');
+  });
+
+  test('the limit is LIMIT_VERIFY\'s and not another binding\'s, and not a literal: a work copy with LIMIT_VERIFY at 4 sends 12 requests and says "the first 4" (FE-2)', () => {
+    const FOUR = 4;
+    const answers: Answer[] = [...Array.from({ length: FOUR }, () => fwd), ...Array.from({ length: FOUR * 3 - FOUR }, () => lim)];
+    const r = go(answers, {}, (work) => {
+      const f = join(work, 'supabase-proxy', 'wrangler.json');
+      const w = JSON.parse(readFileSync(f, 'utf8')) as { ratelimits: { name: string; simple: { limit: number } }[] };
+      const b = w.ratelimits.find((x) => x.name === 'LIMIT_VERIFY');
+      expect(b, 'the work copy holds no LIMIT_VERIFY, so the plant did not land').toBeDefined();
+      if (b !== undefined) b.simple.limit = FOUR;
+      // The other two bindings stay as they are: LIMIT_OTP is 5, like LIMIT_VERIFY, which is what hid a read of the wrong one.
+      expect(w.ratelimits.filter((x) => x.name !== 'LIMIT_VERIFY').map((x) => x.simple.limit), 'the plant moved another binding').toEqual([5, 10]);
+      writeFileSync(f, JSON.stringify(w));
+    });
+    expect(r.status, r.out).toBe(0);
+    expect(r.invocations, 'the proof did not send three times LIMIT_VERIFY\'s limit').toEqual([{ urls: FOUR * 3, fmt: W_FORMAT }]);
+    expect(r.out).toContain(`PASS: the first ${FOUR} verify requests were forwarded and a later one was limited by the Worker`);
+    expect(r.out).toContain(`sending ${FOUR * 3} verify requests`);
+  });
+
+  test('could not run — a curl --version that FAILS is an ERROR with exit 2, never curl\'s own exit code, and nothing is sent, before the sleep (FE-4 c)', () => {
+    const r = goLoggingSleep(live(), { STUB_CURL_VERSION_FAIL: '1' });
+    expect(r.status, r.out).toBe(2);
+    expect(r.out).toContain('ERROR: curl --version itself failed, so the proof cannot tell whether this curl can print a response header, and nothing was sent; curl exited 1');
+    expect(r.out).not.toContain('PASS:');
+    expect(r.out).not.toContain('STOP:');
+    expect(r.calls, 'the sleep ran, or a request went out, before the version call failed').toEqual([]);
+    expect(r.invocations).toEqual([]);
   });
 
   test('could not run — a wrangler.json with no LIMIT_VERIFY is an ERROR, and nothing is sent', () => {
@@ -1756,6 +1815,18 @@ describe('readback_admin.sh — Access first, the token from the environment onl
       expect(r.status, r.out).toBe(2);
       expect(r.out).toContain('this curl cannot read headers from a file (-H @file needs 7.55 or later), so the token would have to go on the command line -- nothing was sent');
       expect(r.calls.some((c) => c.endsWith(' access'))).toBe(false);
+    });
+  });
+
+  test('a curl --version that FAILS is an ERROR with exit 2, never curl\'s own exit code, and the token is never sent (FE-4 c)', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const r = runAdmin(root, work, adminFixtures(git(work, 'rev-parse', 'HEAD').trim()), { ...ACCESS_ENV, STUB_CURL_VERSION_FAIL: '1' });
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('ERROR: curl --version itself failed, so the token half cannot tell whether this curl reads headers from a file, and nothing was sent; curl exited 1');
+      expect(r.out).not.toContain('PASS:');
+      expect(r.out).not.toContain('STOP:');
+      expect(r.calls.some((c) => c.endsWith(' access')), 'a request carrying the token went out').toBe(false);
     });
   });
 

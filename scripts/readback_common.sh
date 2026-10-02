@@ -92,6 +92,10 @@ rb_head() {
     fi
 }
 
+# EVERY curl THAT MAKES A REQUEST STARTS WITH `-q` (R-2026-09-30-181 FE-5): curl then ignores the
+# caller's ~/.curlrc. Without it a `location` line there would follow the 303 the proof reads, and a
+# `silent` or `write-out` line would change what -w prints. The stubs in the tests refuse a curl whose
+# first argument is not `-q`, so removing it from any one site is red.
 # rb_fetch METHOD URL [curl arguments...] -- one request. The status goes to RB_CODE;
 # the headers and the body go to files that rb_header and rb_body read.
 rb_fetch() {
@@ -101,9 +105,9 @@ rb_fetch() {
     : > "$RB_TMP/body"
     if [ "$method" = HEAD ]; then
         # -I, never -X HEAD: -X HEAD waits for a body a correct HEAD never sends.
-        RB_CODE="$(curl -sS -m 12 -I -D "$RB_TMP/headers" -o "$RB_TMP/body" -w '%{http_code}' "$@" "$url")" || st=$?
+        RB_CODE="$(curl -q -sS -m 12 -I -D "$RB_TMP/headers" -o "$RB_TMP/body" -w '%{http_code}' "$@" "$url")" || st=$?
     else
-        RB_CODE="$(curl -sS -m 12 -X "$method" -D "$RB_TMP/headers" -o "$RB_TMP/body" -w '%{http_code}' "$@" "$url")" || st=$?
+        RB_CODE="$(curl -q -sS -m 12 -X "$method" -D "$RB_TMP/headers" -o "$RB_TMP/body" -w '%{http_code}' "$@" "$url")" || st=$?
     fi
     if [ "$st" -ne 0 ]; then
         rb_curl_error "$method" "$url" "$st"
@@ -139,7 +143,7 @@ rb_fetch_times() {
         args+=(-o /dev/null "$url")
         i=$((i + 1))
     done
-    out="$(curl -sS -m 12 --fail-early -X "$method" -w '%{http_code}|%header{x-openbed-proxy}|%{num_connects}|%{time_total}\n' "$@" "${args[@]}")" || st=$?
+    out="$(curl -q -sS -m 12 --fail-early -X "$method" -w '%{http_code}|%header{x-openbed-proxy}|%{num_connects}|%{time_total}\n' "$@" "${args[@]}")" || st=$?
     if [ "$st" -ne 0 ]; then
         rb_curl_error "$method" "$url" "$st"
     fi

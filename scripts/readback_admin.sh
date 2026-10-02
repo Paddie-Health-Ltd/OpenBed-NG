@@ -134,7 +134,15 @@ if [ "$LOCAL" = 0 ]; then
         echo "ERROR: OPENBED_ACCESS_CLIENT_ID and OPENBED_ACCESS_CLIENT_SECRET must both be set in the environment -- the token half cannot run, so this read-back has no verdict"
         exit 2
     fi
-    ver="$(curl --version | sed -n '1s/^curl \([0-9]*\)\.\([0-9]*\).*/\1 \2/p')"
+    # The exit status is CAPTURED (R-2026-09-30-181 FE-4 c): a pipeline under pipefail ended the script with
+    # curl's own exit code, 1, which reads as a STOP, and nothing was checked.
+    vst=0
+    vtext="$(curl --version)" || vst=$?
+    if [ "$vst" -ne 0 ]; then
+        echo "ERROR: curl --version itself failed, so the token half cannot tell whether this curl reads headers from a file, and nothing was sent; curl exited $vst"
+        exit 2
+    fi
+    ver="$(printf '%s\n' "$vtext" | sed -n '1s/^curl \([0-9]*\)\.\([0-9]*\).*/\1 \2/p')"
     major="${ver% *}"
     minor="${ver#* }"
     if [ -z "$ver" ] || [ "$major" -lt 7 ] || { [ "$major" -eq 7 ] && [ "$minor" -lt 55 ]; }; then

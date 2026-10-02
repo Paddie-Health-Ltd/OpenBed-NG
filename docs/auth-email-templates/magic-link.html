@@ -24,6 +24,12 @@ Magic Link), only after the Worker that forwards GET /auth/v1/verify is deployed
 read back. The order is in the Worker runbook's W3 hosted steps. Cowork compares the
 dashboard's current body with this file before anything is pasted.
 
+PASTE THE BODY ONLY (R-2026-09-30-181 FE-1): everything after the line that closes this
+comment, which starts at the unindented h2 line, and never this header, which holds
+internal notes and would travel in every email's source. The exact command is in the Worker
+runbook's step c.2. This comment is closed by one line of its own, and nothing inside it may
+contain that closing mark, or the comment would end early.
+
 THE ROLLBACK is to put the default confirmation URL variable back as the href, in
 words: the dashboard's own "confirmation URL" variable, exactly as the default body
 above has it. Do that FIRST if the Worker is rolled back to a version from before W3:

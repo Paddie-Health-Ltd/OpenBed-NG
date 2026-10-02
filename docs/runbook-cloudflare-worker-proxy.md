@@ -260,13 +260,22 @@ requests across it, so with a fixed window one address can get about twice its l
 10 seconds, and **twice the limit must stay under 30** (the test holds it). At that design
 bound one address on ONE CONNECTION cannot empty a bucket; three can for otp or verify, and
 two for refresh, which is the register's trigger on a distributed drain. A client that opens
-a new connection for every request is not held to that bound (see the next paragraph). At a shift change, six links
+a new connection for every request is not held to that bound (see "What the edge limits do, and what they do not", below). At a shift change, six links
 REQUESTED in one 10-second window at one address is possible at a teaching hospital, and the
-sixth request (`POST /auth/v1/otp`) gets the flat "answered" message and no email; the sixth
-link OPENED (`GET /auth/v1/verify`) in one window gets the limited-link sentence instead, and
-the link is not spent. Whether a limited request gets its own message is W4's ruling. Refresh is lazy and a limited refresh is terminal today, so `LIMIT_REFRESH`
-bounds how many handsets behind one address may refresh in one window; facility one has one
-login. The full argument is in the header of `tests/compliance/proxy_limits_config.test.ts`.
+sixth request (`POST /auth/v1/otp`) can get the flat "answered" message and no email; the
+sixth link OPENED (`GET /auth/v1/verify`) in one window can get the limited-link sentence
+instead, and then the link is not spent. Whether a limited request gets its own message is
+W4's ruling. Refresh is lazy and a limited refresh is terminal today, so `LIMIT_REFRESH` can
+sign handsets out when more than its limit behind one address refresh in one window; facility
+one has one login. The full argument is in the header of
+`tests/compliance/proxy_limits_config.test.ts`.
+
+*Restated 2026-10-02 (R-2026-09-30-181 FE-6 d). With per-machine counting these are at-most
+outcomes, not certainties. Until then this paragraph read:* "the sixth request (`POST
+/auth/v1/otp`) gets the flat "answered" message and no email; the sixth link OPENED (`GET
+/auth/v1/verify`) in one window gets the limited-link sentence instead, and the link is not
+spent", *and* "so `LIMIT_REFRESH` bounds how many handsets behind one address may refresh in
+one window".
 
 *Restated 2026-10-01 (R-2026-09-30-178 FB-1 c). Until then this paragraph read:* "Three
 `ratelimits` bindings in `wrangler.json` count sign-in requests, link opens and session
@@ -348,10 +357,21 @@ b. **The Worker.** **First, read the zone's Pseudo IPv4 setting** (R-2026-09-30-
 c. **The templates, only after a and b read as they must.** 1. Read the dashboard's
    current Magic Link and Confirm signup templates and give them to Cowork, who compares
    them with the tracked files in `docs/auth-email-templates/` before anything is pasted;
-   2. paste the tracked files; 3. wait 2 minutes after step b.2, then request an operator
+   2. paste the tracked BODY only: everything after the header's closing `-->` line
+   (`sed '1,/^-->$/d' docs/auth-email-templates/magic-link.html | pbcopy`, and the same for
+   `confirm-signup.html`), which starts at the unindented `<h2>` line, as on 2026-10-01;
+   never the header comment, which holds internal notes and would travel in every email's
+   source (R-2026-09-30-181 FE-1); 3. wait 2 minutes after step b.2, then request an operator
    link and pipe it into `scripts/readback_signin_link.mjs --mode admin`: PASS; 4. sign in
    with it, through Access, to the register. **Rollback:** put the default confirmation URL
    variable back as the href, in both templates.
+   *Restated 2026-10-02 (R-2026-09-30-181 FE-1): until then step c.2 read "paste the tracked
+   files". Cowork had ruled on 2026-10-01 that only the body is pasted, but the ruling stood only
+   in the "Run on" paragraph; a rollback re-paste of the whole file would have carried the header
+   comment into every email. "From the `<h2>` line down" is ambiguous, because each header
+   quotes the default body with an indented `<h2>`, so an unanchored `sed -n '/<h2>/,$p'`
+   starts inside the comment: the command above is anchored on the header's closing line, and
+   `tests/compliance/proxy_allow_list.test.ts` runs it over both templates.*
 d. **The closes, which the 12.4 step names:** D3 on probes 5, 5b, 6 and 7; D4 on step a,
    the limits proof and `limits_bound`, with Cowork's attribution read; -55 C on step c's
    PASS and the sign-in.

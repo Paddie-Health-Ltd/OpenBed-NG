@@ -110,8 +110,16 @@ esac
 
 # curl's -w prints a response header only from 7.84.0 (%header{}). Read the version line the way
 # readback_admin.sh does, and refuse BEFORE the sleep and before anything is sent: an older curl
-# prints the variable blank and exits 0. The line is read on its own line, where a failure aborts.
-CURL_LINE="$(curl --version | sed -n 1p)"
+# prints the variable blank and exits 0. The call's exit status is CAPTURED (R-2026-09-30-181 FE-4 c):
+# a `curl --version | sed` pipeline under pipefail ends the script with curl's own exit code, 1, which
+# reads as a STOP, and nothing was proved. A broken ~/.curlrc, which `curl --version` still reads, lands here.
+vst=0
+vtext="$(curl --version)" || vst=$?
+if [ "$vst" -ne 0 ]; then
+    echo "ERROR: curl --version itself failed, so the proof cannot tell whether this curl can print a response header, and nothing was sent; curl exited $vst"
+    exit 2
+fi
+CURL_LINE="$(printf '%s\n' "$vtext" | sed -n 1p)"
 cver="${CURL_LINE#curl }"
 cmajor="${cver%%.*}"
 cminor="${cver#*.}"
