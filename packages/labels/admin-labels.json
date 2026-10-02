@@ -73,6 +73,8 @@
     "REQUEST_BUTTON": "Send sign-in link",
     "REQUEST_ANSWERED": "If this address is the operator's, a sign-in link is on its way. Open it on this same device and browser.",
     "REQUEST_UNREACHABLE": "The sign-in request could not reach the server. Check the connection and try again.",
+    "REQUEST_LIMITED": "Too many sign-in links were asked for from this network just now. Wait one minute, then ask again.",
+    "RENEWAL_UNAVAILABLE": "Your sign-in could not be renewed just now. Your sign-in is kept. Wait one minute, then try again.",
     "ACCESS_ORDER": "Open this page and pass the Cloudflare check before you ask for a link. Open the link on this same device and browser.",
     "BAD_LINK_HEADING": "That link did not work",
     "BAD_LINK": "It may have been used already, or it has expired. Ask for a new one.",

@@ -5,8 +5,8 @@
 # THE api.openbed.ng WORKER'S READ-BACK: probes 1 to 3 (with 1b, the HEFAMAA write's
 # path, R-2026-09-27-144 DT k), probes 5, 5b, 6 and 7 (R-2026-09-30-177 FA-1: no
 # service the Worker must not reach, no websocket upgrade, and the sign-in link's
-# redirect), and the stamp of docs/runbook-cloudflare-worker-proxy.md
-# (R-2026-09-23-70). Probe 4, the deployed source equalling the repository's, is read by
+# redirect), probe 8 (R-2026-10-02-FF FF-5: the request the sensor sends), and the stamp
+# of docs/runbook-cloudflare-worker-proxy.md (R-2026-09-23-70). Probe 4, the deployed source equalling the repository's, is read by
 # Cowork through the Cloudflare connector, and nothing here can stand in for it.
 #
 # PROBES 5, 5b, 6 AND 7 (FA-1 c, d):
@@ -24,6 +24,14 @@
 #       (the ward console) is what GoTrue falls back to when it loses redirect_to, so
 #       a Worker that drops the parameter reads WRONG here. Probe 7 spends one token
 #       of the shared verify bucket per run.
+#   8   GET /auth/v1/settings with the tracked key as `apikey` in the QUERY, and no header:
+#       exactly the request the second sensor monitor (docs/runbook-sensor.md section 1) makes,
+#       because UptimeRobot's Free plan cannot send a custom header. It must read 200 (so the
+#       hosted gateway accepts a publishable key in the query: NOT CONFIRMED before this probe
+#       reads it, and why the monitor is created only after this reads PASS), `forwarded`, and
+#       a body carrying GoTrue's own `disable_signup`, which the Worker's refusal, Cloudflare's
+#       error pages and the site's HTML cannot contain. These are rb_expect reads, not legs.
+#       The key is never printed: rb_curl_error names the URL without the -G data.
 #   And `limits_bound` in the stamp: all three rate-limit bindings must read true. The
 #   bindings are invisible in the dashboard and Worker logging is off, so this is the
 #   only place a missing one is visible. Why these are a script and not
@@ -134,6 +142,19 @@ rb_location_origin
 rb_expect "probe 7 Location origin" "$RB_LOCATION_ORIGIN" "$ADMIN_ORIGIN"
 
 echo
+echo "=== probe 8: the sensor's request -- the tracked key in the QUERY, no header: the gateway takes it, forwarded, and GoTrue's own body (R-2026-10-02-FF FF-5) ==="
+api_probe GET /auth/v1/settings -G --data-urlencode "apikey=$KEY"
+rb_expect "probe 8 the gateway took the key from the query" "$RB_CODE" 200
+rb_expect "probe 8 the Worker forwarded it, not answered it" "$(rb_header x-openbed-proxy)" "forwarded"
+# The keyword is read from the first 16 KiB, never printed: GoTrue writes its provider list before it, and
+# the observed value of a contains-check is the whole body.
+case "$(rb_body 16384)" in
+    *'"disable_signup"'*) KEYWORD=found ;;
+    *) KEYWORD=absent ;;
+esac
+rb_expect "probe 8 the body carries GoTrue's disable_signup keyword" "$KEYWORD" "found"
+
+echo
 echo "=== the stamp: $API/__openbed/version, against this checkout's HEAD $RB_HEAD ==="
 api_probe GET /__openbed/version
 rb_stamp
@@ -146,4 +167,4 @@ api_probe HEAD /__openbed/version
 rb_expect "stamp HEAD status" "$RB_CODE" 200
 rb_expect "stamp HEAD x-openbed-proxy" "$(rb_header x-openbed-proxy)" "stamp"
 
-rb_verdict "probes 1 to 3, 5, 5b, 6 and 7 and the stamp read as they must. Probe 4, the deployed source, is Cowork's, read through the Cloudflare connector."
+rb_verdict "probes 1 to 3, 5, 5b, 6, 7 and 8 and the stamp read as they must. Probe 4, the deployed source, is Cowork's, read through the Cloudflare connector."

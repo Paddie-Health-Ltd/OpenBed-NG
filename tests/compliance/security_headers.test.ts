@@ -50,6 +50,16 @@ import ORIGINS from '../../packages/origins/origins.json';
 
 const APPS = deployableApps();
 const API_ORIGINS = [ORIGINS.api.production, ORIGINS.api.local];
+/**
+ * THE DIRECT ORIGIN, AS A FALLBACK (R-2026-10-02-FF FF-4 g, -182). Only the ward console falls back to it when the
+ * Worker is down, so only its connect-src names it. A literal table, deliberately (test-conventions section 3):
+ * adding a second app that falls back is a decision that edits this line, and the test goes red until it does.
+ * Admin's rule is unchanged: NEVER the direct origin.
+ */
+const FALLBACK_APPS = ['ward-console'];
+const DIRECT = ORIGINS.supabaseDirect;
+/** The direct origins that are not also an API origin (locally the two are the same address). */
+const DIRECT_ONLY_ORIGINS = [DIRECT.production, DIRECT.local].filter((o) => !API_ORIGINS.includes(o));
 /** origins.json's own list of what counts as local, read, never retyped. */
 const LOCAL_HOSTS: string[] = ORIGINS.localHosts;
 
@@ -96,6 +106,7 @@ function headerViolations(text: string, expectedConnect: string[]): string[] {
 }
 
 const PLACEHOLDER = '@API_ORIGINS@';
+const FALLBACK_PLACEHOLDER = '@FALLBACK_ORIGIN@';
 const RENDERER = join(REPO_ROOT, 'scripts', 'render_headers.mjs');
 
 type Target = 'production' | 'local';
@@ -110,14 +121,18 @@ function render(text: string, target: Target = 'production', renderer: string = 
 }
 
 /** What the tracked file must say about the API origins BEFORE rendering (BV-2). */
-function sourceViolations(text: string, api: boolean): string[] {
+function sourceViolations(text: string, api: boolean, fallback = false): string[] {
   const out: string[] = [];
   const count = text.split(PLACEHOLDER).length - 1;
+  const fallbackCount = text.split(FALLBACK_PLACEHOLDER).length - 1;
   const cspLine = text.split('\n').find((l) => /^\s+Content-Security-Policy:/i.test(l)) ?? '';
   const connect = /connect-src([^;]*)/.exec(cspLine)?.[1] ?? '';
   if (api && (count !== 1 || !connect.split(/\s+/).includes(PLACEHOLDER))) out.push(`names ${PLACEHOLDER} ${count} time(s), not exactly once in connect-src, so its API origins are not derived from origins.json`);
   if (!api && count !== 0) out.push(`names ${PLACEHOLDER}, but this app calls no API`);
+  if (fallback && (fallbackCount !== 1 || !connect.split(/\s+/).includes(FALLBACK_PLACEHOLDER))) out.push(`names ${FALLBACK_PLACEHOLDER} ${fallbackCount} time(s), not exactly once in connect-src, so its fallback origin is not derived from origins.json`);
+  if (!fallback && fallbackCount !== 0) out.push(`names ${FALLBACK_PLACEHOLDER}, but this app takes no fallback origin`);
   for (const o of API_ORIGINS) if (text.includes(o)) out.push(`types the API origin ${o} into the file instead of deriving it from origins.json`);
+  for (const o of DIRECT_ONLY_ORIGINS) if (text.includes(o)) out.push(`types the direct origin ${o} into the file instead of deriving it from origins.json`);
   return out;
 }
 
@@ -125,11 +140,17 @@ function sourceViolations(text: string, api: boolean): string[] {
 function violations(text: string, app: string, target: Target = 'production'): string[] {
   if (text.trim() === '') return headerViolations(text, expectedFor(app, target));
   const r = render(text, target);
-  if (r.status !== 0) return [...sourceViolations(text, callsApi(app)), `the renderer refused: ${r.err.trim()}`];
-  return [...sourceViolations(text, callsApi(app)), ...headerViolations(r.out, expectedFor(app, target))];
+  const fallback = FALLBACK_APPS.includes(app);
+  if (r.status !== 0) return [...sourceViolations(text, callsApi(app), fallback), `the renderer refused: ${r.err.trim()}`];
+  return [...sourceViolations(text, callsApi(app), fallback), ...headerViolations(r.out, expectedFor(app, target))];
 }
 
-const expectedFor = (app: string, target: Target): string[] => ["'self'", ...(callsApi(app) ? [ORIGINS.api[target]] : [])];
+/** 'self', the app's API origin, and (the ward console only) the target's direct origin, which locally IS the API origin and so is not named twice. */
+const expectedFor = (app: string, target: Target): string[] => [
+  "'self'",
+  ...(callsApi(app) ? [ORIGINS.api[target]] : []),
+  ...(FALLBACK_APPS.includes(app) && DIRECT[target] !== ORIGINS.api[target] ? [DIRECT[target]] : []),
+];
 const source = (app: string): string => {
   const p = join(REPO_ROOT, 'apps', app, 'public', '_headers');
   return existsSync(p) ? readFileSync(p, 'utf8') : '';
@@ -190,12 +211,26 @@ describe('security headers, per deployable app', () => {
     // and a first-occurrence replace would land there, where the parser rightly looks
     // nowhere (a plant that did not reach the parsed line).
     ['connect-src widened by one origin', () => ward().replace(`connect-src 'self' ${PLACEHOLDER}`, `connect-src 'self' https://evil.example ${PLACEHOLDER}`), 'CSP connect-src is ['],
-    ["connect-src missing the app's own API origins (the placeholder removed)", () => ward().replace(` ${PLACEHOLDER};`, ';'), 'CSP connect-src is ['],
+    // STANDARD O PAIRING (R-2026-10-02-FF FF-4 g). This plant's first replace, ` ${PLACEHOLDER};`, matched while the API
+    // placeholder was last in connect-src; with the fallback placeholder after it, it no longer lands and the leg went red
+    // on the precondition below. REWRITTEN, not removed: it now removes the API placeholder where it stands (with its
+    // leading space) and asserts the same message, so the connect-src that remains is short of the API origin.
+    ["connect-src missing the app's own API origins (the placeholder removed)", () => ward().replace(` ${PLACEHOLDER}`, ''), 'CSP connect-src is ['],
     ['the API origins typed back in (BV-2: retyped, not derived)', () => ward().replace(PLACEHOLDER, API_ORIGINS.join(' ')), 'into the file instead of deriving it from origins.json'],
-    ['the placeholder removed', () => ward().replace(` ${PLACEHOLDER};`, ';'), 'not exactly once in connect-src, so its API origins are not derived from origins.json'],
+    // STANDARD O PAIRING (FF-4 g): same reason and the same rewrite as the plant above; the message asserted is unchanged.
+    ['the placeholder removed', () => ward().replace(` ${PLACEHOLDER}`, ''), 'not exactly once in connect-src, so its API origins are not derived from origins.json'],
     ['the placeholder named twice', () => ward().replace(`connect-src 'self' ${PLACEHOLDER}`, `connect-src 'self' ${PLACEHOLDER} ${PLACEHOLDER}`), 'times; it may be filled in exactly one place'],
     ['the placeholder misspelt, so it would ship unrendered', () => ward().replace(PLACEHOLDER, '@API_ORIGIN@'), 'still holds an unrendered placeholder after rendering'],
-    ['the placeholder outside connect-src', () => ward().replace(`connect-src 'self' ${PLACEHOLDER};`, "connect-src 'self';").replace("img-src 'self'", `img-src 'self' ${PLACEHOLDER}`), 'not exactly once in connect-src'],
+    // STANDARD O PAIRING (FF-4 g). This plant stayed GREEN and stopped planting what it names: its first replace,
+    // `connect-src 'self' ${PLACEHOLDER};`, no longer matched (the fallback placeholder follows), so only the second replace
+    // ran and the file merely named the placeholder TWICE -- a different refusal, satisfied by another plant. REWRITTEN so the
+    // placeholder LEAVES connect-src for img-src, and the plant is checked to have mutated the CSP line (the 'outside
+    // connect-src' test below asserts that precondition for this one by name).
+    ['the placeholder outside connect-src', () => ward().replace(`connect-src 'self' ${PLACEHOLDER} ${FALLBACK_PLACEHOLDER};`, `connect-src 'self' ${FALLBACK_PLACEHOLDER};`).replace("img-src 'self'", `img-src 'self' ${PLACEHOLDER}`), 'not exactly once in connect-src'],
+    ['the fallback placeholder outside connect-src', () => ward().replace(`connect-src 'self' ${PLACEHOLDER} ${FALLBACK_PLACEHOLDER};`, `connect-src 'self' ${PLACEHOLDER};`).replace("img-src 'self'", `img-src 'self' ${FALLBACK_PLACEHOLDER}`), 'so its fallback origin is not derived from origins.json'],
+    ['the fallback placeholder named twice', () => ward().replace(`${PLACEHOLDER} ${FALLBACK_PLACEHOLDER}`, `${PLACEHOLDER} ${FALLBACK_PLACEHOLDER} ${FALLBACK_PLACEHOLDER}`), 'times; the fallback origin may be filled in exactly one place'],
+    ['the fallback placeholder removed', () => ward().replace(` ${FALLBACK_PLACEHOLDER}`, ''), 'so its fallback origin is not derived from origins.json'],
+    ['the direct origin typed as text (derived, never retyped)', () => ward().replace(FALLBACK_PLACEHOLDER, DIRECT.production), 'types the direct origin'],
     ["style-src with 'unsafe-inline'", () => ward().replace("style-src 'self'", "style-src 'self' 'unsafe-inline'"), 'CSP style-src is'],
     ['Referrer-Policy: origin', () => ward().replace('Referrer-Policy: no-referrer', 'Referrer-Policy: origin'), 'Referrer-Policy is origin, not no-referrer'],
     ['nosniff missing', () => ward().replace('  X-Content-Type-Options: nosniff\n', ''), 'X-Content-Type-Options is missing, not nosniff'],
@@ -206,6 +241,24 @@ describe('security headers, per deployable app', () => {
     expect(violations(planted, 'ward-console').join('\n')).toContain(message);
   });
 
+  test('plant — the plants above that move a placeholder really change the CSP line, not a comment (the plant landed)', () => {
+    const cspLine = (t: string): string => t.split('\n').find((l) => /^\s+Content-Security-Policy:/i.test(l)) ?? '';
+    const before = cspLine(ward());
+    expect(before, 'the real file has no CSP line, so no plant could be aimed at it').not.toBe('');
+    const moved = ward().replace(`connect-src 'self' ${PLACEHOLDER} ${FALLBACK_PLACEHOLDER};`, `connect-src 'self' ${FALLBACK_PLACEHOLDER};`).replace("img-src 'self'", `img-src 'self' ${PLACEHOLDER}`);
+    expect(cspLine(moved), 'the plant did not mutate the CSP line').not.toBe(before);
+    expect(cspLine(moved)).toContain(`img-src 'self' ${PLACEHOLDER}`);
+  });
+
+  test("plant — the fallback placeholder in admin's _headers is rejected: admin has no fallback and never names the direct origin", () => {
+    const admin = source('admin');
+    const planted = admin.replace(`connect-src 'self' ${PLACEHOLDER}`, `connect-src 'self' ${PLACEHOLDER} ${FALLBACK_PLACEHOLDER}`);
+    expect(planted, 'the plant did not change admin\'s file').not.toBe(admin);
+    expect(violations(planted, 'admin').join('\n')).toContain('but this app takes no fallback origin');
+    // The plant also has to be refused in the RENDERED headers: admin's production connect-src is not allowed a third entry.
+    expect(violations(planted, 'admin', 'production').join('\n')).toContain('CSP connect-src is [');
+  });
+
   test('the dashboard, which fetches only its own origin, may not name the API at all', () => {
     const dash = source('public-dashboard');
     expect(violations(dash.replace("connect-src 'self'", "connect-src 'self' https://api.openbed.ng"), 'public-dashboard').join('\n')).toContain('CSP connect-src is [');
@@ -214,11 +267,23 @@ describe('security headers, per deployable app', () => {
 });
 
 describe('scripts/render_headers.mjs', () => {
-  test('real ward console _headers renders for production to connect-src exactly self plus api.production', () => {
+  // STANDARD O PAIRING (R-2026-10-02-FF FF-4 g). Removed: `expect(r.out).toContain(`connect-src 'self' ${ORIGINS.api.production};`)`,
+  // which pinned the ward console's production connect-src to 'self' plus the API origin ALONE. It went red when the ward console
+  // began naming the direct origin as its fallback. Replaced by the exact set, which is STRONGER: 'self', the API origin and
+  // the direct origin, in that order, and nothing else.
+  test('real ward console _headers renders for production to connect-src exactly self, api.production and the direct origin', () => {
     const r = render(ward(), 'production');
     expect(r.status, r.err).toBe(0);
-    expect(r.out).toContain(`connect-src 'self' ${ORIGINS.api.production};`);
+    expect(r.out).toContain(`connect-src 'self' ${ORIGINS.api.production} ${DIRECT.production};`);
     expect(r.out).not.toContain(PLACEHOLDER);
+    expect(r.out).not.toContain(FALLBACK_PLACEHOLDER);
+  });
+
+  test('real admin _headers renders for production to connect-src exactly self plus api.production: never the direct origin', () => {
+    const r = render(source('admin'), 'production');
+    expect(r.status, r.err).toBe(0);
+    expect(r.out).toContain(`connect-src 'self' ${ORIGINS.api.production};`);
+    expect(r.out).not.toContain(DIRECT.production);
   });
 
   test('real ward console _headers renders for local to connect-src exactly self plus api.local', () => {
@@ -226,6 +291,15 @@ describe('scripts/render_headers.mjs', () => {
     expect(r.status, r.err).toBe(0);
     expect(r.out).toContain(`connect-src 'self' ${ORIGINS.api.local};`);
     expect(r.out).not.toContain(ORIGINS.api.production);
+    expect(r.out, 'locally the direct origin is the API origin, so it is not named twice').not.toContain(`${ORIGINS.api.local} ${ORIGINS.api.local}`);
+  });
+
+  test('the local ward console rendering is byte-identical to what it was before the fallback: the placeholder leaves with its leading space', () => {
+    const r = render(ward(), 'local');
+    expect(r.status, r.err).toBe(0);
+    expect(r.out).toContain(`connect-src 'self' ${ORIGINS.api.local}; script-src`);
+    expect(r.out).not.toContain(`${ORIGINS.api.local} ;`);
+    expect(r.out).not.toContain('  ;');
   });
 
   // THE TARGET IS REQUIRED (R-2026-09-25-117 CS-2): a silent default is what shipped a
@@ -272,6 +346,42 @@ describe('scripts/render_headers.mjs', () => {
       expect(r.status, r.err).toBe(2);
       expect(r.err).toContain(message);
       expect(r.err).toContain('ERROR: could not render the headers file');
+    });
+  });
+
+  test("plant — a supabaseDirect that is not an origin is refused for the ward console, exit 2, with the fallback's own words", () => {
+    withScratch((work) => {
+      place(work, 'packages/origins/origins.json', JSON.stringify({ api: ORIGINS.api, supabaseDirect: { production: 'not an origin', local: ORIGINS.supabaseDirect.local } }));
+      place(work, 'scripts/.keep', '');
+      copyFileSync(RENDERER, join(work, 'scripts', 'render_headers.mjs'));
+      const r = render(ward(), 'production', join(work, 'scripts', 'render_headers.mjs'));
+      expect(r.status, r.err).toBe(2);
+      expect(r.err).toContain('is not a bare origin, so the fallback origin cannot go into a CSP');
+    });
+  });
+
+  test('control — a scratch origins.json with NO supabaseDirect still renders admin: the entry is read only when the placeholder is present', () => {
+    withScratch((work) => {
+      place(work, 'packages/origins/origins.json', JSON.stringify({ api: ORIGINS.api }));
+      place(work, 'scripts/.keep', '');
+      copyFileSync(RENDERER, join(work, 'scripts', 'render_headers.mjs'));
+      for (const target of ['production', 'local'] as const) {
+        const r = render(source('admin'), target, join(work, 'scripts', 'render_headers.mjs'));
+        expect(r.status, r.err).toBe(0);
+        expect(r.out).toContain(`connect-src 'self' ${ORIGINS.api[target]};`);
+      }
+    });
+  });
+
+  test('plant — a bad api entry is the refusal reported for the ward console, before the direct one is read (api is validated first)', () => {
+    withScratch((work) => {
+      place(work, 'packages/origins/origins.json', JSON.stringify({ api: { production: ORIGINS.api.production }, supabaseDirect: { production: 'not an origin' } }));
+      place(work, 'scripts/.keep', '');
+      copyFileSync(RENDERER, join(work, 'scripts', 'render_headers.mjs'));
+      const r = render(ward(), 'production', join(work, 'scripts', 'render_headers.mjs'));
+      expect(r.status, r.err).toBe(2);
+      expect(r.err).toContain('is not a bare origin, so it cannot go into a CSP');
+      expect(r.err).not.toContain('fallback origin cannot go into a CSP');
     });
   });
 

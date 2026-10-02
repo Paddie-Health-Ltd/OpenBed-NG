@@ -63,7 +63,7 @@
     { "method": "OPTIONS", "path": "/rest/v1/rpc/operator_record_registration", "preflight_for": "POST /rest/v1/rpc/operator_record_registration" }
   ],
   "direct_origin_exceptions": [
-    { "method": "GET", "path": "/rest/v1/snapshot_current", "file": "packages/snapshot/src/serve.ts", "reason": "R-2026-09-22-58 A5: the /beds.json Function reads the Supabase origin directly, until -23 D5 closes" },
+    { "method": "GET", "path": "/rest/v1/snapshot_current", "file": "packages/snapshot/src/serve.ts", "reason": "R-2026-09-22-58 A5: the /beds.json Function reads the Supabase origin directly. RESTATED 2026-10-02 (R-2026-10-02-FF FF-7, -182): standing design, not 'until -23 D5 closes' (the old text, kept)" },
     { "method": "POST", "path": "/rest/v1/rpc/health_probe", "file": "packages/snapshot/src/health_serve.ts", "reason": "R-2026-09-29-173 EW-2 a: the /api/health Function reads the scheduler's status through public.health_probe() on the Supabase origin directly, for the same reason as the /beds.json read above and one more: a health check routed through the Worker would report the Worker's health" }
   ],
   "refusal_probes": [

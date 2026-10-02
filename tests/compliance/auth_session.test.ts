@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 import {
   MalformedTokenError,
+  RenewalUnavailableError,
   SessionHolder,
   SessionExpiredError,
   claimsOf,
@@ -204,36 +205,38 @@ describe('the holder — an unusable session blocks the write', () => {
     await expect(h.accessToken()).rejects.toThrow('there is no session -- tap the link again');
   });
 
-  test("pin — the Worker's own `limited` 429 on refresh reads as SessionExpiredError, signs out, and is not retried (R-2026-09-30-177 FA-3 g)", async () => {
-    // TODAY'S READING, pinned and NOT changed in W3. The real transport (#postRefresh) turns any non-2xx into
-    // an ANSWER, which ends the session, as Supabase's own 429 does. Whether a limited refresh should keep the
-    // session until its access token expires is a clinical-path question, so it is W4's (D5), and this test is
-    // the pin that makes the change a decision rather than an accident. A hospital reaches the limit only when
-    // more than the LIMIT_REFRESH figure (wrangler.json) of its handsets behind one address refresh in one
-    // 10-second window, which the register's TRIGGER holds. Supabase's OWN 429 on refresh, from its fixed 30-burst shared by every facility
-    // through the Worker's one address, reads the same way: whether ANY 429 on refresh keeps the session
-    // is W4's question (R-2026-09-30-178 FB-4).
+  test("the Worker's own `limited` 429 on refresh KEEPS the session, is sent exactly once, and never signs out (R-2026-10-02-FF FF-2; replaces the 2026-10-01 pin that read it as SessionExpiredError)", async () => {
+    // STANDARD O PAIRING. Removed: `rejects.toThrow(SessionExpiredError)` and `expect(h.signedOut).toBe(true)`
+    // (the W3 pin of R-2026-09-30-177 FA-3 g, which said W4 would decide whether a limited refresh keeps the
+    // session). Replaced by stronger assertions in the opposite direction: RenewalUnavailableError once the
+    // token is inside 30 s, signedOut FALSE, the refresh sent EXACTLY once (the old count, kept), and the OLD
+    // token returned while it still has more than 30 s. A hospital reaches the Worker's limit only when more
+    // than the LIMIT_REFRESH figure (wrangler.json) of its handsets behind one address refresh in one 10-second
+    // window; Supabase's own 429 is the same case (see the table test below).
     const answered = vi.fn(async () => new Response('{"message":"rate limited by the OpenBed proxy"}', { status: 429, headers: { 'x-openbed-proxy': 'limited', 'retry-after': '60' } }));
     vi.stubGlobal('fetch', answered);
     try {
       const h = new SessionHolder({ apiUrl: 'https://api.openbed.ng', anonKey: 'not-a-key', session: expiringSession(), sleep: async () => {} });
-      await expect(h.accessToken()).rejects.toThrow(SessionExpiredError);
+      await expect(h.accessToken()).rejects.toBeInstanceOf(RenewalUnavailableError);
       expect(answered, 'a limited refresh was retried, or never sent').toHaveBeenCalledTimes(1);
-      expect(h.signedOut, 'a limited refresh left the session in place').toBe(true);
+      expect(h.signedOut, 'a limited refresh signed the ward out').toBe(false);
     } finally {
       vi.unstubAllGlobals();
     }
   });
 
-  test('a TRANSPORT failure is retried, bounded, and then gives up in the same state', async () => {
+  test('a TRANSPORT failure is retried, bounded, and then KEEPS the session (R-2026-10-02-FF FF-2; replaces the same-state-as-expiry reading)', async () => {
+    // STANDARD O PAIRING. Removed: `rejects.toThrow('could not reach the auth server')` and
+    // `expect(h.signedOut).toBe(true)`. Replaced by RenewalUnavailableError, signedOut FALSE, and the exact
+    // attempt count (three, kept): a dropped connection says "not now", not "no".
     let calls = 0;
     const h = holderWith(expiringSession(), async () => {
       calls += 1;
       throw new TypeError('fetch failed');
     });
-    await expect(h.accessToken()).rejects.toThrow('could not reach the auth server');
+    await expect(h.accessToken()).rejects.toBeInstanceOf(RenewalUnavailableError);
     expect(calls, 'a transport failure was not retried, or was retried without bound').toBe(3);
-    expect(h.signedOut).toBe(true);
+    expect(h.signedOut, 'a transport failure signed the ward out').toBe(false);
   });
 
   test('a transport failure that recovers does NOT sign the ward out', async () => {
@@ -282,5 +285,152 @@ describe('the holder — an unusable session blocks the write', () => {
     h.signOut();
     expect(h.session).toBeNull();
     expect(h.signedOut).toBe(true);
+  });
+});
+
+/**
+ * R-2026-10-02-FF FF-2: WHAT KEEPS A SESSION AND WHAT ENDS IT. One classification, read from the NUMBER on
+ * the answer (the status, and whether the Worker marked it `refused`), never from message text.
+ *   NOT NOW -> kept: 429 (whoever sent it), 409 (GoTrue's lock collision), any 5xx, an answer the Worker
+ *     marked `refused`, and no answer at all.
+ *   REFUSED -> signed out: any other 4xx, a 2xx that is not a session, a status-less MalformedTokenError.
+ * The answers are CONSTRUCTED here; GoTrue's real refusal code is tests/db/auth_refresh_live.test.ts.
+ */
+describe('the classification — what keeps a session and what ends it (R-2026-10-02-FF FF-2)', () => {
+  const sessionWithSeconds = (s: number): Session => sessionFromTokens(tokenResponse({ expSeconds: s }));
+
+  function realTransport(answer: () => Response | Promise<Response>, clock: { t: number } = { t: Date.now() }, session = sessionWithSeconds(40)): { h: SessionHolder; sent: ReturnType<typeof vi.fn> } {
+    const sent = vi.fn(async () => answer());
+    const h = new SessionHolder({
+      apiUrl: 'https://api.openbed.ng',
+      anonKey: 'not-a-key',
+      session,
+      now: () => clock.t,
+      fetch: sent as unknown as typeof fetch,
+      sleep: async () => {},
+    });
+    return { h, sent };
+  }
+
+  const notNow: Array<[string, () => Response]> = [
+    ["the Worker's `limited` 429", () => new Response('{}', { status: 429, headers: { 'x-openbed-proxy': 'limited' } })],
+    ["Supabase's own 429 (no marker)", () => new Response('{"msg":"over_request_rate_limit"}', { status: 429 })],
+    ["GoTrue's 409 on a concurrent refresh", () => new Response('{"msg":"Too many concurrent token refresh requests"}', { status: 409 })],
+    ['a 502', () => new Response('bad gateway', { status: 502 })],
+    ['a 503', () => new Response('unavailable', { status: 503 })],
+    ["the Worker's `refused` 404, on a holder with no fallback origin (admin's shape)", () => new Response('{}', { status: 404, headers: { 'x-openbed-proxy': 'refused' } })],
+  ];
+
+  test.each(notNow)('plant — %s keeps the session: the old token while it has more than 30 s, RenewalUnavailableError inside 30 s, and no retry', async (_label, answer) => {
+    const forty = realTransport(answer, { t: Date.now() }, sessionWithSeconds(40));
+    const old = forty.h.session?.accessToken;
+    await expect(forty.h.accessToken(), 'with 40 s left the OLD token should have been returned').resolves.toBe(old);
+    expect(forty.h.signedOut, 'a "not now" answer signed the ward out').toBe(false);
+    expect(forty.sent, 'a "not now" answer was retried').toHaveBeenCalledTimes(1);
+
+    const twenty = realTransport(answer, { t: Date.now() }, sessionWithSeconds(20));
+    await expect(twenty.h.accessToken(), 'with 20 s left there is no usable token to return').rejects.toBeInstanceOf(RenewalUnavailableError);
+    expect(twenty.h.signedOut, 'a "not now" answer signed the ward out').toBe(false);
+    expect(twenty.sent, 'a "not now" answer was retried').toHaveBeenCalledTimes(1);
+  });
+
+  test('plant — three rejecting attempts keep the session: RenewalUnavailableError after exactly three attempts', async () => {
+    const { h, sent } = realTransport(() => {
+      throw new TypeError('fetch failed');
+    }, { t: Date.now() }, sessionWithSeconds(20));
+    await expect(h.accessToken()).rejects.toBeInstanceOf(RenewalUnavailableError);
+    expect(sent).toHaveBeenCalledTimes(3);
+    expect(h.signedOut).toBe(false);
+  });
+
+  const refusedAnswers: Array<[string, () => Response]> = [
+    ['a 400 validation_failed (as probed 2026-09-11)', () => new Response('{"error_code":"validation_failed","msg":"Refresh token is not valid"}', { status: 400 })],
+    ['a 400 refresh_token_already_used', () => new Response('{"error_code":"refresh_token_already_used"}', { status: 400 })],
+    ['a 401', () => new Response('{}', { status: 401 })],
+    ['a 403', () => new Response('{}', { status: 403 })],
+    ['a 422', () => new Response('{}', { status: 422 })],
+  ];
+
+  test.each(refusedAnswers)('plant — %s signs out, throws SessionExpiredError, and is not retried', async (_label, answer) => {
+    const { h, sent } = realTransport(answer, { t: Date.now() }, sessionWithSeconds(40));
+    await expect(h.accessToken()).rejects.toBeInstanceOf(SessionExpiredError);
+    expect(h.signedOut, 'a refusal left the session in place').toBe(true);
+    expect(sent, 'a refusal was retried').toHaveBeenCalledTimes(1);
+  });
+
+  test('plant — a 200 whose body is not a session signs out', async () => {
+    const { h } = realTransport(() => new Response('{"hello":"world"}', { status: 200 }), { t: Date.now() }, sessionWithSeconds(40));
+    await expect(h.accessToken()).rejects.toBeInstanceOf(SessionExpiredError);
+    expect(h.signedOut).toBe(true);
+  });
+
+  test('plant — a MalformedTokenError that carries no status signs out', async () => {
+    const h = holderWith(expiringSession(), async () => {
+      throw new MalformedTokenError('no status travels with this one');
+    });
+    await expect(h.accessToken()).rejects.toBeInstanceOf(SessionExpiredError);
+    expect(h.signedOut).toBe(true);
+  });
+
+  test('plant — after a 429 no refresh is sent at +59 s, and one is sent at +61 s', async () => {
+    const clock = { t: Date.now() };
+    const answers: Array<() => Response> = [
+      () => new Response('{}', { status: 429, headers: { 'x-openbed-proxy': 'limited' } }),
+      () => new Response(JSON.stringify(tokenResponse({ expSeconds: HOUR })), { status: 200 }),
+    ];
+    let i = 0;
+    const { h, sent } = realTransport(() => (answers[i++] ?? answers[1]!)(), clock, sessionWithSeconds(40));
+    await h.accessToken();
+    expect(sent).toHaveBeenCalledTimes(1);
+    clock.t += 59_000;
+    await expect(h.accessToken(), 'the old token is spent by now, and nothing may be sent').rejects.toBeInstanceOf(RenewalUnavailableError);
+    expect(sent, 'a refresh was sent inside the 60 s cooldown after a 429').toHaveBeenCalledTimes(1);
+    clock.t += 2_000;
+    await expect(h.accessToken()).resolves.toBeTypeOf('string');
+    expect(sent, 'no refresh was sent once the cooldown had ended').toHaveBeenCalledTimes(2);
+  });
+
+  test('plant — a clock set back ends the cooldown, it never extends it', async () => {
+    const clock = { t: Date.now() };
+    const { h, sent } = realTransport(() => new Response('{}', { status: 429 }), clock, sessionWithSeconds(40));
+    await h.accessToken();
+    clock.t -= 10_000;
+    await h.accessToken().catch(() => undefined);
+    expect(sent, 'a clock moved backwards left the cooldown in force').toHaveBeenCalledTimes(2);
+  });
+
+  test('plant — a 503 sets NO cooldown: the next call sends', async () => {
+    const { h, sent } = realTransport(() => new Response('unavailable', { status: 503 }), { t: Date.now() }, sessionWithSeconds(40));
+    await h.accessToken();
+    await h.accessToken();
+    expect(sent, 'a 503 started a cooldown that only a 429 may start').toHaveBeenCalledTimes(2);
+  });
+
+  test('plant — five concurrent accessToken() calls during a 429 make ONE refresh and all five get the same outcome', async () => {
+    const { h, sent } = realTransport(() => new Response('{}', { status: 429, headers: { 'x-openbed-proxy': 'limited' } }), { t: Date.now() }, sessionWithSeconds(20));
+    const outcomes = await Promise.allSettled(Array.from({ length: 5 }, () => h.accessToken()));
+    expect(sent, 'concurrent callers started more than one refresh').toHaveBeenCalledTimes(1);
+    expect(outcomes.map((o) => o.status), 'the five callers did not share one outcome').toEqual(Array(5).fill('rejected'));
+    for (const o of outcomes) expect((o as PromiseRejectedResult).reason).toBeInstanceOf(RenewalUnavailableError);
+    expect(h.signedOut).toBe(false);
+  });
+
+  test('plant — while the device clock is untrusted nothing here changes: the holder never refreshes early', async () => {
+    let calls = 0;
+    const h = new SessionHolder({
+      apiUrl: 'http://127.0.0.1:54321',
+      anonKey: 'not-a-key',
+      session: expiringSession(),
+      now: () => Date.now() + 3 * HOUR * 1000,
+      refresh: async () => {
+        calls += 1;
+        return tokenResponse({ expSeconds: HOUR });
+      },
+      sleep: async () => {},
+    });
+    await h.accessToken();
+    await h.accessToken();
+    expect(calls).toBe(1);
+    expect(h.localClockUntrusted).toBe(true);
   });
 });

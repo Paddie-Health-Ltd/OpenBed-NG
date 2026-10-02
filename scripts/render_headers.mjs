@@ -41,6 +41,18 @@
  * own origin and names no API. Whether an app MUST name the placeholder is the test's
  * question (it knows which apps call apiOrigin()), not this script's.
  *
+ * A SECOND PLACEHOLDER, FOR THE FALLBACK (R-2026-10-02-FF FF-4 g, -182; R-2026-09-19-23 D5). The ward
+ * console's browser code falls back to the Supabase origin directly when the Worker is down, so
+ * its connect-src must name that origin too. Its tracked file names @FALLBACK_ORIGIN@ after the
+ * API placeholder, and this script fills it with `supabaseDirect[target]` from the same origins.json.
+ * It reads and validates that entry ONLY when the placeholder is present, and after it has validated
+ * `api`, so a file with no such placeholder (admin's, the dashboard's) is rendered exactly as
+ * before and a scratch origins.json with no `supabaseDirect` is still enough for them. When the value
+ * EQUALS the target's api origin (the local target, where the two are the same address) the
+ * placeholder is removed WITH its leading space, so the local CSP is byte-identical to what it was
+ * before the fallback existed. Admin names no such placeholder and its CSP never carries the direct
+ * origin: a placeholder in admin's file is the test's refusal, not this script's.
+ *
  * Usage: node scripts/render_headers.mjs [--write] --target production|local FILE
  *   (a command; nothing imports it) prints the rendered FILE, or with --write rewrites
  *   FILE in place.
@@ -53,6 +65,7 @@ import { fileURLToPath } from 'node:url';
 
 const ORIGINS_FILE = join(dirname(fileURLToPath(import.meta.url)), '..', 'packages', 'origins', 'origins.json');
 const PLACEHOLDER = '@API_ORIGINS@';
+const FALLBACK_PLACEHOLDER = '@FALLBACK_ORIGIN@';
 const ORIGIN = /^https?:\/\/[A-Za-z0-9.[\]:-]+$/;
 
 const TARGETS = ['production', 'local'];
@@ -68,11 +81,34 @@ function apiOrigin(target) {
   return api[target];
 }
 
-/** The tracked text with the placeholder filled in. Throws on anything it will not ship. */
+/** The target's direct (fallback) origin, read from origins.json. Read ONLY when the file names its placeholder. */
+function directOrigin(target) {
+  const value = (JSON.parse(readFileSync(ORIGINS_FILE, 'utf8')).supabaseDirect ?? {})[target];
+  if (typeof value !== 'string' || !ORIGIN.test(value)) {
+    throw new Error(`origins.json supabaseDirect.${target} is not a bare origin, so the fallback origin cannot go into a CSP: ${JSON.stringify(value ?? null)}`);
+  }
+  return value;
+}
+
+/** The tracked text with the placeholders filled in. Throws on anything it will not ship. */
 function renderHeaders(text, target) {
   const count = text.split(PLACEHOLDER).length - 1;
   if (count > 1) throw new Error(`names ${PLACEHOLDER} ${count} times; it may be filled in exactly one place`);
-  const out = count === 1 ? text.replace(PLACEHOLDER, apiOrigin(target)) : text;
+  const fallbackCount = text.split(FALLBACK_PLACEHOLDER).length - 1;
+  if (fallbackCount > 1) throw new Error(`names ${FALLBACK_PLACEHOLDER} ${fallbackCount} times; the fallback origin may be filled in exactly one place`);
+  let out = count === 1 ? text.replace(PLACEHOLDER, apiOrigin(target)) : text;
+  if (fallbackCount === 1) {
+    // apiOrigin() first, so a bad `api` entry is the refusal reported, then the entry this placeholder needs.
+    const api = apiOrigin(target);
+    const direct = directOrigin(target);
+    if (direct === api) {
+      // The same address (the local target): drop the placeholder WITH its leading space.
+      const withSpace = ` ${FALLBACK_PLACEHOLDER}`;
+      out = out.includes(withSpace) ? out.replace(withSpace, '') : out.replace(FALLBACK_PLACEHOLDER, '');
+    } else {
+      out = out.replace(FALLBACK_PLACEHOLDER, direct);
+    }
+  }
   const left = /@[A-Z_]+@/.exec(out);
   if (left) throw new Error(`still holds an unrendered placeholder after rendering: ${left[0]}`);
   return out;

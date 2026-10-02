@@ -47,17 +47,17 @@ function b64url(obj: unknown): string {
   return Buffer.from(JSON.stringify(obj)).toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
 
-function sessionFragment(): string {
+function sessionFragment(secondsLeft = 3600): string {
   const now = Math.floor(Date.now() / 1000);
   const token = `${b64url({ alg: 'HS256', typ: 'JWT' })}.${b64url({
     sub: '11111111-1111-4111-8111-111111111111',
     session_id: '22222222-2222-4222-8222-222222222222',
-    exp: now + 3600,
+    exp: now + secondsLeft,
     iat: now,
     role: 'authenticated',
     email: 'ward@example.invalid',
   })}.sig`;
-  return `#access_token=${token}&refresh_token=r1&expires_at=${now + 3600}&token_type=bearer`;
+  return `#access_token=${token}&refresh_token=r1&expires_at=${now + secondsLeft}&token_type=bearer`;
 }
 
 const GOOD_ROW = { category: 'MATERNITY', offering: 'OFFERED', bed_count: 3, accepting: true, version: 4, gated_by: null, monitoring_state: 'ACTIVE', state: 'OK', source: 'WARD', can_publish: true };
@@ -66,8 +66,39 @@ const GOOD_ROW = { category: 'MATERNITY', offering: 'OFFERED', bed_count: 3, acc
 
 type Route = (url: string, init?: RequestInit) => Response | Promise<Response>;
 
-function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+function json(status: number, body: unknown, headers: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
+}
+
+/**
+ * Runs `fn` with jsdom at the PRODUCTION host (R-2026-10-02-FF FF-4 c), then puts it back. Locally the console's fallback
+ * origin is its primary, so a failure of "both origins" cannot happen at localhost; at the production host it can. main.ts reads
+ * `window.location.hostname` once, at module load, so the module registry is reset on the way in and the way out. Only
+ * the two sentences that need two origins are rendered here: everything else in this file stays at localhost.
+ */
+async function atProductionHost<T>(fn: () => Promise<T>): Promise<T> {
+  const dom = (globalThis as unknown as { jsdom: { reconfigure(o: { url: string }): void } }).jsdom;
+  const back = window.location.href;
+  dom.reconfigure({ url: 'https://app.openbed.ng/' });
+  vi.resetModules();
+  // Load the module at this host with no session in the address, so its own first render (`void render()` ends main.ts) is the
+  // signed-out landing and is over before `fn` starts: `fn`'s renderAt then meets a CACHED module and renders exactly once, as
+  // every other row here does. Without this the first render and renderAt's raced, and the landing could land second.
+  document.body.innerHTML = '<main id="app"></main>';
+  window.history.replaceState(null, '', '/');
+  await import('../../apps/ward-console/src/main.js');
+  await new Promise((r) => setTimeout(r, 20));
+  try {
+    return await fn();
+  } finally {
+    dom.reconfigure({ url: back });
+    vi.resetModules();
+    // A fresh import renders once on its own (`void render()` ends main.ts). Let that happen HERE, at localhost, and settle, so the
+    // rows after this one meet the module already loaded, as they did before, and not a first render still racing their own.
+    document.body.innerHTML = '<main id="app"></main>';
+    await import('../../apps/ward-console/src/main.js');
+    await new Promise((r) => setTimeout(r, 20));
+  }
 }
 
 async function renderAt(fragment: string, route: Route) {
@@ -95,8 +126,8 @@ const publishCalls = (stub: { mock: { calls: unknown[][] } }): number =>
 const PUBLISHED = [{ version: 5, replayed: false, claim_offering: 'OFFERED', claim_bed_count: 3, claim_accepting: true, public_gated_by: null }];
 
 /** A console showing one ward, whose publish answers `publish` (default: success). */
-async function oneWard(row: Record<string, unknown> = GOOD_ROW, publish: Route = () => json(200, PUBLISHED)) {
-  const stub = await renderAt(sessionFragment(), (url, init) => {
+async function oneWard(row: Record<string, unknown> = GOOD_ROW, publish: Route = () => json(200, PUBLISHED), fragment: string = sessionFragment()) {
+  const stub = await renderAt(fragment, (url, init) => {
     if (url.endsWith('/rest/v1/rpc/my_reporting_wards')) return json(200, [row]);
     if (url.endsWith('/rest/v1/rpc/publish_ward_status')) return publish(url, init);
     return json(500, { message: 'unexpected call' });
@@ -515,6 +546,35 @@ describe('DI-2 — every outcome is a Notice in the design system\'s tone, and e
     rows.push({ what: 'session ended at publish', el: await publishOutcome(() => json(401, { message: 'JWT expired' })), text: 'Your session has ended. Tap the sign-in link on this handset again to sign back in.', tone: 'caution' });
     rows.push({ what: 'sign-in answered', el: await signIn(() => json(200, {})), text: m.SIGNIN_ANSWERED, tone: 'info' });
     rows.push({ what: 'sign-in unreachable', el: await signIn(() => { throw new TypeError('down'); }), text: m.SIGNIN_UNREACHABLE, tone: 'caution' });
+    // R-2026-10-02-FF: the five new sentences. The Worker's own limit; a renewal that is only "not now", on the load and on
+    // a publish (any 5xx from the refresh says "not now": the default route answers 500); and "could not reach OpenBed", on a
+    // publish and on the load, rendered at the production host where there are two origins to fail.
+    rows.push({ what: 'sign-in limited by the Worker', el: await signIn(() => json(429, {}, { 'x-openbed-proxy': 'limited' })), text: m.SIGNIN_LIMITED_WORDS, tone: 'caution' });
+    await renderAt(sessionFragment(20), () => json(503, {}));
+    await until(() => document.querySelector('#app > p.notice-caution') !== null);
+    rows.push({ what: 'handover load: sign-in could not be renewed', el: document.querySelector('#app > p.notice-caution'), text: m.RENEWAL_UNAVAILABLE_LOAD, tone: 'caution' });
+    vi.useFakeTimers({ toFake: ['Date'], shouldAdvanceTime: true });
+    try {
+      const w = await oneWard(GOOD_ROW, () => json(200, PUBLISHED), sessionFragment(65));
+      vi.setSystemTime(Date.now() + 40_000);
+      setCount(w.count, '37');
+      w.publish.click();
+      await until(() => (w.status.textContent ?? '') !== '');
+      rows.push({ what: 'publish: sign-in could not be renewed', el: w.status, text: m.RENEWAL_UNAVAILABLE_PUBLISH, tone: 'caution' });
+    } finally {
+      vi.useRealTimers();
+    }
+    rows.push({ what: 'publish: could not reach OpenBed', el: await atProductionHost(() => publishOutcome(() => { throw new TypeError('down'); })), text: m.UNREACHABLE_PUBLISH, tone: 'caution' });
+    rows.push({
+      what: 'handover load: could not reach OpenBed',
+      el: await atProductionHost(async () => {
+        await renderAt(sessionFragment(), () => { throw new TypeError('down'); });
+        await until(() => document.querySelector('#app > p.notice-caution') !== null);
+        return document.querySelector('#app > p.notice-caution');
+      }),
+      text: m.UNREACHABLE_LOAD,
+      tone: 'caution',
+    });
     await renderAt(sessionFragment(), (url) => (url.endsWith('my_reporting_wards') ? json(403, { code: '42501', message: 'NOT_A_MEMBER' }) : json(500, {})));
     await until(() => document.querySelector('#app > p') !== null);
     rows.push({ what: 'handover load refused', el: document.querySelector('#app > p'), text: m.WARD_MESSAGES['NOT_A_MEMBER'] as string, tone: 'caution' });
@@ -526,7 +586,8 @@ describe('DI-2 — every outcome is a Notice in the design system\'s tone, and e
     rows.push({ what: 'a refused row', el: document.querySelector('p.refused'), text: `Maternity: ${m.ROW_REFUSED}`, tone: 'caution' });
     await renderAt('#error=access_denied&error_code=otp_expired', () => json(500, {}));
     rows.push({ what: 'bad link', el: document.querySelector('#app > p'), text: m.BAD_LINK, tone: 'caution' });
-    expect(rows.length).toBe(Object.keys(m.WARD_MESSAGES).length + 12);
+    // 12 before R-2026-10-02-FF, and 17 now: one row for each of the five new sentences above.
+    expect(rows.length).toBe(Object.keys(m.WARD_MESSAGES).length + 17);
     const out = toneViolations(rows);
     expect(out, out.join('\n')).toEqual([]);
   });

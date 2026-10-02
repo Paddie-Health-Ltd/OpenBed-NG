@@ -1,10 +1,21 @@
-import { SessionExpiredError, SessionHolder, requestSignInLink, sessionFromUrlFragment } from '@openbed/auth';
-import { apiOrigin } from '@openbed/origins';
+import { OriginsUnreachableError, RenewalUnavailableError, SessionExpiredError, SessionHolder, requestSignInLink, sessionFromUrlFragment } from '@openbed/auth';
+import { apiOrigin, supabaseDirectOrigin } from '@openbed/origins';
 import { publishableKeyFor } from '@openbed/origins/keys';
-import { WARD_SUPPORT_EMAIL } from '@openbed/origins/support';
 import { PRIVACY_NOTICE_URL } from '@openbed/origins/privacy';
 import { bedCountText, categoryLabel, precedence, reasonLabel } from '@openbed/labels';
-import { NO_WARD, NO_WARD_HEADING, OFFERING_CHOICES, ZERO_REASONS } from '@openbed/labels/ward';
+import { NO_WARD, NO_WARD_HEADING, OFFERING_CHOICES, SIGNIN_LIMITED, ZERO_REASONS } from '@openbed/labels/ward';
+import {
+  ASK_FOR_HELP,
+  CALL_OPERATOR,
+  GET_HELP,
+  TAP_AGAIN,
+  UNRECOGNISED,
+  WARD_MESSAGES,
+  submitPublish,
+  wardMessageFor,
+  type PublishForm,
+  type WardRow,
+} from './publish.js';
 // The design system's tokens and self-hosted fonts first, then this app's own rules
 // (the design pass, D2). Vite emits all three as same-origin assets.
 import '@openbed/design/tokens.css';
@@ -105,6 +116,21 @@ import './style.css';
 const API_URL = apiOrigin(window.location.hostname);
 const PUBLISHABLE_KEY = publishableKeyFor(window.location.hostname);
 
+/**
+ * THE DIRECT ORIGIN, AS THE FALLBACK (R-2026-10-02-FF FF-4 a, -182; R-2026-09-19-23 D5). When the Worker
+ * at API_URL is down, or refuses a path it should forward, the holder and the sign-in request send the
+ * same call to this origin instead (packages/auth/src/fallback.ts holds the rules and the bounds). In
+ * production it is origins.json's `supabaseDirect.production`; locally it equals API_URL, so the
+ * fallback is the primary and every call is sent once. The ward console is the THIRD and last holder
+ * of the direct origin, by name (tests/compliance/direct_origin_holders.test.ts); its CSP names the
+ * origin in connect-src and admin's does not.
+ */
+const FALLBACK_URL = supabaseDirectOrigin(window.location.hostname);
+
+// Moved to ./publish.ts so the acceptance test can call submitPublish without a DOM (FF-4 f); re-exported
+// here so every test that reads these names keeps its import path.
+export { UNRECOGNISED, WARD_MESSAGES, wardMessageFor, type PublishForm, type WardRow };
+
 /** Looked up per render, not once at load, so a page that rebuilds #app is still written into. */
 function appRoot(): HTMLElement | null {
   return document.querySelector<HTMLElement>('#app');
@@ -149,33 +175,8 @@ function show(heading: string, detail: string, kind: 'caution' | 'lead' = 'cauti
  */
 export const REPORTS_OWN = 'This ward reports from its own login.';
 
-/** The one message an expired or unrenewable session produces. There is no other. */
-const TAP_AGAIN = 'Your session has ended. Tap the sign-in link on this handset again to sign back in.';
 
-/**
- * WHAT A WARD IS TOLD, FOR EVERY ANSWER THE SERVER CAN GIVE (R-2026-09-23-66, the
- * kickoff's D1). Raw server text NEVER reaches the screen: it named internals, and
- * on the bad-link screen it carried GoTrue's own error text. Each rejection the
- * three functions this console calls can raise -- app.assert_member() and
- * public.my_reporting_wards() and public.publish_ward_status(), each as 026 last
- * wrote it (011's and 014's, renamed or widened by R-2026-09-27-144/-145) -- has a
- * fixed sentence here, and tests/compliance/ward_console_render.test.ts asserts
- * this table covers exactly the codes parsed from those functions. 23514 is the
- * CHECK violation a count outside 0-500 would raise (004). Anything else gets
- * UNRECOGNISED. The raw text goes to the console log for whoever debugs it.
- *
- * WHERE A WARD IS SENT FOR HELP (R-2026-09-23-67 B1). These said "phone the OpenBed
- * operator" and named no number, because none existed (R-2026-09-23-66). They now
- * name the ward support address from packages/origins/contacts.json, and point
- * first at the facility's own OpenBed administrator -- conditionally, because nothing
- * this console can read says whether the facility has one.
- * tests/compliance/ward_support_contact.test.ts refuses any message that sends a ward
- * to the operator without the address.
- */
-const GET_HELP = `ask your facility's OpenBed administrator if you have one, or email ${WARD_SUPPORT_EMAIL}.`;
-const CALL_OPERATOR = `If it keeps happening, ${GET_HELP}`;
-const ASK_FOR_HELP = `To fix this, ${GET_HELP}`;
-export const UNRECOGNISED = `Something went wrong. Reload the page and try again. ${CALL_OPERATOR}`;
+
 export const ROW_REFUSED = `This ward's record could not be read, so it cannot be updated from here. Reload the page. ${CALL_OPERATOR}`;
 export const LOAD_REFUSED = `The ward list could not be read. Reload the page. ${CALL_OPERATOR}`;
 /**
@@ -203,44 +204,28 @@ export const SIGNIN_ANSWERED =
   `If nothing arrives within 5 minutes, ask again once; if it still does not arrive, ${GET_HELP}`;
 /** The only other outcome: no answer came back at all, which says nothing about the address. */
 export const SIGNIN_UNREACHABLE = 'The request could not be sent. Check this handset is online, then try again.';
-
-export const WARD_MESSAGES: Readonly<Record<string, string>> = {
-  NOT_AUTHENTICATED: TAP_AGAIN,
-  NOT_A_MEMBER: `This sign-in is not linked to a ward. ${ASK_FOR_HELP}`,
-  ACCOUNT_DEACTIVATED: `This sign-in has been switched off. ${ASK_FOR_HELP}`,
-  CROSS_FACILITY_DENIED: `This sign-in cannot act for that facility. ${ASK_FOR_HELP}`,
-  INSUFFICIENT_ROLE: `This sign-in cannot publish bed counts. ${ASK_FOR_HELP}`,
-  WARD_SCOPE_DENIED: 'This handset can only publish for its own ward, not this one.',
-  INVALID_ARGUMENT: `The update could not be read. Reload the page and try again. ${CALL_OPERATOR}`,
-  SESSION_ID_IS_ACCOUNT_ID: 'This sign-in cannot be used for an update. Sign in again with a new link.',
-  MISSING_MUTATION_CONTEXT: `The update was incomplete. Reload the page and try again. ${CALL_OPERATOR}`,
-  NO_SUCH_WARD: `This ward is not set up yet. ${ASK_FOR_HELP}`,
-  FUTURE_MUTATION: "This handset's clock is ahead. Check its date and time, then try again.",
-  STALE_MUTATION: 'The update took too long to send. Try again.',
-  ZERO_REQUIRES_REASON: 'Publishing zero beds as offered needs a reason.',
-  VERSION_CONFLICT: 'Someone else already updated this ward. Reload the handover list before trying again.',
-  '23514': 'That update cannot be accepted: a count must be between 0 and 500, and a ward that is not offered has no count.',
-};
+/**
+ * THE WORKER LIMITED THE REQUEST (R-2026-10-02-FF FF-3): too many sign-in links were asked for from this
+ * network. Its words are in packages/labels (`signin.LIMITED`), and the admin app keeps the same sentence.
+ * It is a caution Notice, and it says nothing about the address, so it leaks nothing.
+ */
+export const SIGNIN_LIMITED_WORDS: string = SIGNIN_LIMITED;
 
 /**
- * The fixed sentence for a server's refusal. Reads the leading code of PostgREST's
- * `message` (a RAISE's first token) or its SQLSTATE `code`, never anything else,
- * and logs the raw body so it is not lost.
+ * "NOT NOW" SENTENCES (R-2026-10-02-FF FF-4 c, -182). A renewal that is only "not now" KEEPS the session
+ * (packages/auth/src/holder.ts), so these never say the session ended, and each says it is kept. None names
+ * the Worker, Cloudflare or Supabase: a ward cannot act on those names. They are NOT in WARD_MESSAGES, which
+ * tests/compliance/ward_console_render.test.ts holds exact to the codes the migrations raise; these are
+ * raised by no migration. The clinicians' wording list (the A7 box) carries them.
  */
-export function wardMessageFor(status: number, body: string): string {
-  console.error('OpenBed ward console: the server refused a request', { status, body });
-  let parsed: { message?: unknown; code?: unknown } = {};
-  try {
-    parsed = JSON.parse(body) as typeof parsed;
-  } catch {
-    return UNRECOGNISED;
-  }
-  const token = typeof parsed.message === 'string' ? (/^([A-Z_]+)\b/.exec(parsed.message)?.[1] ?? '') : '';
-  if (token !== '' && Object.hasOwn(WARD_MESSAGES, token)) return WARD_MESSAGES[token] as string;
-  const code = typeof parsed.code === 'string' ? parsed.code : '';
-  if (code === '23514') return WARD_MESSAGES['23514'] as string;
-  return UNRECOGNISED;
-}
+export const RENEWAL_UNAVAILABLE_PUBLISH =
+  'Your sign-in could not be renewed just now, so this update was not sent. Your sign-in is kept. Wait one minute, then tap Publish again.';
+export const UNREACHABLE_PUBLISH =
+  'This update was not sent: this handset could not reach OpenBed. Check it is online, then tap Publish again. Your sign-in is kept.';
+export const RENEWAL_UNAVAILABLE_LOAD =
+  'Your sign-in could not be renewed just now, so the handover list was not loaded. Your sign-in is kept. Wait one minute, then tap Try again.';
+export const UNREACHABLE_LOAD =
+  'The handover list was not loaded: this handset could not reach OpenBed. Check it is online, then tap Try again. Your sign-in is kept.';
 
 /**
  * The eight reasons a ward may give for zero offered beds -- app.zero_reason (002),
@@ -249,21 +234,6 @@ export function wardMessageFor(status: number, body: string): string {
  * console holds no word table of its own; re-exported here for the tests that read it.
  */
 export { ZERO_REASONS };
-
-export interface WardRow {
-  readonly category: string;
-  readonly offering: 'OFFERED' | 'NOT_OFFERED';
-  readonly bedCount: number | null;
-  readonly accepting: boolean;
-  readonly version: number;
-  readonly gatedBy: string | null;
-  /** app.monitoring_state, app.status_source and app.status_state, as codes; shown in words. */
-  readonly monitoringState: string;
-  readonly source: string;
-  readonly state: string;
-  /** The server's answer to "may THIS login publish for this ward?" (026). Missing reads as false. */
-  readonly canPublish: boolean;
-}
 
 export interface RowRefusal {
   readonly refused: true;
@@ -318,59 +288,11 @@ function isRefusal(w: WardRow | RowRefusal): w is RowRefusal {
   return 'refused' in w;
 }
 
-interface PublishResult {
-  readonly version: number;
-  readonly replayed: boolean;
-  readonly claim_offering: 'OFFERED' | 'NOT_OFFERED';
-  readonly claim_bed_count: number | null;
-  readonly claim_accepting: boolean;
-  readonly public_gated_by: string | null;
-}
-
-type PublishOutcome = { readonly ok: true; readonly result: PublishResult } | { readonly ok: false; readonly message: string };
-
 /** A fresh id per NEW publish attempt. Reused verbatim on a retry of the SAME
  * attempt (see publishFormFor) so a retried request replays rather than
  * duplicates; a new one is only minted after a submission succeeds. */
 function newMutationId(): string {
   return crypto.randomUUID();
-}
-
-/** What the form sends. A ward that is NOT offered sends no count and does not claim to be accepting. */
-export interface PublishForm {
-  readonly offering: 'OFFERED' | 'NOT_OFFERED';
-  readonly bedCount: number | null;
-  readonly accepting: boolean;
-  readonly reason: string | null;
-}
-
-async function submitPublish(holder: SessionHolder, ward: WardRow, form: PublishForm, mutationId: string): Promise<PublishOutcome> {
-  const res = await holder.authedFetch('rpc/publish_ward_status', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      p_category: ward.category,
-      p_offering: form.offering,
-      p_bed_count: form.bedCount,
-      p_accepting: form.accepting,
-      p_reason: form.reason,
-      p_expected_version: ward.version,
-      p_client_mutation_id: mutationId,
-      // eslint-disable-next-line openbed/no-wall-clock -- OPENBED-CLOCK-READ: R-2026-09-26-130 DF-1 b, the device's composed_at for 014's symmetric STALE/FUTURE_MUTATION window (the v2 kickoff's Stage 2)
-      p_composed_at: new Date().toISOString(),
-    }),
-  });
-
-  if (!res.ok) {
-    return { ok: false, message: wardMessageFor(res.status, await res.text()) };
-  }
-
-  const rows = (await res.json()) as PublishResult[];
-  const result = Array.isArray(rows) ? rows[0] : undefined;
-  if (result === undefined) {
-    return { ok: false, message: UNRECOGNISED };
-  }
-  return { ok: true, result };
 }
 
 /** The range 004's CHECK accepts for a bed count, which the steppers never leave. */
@@ -587,6 +509,16 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onPublished: (upda
           show('Signed out', TAP_AGAIN);
           return;
         }
+        // THE SESSION IS KEPT in both of these, and so is the form's mutation id (it is only ever
+        // regenerated after a success, above), so the next tap replays rather than duplicates.
+        if (e instanceof RenewalUnavailableError) {
+          say(status, RENEWAL_UNAVAILABLE_PUBLISH, 'caution');
+          return;
+        }
+        if (e instanceof OriginsUnreachableError) {
+          say(status, UNREACHABLE_PUBLISH, 'caution');
+          return;
+        }
         console.error('OpenBed ward console: the publish did not complete', e);
         say(status, UNRECOGNISED, 'caution');
       } finally {
@@ -712,17 +644,28 @@ function signInRequestForm(): HTMLFormElement {
       try {
         const outcome = await requestSignInLink({
           apiUrl: API_URL,
+          fallbackApiUrl: FALLBACK_URL,
           anonKey: PUBLISHABLE_KEY,
           email: email.value,
           redirectTo: `${window.location.origin}/`,
         });
-        // The status goes to the log for whoever debugs it; the page says one thing.
-        if (outcome.kind === 'answered') {
-          if (outcome.status !== 200) console.error('OpenBed ward console: the sign-in request was answered', outcome.status);
-          say(status, SIGNIN_ANSWERED, 'info');
-        } else {
-          console.error('OpenBed ward console: the sign-in request got no answer', outcome.error);
-          say(status, SIGNIN_UNREACHABLE, 'caution');
+        // The status goes to the log for whoever debugs it; the page says one thing. EXHAUSTIVE (FF-3 c): a
+        // fourth outcome added to requestSignInLink fails to compile here, where a bare `else` would have
+        // shown it the "no answer" sentence.
+        switch (outcome.kind) {
+          case 'answered':
+            if (outcome.status !== 200) console.error('OpenBed ward console: the sign-in request was answered', outcome.status);
+            say(status, SIGNIN_ANSWERED, 'info');
+            break;
+          case 'limited':
+            say(status, SIGNIN_LIMITED_WORDS, 'caution');
+            break;
+          case 'unreachable':
+            console.error('OpenBed ward console: the sign-in request got no answer', outcome.error);
+            say(status, SIGNIN_UNREACHABLE, 'caution');
+            break;
+          default:
+            return unhandledOutcome(outcome);
         }
       } finally {
         button.disabled = false;
@@ -732,6 +675,11 @@ function signInRequestForm(): HTMLFormElement {
 
   form.append(label, button, status);
   return form;
+}
+
+/** The `never` end of an exhaustive switch: a new outcome that reaches here is a compile error first, a thrown error second. */
+function unhandledOutcome(outcome: never): never {
+  throw new Error(`an unhandled sign-in outcome: ${JSON.stringify(outcome)}`);
 }
 
 /**
@@ -788,8 +736,16 @@ export async function render(): Promise<void> {
   // by anything the ward pastes the URL into.
   window.history.replaceState(null, '', window.location.pathname + window.location.search);
 
-  const holder = new SessionHolder({ apiUrl: API_URL, anonKey: PUBLISHABLE_KEY, session });
+  const holder = new SessionHolder({ apiUrl: API_URL, fallbackApiUrl: FALLBACK_URL, anonKey: PUBLISHABLE_KEY, session });
+  await loadHandover(holder);
+}
 
+/**
+ * THE HANDOVER LOAD, re-runnable with the SAME holder (R-2026-10-02-FF FF-4 c). "Try again" calls this and
+ * NEVER reloads the page: the session is held in memory only (the 2026-09-08 ward-identity decision), so a
+ * reload would end it, and a signed-out ward needs a new emailed link.
+ */
+async function loadHandover(holder: SessionHolder): Promise<void> {
   try {
     const res = await holder.authedFetch('rpc/my_reporting_wards', {
       method: 'POST',
@@ -816,9 +772,31 @@ export async function render(): Promise<void> {
       show('Signed out', TAP_AGAIN);
       return;
     }
+    if (e instanceof RenewalUnavailableError) {
+      showLoadFailed(holder, RENEWAL_UNAVAILABLE_LOAD);
+      return;
+    }
+    if (e instanceof OriginsUnreachableError) {
+      showLoadFailed(holder, UNREACHABLE_LOAD);
+      return;
+    }
     console.error('OpenBed ward console: the handover list did not load', e);
     show('Could not load the handover list', UNRECOGNISED);
   }
+}
+
+/** The load failed and the session is kept: the sentence, and a "Try again" that re-runs the load with the same holder. */
+function showLoadFailed(holder: SessionHolder, detail: string): void {
+  show('Could not load the handover list', detail);
+  const again = document.createElement('button');
+  again.type = 'button';
+  again.className = 'primary';
+  again.textContent = 'Try again';
+  again.addEventListener('click', () => {
+    again.disabled = true;
+    void loadHandover(holder);
+  });
+  appRoot()?.append(again);
 }
 
 void render();

@@ -474,6 +474,7 @@ describe('the allow-list against the code and the runbooks', () => {
     expect(files, 'the corpus lost a file this guard depends on').toEqual(
       expect.arrayContaining([
         'apps/ward-console/src/main.ts',
+        'apps/ward-console/src/publish.ts',
         'apps/admin/src/main.ts',
         'apps/public-dashboard/functions/beds.json.ts',
         'packages/auth/src/request.ts',
@@ -503,7 +504,8 @@ describe('the allow-list against the code and the runbooks', () => {
       'POST /rest/v1/rpc/operator_register @ apps/admin/src/main.ts',
       'POST /rest/v1/rpc/operator_scheduler_status @ apps/admin/src/main.ts',
       'POST /rest/v1/rpc/operator_set_facility_listed @ apps/admin/src/main.ts',
-      'POST /rest/v1/rpc/publish_ward_status @ apps/ward-console/src/main.ts',
+      // R-2026-10-02-FF FF-4 f: submitPublish moved to a DOM-free module so the acceptance test can call it; the call itself is unchanged.
+      'POST /rest/v1/rpc/publish_ward_status @ apps/ward-console/src/publish.ts',
     ]);
     expect(runbookProbes(realDocs()).length + scriptProbes(realScripts()).probes.length, 'no probe was found, so the probe rule checked nothing').toBeGreaterThan(0);
   });
@@ -535,6 +537,8 @@ describe('the allow-list against the code and the runbooks', () => {
       'GET /auth/v1/settings @ scripts/readback_ward_console.sh',
       'GET /auth/v1/settings @ scripts/readback_worker.sh',
       // 5b: the one hosted test of the Upgrade refusal on a LISTED path (FA-1 b).
+      'GET /auth/v1/settings @ scripts/readback_worker.sh',
+      // 8: the sensor's request, with the key in the QUERY (R-2026-10-02-FF FF-5). Already forwarded, with any query, so the list does not change.
       'GET /auth/v1/settings @ scripts/readback_worker.sh',
       // 7: the redirect; and the limits proof's loop, run once at W3's hosted step b.
       'GET /auth/v1/verify @ scripts/readback_worker.sh',
@@ -950,7 +954,15 @@ describe('a template paste is the BODY only, by the command the runbook quotes (
 
   test("the runbook quotes the anchored command, `1,/^-->$/d`, and it is the one that runs", () => {
     expect(expr()).toBe('1,/^-->$/d');
-    expect(pasteCommand(runbook().replace("sed '1,/^-->$/d' docs/auth-email-templates/magic-link.html", "sed -n '/<h2>/,$p' docs/auth-email-templates/magic-link.html")), 'an unanchored command was read as the quoted one').toBeNull();
+    // STANDARD O PAIRING (R-2026-10-02-FF FF-6). This plant was `runbook().replace(...)`, which unanchors the FIRST quote of
+    // the command. Runbook section 6 (FF-6 d 4) now quotes the same command in its re-paste step, BEFORE step c.2, so the first
+    // quote became section 6's and the plant stopped landing on the quote the guard may read: the unanchored text was then
+    // never what the guard saw. REWRITTEN with replaceAll, so EVERY quote is unanchored, and a precondition now asserts that
+    // no anchored quote of the command survives: the plant is stronger, and the assertion on what the guard reads is unchanged.
+    const quote = "sed '1,/^-->$/d' docs/auth-email-templates/magic-link.html";
+    const unanchored = runbook().replaceAll(quote, "sed -n '/<h2>/,$p' docs/auth-email-templates/magic-link.html");
+    expect(unanchored.includes(quote), 'the plant left an anchored quote of the command in the runbook').toBe(false);
+    expect(pasteCommand(unanchored), 'an unanchored command was read as the quoted one').toBeNull();
     expect(pasteCommand(''), 'an empty runbook quoted a command').toBeNull();
   });
 
@@ -1370,11 +1382,31 @@ describe('a Worker refusal is not an answer from GoTrue (R-2026-09-23-70 B, C3)'
     expect(await ask((await worker().handle(new Request('https://api.openbed.ng/auth/v1/nothing-listed', { method: 'POST' }))))).toMatchObject({ kind: 'unreachable' });
   });
 
-  test('pin — the Worker\'s own `limited` 429 on /otp reads as answered, as GoTrue\'s 429 does (FA-3 g)', async () => {
-    // Today's reading, pinned and NOT changed in W3: a per-IP limit says nothing about the address,
-    // so whether /otp gets its own message is a clinical-path question for W4 (D5).
+  test("the Worker's own `limited` 429 on /otp reads as `limited`, is sent once, and is never sent to the fallback (R-2026-10-02-FF FF-3 d; replaces the FA-3 g pin that read it as answered)", async () => {
+    // STANDARD O PAIRING. Removed: `expect(await ask(res)).toEqual({ kind: 'answered', status: 429 })`, the
+    // pin of R-2026-09-30-177 FA-3 g ("whether /otp gets its own message is a clinical-path question for W4").
+    // W4 ruled YES: a per-address limit says nothing about whether an address exists, so -70 A's reason for one
+    // flat answer does not reach it. Replaced by the opposite outcome, STRONGER: the exact outcome carries no
+    // status (nothing about the address can be read from it), the request was sent exactly once, and a second
+    // origin, when one is configured, is never tried.
     const res = new Response('{"message":"rate limited by the OpenBed proxy"}', { status: 429, headers: { [PROXY_HEADER]: 'limited', 'retry-after': '60' } });
-    expect(await ask(res)).toEqual({ kind: 'answered', status: 429 });
+    expect(await ask(res)).toEqual({ kind: 'limited' });
+    const sent = vi.fn(async () => res.clone());
+    const outcome = await requestSignInLink({
+      apiUrl: 'https://api.openbed.ng',
+      fallbackApiUrl: 'https://direct.invalid',
+      anonKey: 'k',
+      email: 'ward@example.invalid',
+      redirectTo: 'https://app.openbed.ng/',
+      fetch: sent as unknown as typeof fetch,
+      sleep: async () => undefined,
+    });
+    expect(outcome).toEqual({ kind: 'limited' });
+    expect(sent, 'a limited request was retried, or sent to the fallback: the limit is the answer').toHaveBeenCalledTimes(1);
+  });
+
+  test("plant — Supabase's own 429 on /otp, with no marker, still reads as answered: it is a per-USER limit and reveals the address", async () => {
+    expect(await ask(new Response('{"error_code":"over_email_send_rate_limit"}', { status: 429 }))).toEqual({ kind: 'answered', status: 429 });
   });
 
   test("positive control — GoTrue's own 422 and 429, forwarded, still read as answered", async () => {

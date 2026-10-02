@@ -30,7 +30,9 @@ import { REPO_ROOT } from './_scratch.js';
  *   - A CLOUDFLARE `simple` LIMIT COUNTS PER PERIOD and does not spread requests across it.
  *     At 60 seconds one address could send its whole limit in one second and empty the
  *     shared bucket, so a ward's refresh that landed while it was empty would get
- *     Supabase's own 429, which holder.ts turns into a sign-out. The period is therefore 10
+ *     Supabase's own 429, which holder.ts turns into a sign-out. [RESTATED 2026-10-02, R-2026-10-02-FF
+ *     FF-2 f: it no longer does. holder.ts keeps the session on a 429, and sends no refresh for 60 s; the
+ *     sentence above is the text as written on 2026-09-30.] The period is therefore 10
  *     seconds, and the limit is chosen so ONE address's worst case stays under the burst:
  *     with a fixed window an address can get about twice its limit in any 10 seconds (a
  *     full window either side of a boundary), so 2 x limit must be under 30. At 5, 5 and 10
@@ -47,10 +49,16 @@ import { REPO_ROOT } from './_scratch.js';
  *     opened gets the VERIFY_LIMITED sentence and the link is not spent. Whether a limited
  *     request gets its own message is W4's ruling (R-2026-09-30-178 FB-4; corrected by
  *     R-2026-09-30-179 FC-6 b, which had said "opened" where it meant "requested").
+ *     [RESTATED 2026-10-02, R-2026-10-02-FF FF-3: W4 ruled YES. A request the WORKER limited gets its
+ *     own sentence (`signin.LIMITED` in packages/labels/ward-labels.json); Supabase's own 429, which has
+ *     no marker, still reads as the flat "answered" message, because it reveals the address.]
  *   - RECONNECT: refresh is lazy (packages/auth/src/holder.ts accessToken), so after an ISP
  *     or power cut longer than the token's life every handset behind one address refreshes
  *     when it next acts, and a limited refresh is terminal today (holder.ts reads any
- *     non-2xx as SessionExpiredError). LIMIT_REFRESH bounds how many handsets behind one
+ *     non-2xx as SessionExpiredError). [RESTATED 2026-10-02, R-2026-10-02-FF FF-2 f: a limited
+ *     refresh is NOT terminal now. holder.ts keeps the session on a 429, a 409, a 5xx, a refused
+ *     answer or no answer, and ends it only when the refresh token itself is refused; the sentence
+ *     above is the text as written on 2026-09-30.] LIMIT_REFRESH bounds how many handsets behind one
  *     address may refresh in one 10-second window. Facility one is a small private
  *     hospital with one facility-level login; the register's TRIGGER holds it for later
  *     facilities.

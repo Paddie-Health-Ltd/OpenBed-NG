@@ -1,4 +1,4 @@
-import { SessionExpiredError, SessionHolder, requestSignInLink, sessionFromUrlFragment } from '@openbed/auth';
+import { RenewalUnavailableError, SessionExpiredError, SessionHolder, requestSignInLink, sessionFromUrlFragment } from '@openbed/auth';
 import { apiOrigin } from '@openbed/origins';
 import { publishableKeyFor } from '@openbed/origins/keys';
 import { PRIVACY_NOTICE_URL } from '@openbed/origins/privacy';
@@ -187,6 +187,10 @@ async function post(holder: SessionHolder, call: keyof typeof CALL, body: unknow
     res = await CALL[call](holder, JSON.stringify(body));
   } catch (e) {
     if (e instanceof SessionExpiredError) throw e;
+    // A RENEWAL THAT IS ONLY "NOT NOW" (R-2026-10-02-FF FF-2 e) is rethrown, never turned into `unreachable`:
+    // read() retries an `unreachable` after 300-600 ms, which would be the automatic retry the holder forbids.
+    // The session is kept; the caller shows the sentence and the operator tries again.
+    if (e instanceof RenewalUnavailableError) throw e;
     // Transport only: no answer came. Logged by which call, never by request values.
     console.error('OpenBed admin: no answer from the server', RPC[call]);
     return { kind: 'unreachable' };
@@ -218,6 +222,7 @@ const write = post;
 function guarded(p: Promise<unknown>): void {
   void p.catch((e: unknown) => {
     if (e instanceof SessionExpiredError) signedOut(W.SIGNED_OUT);
+    else if (e instanceof RenewalUnavailableError) show(W.REGISTER_HEADING, W.RENEWAL_UNAVAILABLE);
     else {
       console.error('OpenBed admin: a view failed to load');
       show(W.REGISTER_HEADING, ADMIN_FIXED.UNRECOGNISED);
@@ -563,6 +568,7 @@ function form(name: string, submitText: string, parts: HTMLElement[], onSubmit: 
     void onSubmit(status)
       .catch((e: unknown) => {
         if (e instanceof SessionExpiredError) signedOut(W.SIGNED_OUT);
+        else if (e instanceof RenewalUnavailableError) say(status, W.RENEWAL_UNAVAILABLE, 'caution');
         else {
           console.error('OpenBed admin: a form failed');
           say(status, ADMIN_FIXED.UNRECOGNISED, 'caution');
@@ -1041,6 +1047,11 @@ function renderDetail(holder: SessionHolder, first: Detail): void {
 
 // ------------------------------------------------------------------ sign-in
 
+/** The `never` end of an exhaustive switch: a new outcome that reaches here is a compile error first, a thrown error second. */
+function unhandledOutcome(outcome: never): never {
+  throw new Error(`an unhandled sign-in outcome: ${JSON.stringify(outcome)}`);
+}
+
 function requestForm(): HTMLFormElement {
   const email = field(W.REQUEST_LABEL, 'email', '', 'email');
   email.input.required = true;
@@ -1060,13 +1071,24 @@ function requestForm(): HTMLFormElement {
       try {
         const outcome = await requestSignInLink({ apiUrl: API_URL, anonKey: PUBLISHABLE_KEY, email: email.input.value, redirectTo: `${window.location.origin}/` });
         // The status to the log; one sentence on the page, whatever it was, because
-        // each status would say whether the address exists.
-        if (outcome.kind === 'answered') {
-          if (outcome.status !== 200) console.error('OpenBed admin: the sign-in request was answered', outcome.status);
-          say(status, W.REQUEST_ANSWERED, 'info');
-        } else {
-          console.error('OpenBed admin: the sign-in request got no answer');
-          say(status, W.REQUEST_UNREACHABLE, 'caution');
+        // each status would say whether the address exists -- except the Worker's OWN limit
+        // (`limited`, FF-3), which says nothing about the address. EXHAUSTIVE: a fourth outcome
+        // fails to compile here, where the bare `else` this replaced would have shown it the
+        // "no answer" sentence.
+        switch (outcome.kind) {
+          case 'answered':
+            if (outcome.status !== 200) console.error('OpenBed admin: the sign-in request was answered', outcome.status);
+            say(status, W.REQUEST_ANSWERED, 'info');
+            break;
+          case 'limited':
+            say(status, W.REQUEST_LIMITED, 'caution');
+            break;
+          case 'unreachable':
+            console.error('OpenBed admin: the sign-in request got no answer');
+            say(status, W.REQUEST_UNREACHABLE, 'caution');
+            break;
+          default:
+            return unhandledOutcome(outcome);
         }
       } finally {
         button.disabled = false;
@@ -1124,6 +1146,10 @@ export async function render(): Promise<void> {
   } catch (e) {
     if (e instanceof SessionExpiredError) {
       signedOut(W.SIGNED_OUT);
+      return;
+    }
+    if (e instanceof RenewalUnavailableError) {
+      show(W.REGISTER_HEADING, W.RENEWAL_UNAVAILABLE);
       return;
     }
     console.error('OpenBed admin: the register did not load');
