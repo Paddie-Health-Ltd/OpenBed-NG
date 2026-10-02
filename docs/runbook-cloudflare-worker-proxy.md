@@ -240,8 +240,11 @@ which of them it got. Preflights reach the gateway only for paths a browser call
 
 **The limits** (FA-3, re-sized by FB-1). Three `ratelimits` bindings in `wrangler.json` count
 sign-in requests, link opens and session refreshes per client address, over a 10-second
-window, at the Cloudflare location that served each. Counters are local to each location,
-permissive and eventually consistent; the bindings are not shown in the dashboard. A request
+window, at the Cloudflare location that served each. Counters are cached on the machine
+that runs the Worker and updated asynchronously (Cloudflare: "permissive, eventually
+consistent, and intentionally designed to not be used as an accurate accounting system"),
+so they are per machine and not per location alone; the bindings are not shown in the
+dashboard. A request
 over its limit is answered by the Worker, `429`, `x-openbed-proxy: limited`, `retry-after: 60`
 (deliberately conservative: the window is 10 seconds, but a fixed window can be crossed at a
 boundary), and Supabase is not contacted. A missing binding, a limiter that fails, and a
@@ -255,14 +258,24 @@ dashboard figure sets only the refill rate), and every facility shares that 30 t
 Worker's one address. A Cloudflare `simple` limit counts per period and does not spread
 requests across it, so with a fixed window one address can get about twice its limit in any
 10 seconds, and **twice the limit must stay under 30** (the test holds it). At that design
-bound one address alone cannot empty a bucket; three can for otp or verify, and two for
-refresh, which is the register's trigger on a distributed drain. At a shift change, six links
+bound one address on ONE CONNECTION cannot empty a bucket; three can for otp or verify, and
+two for refresh, which is the register's trigger on a distributed drain. A client that opens
+a new connection for every request is not held to that bound (see "What the edge limits do, and what they do not", below). At a shift change, six links
 REQUESTED in one 10-second window at one address is possible at a teaching hospital, and the
-sixth request (`POST /auth/v1/otp`) gets the flat "answered" message and no email; the sixth
-link OPENED (`GET /auth/v1/verify`) in one window gets the limited-link sentence instead, and
-the link is not spent. Whether a limited request gets its own message is W4's ruling. Refresh is lazy and a limited refresh is terminal today, so `LIMIT_REFRESH`
-bounds how many handsets behind one address may refresh in one window; facility one has one
-login. The full argument is in the header of `tests/compliance/proxy_limits_config.test.ts`.
+sixth request (`POST /auth/v1/otp`) can get the flat "answered" message and no email; the
+sixth link OPENED (`GET /auth/v1/verify`) in one window can get the limited-link sentence
+instead, and then the link is not spent. Whether a limited request gets its own message is
+W4's ruling. Refresh is lazy and a limited refresh is terminal today, so `LIMIT_REFRESH` can
+sign handsets out when more than its limit behind one address refresh in one window; facility
+one has one login. The full argument is in the header of
+`tests/compliance/proxy_limits_config.test.ts`.
+
+*Restated 2026-10-02 (R-2026-09-30-181 FE-6 d). With per-machine counting these are at-most
+outcomes, not certainties. Until then this paragraph read:* "the sixth request (`POST
+/auth/v1/otp`) gets the flat "answered" message and no email; the sixth link OPENED (`GET
+/auth/v1/verify`) in one window gets the limited-link sentence instead, and the link is not
+spent", *and* "so `LIMIT_REFRESH` bounds how many handsets behind one address may refresh in
+one window".
 
 *Restated 2026-10-01 (R-2026-09-30-178 FB-1 c). Until then this paragraph read:* "Three
 `ratelimits` bindings in `wrangler.json` count sign-in requests, link opens and session
@@ -271,10 +284,37 @@ refreshes per client address, over 60 seconds, at the Cloudflare location that s
 `retry-after: 60`, and Supabase is not contacted." *The 60-second figures could let one
 address empty the 30-burst in one second.*
 
+**What the edge limits do, and what they do not (R-2026-09-30-180 FD-2 a).** There is one
+limit per key per Cloudflare location, but the counters are cached on the machine running the
+Worker and updated asynchronously. A client that keeps one connection, as a browser or a
+ward's handset does, is counted as designed: on hosted, 2026-10-01, one connection read 6
+forwarded and then every later request answered `limited`. A client that opens a new
+connection for every request can exceed the limits until the counts catch up: on hosted,
+2026-10-01, the limits proof sent 15 requests that way, twice, and all 15 were forwarded both
+times. **So the edge limits slow a careless or naive flood and do not bound a deliberate
+one.** Supabase's raised per-IP limits (W3 hosted step a) and the register's trigger on a
+distributed drain are the backstop. *Restated 2026-10-01 (R-2026-09-30-180 FD-2 a). Until
+then the two paragraphs above, with "Counters are local to each location, permissive and
+eventually consistent" and "At that design bound one address alone cannot empty a bucket",
+read as if the limits bound every client at the design figure; that holds for a client on
+one connection and does not hold for a client that opens a new connection for every
+request.*
+
 ## W3 hosted steps (R-2026-09-30-177 FA-6)
 
-**Written, not run.** Cowork issues them one at a time after the merge word. **The order
-is load-bearing:** Supabase's buckets are raised before the Worker's limiter is live, and
+**Run on 2026-10-01** by the founder, from the dashboards and `~/Desktop/OpenBed-NG-deploy`
+at `48b2af5307d93b415733a499c94305808e4c4e11` (#109's merge). Each step was read back by
+Cowork before the next (R-2026-09-30-180 FD-5 c); the readings are in the checkbox after step
+e. Claude Code ran nothing hosted. Steps a, b and c read PASS. Step b.2 stood in by a
+one-connection read: the proof as written then opened a new connection for every request and
+stopped twice, for the reason step b.2's restated note gives, and Cowork ruled the one-
+connection read, 6 forwarded then 9 `limited`, as the proof of the limiter on hosted. Step c
+pasted the tracked template BODIES only, from the `<h2>` line down: the header comment holds
+internal notes and ruling references, and a comment would travel in every email's source.
+**Step e is outstanding** and may run on any day.
+*Restated 2026-10-01 (R-2026-09-30-180 FD-5 c): until then this section opened with:*
+"**Written, not run.** Cowork issues them one at a time after the merge word."
+**The order is load-bearing:** Supabase's buckets are raised before the Worker's limiter is live, and
 the Worker must forward verify before any email links to it, or every sign-in link hits
 the Worker's refusal. **Once the templates link to `api.openbed.ng`, deploying a Worker
 from before W3 breaks every sign-in link. Put the templates back first** (step c's
@@ -300,24 +340,46 @@ b. **The Worker.** **First, read the zone's Pseudo IPv4 setting** (R-2026-09-30-
    plan trigger). Then, from the deploy checkout: 1. `bash scripts/readback_worker.sh
    https://api.openbed.ng` with probes 5, 5b, 6 and 7 and `limits_bound` all true;
    2. `bash scripts/readback_worker_limits.sh https://api.openbed.ng`, once (it sleeps 61
-   seconds, then sends three times the limit in verify requests; run it only after step a);
+   seconds, then sends three times the limit in verify requests, all in ONE curl invocation
+   so that they share one connection, and reads that they did; run it only after step a);
    3. probe 4, by Cowork. Record the status probe 7 returned.
    *Restated 2026-10-01 (R-2026-09-30-178 FB-1 c, f, i): until then step b.2 read "...it sleeps
    61 seconds, then sends the limit plus five verify requests; run it only after step a...",
    and step b had no Pseudo IPv4 read.*
+   *Restated 2026-10-01 (R-2026-09-30-180 FD-1 f): until then step b.2 read "...it sleeps 61
+   seconds, then sends three times the limit in verify requests; run it only after step
+   a...". The proof now runs over one connection, and checks that it did, because
+   Cloudflare caches each count on the machine that runs the Worker and syncs it
+   asynchronously, so a new connection per request lands on machines whose counts have not
+   caught up. On 2026-10-01 the old proof stopped twice (15 forwarded, none limited), and
+   the same 15 requests over one connection read 6 forwarded and 9 limited. Its record is
+   -180's (`Sprint Kickoffs/decision-2026-09-14-public-private-split.md`).*
 c. **The templates, only after a and b read as they must.** 1. Read the dashboard's
    current Magic Link and Confirm signup templates and give them to Cowork, who compares
    them with the tracked files in `docs/auth-email-templates/` before anything is pasted;
-   2. paste the tracked files; 3. wait 2 minutes after step b.2, then request an operator
+   2. paste the tracked BODY only: everything after the header's closing `-->` line
+   (`sed '1,/^-->$/d' docs/auth-email-templates/magic-link.html | pbcopy`, and the same for
+   `confirm-signup.html`), which starts at the unindented `<h2>` line, as on 2026-10-01;
+   never the header comment, which holds internal notes and would travel in every email's
+   source (R-2026-09-30-181 FE-1); 3. wait 2 minutes after step b.2, then request an operator
    link and pipe it into `scripts/readback_signin_link.mjs --mode admin`: PASS; 4. sign in
    with it, through Access, to the register. **Rollback:** put the default confirmation URL
    variable back as the href, in both templates.
+   *Restated 2026-10-02 (R-2026-09-30-181 FE-1): until then step c.2 read "paste the tracked
+   files". Cowork had ruled on 2026-10-01 that only the body is pasted, but the ruling stood only
+   in the "Run on" paragraph; a rollback re-paste of the whole file would have carried the header
+   comment into every email. "From the `<h2>` line down" is ambiguous, because each header
+   quotes the default body with an indented `<h2>`, so an unanchored `sed -n '/<h2>/,$p'`
+   starts inside the comment: the command above is anchored on the header's closing line, and
+   `tests/compliance/proxy_allow_list.test.ts` runs it over both templates.*
 d. **The closes, which the 12.4 step names:** D3 on probes 5, 5b, 6 and 7; D4 on step a,
    the limits proof and `limits_bound`, with Cowork's attribution read; -55 C on step c's
    PASS and the sign-in.
 e. **The drill again,** by `docs/runbook-sensor.md` section 3 as amended, on the same day
    or any later one: both times recorded, and the job kept off until `snapshot_stale` is
    written down. Its record closes the `snapshot_stale` box in 12.4.
+
+- [x] On 2026-10-01, steps a, b and c, from the dashboards and `~/Desktop/OpenBed-NG-deploy` at `48b2af5307d93b415733a499c94305808e4c4e11`. The readings are the founder's, relayed by Cowork (hosted-run-w3-2026-10-01-readings.md, in Cowork's build records; R-2026-09-30-180 FD-5 b). **Step a:** sign-ups and sign-ins per IP 30 to 600 per 5 minutes; token verifications 30 to 600; token refreshes 150 to 1500; email OTP length 8 to 10, held after save (GoTrue accepts 6 to 10 and resets anything else to 6); unchanged: emails sent 30 an hour (project-wide), OTP expiration 3600 s, SMS, anonymous and Web3; the page shows no burst figure; "Enable IP address forwarding" OFF, unchanged. PASS. **Step b:** Pseudo IPv4 on the `openbed.ng` zone read Off; `deploy_worker.sh` DONE at attempt 1 of 12, wrangler 4.134.0 listing `env.LIMIT_OTP` (5 requests/10s), `env.LIMIT_VERIFY` (5 requests/10s) and `env.LIMIT_REFRESH` (10 requests/10s), version `ea537d20-17a8-4181-9534-3048510d84a5`; **the upload accepted all three bindings on the account's free Workers plan**, which answers FA-3 a (the plan trigger in the register is untouched). `readback_worker.sh` PASS: probes 1, 1b, 2 and 3 as before; probes 5, 5b and 6 read 404, refused, the Worker's own body; probe 7 read STATUS 303, forwarded, `Location` origin exactly the admin origin (its first hosted reading); the stamp read `48b2af5`, dirty false, `limits_bound` all true. Probe 4, Cowork's reading through the Cloudflare connector: PASS, the bundle equal to `supabase-proxy/allow-list.json` at `48b2af5` entry for entry (forward 30: 14 POST, 2 GET, 14 OPTIONS; 2 direct-origin exceptions; 3 refusal probes). **Step b.2:** `readback_worker_limits.sh` STOPPED twice, 15 forwarded and none limited each time (the loop took 16 s, then 17 s); one diagnostic Cowork authorised, the same 15 verifies in a single curl invocation, read requests 1 to 6 forwarded and 7 to 15 `limited`; the cause is Cloudflare's per-machine counters, not the Worker. **Step c:** both live template bodies were Supabase's defaults before the change; the tracked BODY was pasted (from `<h2>` down, by a terminal command, never retyped); both read back equal to the tracked bodies, subjects unchanged; `readback_signin_link.mjs --mode admin` read PASS on a real operator link (`redirect_to` percent-encoded in lower case, decoding to exactly the admin origin); the operator signed in and reached the register at `admin.openbed.ng`; Cowork's `edge_logs` read, 20:25Z to 20:50Z, showed two link requests and two link opens, all from Cloudflare, and over 19:00Z to 20:50Z all 149 Cloudflare-borne requests carried one and the same client address (not recorded here). PASS. **Step e:** not run.
 
 ## What stays true after this deploy, and what does not
 

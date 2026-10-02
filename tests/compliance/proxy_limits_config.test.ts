@@ -54,15 +54,36 @@ import { REPO_ROOT } from './_scratch.js';
  *     address may refresh in one 10-second window. Facility one is a small private
  *     hospital with one facility-level login; the register's TRIGGER holds it for later
  *     facilities.
+ *   - WHAT THE LIMITS DO, AND WHAT THEY DO NOT (R-2026-09-30-180 FD-2 a). There is one limit
+ *     per key per Cloudflare location, but the counters are cached on the machine running
+ *     the Worker and updated asynchronously (Cloudflare: "permissive, eventually consistent,
+ *     and intentionally designed to not be used as an accurate accounting system"). A client
+ *     that keeps one connection, as a browser or a ward's handset does, is counted as
+ *     designed: on hosted, 2026-10-01, one connection read 6 forwarded, then limited. A
+ *     client that opens a new connection per request can exceed the limits until the counts
+ *     catch up: on hosted, 2026-10-01, 15 forwarded, twice. So the edge limits slow a
+ *     careless or naive flood and do NOT bound a deliberate one; Supabase's raised per-IP
+ *     limits (W3 hosted step a) and the register's TRIGGER on a distributed drain are the
+ *     backstop. RESTATED 2026-10-01 (R-2026-09-30-180 FD-2 a): the period bullet above stands
+ *     as it was written ("Counting is permissive, eventually consistent and per Cloudflare
+ *     location, so 2 x limit is the DESIGN bound, not a guarantee. At that bound one address
+ *     alone cannot empty a bucket"), and it holds for a client on ONE connection only. The
+ *     2 x limit rule this file asserts is the rule for that client, which is the client the
+ *     numbers are sized for.
  *
  * GUARD CLASS (Clause 5): LIVE. The bindings, the entries that name them and the handler
  * that reads them all exist at this commit.
  *
  * NOT ASSERTED HERE, deliberately: that Cloudflare accepted the bindings, or enforces the
- * numbers -- the upload is the proof (runbook, W3 hosted steps b), and counters are local
- * to each Cloudflare location and eventually consistent, so no test in this repository
- * can state what a given address will see. Assertable only by a deploy; verified by
- * scripts/readback_worker_limits.sh as a hosted step.
+ * numbers -- the upload is the proof (runbook, W3 hosted steps b), and the counters are
+ * cached on the machine that runs the Worker and updated asynchronously, so a client on one
+ * connection is counted as designed and a client that opens a new connection per request
+ * can exceed the limits until the counts catch up, and no test in this repository can state
+ * what a given address will see. Assertable only by a deploy; verified by
+ * scripts/readback_worker_limits.sh as a hosted step, over one connection. RESTATED
+ * 2026-10-02 (R-2026-09-30-181 FE-6 a), in the terms of R-2026-09-30-180 FD-2 a: until then
+ * this block read "...and counters are local to each Cloudflare location and eventually
+ * consistent, so no test in this repository can state what a given address will see".
  *
  * NOT ASSERTED HERE, deliberately: that the Worker's plan includes Workers Rate
  * Limiting. Cloudflare's rate-limit page names no plan, and a test cannot read an

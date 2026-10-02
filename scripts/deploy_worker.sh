@@ -131,7 +131,7 @@ LAST="nothing"
 i=1
 while [ "$i" -le "$ATTEMPTS" ]; do
     cst=0
-    BODY="$(curl -sS -m 12 "$STAMP_URL" 2>&1)" || cst=$?
+    BODY="$(curl -q -sS -m 12 "$STAMP_URL" 2>&1)" || cst=$?
     if [ "$cst" -eq 0 ]; then
         pst=0
         LIVE="$(node -e '

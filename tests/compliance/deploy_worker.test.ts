@@ -70,6 +70,8 @@ exit 0
   // One body per attempt, separated by "|"; the last repeats. "FAIL" means curl fails.
   write('curl', `#!/usr/bin/env bash
 echo "curl $*" >> "$STUB_LOG"
+# Every request starts with -q so curl ignores the caller's ~/.curlrc (R-2026-09-30-181 FE-5).
+[ "$1" = "-q" ] || { echo "curl stub: the first argument must be -q, so that ~/.curlrc is not read" >&2; exit 98; }
 n=$(cat "$STUB_CURL_COUNT" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$STUB_CURL_COUNT"
 IFS='|' read -r -a bodies <<< "$STUB_CURL_BODIES"
 idx=$((n - 1)); [ "$idx" -ge "\${#bodies[@]}" ] && idx=$((\${#bodies[@]} - 1))
