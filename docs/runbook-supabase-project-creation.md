@@ -4568,6 +4568,24 @@ through the admin app.
      The list includes the ward console's three control labels: "Fewer beds" (−), "More
      beds" (+) and "Beds" (the count field), which the clinicians confirm or change
      (R-2026-09-26-133 DI-3).
+     **It also includes, since R-2026-10-02-FF (-182), the five sentences W4 adds:**
+     (1) "Too many sign-in links were asked for from this network just now. Wait one minute,
+     then ask again." (the Worker limited a request for a link; admin keeps the same words);
+     (2) "Your sign-in could not be renewed just now, so this update was not sent. Your
+     sign-in is kept. Wait one minute, then tap Publish again."; (3) "This update was not
+     sent: this handset could not reach OpenBed. Check it is online, then tap Publish again.
+     Your sign-in is kept."; (4) "Your sign-in could not be renewed just now, so the handover
+     list was not loaded. Your sign-in is kept. Wait one minute, then tap Try again."; and
+     (5) "The handover list was not loaded: this handset could not reach OpenBed. Check it is
+     online, then tap Try again. Your sign-in is kept." Admin's "Your sign-in could not be
+     renewed just now. Your sign-in is kept. Wait one minute, then try again." is the
+     operator's. **And the ward console's sentences that say "Reload the page"** (the
+     "Something went wrong", "This ward's record could not be read", "The ward list could not
+     be read", "The update could not be read" and "The update was incomplete" sentences),
+     **which end the sign-in, because the session is held in memory only**, so a ward who
+     follows one needs a new emailed link from a pool the whole project shares. A reload is
+     still the right remedy for a broken row; what is wrong is that the sentence does not say
+     what it costs. The finding is the clinicians' to word.
    - [ ] Each facility's public number is answered 24/7 by someone who can confirm bed
      status, with a test call. (R-2026-09-23-66 C4)
    - [ ] A staffed phone or WhatsApp line for wards, with honest hours, in the facility
@@ -4632,6 +4650,16 @@ through the admin app.
      runbook's hosted steps a and b and Cowork's attribution read."
    - [ ] Availability of the proxy on the clinical path. (R-2026-09-19-23 D5, by
      R-2026-09-22-56 A9)
+     **Built in R-2026-10-02-FF (-182); closes on its hosted steps** (the Worker runbook's "W4
+     hosted steps"), read back together with the local proof, which is
+     `tests/db/ward_console_fallback_acceptance.test.ts`: (a) the ward console and then the admin
+     app redeployed at the merge commit, `readback_ward_console.sh` PASS (it now expects the direct
+     origin in `connect-src`) and `readback_admin.sh` PASS (it still does not); (b) the Worker
+     redeployed at the merge commit, then `readback_worker.sh` whole, probe 8 included, and probe 4
+     by Cowork; (c) the second UptimeRobot monitor created and reading green within 10 minutes, the
+     founder's screenshot being the reading. **No hosted step takes the Worker away**: no ward
+     login exists on hosted (DY-2), and production is not broken to prove a fallback. The box stays
+     open until those are read.
    - [ ] Discoverability at facility one: `robots.txt` disallows everything today, and
      the `noindex` decision. (R-2026-09-20-36 A5, with R-2026-09-20-27 C5)
      **Found on 2026-09-25, and still OPEN** (R-2026-09-25-119 CU-4 b): Cloudflare's

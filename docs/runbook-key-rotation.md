@@ -50,6 +50,15 @@ This step is what does.
    second copy anywhere — `tests/compliance/tracked_client_keys.test.ts` asserts the
    value is a client key by kind, and `tests/compliance/tracked_origins.test.ts`
    asserts the built bundles carry the tracked files.
+
+   **THE KEY ALSO LIVES IN ONE PLACE OUTSIDE THE REPOSITORY, and the same change moves it**
+   (R-2026-10-02-FF FF-5 d, -182): the URL of UptimeRobot's second monitor, the keyword monitor on
+   the Worker, carries the publishable key as its `apikey` query parameter
+   (`docs/runbook-sensor.md` section 1 holds the whole URL and says why). Edit that monitor's URL to the new value, in the same change.
+   Without it the monitor reads the old key's refusal on every rotation and goes red: loud, and wrong.
+   It is a hosted step the founder does, and nothing in this repository can check it: the nearest
+   check is `scripts/readback_worker.sh` probe 8, which sends the TRACKED key in the query on every
+   run. That proves the tracked key works in the query. It does not prove the monitor's saved URL holds it.
 4. **Build and deploy.** A key that is tracked but not deployed is exactly the stale
    state this step exists to prevent: the repository would be right and the edge
    wrong.

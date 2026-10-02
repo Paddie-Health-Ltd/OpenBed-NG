@@ -53,7 +53,7 @@ it never passes on the previous Worker.
 <HEAD> (attempt N of 12).` **Anything ending `STOP:` — do not report the deploy as
 done;** the old Worker may still be serving.
 
-## 2. The read-back — probes 1 to 3, 5, 5b, 6, 7 and the stamp, in one run
+## 2. The read-back — probes 1 to 3, 5, 5b, 6, 7, 8 and the stamp, in one run
 
 From the same deploy checkout, straight after the wrapper's `DONE`:
 
@@ -81,6 +81,7 @@ deploy. Run with no URL, or a non-https one, it STOPs before sending anything.
 | probe 5b — the same upgrade on a LISTED path, with the key | `GET /auth/v1/settings` over HTTP/1.1 with the same four headers and the tracked key | the same three values as probe 3: the Worker refuses an `Upgrade` before it reads the list |
 | probe 6 — a service the Worker never reaches | `GET /storage/v1/object/public/probe` | the same three values as probe 3 |
 | probe 7 — the sign-in link's redirect (spends one verify token) | `GET /auth/v1/verify?token=probe&type=magiclink&redirect_to=<the admin origin>/` | `x-openbed-proxy: forwarded`, a `3xx`, and a `Location` whose ORIGIN is exactly `https://admin.openbed.ng` |
+| probe 8 — the sensor's request: the key in the QUERY, no header (R-2026-10-02-FF FF-5) | `GET /auth/v1/settings?apikey=<the tracked key>` | `200`, `x-openbed-proxy: forwarded`, and a body containing `"disable_signup"` |
 | the stamp | `GET` and `HEAD /__openbed/version` | `"commit"` = this checkout's HEAD, `"dirty": false`, and `limits_bound` true for `otp`, `verify` and `refresh`; HEAD `200` with `x-openbed-proxy: stamp` |
 
 *Restated 2026-10-01 (R-2026-09-30-177 FA-1, FA-3): probes 5, 5b, 6 and 7 and `limits_bound`
@@ -92,6 +93,17 @@ origin, not the Site URL (the ward console) that Auth falls back to when it lose
 to probe 7 is recorded the first time it is read** (W3 hosted step b); the script holds only
 that it is a 3xx. `limits_bound` is the only place a missing rate-limit binding is visible,
 because the bindings are not shown in the dashboard and Worker logging is off.*
+
+*Added 2026-10-02 (R-2026-10-02-FF FF-5, -182): probe 8 is the request the second sensor monitor
+makes. UptimeRobot's Free plan has keyword monitoring but no custom HTTP headers (read
+2026-10-02: "Custom HTTP Headers & Statuses" starts at Solo), so the monitor carries the key in
+the query, where Supabase documents it as a header. **Whether the hosted gateway accepts
+`?apikey=` for a publishable key is NOT CONFIRMED until this probe reads 200 on hosted.** If it
+does not, STOP: do not create the monitor, and Cowork rules. `"disable_signup"` is in GoTrue's
+settings answer (INFERRED from its handler; probe 8 is what reads it on hosted), and the Worker's
+refusal, Cloudflare's error pages and the site's own HTML cannot contain it, so a keyword monitor
+on it cannot be satisfied by a page that is not GoTrue's. Probe 8's three checks are `rb_expect`
+reads, not legs.*
 
 *Restated 2026-09-27 (R-2026-09-27-145 DU-2; R-2026-09-27-144 DT k): probe 1's path read
 `/rest/v1/rpc/my_facility_wards` until 026 renamed that function, and probe 1b is new. The
@@ -264,11 +276,19 @@ a new connection for every request is not held to that bound (see "What the edge
 REQUESTED in one 10-second window at one address is possible at a teaching hospital, and the
 sixth request (`POST /auth/v1/otp`) can get the flat "answered" message and no email; the
 sixth link OPENED (`GET /auth/v1/verify`) in one window can get the limited-link sentence
-instead, and then the link is not spent. Whether a limited request gets its own message is
-W4's ruling. Refresh is lazy and a limited refresh is terminal today, so `LIMIT_REFRESH` can
-sign handsets out when more than its limit behind one address refresh in one window; facility
-one has one login. The full argument is in the header of
-`tests/compliance/proxy_limits_config.test.ts`.
+instead, and then the link is not spent. A request for a link that the Worker limited gets its
+own message since W4: "Too many sign-in links were asked for from this network just now. Wait one
+minute, then ask again." (R-2026-10-02-FF FF-3). Refresh is lazy, and a limited refresh no longer
+signs a handset out: it keeps the session and the old access token while that has more than 30
+seconds left, sends no refresh for 60 seconds, and otherwise tells the ward the sign-in could not be
+renewed just now and is kept (FF-2). `LIMIT_REFRESH` therefore bounds how many handsets behind one
+address may refresh in one window, and a handset past it waits a minute instead of being signed out.
+The full argument is in the header of `tests/compliance/proxy_limits_config.test.ts`.
+
+*Restated 2026-10-02 (R-2026-10-02-FF FF-2 f, FF-3, -182). Until then this paragraph read:*
+"Whether a limited request gets its own message is W4's ruling. Refresh is lazy and a limited
+refresh is terminal today, so `LIMIT_REFRESH` can sign handsets out when more than its limit behind
+one address refresh in one window; facility one has one login."
 
 *Restated 2026-10-02 (R-2026-09-30-181 FE-6 d). With per-machine counting these are at-most
 outcomes, not certainties. Until then this paragraph read:* "the sixth request (`POST
@@ -299,6 +319,86 @@ eventually consistent" and "At that design bound one address alone cannot empty 
 read as if the limits bound every client at the design figure; that holds for a client on
 one connection and does not hold for a client that opens a new connection for every
 request.*
+
+## 6. Worker down (R-2026-10-02-FF FF-6, -182; R-2026-09-19-23 D5)
+
+This answers D5's four questions, in order: what breaks, how anyone notices, what the client does, and
+what to do. **Nothing in it has been run on hosted.** No hosted step takes the Worker away: no ward
+login exists on hosted (DY-2), and production is not broken to prove a fallback. The fallback is proved
+locally, by `tests/db/ward_console_fallback_acceptance.test.ts`.
+
+### a. What breaks
+
+| The outage | The ward console | Admin | The public page | Sign-in links |
+|---|---|---|---|---|
+| **A Worker that throws or is undeployed** (Cloudflare answers its own error page, 1101 for a throw) | It falls back, so load, publish, refresh and a link request all work. A NEW sign-in does not: the emailed link opens on the Worker. | Fails, but its sessions are kept (FF-2). The operator has the Supabase dashboard. | `/beds.json` and `/api/health` read Supabase directly and are unaffected. | Dead until the Worker is back or the templates are rolled back. |
+| **A lost route or DNS** (`api.openbed.ng` does not resolve, or no route reaches the Worker) | The same as above. | The same as above. | Unaffected. | Dead, as above. |
+| **The Free plan's daily pool spent** (error 1027) | The same as above: Cloudflare's page carries no CORS header, so the browser's fetch rejects. | The same as above. | Unaffected. | Dead, as above. |
+| **Allow-list drift** (the Worker answers `refused` for a path an app calls) | It falls back on the Worker's own `refused`, which proves Supabase was never contacted, so a re-send cannot duplicate anything. | Shows the "Worker refused" sentence. Sessions are kept. | Unaffected. | Dead if the drifted path is `/auth/v1/verify`; otherwise as above. |
+| **A Cloudflare-wide outage** | **The Pages sites are down too, and nothing here helps.** | Down with the site. | Down with the site. | Nothing to open them on. |
+
+**An ISP block of `*.supabase.co` only disables the fallback**: the Worker path still works, because
+the browser reaches `api.openbed.ng`, which is not on that block.
+
+### b. How anyone notices
+
+By **the second monitor** (`docs/runbook-sensor.md` section 1): a keyword monitor on
+`api.openbed.ng/auth/v1/settings`, by email to the support address and by push to the founder's
+phone. **A ward never sees the fallback, which is the point, so that monitor is the only signal.** It
+cannot see whether the fallback itself works.
+
+### c. What the client does
+
+The ward console sends each call to the Worker first and, only when the Worker does not answer or
+answers with its own `refused`, sends the SAME call byte for byte to the Supabase origin directly; a
+publish re-sent that way replays and never writes twice (migration 026 steps 5 and 6, measured by
+`tests/db/publish_concurrent_resend.test.ts`). After a Worker failure it tries the direct origin first
+for five minutes, and a renewal that is only "not now" (a 429, a 409, a 5xx, a `refused`, or no answer)
+keeps the session and tells the ward so, where it used to sign the handset out. It never retries a
+write in the background.
+
+**The bounds, each read from the code by `tests/compliance/auth_fallback.test.ts`:** one call is at
+most two sends of 12 s, so 24 s; a refresh is three attempts of that pair with its backoff, 73.25 s
+(36 s before this change); a sign-in request is two attempts of a pair, 48 s; and a publish tap's
+`composed_at` ages at most 97.25 s, under migration 026's two-minute STALE_MUTATION window.
+
+### d. What to do
+
+1. Read the stamp and run the read-back, and write down the time and what failed:
+   `bash scripts/readback_worker.sh https://api.openbed.ng` from the deploy checkout (section 2).
+2. If a deploy caused it, redeploy the last good commit by section 1, and read back again.
+3. **If the Worker is not reading back PASS within 30 minutes of the alert, OR a ward reports it
+   cannot sign in, roll the two templates back** to the default confirmation URL variable (W3 hosted
+   step c's rollback). New links then open on the direct origin, and the console's fallback carries the
+   rest. This is the dashboard edit, and it is issued by Cowork one fence at a time:
+
+   ```text
+   Supabase dashboard, Authentication, Email Templates: in BOTH the Magic Link and the Confirm signup
+   template, put the default confirmation URL variable back as the href. Read both back.
+   ```
+
+4. Once `readback_worker.sh` reads PASS again, re-paste the tracked template bodies (the BODY only, from
+   after the header's closing line, as W3 step c does and FE-1 ruled), then read a real link back. Each
+   command is issued on its own:
+
+   ```bash
+   sed '1,/^-->$/d' docs/auth-email-templates/magic-link.html | pbcopy
+   ```
+
+   ```bash
+   sed '1,/^-->$/d' docs/auth-email-templates/confirm-signup.html | pbcopy
+   ```
+
+   ```bash
+   pbpaste | node scripts/readback_signin_link.mjs --mode admin --project-ref klrlpxysjsjpdkeqdhvl
+   ```
+
+5. Cowork reads the edge logs for the outage window, as at the monthly drill
+   (`docs/runbook-sensor.md` section 3).
+
+**NOT ASSERTED, and not assertable from this repository:** that the 30-minute figure in step 3 is the
+right one. It is a decision, taken once, and `tests/compliance/worker_down_runbook.test.ts` holds only
+that it is stated in one place.
 
 ## W3 hosted steps (R-2026-09-30-177 FA-6)
 
@@ -381,6 +481,34 @@ e. **The drill again,** by `docs/runbook-sensor.md` section 3 as amended, on the
 
 - [x] On 2026-10-01, steps a, b and c, from the dashboards and `~/Desktop/OpenBed-NG-deploy` at `48b2af5307d93b415733a499c94305808e4c4e11`. The readings are the founder's, relayed by Cowork (hosted-run-w3-2026-10-01-readings.md, in Cowork's build records; R-2026-09-30-180 FD-5 b). **Step a:** sign-ups and sign-ins per IP 30 to 600 per 5 minutes; token verifications 30 to 600; token refreshes 150 to 1500; email OTP length 8 to 10, held after save (GoTrue accepts 6 to 10 and resets anything else to 6); unchanged: emails sent 30 an hour (project-wide), OTP expiration 3600 s, SMS, anonymous and Web3; the page shows no burst figure; "Enable IP address forwarding" OFF, unchanged. PASS. **Step b:** Pseudo IPv4 on the `openbed.ng` zone read Off; `deploy_worker.sh` DONE at attempt 1 of 12, wrangler 4.134.0 listing `env.LIMIT_OTP` (5 requests/10s), `env.LIMIT_VERIFY` (5 requests/10s) and `env.LIMIT_REFRESH` (10 requests/10s), version `ea537d20-17a8-4181-9534-3048510d84a5`; **the upload accepted all three bindings on the account's free Workers plan**, which answers FA-3 a (the plan trigger in the register is untouched). `readback_worker.sh` PASS: probes 1, 1b, 2 and 3 as before; probes 5, 5b and 6 read 404, refused, the Worker's own body; probe 7 read STATUS 303, forwarded, `Location` origin exactly the admin origin (its first hosted reading); the stamp read `48b2af5`, dirty false, `limits_bound` all true. Probe 4, Cowork's reading through the Cloudflare connector: PASS, the bundle equal to `supabase-proxy/allow-list.json` at `48b2af5` entry for entry (forward 30: 14 POST, 2 GET, 14 OPTIONS; 2 direct-origin exceptions; 3 refusal probes). **Step b.2:** `readback_worker_limits.sh` STOPPED twice, 15 forwarded and none limited each time (the loop took 16 s, then 17 s); one diagnostic Cowork authorised, the same 15 verifies in a single curl invocation, read requests 1 to 6 forwarded and 7 to 15 `limited`; the cause is Cloudflare's per-machine counters, not the Worker. **Step c:** both live template bodies were Supabase's defaults before the change; the tracked BODY was pasted (from `<h2>` down, by a terminal command, never retyped); both read back equal to the tracked bodies, subjects unchanged; `readback_signin_link.mjs --mode admin` read PASS on a real operator link (`redirect_to` percent-encoded in lower case, decoding to exactly the admin origin); the operator signed in and reached the register at `admin.openbed.ng`; Cowork's `edge_logs` read, 20:25Z to 20:50Z, showed two link requests and two link opens, all from Cloudflare, and over 19:00Z to 20:50Z all 149 Cloudflare-borne requests carried one and the same client address (not recorded here). PASS. **Step e:** not run.
 
+## W4 hosted steps (R-2026-10-02-FF FF-9, -182)
+
+**Written, not run.** Cowork issues them one at a time, after the merge word on W4's pull request. Claude
+Code runs nothing hosted. They are D5's closing readings (R-2026-09-19-23 D5, by R-2026-09-22-56 A9), and
+they are read together with the local proof, `tests/db/ward_console_fallback_acceptance.test.ts`.
+
+**No hosted step takes the Worker away.** No ward login exists on hosted (DY-2), and production is not
+broken to prove a fallback. What the hosted steps prove is that every piece the fallback relies on is
+deployed and reads as it must: the ward console's CSP names the direct origin, admin's still does not, the
+Worker is at the merge commit, and the monitor that is the only signal of a Worker outage is alive.
+
+a. **The ward console, then the admin app, each redeployed at the merge commit by its own runbook**
+   (`docs/runbook-ward-console-deploy.md` and `docs/runbook-admin-deploy.md`, section 1 of each), each
+   read back before the next. `bash scripts/readback_ward_console.sh` reads PASS, and it now expects the
+   direct Supabase origin in `connect-src`; `bash scripts/readback_admin.sh` reads PASS, and it still
+   expects the API origin alone.
+b. **The Worker, redeployed at the merge commit by section 1.** There is no code change to the Worker. The
+   redeploy is for the stamp, because `readback_worker.sh` requires the stamp to equal this checkout's HEAD.
+   Then `bash scripts/readback_worker.sh https://api.openbed.ng`, whole, probe 8 included. **If probe 8
+   reads the gateway refusing the key in the query: STOP. Do not create the monitor; Cowork rules.**
+   Probe 4, the deployed source equalling the repository's, is Cowork's, through the Cloudflare connector.
+c. **The second monitor, created in UptimeRobot as `docs/runbook-sensor.md` section 1 words it**, only
+   after b reads PASS. It reads green within 10 minutes, and the founder's screenshot is the reading.
+d. **The close: D5**, in `docs/runbook-supabase-project-creation.md` step 12.4, on a, b and c together with
+   the local proof. The founder's readings are relayed by Cowork, and nothing in this repository can show them.
+
+- [ ] W4's hosted steps a, b and c. Not run.
+
 ## What stays true after this deploy, and what does not
 
 - **The emailed sign-in link is consumed through this Worker, since W3.** It opens
@@ -396,5 +524,8 @@ e. **The drill again,** by `docs/runbook-sensor.md` section 3 as amended, on the
   (R-2026-09-23-70 C2). If -55 C routes a custom domain through this Worker,
   `GET /auth/v1/verify` must be listed first, or every sign-in link breaks."
 - **The `/beds.json` Function does not use this Worker** (-58 A5); it reads the
-  Supabase origin directly until -23 D5 closes.
+  Supabase origin directly as standing design (R-2026-10-02-FF FF-7, -182).
+  *Restated 2026-10-02. Until then this bullet read:* "it reads the Supabase origin
+  directly until -23 D5 closes." `/api/health` does the same, for the same reasons and one
+  more: a health check through the Worker would report the Worker's health.
 - **Sign-up is not forwarded.** The ward identity design is invite-only.
