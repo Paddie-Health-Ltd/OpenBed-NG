@@ -52,13 +52,16 @@ const SCRIPTS = {
   admin: join(REPO_ROOT, 'scripts', ADMIN_NAME),
 };
 
-type Answer = { status: number; headers?: Record<string, string>; body?: string; bodyBase64?: string } | { fail: number } | { out: string };
+/** `connects` overrides the stub's `%{num_connects}`: 1 on a call's first URL and 0 after it, as one reused connection reads. */
+type Answer = { status: number; headers?: Record<string, string>; body?: string; bodyBase64?: string; connects?: number } | { fail: number } | { out: string };
 type Fixtures = Record<string, Answer | Answer[]>;
 
 interface Run {
   status: number;
   out: string;
   calls: string[];
+  /** One entry per curl INVOCATION, with the number of URLs it carried (`calls` holds one line per URL). */
+  invocations: { urls: number; fmt: string | null }[];
 }
 
 function git(root: string, ...args: string[]): string {
@@ -135,26 +138,24 @@ function stubBin(root: string): string {
 const fs = require('fs');
 const a = process.argv.slice(2);
 if (a[0] === '--version') { process.stdout.write((process.env.STUB_CURL_VERSION || 'curl 8.7.1 (stub)') + '\\n'); process.exit(0); }
-let method = 'GET', head = false, out = null, dump = null, fmt = null, url = null, http11 = false, getMode = false;
-const hdrs = [], data = [];
+let method = 'GET', head = false, dump = null, fmt = null, http11 = false, getMode = false, failEarly = false;
+const urls = [], outs = [], hdrs = [], data = [];
 for (let i = 0; i < a.length; i++) {
   const x = a[i];
   if (x === '-X') method = a[++i];
   else if (x === '-I') head = true;
-  else if (x === '-o') out = a[++i];
+  else if (x === '-o') outs.push(a[++i]);
   else if (x === '-D') dump = a[++i];
   else if (x === '-w') fmt = a[++i];
   else if (x === '-H') hdrs.push(a[++i]);
   else if (x === '-d' || x === '-m') i++;
   else if (x === '--http1.1') http11 = true;
+  else if (x === '--fail-early') failEarly = true;
   else if (x === '-G') getMode = true;
   else if (x === '--data-urlencode') data.push(a[++i]);
-  else if (/^https?:/.test(x)) url = x;
+  else if (/^https?:/.test(x)) urls.push(x);
 }
 if (head) method = 'HEAD';
-// -G with --data-urlencode puts each NAME=CONTENT in the query, the content percent-encoded as curl does
-// (R-2026-09-30-177 FA-1 d): a fixture is keyed on the whole URL, so a probe that drops a parameter has no answer.
-if (getMode && data.length) url += (url.includes('?') ? '&' : '?') + data.map((d) => { const j = d.indexOf('='); return d.slice(0, j) + '=' + encodeURIComponent(d.slice(j + 1)); }).join('&');
 const upgrade = hdrs.some((h) => /^Upgrade:\\s*websocket/i.test(h));
 // The three headers that make a websocket upgrade one (R-2026-09-30-178 FB-3 l): without Connection and the two Sec-WebSocket
 // headers Cloudflare's own edge answers 400 before the Worker runs, so a probe that drops one tests nothing.
@@ -166,27 +167,58 @@ for (const h of hdrs.filter((x) => x.startsWith('@'))) hdrs.push(...fs.readFileS
 const access = hdrs.some((h) => /^CF-Access-Client-Id:\\s*\\S/i.test(h)) && hdrs.some((h) => /^CF-Access-Client-Secret:\\s*\\S/i.test(h));
 const apikey = (hdrs.map((h) => /^apikey:\\s*(.*)$/i.exec(h)).find(Boolean) || [])[1];
 const browser = hdrs.some((h) => /^User-Agent:.*Mozilla\\//i.test(h)) && hdrs.some((h) => /^Accept:.*text\\/html/i.test(h));
-fs.appendFileSync(process.env.STUB_LOG, method + ' ' + url + (apikey ? ' apikey=' + apikey : '') + (browser ? ' browser' : '') + (access ? ' access' : '') + (http11 ? ' http1.1' : '') + (upgrade ? ' upgrade' : '') + (conn ? ' connection=' + conn : '') + (wsv ? ' ws-version=' + wsv : '') + (wsk ? ' ws-key=' + wsk : '') + '\\n');
+// One entry per curl INVOCATION, apart from STUB_LOG's one line per URL: the limits proof must be ONE call with 3L URLs
+// (R-2026-09-30-180 FD-1 e). The ward tests build their own env and set no invocation log.
+if (process.env.STUB_INVOKE_LOG) fs.appendFileSync(process.env.STUB_INVOKE_LOG, JSON.stringify({ urls: urls.length, fmt }) + '\\n');
 const fx = JSON.parse(fs.readFileSync(process.env.STUB_FIXTURES, 'utf8'));
-const base = method + ' ' + url;
-const cands = (apikey ? [base + ' apikey=' + apikey] : [])
-  .concat(browser && access ? [base + ' browser access'] : [], browser ? [base + ' browser'] : [], access ? [base + ' access'] : [], [base]);
-const k = cands.find((c) => c in fx) || base;
-let ans = fx[k];
-if (ans === undefined) { process.stderr.write('curl: (6) Could not resolve host (no fixture for ' + k + ')\\n'); process.exit(6); }
-if (Array.isArray(ans)) {
-  const counts = fs.existsSync(process.env.STUB_COUNTS) ? JSON.parse(fs.readFileSync(process.env.STUB_COUNTS, 'utf8')) : {};
-  const n = counts[k] || 0;
-  counts[k] = n + 1;
-  fs.writeFileSync(process.env.STUB_COUNTS, JSON.stringify(counts));
-  ans = ans[Math.min(n, ans.length - 1)];
+// -w, as real curl prints it after EACH transfer: %{http_code}, %header{name}, %{num_connects} (1 on the first URL of a
+// call, 0 on the reused connection after it, unless the answer says otherwise) and %{time_total}; a literal backslash-n
+// in the format becomes a newline.
+const wline = (status, headers, connects) => fmt
+  .replace(/%\\{http_code\\}/g, String(status))
+  .replace(/%header\\{([^}]*)\\}/g, (_, name) => { const e = Object.entries(headers || {}).find(([h]) => h.toLowerCase() === name.toLowerCase()); return e ? String(e[1]) : ''; })
+  .replace(/%\\{num_connects\\}/g, String(connects))
+  .replace(/%\\{time_total\\}/g, '0.001')
+  .replace(/\\\\n/g, '\\n');
+// STUB_CURL_DROP_W=N withholds the last N -w lines: the short output a curl that lost a transfer would print.
+const dropW = Number(process.env.STUB_CURL_DROP_W || 0);
+let rc = 0;
+for (let n = 0; n < urls.length; n++) {
+  let url = urls[n];
+  // -G with --data-urlencode puts each NAME=CONTENT in the query of EVERY url, the content percent-encoded as curl does
+  // (R-2026-09-30-177 FA-1 d): a fixture is keyed on the whole URL, so a probe that drops a parameter has no answer.
+  if (getMode && data.length) url += (url.includes('?') ? '&' : '?') + data.map((d) => { const j = d.indexOf('='); return d.slice(0, j) + '=' + encodeURIComponent(d.slice(j + 1)); }).join('&');
+  fs.appendFileSync(process.env.STUB_LOG, method + ' ' + url + (apikey ? ' apikey=' + apikey : '') + (browser ? ' browser' : '') + (access ? ' access' : '') + (http11 ? ' http1.1' : '') + (upgrade ? ' upgrade' : '') + (conn ? ' connection=' + conn : '') + (wsv ? ' ws-version=' + wsv : '') + (wsk ? ' ws-key=' + wsk : '') + '\\n');
+  const base = method + ' ' + url;
+  const cands = (apikey ? [base + ' apikey=' + apikey] : [])
+    .concat(browser && access ? [base + ' browser access'] : [], browser ? [base + ' browser'] : [], access ? [base + ' access'] : [], [base]);
+  const k = cands.find((c) => c in fx) || base;
+  let ans = fx[k];
+  if (ans === undefined) { process.stderr.write('curl: (6) Could not resolve host (no fixture for ' + k + ')\\n'); process.exit(6); }
+  if (Array.isArray(ans)) {
+    const counts = fs.existsSync(process.env.STUB_COUNTS) ? JSON.parse(fs.readFileSync(process.env.STUB_COUNTS, 'utf8')) : {};
+    const c = counts[k] || 0;
+    counts[k] = c + 1;
+    fs.writeFileSync(process.env.STUB_COUNTS, JSON.stringify(counts));
+    ans = ans[Math.min(c, ans.length - 1)];
+  }
+  if (ans.fail) {
+    process.stderr.write('curl: (' + ans.fail + ') planted failure\\n');
+    // Real curl: with --fail-early, or with one URL, a failed transfer ends the run with its code. Without it the run goes
+    // on, the failed URL prints 000, and the LAST transfer decides the exit code, so a mid-run failure exits 0.
+    if (failEarly || urls.length === 1) process.exit(ans.fail);
+    if (fmt && n < urls.length - dropW) process.stdout.write(wline('000', {}, 0));
+    rc = ans.fail;
+    continue;
+  }
+  rc = 0;
+  const text = 'HTTP/2 ' + ans.status + '\\r\\n' + Object.entries(ans.headers || {}).map(([h, v]) => h + ': ' + v + '\\r\\n').join('') + '\\r\\n';
+  if (dump) fs.writeFileSync(dump, text);
+  const body = head ? text : (ans.bodyBase64 ? Buffer.from(ans.bodyBase64, 'base64') : (ans.body || ''));
+  if (outs[n]) fs.writeFileSync(outs[n], body); else process.stdout.write(body);
+  if (fmt && n < urls.length - dropW) process.stdout.write(wline(ans.status, ans.headers, ans.connects !== undefined ? ans.connects : (n === 0 ? 1 : 0)));
 }
-if (ans.fail) { process.stderr.write('curl: (' + ans.fail + ') planted failure\\n'); process.exit(ans.fail); }
-const text = 'HTTP/2 ' + ans.status + '\\r\\n' + Object.entries(ans.headers || {}).map(([h, v]) => h + ': ' + v + '\\r\\n').join('') + '\\r\\n';
-if (dump) fs.writeFileSync(dump, text);
-const body = head ? text : (ans.bodyBase64 ? Buffer.from(ans.bodyBase64, 'base64') : (ans.body || ''));
-if (out) fs.writeFileSync(out, body); else process.stdout.write(body);
-if (fmt) process.stdout.write(fmt.replace('%{http_code}', String(ans.status)));
+process.exit(rc);
 `,
     'utf8',
   );
@@ -215,12 +247,15 @@ process.stdout.write(ans.out + '\\n');
 function run(root: string, script: string, args: string[], fixtures: Fixtures, env: Record<string, string> = {}): Run {
   const bin = stubBin(root);
   const log = join(root, 'stub.log');
+  const invokeLog = join(root, 'invocations.log');
   writeFileSync(log, '');
+  writeFileSync(invokeLog, '');
   writeFileSync(join(root, 'fixtures.json'), JSON.stringify(fixtures));
   const fullEnv = {
     ...process.env,
     PATH: `${bin}:${process.env['PATH'] ?? ''}`,
     STUB_LOG: log,
+    STUB_INVOKE_LOG: invokeLog,
     STUB_FIXTURES: join(root, 'fixtures.json'),
     STUB_COUNTS: join(root, 'counts.json'),
     READBACK_SERVED_AT_SLEEP: '0',
@@ -228,12 +263,13 @@ function run(root: string, script: string, args: string[], fixtures: Fixtures, e
     ...env,
   };
   const calls = (): string[] => readFileSync(log, 'utf8').split('\n').filter((l) => l !== '');
+  const invocations = (): { urls: number; fmt: string | null }[] => readFileSync(invokeLog, 'utf8').split('\n').filter((l) => l !== '').map((l) => JSON.parse(l) as { urls: number; fmt: string | null });
   try {
     const out = execFileSync('bash', [script, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: fullEnv });
-    return { status: 0, out, calls: calls() };
+    return { status: 0, out, calls: calls(), invocations: invocations() };
   } catch (e) {
     const err = e as { status?: number; stdout?: string; stderr?: string };
-    return { status: err.status ?? -1, out: `${err.stdout ?? ''}${err.stderr ?? ''}`, calls: calls() };
+    return { status: err.status ?? -1, out: `${err.stdout ?? ''}${err.stderr ?? ''}`, calls: calls(), invocations: invocations() };
   }
 }
 
@@ -880,12 +916,14 @@ describe('scripts/readback_worker.sh', () => {
 // scripts/readback_worker_limits.sh -- the hosted proof of the verify limit, run once.
 // ---------------------------------------------------------------------------
 
-describe('scripts/readback_worker_limits.sh (R-2026-09-30-177 FA-3 i)', () => {
+describe('scripts/readback_worker_limits.sh (R-2026-09-30-177 FA-3 i; over ONE connection, R-2026-09-30-180 FD-1)', () => {
   const LIMIT = (JSON.parse(readFileSync(join(REPO_ROOT, 'supabase-proxy', 'wrangler.json'), 'utf8')) as { ratelimits: { name: string; simple: { limit: number } }[] }).ratelimits.find((b) => b.name === 'LIMIT_VERIFY')?.simple.limit ?? 0;
   // 3L requests (FB-1 f): counting is eventually consistent, so a limited answer needs room to appear.
   const TOTAL = LIMIT * 3;
   const fwd: Answer = { status: 303, headers: { 'x-openbed-proxy': 'forwarded', location: `${ADMIN}/#error=access_denied` } };
   const lim: Answer = { status: 429, headers: { 'x-openbed-proxy': 'limited', 'retry-after': '60' } };
+  /** The one -w format the proof prints per request: a `|` separator, because an empty header field must stay a field. */
+  const W_FORMAT = '%{http_code}|%header{x-openbed-proxy}|%{num_connects}|%{time_total}\\n';
   /** L forwarded, then the rest limited: the answers a live limit gives. */
   const live = (): Answer[] => [...Array.from({ length: LIMIT }, () => fwd), ...Array.from({ length: TOTAL - LIMIT }, () => lim)];
   /** The limited tail after one planted answer at position L+1. */
@@ -896,18 +934,38 @@ describe('scripts/readback_worker_limits.sh (R-2026-09-30-177 FA-3 i)', () => {
       mutate?.(work);
       return run(root, SCRIPTS.limits, [API, work], { [VERIFY_GET]: answers }, env);
     });
+  /** As `go`, with a `sleep` that logs, so a test can say whether the pause ran before a refusal. */
+  const goLoggingSleep = (answers: Answer[] | Answer, env: Record<string, string> = {}) =>
+    withScratch((root) => {
+      const work = repo(root);
+      mkdirSync(join(root, 'bin'), { recursive: true });
+      writeFileSync(join(root, 'bin', 'sleep'), `#!/usr/bin/env bash\necho "SLEEP $1" >> "$STUB_LOG"\n`, 'utf8');
+      chmodSync(join(root, 'bin', 'sleep'), 0o755);
+      return run(root, SCRIPTS.limits, [API, work], { [VERIFY_GET]: answers }, env);
+    });
 
   test('the limit under test is read from wrangler.json, and is a real number', () => {
     expect(LIMIT, 'wrangler.json holds no LIMIT_VERIFY limit, so every leg below tested a limit of zero').toBeGreaterThan(0);
   });
 
-  test('real read-back is accepted — L forwarded then a `limited` 429 gives PASS, after 3L requests with all three parameters', () => {
+  test('real read-back is accepted — L forwarded then a `limited` 429 gives PASS, from ONE curl invocation of 3L URLs with all three parameters (FD-1 e)', () => {
     const r = go(live());
     expect(r.status, r.out).toBe(0);
     expect(r.out).toContain(`PASS: the first ${LIMIT} verify requests were forwarded and a later one was limited by the Worker`);
-    expect(r.calls.length, 'the proof did not send 3L requests').toBe(LIMIT * 3);
+    expect(r.invocations, 'the proof was not ONE curl call, so its requests did not share a connection').toEqual([{ urls: TOTAL, fmt: W_FORMAT }]);
+    expect(r.calls.length, 'the proof did not send 3L requests').toBe(TOTAL);
     expect(r.calls.every((c) => c === `GET ${VERIFY_PROBE_URL}`), r.calls.join('\n')).toBe(true);
     expect(r.out).toContain(`  ok     request ${LIMIT + 1} of ${TOTAL}: 429, x-openbed-proxy 'limited'`);
+    expect(r.out).toContain(`  ok     connection reuse: every one of the ${TOTAL - 1} requests after the first reused its connection`);
+  });
+
+  test('real read-back is accepted — L+1 forwarded then limited is eventual consistency, as hosted read 6 forwarded then 9 limited (FD-1 e)', () => {
+    const answers: Answer[] = [...Array.from({ length: LIMIT + 1 }, () => fwd), ...Array.from({ length: TOTAL - LIMIT - 1 }, () => lim)];
+    const r = go(answers);
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).toContain(`  ok     request ${LIMIT + 1} of ${TOTAL}: 303, x-openbed-proxy 'forwarded'`);
+    expect(r.out).toContain(`  ok     request ${LIMIT + 2} of ${TOTAL}: 429, x-openbed-proxy 'limited'`);
+    expect(r.out).toContain('PASS: ');
   });
 
   test('it sleeps 61 seconds before the FIRST request, unless told otherwise', () => {
@@ -938,12 +996,37 @@ describe('scripts/readback_worker_limits.sh (R-2026-09-30-177 FA-3 i)', () => {
     expect(r.out).toContain(msg);
   });
 
-  test('plant — no 429 at all is a STOP that says to wait 2 minutes and run it once more, and that a second such run is Cowork\'s', () => {
+  test('plant — an answer with NO x-openbed-proxy header reads an empty field, not a shifted one (FD-1 a: the separator keeps an empty field)', () => {
+    const r = go({ status: 303 });
+    expectStopAt(r, `request 1 of ${TOTAL}`);
+    expect(r.out).toContain(`read '303, x-openbed-proxy ''`);
+    // A separator that collapsed the empty field would shift the connection count into its place and misread it.
+    expect(r.out).toContain(`  ok     connection reuse: every one of the ${TOTAL - 1} requests after the first reused its connection`);
+  });
+
+  test('plant — no 429 at all is a STOP THE FIRST TIME, with the elapsed seconds, and no advice to wait and run it again (FD-1 c)', () => {
     const r = go(fwd);
     expectStopAt(r, 'a limited answer');
-    expect(r.out).toContain('wait 2 minutes and run this once more. A second run with no 429 is a real STOP for Cowork');
-    expect(r.out, "the STOP did not print the loop's elapsed seconds").toMatch(/none in \d+ requests, loop took \d+s/);
+    expect(r.out).toContain('Over one connection a miss is a real STOP the first time: paste this whole output back for Cowork');
+    expect(r.out, 'the old advice to wait and run it again is back').not.toContain('wait 2 minutes and run this once more');
+    expect(r.out, "the STOP did not print the call's elapsed seconds").toMatch(/none in \d+ requests over one connection, the call took \d+s/);
     expect(r.calls.length).toBe(TOTAL);
+  });
+
+  test('plant — a request after the first that opened a NEW connection reads WRONG, because the count was split across machines (FD-1 b)', () => {
+    const answers = live();
+    answers[LIMIT + 1] = { ...lim, connects: 1 };
+    const r = go(answers);
+    expectStopAt(r, 'connection reuse');
+    expect(r.out).toContain(`read '1 of the ${TOTAL - 1} requests after the first opened a new connection'`);
+    expect(r.out).toContain('the requests did not share one connection, so the count was split across machines and proves nothing');
+  });
+
+  test('plant — every request on its own connection is the connection STOP and nothing else: the missing 429 is explained by it, not reported twice (FD-1 b)', () => {
+    const r = go({ ...fwd, connects: 1 } as Answer);
+    expectStopAt(r, 'connection reuse');
+    expect(r.out).toContain(`read '${TOTAL - 1} of the ${TOTAL - 1} requests after the first opened a new connection'`);
+    expect(r.out, 'the no-429 verdict was printed on top of the connection one').not.toContain('  WRONG  a limited answer: ');
   });
 
   test('could not run — a curl failure is an ERROR with no verdict', () => {
@@ -952,6 +1035,59 @@ describe('scripts/readback_worker_limits.sh (R-2026-09-30-177 FA-3 i)', () => {
     expect(r.out).toContain(`ERROR: curl exited 7 on GET ${API}/auth/v1/verify -- the check did not run`);
     expect(r.out).not.toContain('PASS:');
     expect(r.out).not.toContain('STOP:');
+  });
+
+  test('could not run — a curl failure PART WAY is an ERROR, never a 000 read as a STOP (FD-1 a: --fail-early)', () => {
+    // Without --fail-early real curl goes on after a failed URL, prints 000 for it and exits 0 when the last URL succeeds.
+    const answers: Answer[] = [...Array.from({ length: LIMIT + 1 }, () => fwd), { fail: 7 }, ...Array.from({ length: TOTAL - LIMIT - 2 }, () => lim)];
+    const r = go(answers);
+    expect(r.status, r.out).toBe(2);
+    expect(r.out).toContain(`ERROR: curl exited 7 on GET ${API}/auth/v1/verify -- the check did not run`);
+    expect(r.out).not.toContain('WRONG');
+    expect(r.out).not.toContain('STOP:');
+  });
+
+  test('could not run — fewer -w lines than requests is an ERROR, because the connection check would read a gap (FD-1 a)', () => {
+    const r = go(live(), { STUB_CURL_DROP_W: '1' });
+    expect(r.status, r.out).toBe(2);
+    expect(r.out).toContain(`ERROR: curl printed ${TOTAL - 1} result lines for ${TOTAL} requests sent in one call, so the connection check has nothing to read -- nothing was proved`);
+    expect(r.out).not.toContain('PASS:');
+    expect(r.out).not.toContain('STOP:');
+    expect(r.invocations.length, 'the short-output plant did not reach the one call').toBe(1);
+  });
+
+  test.each([
+    ['7.83.1, just below the first curl with %header{}', 'curl 7.83.1 (x86_64-apple-darwin) libcurl/7.83.1'],
+    ['7.54.0', 'curl 7.54.0 (stub)'],
+    ['6.9.9', 'curl 6.9.9 (stub)'],
+  ])('could not run — curl %s is an ERROR naming the version line, before the sleep, with nothing sent (FD-1 a)', (_label, line) => {
+    const r = goLoggingSleep(live(), { STUB_CURL_VERSION: line });
+    expect(r.status, r.out).toBe(2);
+    expect(r.out).toContain(`ERROR: the -w option's %header{} needs curl 7.84.0 or later, and this curl reads ${line}, so the proof cannot read the Worker's answers; nothing was sent`);
+    expect(r.calls, 'the sleep ran, or a request went out, before the version was read').toEqual([]);
+    expect(r.invocations).toEqual([]);
+  });
+
+  test.each([
+    ['not a curl version line at all', 'not curl at all'],
+    ['a version with no minor number', 'curl 8 (stub)'],
+    ['a version whose numbers are not numbers', 'curl x.y.z (stub)'],
+  ])('could not run — %s is an ERROR too: an unreadable version is not a pass (FD-1 a)', (_label, line) => {
+    const r = goLoggingSleep(live(), { STUB_CURL_VERSION: line });
+    expect(r.status, r.out).toBe(2);
+    expect(r.out).toContain(`ERROR: the -w option's %header{} needs curl 7.84.0 or later, and this curl reads ${line}, so the proof cannot read the Worker's answers; nothing was sent`);
+    expect(r.calls).toEqual([]);
+  });
+
+  test.each([
+    ['7.84.0, the first curl with %header{}', 'curl 7.84.0 (stub)'],
+    ['7.100.2, a minor number with three digits', 'curl 7.100.2 (stub)'],
+    ['8.0.1, a higher major with a lower minor', 'curl 8.0.1 (stub)'],
+    ['8.7.1, the ordinary current curl', 'curl 8.7.1 (stub)'],
+  ])('real read-back is accepted — curl %s passes the version check (FD-1 a)', (_label, line) => {
+    const r = go(live(), { STUB_CURL_VERSION: line });
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).toContain('PASS: ');
   });
 
   test('could not run — a wrangler.json with no LIMIT_VERIFY is an ERROR, and nothing is sent', () => {

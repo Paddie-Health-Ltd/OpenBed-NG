@@ -106,7 +106,58 @@ rb_fetch() {
         RB_CODE="$(curl -sS -m 12 -X "$method" -D "$RB_TMP/headers" -o "$RB_TMP/body" -w '%{http_code}' "$@" "$url")" || st=$?
     fi
     if [ "$st" -ne 0 ]; then
-        echo "ERROR: curl exited $st on $method $url -- the check did not run, so this read-back has no verdict"
+        rb_curl_error "$method" "$url" "$st"
+    fi
+}
+
+# rb_curl_error METHOD URL ST -- a curl that exited non-zero: the check did not run. The one
+# place the message lives, so rb_fetch and rb_fetch_times cannot say it two ways. Called
+# directly, never inside $(...): an exit in a command substitution ends only the substitution.
+rb_curl_error() {
+    local method="$1" url="$2" st="$3"
+    echo "ERROR: curl exited $st on $method $url -- the check did not run, so this read-back has no verdict"
+    exit 2
+}
+
+# rb_fetch_times METHOD URL TIMES [curl arguments...] -- TIMES requests to the same URL in
+# ONE curl invocation (R-2026-09-30-180 FD-1 a), so that they share one connection. A curl
+# per request opens a new connection each time, and Cloudflare caches each rate-limit count
+# on the machine that runs the Worker and syncs it asynchronously, so those requests land
+# on machines whose counts have not caught up and prove nothing about a limit. Each URL gets
+# its own `-o /dev/null`, and the extra arguments (a `-G` with its `--data-urlencode`s)
+# apply to every URL. `--fail-early` is what makes a failed URL part way through an ERROR:
+# without it curl prints 000 for that URL, goes on, and exits 0 when the last URL succeeds.
+# The results are four arrays, one element per request: RB_T_CODE, RB_T_WHO (the Worker's
+# x-openbed-proxy header, empty when absent), RB_T_CONNECTS (`%{num_connects}`: 1 on the
+# first request of a fresh process, 0 on a reused connection) and RB_T_TIME. The separator is
+# `|` and not a tab, because a tab collapses an empty header field into its neighbours under
+# IFS word-splitting and the fields would shift.
+rb_fetch_times() {
+    local method="$1" url="$2" times="$3" st=0 out line code who connects secs got=0 i=1 args=()
+    shift 3
+    while [ "$i" -le "$times" ]; do
+        args+=(-o /dev/null "$url")
+        i=$((i + 1))
+    done
+    out="$(curl -sS -m 12 --fail-early -X "$method" -w '%{http_code}|%header{x-openbed-proxy}|%{num_connects}|%{time_total}\n' "$@" "${args[@]}")" || st=$?
+    if [ "$st" -ne 0 ]; then
+        rb_curl_error "$method" "$url" "$st"
+    fi
+    RB_T_CODE=()
+    RB_T_WHO=()
+    RB_T_CONNECTS=()
+    RB_T_TIME=()
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        IFS='|' read -r code who connects secs <<<"$line"
+        RB_T_CODE[got]="$code"
+        RB_T_WHO[got]="$who"
+        RB_T_CONNECTS[got]="$connects"
+        RB_T_TIME[got]="$secs"
+        got=$((got + 1))
+    done <<<"$out"
+    if [ "$got" -ne "$times" ]; then
+        echo "ERROR: curl printed $got result lines for $times requests sent in one call, so the connection check has nothing to read -- nothing was proved"
         exit 2
     fi
 }
@@ -140,7 +191,14 @@ page_probe() {
 api_probe() {
     local method="$1" path_part="$2"
     shift 2
-    rb_fetch "$method" "$API$path_part" "$@"
+    if [ "${1:-}" = --rb-times ]; then
+        # `--rb-times N`: N requests in one curl call, over one connection (rb_fetch_times).
+        local times="${2:-}"
+        shift 2
+        rb_fetch_times "$method" "$API$path_part" "$times" "$@"
+    else
+        rb_fetch "$method" "$API$path_part" "$@"
+    fi
 }
 
 # rb_header NAME -- the value of a response header (case-insensitive), or empty.

@@ -4573,12 +4573,19 @@ through the admin app.
    - [ ] A staffed phone or WhatsApp line for wards, with honest hours, in the facility
      agreement and the onboarding pack. The ward-facing support address is the interim contact.
      This also carries -66's "an operator contact number". (R-2026-09-23-67 B3)
-   - [ ] Where the magic-link emails point: the verify link is on `*.supabase.co`, and
+   - [x] Where the magic-link emails point: the verify link is on `*.supabase.co`, and
      the custom-domain decision is needed. (R-2026-09-22-55 C)
-     **Built 2026-10-01 (R-2026-09-30-177 FA-2), not closed.** The founder declined the
-     custom domain, so option T1: the two templates in `docs/auth-email-templates/` link
-     to `api.openbed.ng`, and `GET /auth/v1/verify` is forwarded by the Worker. It closes
-     on the hosted steps in the Worker runbook (step c's PASS, and the sign-in).
+     **CLOSED 2026-10-01 (R-2026-09-30-180 FD-4 c).** On the Worker runbook's step c: both
+     templates switched (the dashboard's bodies read back equal to the tracked bodies, the
+     subjects unchanged), `readback_signin_link.mjs --mode admin` PASS on a real operator
+     link, the operator signed in and reached the register at `admin.openbed.ng`, and
+     Cowork's edge-log read showed the two link requests and the two link opens, all
+     arriving from Cloudflare. The readings are in -180. *Restated 2026-10-01: until then
+     this box read:* "**Built 2026-10-01 (R-2026-09-30-177 FA-2), not closed.** The founder
+     declined the custom domain, so option T1: the two templates in
+     `docs/auth-email-templates/` link to `api.openbed.ng`, and `GET /auth/v1/verify` is
+     forwarded by the Worker. It closes on the hosted steps in the Worker runbook (step c's
+     PASS, and the sign-in)."
    - [x] The sensor bundle, sequenced after Bundle 3 and before facility one.
      (R-2026-09-22-54 B)
      **CLOSED 2026-09-30 (R-2026-09-30-177 FA-5 d).** The sensor shipped as W1 and W2 and
@@ -4597,17 +4604,32 @@ through the admin app.
      R-2026-09-22-56 A9)
      **CLOSED 2026-09-30 (R-2026-09-30-174 EX-3).** The scope text landed as DL-6 a, and the
      founder approved paperwork register row 3 on 2026-09-29 (accepted as reported).
-   - [ ] The proxy's surface: methods, services reached, websocket upgrades,
+   - [x] The proxy's surface: methods, services reached, websocket upgrades,
      `Location` under `redirect: "manual"`, and CORS. (R-2026-09-19-23 D3, by
      R-2026-09-22-56 A9)
-     **Built 2026-10-01 (R-2026-09-30-177 FA-1), not closed.** The surface is the Worker
-     runbook's section 5, and probes 5, 5b, 6 and 7 read it on hosted; it closes on those.
-   - [ ] Attribution: which client address Supabase sees. (R-2026-09-19-23 D4, by
+     **CLOSED 2026-10-01 (R-2026-09-30-180 FD-4 a).** Probes 5, 5b, 6 and 7 read PASS on
+     hosted: the websocket upgrade is refused on `/realtime/v1/websocket` and on listed
+     `GET /auth/v1/settings` (404, the Worker's own body), `/storage/v1/object/public/probe`
+     is refused, and `GET /auth/v1/verify` answers 303, forwarded, with its `Location` on
+     exactly the admin origin (probe 7's first hosted reading). *Restated 2026-10-01: until
+     then this box read:* "**Built 2026-10-01 (R-2026-09-30-177 FA-1), not closed.** The
+     surface is the Worker runbook's section 5, and probes 5, 5b, 6 and 7 read it on
+     hosted; it closes on those."
+   - [x] Attribution: which client address Supabase sees. (R-2026-09-19-23 D4, by
      R-2026-09-22-56 A9)
-     **Read 2026-09-30, built 2026-10-01, not closed (R-2026-09-30-177 FA-3).** Every
-     request through the Worker reached Supabase from one Cloudflare address, so every
-     ward shares one per-IP bucket; the edge limits bound each client. It closes on the
-     Worker runbook's hosted steps a and b and Cowork's attribution read.
+     **CLOSED 2026-10-01 (R-2026-09-30-180 FD-4 b).** On the Worker runbook's step a
+     (Supabase's per-IP limits raised, each read back after a reload); the one-connection
+     limits read (6 forwarded, then 9 answered `limited`, which is the limit of 5 plus one
+     from eventual consistency); `limits_bound` all true in the Worker's stamp; and
+     Cowork's attribution reads of 2026-09-30 and 2026-10-01 (every request through the
+     Worker reaches Supabase from one Cloudflare address). **What this does not claim:**
+     the edge limits slow a careless or naive flood and do not bound a deliberate one
+     (FD-2); Supabase's raised per-IP limits and the register's distributed-drain TRIGGER
+     are the backstop. *Restated 2026-10-01: until then this box read:* "**Read
+     2026-09-30, built 2026-10-01, not closed (R-2026-09-30-177 FA-3).** Every request
+     through the Worker reached Supabase from one Cloudflare address, so every ward shares
+     one per-IP bucket; the edge limits bound each client. It closes on the Worker
+     runbook's hosted steps a and b and Cowork's attribution read."
    - [ ] Availability of the proxy on the clinical path. (R-2026-09-19-23 D5, by
      R-2026-09-22-56 A9)
    - [ ] Discoverability at facility one: `robots.txt` disallows everything today, and

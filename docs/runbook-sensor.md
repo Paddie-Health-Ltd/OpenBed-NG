@@ -236,8 +236,12 @@ analytics for that hostname, filtered to status `429`, which is an aggregate and
 address (the Worker keeps no request logs, DL-3); and any Supabase `429` on
 `/auth/v1/otp`, `/auth/v1/verify` or `/auth/v1/token` at the Worker's address, from
 Supabase's edge logs. **That read is the reader of the register's trigger on the shared
-per-IP bucket** (R-2026-09-30-177 FA-5 e): a Supabase `429` there means the edge limits no
-longer protect the other wards, and the trigger has fired. If Cloudflare's analytics does
+per-IP bucket** (R-2026-09-30-177 FA-5 e): a Supabase `429` there means the edge limits
+did not hold back the traffic that reached Supabase (they slow a careless or naive flood
+and do not bound a deliberate one, because Cloudflare's counters are per machine and
+synced asynchronously), and the trigger has fired. *Restated 2026-10-01
+(R-2026-09-30-180 FD-2 a): until then this read* "means the edge limits no longer protect
+the other wards, and the trigger has fired". If Cloudflare's analytics does
 not offer the status filter, record that: the Worker-side half of this read is then NOT
 ASSERTED, and the Supabase half stands alone.
 
