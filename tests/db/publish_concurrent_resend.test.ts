@@ -83,6 +83,17 @@ afterAll(async () => {
   await observer.end({ timeout: 5 });
 });
 
+/**
+ * The ward's version, READ from the database at the start of each test (R-2026-10-02-FG, -183). It was a module variable
+ * the first test updated at its END, so when that test failed (as it must under the FOR UPDATE neuter, V10) the second
+ * test sent a STALE expected version and failed too: a cascade, not independent evidence. Each test now reads its own.
+ */
+async function currentVersion(): Promise<number> {
+  const [row] = await sql()<{ version: number }[]>`select version from app.ward_status where facility_id = ${FAC}::uuid and category = ${CATEGORY}`;
+  if (row === undefined) throw new Error('the probe ward does not exist');
+  return row.version;
+}
+
 interface PublishRow {
   readonly replayed: boolean;
   readonly version: number;
@@ -93,6 +104,7 @@ describe('a re-send while the first send is still running', () => {
     const mutationId = randomUUID();
     const composedAt = new Date().toISOString();
     const claims = JSON.stringify({ sub: session.userId, role: 'authenticated', aud: 'authenticated', session_id: randomUUID(), email: EMAIL });
+    version = await currentVersion();
     const body = [CATEGORY, 'OFFERED', 7, true, null, version, mutationId, composedAt] as const;
 
     const call = async (tx: postgres.TransactionSql): Promise<PublishRow> => {
@@ -153,6 +165,7 @@ describe('a re-send while the first send is still running', () => {
   });
 
   test('control — the ordinary sequential re-send, after the first has committed, is also a replay with no new row', async () => {
+    version = await currentVersion();
     const mutationId = randomUUID();
     const composedAt = new Date().toISOString();
     const claims = JSON.stringify({ sub: session.userId, role: 'authenticated', aud: 'authenticated', session_id: randomUUID(), email: EMAIL });
