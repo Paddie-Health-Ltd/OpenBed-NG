@@ -23,8 +23,8 @@ _Added by R-2026-09-29-171 (EU-4), the last item of the `scripts/` survey. One r
 | commit.sh | The one commit entry point: the gate is the commit's precondition, not a remembered step. | `tests/compliance/commit_gate.test.ts`, `tests/compliance/runner_aggregation.test.ts` | yes | probed | 3 / 1 | OK |
 | deferred_register.d.mts | Types for deferred_register.mjs, so a TypeScript test imports its parser, not a copy. | via deferred_register.mjs, the module it declares: `tests/compliance/deferred_register_types.test.ts` | yes | probed | 0 / 0 | OK |
 | deferred_register.mjs | The register's strict parser, importable by its test and by pr_evidence.mjs alike. | via deferred_items.test.ts, pr_evidence.mjs: `tests/compliance/deferred_items.test.ts`, `tests/compliance/pr_evidence.test.ts` | yes | probed | 0 / 0 | OK |
-| deploy_pages.sh | Deploy a Pages app, refusing a dirty or unmerged tree and an unknown app. | `tests/compliance/deploy_guards.test.ts` | yes | probed | 15 / 1 | NOT ASSERTED |
-| deploy_worker.sh | Deploy the api.openbed.ng Worker with deploy_pages.sh's refusals, then read its stamp back. | `tests/compliance/deploy_worker.test.ts` | yes | probed | 10 / 1 | NOT ASSERTED |
+| deploy_pages.sh | Deploy a Pages app, refusing a dirty or unmerged tree and an unknown app. | `tests/compliance/deploy_guards.test.ts` | yes | probed | 16 / 1 | NOT ASSERTED |
+| deploy_worker.sh | Deploy the api.openbed.ng Worker with deploy_pages.sh's refusals, then read its stamp back. | `tests/compliance/deploy_worker.test.ts` | yes | probed | 11 / 1 | NOT ASSERTED |
 | freeze_applied_migrations.mjs | Record what hosted applied; refuse a ledger count that disagrees with the repository. | `tests/compliance/freeze_applied_migrations.test.ts` | yes | probed | 8 / 0 | OK |
 | gate.sh | One command, one exit status for the local pre-merge checks; not a control. | `tests/compliance/runner_aggregation.test.ts` | yes | probed | 2 / 0 | OK |
 | get_extra_search_path.sh | Print only PostgREST's db_extra_search_path; the endpoint's answer also carries jwt_secret. | `tests/compliance/get_extra_search_path.test.ts` | yes | probed | 11 / 0 | NOT ASSERTED |
@@ -45,7 +45,7 @@ _Added by R-2026-09-29-171 (EU-4), the last item of the `scripts/` survey. One r
 | lint_sql_quoted_in_prose.sh | Prose SQL comparing to an unquoted YES, NO or UNKNOWN is caught; readers copy it. | `tests/compliance/lint_sql_quoted_in_prose.test.ts` | yes | probed | 9 / 0 | OK |
 | neuter.sh | The tracked neuter harness: plant, run the named tests, restore; an untracked one lied. | `tests/compliance/neuter.test.ts` | yes | probed | 10 / 2 | OK |
 | neuter_plant.mjs | neuter.sh's plant half; a plant that does not land is fatal. | `tests/compliance/neuter.test.ts` | yes | probed | 13 / 0 | OK |
-| pr_evidence.mjs | The PR evidence block, only from one CI run's artefacts, bound to the tested merge. | `tests/compliance/pr_evidence.test.ts` | yes | probed | 42 / 0 | OK |
+| pr_evidence.mjs | The PR evidence block, only from one CI run's artefacts, bound to the tested merge. | `tests/compliance/pr_evidence.test.ts` | yes | probed | 47 / 0 | OK |
 | predict_counts.mjs | Predict totals from an artefact baseline plus typed deltas; a typed baseline is refused. | `tests/compliance/predict_counts.test.ts` | yes | probed | 22 / 0 | OK |
 | provision_target.mjs | The host check: a local run never reaches hosted; hosted writes only the named project. | via provision_ward_account.mjs: `tests/compliance/provision_ward_account.test.ts`, `tests/db/provision_script.test.ts` | yes | probed | 0 / 0 | OK |
 | provision_ward_account.mjs | Provision one reporting account through the SQL gates, with one confirmed Auth user. | `tests/db/provision_script.test.ts`, `tests/compliance/provision_ward_account.test.ts` | yes | probed | 18 / 2 | NOT ASSERTED |

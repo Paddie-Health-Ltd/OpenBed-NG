@@ -68,6 +68,21 @@ gateway accepts it in the query is NOT CONFIRMED until `scripts/readback_worker.
 PASS. The keyword is GoTrue's own: the Worker's refusal, Cloudflare's error pages and the site's HTML
 cannot contain it, so only a real settings answer keeps the monitor green.
 
+**Created by the founder on 2026-10-03, reading green; the keyword was entered with its quotes.** Its
+name is "OpenBed Worker (api.openbed.ng)", type Keyword, every 5 minutes, alerting when the keyword does
+not exist, to the support address by email and the founder's phone app. The URL, carrying the publishable
+key in the query, was put on the clipboard from the tracked file and never printed. The founder's screenshot
+of the monitor list shows both monitors green ("OpenBed health" up 2 days 20 hours, this one up 3 minutes
+41 seconds). That is the founder's reading, relayed by Cowork, not something this repository can show
+(R-2026-10-03-FH FH-1 d, -184).
+
+*Restated 2026-10-03 (R-2026-10-03-FH FH-1 c, -184). **Probe 8 read PASS on hosted** on the founder's W4
+run of 2026-10-03: 200, `forwarded`, with `disable_signup` found, so the hosted gateway DOES accept the key
+in the query, and the monitor was created after it, as the order required. Until then this paragraph said
+"whether the hosted gateway accepts it in the query is NOT CONFIRMED until `scripts/readback_worker.sh`
+probe 8 reads it" and "Create this monitor only after probe 8 reads PASS". Both sentences are kept above as
+the order the steps were meant to run in; the first no longer holds.*
+
 **What the second monitor watches:** DNS, the route, the Worker running, the allow-list forwarding
 `/auth/v1/settings`, and Supabase's gateway answering. **What it cannot see: whether the ward console's
 fallback works.** A ward never sees the fallback, which is the point, so this monitor is the only signal

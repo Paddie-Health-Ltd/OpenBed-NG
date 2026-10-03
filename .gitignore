@@ -31,6 +31,10 @@ supabase/.temp/
 # `.dev.vars.<environment>` in preference to `.dev.vars` (observed in the pinned
 # wrangler 4.134.0), and the bare line above did not match it. The negation must
 # stay AFTER the glob or the glob re-ignores the template.
+# Restated 2026-10-03 (R-2026-10-03-FH FH-4 b): the pin is now wrangler 4.147.0. The
+# reading above, "observed in the pinned wrangler 4.134.0", is dated and kept as it was;
+# it was NOT repeated on 4.147.0. Nothing here depends on it staying true: the glob
+# matches every `.dev.vars.*` whichever of them wrangler loads.
 .dev.vars
 .dev.vars.*
 !.dev.vars.example
