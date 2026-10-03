@@ -39,10 +39,15 @@ import { dbUrl } from '../setup/local-keys.js';
  * tests that pick "the first ward by order" (retention_jobs, migration_024_round_trip) do not meet it first.
  * A re-run without a database reset finds the rows and uses them: the version is READ, never assumed.
  *
- * NOT ASSERTED HERE, deliberately: that this test would go red without step 5's FOR UPDATE. A neuter would need
- * to rewrite migration 026 and reset the database, which the compliance neuter harness does not do. The
- * assertion that B was blocked on a lock is the nearest evidence that the lock is in the path, and a function
- * with the lock removed would show no blocked backend and reds there, but that is argued, not run.
+ * NOT ASSERTED HERE, deliberately: that this test would go red without step 5's FOR UPDATE, BY THE TEST ITSELF in CI. CI cannot
+ * apply a modified migration to its database. RESTATED 2026-10-03 (R-2026-10-02-FG, -183): the neuter WAS run, once, by
+ * scripts/neuter.sh with its `apply` and `probe` hooks (the harness re-applies the planted 026 to the local database and
+ * probes the function body's md5, then restores and re-probes), and it reddened exactly this plant, with the sequential
+ * control green. So the lock IS in the path, measured, not argued; the run is a session fact, not a CI one. The old text,
+ * kept: "A neuter would need to rewrite migration 026 and reset the database, which the compliance neuter harness does not
+ * do ... a function with the lock removed would show no blocked backend and reds there, but that is argued, not run."
+ * (2026-10-02). WHICH assertion inside the plant reddened (the lock-wait observation, or an exception from B) was not read:
+ * the harness reports test names, not messages.
  * NOT ASSERTED HERE: the Worker, the fallback, or HTTP. That is ward_console_fallback_acceptance.test.ts.
  */
 
