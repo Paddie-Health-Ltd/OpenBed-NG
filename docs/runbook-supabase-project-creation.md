@@ -4571,15 +4571,22 @@ through the admin app.
      **It also includes, since R-2026-10-02-FF (-182), the five sentences W4 adds:**
      (1) "Too many sign-in links were asked for from this network just now. Wait one minute,
      then ask again." (the Worker limited a request for a link; admin keeps the same words);
-     (2) "Your sign-in could not be renewed just now, so this update was not sent. Your
-     sign-in is kept. Wait one minute, then tap Publish again."; (3) "This update was not
-     sent: this handset could not reach OpenBed. Check it is online, then tap Publish again.
-     Your sign-in is kept."; (4) "Your sign-in could not be renewed just now, so the handover
-     list was not loaded. Your sign-in is kept. Wait one minute, then tap Try again."; and
-     (5) "The handover list was not loaded: this handset could not reach OpenBed. Check it is
-     online, then tap Try again. Your sign-in is kept." Admin's "Your sign-in could not be
-     renewed just now. Your sign-in is kept. Wait one minute, then try again." is the
-     operator's. **And the ward console's sentences that say "Reload the page"** (the
+     (2) "Your sign-in could not be renewed just now, so this update was not published. Your
+     sign-in is kept. Wait one minute, then tap Publish again."; (3) "This update may not have
+     been sent: the connection to OpenBed failed. Check this handset is online, then tap
+     Publish again. It will not be counted twice. Your sign-in is kept."; (4) "Your sign-in
+     could not be renewed just now, so the handover list was not loaded. Your sign-in is kept.
+     Wait one minute, then tap Try again."; and (5) "The handover list did not load: the
+     connection to OpenBed failed. Check this handset is online, then tap Try again. Your
+     sign-in is kept." Admin's "Your sign-in could not be renewed just now. Your sign-in is
+     kept. Wait one minute, then try again." is the operator's, and its "Try again" button.
+     *Restated 2026-10-03 (R-2026-10-02-FG FG-4 a, -183): sentences (2), (3) and (5) read, until
+     then, "...so this update was not sent...", "This update was not sent: this handset could not
+     reach OpenBed. Check it is online, then tap Publish again. Your sign-in is kept." and "The
+     handover list was not loaded: this handset could not reach OpenBed. Check it is online, then
+     tap Try again. Your sign-in is kept." Each was false on a path that reaches it: a lost
+     answer, a body that failed to read, and a kept token's 401. No test holds this list; the
+     report reads it back.* **And the ward console's sentences that say "Reload the page"** (the
      "Something went wrong", "This ward's record could not be read", "The ward list could not
      be read", "The update could not be read" and "The update was incomplete" sentences),
      **which end the sign-in, because the session is held in memory only**, so a ward who

@@ -15,6 +15,10 @@ import { WARD_SUPPORT_EMAIL } from '@openbed/origins/support';
  *
  * WHAT STAYS IN main.ts: the page, the form, the handover list, and every sentence that belongs to a
  * screen rather than to a publish (the new renewal and unreachable sentences among them).
+ * RESTATED 2026-10-03 (R-2026-10-02-FG FG-4 c, -183): UNREACHABLE_PUBLISH now lives HERE, not in main.ts,
+ * because submitPublish itself returns it when a response body fails to read, and publish.ts cannot import
+ * main.ts (main.ts touches `window` at load, and the db acceptance test imports this file). main.ts
+ * re-exports it. The old text, kept: "(the new renewal and unreachable sentences among them)" (2026-10-02).
  *
  * THE ONE ALLOWED WALL-CLOCK READ MOVED WITH submitPublish. `p_composed_at` below is the device's
  * `composed_at` for 014's symmetric STALE/FUTURE_MUTATION window, ruled by R-2026-09-26-130 DF-1 b. It
@@ -24,6 +28,11 @@ import { WARD_SUPPORT_EMAIL } from '@openbed/origins/support';
  *
  * submitPublish lets SessionExpiredError, RenewalUnavailableError and OriginsUnreachableError
  * PROPAGATE: they are the caller's to word, and main.ts's catch does.
+ * RESTATED 2026-10-03 (FG-4 c): and it RETURNS UNREACHABLE_PUBLISH when the answer's body fails to read. A
+ * socket that dies after the headers arrived is not a rejection inside fetchWithFallback, so there is no
+ * fallback and reading the body throws; the write may have committed, so the sentence says "may not have
+ * been sent". A body that reads but is not JSON stays UNRECOGNISED. The old text, kept: "submitPublish lets
+ * ... PROPAGATE: they are the caller's to word" named three errors and no returned read failure.
  */
 
 /**
@@ -63,6 +72,17 @@ export const GET_HELP = `ask your facility's OpenBed administrator if you have o
 export const CALL_OPERATOR = `If it keeps happening, ${GET_HELP}`;
 export const ASK_FOR_HELP = `To fix this, ${GET_HELP}`;
 export const UNRECOGNISED = `Something went wrong. Reload the page and try again. ${CALL_OPERATOR}`;
+
+/**
+ * THE CONNECTION FAILED AROUND A PUBLISH (R-2026-10-02-FF FF-4 c; restated by R-2026-10-02-FG FG-4 a, -183).
+ * It is said when no origin answered, and when an answer's body failed to read. In both the write MAY have
+ * committed (a Worker that forwarded the publish and lost the answer; a body cut off after the headers), so
+ * "not sent" would be false; and a re-tap replays under the same mutation id, so it "will not be counted
+ * twice". The text FF-4 c wrote, kept: "This update was not sent: this handset could not reach OpenBed.
+ * Check it is online, then tap Publish again. Your sign-in is kept." (2026-10-02)
+ */
+export const UNREACHABLE_PUBLISH =
+  'This update may not have been sent: the connection to OpenBed failed. Check this handset is online, then tap Publish again. It will not be counted twice. Your sign-in is kept.';
 
 export const WARD_MESSAGES: Readonly<Record<string, string>> = {
   NOT_AUTHENTICATED: TAP_AGAIN,
@@ -153,12 +173,26 @@ export async function submitPublish(holder: SessionHolder, ward: WardRow, form: 
     }),
   });
 
+  // READ THE BODY AS TEXT, in a try (FG-4 c): a read that throws is the connection failing after the answer
+  // began, not a malformed answer, and the write may have committed. JSON that does not parse is a different
+  // thing and stays UNRECOGNISED.
+  let text: string;
+  try {
+    text = await res.text();
+  } catch {
+    return { ok: false, message: UNREACHABLE_PUBLISH };
+  }
   if (!res.ok) {
-    return { ok: false, message: wardMessageFor(res.status, await res.text()) };
+    return { ok: false, message: wardMessageFor(res.status, text) };
   }
 
-  const rows = (await res.json()) as PublishResult[];
-  const result = Array.isArray(rows) ? rows[0] : undefined;
+  let rows: unknown;
+  try {
+    rows = JSON.parse(text);
+  } catch {
+    return { ok: false, message: UNRECOGNISED };
+  }
+  const result = Array.isArray(rows) ? (rows as PublishResult[])[0] : undefined;
   if (result === undefined) {
     return { ok: false, message: UNRECOGNISED };
   }

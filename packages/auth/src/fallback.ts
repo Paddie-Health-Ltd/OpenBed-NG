@@ -17,6 +17,14 @@
  *      duplicate anything. (b) covers allow-list drift, which the kickoff's platform-sre note names as
  *      a real Worker risk, and differs from the kickoff ("only when the fetch itself rejects") on
  *      purpose. Either one calls `onPrimaryFailed`.
+ *      RESTATED 2026-10-03 (R-2026-10-02-FG FG-1, -183). This property said the `refused` check is on "the
+ *      first" origin, and the code checked it only at index 0. With TWO origins a `refused` answer from
+ *      EITHER one is now "no answer" and the loop goes on: inside the holder's sticky window the direct
+ *      origin goes first and the Worker is the fallback, so a direct origin that rejected followed by a
+ *      Worker that answered `refused` used to be handed back as a 404 Response (the console then showed
+ *      UNRECOGNISED, "Reload the page", and a reload ends the session). `onPrimaryFailed` is still called
+ *      only for index 0. With ONE origin nothing changes: the early return below sends once and hands
+ *      back whatever answered, so admin and request.ts keep their own `refused` handling.
  *   3. It NEVER falls back on any other answer: not on `limited` (the limit is the answer), and not on
  *      a forwarded 401, 4xx or 5xx. An answer the page can read is the server's answer.
  *   4. Each send gets ITS OWN `AbortSignal.timeout`. A signal created once and shared is already
@@ -28,6 +36,9 @@
  *   6. If no origin gives an answer it throws OriginsUnreachableError carrying each cause. That
  *      includes a first origin that answered `refused` and a second that rejected: the refusal is not
  *      handed back as a 404 answer.
+ *      RESTATED 2026-10-03 (FG-1): and it includes a first origin that REJECTED and a second that
+ *      answered `refused`, in either order. The old text, kept: "includes a first origin that answered
+ *      `refused` and a second that rejected" (2026-10-02), which named one order only.
  *
  * THE BOUNDS (the constants below and in holder.ts and request.ts; asserted by reading them):
  *   - one call: at most two sends of at most 12 s, so 24 s;
@@ -120,9 +131,10 @@ export async function fetchWithFallback(path: string, init: RequestInit, options
       if (i === 0) options.onPrimaryFailed?.();
       continue;
     }
-    if (i === 0 && res.headers.get(PROXY_HEADER) === 'refused') {
+    // `refused` from EITHER of two origins is no answer (FG-1); the callback is for the first origin only.
+    if (res.headers.get(PROXY_HEADER) === 'refused') {
       causes.push(new Error(`the OpenBed proxy refused ${path} (HTTP ${res.status})`));
-      options.onPrimaryFailed?.();
+      if (i === 0) options.onPrimaryFailed?.();
       // Release the refused answer's body, but never WAIT on it: cancelling a teed stream settles only
       // when every branch has cancelled, and nothing here needs the body.
       void res.body?.cancel().catch(() => undefined);

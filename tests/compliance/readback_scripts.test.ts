@@ -697,6 +697,18 @@ describe('scripts/readback_ward_console.sh', () => {
   test.each<[string, (f: Fixtures) => void, string]>([
     ['a stamp naming another commit', (f) => { f[`GET ${WARD}/version.json`] = { status: 200, body: stampOf('0'.repeat(40)) }; }, 'step 2 commit'],
     ['two publishable keys in the bundle', (f) => { f[`GET ${WARD}/assets/index-B7kFspkD.js`] = { status: 200, body: `const k="${DEPLOYED_KEY}",j="sb_publishable_A_SECOND_KEY";` }; }, 'step 3 publishable keys in the deployed bundle'],
+    // R-2026-10-02-FG FG-7 (FF-4 g asked for this plant and #111 did not have it). TODAY'S LIVE ward console CSP names only the
+    // API origin; after W4 the tracked one also names the direct origin, so the first read-back of the W4 redeploy against a
+    // deployment that has NOT been redeployed must be a STOP, not a pass. The CSP is the tracked one with the direct origin
+    // taken out, and the precondition asserts the replace changed the string.
+    ['the pre-W4 deployment, whose CSP does not name the direct origin', (f) => {
+      const h = trackedHeaders('ward-console');
+      const csp = h['content-security-policy'] as string;
+      const pre = csp.replace(` ${ORIGINS_JSON.supabaseDirect.production}`, '');
+      expect(pre, 'the plant did not remove the direct origin from the CSP').not.toBe(csp);
+      expect(csp, 'the tracked ward console CSP no longer names the direct origin, so there is nothing to remove').toContain(ORIGINS_JSON.supabaseDirect.production);
+      f[`GET ${WARD}/`] = { status: 200, headers: { ...h, 'content-security-policy': pre }, body: '<!doctype html><script type="module" crossorigin src="/assets/index-B7kFspkD.js"></script>' };
+    }, 'step 3 content-security-policy'],
     ['a page that loads no bundle', (f) => { f[`GET ${WARD}/`] = { status: 200, body: '<!doctype html><p>not the ward console</p>' }; }, 'step 3 bundles the page loads'],
     ['a dead deployed key', (f) => { f[`GET ${API}/auth/v1/settings apikey=${DEPLOYED_KEY}`] = { status: 401, body: '{"message":"Invalid API key"}' }; }, 'step 3 live half status'],
     ['a failing half that does not fail', (f) => { f[`GET ${API}/auth/v1/settings apikey=${WRONG_KEY}`] = { status: 200, body: '{"external":{}}' }; }, 'step 3 dead half status'],

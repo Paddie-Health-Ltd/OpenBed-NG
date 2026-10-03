@@ -547,7 +547,7 @@ describe('DI-2 — every outcome is a Notice in the design system\'s tone, and e
     rows.push({ what: 'sign-in answered', el: await signIn(() => json(200, {})), text: m.SIGNIN_ANSWERED, tone: 'info' });
     rows.push({ what: 'sign-in unreachable', el: await signIn(() => { throw new TypeError('down'); }), text: m.SIGNIN_UNREACHABLE, tone: 'caution' });
     // R-2026-10-02-FF: the five new sentences. The Worker's own limit; a renewal that is only "not now", on the load and on
-    // a publish (any 5xx from the refresh says "not now": the default route answers 500); and "could not reach OpenBed", on a
+    // a publish (any 5xx from the refresh says "not now": the default route answers 500); and "the connection to OpenBed failed" (restated 2026-10-03, FG-4 a; was "could not reach OpenBed"), on a
     // publish and on the load, rendered at the production host where there are two origins to fail.
     rows.push({ what: 'sign-in limited by the Worker', el: await signIn(() => json(429, {}, { 'x-openbed-proxy': 'limited' })), text: m.SIGNIN_LIMITED_WORDS, tone: 'caution' });
     await renderAt(sessionFragment(20), () => json(503, {}));
@@ -564,9 +564,9 @@ describe('DI-2 — every outcome is a Notice in the design system\'s tone, and e
     } finally {
       vi.useRealTimers();
     }
-    rows.push({ what: 'publish: could not reach OpenBed', el: await atProductionHost(() => publishOutcome(() => { throw new TypeError('down'); })), text: m.UNREACHABLE_PUBLISH, tone: 'caution' });
+    rows.push({ what: 'publish: the connection to OpenBed failed', el: await atProductionHost(() => publishOutcome(() => { throw new TypeError('down'); })), text: m.UNREACHABLE_PUBLISH, tone: 'caution' });
     rows.push({
-      what: 'handover load: could not reach OpenBed',
+      what: 'handover load: the connection to OpenBed failed',
       el: await atProductionHost(async () => {
         await renderAt(sessionFragment(), () => { throw new TypeError('down'); });
         await until(() => document.querySelector('#app > p.notice-caution') !== null);

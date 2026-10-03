@@ -62,6 +62,10 @@ import { REPO_ROOT } from './_scratch.js';
  *     address may refresh in one 10-second window. Facility one is a small private
  *     hospital with one facility-level login; the register's TRIGGER holds it for later
  *     facilities.
+ *     [RESTATED 2026-10-03, R-2026-10-02-FG FG-9 b: that TRIGGER (the LIMIT_REFRESH row) LEFT the register in
+ *     -182, because a limited refresh no longer signs a handset out; the sentence above is the text as written
+ *     on 2026-09-30. What still holds a later facility to this arithmetic is the CQ-4 TRIGGER on the 30 emails
+ *     an hour, which carries every sign-in link.]
  *   - WHAT THE LIMITS DO, AND WHAT THEY DO NOT (R-2026-09-30-180 FD-2 a). There is one limit
  *     per key per Cloudflare location, but the counters are cached on the machine running
  *     the Worker and updated asynchronously (Cloudflare: "permissive, eventually consistent,

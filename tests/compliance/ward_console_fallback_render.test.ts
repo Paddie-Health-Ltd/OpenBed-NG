@@ -21,7 +21,7 @@ import { REPO_ROOT } from './_scratch.js';
  * ward_console_render.test.ts and ward_console_design.test.ts stay at localhost, untouched.
  *
  * WHAT IS ASSERTED: the Worker is tried first and the direct origin second (wiring); both origins down is the
- * "could not reach OpenBed" sentence, and a kept session is the "sign-in could not be renewed" sentence, on a
+ * "the connection to OpenBed failed" sentence (restated 2026-10-03, FG-4 a; it was "could not reach OpenBed"), and a kept session is the "sign-in could not be renewed" sentence, on a
  * publish AND on the handover load; the load's "Try again" re-runs the load with the SAME holder and never
  * reloads the page (a reload ends the session, which lives in memory only); the form's mutation id is
  * unchanged after each of the two new errors; a re-sent publish carries the SAME body, p_composed_at included,
@@ -138,7 +138,7 @@ describe('the console is built for this host — the Worker first, the direct or
 });
 
 describe('the handover load — "Try again", and a kept session', () => {
-  test('plant — both origins down shows the could-not-reach sentence and a Try again button; the session is not ended', async () => {
+  test('plant — both origins down shows the connection-failed sentence and a Try again button; the session is not ended', async () => {
     const m = await import('../../apps/ward-console/src/main.js');
     await renderAt(sessionFragment(), () => down());
     await until(() => text().includes('Could not load the handover list'));
@@ -198,7 +198,7 @@ describe('a publish — the new errors keep the session and the form\'s mutation
     return r;
   }
 
-  test('plant — both origins down on a publish: the could-not-reach sentence, the mutation id unchanged, and the next tap re-sends the SAME id', async () => {
+  test('plant — both origins down on a publish: the connection-failed sentence, the mutation id unchanged, and the next tap re-sends the SAME id', async () => {
     const m = await import('../../apps/ward-console/src/main.js');
     const ids: string[] = [];
     const real = crypto.randomUUID.bind(crypto);
@@ -307,5 +307,133 @@ describe('the sign-in request falls back like every other call, and the Worker\'
     expect(sent.length, 'a limited request was retried or sent to the fallback').toBe(1);
     expect(sent[0]?.origin).toBe(API);
     expect(document.querySelector('form.signin-request p.status')?.classList.contains('notice-caution')).toBe(true);
+  });
+});
+
+/**
+ * R-2026-10-02-FG FG-4 (-183). An edit after a failed send gets a NEW mutation id, so an edited body never rides a
+ * stale id into 026's step-6 replay; a re-tap with no edit keeps the id; and a response body that fails to read is
+ * the connection failing, not an unrecognised answer. Same file, same production-host jsdom, same seam: an injected
+ * fetch answering by origin.
+ */
+describe('FG-4 — an edit after a failed send mints; a body that fails to read is the connection failing', () => {
+  const tapPublish = (): void => (document.querySelector('form.publish button[type="submit"]') as HTMLButtonElement).click();
+  const statusText = (): string => document.querySelector('form.publish p.status')?.textContent ?? '';
+  const countField = (): HTMLInputElement => document.querySelector('form.publish input[name="bed_count"]') as HTMLInputElement;
+  const plusStepper = (): HTMLButtonElement => Array.from(document.querySelectorAll('form.publish button.stepper'))[1] as HTMLButtonElement;
+  const erroringBody = (status = 200): Response => new Response(new ReadableStream({ start: (c) => c.error(new TypeError('terminated')) }), { status });
+
+  function idSpy(): string[] {
+    const ids: string[] = [];
+    const real = crypto.randomUUID.bind(crypto);
+    vi.spyOn(crypto, 'randomUUID').mockImplementation((() => {
+      const id = real();
+      ids.push(id);
+      return id;
+    }) as typeof crypto.randomUUID);
+    return ids;
+  }
+  async function oneWard(handler: Handler) {
+    const r = await renderAt(sessionFragment(), handler);
+    await until(() => document.querySelector('form.publish') !== null);
+    return r;
+  }
+  const publishDown: Handler = (s) => (is(s, '/rest/v1/rpc/publish_ward_status') ? down() : onlyRows(s));
+  const publishOk: Handler = (s) => (is(s, '/rest/v1/rpc/publish_ward_status') ? json(200, PUBLISHED) : onlyRows(s));
+  const sentIds = (sent: Sent[]): unknown[] => publishSends(sent).map((s) => bodyOf(s)['p_client_mutation_id']);
+
+  test('plant — fail, edit the count by TYPING, tap: a new id, and the new count in the body', async () => {
+    const ids = idSpy();
+    const r = await oneWard(publishDown);
+    tapPublish();
+    await until(() => statusText() !== '');
+    expect(statusText(), 'the connection failure was not shown').toContain('may not have been sent');
+    const minted = ids.length;
+    countField().value = '11';
+    countField().dispatchEvent(new Event('input', { bubbles: true }));
+    expect(ids.length, 'an edit after a failed send did not mint a new id').toBe(minted + 1);
+    r.setHandler(publishOk);
+    tapPublish();
+    await until(() => statusText() === 'Published.');
+    const last = publishSends(r.sent).at(-1);
+    expect(bodyOf(last)['p_bed_count'], 'the edited count was not the one sent').toBe(11);
+    expect(bodyOf(last)['p_client_mutation_id'], 'the edited body rode the stale id').toBe(ids[minted]);
+    expect(bodyOf(last)['p_client_mutation_id']).not.toBe(sentIds(r.sent)[0]);
+  });
+
+  test('plant — fail, edit with the + STEPPER, tap: a new id', async () => {
+    const ids = idSpy();
+    const r = await oneWard(publishDown);
+    tapPublish();
+    await until(() => statusText() !== '');
+    const minted = ids.length;
+    plusStepper().click();
+    expect(ids.length, 'the stepper is an edit and did not mint').toBe(minted + 1);
+    r.setHandler(publishOk);
+    tapPublish();
+    await until(() => statusText() === 'Published.');
+    expect(bodyOf(publishSends(r.sent).at(-1))['p_client_mutation_id']).toBe(ids[minted]);
+  });
+
+  test('plant — fail, tap AGAIN with no edit: the SAME id, so it still replays', async () => {
+    const ids = idSpy();
+    const r = await oneWard(publishDown);
+    tapPublish();
+    await until(() => statusText() !== '');
+    const minted = ids.length;
+    r.setHandler(publishOk);
+    tapPublish();
+    await until(() => statusText() === 'Published.');
+    expect(ids.length - minted, 'a re-tap with no edit minted: only the success mints').toBe(1);
+    const sent = sentIds(r.sent);
+    expect(new Set(sent).size, 'a re-tap with no edit sent a different id').toBe(1);
+  });
+
+  test('control — succeed, then edit: a new id after the success as today, and the edit mints nothing more', async () => {
+    const ids = idSpy();
+    await oneWard(publishOk);
+    const initial = ids.length;
+    tapPublish();
+    await until(() => statusText() === 'Published.');
+    expect(ids.length, 'success mints one new id, as before').toBe(initial + 1);
+    countField().value = '12';
+    countField().dispatchEvent(new Event('input', { bubbles: true }));
+    expect(ids.length, 'an edit after a SUCCESS minted a second id').toBe(initial + 1);
+  });
+
+  test('plant — a publish answer whose body fails to read is UNREACHABLE_PUBLISH, the id is kept, and the next edit mints', async () => {
+    const m = await import('../../apps/ward-console/src/main.js');
+    const ids = idSpy();
+    await oneWard((s) => (is(s, '/rest/v1/rpc/publish_ward_status') ? erroringBody() : onlyRows(s)));
+    const minted = ids.length;
+    tapPublish();
+    await until(() => statusText() !== '');
+    expect(statusText(), 'a body that failed to read was shown as UNRECOGNISED, which tells a ward to reload and end the session').toBe(m.UNREACHABLE_PUBLISH);
+    expect(statusText()).not.toContain('Reload the page');
+    expect(ids.length, 'the id was not kept').toBe(minted);
+    countField().value = '9';
+    countField().dispatchEvent(new Event('input', { bubbles: true }));
+    expect(ids.length, 'the failed send armed the mint').toBe(minted + 1);
+  });
+
+  test('plant — a handover answer whose body fails to read is UNREACHABLE_LOAD with Try again', async () => {
+    const m = await import('../../apps/ward-console/src/main.js');
+    await renderAt(sessionFragment(), (s) => (is(s, '/rest/v1/rpc/my_reporting_wards') ? erroringBody() : json(500, {})));
+    await until(() => text().includes('Could not load the handover list'));
+    expect(text()).toContain(m.UNREACHABLE_LOAD);
+    expect(text()).not.toContain('Reload the page');
+    expect(document.querySelector('#app > button')?.textContent).toBe('Try again');
+  });
+
+  test('control — a body that READS but is not JSON is still UNRECOGNISED, at both sites', async () => {
+    const m = await import('../../apps/ward-console/src/main.js');
+    await oneWard((s) => (is(s, '/rest/v1/rpc/publish_ward_status') ? new Response('<html>nope</html>', { status: 200 }) : onlyRows(s)));
+    tapPublish();
+    await until(() => statusText() !== '');
+    expect(statusText()).toBe(m.UNRECOGNISED);
+    await renderAt(sessionFragment(), (s) => (is(s, '/rest/v1/rpc/my_reporting_wards') ? new Response('<html>nope</html>', { status: 200 }) : json(500, {})));
+    await until(() => text().includes('Could not load the handover list'));
+    expect(text()).toContain(m.UNRECOGNISED);
+    expect(document.querySelector('#app > button'), 'a malformed answer is not a connection failure, so no Try again').toBeNull();
   });
 });

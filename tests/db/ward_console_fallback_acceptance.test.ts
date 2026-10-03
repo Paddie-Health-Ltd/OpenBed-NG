@@ -139,8 +139,10 @@ async function countingFallback(): Promise<{ url: string; received: string[] }> 
 }
 
 /** The real Worker handler, with its upstream fetch pointed at the local stack and the upstream status recorded. */
-function worker(list: AllowList = LIST_TYPED, env: ProxyEnv = {}): { handle: Handle; upstream: number[] } {
+function worker(list: AllowList = LIST_TYPED, env: ProxyEnv = {}): { handle: Handle; upstream: number[]; answers: { status: number; marker: string | null }[] } {
   const upstream: number[] = [];
+  /** What the Worker ANSWERED, recorded (R-2026-10-02-FG FG-9 f): its status and its x-openbed-proxy marker. */
+  const answers: { status: number; marker: string | null }[] = [];
   const handler = makeHandler({
     origin: STACK,
     list,
@@ -151,7 +153,15 @@ function worker(list: AllowList = LIST_TYPED, env: ProxyEnv = {}): { handle: Han
       return res;
     },
   });
-  return { handle: (request) => handler(request, env), upstream };
+  return {
+    handle: async (request) => {
+      const answer = await handler(request, env);
+      answers.push({ status: answer.status, marker: answer.headers.get('x-openbed-proxy') });
+      return answer;
+    },
+    upstream,
+    answers,
+  };
 }
 
 const form: PublishForm = { offering: 'OFFERED', bedCount: 7, accepting: true, reason: null };
@@ -267,6 +277,9 @@ describe('a local plant takes the Worker away and a publish still lands exactly 
     expect(h.signedOut, 'a limited refresh signed the ward out').toBe(false);
     expect(fb.received, 'the fallback origin received a request: a limit was re-sent into').toEqual([]);
     expect(w.upstream, 'the limited refresh reached the stack').toEqual([]);
+    // FG-9 f: the Worker's own answer, read directly beside the two empty lists above. Without it, "nothing reached the
+    // stack or the fallback" is also true of a Worker that was never asked, or one that answered something else.
+    expect(w.answers, 'the Worker answered the limited refresh with a 429 marked limited, exactly once').toEqual([{ status: 429, marker: 'limited' }]);
   });
 
   test('6. both origins are closed: OriginsUnreachableError, nothing is written, the session is kept', async () => {

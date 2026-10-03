@@ -180,7 +180,13 @@ describe('refresh against live GoTrue', () => {
     ).toContain('NOT_A_MEMBER');
   });
 
-  test('a 401 from the server ends the session whatever the device clock believed', async () => {
+  test('a 401 on a token that was NOT kept ends the session whatever the device clock believed', async () => {
+    // RESTATED 2026-10-03 (R-2026-10-02-FG FG-3 and FG-9 a, -183). This test was named "a 401 from the server ends
+    // the session whatever the device clock believed". It still passes, because its token is fresh and so was
+    // never KEPT, but the name read wider than the rule: a token the holder KEPT (30 to 60 s left by the local
+    // clock, after a renewal that was only "not now") that meets a 401 keeps the session instead, because the
+    // refresh token was never refused (tests/compliance/auth_fallback.test.ts holds that, FG-3).
+    //
     // THE BACKSTOP. The local expiry check is an optimisation; the server is the
     // authority. A tampered token is not expired by any clock, and must still
     // end the session rather than hand back a Response the caller reads as

@@ -27,7 +27,11 @@ import { REPO_ROOT } from './_scratch.js';
  *     to check it (Clause 4);
  *   - that the table's per-outage behaviour is true on hosted. No hosted step takes the Worker away (DY-2), and the local
  *     behaviour is tests/db/ward_console_fallback_acceptance.test.ts's;
- *   - the numbered steps' commands. They are runbook fences, verified by pasting them (runbook fences exist to be pasted);
+ *   - the numbered steps' commands. They are runbook fences, verified by pasting them (runbook fences exist to be pasted).
+ *     RESTATED 2026-10-03 (R-2026-10-02-FG FG-6, -183): what is NOT asserted is that the commands WORK. What IS asserted,
+ *     since FG-6, is the ORDER of step 4's lines (see STEP_4_ORDER below), because the first draft ran the two `pbcopy`
+ *     fences and the link reader back to back and the second copy overwrote the first before anything was pasted. The old
+ *     text, kept: "the numbered steps' commands. They are runbook fences, verified by pasting them";
  *   - that migration 026's window IS two minutes. Section 6 says a publish tap's composed_at "ages at most 97.25 s, under
  *     migration 026's two-minute STALE_MUTATION window", and this file holds the 97.25 to the constants and nothing to the
  *     migration: that fact is read from the migration by tests/compliance/auth_fallback.test.ts, which goes red if the
@@ -89,6 +93,36 @@ export function worker_down_violations(doc: string): string[] {
   if (inDoc !== inSix) out.push(`the 30-minute figure is also stated outside section 6 (${inDoc - inSix} more), so there are two places for it to drift`);
 
   for (const outage of OUTAGES) if (!six.includes(`**${outage}`)) out.push(`the table has no row for "${outage}"`);
+  out.push(...step4Violations(six));
+  return out;
+}
+
+/**
+ * STEP 4's lines, in the order they must run (FG-6): each `sed` fence BEFORE the paste-and-save line for its own
+ * template, the second copy only after the first is pasted, and the wait and the request for a link before the link
+ * reader. Read from section 6's text with whitespace folded.
+ */
+const STEP_4_ORDER: readonly { readonly key: string; readonly needle: string }[] = [
+  { key: 'the Magic Link copy', needle: 'magic-link.html | pbcopy' },
+  { key: 'the Magic Link paste and save', needle: 'Paste it into the Magic Link template, replacing the body, and save.' },
+  { key: 'the Confirm signup copy', needle: 'confirm-signup.html | pbcopy' },
+  { key: 'the Confirm signup paste and save', needle: 'Paste it into the Confirm signup template, replacing the body, and save.' },
+  { key: 'the wait', needle: 'Wait 2 minutes after the second save.' },
+  { key: 'the request for an operator link', needle: 'Request an operator link at admin.openbed.ng and copy it from the email.' },
+  { key: 'the link reader', needle: 'readback_signin_link.mjs' },
+];
+
+export function step4Violations(six: string): string[] {
+  const out: string[] = [];
+  const at = STEP_4_ORDER.map((x) => six.indexOf(x.needle));
+  STEP_4_ORDER.forEach((x, i) => {
+    if ((at[i] ?? -1) < 0) out.push(`step 4 has no line for ${x.key}`);
+  });
+  for (let i = 1; i < STEP_4_ORDER.length; i += 1) {
+    const prev = at[i - 1] ?? -1;
+    const here = at[i] ?? -1;
+    if (prev >= 0 && here >= 0 && here < prev) out.push(`step 4 runs ${STEP_4_ORDER[i]?.key} before ${STEP_4_ORDER[i - 1]?.key}`);
+  }
   return out;
 }
 
@@ -130,6 +164,27 @@ describe('runbook section 6 is held to the code where it can be', () => {
   test('plant — a table that loses an outage row is rejected', () => {
     const planted = replaceOnce(REAL, '**A lost route or DNS**', '**Something else**');
     expect(worker_down_violations(planted).join('\n')).toContain('the table has no row for "A lost route or DNS"');
+  });
+
+  test('plant — the Magic Link paste line removed (the second copy would overwrite the first) is rejected', () => {
+    const planted = replaceOnce(REAL, 'Paste it into the Magic Link template, replacing the body, and save.', '');
+    expect(worker_down_violations(planted).join('\n')).toContain('step 4 has no line for the Magic Link paste and save');
+  });
+
+  test('plant — the 2-minute wait removed is rejected', () => {
+    const planted = replaceOnce(REAL, 'Wait 2 minutes after the second save.', '');
+    expect(worker_down_violations(planted).join('\n')).toContain('step 4 has no line for the wait');
+  });
+
+  test('plant — the link reader moved before the wait and the request is rejected by order', () => {
+    const reader = 'pbpaste | node scripts/readback_signin_link.mjs --mode admin --project-ref klrlpxysjsjpdkeqdhvl';
+    const moved = replaceOnce(REAL, reader, 'node -e 0').replace('Wait 2 minutes after the second save.', `${reader}\n\nWait 2 minutes after the second save.`);
+    expect(moved).not.toBe(REAL);
+    expect(worker_down_violations(moved).join('\n')).toContain('step 4 runs the link reader before the request for an operator link');
+  });
+
+  test('anti-vacuity — a section 6 with no step 4 lines reports every one of them missing', () => {
+    expect(step4Violations('').length, 'an empty section passed the order check').toBe(7);
   });
 
   test('control — rewording a sentence that carries no figure stays accepted', () => {

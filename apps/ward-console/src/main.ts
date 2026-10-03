@@ -10,6 +10,7 @@ import {
   GET_HELP,
   TAP_AGAIN,
   UNRECOGNISED,
+  UNREACHABLE_PUBLISH,
   WARD_MESSAGES,
   submitPublish,
   wardMessageFor,
@@ -129,7 +130,7 @@ const FALLBACK_URL = supabaseDirectOrigin(window.location.hostname);
 
 // Moved to ./publish.ts so the acceptance test can call submitPublish without a DOM (FF-4 f); re-exported
 // here so every test that reads these names keeps its import path.
-export { UNRECOGNISED, WARD_MESSAGES, wardMessageFor, type PublishForm, type WardRow };
+export { UNRECOGNISED, UNREACHABLE_PUBLISH, WARD_MESSAGES, wardMessageFor, type PublishForm, type WardRow };
 
 /** Looked up per render, not once at load, so a page that rebuilds #app is still written into. */
 function appRoot(): HTMLElement | null {
@@ -218,14 +219,27 @@ export const SIGNIN_LIMITED_WORDS: string = SIGNIN_LIMITED;
  * tests/compliance/ward_console_render.test.ts holds exact to the codes the migrations raise; these are
  * raised by no migration. The clinicians' wording list (the A7 box) carries them.
  */
+/**
+ * RESTATED 2026-10-03 (R-2026-10-02-FG FG-4 a, -183), each with the text FF-4 c wrote kept. A sentence about
+ * what happened on the wire is written for EVERY path that reaches it, and two of FF's were false on a path
+ * that does:
+ *  - RENEWAL_UNAVAILABLE_PUBLISH said "this update was not sent". Since FG-3 a kept token's 401 reaches it
+ *    AFTER a send that wrote nothing, so it now says "not published". Was: "Your sign-in could not be
+ *    renewed just now, so this update was not sent. Your sign-in is kept. Wait one minute, then tap Publish
+ *    again."
+ *  - UNREACHABLE_PUBLISH (now in ./publish.ts) said "was not sent" and "could not reach OpenBed": false when
+ *    the Worker forwarded the publish and lost the answer, or the answer's body failed to read.
+ *  - UNREACHABLE_LOAD said "was not loaded: this handset could not reach OpenBed", false in the body-read
+ *    case. Was: "The handover list was not loaded: this handset could not reach OpenBed. Check it is online,
+ *    then tap Try again. Your sign-in is kept."
+ * RENEWAL_UNAVAILABLE_LOAD is unchanged: no list is shown on any path that reaches it.
+ */
 export const RENEWAL_UNAVAILABLE_PUBLISH =
-  'Your sign-in could not be renewed just now, so this update was not sent. Your sign-in is kept. Wait one minute, then tap Publish again.';
-export const UNREACHABLE_PUBLISH =
-  'This update was not sent: this handset could not reach OpenBed. Check it is online, then tap Publish again. Your sign-in is kept.';
+  'Your sign-in could not be renewed just now, so this update was not published. Your sign-in is kept. Wait one minute, then tap Publish again.';
 export const RENEWAL_UNAVAILABLE_LOAD =
   'Your sign-in could not be renewed just now, so the handover list was not loaded. Your sign-in is kept. Wait one minute, then tap Try again.';
 export const UNREACHABLE_LOAD =
-  'The handover list was not loaded: this handset could not reach OpenBed. Check it is online, then tap Try again. Your sign-in is kept.';
+  'The handover list did not load: the connection to OpenBed failed. Check this handset is online, then tap Try again. Your sign-in is kept.';
 
 /**
  * The eight reasons a ward may give for zero offered beds -- app.zero_reason (002),
@@ -369,8 +383,8 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onPublished: (upda
     b.addEventListener('click', () => {
       bedCountInput.value = stepCount(bedCountInput.value, delta);
       // A programmatic value change fires no input event, so the stale outcome is
-      // cleared here too (DI-1 c).
-      clearOutcome();
+      // cleared here too (DI-1 c), and a failed send's mutation id is replaced (FG-4 b).
+      edited();
       sync();
     });
     return b;
@@ -439,12 +453,28 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onPublished: (upda
   // ward has since changed reads as though that number went out. Listened for on each
   // field, not the form, so it does not depend on the event bubbling.
   const clearOutcome = (): void => say(status, '', 'info');
-  offeringSelect.addEventListener('change', clearOutcome);
-  bedCountInput.addEventListener('input', clearOutcome);
-  acceptingInput.addEventListener('change', clearOutcome);
-  reasonSelect.addEventListener('change', clearOutcome);
 
   let mutationId = newMutationId();
+  // AN EDIT AFTER A FAILED SEND GETS A NEW MUTATION ID (R-2026-10-02-FG FG-4 b, -183). The id used to be kept
+  // on every failure, and the form stayed editable, so a ward who changed the count after a failure and tapped
+  // again sent the NEW body under the OLD id: 026's step 6 replays and returns the FIRST send's values, the
+  // console said "Already published (replay)", and the edit was silently never written. `lastSendFailed` is
+  // true from the moment a tap reaches submitPublish until it succeeds or an edit mints. A re-tap with NO edit
+  // keeps the id and still replays. If the first send HAD landed, the new id meets VERSION_CONFLICT (the
+  // expected version is unchanged), which is a fixed sentence, so the record is honest either way. `edited()`
+  // is called at EVERY site that changes a field, never from clearOutcome, which also runs at submit.
+  let lastSendFailed = false;
+  const edited = (): void => {
+    clearOutcome();
+    if (lastSendFailed) {
+      mutationId = newMutationId();
+      lastSendFailed = false;
+    }
+  };
+  offeringSelect.addEventListener('change', edited);
+  bedCountInput.addEventListener('input', edited);
+  acceptingInput.addEventListener('change', edited);
+  reasonSelect.addEventListener('change', edited);
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -469,6 +499,7 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onPublished: (upda
       }
 
       submitButton.disabled = true;
+      lastSendFailed = true;
       try {
         const outcome = await submitPublish(
           holder,
@@ -480,10 +511,12 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onPublished: (upda
           say(status, outcome.message, 'caution');
           return;
         }
-        // A fresh attempt gets a new mutation id; a retry of THIS attempt
-        // would have reused `mutationId` above, never regenerating it on a
-        // failure branch.
+        // A fresh attempt gets a new mutation id after a SUCCESS; a retry of THIS attempt reuses
+        // `mutationId`, and an edit after a failure mints one (`edited()`, FG-4 b).
+        // RESTATED 2026-10-03 (FG-4 b). The old text, kept: "A fresh attempt gets a new mutation id; a retry
+        // of THIS attempt would have reused `mutationId` above, never regenerating it on a failure branch."
         mutationId = newMutationId();
+        lastSendFailed = false;
         const updated: WardRow = {
           category: current.category,
           offering: outcome.result.claim_offering,
@@ -509,8 +542,10 @@ function publishFormFor(holder: SessionHolder, ward: WardRow, onPublished: (upda
           show('Signed out', TAP_AGAIN);
           return;
         }
-        // THE SESSION IS KEPT in both of these, and so is the form's mutation id (it is only ever
-        // regenerated after a success, above), so the next tap replays rather than duplicates.
+        // THE SESSION IS KEPT in both of these, and so is the form's mutation id, so a re-tap with no edit
+        // replays rather than duplicates. RESTATED 2026-10-03 (FG-4 b): the id is now regenerated after a
+        // success AND by an edit that follows a failed send (`edited()`); it used to be "only ever
+        // regenerated after a success, above", which let an edited body ride a stale id.
         if (e instanceof RenewalUnavailableError) {
           say(status, RENEWAL_UNAVAILABLE_PUBLISH, 'caution');
           return;
@@ -752,11 +787,27 @@ async function loadHandover(holder: SessionHolder): Promise<void> {
       headers: { 'Content-Type': 'application/json' },
       body: '{}',
     });
-    if (!res.ok) {
-      show('Could not load the handover list', wardMessageFor(res.status, await res.text()));
+    // READ THE BODY AS TEXT, in a try (FG-4 c): a read that throws is the connection failing after the answer
+    // began, so it gets UNREACHABLE_LOAD and Try again. A body that reads but is not JSON stays UNRECOGNISED.
+    let text: string;
+    try {
+      text = await res.text();
+    } catch {
+      showLoadFailed(holder, UNREACHABLE_LOAD);
       return;
     }
-    const rows: unknown = await res.json();
+    if (!res.ok) {
+      show('Could not load the handover list', wardMessageFor(res.status, text));
+      return;
+    }
+    let rows: unknown;
+    try {
+      rows = JSON.parse(text);
+    } catch {
+      console.error('OpenBed ward console: the ward list was not JSON');
+      show('Could not load the handover list', UNRECOGNISED);
+      return;
+    }
     if (!Array.isArray(rows)) {
       console.error('OpenBed ward console: the ward list was not a list', rows);
       show('Could not load the handover list', LOAD_REFUSED);

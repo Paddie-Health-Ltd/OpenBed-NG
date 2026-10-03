@@ -1,13 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import {
   MalformedTokenError,
   OriginsUnreachableError,
   PROXY_HEADER,
   RenewalUnavailableError,
+  SessionExpiredError,
   SessionHolder,
   fetchWithFallback,
+  requestSignInLink,
   sessionFromTokens,
   type Session,
 } from '@openbed/auth';
@@ -22,8 +24,9 @@ import {
   REFRESH_BACKOFF_MAX_MS,
   REFRESH_WORST_CASE_MS,
   STICKY_WINDOW_MS,
+  refreshBackoffMs,
 } from '../../packages/auth/src/holder.js';
-import { SIGNIN_ATTEMPTS, SIGNIN_WORST_CASE_MS } from '../../packages/auth/src/request.js';
+import { SIGNIN_ATTEMPTS, SIGNIN_BACKOFF_MAX_MS, SIGNIN_WORST_CASE_MS, signInBackoffMs } from '../../packages/auth/src/request.js';
 import { REPO_ROOT } from './_scratch.js';
 
 /**
@@ -39,6 +42,9 @@ import { REPO_ROOT } from './_scratch.js';
  *   - a rejecting first origin is re-sent ONCE to the second, byte for byte;
  *   - the Worker's own `refused` answer is re-sent too (Supabase was never contacted);
  *   - no origin answering is an OriginsUnreachableError, never a 404 handed back as an answer;
+ *     RESTATED 2026-10-03 (R-2026-10-02-FG FG-1, -183): "never a 404 handed back as an answer" in EITHER
+ *     order of two origins. The old line named the Worker-first order only, and the sticky order (direct
+ *     first, a Worker that answers `refused` second) handed the 404 back until FG-1;
  *   - `limited` and every FORWARDED answer is the server's answer and is never re-sent;
  *   - one origin, or two equal origins, is one send and a rejection propagates raw;
  *   - each send has its OWN timeout signal (a shared one is already aborted for the second send);
@@ -391,5 +397,226 @@ describe('the bounds the header states, read from the constants', () => {
   test('anti-vacuity — the migration read for the window is not empty', () => {
     const sql = readFileSync(join(REPO_ROOT, 'database', 'migrations', '026_facility_reporter_and_checks.sql'), 'utf8');
     expect(sql.length).toBeGreaterThan(1000);
+  });
+});
+
+/**
+ * R-2026-10-02-FG (-183): the plants for FG-1, FG-2, FG-3 and FG-8, each red first through the neuters in
+ * the PR body (the spec is written, with its expected red sets, before it is run).
+ */
+
+/** A fetch that answers by what was asked, and records every request. The handler may return a Promise to hold one open. */
+function routed(handler: (url: URL, init: RequestInit, n: number) => Response | Promise<Response>): { calls: Call[]; fetch: typeof fetch } {
+  const calls: Call[] = [];
+  const impl = async (url: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    const call = { url: String(url), init: init ?? {} };
+    calls.push(call);
+    return handler(new URL(call.url), call.init, calls.length - 1);
+  };
+  return { calls, fetch: impl as typeof fetch };
+}
+const isRefresh = (u: URL): boolean => u.pathname === '/auth/v1/token';
+const originOf = (c: Call | undefined): string => (c === undefined ? '' : new URL(c.url).origin);
+const status401 = (): Response => new Response('{}', { status: 401 });
+
+describe('FG-1 — a `refused` answer from EITHER of two origins is no answer', () => {
+  test('plant — the sticky order, the direct origin rejects and then the Worker answers `refused`: OriginsUnreachableError with two causes, never a Response', async () => {
+    const s = scripted([down(), refused()]);
+    let primaryFailed = 0;
+    let returned: Response | null = null;
+    let caught: unknown = null;
+    try {
+      returned = await fetchWithFallback(`/rest/v1/rpc/x`, { method: 'POST', body: '{}' }, { origins: [DIRECT, WORKER], fetch: s.fetch, onPrimaryFailed: () => { primaryFailed += 1; } });
+    } catch (e) {
+      caught = e;
+    }
+    expect(returned, "the Worker's refusal was handed back as a 404 answer: the console would show UNRECOGNISED and a reload would end the session").toBeNull();
+    expect(caught).toBeInstanceOf(OriginsUnreachableError);
+    expect((caught as OriginsUnreachableError).causes.length).toBe(2);
+    expect(primaryFailed, 'onPrimaryFailed is for the FIRST origin only').toBe(1);
+    expect(s.calls.map((c) => originOf(c))).toEqual([DIRECT, WORKER]);
+  });
+
+  test('control — one origin still hands a `refused` answer back (admin and the sign-in request read it themselves)', async () => {
+    const s = scripted([refused()]);
+    const res = await fetchWithFallback(`/rest/v1/rpc/x`, { method: 'POST', body: '{}' }, { origins: [WORKER], fetch: s.fetch });
+    expect(res.status).toBe(404);
+    expect(s.calls.length).toBe(1);
+  });
+});
+
+describe('FG-2 — every backoff has ONE source, and the wait it sleeps is the wait the bound reads', () => {
+  test('plant — the refresh waits recorded with Math.random at 0.999 are at most the maximum and above the maximum minus 1 ms', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.999);
+    try {
+      const waits: number[] = [];
+      const r = routed(() => {
+        throw new TypeError('fetch failed');
+      });
+      const h = new SessionHolder({ apiUrl: WORKER, anonKey: 'k', session: sessionExpiringIn(20), fetch: r.fetch, sleep: async (ms) => { waits.push(ms); } });
+      await expect(h.accessToken()).rejects.toBeInstanceOf(RenewalUnavailableError);
+      expect(waits.length, 'REFRESH_ATTEMPTS attempts sleep between each pair').toBe(REFRESH_ATTEMPTS - 1);
+      waits.forEach((w, i) => {
+        const max = REFRESH_BACKOFF_MAX_MS(i + 1);
+        expect(w, `wait ${i + 1} is past the bound the worst case is computed from`).toBeLessThanOrEqual(max);
+        expect(w, `wait ${i + 1} is far below the bound, so the bound is not the formula the sleep uses`).toBeGreaterThan(max - 1);
+      });
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  test('plant — the sign-in request wait recorded with Math.random at 0.999 is at most 0.6 s and above 0.6 s minus 1 ms', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.999);
+    try {
+      const waits: number[] = [];
+      const r = routed(() => {
+        throw new TypeError('fetch failed');
+      });
+      const out = await requestSignInLink({ apiUrl: WORKER, anonKey: 'k', email: 'ward@example.invalid', redirectTo: 'https://app.invalid/', fetch: r.fetch, sleep: async (ms) => { waits.push(ms); } });
+      expect(out.kind).toBe('unreachable');
+      expect(waits.length).toBe(SIGNIN_ATTEMPTS - 1);
+      expect(waits[0], 'the wait passes the maximum the header and the 48 s bound state').toBeLessThanOrEqual(SIGNIN_BACKOFF_MAX_MS);
+      expect(waits[0], 'the wait is far below the maximum').toBeGreaterThan(SIGNIN_BACKOFF_MAX_MS - 1);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  test('the maximums are the same functions at 1, and request.ts states the 0.6 s the constant reads', () => {
+    expect(REFRESH_BACKOFF_MAX_MS(1)).toBe(refreshBackoffMs(1, 1));
+    expect(REFRESH_BACKOFF_MAX_MS(2)).toBe(refreshBackoffMs(2, 1));
+    expect(SIGNIN_BACKOFF_MAX_MS).toBe(signInBackoffMs(1));
+    expect(SIGNIN_BACKOFF_MAX_MS).toBe(600);
+    const src = readFileSync(join(REPO_ROOT, 'packages', 'auth', 'src', 'request.ts'), 'utf8');
+    expect(src, "request.ts's header no longer states the jitter the constant reads").toContain(`${SIGNIN_BACKOFF_MAX_MS / 1000} s of jitter`);
+  });
+});
+
+describe('FG-3 — a 401 on a KEPT token keeps the session', () => {
+  const POST = { method: 'POST', body: '{}' } as const;
+  function holderFor(handler: Parameters<typeof routed>[0], clock: { t: number }, session: Session, fallback = false): { h: SessionHolder; r: ReturnType<typeof routed> } {
+    const r = routed(handler);
+    const h = new SessionHolder({ apiUrl: WORKER, ...(fallback ? { fallbackApiUrl: DIRECT } : {}), anonKey: 'k', session, now: () => clock.t, fetch: r.fetch, sleep: async () => {} });
+    return { h, r };
+  }
+
+  test('plant — a `limited` refresh with 40 s left, then a 401 on the data call: RenewalUnavailableError and the session is kept', async () => {
+    const { h } = holderFor((u) => (isRefresh(u) ? limited() : status401()), { t: Date.now() }, sessionExpiringIn(40));
+    await expect(h.authedFetch('rpc/a', POST)).rejects.toBeInstanceOf(RenewalUnavailableError);
+    expect(h.signedOut, 'a 401 on a kept token signed the ward out, though the refresh token was never refused').toBe(false);
+  });
+
+  test('plant — the kept token is then SPENT: inside the cooldown nothing is sent, and after it one refresh is', async () => {
+    const clock = { t: Date.now() };
+    const fresh = tokenResponse(HOUR, 'after');
+    let refreshes = 0;
+    let dataCalls = 0;
+    const { h, r } = holderFor((u) => {
+      if (isRefresh(u)) {
+        refreshes += 1;
+        return refreshes === 1 ? limited() : new Response(JSON.stringify(fresh), { status: 200 });
+      }
+      dataCalls += 1;
+      return dataCalls === 1 ? status401() : ok(); // only the KEPT token is refused; the renewed one is good
+    }, clock, sessionExpiringIn(40));
+    await expect(h.authedFetch('rpc/a', POST)).rejects.toBeInstanceOf(RenewalUnavailableError);
+    const sentAfterFirst = r.calls.length;
+    expect(sentAfterFirst, 'one refresh and one data call').toBe(2);
+    clock.t += 5_000; // 35 s left: the token would be kept again if it were not spent
+    await expect(h.authedFetch('rpc/b', POST)).rejects.toBeInstanceOf(RenewalUnavailableError);
+    expect(r.calls.length, 'a spent kept token was sent again inside the cooldown').toBe(sentAfterFirst);
+    clock.t += 56_000; // 61 s since the 429
+    await expect(h.authedFetch('rpc/c', POST), 'after the cooldown the refresh is tried and now succeeds').resolves.toBeInstanceOf(Response);
+    expect(refreshes, 'exactly one more refresh was sent after the cooldown').toBe(2);
+  });
+
+  test('plant — a kept-token request in flight while a concurrent refresh succeeds: its 401 is RenewalUnavailableError, and the session holds the NEW token', async () => {
+    const clock = { t: Date.now() };
+    const fresh = tokenResponse(HOUR, 'concurrent');
+    let refreshes = 0;
+    let releaseFirst!: () => void;
+    const firstHeld = new Promise<void>((r) => { releaseFirst = r; });
+    let dataCalls = 0;
+    const { h } = holderFor(async (u) => {
+      if (isRefresh(u)) {
+        refreshes += 1;
+        return refreshes === 1 ? new Response('unavailable', { status: 503 }) : new Response(JSON.stringify(fresh), { status: 200 });
+      }
+      dataCalls += 1;
+      if (dataCalls === 1) {
+        await firstHeld; // the kept-token request waits here
+        return status401();
+      }
+      return ok();
+    }, clock, sessionExpiringIn(40));
+    const first = h.authedFetch('rpc/a', POST); // refresh 503 -> kept token (40 s) -> held at the data call
+    for (let i = 0; i < 50 && dataCalls < 1; i += 1) await new Promise((r) => setTimeout(r, 2));
+    expect(dataCalls, 'the kept-token request never reached the data call').toBe(1);
+    clock.t += 5_000; // 35 s left: still inside the skew, so the next call refreshes
+    await h.authedFetch('rpc/b', POST); // refresh 200: the session now holds the NEW token
+    expect(h.session?.accessToken).toBe(String(fresh['access_token']));
+    releaseFirst();
+    await expect(first).rejects.toBeInstanceOf(RenewalUnavailableError);
+    expect(h.signedOut, "an old request's 401 signed out a session that had since been renewed").toBe(false);
+    expect(h.session?.accessToken, 'the old 401 overwrote the new session').toBe(String(fresh['access_token']));
+  });
+
+  test('plant — a 401 on a FRESH token still signs out, as before', async () => {
+    const { h } = holderFor(() => status401(), { t: Date.now() }, sessionExpiringIn(HOUR));
+    await expect(h.authedFetch('rpc/a', POST)).rejects.toBeInstanceOf(SessionExpiredError);
+    expect(h.signedOut).toBe(true);
+  });
+
+  test("plant — QA 1a: the Worker rejects and the direct origin answers 401 on a fresh token: signed out, and exactly two sends", async () => {
+    const { h, r } = holderFor((u) => (u.origin === WORKER ? Promise.reject(new TypeError('fetch failed')) : status401()), { t: Date.now() }, sessionExpiringIn(HOUR), true);
+    await expect(h.authedFetch('rpc/a', POST)).rejects.toBeInstanceOf(SessionExpiredError);
+    expect(h.signedOut).toBe(true);
+    expect(r.calls.map(originOf), 'the 401 from the second origin was not the answer, or a third send was made').toEqual([WORKER, DIRECT]);
+  });
+
+  test('plant — QA 1b: inside the sticky window the direct origin answers 401 on a fresh token: signed out, and the Worker is never called', async () => {
+    let dataCalls = 0;
+    const { h, r } = holderFor((u) => {
+      if (u.origin === WORKER) return Promise.reject(new TypeError('fetch failed'));
+      dataCalls += 1;
+      return dataCalls === 1 ? ok() : status401();
+    }, { t: Date.now() }, sessionExpiringIn(HOUR), true);
+    await h.authedFetch('rpc/a', POST); // the Worker fails once: the window opens, the direct origin answers 200
+    const before = r.calls.length;
+    await expect(h.authedFetch('rpc/b', POST)).rejects.toBeInstanceOf(SessionExpiredError);
+    expect(h.signedOut).toBe(true);
+    expect(r.calls.slice(before).map(originOf), 'the direct origin goes first inside the window, and a 401 from it is final').toEqual([DIRECT]);
+  });
+});
+
+describe('FG-8 — a late failure does not extend the sticky window', () => {
+  test('plant — two concurrent Worker-first calls, the second failing 10 s after the first: the window ends 5 min after the FIRST failure', async () => {
+    const clock = { t: Date.now() };
+    const t0 = clock.t;
+    const gates: Array<() => void> = [];
+    let workerSends = 0;
+    const r = routed((u) => {
+      if (u.origin === WORKER) {
+        workerSends += 1;
+        if (workerSends <= 2) return new Promise<Response>((_, reject) => { gates.push(() => reject(new TypeError('fetch failed'))); });
+        return Promise.resolve(ok());
+      }
+      return Promise.resolve(ok());
+    });
+    const h = new SessionHolder({ apiUrl: WORKER, fallbackApiUrl: DIRECT, anonKey: 'k', session: sessionExpiringIn(HOUR), now: () => clock.t, fetch: r.fetch, sleep: async () => {} });
+    const a = h.authedFetch('rpc/a', { method: 'POST', body: '{}' });
+    const b = h.authedFetch('rpc/b', { method: 'POST', body: '{}' });
+    for (let i = 0; i < 100 && workerSends < 2; i += 1) await new Promise((res) => setTimeout(res, 2));
+    expect(workerSends, 'both calls must be Worker-first and in flight before either fails').toBe(2);
+    gates[0]?.(); // the first failure, at t0, opens the window
+    await a;
+    clock.t = t0 + 10_000;
+    gates[1]?.(); // the second failure, 10 s later, while the window is already open
+    await b;
+    clock.t = t0 + STICKY_WINDOW_MS + 1_000; // 5 min and 1 s after the FIRST failure
+    const before = r.calls.length;
+    await h.authedFetch('rpc/c', { method: 'POST', body: '{}' });
+    expect(originOf(r.calls[before]), 'the late failure pushed the end of the window out: the direct origin still goes first').toBe(WORKER);
   });
 });

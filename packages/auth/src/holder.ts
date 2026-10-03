@@ -42,7 +42,11 @@ import { MalformedTokenError, expired, secondsUntilExpiry, sessionFromTokens, ty
  * both (tests/compliance/auth_catch_sites.test.ts holds every catch site to that):
  *   - SessionExpiredError: the session is over, it has been dropped, "tap the link again";
  *   - RenewalUnavailableError: the session is KEPT; the renewal could not be done just now. Nothing
- *     was sent. The next call tries again.
+ *     was written. The next call tries again.
+ *     RESTATED 2026-10-03 (R-2026-10-02-FG FG-4 a, -183). This said "Nothing was sent", which was true
+ *     until FG-3: a kept token's 401 now reaches this error AFTER a send. The send was refused before
+ *     anything ran, so nothing was written, and "written" is the claim that holds on every path. The old
+ *     text, kept: "Nothing was sent." (2026-10-02)
  * And a usable token can now be the OLD one: if a renewal says "not now" and the current access token
  * still has more than 30 s left by the local clock, measured when accessToken() returns, it is
  * returned. 30 s covers one authedFetch of two 12 s sends.
@@ -59,12 +63,33 @@ import { MalformedTokenError, expired, secondsUntilExpiry, sessionFromTokens, ty
  * (the refresh token was refused) still is terminal and still lands in the state of expiry. What
  * the classification stops doing is reading a 429 or a 503 as one.
  *
+ * A 401 ON A KEPT TOKEN KEEPS THE SESSION (R-2026-10-02-FG FG-3, -183; ruled there because FF did not).
+ * Before W4 a token inside the 60 s skew was never sent. Since FF-2 a token with 30 to 60 s left by the
+ * local clock IS sent, and a handset whose clock is 30 s or more behind gets a 401 for it, although the
+ * refresh token was never refused. Signing out then is the outcome FF-2 exists to prevent. So the "kept"
+ * mark travels WITH THE REQUEST (`#resolveToken()` returns it beside the token, and only that request's
+ * 401 check reads it; a holder field read after the answer would sign out on an old request's 401 when a
+ * concurrent refresh had meanwhile succeeded). A 401 on a kept token throws RenewalUnavailableError, the
+ * session is not touched, and THAT TOKEN IS SPENT: `#keptToken` will not return it again, so inside a 429
+ * cooldown the next call sends nothing, and after the cooldown the next call tries the refresh (which, if
+ * the refresh token has by then been refused, signs out, as FF-2 rules). A 401 on any token that was not
+ * kept is unchanged: the session is over, whichever origin answered.
+ * While `#localClockUntrusted` is set the holder returns the token early and never reaches `#keptToken`,
+ * so this rule cannot apply there, and needs no plant.
+ * NOT ASSERTED, and INFERRED: that a 401 wrote nothing. PostgREST verifies the JWT before the request
+ * reaches the database, so a refused token runs no function; no plant in this repository can show that,
+ * and the sentence the ward reads says "not published" for exactly this reason.
+ *
  * THE TWO ORIGINS. With a `fallbackApiUrl` every send goes through fetchWithFallback (fallback.ts,
  * whose header states the rules and the bounds). The holder adds STICKINESS: when the Worker went
  * first and failed, for the next five minutes the direct origin goes first and the Worker is the
  * fallback, so a hung Worker does not cost every action 12 s. The window is read through the
  * injectable clock, a clock that moves backwards ends it and never extends it, and a failure of the
  * direct origin inside the window does not restart it.
+ * RESTATED 2026-10-03 (FG-8): and a Worker failure that is recorded while the window is ALREADY OPEN
+ * does not extend it either. A call that started Worker-first before the window opened, and failed
+ * after it opened, used to record the failure again and push the end out by up to one send; the window
+ * now ends five minutes after the FIRST failure. The old text ended "...does not restart it." (2026-10-02)
  *
  * Guarded by tests/compliance/auth_session.test.ts (the state machine) and
  * tests/compliance/auth_fallback.test.ts (the origins and the bounds). Both are LIVE.
@@ -104,8 +129,15 @@ export const REFRESH_TIMEOUT_MS = SEND_TIMEOUT_MS;
 /** Transport failures only. An answer is never retried. */
 export const REFRESH_ATTEMPTS = 3;
 
-/** The longest wait before attempt `n + 1`: 2**(n-1) * 250 ms plus up to 250 ms of jitter. */
-export const REFRESH_BACKOFF_MAX_MS = (n: number): number => 2 ** (n - 1) * 250 + 250;
+/**
+ * The wait before attempt `n + 1`: 2**(n-1) * 250 ms plus `r` (0 to 1) of 250 ms of jitter. THE ONE
+ * SOURCE (FG-2): the sleep below calls it with Math.random(), and the maximum is the same function at 1,
+ * so the bound a test reads can never be a copy of the formula the sleep uses.
+ */
+export const refreshBackoffMs = (n: number, r: number): number => 2 ** (n - 1) * 250 + r * 250;
+
+/** The longest wait before attempt `n + 1`. */
+export const REFRESH_BACKOFF_MAX_MS = (n: number): number => refreshBackoffMs(n, 1);
 
 /** A refresh, worst case: every attempt a pair of sends to its timeout, plus every backoff. 73.25 s. */
 export const REFRESH_WORST_CASE_MS =
@@ -168,6 +200,8 @@ export class SessionHolder {
   #primaryFailedAt: number | null = null;
   /** When a 429 on refresh was last answered. Null when no cooldown applies. */
   #cooldownFrom: number | null = null;
+  /** The kept access token the server refused with a 401 (FG-3): never returned as a kept token again. */
+  #spentKeptToken: string | null = null;
   /**
    * Set when a refresh SUCCEEDS and the local clock still claims the brand-new
    * token is expiring. That can only mean the device clock is wrong, and
@@ -218,18 +252,26 @@ export class SessionHolder {
    * `if (token)` and skip the request silently.
    */
   async accessToken(): Promise<string> {
+    return (await this.#resolveToken()).token;
+  }
+
+  /**
+   * The token for ONE request and whether it is a KEPT one (FG-3). The flag belongs to the request it was
+   * resolved for: authedFetch reads it for that request's 401 and nothing else does.
+   */
+  async #resolveToken(): Promise<{ readonly token: string; readonly kept: boolean }> {
     const current = this.#session;
     if (current === null) {
       throw new SessionExpiredError('there is no session -- tap the link again');
     }
     if (this.#localClockUntrusted || !expired(current, this.#now(), REFRESH_SKEW_SECONDS)) {
-      return current.accessToken;
+      return { token: current.accessToken, kept: false };
     }
     // A 429 was answered a moment ago: send nothing, and let the rules for "kept" decide.
     if (this.#cooldownOpen()) return this.#keptToken('a refresh was answered with a 429 less than a minute ago');
     try {
       const renewed = await this.#refreshOnce(current);
-      return renewed.accessToken;
+      return { token: renewed.accessToken, kept: false };
     } catch (e) {
       if (e instanceof RenewalUnavailableError) return this.#keptToken(e.message);
       throw e;
@@ -238,13 +280,16 @@ export class SessionHolder {
 
   /**
    * The old token if it still has more than KEEP_TOKEN_SECONDS left by the local clock, measured
-   * now; otherwise RenewalUnavailableError. Never signs out. A session dropped meanwhile (a 401 on
-   * another call) is the session being over, not "kept".
+   * now, and the server has not already refused it with a 401; otherwise RenewalUnavailableError.
+   * Never signs out. A session dropped meanwhile (a 401 on another call) is the session being over,
+   * not "kept".
    */
-  #keptToken(why: string): string {
+  #keptToken(why: string): { readonly token: string; readonly kept: true } {
     const kept = this.#session;
     if (kept === null) throw new SessionExpiredError('there is no session -- tap the link again');
-    if (secondsUntilExpiry(kept, this.#now()) > KEEP_TOKEN_SECONDS) return kept.accessToken;
+    if (kept.accessToken !== this.#spentKeptToken && secondsUntilExpiry(kept, this.#now()) > KEEP_TOKEN_SECONDS) {
+      return { token: kept.accessToken, kept: true };
+    }
     throw new RenewalUnavailableError(`could not renew the session just now; it is kept: ${why}`);
   }
 
@@ -281,8 +326,10 @@ export class SessionHolder {
       ...(this.#fetch === undefined ? {} : { fetch: this.#fetch }),
       onPrimaryFailed: () => {
         // Only a failure of the WORKER, going first, opens the window. The direct origin failing inside
-        // the window does not restart it.
-        if (workerFirst) this.#primaryFailedAt = this.#now();
+        // the window does not restart it, and (FG-8) neither does a Worker failure recorded while the window
+        // is already open: a call that started Worker-first before it opened and failed after must not push
+        // the end out. Checked at the moment of failure, not at the start of the call.
+        if (workerFirst && !this.#stickyOpen()) this.#primaryFailedAt = this.#now();
       },
     };
   }
@@ -292,12 +339,16 @@ export class SessionHolder {
    *
    * Order matters. Resolving the token before the request means an unrenewable
    * session stops the write before it is sent, rather than after the server has
-   * already rejected it -- and a 401 that arrives anyway drops the session and
-   * throws rather than handing back a Response the caller might read as
-   * success. The 401 handling applies to whichever origin answered.
+   * already rejected it -- and a 401 that arrives anyway never hands back a Response the
+   * caller might read as success: it throws. The 401 handling applies to whichever origin answered.
+   * RESTATED 2026-10-03 (FG-3): "a 401 that arrives anyway drops the session and throws" was true of
+   * every token. It is true of a token that was not kept. A 401 on a KEPT token throws
+   * RenewalUnavailableError and keeps the session (see the header). The old text, kept: "a 401 that arrives
+   * anyway drops the session and throws rather than handing back a Response the caller might read as
+   * success." (2026-09-08)
    */
   async authedFetch(path: string, init: RequestInit = {}): Promise<Response> {
-    const token = await this.accessToken();
+    const { token, kept } = await this.#resolveToken();
     const headers = new Headers(init.headers ?? {});
     headers.set('apikey', this.#anonKey);
     headers.set('Authorization', `Bearer ${token}`);
@@ -305,8 +356,17 @@ export class SessionHolder {
     const res = await fetchWithFallback(`/rest/v1/${path.replace(/^\/+/, '')}`, { ...init, headers }, this.#sendOptions());
 
     if (res.status === 401) {
+      // A KEPT token's 401 is not the session ending: the refresh token was never refused (FG-3). This
+      // request's own flag decides, never a holder field, so a refresh that succeeded meanwhile (the
+      // session now holds a NEW token) is left alone. The token is spent, and nothing was written.
+      if (kept) {
+        this.#spentKeptToken = token;
+        throw new RenewalUnavailableError('the server refused the kept access token with 401; the session is kept', 401);
+      }
       // The server is the authority on expiry and it has just spoken. Whatever
-      // the local clock thought, this session is over.
+      // the local clock thought, a token that was not kept is over, and so is this session.
+      // RESTATED 2026-10-03 (FG-3): this comment said "Whatever the local clock thought, this session is
+      // over." It is over for a token that was not kept; a kept token's 401 is handled above.
       this.signOut();
       throw new SessionExpiredError('the server refused the session with 401 -- tap the link again');
     }
@@ -375,7 +435,7 @@ export class SessionHolder {
         // reconnecting handsets does not arrive in lockstep.
         lastTransportError = e;
         if (attempt < REFRESH_ATTEMPTS) {
-          await this.#sleep(2 ** (attempt - 1) * 250 + Math.random() * 250);
+          await this.#sleep(refreshBackoffMs(attempt, Math.random()));
           continue;
         }
         // Not an answer, so not a refusal: the session is KEPT (FF-2). OriginsUnreachableError is

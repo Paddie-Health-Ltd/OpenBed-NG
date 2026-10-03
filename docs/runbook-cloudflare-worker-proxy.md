@@ -379,26 +379,44 @@ most two sends of 12 s, so 24 s; a refresh is three attempts of that pair with i
 
 4. Once `readback_worker.sh` reads PASS again, re-paste the tracked template bodies (the BODY only, from
    after the header's closing line, as W3 step c does and FE-1 ruled), then read a real link back. Each
-   command is issued on its own:
+   command is issued on its own, and the second copy replaces the first on the clipboard, so each is
+   pasted and saved BEFORE the next is copied:
 
    ```bash
    sed '1,/^-->$/d' docs/auth-email-templates/magic-link.html | pbcopy
    ```
 
+   Paste it into the Magic Link template, replacing the body, and save.
+
    ```bash
    sed '1,/^-->$/d' docs/auth-email-templates/confirm-signup.html | pbcopy
    ```
+
+   Paste it into the Confirm signup template, replacing the body, and save.
+
+   Wait 2 minutes after the second save.
+
+   Request an operator link at admin.openbed.ng and copy it from the email.
 
    ```bash
    pbpaste | node scripts/readback_signin_link.mjs --mode admin --project-ref klrlpxysjsjpdkeqdhvl
    ```
 
+   *Restated 2026-10-03 (R-2026-10-02-FG FG-6, -183). Until then this step ran the two `pbcopy` fences and
+   the link reader back to back: the second copy overwrote the first before anything was pasted, and
+   `pbpaste` then fed the Confirm signup body to the link reader. The paste, the wait and the request are
+   W3 step c's. The 2 minutes give the template change time to reach new emails and let the verify limit's
+   window pass from any link opened during the outage; W3's wait follows the limits proof, which this
+   section has no counterpart for.*
+
 5. Cowork reads the edge logs for the outage window, as at the monthly drill
    (`docs/runbook-sensor.md` section 3).
 
 **NOT ASSERTED, and not assertable from this repository:** that the 30-minute figure in step 3 is the
-right one. It is a decision, taken once, and `tests/compliance/worker_down_runbook.test.ts` holds only
-that it is stated in one place.
+right one. It is a decision, taken once, and `tests/compliance/worker_down_runbook.test.ts` holds that it
+is stated in one place, and (since FG-6) the ORDER of step 4's lines: each `sed` fence before its own paste-and-save
+line, and the wait and the request before the link reader. *Restated 2026-10-03 (FG-6). Until then this read:*
+"holds only that it is stated in one place." 
 
 ## W3 hosted steps (R-2026-09-30-177 FA-6)
 
@@ -497,8 +515,13 @@ a. **The ward console, then the admin app, each redeployed at the merge commit b
    read back before the next. `bash scripts/readback_ward_console.sh` reads PASS, and it now expects the
    direct Supabase origin in `connect-src`; `bash scripts/readback_admin.sh` reads PASS, and it still
    expects the API origin alone.
-b. **The Worker, redeployed at the merge commit by section 1.** There is no code change to the Worker. The
-   redeploy is for the stamp, because `readback_worker.sh` requires the stamp to equal this checkout's HEAD.
+b. **The Worker, redeployed at the merge commit by section 1.** No forward entry changes. The bundle does,
+   because `allow-list.json`'s serve.ts reason was restated (FF-7), so the redeploy is needed for probe 4 as
+   well as for the stamp (`readback_worker.sh` requires the stamp to equal this checkout's HEAD).
+   *Restated 2026-10-03 (R-2026-10-02-FG FG-9 e, -183); until then this step read: "There is no code change
+   to the Worker. The redeploy is for the stamp, because `readback_worker.sh` requires the stamp to equal this
+   checkout's HEAD." It missed that supabase-proxy/index.js bundles the allow-list file, so a reason text is
+   a deploy.*
    Then `bash scripts/readback_worker.sh https://api.openbed.ng`, whole, probe 8 included. **If probe 8
    reads the gateway refusing the key in the query: STOP. Do not create the monitor; Cowork rules.**
    Probe 4, the deployed source equalling the repository's, is Cowork's, through the Cloudflare connector.

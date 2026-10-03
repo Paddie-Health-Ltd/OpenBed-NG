@@ -977,6 +977,89 @@ describe('a renewal that is only "not now" keeps the operator\'s session (R-2026
   });
 });
 
+/**
+ * R-2026-10-02-FG FG-5 (-183): "Try again" for a kept session, READS ONLY. The operator's only way forward from the
+ * kept-session sentence used to be a reload, which ends the session FF-2 had just kept. guarded()'s callers and what
+ * each thunk is: the register's Reload, the loader's own Reload, the two Back buttons and render()'s catch re-run
+ * loadRegister (reads); the Open button re-runs openFacility (a read); and the confirmed public-phone edit, the one
+ * WRITE, re-opens the facility and never re-sends the edit.
+ */
+describe('a kept session has a Try again, and it never re-sends a write (FG-5)', () => {
+  const SRC = join(REPO_ROOT, 'apps', 'admin', 'src');
+  function renewedBody(): Record<string, unknown> {
+    const now = Math.floor(Date.now() / 1000);
+    const access = `${b64url({ alg: 'HS256', typ: 'JWT' })}.${b64url({ sub: '11111111-1111-4111-8111-111111111111', session_id: '22222222-2222-4222-8222-renewed00000', exp: now + 3600, iat: now, role: 'authenticated', email: 'operator@example.invalid' })}.sig`;
+    return { access_token: access, refresh_token: 'r-renewed', expires_in: 3600, expires_at: now + 3600, token_type: 'bearer' };
+  }
+  /** One router whose refresh answers by MODE: 'down' is a 503 (not now), 'ok' is a renewed session. Everything else is the normal server. */
+  function modal(initial: 'ok' | 'down', over: Record<string, Route> = {}): { route: Route; mode(m: 'ok' | 'down'): void } {
+    let m = initial;
+    const normal = server(over);
+    return {
+      route: (url, init) => (url.includes('/auth/v1/token') ? (m === 'ok' ? json(200, renewedBody()) : json(503, { msg: 'unavailable' })) : normal(url, init)),
+      mode: (next) => { m = next; },
+    };
+  }
+  const tryAgain = (): HTMLButtonElement => button(ADMIN_LABELS.screens.TRY_AGAIN);
+  const registerCalls = (stub: ReturnType<typeof vi.fn>): number => calls(stub, 'operator_register').length;
+  const cards = (): number => document.querySelectorAll('li.facility').length;
+
+  test('plant — render(): the kept-session screen has a Try again that re-runs the register load with the same holder', async () => {
+    const r = modal('down');
+    const stub = await renderAt(sessionFragment(20), r.route);
+    await until(() => document.querySelector('button.primary') !== null && text().includes(ADMIN_LABELS.screens.RENEWAL_UNAVAILABLE));
+    expect(tryAgain().className, "Try again is the design system's primary button").toBe('primary');
+    expect(tryAgain().type).toBe('button');
+    expect(registerCalls(stub), 'nothing is sent with a token the holder would not keep').toBe(0);
+    r.mode('ok');
+    tryAgain().click();
+    await until(() => registerCalls(stub) === 1 && cards() > 0);
+    expect(text(), 'Try again signed the operator out').not.toContain(ADMIN_LABELS.screens.SIGNED_OUT);
+  });
+
+  test('plant — guarded(): the Reload that meets a kept-session failure shows Try again, which re-runs its own loader', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], shouldAdvanceTime: true });
+    const r = modal('ok');
+    const stub = await renderAt(sessionFragment(65), r.route);
+    await until(() => registerCalls(stub) === 1 && cards() > 0);
+    r.mode('down');
+    vi.setSystemTime(Date.now() + 40_000); // about 25 s left on the token: inside what the holder will keep
+    button(ADMIN_LABELS.screens.RELOAD).click();
+    await until(() => text().includes(ADMIN_LABELS.screens.RENEWAL_UNAVAILABLE) && document.querySelector('button.primary') !== null);
+    expect(registerCalls(stub), 'the Reload sent a register call with a spent token').toBe(1);
+    r.mode('ok');
+    tryAgain().click();
+    await until(() => registerCalls(stub) === 2 && cards() > 0);
+  });
+
+  test('plant — the confirmed public-phone edit, a WRITE: its Try again re-opens the facility and NEVER re-sends the edit', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], shouldAdvanceTime: true });
+    const r = modal('ok', { operator_edit_facility: () => json(200, [{ facility_id: FAC_A, version: 5 }]) });
+    const stub = await renderAt(sessionFragment(65), r.route);
+    await until(() => registerCalls(stub) === 1 && cards() > 0);
+    button('Open').click();
+    await until(() => document.querySelector('form.edit-facility') !== null);
+    setInput('edit-facility', 'phone', '0800 000 0404');
+    submit('edit-facility');
+    await until(() => document.querySelector<HTMLElement>('div.phone-confirm')?.hidden === false);
+    r.mode('down');
+    vi.setSystemTime(Date.now() + 40_000);
+    button(ADMIN_LABELS.screens.CONFIRM_PHONE).click();
+    await until(() => text().includes(ADMIN_LABELS.screens.RENEWAL_UNAVAILABLE) && document.querySelector('button.primary') !== null);
+    expect(calls(stub, 'operator_edit_facility'), 'the edit was sent with a token the holder would not keep').toHaveLength(0);
+    const reads = registerCalls(stub);
+    r.mode('ok');
+    tryAgain().click();
+    await until(() => registerCalls(stub) === reads + 1 && document.querySelector('form.edit-facility') !== null);
+    expect(calls(stub, 'operator_edit_facility'), 'Try again RE-SENT the edit: a write must never be re-sent from here').toHaveLength(0);
+  });
+
+  test('plant — no Try again calls location.reload (the source holds no reload call at all)', () => {
+    const src = readFileSync(join(SRC, 'main.ts'), 'utf8').split('\n').filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l)).join('\n');
+    expect(src, 'admin calls location.reload').not.toMatch(/location\s*\.\s*reload|\.reload\s*\(/);
+  });
+});
+
 describe('the sign-in request', () => {
   test('the request carries create_user:false, returns to this origin, and says the same words for 200, 422, 429 and 500', async () => {
     const said: string[] = [];

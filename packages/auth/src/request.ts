@@ -73,6 +73,16 @@ export const SIGNIN_ATTEMPTS = 2;
 /** The worst case, without the jitter between attempts: two attempts of 24 s. */
 export const SIGNIN_WORST_CASE_MS = SIGNIN_ATTEMPTS * CALL_WORST_CASE_MS;
 
+/**
+ * The wait before the second attempt: 300 ms plus `r` (0 to 1) of 300 ms of jitter. THE ONE SOURCE
+ * (R-2026-10-02-FG FG-2, -183): the sleep below calls it with Math.random(), and the maximum is the same
+ * function at 1, so the 0.6 s the header states can never be a copy of the formula the sleep uses.
+ */
+export const signInBackoffMs = (r: number): number => 300 + r * 300;
+
+/** The longest wait between the two attempts: 600 ms. */
+export const SIGNIN_BACKOFF_MAX_MS = signInBackoffMs(1);
+
 export async function requestSignInLink(req: SignInRequest): Promise<SignInRequestOutcome> {
   const sleep = req.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const origins = req.fallbackApiUrl === undefined ? [req.apiUrl] : [req.apiUrl, req.fallbackApiUrl];
@@ -104,7 +114,7 @@ export async function requestSignInLink(req: SignInRequest): Promise<SignInReque
       return { kind: 'answered', status: res.status };
     } catch (e) {
       last = String((e as Error).message ?? e);
-      if (attempt < SIGNIN_ATTEMPTS) await sleep(300 + Math.random() * 300);
+      if (attempt < SIGNIN_ATTEMPTS) await sleep(signInBackoffMs(Math.random()));
     }
   }
   return { kind: 'unreachable', error: last };
