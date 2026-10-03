@@ -86,8 +86,8 @@ function rawCodes(text: string, codes: string[]): string[] {
 
 type Route = (url: string, init?: RequestInit) => Response | Promise<Response>;
 
-function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+function json(status: number, body: unknown, headers: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
 }
 
 /** Renders the console at `fragment` with fetch answered by `route`. Returns the stub, to read request bodies. */
@@ -484,6 +484,23 @@ describe('the ward asks for a new sign-in link, and cannot learn whether an addr
     expect(status).toContain('The request could not be sent.');
     expect(status, 'the unreachable message is the answered one — the comparison above could not see a difference').not.toContain('If this address belongs to a ward');
     expect(text()).not.toContain(SENTINEL);
+  });
+
+  // R-2026-10-02-FF FF-3 c. Only the Worker's OWN marker earns the sentence, because only the Worker's per-address
+  // limit says nothing about whether an address exists. Supabase's own 429 (a per-USER limit, which does reveal the
+  // address) carries no marker and stays in the one flat answer the test above holds.
+  test("the Worker's own `limited` 429 shows its own sentence as a caution Notice and is sent exactly once; no marker, it reads as answered", async () => {
+    const m = await import('../../apps/ward-console/src/main.js');
+    const limited = await requestWith(() => json(429, { message: 'rate limited by the OpenBed proxy' }, { 'x-openbed-proxy': 'limited' }), '');
+    expect(limited.status).toBe(m.SIGNIN_LIMITED_WORDS);
+    expect(limited.status).toBe('Too many sign-in links were asked for from this network just now. Wait one minute, then ask again.');
+    expect(document.querySelector('form.signin-request p.status')?.classList.contains('notice-caution'), 'the limited sentence is a caution Notice').toBe(true);
+    expect(limited.stub.mock.calls.filter(([u]) => String(u).includes('/auth/v1/otp')).length, 'a limited request was retried').toBe(1);
+    // The same status WITHOUT the Worker's marker is Supabase's and reads as the flat answer.
+    for (const status of [200, 422, 429]) {
+      const answered = await requestWith(() => json(status, {}), '');
+      expect(answered.status, `HTTP ${status} with no marker did not read as answered`).toBe(m.SIGNIN_ANSWERED);
+    }
   });
 
   test('the address field is labelled "Sign-in email address" (DT Bundle 2: a facility login signs in here too)', async () => {

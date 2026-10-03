@@ -73,8 +73,15 @@ export function apiOrigin(hostname: string): string {
 }
 
 /**
- * The address the public dashboard's /beds.json and /api/health Functions use, and ONLY
- * those two routes (R-2026-09-22-58 A, extended to /api/health by R-2026-09-29-173 EW-2 a).
+ * The address the public dashboard's /beds.json and /api/health Functions use, and the ward
+ * console's FALLBACK, and nothing else (R-2026-09-22-58 A, extended to /api/health by
+ * R-2026-09-29-173 EW-2 a, and to the ward console by R-2026-10-02-FF FF-4 b).
+ *
+ * RESTATED 2026-10-02 (FF-4 b, FF-7). This comment said "ONLY those two routes", and ended "the
+ * exception does not extend to you". It now reads: granted by name to the two Functions AND to the
+ * ward console's D5 fallback, and to nothing else. The two Functions keep it as standing design
+ * (FF-7), not "until D5 closes". tests/compliance/direct_origin_holders.test.ts holds the importers
+ * to those three files.
  *
  * This is the narrow exception of R-2026-09-22-58 A. If you are reaching for it from
  * anywhere else, the answer is apiOrigin() and the exception does not extend to you.

@@ -697,6 +697,18 @@ describe('scripts/readback_ward_console.sh', () => {
   test.each<[string, (f: Fixtures) => void, string]>([
     ['a stamp naming another commit', (f) => { f[`GET ${WARD}/version.json`] = { status: 200, body: stampOf('0'.repeat(40)) }; }, 'step 2 commit'],
     ['two publishable keys in the bundle', (f) => { f[`GET ${WARD}/assets/index-B7kFspkD.js`] = { status: 200, body: `const k="${DEPLOYED_KEY}",j="sb_publishable_A_SECOND_KEY";` }; }, 'step 3 publishable keys in the deployed bundle'],
+    // R-2026-10-02-FG FG-7 (FF-4 g asked for this plant and #111 did not have it). TODAY'S LIVE ward console CSP names only the
+    // API origin; after W4 the tracked one also names the direct origin, so the first read-back of the W4 redeploy against a
+    // deployment that has NOT been redeployed must be a STOP, not a pass. The CSP is the tracked one with the direct origin
+    // taken out, and the precondition asserts the replace changed the string.
+    ['the pre-W4 deployment, whose CSP does not name the direct origin', (f) => {
+      const h = trackedHeaders('ward-console');
+      const csp = h['content-security-policy'] as string;
+      const pre = csp.replace(` ${ORIGINS_JSON.supabaseDirect.production}`, '');
+      expect(pre, 'the plant did not remove the direct origin from the CSP').not.toBe(csp);
+      expect(csp, 'the tracked ward console CSP no longer names the direct origin, so there is nothing to remove').toContain(ORIGINS_JSON.supabaseDirect.production);
+      f[`GET ${WARD}/`] = { status: 200, headers: { ...h, 'content-security-policy': pre }, body: '<!doctype html><script type="module" crossorigin src="/assets/index-B7kFspkD.js"></script>' };
+    }, 'step 3 content-security-policy'],
     ['a page that loads no bundle', (f) => { f[`GET ${WARD}/`] = { status: 200, body: '<!doctype html><p>not the ward console</p>' }; }, 'step 3 bundles the page loads'],
     ['a dead deployed key', (f) => { f[`GET ${API}/auth/v1/settings apikey=${DEPLOYED_KEY}`] = { status: 401, body: '{"message":"Invalid API key"}' }; }, 'step 3 live half status'],
     ['a failing half that does not fail', (f) => { f[`GET ${API}/auth/v1/settings apikey=${WRONG_KEY}`] = { status: 200, body: '{"external":{}}' }; }, 'step 3 dead half status'],
@@ -739,6 +751,10 @@ const ADMIN = 'https://admin.openbed.ng';
 const VERIFY_PROBE_URL = `${API}/auth/v1/verify?token=probe&type=magiclink&redirect_to=https%3A%2F%2Fadmin.openbed.ng%2F`;
 /** The fixture key for it. */
 const VERIFY_GET = `GET ${VERIFY_PROBE_URL}`;
+/** Probe 8's request as curl builds it from -G and --data-urlencode: the tracked key in the QUERY, and no header. */
+const SETTINGS_BY_QUERY = `GET ${API}/auth/v1/settings?apikey=${TRACKED_KEY}`;
+/** GoTrue's settings answer carries `disable_signup` AFTER its provider list, well past the first 200 bytes. */
+const GOTRUE_SETTINGS_BODY = `{"external":{${Array.from({ length: 30 }, (_, i) => `"provider_${i}":false`).join(',')},"email":true},"disable_signup":true,"mailer_autoconfirm":false}`;
 
 function workerFixtures(head: string): Fixtures {
   const fwd = { 'x-openbed-proxy': 'forwarded' };
@@ -758,6 +774,8 @@ function workerFixtures(head: string): Fixtures {
     // GoTrue is expected to answer a junk token with; the first hosted read records the real status
     // (R-2026-09-30-177 FA-1 d). What the script holds is only 3xx, forwarded, and the Location's ORIGIN.
     [VERIFY_GET]: { status: 303, headers: { ...fwd, location: `${ADMIN}/#error=access_denied&error_code=otp_expired` } },
+    // Probe 8 (R-2026-10-02-FF FF-5): the sensor's request, the key in the query. A STUB: the first hosted read records whether the gateway accepts it.
+    [SETTINGS_BY_QUERY]: { status: 200, headers: fwd, body: GOTRUE_SETTINGS_BODY },
     [`GET ${API}/__openbed/version`]: { status: 200, headers: { 'x-openbed-proxy': 'stamp' }, body: workerStampOf(head) },
     [`HEAD ${API}/__openbed/version`]: { status: 200, headers: { 'x-openbed-proxy': 'stamp' } },
   };
@@ -804,6 +822,9 @@ describe('scripts/readback_worker.sh', () => {
         'probe 7 status',
         'probe 7 x-openbed-proxy',
         'probe 7 Location origin',
+        'probe 8 the gateway took the key from the query',
+        'probe 8 the Worker forwarded it, not answered it',
+        "probe 8 the body carries GoTrue's disable_signup keyword",
         'stamp commit',
         'stamp dirty',
         'stamp limits_bound otp',
@@ -814,7 +835,10 @@ describe('scripts/readback_worker.sh', () => {
       ]) {
         expect(r.out, `the check "${check}" never ran`).toContain(`  ok     ${check}: `);
       }
-      expect(r.out).toContain('PASS: probes 1 to 3, 5, 5b, 6 and 7 and the stamp read as they must. Probe 4, the deployed source, is Cowork');
+      expect(r.out).toContain('PASS: probes 1 to 3, 5, 5b, 6, 7 and 8 and the stamp read as they must. Probe 4, the deployed source, is Cowork');
+      // Probe 8 carries the key in the QUERY and sends NO apikey header: that is what the sensor can do.
+      expect(r.calls, 'probe 8 did not send the tracked key as the apikey query parameter').toContain(SETTINGS_BY_QUERY);
+      expect(r.out, 'probe 8 printed the tracked key').not.toContain(TRACKED_KEY);
       expect(r.calls, 'probe 2 did not send the tracked key').toContain(`GET ${API}/auth/v1/settings apikey=${TRACKED_KEY}`);
       // Probe 5 and 5b must reach the stub as HTTP/1.1 upgrades: over HTTP/2 curl drops the header and the probe tests nothing.
       expect(r.calls, 'probe 5 was not sent as an HTTP/1.1 websocket upgrade with Connection and both Sec-WebSocket headers').toContain(`GET ${API}/realtime/v1/websocket${WS_TAIL}`);
@@ -850,6 +874,10 @@ describe('scripts/readback_worker.sh', () => {
     ['a Location on a subdomain of the admin host', (f) => { f[VERIFY_GET] = { status: 303, headers: { 'x-openbed-proxy': 'forwarded', location: 'https://evil.admin.openbed.ng/' } }; }, 'probe 7 Location origin'],
     ['a relative Location', (f) => { f[VERIFY_GET] = { status: 303, headers: { 'x-openbed-proxy': 'forwarded', location: '/' } }; }, 'probe 7 Location origin'],
     ['no Location at all', (f) => { f[VERIFY_GET] = { status: 303, headers: { 'x-openbed-proxy': 'forwarded' } }; }, 'probe 7 Location origin'],
+    // Probe 8 (R-2026-10-02-FF FF-5 b): one plant per check, each a different cause. They are rb_expect reads, not legs.
+    ['probe 8 refused with a 401: the gateway did not take the key from the query', (f) => { f[SETTINGS_BY_QUERY] = { status: 401, headers: { 'x-openbed-proxy': 'forwarded' }, body: '{"message":"No API key found in request"}' }; }, 'probe 8 the gateway took the key from the query'],
+    ['probe 8 answered by something that is not the Worker (no marker)', (f) => { f[SETTINGS_BY_QUERY] = { status: 200, headers: {}, body: GOTRUE_SETTINGS_BODY }; }, 'probe 8 the Worker forwarded it, not answered it'],
+    ['probe 8 forwarded with a 200 and a body that is not GoTrue settings (no keyword)', (f) => { f[SETTINGS_BY_QUERY] = { status: 200, headers: { 'x-openbed-proxy': 'forwarded' }, body: '<html>OpenBed</html>' }; }, "probe 8 the body carries GoTrue's disable_signup keyword"],
     ['the previous Worker still serving its stamp', (f) => { f[`GET ${API}/__openbed/version`] = { status: 200, headers: { 'x-openbed-proxy': 'stamp' }, body: workerStampOf('0'.repeat(40)) }; }, 'stamp commit'],
     ['the stamp path answered by Supabase, not the Worker', (f) => { f[`HEAD ${API}/__openbed/version`] = { status: 404 }; }, 'stamp HEAD x-openbed-proxy'],
   ])('plant — %s is a STOP', (_label, plant, check) => {

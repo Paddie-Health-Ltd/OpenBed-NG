@@ -13,6 +13,11 @@
 # is unchanged; this is the header, not the bundle.
 # The origins are NOT typed here (R-2026-09-24-94 BV-2): the placeholder in connect-src
 # is filled from origins.json by scripts/render_headers.mjs --target when the app is built.
+# STILL NEVER THE DIRECT ORIGIN (R-2026-10-02-FF FF-4 g, -182). The ward console's file now names
+# the direct *.supabase.co origin too, as its fallback when the Worker is down (D5). This app
+# has no fallback: its sessions are kept through a Worker outage (FF-2) and the operator has the
+# Supabase dashboard, so it names the API origin only, and tests/compliance/security_headers.test.ts
+# refuses the second placeholder here.
 # Referrer-Policy no-referrer: the sign-in lands with tokens in the URL fragment.
 # Cloudflare Access sits in front of this app's hosts (BQ-2); these headers are the
 # app's own, whatever Access adds to its own responses.

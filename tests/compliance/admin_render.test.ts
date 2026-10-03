@@ -47,17 +47,17 @@ function b64url(obj: unknown): string {
   return Buffer.from(JSON.stringify(obj)).toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
 
-function sessionFragment(): string {
+function sessionFragment(secondsLeft = 3600): string {
   const now = Math.floor(Date.now() / 1000);
   const token = `${b64url({ alg: 'HS256', typ: 'JWT' })}.${b64url({
     sub: '11111111-1111-4111-8111-111111111111',
     session_id: '22222222-2222-4222-8222-222222222222',
-    exp: now + 3600,
+    exp: now + secondsLeft,
     iat: now,
     role: 'authenticated',
     email: 'operator@example.invalid',
   })}.sig`;
-  return `#access_token=${token}&refresh_token=r1&expires_at=${now + 3600}&token_type=bearer`;
+  return `#access_token=${token}&refresh_token=r1&expires_at=${now + secondsLeft}&token_type=bearer`;
 }
 
 const hoursAgo = (h: number): string => new Date(Date.parse(SERVER_NOW) - h * 3600_000).toISOString();
@@ -919,6 +919,147 @@ describe('the app’s own source', () => {
   });
 });
 
+/**
+ * R-2026-10-02-FF FF-2 e: A RENEWAL THAT IS ONLY "NOT NOW" KEEPS THE OPERATOR'S SESSION. Admin has no fallback origin, but it gets the
+ * holder's classification: a refresh that answers 503 does not end the session, and the operator is told so, on the page, in
+ * one sentence, at each of the places admin handles an ended session (post, render, guarded, form).
+ *
+ * post() RETHROWS RenewalUnavailableError. Had it turned it into `unreachable`, read() would have retried it after 300-600 ms,
+ * which is the automatic retry the holder forbids; the refresh endpoint being asked EXACTLY ONCE is what discriminates.
+ */
+describe('a renewal that is only "not now" keeps the operator\'s session (R-2026-10-02-FF FF-2 e)', () => {
+  const refresh503: Route = (url) => (url.includes('/auth/v1/token') ? json(503, { msg: 'unavailable' }) : json(500, { message: 'unexpected call' }));
+  const tokenCalls = (stub: ReturnType<typeof vi.fn>): number => stub.mock.calls.filter(([u]) => String(u).includes('/auth/v1/token')).length;
+
+  test('plant — render(): the register load with a refresh that says 503 shows the kept-session sentence, sends nothing else, and does not retry', async () => {
+    const stub = await renderAt(sessionFragment(20), refresh503);
+    await until(() => text().includes(ADMIN_LABELS.screens.RENEWAL_UNAVAILABLE));
+    await new Promise((r) => setTimeout(r, 900)); // longer than read()'s 300-600 ms retry would take
+    expect(tokenCalls(stub), 'the refresh was asked more than once: the renewal failure became a retry').toBe(1);
+    expect(calls(stub, 'operator_register').length, 'a call was sent with a token the holder would not keep').toBe(0);
+    expect(text(), 'a kept session was shown as signed out').not.toContain(ADMIN_LABELS.screens.SIGNED_OUT);
+    expect(ADMIN_LABELS.screens.RENEWAL_UNAVAILABLE).toBe('Your sign-in could not be renewed just now. Your sign-in is kept. Wait one minute, then try again.');
+  });
+
+  /** A register loaded with 65 s on the token, then the clock moved so the token has about 25 s: inside what the holder will keep. */
+  async function loadedThenSpent(over: Record<string, Route> = {}): Promise<ReturnType<typeof vi.fn>> {
+    vi.useFakeTimers({ toFake: ['Date'], shouldAdvanceTime: true });
+    const stub = await renderAt(sessionFragment(65), (url, init) => (url.includes('/auth/v1/token') ? json(503, { msg: 'unavailable' }) : server(over)(url, init)));
+    await until(() => text().includes('Facilities'));
+    vi.setSystemTime(Date.now() + 40_000);
+    return stub;
+  }
+
+  test('plant — a form: a write with a refresh that says 503 shows the sentence under the form, sends no write, and keeps the page', async () => {
+    const stub = await loadedThenSpent();
+    button('New facility').click();
+    await until(() => document.querySelector('form.create-facility') !== null);
+    fillFacility('create-facility');
+    submit('create-facility');
+    await until(() => (document.querySelector('form.create-facility p.status')?.textContent ?? '') !== '');
+    expect(document.querySelector('form.create-facility p.status')?.textContent).toBe(ADMIN_LABELS.screens.RENEWAL_UNAVAILABLE);
+    expect(calls(stub, 'operator_create_facility').length, 'a write was sent with a token the holder would not keep').toBe(0);
+    expect(text(), 'a kept session was shown as signed out').not.toContain(ADMIN_LABELS.screens.SIGNED_OUT);
+  });
+
+  test('plant — a view load started from a button (guarded): the sentence replaces the view, and the session is kept', async () => {
+    const stub = await loadedThenSpent();
+    button(ADMIN_LABELS.screens.RELOAD).click();
+    await until(() => text().includes(ADMIN_LABELS.screens.RENEWAL_UNAVAILABLE));
+    expect(text(), 'a kept session was shown as signed out').not.toContain(ADMIN_LABELS.screens.SIGNED_OUT);
+    expect(calls(stub, 'operator_register').length, 'only the first load sent the register').toBe(1);
+  });
+
+  test('control — a REFUSED refresh (a 400) still signs the operator out', async () => {
+    await renderAt(sessionFragment(20), (url) => (url.includes('/auth/v1/token') ? json(400, { error_code: 'validation_failed', msg: 'Refresh token is not valid' }) : json(500, {})));
+    await until(() => text().includes(ADMIN_LABELS.screens.SIGNED_OUT));
+    expect(text()).not.toContain(ADMIN_LABELS.screens.RENEWAL_UNAVAILABLE);
+  });
+});
+
+/**
+ * R-2026-10-02-FG FG-5 (-183): "Try again" for a kept session, READS ONLY. The operator's only way forward from the
+ * kept-session sentence used to be a reload, which ends the session FF-2 had just kept. guarded()'s callers and what
+ * each thunk is: the register's Reload, the loader's own Reload, the two Back buttons and render()'s catch re-run
+ * loadRegister (reads); the Open button re-runs openFacility (a read); and the confirmed public-phone edit, the one
+ * WRITE, re-opens the facility and never re-sends the edit.
+ */
+describe('a kept session has a Try again, and it never re-sends a write (FG-5)', () => {
+  const SRC = join(REPO_ROOT, 'apps', 'admin', 'src');
+  function renewedBody(): Record<string, unknown> {
+    const now = Math.floor(Date.now() / 1000);
+    const access = `${b64url({ alg: 'HS256', typ: 'JWT' })}.${b64url({ sub: '11111111-1111-4111-8111-111111111111', session_id: '22222222-2222-4222-8222-renewed00000', exp: now + 3600, iat: now, role: 'authenticated', email: 'operator@example.invalid' })}.sig`;
+    return { access_token: access, refresh_token: 'r-renewed', expires_in: 3600, expires_at: now + 3600, token_type: 'bearer' };
+  }
+  /** One router whose refresh answers by MODE: 'down' is a 503 (not now), 'ok' is a renewed session. Everything else is the normal server. */
+  function modal(initial: 'ok' | 'down', over: Record<string, Route> = {}): { route: Route; mode(m: 'ok' | 'down'): void } {
+    let m = initial;
+    const normal = server(over);
+    return {
+      route: (url, init) => (url.includes('/auth/v1/token') ? (m === 'ok' ? json(200, renewedBody()) : json(503, { msg: 'unavailable' })) : normal(url, init)),
+      mode: (next) => { m = next; },
+    };
+  }
+  const tryAgain = (): HTMLButtonElement => button(ADMIN_LABELS.screens.TRY_AGAIN);
+  const registerCalls = (stub: ReturnType<typeof vi.fn>): number => calls(stub, 'operator_register').length;
+  const cards = (): number => document.querySelectorAll('li.facility').length;
+
+  test('plant — render(): the kept-session screen has a Try again that re-runs the register load with the same holder', async () => {
+    const r = modal('down');
+    const stub = await renderAt(sessionFragment(20), r.route);
+    await until(() => document.querySelector('button.primary') !== null && text().includes(ADMIN_LABELS.screens.RENEWAL_UNAVAILABLE));
+    expect(tryAgain().className, "Try again is the design system's primary button").toBe('primary');
+    expect(tryAgain().type).toBe('button');
+    expect(registerCalls(stub), 'nothing is sent with a token the holder would not keep').toBe(0);
+    r.mode('ok');
+    tryAgain().click();
+    await until(() => registerCalls(stub) === 1 && cards() > 0);
+    expect(text(), 'Try again signed the operator out').not.toContain(ADMIN_LABELS.screens.SIGNED_OUT);
+  });
+
+  test('plant — guarded(): the Reload that meets a kept-session failure shows Try again, which re-runs its own loader', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], shouldAdvanceTime: true });
+    const r = modal('ok');
+    const stub = await renderAt(sessionFragment(65), r.route);
+    await until(() => registerCalls(stub) === 1 && cards() > 0);
+    r.mode('down');
+    vi.setSystemTime(Date.now() + 40_000); // about 25 s left on the token: inside what the holder will keep
+    button(ADMIN_LABELS.screens.RELOAD).click();
+    await until(() => text().includes(ADMIN_LABELS.screens.RENEWAL_UNAVAILABLE) && document.querySelector('button.primary') !== null);
+    expect(registerCalls(stub), 'the Reload sent a register call with a spent token').toBe(1);
+    r.mode('ok');
+    tryAgain().click();
+    await until(() => registerCalls(stub) === 2 && cards() > 0);
+  });
+
+  test('plant — the confirmed public-phone edit, a WRITE: its Try again re-opens the facility and NEVER re-sends the edit', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], shouldAdvanceTime: true });
+    const r = modal('ok', { operator_edit_facility: () => json(200, [{ facility_id: FAC_A, version: 5 }]) });
+    const stub = await renderAt(sessionFragment(65), r.route);
+    await until(() => registerCalls(stub) === 1 && cards() > 0);
+    button('Open').click();
+    await until(() => document.querySelector('form.edit-facility') !== null);
+    setInput('edit-facility', 'phone', '0800 000 0404');
+    submit('edit-facility');
+    await until(() => document.querySelector<HTMLElement>('div.phone-confirm')?.hidden === false);
+    r.mode('down');
+    vi.setSystemTime(Date.now() + 40_000);
+    button(ADMIN_LABELS.screens.CONFIRM_PHONE).click();
+    await until(() => text().includes(ADMIN_LABELS.screens.RENEWAL_UNAVAILABLE) && document.querySelector('button.primary') !== null);
+    expect(calls(stub, 'operator_edit_facility'), 'the edit was sent with a token the holder would not keep').toHaveLength(0);
+    const reads = registerCalls(stub);
+    r.mode('ok');
+    tryAgain().click();
+    await until(() => registerCalls(stub) === reads + 1 && document.querySelector('form.edit-facility') !== null);
+    expect(calls(stub, 'operator_edit_facility'), 'Try again RE-SENT the edit: a write must never be re-sent from here').toHaveLength(0);
+  });
+
+  test('plant — no Try again calls location.reload (the source holds no reload call at all)', () => {
+    const src = readFileSync(join(SRC, 'main.ts'), 'utf8').split('\n').filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l)).join('\n');
+    expect(src, 'admin calls location.reload').not.toMatch(/location\s*\.\s*reload|\.reload\s*\(/);
+  });
+});
+
 describe('the sign-in request', () => {
   test('the request carries create_user:false, returns to this origin, and says the same words for 200, 422, 429 and 500', async () => {
     const said: string[] = [];
@@ -935,6 +1076,20 @@ describe('the sign-in request', () => {
     }
     expect(new Set(said).size).toBe(1);
     expect(said[0]).toBe(ADMIN_LABELS.screens.REQUEST_ANSWERED);
+  });
+
+  // R-2026-10-02-FF FF-3 c. Only the Worker's OWN marker earns its sentence; every other 429 is Supabase's, per-USER, and
+  // reveals the address, so it stays in the one flat answer the test above holds (200, 422, 429 and 500, all unmarked).
+  test("the Worker's own `limited` 429 shows its own sentence as a caution Notice and is sent exactly once", async () => {
+    const stub = await renderAt('', (url) => (url.includes('/auth/v1/otp') ? json(429, { message: 'rate limited by the OpenBed proxy' }, { 'x-openbed-proxy': 'limited' }) : json(500, {})));
+    await until(() => document.querySelector('form.signin-request') !== null);
+    setInput('signin-request', 'email', 'someone@example.invalid');
+    submit('signin-request');
+    await until(() => (document.querySelector('form.signin-request p.status')?.textContent ?? '') !== '');
+    expect(document.querySelector('form.signin-request p.status')?.textContent).toBe(ADMIN_LABELS.screens.REQUEST_LIMITED);
+    expect(ADMIN_LABELS.screens.REQUEST_LIMITED).toBe('Too many sign-in links were asked for from this network just now. Wait one minute, then ask again.');
+    expect(document.querySelector('form.signin-request p.status')?.classList.contains('notice-caution')).toBe(true);
+    expect(stub.mock.calls.filter(([u]) => String(u).includes('/auth/v1/otp')).length, 'a limited request was retried').toBe(1);
   });
 
   test('the signed-out page names the Access order before asking for a link', async () => {

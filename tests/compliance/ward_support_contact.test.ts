@@ -45,7 +45,12 @@ export function bareOperatorInstructions(source: string): string[] {
 async function consoleMessages(): Promise<string[]> {
   document.body.innerHTML = '<div id="app"></div>';
   const m = await import('../../apps/ward-console/src/main.js');
-  return [m.UNRECOGNISED, m.ROW_REFUSED, m.LOAD_REFUSED, m.BAD_LINK, m.SIGNIN_ANSWERED, m.SIGNIN_UNREACHABLE, m.NO_WARD_SESSION, ...Object.values(m.WARD_MESSAGES)];
+  return [
+    m.UNRECOGNISED, m.ROW_REFUSED, m.LOAD_REFUSED, m.BAD_LINK, m.SIGNIN_ANSWERED, m.SIGNIN_UNREACHABLE, m.NO_WARD_SESSION,
+    // R-2026-10-02-FF: the five sentences W4 adds. None is a WARD_MESSAGES key (no migration raises them), so each is named here.
+    m.SIGNIN_LIMITED_WORDS, m.RENEWAL_UNAVAILABLE_PUBLISH, m.UNREACHABLE_PUBLISH, m.RENEWAL_UNAVAILABLE_LOAD, m.UNREACHABLE_LOAD,
+    ...Object.values(m.WARD_MESSAGES),
+  ];
 }
 
 describe('the ward support address', () => {
@@ -68,7 +73,8 @@ describe('the ward support address', () => {
   });
 
   test("the console's source tells no ward to phone the operator, and the plant is caught", () => {
-    const src = readFileSync(join(REPO_ROOT, 'apps/ward-console/src/main.ts'), 'utf8');
+    // main.ts and publish.ts together (R-2026-10-02-FF FF-4 f moved the help sentences into publish.ts, which main.ts imports).
+    const src = ['main.ts', 'publish.ts'].map((f) => readFileSync(join(REPO_ROOT, 'apps/ward-console/src', f), 'utf8')).join('\n');
     expect(src).toContain('WARD_SUPPORT_EMAIL');
     expect(bareOperatorInstructions(src)).toEqual([]);
     expect(bareOperatorInstructions("const X = 'This ward is not set up yet. Phone the OpenBed operator.';")).toEqual(['Phone the OpenBed operator']);

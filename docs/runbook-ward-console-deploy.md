@@ -139,7 +139,13 @@ changed a header reads `WRONG`.
 
 **The CSP's API origins are not in the file** (R-2026-09-24-94 BV-2). Its `connect-src` names
 `@API_ORIGINS@`, and `npm run build` fills that from `packages/origins/origins.json` with
-`scripts/render_headers.mjs --target production`: **the production API origin only**.
+`scripts/render_headers.mjs --target production`: **the production API origin AND, since
+R-2026-10-02-FF FF-4 g (-182), the production direct Supabase origin**, which the console falls back
+to when the Worker is down (D5). `npm run build:local` names the local API origin only: locally the
+two are the same address, and the renderer drops the second with its leading space. *Restated
+2026-10-02. Until then this read* "the production API origin only". **The read-back's three header
+lines follow the renderer, so after this deploy they expect `connect-src 'self'` plus both origins
+on production**, and a deploy of the old file now reads `WRONG` on the CSP line.
 `npm run build:local` fills the local one only, for a local server (R-2026-09-25-117 CS-2).
 The read-back renders the tracked file for production before comparing. *Restated
 2026-09-25.* Until then this read "fills that from `packages/origins/origins.json` (`api`,

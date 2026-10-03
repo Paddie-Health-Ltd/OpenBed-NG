@@ -1,4 +1,4 @@
-import { SessionExpiredError, SessionHolder, requestSignInLink, sessionFromUrlFragment } from '@openbed/auth';
+import { RenewalUnavailableError, SessionExpiredError, SessionHolder, requestSignInLink, sessionFromUrlFragment } from '@openbed/auth';
 import { apiOrigin } from '@openbed/origins';
 import { publishableKeyFor } from '@openbed/origins/keys';
 import { PRIVACY_NOTICE_URL } from '@openbed/origins/privacy';
@@ -187,6 +187,10 @@ async function post(holder: SessionHolder, call: keyof typeof CALL, body: unknow
     res = await CALL[call](holder, JSON.stringify(body));
   } catch (e) {
     if (e instanceof SessionExpiredError) throw e;
+    // A RENEWAL THAT IS ONLY "NOT NOW" (R-2026-10-02-FF FF-2 e) is rethrown, never turned into `unreachable`:
+    // read() retries an `unreachable` after 300-600 ms, which would be the automatic retry the holder forbids.
+    // The session is kept; the caller shows the sentence and the operator tries again.
+    if (e instanceof RenewalUnavailableError) throw e;
     // Transport only: no answer came. Logged by which call, never by request values.
     console.error('OpenBed admin: no answer from the server', RPC[call]);
     return { kind: 'unreachable' };
@@ -214,15 +218,40 @@ async function read(holder: SessionHolder, call: 'register' | 'getContact' | 'sc
 /** A write: sent once. Its caller decides what a missing answer means, per call. */
 const write = post;
 
-/** A view load started from a button: an ended session signs out, anything else says so. */
-function guarded(p: Promise<unknown>): void {
-  void p.catch((e: unknown) => {
+/**
+ * A view load started from a button: an ended session signs out, a renewal that is only "not now" says so
+ * WITH a "Try again", anything else says so.
+ *
+ * R-2026-10-02-FG FG-5 (-183): this took a Promise, and on RenewalUnavailableError showed one sentence in a page
+ * with no control. Admin keeps nothing client-side, so the operator's only way forward was a reload, which ends
+ * the session FF-2 had just kept. It now takes the loader as a THUNK and, on that error, appends a "Try again"
+ * that runs `again` with the same holder (default: the loader itself). A WRITE IS NEVER RE-SENT BY TRY AGAIN:
+ * the one write that goes through here, the confirmed public-phone edit (BY-2 e, "sent ONCE ... never
+ * re-sent"), passes a DIFFERENT `again`, which re-opens the facility so the operator sees what is now true and
+ * decides whether to edit again. The `.catch` form is unchanged, so tests/compliance/auth_catch_sites.test.ts
+ * still finds six sites.
+ */
+function guarded(run: () => Promise<unknown>, again: () => Promise<unknown> = run): void {
+  void run().catch((e: unknown) => {
     if (e instanceof SessionExpiredError) signedOut(W.SIGNED_OUT);
+    else if (e instanceof RenewalUnavailableError) renewalUnavailable(() => guarded(again));
     else {
       console.error('OpenBed admin: a view failed to load');
       show(W.REGISTER_HEADING, ADMIN_FIXED.UNRECOGNISED);
     }
   });
+}
+
+/** The kept-session sentence and a "Try again" button (FG-5). `retry` is a READ, or a re-open: never a write. */
+function renewalUnavailable(retry: () => void): void {
+  show(W.REGISTER_HEADING, W.RENEWAL_UNAVAILABLE);
+  const again = el('button', W.TRY_AGAIN, 'primary');
+  again.type = 'button';
+  again.addEventListener('click', () => {
+    again.disabled = true;
+    retry();
+  });
+  appRoot()?.append(again);
 }
 
 /**
@@ -396,7 +425,7 @@ function renderRegister(holder: SessionHolder, reg: Register, mark: FetchMark, s
   if (root === null) return;
   const reload = el('button', W.RELOAD);
   reload.type = 'button';
-  reload.addEventListener('click', () => guarded(loadRegister(holder)));
+  reload.addEventListener('click', () => guarded(() => loadRegister(holder)));
   const create = el('button', 'New facility');
   create.type = 'button';
   create.addEventListener('click', () => openCreate(holder));
@@ -438,7 +467,7 @@ function renderRegister(holder: SessionHolder, reg: Register, mark: FetchMark, s
     wardsCell.append(wards);
     const open = el('button', 'Open');
     open.type = 'button';
-    open.addEventListener('click', () => guarded(openFacility(holder, f.facilityId)));
+    open.addEventListener('click', () => guarded(() => openFacility(holder, f.facilityId)));
     const action = el('div', undefined, 'cell cell-open');
     action.append(open);
     card.append(who, standing, needs, wardsCell, action);
@@ -473,7 +502,7 @@ async function loadRegister(holder: SessionHolder, notice?: string): Promise<Reg
     // The register's own Reload (DP-5 b 1), so the sentence's "reload" has a control.
     const again = el('button', W.RELOAD);
     again.type = 'button';
-    again.addEventListener('click', () => guarded(loadRegister(holder, notice)));
+    again.addEventListener('click', () => guarded(() => loadRegister(holder, notice)));
     appRoot()?.append(again, system);
     return null;
   }
@@ -563,6 +592,7 @@ function form(name: string, submitText: string, parts: HTMLElement[], onSubmit: 
     void onSubmit(status)
       .catch((e: unknown) => {
         if (e instanceof SessionExpiredError) signedOut(W.SIGNED_OUT);
+        else if (e instanceof RenewalUnavailableError) say(status, W.RENEWAL_UNAVAILABLE, 'caution');
         else {
           console.error('OpenBed admin: a form failed');
           say(status, ADMIN_FIXED.UNRECOGNISED, 'caution');
@@ -639,7 +669,7 @@ function openCreate(holder: SessionHolder): void {
   const i = facilityInputs();
   const back = el('button', 'Back');
   back.type = 'button';
-  back.addEventListener('click', () => guarded(loadRegister(holder)));
+  back.addEventListener('click', () => guarded(() => loadRegister(holder)));
   const f = form('create-facility', 'Create', [i.name.wrap, i.lga.wrap, i.state.wrap, i.lat.wrap, i.lng.wrap, i.phone.wrap], async (status) => {
     const fields = facilityFieldsFrom({ name: i.name.input, lga: i.lga.input, state: i.state.input, lat: i.lat.input, lng: i.lng.input, phone: i.phone.value, phoneInput: i.phone.input });
     if ('sentence' in fields) {
@@ -747,7 +777,7 @@ function renderDetail(holder: SessionHolder, first: Detail): void {
   const heading = el('h1', d.f.name);
   const back = el('button', 'Back');
   back.type = 'button';
-  back.addEventListener('click', () => guarded(loadRegister(holder)));
+  back.addEventListener('click', () => guarded(() => loadRegister(holder)));
   const status = statusLine();
   const patches: (() => void)[] = [];
 
@@ -863,7 +893,8 @@ function renderDetail(holder: SessionHolder, first: Detail): void {
     confirm.addEventListener('click', () => {
       confirm.disabled = true;
       cancel.disabled = true;
-      guarded(send(fields, s));
+      // A WRITE: its Try again re-opens the facility, never re-sends the edit (FG-5).
+      guarded(() => send(fields, s), () => openFacility(holder, d.f.facilityId));
     });
   });
   facility.append(editForm, confirmPanel);
@@ -1041,6 +1072,11 @@ function renderDetail(holder: SessionHolder, first: Detail): void {
 
 // ------------------------------------------------------------------ sign-in
 
+/** The `never` end of an exhaustive switch: a new outcome that reaches here is a compile error first, a thrown error second. */
+function unhandledOutcome(outcome: never): never {
+  throw new Error(`an unhandled sign-in outcome: ${JSON.stringify(outcome)}`);
+}
+
 function requestForm(): HTMLFormElement {
   const email = field(W.REQUEST_LABEL, 'email', '', 'email');
   email.input.required = true;
@@ -1060,13 +1096,24 @@ function requestForm(): HTMLFormElement {
       try {
         const outcome = await requestSignInLink({ apiUrl: API_URL, anonKey: PUBLISHABLE_KEY, email: email.input.value, redirectTo: `${window.location.origin}/` });
         // The status to the log; one sentence on the page, whatever it was, because
-        // each status would say whether the address exists.
-        if (outcome.kind === 'answered') {
-          if (outcome.status !== 200) console.error('OpenBed admin: the sign-in request was answered', outcome.status);
-          say(status, W.REQUEST_ANSWERED, 'info');
-        } else {
-          console.error('OpenBed admin: the sign-in request got no answer');
-          say(status, W.REQUEST_UNREACHABLE, 'caution');
+        // each status would say whether the address exists -- except the Worker's OWN limit
+        // (`limited`, FF-3), which says nothing about the address. EXHAUSTIVE: a fourth outcome
+        // fails to compile here, where the bare `else` this replaced would have shown it the
+        // "no answer" sentence.
+        switch (outcome.kind) {
+          case 'answered':
+            if (outcome.status !== 200) console.error('OpenBed admin: the sign-in request was answered', outcome.status);
+            say(status, W.REQUEST_ANSWERED, 'info');
+            break;
+          case 'limited':
+            say(status, W.REQUEST_LIMITED, 'caution');
+            break;
+          case 'unreachable':
+            console.error('OpenBed admin: the sign-in request got no answer');
+            say(status, W.REQUEST_UNREACHABLE, 'caution');
+            break;
+          default:
+            return unhandledOutcome(outcome);
         }
       } finally {
         button.disabled = false;
@@ -1124,6 +1171,10 @@ export async function render(): Promise<void> {
   } catch (e) {
     if (e instanceof SessionExpiredError) {
       signedOut(W.SIGNED_OUT);
+      return;
+    }
+    if (e instanceof RenewalUnavailableError) {
+      renewalUnavailable(() => guarded(() => loadRegister(holder)));
       return;
     }
     console.error('OpenBed admin: the register did not load');

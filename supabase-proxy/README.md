@@ -22,7 +22,9 @@ only `allow-list.json`, held equal to the code by
 `tests/compliance/proxy_allow_list.test.ts`; it answers `/__openbed/version` itself;
 it deploys through `scripts/deploy_worker.sh`; and its probes are
 `docs/runbook-cloudflare-worker-proxy.md`. **The availability answer (`-23 D5`) is
-still owed**, and this Worker raises its stakes.
+still owed**, and this Worker raises its stakes. *Restated 2026-10-02 (R-2026-10-02-FF, -182):
+the code for the answer is written (the ward console's fallback, `packages/auth/src/fallback.ts`);
+D5 stays open until its hosted steps are read back.*
 
 **One thing the KEEP does not buy yet**, recorded so this file does not overclaim
 it: none of the three properties above reaches production until a tracked origin
@@ -109,3 +111,7 @@ the sentence describes a mechanism that is gone rather than one still in use. An
 addresses the Supabase origin directly, not through this hostname
 (`R-2026-09-22-58 A`), so "every app" in the banner above means every BROWSER call.
 That exception ends when `R-2026-09-19-23 D5`, availability, closes.
+*Restated 2026-10-02 (R-2026-10-02-FF FF-7, -182): it does not end. `/beds.json` and
+`/api/health` keep their direct origin as standing design, because `-58 A2`'s reasons hold
+after D5. The ward console takes the same origin as its availability fallback, by name
+(FF-4 b).*

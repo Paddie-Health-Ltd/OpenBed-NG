@@ -80,7 +80,8 @@ const dutyFlagRules = [
  * EXACTLY TWO CALL SITES ARE EXEMPT (DF-1 b), each with
  * `eslint-disable-next-line openbed/no-wall-clock -- OPENBED-CLOCK-READ: <ruling>`:
  * the Function's serve-time stamp in packages/snapshot/src/serve.ts, and the ward
- * console's p_composed_at in apps/ward-console/src/main.ts. Both are deliberate clock
+ * console's p_composed_at in apps/ward-console/src/publish.ts (moved there from main.ts by
+ * R-2026-10-02-FF FF-4 f, with submitPublish). Both are deliberate clock
  * reads, ruled after the spec was written. tests/compliance/eslint_wall_clock.test.ts pins
  * that set by file and reason, and refuses any other disable of this rule in scope.
  */

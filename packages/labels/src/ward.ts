@@ -22,3 +22,10 @@ export const OFFERING_CHOICES: ReadonlyArray<readonly ['OFFERED' | 'NOT_OFFERED'
  */
 export const NO_WARD_HEADING: string = WARD.session.NO_WARD_HEADING;
 export const NO_WARD: string = WARD.session.NO_WARD;
+
+/**
+ * What a sign-in request is told when the Worker ITSELF limited it (R-2026-10-02-FF FF-3). Only the
+ * Worker's own marker earns this sentence: Supabase's per-user 429 still reads as "answered", because
+ * it reveals whether the address exists. The admin app keeps the same words as `screens.REQUEST_LIMITED`.
+ */
+export const SIGNIN_LIMITED: string = WARD.signin.LIMITED;

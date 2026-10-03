@@ -56,6 +56,25 @@ shows on `/api/health` within about 30 seconds.
 address and by push to the founder's phone app. Created by the founder on 2026-09-30 and reading green;
 that is the founder's reading, relayed by Cowork, not something this repository can show.
 
+**The second monitor** (R-2026-10-02-FF FF-5 d, -182) is on the Worker, in UptimeRobot, worded as the first:
+a keyword monitor on `api.openbed.ng/auth/v1/settings`, with the publishable key as `apikey` in the
+QUERY (`https://api.openbed.ng/auth/v1/settings?apikey=<the tracked publishable key>`), keyword
+`"disable_signup"`, alerting when it does NOT exist, every 5 minutes, to the same two contacts: the
+support address by email and the founder's phone app by push. **The key is in the query, not a header,
+because UptimeRobot's Free plan cannot send one** (its pricing page, read 2026-10-02: "Custom HTTP
+Headers & Statuses" starts at Solo). Supabase documents the key as a header, so **whether the hosted
+gateway accepts it in the query is NOT CONFIRMED until `scripts/readback_worker.sh` probe 8 reads it**
+(`docs/runbook-cloudflare-worker-proxy.md` section 2). Create this monitor only after probe 8 reads
+PASS. The keyword is GoTrue's own: the Worker's refusal, Cloudflare's error pages and the site's HTML
+cannot contain it, so only a real settings answer keeps the monitor green.
+
+**What the second monitor watches:** DNS, the route, the Worker running, the allow-list forwarding
+`/auth/v1/settings`, and Supabase's gateway answering. **What it cannot see: whether the ward console's
+fallback works.** A ward never sees the fallback, which is the point, so this monitor is the only signal
+that the Worker is down (`docs/runbook-cloudflare-worker-proxy.md` section 6). **The key lives in this
+monitor's URL**, so a publishable-key rotation moves it in the same change
+(`docs/runbook-key-rotation.md`): without that, the monitor goes red on every rotation, which is loud, and wrong.
+
 **The monitor reads a body keyword, not a status,** because the founder set the Pages project to
 FAIL OPEN (the founder's reading of 2026-09-30, recorded in R-2026-09-30-174). Once the free daily
 request pool is spent, `/api/health` is not answered by the Function at all: the site's own HTML

@@ -1,19 +1,27 @@
 # Response headers for every static asset of the ward console (Cloudflare Pages
 # `_headers`; R-2026-09-24-88 BP-10, PR 3.4b-app B). tests/compliance/security_headers.test.ts
-# holds this file to its rule. connect-src is 'self' plus exactly THE BUILD TARGET'S API
-# origin from packages/origins/origins.json -- `npm run build`, which is what is
-# deployed, names the production origin only, and `npm run build:local`, for a local
-# `wrangler pages dev`, the local one only (R-2026-09-25-117 CS-2) -- and never the
-# direct *.supabase.co origin. The emailed sign-in link is a navigation, which
+# holds this file to its rule. connect-src is 'self' plus THE BUILD TARGET'S API origin from
+# packages/origins/origins.json, plus, since R-2026-10-02-FF FF-4 g (-182), THE SAME
+# TARGET'S DIRECT SUPABASE ORIGIN: the ward console falls back to it when the Worker at the API
+# origin is down or refuses a path (D5, R-2026-09-19-23; packages/auth/src/fallback.ts), and a
+# browser may not fetch an origin its CSP does not name. `npm run build`, which is what is
+# deployed, names the production API origin and the production direct origin; `npm run build:local`,
+# for a local `wrangler pages dev`, names the local API origin only, because locally the two are the
+# same address and the renderer drops the second.
+# THE OLD TEXT, kept (2026-09-25): "connect-src is 'self' plus exactly THE BUILD TARGET'S API
+# origin from packages/origins/origins.json ... and never the direct *.supabase.co origin."
+# That last clause was true until D5's fallback and is not true of this app now. Admin's file
+# still says it, and still means it: admin has no fallback.
+# The emailed sign-in link is a navigation, which
 # connect-src does not govern: it opens on api.openbed.ng since R-2026-09-30-177 (W3,
 # option T1), and opened on the direct *.supabase.co origin until then. Until 2026-09-25 this read "the API origins
 # origins.json gives apiOrigin() -- production and local, because the origin is chosen
 # at run time by hostname", and every build named both. Runtime selection by hostname
 # is unchanged; this is the header, not the bundle.
-# The origins are NOT typed here (R-2026-09-24-94 BV-2): the placeholder in connect-src
-# is filled from origins.json by scripts/render_headers.mjs --target when the app is built.
+# The origins are NOT typed here (R-2026-09-24-94 BV-2): the two placeholders in connect-src
+# are filled from origins.json by scripts/render_headers.mjs --target when the app is built.
 # Referrer-Policy no-referrer: the sign-in lands with tokens in the URL fragment.
 /*
-  Content-Security-Policy: default-src 'self'; connect-src 'self' @API_ORIGINS@; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; connect-src 'self' @API_ORIGINS@ @FALLBACK_ORIGIN@; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff

@@ -5,15 +5,22 @@ import { describe, expect, test } from 'vitest';
 import { REPO_ROOT, place, withScratch } from './_scratch.js';
 
 /**
- * ONE HOLDER OF THE DIRECT ORIGIN (R-2026-09-30-174 EX-2 d).
+ * THREE HOLDERS OF THE DIRECT ORIGIN (R-2026-09-30-174 EX-2 d; widened by R-2026-10-02-FF FF-4 b, -182).
  *
- * The -58 A exception lets a server-side Function reach Supabase without the Worker proxy,
- * and it is granted by name to two routes: /beds.json and /api/health, whose code lives in
- * packages/snapshot/src/serve.ts and packages/snapshot/src/health_serve.ts. The address
- * itself is exported by packages/origins/src/index.ts, and nothing about an export stops a
- * third file, a browser app among them, from importing it: the exception would then have
+ * RESTATED 2026-10-02 (FF-4 b). This header, and the titles below, said "two holders". It now reads: the
+ * direct origin is granted BY NAME to the two Functions AND to the ward console's fallback, and to nothing
+ * else. The third holder is apps/ward-console/src/main.ts, which hands the origin to the auth package as
+ * an ARGUMENT (`fallbackApiUrl`) for D5's availability fallback (R-2026-09-19-23 D5). It is the third and
+ * LAST: the admin app does not take it (its CSP does not name it either, security_headers.test.ts), and
+ * packages/auth/src never imports it. The original text, kept: "The -58 A exception lets a server-side
+ * Function reach Supabase without the Worker proxy, and it is granted by name to two routes: /beds.json
+ * and /api/health, whose code lives in packages/snapshot/src/serve.ts and
+ * packages/snapshot/src/health_serve.ts." (2026-09-30)
+ *
+ * The address itself is exported by packages/origins/src/index.ts, and nothing about an export stops a
+ * further file, a browser app among them, from importing it: the exception would then have
  * spread with no ruling and no test going red. So this test holds the IMPORTERS of the three
- * names that carry the address to exactly those two files.
+ * names that carry the address to exactly the three files in HOLDERS.
  *
  * THE CORPUS IS DECLARED, and it is proxy_allow_list.test.ts's: every .ts under
  * apps/<app>/src, apps/<app>/functions and packages/<pkg>/src, tests and .d.ts excluded, minus
@@ -42,7 +49,7 @@ import { REPO_ROOT, place, withScratch } from './_scratch.js';
 
 const NAMES = new Set(['supabaseDirectOrigin', 'PRODUCTION_SUPABASE_ORIGIN', 'LOCAL_SUPABASE_ORIGIN']);
 const DEFINER = 'packages/origins/src/index.ts';
-const HOLDERS = ['packages/snapshot/src/health_serve.ts', 'packages/snapshot/src/serve.ts'];
+const HOLDERS = ['apps/ward-console/src/main.ts', 'packages/snapshot/src/health_serve.ts', 'packages/snapshot/src/serve.ts'];
 
 /** The declared corpus: apps/<app>/{src,functions} and packages/<pkg>/src, TypeScript, no tests. */
 function corpusFiles(root: string): string[] {
@@ -94,12 +101,12 @@ function importsDirectOrigin(source: string): boolean {
   return false;
 }
 
-/** Every way the importers are not exactly the two holders. Empty means they are. */
+/** Every way the importers are not exactly the three holders. Empty means they are. */
 function holderViolations(corpus: Map<string, string>): string[] {
   if (corpus.size === 0) return ['the corpus is empty: no file was read, so "no third importer" is not evidence'];
   const found = [...corpus].filter(([, src]) => importsDirectOrigin(src)).map(([p]) => p).sort();
   const out: string[] = [];
-  for (const f of found) if (!HOLDERS.includes(f)) out.push(`${f} imports the direct origin and is not one of the two holders`);
+  for (const f of found) if (!HOLDERS.includes(f)) out.push(`${f} imports the direct origin and is not one of the three holders`);
   for (const h of HOLDERS) if (!found.includes(h)) out.push(`${h} no longer imports the direct origin: the exception named it, and nothing reads it now`);
   return out;
 }
@@ -107,13 +114,13 @@ function holderViolations(corpus: Map<string, string>): string[] {
 const REAL = readCorpus(REPO_ROOT);
 const ORIGINS_IMPORT = `import { supabaseDirectOrigin } from '@openbed/origins';\nexport const o = supabaseDirectOrigin('x');\n`;
 
-describe('the direct origin has exactly two holders', () => {
-  test('real corpus is accepted — the importers are exactly serve.ts and health_serve.ts', () => {
+describe('the direct origin has exactly three holders', () => {
+  test('real corpus is accepted — the importers are exactly the ward console, serve.ts and health_serve.ts', () => {
     const v = holderViolations(REAL);
     expect(v, v.join('; ')).toEqual([]);
   });
 
-  test('anti-vacuity — exactly two importers are found in the real corpus, and an empty corpus fails', () => {
+  test('anti-vacuity — exactly three importers are found in the real corpus, and an empty corpus fails', () => {
     const found = [...REAL].filter(([, s]) => importsDirectOrigin(s)).map(([p]) => p).sort();
     expect(found).toEqual(HOLDERS);
     expect(holderViolations(new Map()).join('; ')).toContain('the corpus is empty');
@@ -129,6 +136,9 @@ describe('the direct origin has exactly two holders', () => {
 
   test.each([
     ['an app src file', 'apps/ward-console/src/zz_planted.ts', ORIGINS_IMPORT],
+    ['an import in the admin app, which never takes it (FF-4 b)', 'apps/admin/src/zz_planted.ts', ORIGINS_IMPORT],
+    ['an import in packages/auth/src, which takes the origin as an argument and never imports it (FF-4 b)', 'packages/auth/src/zz_planted.ts', ORIGINS_IMPORT],
+    ['an ALIASED import in a new ward-console file (FF-4 b)', 'apps/ward-console/src/zz_planted.ts', `import { supabaseDirectOrigin as direct } from '@openbed/origins';\nexport const o = direct('x');\n`],
     ['an app functions file', 'apps/public-dashboard/functions/zz_planted.ts', ORIGINS_IMPORT],
     ['a package src file', 'packages/labels/src/zz_planted.ts', ORIGINS_IMPORT],
     ['a relative import of the definer', 'packages/labels/src/zz_planted.ts', `import { supabaseDirectOrigin } from '../../origins/src/index.js';\n`],
@@ -142,13 +152,19 @@ describe('the direct origin has exactly two holders', () => {
     const corpus = new Map(REAL);
     corpus.set(path, source);
     expect(corpus.get(path), 'the plant did not land').toBe(source);
-    expect(holderViolations(corpus).join('; ')).toContain(`${path} imports the direct origin and is not one of the two holders`);
+    expect(holderViolations(corpus).join('; ')).toContain(`${path} imports the direct origin and is not one of the three holders`);
   });
 
   test('plant — a holder that stops importing it is rejected as stale', () => {
     const corpus = new Map(REAL);
     corpus.set('packages/snapshot/src/health_serve.ts', 'export const x = 1;\n');
     expect(holderViolations(corpus).join('; ')).toContain('health_serve.ts no longer imports the direct origin');
+  });
+
+  test('plant — the ward console ceasing to import it is rejected as stale: the CSP and the fallback would name an origin nothing reads', () => {
+    const corpus = new Map(REAL);
+    corpus.set('apps/ward-console/src/main.ts', 'export const x = 1;\n');
+    expect(holderViolations(corpus).join('; ')).toContain('apps/ward-console/src/main.ts no longer imports the direct origin');
   });
 
   test.each([
@@ -178,6 +194,7 @@ describe('the direct origin has exactly two holders', () => {
     withScratch((root) => {
       place(root, 'packages/snapshot/src/serve.ts', ORIGINS_IMPORT);
       place(root, 'packages/snapshot/src/health_serve.ts', ORIGINS_IMPORT);
+      place(root, 'apps/ward-console/src/main.ts', ORIGINS_IMPORT);
       place(root, 'apps/a/src/leak.ts', ORIGINS_IMPORT);
       expect(holderViolations(readCorpus(root)).join('; ')).toContain('apps/a/src/leak.ts imports the direct origin');
     });

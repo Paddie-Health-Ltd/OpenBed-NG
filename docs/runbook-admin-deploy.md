@@ -179,7 +179,12 @@ The admin app ships the ward console's security headers. That is a tracked
 `apps/admin/public/_headers`, whose `connect-src` names `@API_ORIGINS@` and is filled
 from `packages/origins/origins.json` when the app is built (R-2026-09-24-94 BV-2,
 R-2026-09-24-97 BY-2 g), **with the build target's origin only**: production for
-`npm run build`, local for `npm run build:local` (R-2026-09-25-117 CS-2). `tests/compliance/security_headers.test.ts` holds all three
+`npm run build`, local for `npm run build:local` (R-2026-09-25-117 CS-2). **Admin's CSP never names
+the direct Supabase origin**, which the ward console's does since R-2026-10-02-FF FF-4 g (-182) as
+its fallback when the Worker is down: admin has no fallback, its sessions are kept through a Worker
+outage, and the operator has the Supabase dashboard. `readback_admin.sh` still expects the API
+origin alone, and `tests/compliance/security_headers.test.ts` refuses the second placeholder in
+admin's file. `tests/compliance/security_headers.test.ts` holds all three
 apps to it.
 
 **A CSP that is too tight breaks the page SILENTLY** (R-2026-09-24-93 BU-2 e). Before any

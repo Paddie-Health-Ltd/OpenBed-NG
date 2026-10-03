@@ -96,7 +96,8 @@ export function directives(file: string, text: string): Directive[] {
 
 /** The two exemptions DF-1 b rules, by file and reason. */
 export const EXPECTED_EXEMPTIONS: readonly { file: string; reason: string }[] = [
-  { file: 'apps/ward-console/src/main.ts', reason: "OPENBED-CLOCK-READ: R-2026-09-26-130 DF-1 b, the device's composed_at for 014's symmetric STALE/FUTURE_MUTATION window (the v2 kickoff's Stage 2)" },
+  // Moved from apps/ward-console/src/main.ts to publish.ts by R-2026-10-02-FF FF-4 f (-182) with submitPublish, which builds the composed_at; the reason is unchanged.
+  { file: 'apps/ward-console/src/publish.ts', reason: "OPENBED-CLOCK-READ: R-2026-09-26-130 DF-1 b, the device's composed_at for 014's symmetric STALE/FUTURE_MUTATION window (the v2 kickoff's Stage 2)" },
   { file: 'packages/snapshot/src/serve.ts', reason: "OPENBED-CLOCK-READ: R-2026-09-23-67 A3, the Function's serve-time stamp, the one wall-clock read on the server" },
 ];
 
@@ -176,6 +177,7 @@ describe('F3 — no device clock in the display path (openbed/no-wall-clock)', (
     expect(paths).toContain('packages/snapshot/src/freshness.ts');
     expect(paths).toContain('packages/snapshot/src/serve.ts');
     expect(paths).toContain('apps/ward-console/src/main.ts');
+    expect(paths).toContain('apps/ward-console/src/publish.ts');
     const found = results.flatMap((r) => r.messages.filter((m) => m.ruleId === RULE).map((m) => `${relative(REPO_ROOT, r.filePath)}:${m.line} ${m.message}`));
     expect(found, found.join('\n')).toEqual([]);
   });
@@ -231,7 +233,7 @@ describe('F3 — no device clock in the display path (openbed/no-wall-clock)', (
     const ci = yaml.load(readFileSync(join(REPO_ROOT, '.github', 'workflows', 'ci.yml'), 'utf8')) as { jobs: Record<string, { steps: { run?: string }[] }> };
     const runs = (ci.jobs['repo-lint']?.steps ?? []).map((s) => s.run ?? '');
     expect(runs, 'repo-lint no longer runs ESLint over the whole tree').toContain('npx eslint .');
-    for (const file of ['apps/public-dashboard/src/main.ts', 'apps/ward-console/src/main.ts', 'apps/admin/src/main.ts', 'packages/snapshot/src/serve.ts', 'packages/snapshot/src/freshness.ts']) {
+    for (const file of ['apps/public-dashboard/src/main.ts', 'apps/ward-console/src/main.ts', 'apps/ward-console/src/publish.ts', 'apps/admin/src/main.ts', 'packages/snapshot/src/serve.ts', 'packages/snapshot/src/freshness.ts']) {
       expect(await eslint.isPathIgnored(join(REPO_ROOT, file)), `${file} is ignored by ESLint`).toBe(false);
       const config = (await eslint.calculateConfigForFile(join(REPO_ROOT, file))) as { rules?: Record<string, unknown> };
       expect(config.rules?.[RULE], `${file} does not carry ${RULE}`).toEqual([2]);
