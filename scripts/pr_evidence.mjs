@@ -42,7 +42,8 @@
  *      script's exit 2; its exit 1 marks the block RED. Golden path phase 1 is
  *      corpus, not attested (scripts/run_e2e.sh).
  *   8. The register by kind, parsed by scripts/deferred_register.mjs.
- *   9. The audit (R-2026-10-03-FH FH-5): `npm audit --json`, run with cwd ROOT after the
+ *   9. The audit (R-2026-10-03-FH FH-5): `npm audit --json --include=dev --include=optional
+ *      --include=peer`, with its own 60 s timeout, run with cwd ROOT after the
  *      register parse, so no refusal above moves. Its exit is accepted only as 0 or 1 (npm
  *      exits 1, with valid JSON, whenever any finding exists); its high and critical counts
  *      and the names of those packages are printed on an `Audit` line. A count above zero
@@ -54,6 +55,11 @@
  *      WHY A PRINTED LINE AND NOT A REQUIRED CI JOB: an advisory published while a PR is
  *      open would redden every open PR on code it does not touch, which Standard O's scope
  *      guard names as the anti-pattern (.claude/rules/code-pipeline.md, Pre-Merge Gate item 4).
+ *      *Restated 2026-10-03 (R-2026-10-03-FI FI-1, FI-2, -185). Until then this item read "`npm audit --json`,
+ *      run with cwd ROOT after the register parse" with no flags and the 12 s timeout the other calls share.
+ *      A bare `npm audit` omits devDependencies under NODE_ENV=production or omit=dev and can print a false
+ *      zero, so the three --include flags are passed; and a 12 s refusal threw away the gh calls and the
+ *      downloads already made, so the audit has its own timeout.*
  * Then the block: one fenced block, pasted whole into the PR body.
  *
  * SEAMS. `--root <dir>` governs git, the decision record and the audit's working
@@ -113,6 +119,10 @@ const REPO = 'repos/Paddie-Health-Ltd/OpenBed-NG';
 const RECORD = join('Sprint Kickoffs', 'decision-2026-09-14-public-private-split.md');
 const MAX_BUFFER = 256 * 1024 * 1024;
 const TIMEOUT_MS = 12_000;
+// The audit has its own, longer timeout (R-2026-10-03-FI FI-2): npm's own retry waits at least 10 s, a 12 s refusal
+// throws away every gh call and download already made, and a real audit takes under a second. A timeout is still a
+// loud refusal, never a zero. That 60 s is enough for a slow registry is not asserted.
+const AUDIT_TIMEOUT_MS = 60_000;
 const PROVENANCE = 'ci-provenance.txt';
 const PROVENANCE_KEYS = ['github_sha', 'run_id', 'run_attempt', 'job', 'object_size'];
 
@@ -488,7 +498,12 @@ async function main(work) {
   // ---- the audit, read now from the tree and the registry (R-2026-10-03-FH FH-5) --------
   // After the register parse, so no refusal above moves. `--audit-level` would change only the exit code,
   // so it is left off: the reading is the counts, and a count above zero is printed, not enforced.
-  const audit = spawnSync('npm', ['audit', '--json'], { cwd: ROOT, encoding: 'utf8', maxBuffer: MAX_BUFFER, timeout: TIMEOUT_MS });
+  // THE THREE --include FLAGS ARE LOAD-BEARING (R-2026-10-03-FI FI-1). Under NODE_ENV=production, or omit=dev in
+  // ~/.npmrc or the environment, a bare `npm audit` audits production dependencies only, exits 0 with valid JSON and
+  // metadata that does not show the omission, and every finding that mattered here sits under devDependencies:
+  // that reads "0 high, 0 critical", the false zero this check exists to forbid. Measured on the 87aa410 lockfile:
+  // 2 high plain, 0 under either setting, 2 high again with the flags, even with the settings on.
+  const audit = spawnSync('npm', ['audit', '--json', '--include=dev', '--include=optional', '--include=peer'], { cwd: ROOT, encoding: 'utf8', maxBuffer: MAX_BUFFER, timeout: AUDIT_TIMEOUT_MS });
   if (audit.error) {
     process.stderr.write(`  npm audit: ${audit.error.code ?? audit.error.message}\n`);
     console.error('ERROR: npm audit did not run to completion, so the audit has no reading and there is no block');
@@ -565,7 +580,7 @@ async function main(work) {
   out.push(`git log --oneline B..HEAD:`, ...log.split('\n').filter((l) => l !== '').map((l) => `  ${l}`));
   out.push(`git diff -M --name-status B...HEAD:`, ...nameStatus.split('\n').filter((l) => l !== '').map((l) => `  ${l}`));
   out.push(`Register   : ${reg.rows.length} (${byKind}), from the tree`);
-  out.push(`Audit      : ${auditCounts.high} high, ${auditCounts.critical} critical (npm audit --json, read now from the tree and the registry; rule on it before merge)`);
+  out.push(`Audit      : ${auditCounts.high} high, ${auditCounts.critical} critical (npm audit --json --include=dev --include=optional --include=peer, read now from the tree and the registry; rule on it before merge)`);
   if (auditNamed.length > 0) out.push(`  high or critical: ${auditNamed.join(', ')}`);
   if (touched.size > 0) {
     out.push('WARNING: this PR changes its own evidence machinery:', ...[...touched].sort().map((p) => `  ${p}`));

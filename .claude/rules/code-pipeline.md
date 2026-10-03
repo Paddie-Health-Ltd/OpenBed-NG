@@ -212,8 +212,8 @@ the one credential in this system that cannot be rotated quietly.
 
 **4. Dependency audit.** No critical or high CVEs, **read on the `Audit` line of
 the evidence block that `node scripts/pr_evidence.mjs` prints**, which runs
-`npm audit --json` and prints the high and critical counts and the names of those
-packages. A count above zero does not change the block's Disposition or the script's
+`npm audit --json --include=dev --include=optional --include=peer` and prints the high
+and critical counts and the names of those packages. A count above zero does not change the block's Disposition or the script's
 exit code: the PR rules on the printed line, by a fix or by a named reason, before
 merge. **Every new package is verified to exist on the public registry before it is
 added** — check the name against npm, check it has a plausible download count and
@@ -228,6 +228,15 @@ package names and attackers register the common hallucinations." Nothing enforce
 first sentence: no CI job runs `npm audit`, and four findings (two of them high, in
 build and deploy tooling) were found on 2026-10-03 by a hand reading. That was a
 Clause 5 defect, a gate present and not reaching.*
+
+*Restated 2026-10-03 (R-2026-10-03-FI FI-1, -185). Until then the sentence above read "which
+runs `npm audit --json` and prints the high and critical counts and the names of those
+packages", with no flags. A bare `npm audit` audits production dependencies only under
+`NODE_ENV=production`, or `omit=dev` in `~/.npmrc` or the environment, exits 0 with valid JSON
+and metadata that does not show the omission, and every finding that mattered here sat under
+devDependencies: the line would have read "0 high, 0 critical", the false zero this check
+exists to forbid. Measured on the 87aa410 lockfile: 2 high with no setting, 0 under either
+setting, 2 high again with the three `--include` flags, even with the settings on.*
 
 **Why the check is a printed line and not a required CI job.** An advisory published
 while a pull request is open would redden every open pull request on code it does not

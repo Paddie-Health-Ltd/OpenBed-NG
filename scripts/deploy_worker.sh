@@ -94,8 +94,13 @@ esac
 # binary for this platform, which npm installs as an OPTIONAL package and skips silently when
 # its download fails. The first hosted run (2026-10-03) found out in the middle of a build.
 # A missing binary on this machine is a setup fault, so it is named here, before the stamp or the upload,
-# and never as a verdict on the deploy. It sits after the ancestor check so that no refusal
-# above meets it first. node's own message names the exact package for this platform.
+# and never as a verdict on the deploy. node's own message names the exact package for this platform.
+# ITS POSITION is after the ancestor check, held by a plant in each harness (R-2026-10-03-FI FI-5, -185): a
+# refusal about WHAT is being deployed (a dirty tree, an unmerged HEAD) is reported before one about this
+# machine. Until then this comment said "It sits after the ancestor check so that no refusal above meets it
+# first"; that stopped being the reason once the harnesses grew a workerd stand-in, and nothing else held the order.
+# Wrangler sends usage telemetry unless refused: refused for every step below, for data minimisation (-185).
+export WRANGLER_SEND_METRICS=false
 wst=0
 wout="$( cd "$ROOT" && node -e "require('workerd')" 2>&1 )" || wst=$?
 case "$wst" in

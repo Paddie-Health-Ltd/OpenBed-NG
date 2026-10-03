@@ -29,6 +29,8 @@ interface Run {
   status: number;
   out: string;
   log: string;
+  /** `npx WRANGLER_SEND_METRICS=<value>` per stub npx call, in a separate file so `log` is unchanged. */
+  metrics: string[];
 }
 
 function git(root: string, ...args: string[]): string {
@@ -66,7 +68,7 @@ echo "npm $*" >> "$STUB_LOG"
 if [ -n "\${STUB_STAMP_BODY:-}" ]; then mkdir -p "$(dirname "$STUB_STAMP")"; printf '%s' "$STUB_STAMP_BODY" > "$STUB_STAMP"; fi
 exit 0
 `);
-  write('npx', '#!/usr/bin/env bash\necho "npx $*" >> "$STUB_LOG"\nexit 0\n');
+  write('npx', '#!/usr/bin/env bash\necho "npx $*" >> "$STUB_LOG"\necho "npx WRANGLER_SEND_METRICS=${WRANGLER_SEND_METRICS:-unset}" >> "$STUB_LOG.env"\nexit 0\n');
   // One body per attempt, separated by "|"; the last repeats. "FAIL" means curl fails.
   write('curl', `#!/usr/bin/env bash
 echo "curl $*" >> "$STUB_LOG"
@@ -104,6 +106,8 @@ function stubWorkerd(root: string): void {
 
 const stampOf = (commit: string, dirty = false): string => JSON.stringify({ commit, dirty, built_at: '2026-09-23T00:00:00.000Z' });
 
+const metricsOf = (log: string): string[] => (existsSync(`${log}.env`) ? readFileSync(`${log}.env`, 'utf8').trim().split('\n').filter(Boolean) : []);
+
 function run(root: string, work: string, opts: { target?: string | null; stampBody?: string | null; curl?: string[]; rootArg?: string; env?: Record<string, string> } = {}): Run {
   const bin = stubBin(root);
   const log = join(root, 'stub.log');
@@ -124,10 +128,10 @@ function run(root: string, work: string, opts: { target?: string | null; stampBo
   const args = [SCRIPT, ...(opts.target === null ? [] : [opts.target ?? 'supabase-proxy']), opts.rootArg ?? work];
   try {
     const out = execFileSync('bash', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env });
-    return { status: 0, out, log: readFileSync(log, 'utf8') };
+    return { status: 0, out, log: readFileSync(log, 'utf8'), metrics: metricsOf(log) };
   } catch (e) {
     const err = e as { status?: number; stdout?: string; stderr?: string };
-    return { status: err.status ?? -1, out: `${err.stdout ?? ''}${err.stderr ?? ''}`, log: readFileSync(log, 'utf8') };
+    return { status: err.status ?? -1, out: `${err.stdout ?? ''}${err.stderr ?? ''}`, log: readFileSync(log, 'utf8'), metrics: metricsOf(log) };
   }
 }
 
@@ -173,6 +177,43 @@ describe('scripts/deploy_worker.sh', () => {
       expect(r.log, `the wrapper stamped, uploaded or read back after the toolchain check failed:\n${r.log}`).toBe('');
       expect(uploaded(r)).toBe(false);
       expect(existsSync(join(work, 'supabase-proxy', 'version.json')), 'a stamp exists, so the stamp step ran').toBe(false);
+    });
+  });
+
+  // R-2026-10-03-FI FI-3. Wrangler sends usage telemetry unless refused (the same in 4.134.0 and 4.147.0). The wrapper refuses
+  // it for the upload, for data minimisation. THE CALLER'S ENVIRONMENT SAYS true, so a runner that already has it false cannot
+  // pass vacuously. Only the upload runs wrangler here: the stamp step (`npm run stamp:worker`) runs none.
+  test('plant — wrangler telemetry is switched off for the upload, whatever the caller exports', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const r = run(root, work, { env: { WRANGLER_SEND_METRICS: 'true' } });
+      expect(r.status, r.out).toBe(0);
+      expect(r.metrics, `the wrapper did not pass WRANGLER_SEND_METRICS=false to the upload:\n${r.metrics.join('\n')}`).toEqual(['npx WRANGLER_SEND_METRICS=false']);
+    });
+  });
+
+  // R-2026-10-03-FI FI-5. With the stand-in in place no plant meets the toolchain check first, so nothing else holds its
+  // POSITION. A refusal about WHAT is being deployed is reported before one about the machine; both faults at once, and the
+  // toolchain ERROR must NOT appear.
+  test('plant — an unmerged HEAD is refused as unmerged even when workerd is also missing, so the toolchain check runs after the ancestor check', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      writeFileSync(join(work, 'unmerged.txt'), 'x\n');
+      git(work, 'add', 'unmerged.txt');
+      git(work, 'commit', '-q', '-m', 'not on main');
+      stubWorkerd(root);
+      let directStatus = 0;
+      try {
+        execFileSync('node', ['-e', "require('workerd')"], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], cwd: work, env: { ...process.env, STUB_WORKERD_MISSING: '1' } });
+      } catch (e) {
+        directStatus = (e as { status?: number }).status ?? -1;
+      }
+      expect(directStatus, 'the stand-in did not throw, so the second fault was never planted').not.toBe(0);
+      const r = run(root, work, { env: { STUB_WORKERD_MISSING: '1' } });
+      expect(r.status, r.out).toBe(1);
+      expect(r.out).toContain('is not an ancestor of origin/main, so this is code no pull request merged');
+      expect(r.out, 'the toolchain check ran before the ancestor check').not.toContain('the native platform package that workerd needs');
+      expect(uploaded(r)).toBe(false);
     });
   });
 

@@ -37,6 +37,8 @@ cd ~/Desktop/OpenBed-NG-deploy && git rev-parse HEAD
 
 *Restated 2026-10-03 (R-2026-10-03-FH FH-3 c, -184). Until then the refresh line above ended with a bare `npm ci)`. The flag guards against an `omit` setting that skips optional packages, and the founder's was empty (`npm config get omit` printed nothing), so on 2026-10-03 it would have changed nothing: the first `npm ci` still left out the native workerd binary for the platform, most likely after a failed optional download, which npm skips without saying so (INFERRED; nothing else was observed). What catches that is the deploy wrappers' own toolchain check, which runs before any build or upload, and not the flag.*
 
+*Added 2026-10-03 (R-2026-10-03-FI FI-3, -185). The deploy wrapper turns wrangler's usage telemetry off for the steps it runs (`WRANGLER_SEND_METRICS=false`). A wrangler run outside the wrapper is not covered; the founder may also run `npx wrangler telemetry disable` once on the deploy machine.*
+
 The last line must print the commit you mean to deploy. Every command below runs from
 that directory.
 

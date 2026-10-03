@@ -216,6 +216,8 @@ Build first, from the repository root, so the upload carries current output:
 Pages *git* build command, and it exits early when nothing under
 `apps/public-dashboard` or `packages/` changed, leaving no `dist` to upload.
 
+*Added 2026-10-03 (R-2026-10-03-FI FI-3, -185). The command above is a wrangler run outside the deploy wrapper, so the wrapper's setting does not cover it: `scripts/deploy_pages.sh` turns wrangler's usage telemetry off (`WRANGLER_SEND_METRICS=false`) for the steps it runs, and the founder may also run `npx wrangler telemetry disable` once on the deploy machine.*
+
 **OBSERVED 2026-09-20**, against this project: the command above returned
 `Compiled Worker successfully`, `Uploading Functions bundle`, and a deployment URL;
 a request to that deployment's `/beds.json` then returned the live snapshot, which

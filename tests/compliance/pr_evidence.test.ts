@@ -38,7 +38,9 @@ import { makeZip, type ZipEntry } from './_zip.js';
  *
  * THE AUDIT SEAM (R-2026-10-03-FH FH-5 c). The script also runs `npm audit --json`, which
  * calls the public registry. The tests NEVER touch the network: a stub `npm` sits first on
- * PATH next to the stub gh, answers only `audit --json` (exit 99 for anything else), and
+ * PATH next to the stub gh, answers only the script's EXACT five arguments `audit --json --include=dev
+ * --include=optional --include=peer` (exit 99 for anything else, which is the plant for FI-1: npm omits
+ * devDependencies under NODE_ENV=production or omit=dev and then reports 0 with valid JSON), and
  * takes its body and exit status from the plant, zero counts by default. Without it, 22 of
  * this file's tests would stop at ENOENT here, and on a machine with /usr/bin/npm the real
  * npm would call the registry. The npm stub does NOT write the gh call log: every refusal
@@ -298,7 +300,7 @@ const STUB = [
 
 const STUB_NPM = [
   '#!/bin/sh',
-  'if [ "$#" -ne 2 ] || [ "$1" != audit ] || [ "$2" != --json ]; then echo "stub npm: unexpected arguments: $*" >&2; exit 99; fi',
+  'if [ "$#" -ne 5 ] || [ "$1" != audit ] || [ "$2" != --json ] || [ "$3" != --include=dev ] || [ "$4" != --include=optional ] || [ "$5" != --include=peer ]; then echo "stub npm: unexpected arguments: $*" >&2; exit 99; fi',
   '/bin/pwd -P > "$STUB_NPM_DIR/cwd"',
   '/bin/cat "$STUB_NPM_DIR/body"',
   'st=0',
@@ -511,7 +513,7 @@ describe('pr_evidence.mjs: the green fixture, and the controls', () => {
     expect(r.stdout).toContain(`  H=${r.head}`);
     expect(r.stdout).toContain(`origin/main is ${r.base}; main has moved 0 commits since B`);
     expect(r.stdout).toContain('Register   : 4 (1 BOX, 2 TRIGGER, 1 VERSION), from the tree');
-    expect(r.stdout).toContain('Disposition: ZERO-RED');
+    expect(r.stdout).toMatch(/^Disposition: ZERO-RED$/m);
     for (const l of NOT_ASSERTED_LINES) expect(r.stdout).toContain(l);
     expect(r.stdout, 'the block printed the commit object').not.toContain('gpgsig');
     expect(r.stdout, 'the block printed an email').not.toContain('@example.invalid');
@@ -529,7 +531,7 @@ describe('pr_evidence.mjs: the green fixture, and the controls', () => {
     const r = run({ junit: { 'junit-e2e.xml': RED_XML } });
     expect(r.status, out(r)).toBe(0);
     expect(r.stdout).toContain('golden path phase 1 (junit-e2e.xml): corpus, not attested');
-    expect(r.stdout).toContain('Disposition: ZERO-RED');
+    expect(r.stdout).toMatch(/^Disposition: ZERO-RED$/m);
   });
 
   test('positive control — a newer run in progress beside a completed one: the completed one is used, the newer printed', () => {
@@ -585,7 +587,7 @@ describe('pr_evidence.mjs: a long block reaches a slow reader whole (EV-1 b)', (
     expect(r.status, out(r).slice(0, 2000)).toBe(0);
     expect(Buffer.byteLength(r.stdout), 'precondition: the block is not over 64 KiB, so this tests nothing').toBeGreaterThan(65536);
     expect(r.stdout.trimEnd().endsWith('```'), `the block has no closing fence: it was cut off at ${Buffer.byteLength(r.stdout)} bytes`).toBe(true);
-    expect(r.stdout, 'the block has no Disposition line').toContain('Disposition: ZERO-RED');
+    expect(r.stdout, 'the block has no Disposition line').toMatch(/^Disposition: ZERO-RED$/m);
     expect(r.stdout.match(/^ {2}[0-9a-f]{7,} padding commit \d{4} /gm)?.length, 'a commit line was lost').toBe(2000);
   });
 });
@@ -776,7 +778,7 @@ describe('pr_evidence.mjs: exit 2, no block', () => {
     const reversed = (es: ZipEntry[]): ZipEntry[] => [...es].reverse();
     const r = run({ entries: { 'junit-compliance': reversed, 'junit-db': reversed, 'junit-golden-path': reversed } });
     expect(r.status, out(r)).toBe(0);
-    expect(r.stdout).toContain('Disposition: ZERO-RED');
+    expect(r.stdout).toMatch(/^Disposition: ZERO-RED$/m);
   });
 
   test('positive control — a three-entry artefact in the runner\'s observed order is accepted (FC-5)', () => {
@@ -912,9 +914,9 @@ describe('pr_evidence.mjs: the audit reading (FH-5)', () => {
   test('positive control — an audit at zero prints its Audit line, run in the --root checkout, exit 0', () => {
     const r = run();
     expect(r.status, out(r)).toBe(0);
-    expect(r.stdout, out(r)).toContain('Audit      : 0 high, 0 critical (npm audit --json, read now from the tree and the registry; rule on it before merge)');
+    expect(r.stdout, out(r)).toContain('Audit      : 0 high, 0 critical (npm audit --json --include=dev --include=optional --include=peer, read now from the tree and the registry; rule on it before merge)');
     expect(r.stdout, 'a zero audit named packages').not.toContain('high or critical:');
-    expect(r.stdout).toContain('Disposition: ZERO-RED');
+    expect(r.stdout).toMatch(/^Disposition: ZERO-RED$/m);
     // THE STUB RAN, in the --root tree: a script that skipped the audit prints no Audit line, and one that ran it
     // elsewhere (the script's own checkout) would read another lockfile than the one under review.
     expect(r.npmCwd, `the stub npm never ran:\n${out(r)}`).toBe(r.root);
@@ -922,12 +924,13 @@ describe('pr_evidence.mjs: the audit reading (FH-5)', () => {
 
   test('plant — a high and a critical finding are named, and the exit and the Disposition do not move', () => {
     // npm exits 1 whenever any finding exists, so the stub does too: the script must accept 1.
-    const r = run({ npm: { body: auditWith({ high: 1, critical: 1 }, { undici: 'high', 'form-data': 'critical', wrangler: 'moderate' }), status: 1 } });
+    // THE TWO COUNTS ARE DIFFERENT NUMBERS (FI-6): 2 high and 1 critical, so printing one count in the other's place cannot pass.
+    const r = run({ npm: { body: auditWith({ high: 2, critical: 1 }, { undici: 'high', 'brace-expansion': 'high', 'form-data': 'critical', wrangler: 'moderate' }), status: 1 } });
     expect(r.status, `a finding changed the exit code:\n${out(r)}`).toBe(0);
-    expect(r.stdout, out(r)).toContain('Audit      : 1 high, 1 critical (npm audit --json, read now from the tree and the registry; rule on it before merge)');
-    expect(r.stdout, out(r)).toContain('  high or critical: form-data (critical), undici (high)');
+    expect(r.stdout, out(r)).toContain('Audit      : 2 high, 1 critical (npm audit --json --include=dev --include=optional --include=peer, read now from the tree and the registry; rule on it before merge)');
+    expect(r.stdout, out(r)).toContain('  high or critical: brace-expansion (high), form-data (critical), undici (high)');
     expect(r.stdout, 'a moderate finding was named as high or critical').not.toContain('wrangler');
-    expect(r.stdout, 'a finding changed the Disposition').toContain('Disposition: ZERO-RED');
+    expect(r.stdout, 'a finding changed the Disposition').toMatch(/^Disposition: ZERO-RED$/m);
     expect(r.calls, out(r)).toEqual(greenCalls(r.head));
   });
 
@@ -957,5 +960,53 @@ describe('pr_evidence.mjs: the audit reading (FH-5)', () => {
   test('plant — a high count that is not an integer is a refusal', () => {
     const r = run({ npm: { body: auditWith({ high: 3, critical: 0 }, { undici: 'high' }).replace('"high":3', '"high":"3"'), status: 1 } });
     auditRefused(r, MSG.auditCounts);
+  });
+
+  // FI-6: each count is checked on its own. A check on `high` alone would pass these.
+  test('plant — a critical count that is null is a refusal', () => {
+    const body = JSON.parse(auditWith({ high: 1, critical: 0 }, { undici: 'high' })) as { metadata: { vulnerabilities: Record<string, unknown> } };
+    body.metadata.vulnerabilities['critical'] = null;
+    const r = run({ npm: { body: JSON.stringify(body), status: 1 } });
+    auditRefused(r, MSG.auditCounts);
+  });
+
+  test('plant — no critical key at all is a refusal', () => {
+    const body = JSON.parse(auditWith({ high: 1, critical: 0 }, { undici: 'high' })) as { metadata: { vulnerabilities: Record<string, unknown> } };
+    delete body.metadata.vulnerabilities['critical'];
+    expect('critical' in body.metadata.vulnerabilities, 'the plant did not remove the key').toBe(false);
+    const r = run({ npm: { body: JSON.stringify(body), status: 1 } });
+    auditRefused(r, MSG.auditCounts);
+  });
+
+  // FI-7: valid JSON that is not an OBJECT. Each is refused as not-an-object today; without these two, reducing that
+  // check to `=== null` leaves every test green (a number throws a TypeError at `'error' in`, an array falls through to counts).
+  test('plant — a JSON number is refused as not an object', () => {
+    auditRefused(run({ npm: { body: '5', status: 0 } }), MSG.auditNotJson);
+  });
+
+  test('plant — a JSON array is refused as not an object', () => {
+    auditRefused(run({ npm: { body: '[]', status: 0 } }), MSG.auditNotJson);
+  });
+
+  // FI-7: the audit runs AFTER the register parse, so a refusal above it is not shadowed. An unparseable register and
+  // a failing audit together must report the register.
+  test('plant — an unparseable register with a failing audit reports the register, so the audit runs after the parse', () => {
+    const r = run({
+      record: RECORD_TEXT.replace('| A box item | R-2026-09-26-121 CW-2 | BOX | Its box |', '| A box item | R-2026-09-26-121 CW-2 | BOX |'),
+      npm: { body: AUDIT_ZERO, status: 2 },
+    });
+    refused(r, MSG.register, 7);
+    expect(r.stderr, 'the failing audit was reported before the register').not.toContain(MSG.auditExit);
+  });
+
+  // FI-2: a STATIC test, not a slow one. The audit has its own timeout, longer than the 12 s the git, gh and unzip calls
+  // share: npm's own retry waits at least 10 s, and a refusal throws away every gh call and download already made.
+  test('the audit spawn has its own 60 s timeout, and no other call uses it', () => {
+    const src = readFileSync(SCRIPT_PATH, 'utf8');
+    expect(src.match(/^const AUDIT_TIMEOUT_MS = 60_000;$/gm)?.length, 'the constant is not defined exactly as 60_000 on one line').toBe(1);
+    const spawns = src.match(/spawnSync\('npm',[^\n]*\);/g) ?? [];
+    expect(spawns.length, 'there is not exactly one spawnSync(npm) call').toBe(1);
+    expect(spawns[0], 'the audit spawn does not end with its own timeout').toMatch(/timeout: AUDIT_TIMEOUT_MS \}\);$/);
+    expect(src.match(/AUDIT_TIMEOUT_MS/g)?.length, 'the identifier is used somewhere besides its definition and the audit spawn').toBe(2);
   });
 });
