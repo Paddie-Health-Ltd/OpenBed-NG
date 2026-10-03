@@ -32,6 +32,13 @@
 #       a body carrying GoTrue's own `disable_signup`, which the Worker's refusal, Cloudflare's
 #       error pages and the site's HTML cannot contain. These are rb_expect reads, not legs.
 #       The key is never printed: rb_curl_error names the URL without the -G data.
+#       Restated 2026-10-03 (R-2026-10-03-FH FH-1 c, -184): probe 8 is CONFIRMED on hosted. It
+#       read 200, `forwarded`, with `disable_signup` found, on the founder's W4 run of
+#       2026-10-03 (read back by Cowork), so the hosted gateway DOES take a publishable key
+#       from the query. Until then the parenthesis above read "(so the hosted gateway accepts a
+#       publishable key in the query: NOT CONFIRMED before this probe reads it, and why the
+#       monitor is created only after this reads PASS)". That was true before the reading and
+#       is not now; the sentence is kept as it was, and this one supersedes it.
 #   And `limits_bound` in the stamp: all three rate-limit bindings must read true. The
 #   bindings are invisible in the dashboard and Worker logging is off, so this is the
 #   only place a missing one is visible. Why these are a script and not

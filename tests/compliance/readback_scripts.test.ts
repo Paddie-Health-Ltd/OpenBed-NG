@@ -774,7 +774,7 @@ function workerFixtures(head: string): Fixtures {
     // GoTrue is expected to answer a junk token with; the first hosted read records the real status
     // (R-2026-09-30-177 FA-1 d). What the script holds is only 3xx, forwarded, and the Location's ORIGIN.
     [VERIFY_GET]: { status: 303, headers: { ...fwd, location: `${ADMIN}/#error=access_denied&error_code=otp_expired` } },
-    // Probe 8 (R-2026-10-02-FF FF-5): the sensor's request, the key in the query. A STUB: the first hosted read records whether the gateway accepts it.
+    // Probe 8 (R-2026-10-02-FF FF-5): the sensor's request, the key in the query. A STUB: the first hosted read records whether the gateway accepts it. (Restated 2026-10-03, R-2026-10-03-FH FH-1 c: that read happened on the founder's W4 run, 200 forwarded with the keyword found, so the gateway does accept it.)
     [SETTINGS_BY_QUERY]: { status: 200, headers: fwd, body: GOTRUE_SETTINGS_BODY },
     [`GET ${API}/__openbed/version`]: { status: 200, headers: { 'x-openbed-proxy': 'stamp' }, body: workerStampOf(head) },
     [`HEAD ${API}/__openbed/version`]: { status: 200, headers: { 'x-openbed-proxy': 'stamp' } },

@@ -43,7 +43,7 @@ import { deployableApps, pagesProjectOf } from './_apps.js';
 const DEPLOY_SCRIPT = 'scripts/deploy_pages.sh';
 const RUN_E2E_SCRIPT = 'scripts/run_e2e.sh';
 
-interface Run { status: number; out: string; ran: string[] }
+interface Run { status: number; out: string; ran: string[]; /** `<cmd> WRANGLER_SEND_METRICS=<value>` per stub call, in a separate file so `ran` is unchanged. */ metrics: string[] }
 
 function exec(cmd: string, args: string[], env: Record<string, string>, cwd?: string): { status: number; out: string } {
   try {
@@ -102,6 +102,7 @@ function stubBin(root: string): string {
     join(bin, 'npm'),
     `#!/usr/bin/env bash
 echo "npm $*" >> "$STUB_LOG"
+echo "npm WRANGLER_SEND_METRICS=\${WRANGLER_SEND_METRICS:-unset}" >> "$STUB_LOG.env"
 if [ -n "\${STUB_STAMP:-}" ]; then
   mkdir -p "$(dirname "\$STUB_STAMP")"
   printf '%s' "\$STUB_STAMP_BODY" > "\$STUB_STAMP"
@@ -110,10 +111,31 @@ exit 0
 `,
     'utf8',
   );
-  writeFileSync(join(bin, 'npx'), `#!/usr/bin/env bash\necho "npx $*" >> "$STUB_LOG"\nexit 0\n`, 'utf8');
+  writeFileSync(join(bin, 'npx'), `#!/usr/bin/env bash\necho "npx $*" >> "$STUB_LOG"\necho "npx WRANGLER_SEND_METRICS=\${WRANGLER_SEND_METRICS:-unset}" >> "$STUB_LOG.env"\nexit 0\n`, 'utf8');
   chmodSync(join(bin, 'npm'), 0o755);
   chmodSync(join(bin, 'npx'), 0o755);
+  stubWorkerd(root);
   return bin;
+}
+
+/**
+ * THE `workerd` STAND-IN (R-2026-10-03-FH FH-3 b). The wrapper checks its own toolchain
+ * with `node -e "require('workerd')"` from the work tree, and node finds this package by
+ * walking up from there. It sits in the scratch ROOT's node_modules -- the PARENT of
+ * `work/`, outside the git tree -- so it never dirties the tree and the real
+ * node_modules is never touched. With STUB_WORKERD_MISSING set it throws workerd's own
+ * "could not be found" message, which is what an `npm ci` that skipped the optional
+ * platform binary produces. Without a stand-in every scratch tree has no node_modules
+ * and the check would refuse every accept leg.
+ */
+function stubWorkerd(root: string): void {
+  const dir = join(root, 'node_modules', 'workerd');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, 'index.js'),
+    `if (process.env.STUB_WORKERD_MISSING) throw new Error('The package "@cloudflare/workerd-darwin-arm64" could not be found, and is needed by workerd.');\n`,
+    'utf8',
+  );
 }
 
 /**
@@ -176,7 +198,8 @@ function deploy(root: string, opts: DeployOpts = {}): Run {
     ...stampEnv,
     ...(opts.env ?? {}),
   });
-  return { ...r, ran: existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n').filter(Boolean) : [] };
+  const lines = (f: string): string[] => (existsSync(f) ? readFileSync(f, 'utf8').trim().split('\n').filter(Boolean) : []);
+  return { ...r, ran: lines(log), metrics: lines(`${log}.env`) };
 }
 
 describe('deploy_pages.sh — the accident case, refused', () => {
@@ -199,6 +222,65 @@ describe('deploy_pages.sh — the accident case, refused', () => {
       // THE READBACK MUST HAVE RUN. Without this, a readback that silently stopped
       // executing would leave every plant below green and this leg green too.
       expect(res.out, 'the stamp readback did not run').toContain('the stamp reads back as');
+    });
+  });
+
+  test('plant — a workerd platform binary that npm skipped is refused before any build, and the missing package is named', () => {
+    withScratch((root) => {
+      repoWithOrigin(root);
+      const work = join(root, 'work');
+      // PRECONDITION, independent of the wrapper: the stand-in itself throws with the plant's env.
+      // If this fails the plant did not land; if only the assertions below fail, the wrapper is at fault.
+      stubWorkerd(root);
+      const direct = exec('node', ['-e', "require('workerd')"], { STUB_WORKERD_MISSING: '1' }, work);
+      expect(direct.status, `the stand-in did not throw, so the plant cannot land:\n${direct.out}`).not.toBe(0);
+      expect(direct.out).toContain('could not be found, and is needed by workerd');
+      const res = deploy(root, { env: { STUB_WORKERD_MISSING: '1' } });
+      expect(res.status, `a missing workerd package was not refused with 2:\n${res.out}`).toBe(2);
+      expect(res.out, 'the missing package was not named').toContain('could not be found, and is needed by workerd');
+      expect(res.out).toContain('the native platform package that workerd needs is not installed here, so wrangler cannot run and nothing was built or uploaded');
+      expect(res.out, 'the refusal did not say how to fix it').toContain('npm ci --include=optional');
+      // BEFORE ANY BUILD, STAMP OR UPLOAD: the stub log holds no npm and no npx line, and the
+      // stub build never wrote a stamp. A check placed after the build would fail the first.
+      expect(res.ran, `the wrapper built or uploaded after the toolchain check failed:\n${res.ran.join('\n')}`).toEqual([]);
+      expect(existsSync(join(work, 'apps', 'public-dashboard', SCRATCH_OUT_DIR, 'version.json')), 'a stamp exists, so the build ran').toBe(false);
+      expect(res.out, 'the wrapper announced a build before its toolchain check').not.toContain('building public-dashboard');
+    });
+  });
+
+  // R-2026-10-03-FI FI-3. Wrangler sends usage telemetry unless refused (the same in 4.134.0 and 4.147.0, which
+  // prints its notice once per version, so the bump showed it). The wrapper refuses it for every step it runs, for
+  // data minimisation. THE CALLER'S ENVIRONMENT SAYS true, so a runner that already has it false cannot pass vacuously.
+  // `npm run build` runs wrangler too (build:functions), so BOTH stubs record what they were given.
+  test('plant — wrangler telemetry is switched off for the build and the upload, whatever the caller exports', () => {
+    withScratch((root) => {
+      repoWithOrigin(root);
+      const res = deploy(root, { env: { WRANGLER_SEND_METRICS: 'true' } });
+      expect(res.status, `a clean, merged tree was refused:\n${res.out}`).toBe(0);
+      expect(res.metrics, `the wrapper did not pass WRANGLER_SEND_METRICS=false to its steps:\n${res.metrics.join('\n')}`).toEqual([
+        'npm WRANGLER_SEND_METRICS=false',
+        'npx WRANGLER_SEND_METRICS=false',
+      ]);
+    });
+  });
+
+  // R-2026-10-03-FI FI-5. With the stand-in in place no plant meets the toolchain check first, so nothing else holds its
+  // POSITION: moving it before the ancestor check reddened nothing. A refusal about WHAT is being deployed is reported
+  // before one about the machine, and this plant is what says so. Both faults at once: the toolchain ERROR must NOT appear.
+  test('plant — an unmerged HEAD is refused as unmerged even when workerd is also missing, so the toolchain check runs after the ancestor check', () => {
+    withScratch((root) => {
+      repoWithOrigin(root);
+      const work = join(root, 'work');
+      writeFileSync(join(work, 'local-only.txt'), 'x\n', 'utf8');
+      git(work, 'add', '-A');
+      git(work, 'commit', '-q', '-m', 'a commit no PR merged');
+      stubWorkerd(root);
+      const direct = exec('node', ['-e', "require('workerd')"], { STUB_WORKERD_MISSING: '1' }, work);
+      expect(direct.status, `the stand-in did not throw, so the second fault was never planted:\n${direct.out}`).not.toBe(0);
+      const res = deploy(root, { env: { STUB_WORKERD_MISSING: '1' } });
+      expect(res.status, `not refused as unmerged:\n${res.out}`).toBe(1);
+      expect(res.out).toContain('is not an ancestor of origin/main, so this is code no pull request merged');
+      expect(res.out, 'the toolchain check ran before the ancestor check').not.toContain('the native platform package that workerd needs');
     });
   });
 
@@ -471,7 +553,7 @@ function runE2e(root: string, env: Record<string, string> = {}): Run {
     STUB_LOG: log,
     ...env,
   });
-  return { ...r, ran: existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n').filter(Boolean) : [] };
+  return { ...r, ran: existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n').filter(Boolean) : [], metrics: [] };
 }
 
 describe('run_e2e.sh — no file in tests/e2e is silently omitted', () => {
