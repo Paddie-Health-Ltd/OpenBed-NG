@@ -210,11 +210,31 @@ the one credential in this system that cannot be rotated quietly.
 > control that runs after the push was already accepted. A CI job cannot block a
 > push.
 
-**4. Dependency audit.** No critical or high CVEs. **Every new package is
-verified to exist on the public registry before it is added** — check the name
-against npm, check it has a plausible download count and maintenance history,
-and confirm it is not a typosquat. AI agents hallucinate package names and
-attackers register the common hallucinations.
+**4. Dependency audit.** No critical or high CVEs, **read on the `Audit` line of
+the evidence block that `node scripts/pr_evidence.mjs` prints**, which runs
+`npm audit --json` and prints the high and critical counts and the names of those
+packages. A count above zero does not change the block's Disposition or the script's
+exit code: the PR rules on the printed line, by a fix or by a named reason, before
+merge. **Every new package is verified to exist on the public registry before it is
+added** — check the name against npm, check it has a plausible download count and
+maintenance history, and confirm it is not a typosquat. AI agents hallucinate package
+names and attackers register the common hallucinations.
+
+*Restated 2026-10-03 (R-2026-10-03-FH FH-5 d, -184). Until then this item read: "No
+critical or high CVEs. **Every new package is verified to exist on the public registry
+before it is added** — check the name against npm, check it has a plausible download
+count and maintenance history, and confirm it is not a typosquat. AI agents hallucinate
+package names and attackers register the common hallucinations." Nothing enforced its
+first sentence: no CI job runs `npm audit`, and four findings (two of them high, in
+build and deploy tooling) were found on 2026-10-03 by a hand reading. That was a
+Clause 5 defect, a gate present and not reaching.*
+
+**Why the check is a printed line and not a required CI job.** An advisory published
+while a pull request is open would redden every open pull request on code it does not
+touch, which Standard O's scope guard (above) names as the anti-pattern. **NOT ASSERTED,
+deliberately:** the audit is read from the tree and the registry at run time, not from
+CI, so the same commit can read a different count on a different day, and a count above
+zero is printed and never enforced by the script.
 
 **5. AI hallucination spot-check.** Pick three items at random from the
 AI-specific block of the self-check below and verify them independently. If any

@@ -42,13 +42,34 @@
  *      script's exit 2; its exit 1 marks the block RED. Golden path phase 1 is
  *      corpus, not attested (scripts/run_e2e.sh).
  *   8. The register by kind, parsed by scripts/deferred_register.mjs.
+ *   9. The audit (R-2026-10-03-FH FH-5): `npm audit --json`, run with cwd ROOT after the
+ *      register parse, so no refusal above moves. Its exit is accepted only as 0 or 1 (npm
+ *      exits 1, with valid JSON, whenever any finding exists); its high and critical counts
+ *      and the names of those packages are printed on an `Audit` line. A count above zero
+ *      leaves the Disposition and the exit code UNCHANGED: THE PRINTED LINE IS THE GATE, and
+ *      the PR rules on it, by a fix or by a named reason, before merge. Five refusals, each
+ *      exit 2 with no block and never a "0": npm did not run; its exit was not 0 or 1; its
+ *      output is not a JSON object; the JSON carries an `error` key (the registry was
+ *      unreachable, or no lockfile); a high or critical count is not an integer.
+ *      WHY A PRINTED LINE AND NOT A REQUIRED CI JOB: an advisory published while a PR is
+ *      open would redden every open PR on code it does not touch, which Standard O's scope
+ *      guard names as the anti-pattern (.claude/rules/code-pipeline.md, Pre-Merge Gate item 4).
  * Then the block: one fenced block, pasted whole into the PR body.
  *
- * SEAMS. `--root <dir>` governs git and the decision record only. attest_counts,
+ * SEAMS. `--root <dir>` governs git, the decision record and the audit's working
+ * directory (npm audit reads THAT checkout's package-lock.json). attest_counts,
  * the register parser and packages/fixtures/required-checks.json are always this
  * script's own checkout's. The GitHub API is reached only through `gh api` on
- * PATH, naming the repository literally; a test puts a stub gh first on PATH. No
- * code path here exists for a test.
+ * PATH, naming the repository literally, and the registry only through `npm` on
+ * PATH; a test puts a stub gh and a stub npm first on PATH. No code path here
+ * exists for a test.
+ *   *Restated 2026-10-03 (R-2026-10-03-FH FH-5 d, -184). Until then this paragraph
+ *   read: "`--root <dir>` governs git and the decision record only. attest_counts,
+ *   the register parser and packages/fixtures/required-checks.json are always this
+ *   script's own checkout's. The GitHub API is reached only through `gh api` on
+ *   PATH, naming the repository literally; a test puts a stub gh first on PATH. No
+ *   code path here exists for a test." The audit made the first sentence false: cwd
+ *   is ROOT for npm audit too.*
  *
  * EVERY REFUSAL IS A LITERAL console.error AT ITS OWN SITE, so the leg register
  * can see it (test-conventions.md section 2(d)); no helper takes a message.
@@ -70,6 +91,9 @@
  *   - The register count comes from the tree, not from CI.
  *   - A re-run of the named run replaces its artefacts, after which the block
  *     cannot be rechecked.
+ *   - The audit is read from the tree and the registry at run time, not from CI: the
+ *     same commit can read a different count on a different day, and CI's artefacts
+ *     say nothing about it. A count above zero is printed, never enforced here.
  *
  * CLASSIFICATION (Clause 5): LIVE. Its subject, CI's artefacts for a PR head, exists
  * from the first run of the ci.yml that carries the provenance step.
@@ -461,6 +485,45 @@ async function main(work) {
   }
   const byKind = KINDS.map((k) => `${reg.rows.filter((r) => r.kind === k).length} ${k}`).join(', ');
 
+  // ---- the audit, read now from the tree and the registry (R-2026-10-03-FH FH-5) --------
+  // After the register parse, so no refusal above moves. `--audit-level` would change only the exit code,
+  // so it is left off: the reading is the counts, and a count above zero is printed, not enforced.
+  const audit = spawnSync('npm', ['audit', '--json'], { cwd: ROOT, encoding: 'utf8', maxBuffer: MAX_BUFFER, timeout: TIMEOUT_MS });
+  if (audit.error) {
+    process.stderr.write(`  npm audit: ${audit.error.code ?? audit.error.message}\n`);
+    console.error('ERROR: npm audit did not run to completion, so the audit has no reading and there is no block');
+    throw REFUSED;
+  }
+  if (audit.status !== 0 && audit.status !== 1) {
+    process.stderr.write(`  npm audit exit ${audit.status}\n${String(audit.stderr ?? '')}`);
+    console.error('ERROR: npm audit exited with a status other than 0 or 1, so its answer is not an audit reading');
+    throw REFUSED;
+  }
+  let auditJson = null;
+  try {
+    auditJson = JSON.parse(String(audit.stdout));
+  } catch {
+    auditJson = null;
+  }
+  if (auditJson === null || typeof auditJson !== 'object' || Array.isArray(auditJson)) {
+    console.error("ERROR: npm audit's output is not a JSON object, so there is no audit reading");
+    throw REFUSED;
+  }
+  if ('error' in auditJson) {
+    process.stderr.write(`  npm audit error: ${JSON.stringify(auditJson.error).slice(0, 400)}\n`);
+    console.error('ERROR: npm audit answered with an error object (the registry was unreachable, or the lockfile was refused), so there is no audit reading');
+    throw REFUSED;
+  }
+  const auditCounts = auditJson.metadata?.vulnerabilities;
+  if (!Number.isInteger(auditCounts?.high) || !Number.isInteger(auditCounts?.critical)) {
+    console.error("ERROR: npm audit's metadata.vulnerabilities.high or .critical is not an integer, so there is no audit count");
+    throw REFUSED;
+  }
+  const auditNamed = Object.entries(auditJson.vulnerabilities !== null && typeof auditJson.vulnerabilities === 'object' ? auditJson.vulnerabilities : {})
+    .filter(([, v]) => v !== null && typeof v === 'object' && (v.severity === 'high' || v.severity === 'critical'))
+    .map(([name, v]) => `${name} (${v.severity})`)
+    .sort();
+
   // ---- where main is now, and what this PR touches ------------------------------------
   const mainLines = [];
   const origin = spawnSync('git', ['-C', ROOT, 'rev-parse', '--verify', '-q', 'refs/remotes/origin/main'], { encoding: 'utf8', timeout: TIMEOUT_MS });
@@ -502,6 +565,8 @@ async function main(work) {
   out.push(`git log --oneline B..HEAD:`, ...log.split('\n').filter((l) => l !== '').map((l) => `  ${l}`));
   out.push(`git diff -M --name-status B...HEAD:`, ...nameStatus.split('\n').filter((l) => l !== '').map((l) => `  ${l}`));
   out.push(`Register   : ${reg.rows.length} (${byKind}), from the tree`);
+  out.push(`Audit      : ${auditCounts.high} high, ${auditCounts.critical} critical (npm audit --json, read now from the tree and the registry; rule on it before merge)`);
+  if (auditNamed.length > 0) out.push(`  high or critical: ${auditNamed.join(', ')}`);
   if (touched.size > 0) {
     out.push('WARNING: this PR changes its own evidence machinery:', ...[...touched].sort().map((p) => `  ${p}`));
   }
@@ -515,6 +580,7 @@ async function main(work) {
     '  - Internal consistency is not correctness (attest_counts.mjs:14-18).',
     '  - The register count comes from the tree, not from CI.',
     '  - Re-running the named run replaces its artefacts; after that this block cannot be rechecked. Push, or edit the body, for a new run; never re-run one whose block is pasted.',
+    '  - The audit is read from the tree and the registry at run time, not from CI.',
     '```',
   );
   console.log(out.join('\n'));

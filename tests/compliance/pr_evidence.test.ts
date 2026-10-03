@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { REPO_ROOT } from './_scratch.js';
@@ -36,9 +36,23 @@ import { makeZip, type ZipEntry } from './_zip.js';
  * cannot reach GitHub and a call the fixture did not expect is a failure. Every
  * plant asserts the call log up to its refusal.
  *
+ * THE AUDIT SEAM (R-2026-10-03-FH FH-5 c). The script also runs `npm audit --json`, which
+ * calls the public registry. The tests NEVER touch the network: a stub `npm` sits first on
+ * PATH next to the stub gh, answers only `audit --json` (exit 99 for anything else), and
+ * takes its body and exit status from the plant, zero counts by default. Without it, 22 of
+ * this file's tests would stop at ENOENT here, and on a machine with /usr/bin/npm the real
+ * npm would call the registry. The npm stub does NOT write the gh call log: every refusal
+ * asserts that its calls are a prefix of greenCalls, and the audit is no gh call.
+ *
  * NOT ASSERTED HERE, deliberately: that the real GitHub API answers in the shapes
  * the stub gives. Those shapes are the documented ones, and the script's first live
  * run on S-c's head (R-2026-09-29-171, EU-3 n) is the observation that they hold.
+ *
+ * NOT ASSERTED HERE, deliberately: that the real `npm audit --json` answers in the shapes
+ * the npm stub gives (counts under metadata.vulnerabilities, packages under vulnerabilities,
+ * an `error` key when the registry is unreachable, exit 1 whenever any finding exists).
+ * Those were read from the real npm 10.9.7 at 87aa410 (R-2026-10-03-FH FH-5); the first
+ * live run of the script after this change is the observation that they hold.
  */
 
 const SCRIPT = 'pr_evidence.mjs';
@@ -130,6 +144,11 @@ const MSG = {
   attest: 'attest_counts.mjs gave no attestation for',
   noRecord: 'the decision record is not readable at',
   register: 'the deferred-items register did not parse (',
+  auditSpawn: 'npm audit did not run to completion, so the audit has no reading and there is no block',
+  auditExit: 'npm audit exited with a status other than 0 or 1, so its answer is not an audit reading',
+  auditNotJson: "npm audit's output is not a JSON object, so there is no audit reading",
+  auditError: 'npm audit answered with an error object (the registry was unreachable, or the lockfile was refused), so there is no audit reading',
+  auditCounts: "npm audit's metadata.vulnerabilities.high or .critical is not an integer, so there is no audit count",
 } as const;
 
 const NOT_ASSERTED_LINES = [
@@ -140,6 +159,7 @@ const NOT_ASSERTED_LINES = [
   '  - Internal consistency is not correctness (attest_counts.mjs:14-18).',
   '  - The register count comes from the tree, not from CI.',
   '  - Re-running the named run replaces its artefacts; after that this block cannot be rechecked. Push, or edit the body, for a new run; never re-run one whose block is pasted.',
+  '  - The audit is read from the tree and the registry at run time, not from CI.',
 ];
 
 // ---- the fixture -----------------------------------------------------------------
@@ -181,8 +201,10 @@ interface Plant {
   extraCommits?: number;
   /** Read the script's stdout through `| (sleep 1; cat)`, as a slow reader on a pipe would. */
   slowPipe?: boolean;
-  /** 'no-unzip': PATH holds only git, node and the stub. 'no-gh': no gh anywhere on PATH. */
-  path?: 'no-unzip' | 'no-gh';
+  /** 'no-unzip': PATH holds only git, node and the stubs. 'no-gh': no gh anywhere on PATH. 'no-npm': PATH holds git, node, unzip and gh, and no npm. */
+  path?: 'no-unzip' | 'no-gh' | 'no-npm';
+  /** What the stub `npm audit --json` prints and exits with. Default: zero counts, exit 0. */
+  npm?: { body: string; status?: number };
   args?: string[];
 }
 
@@ -209,7 +231,24 @@ interface Result {
   merge: string;
   digests: string[];
   object: Buffer;
+  /** The physical working directory the stub npm was run in, or null if it never ran. */
+  npmCwd: string | null;
+  root: string;
 }
+
+/** npm's own shape for a tree with nothing found (read from npm 10.9.7). */
+const AUDIT_ZERO = JSON.stringify({
+  auditReportVersion: 2,
+  vulnerabilities: {},
+  metadata: { vulnerabilities: { info: 0, low: 0, moderate: 0, high: 0, critical: 0, total: 0 } },
+});
+/** The same shape with named findings: a high, a critical and a moderate. */
+const auditWith = (counts: { high: number; critical: number }, named: Record<string, string>): string =>
+  JSON.stringify({
+    auditReportVersion: 2,
+    vulnerabilities: Object.fromEntries(Object.entries(named).map(([n, severity]) => [n, { name: n, severity }])),
+    metadata: { vulnerabilities: { info: 0, low: 0, moderate: 1, high: counts.high, critical: counts.critical, total: counts.high + counts.critical + 1 } },
+  });
 
 const gitEnv = (home: string): NodeJS.ProcessEnv => ({
   PATH: '/usr/bin:/bin',
@@ -257,6 +296,17 @@ const STUB = [
   '',
 ].join('\n');
 
+const STUB_NPM = [
+  '#!/bin/sh',
+  'if [ "$#" -ne 2 ] || [ "$1" != audit ] || [ "$2" != --json ]; then echo "stub npm: unexpected arguments: $*" >&2; exit 99; fi',
+  '/bin/pwd -P > "$STUB_NPM_DIR/cwd"',
+  '/bin/cat "$STUB_NPM_DIR/body"',
+  'st=0',
+  'if [ -f "$STUB_NPM_DIR/status" ]; then st=$(/bin/cat "$STUB_NPM_DIR/status"); fi',
+  'exit "$st"',
+  '',
+].join('\n');
+
 function run(plant: Plant = {}): Result {
   const tmp = mkdtempSync(join(tmpdir(), 'openbed-prev-'));
   try {
@@ -265,7 +315,8 @@ function run(plant: Plant = {}): Result {
     const bin = join(tmp, 'bin');
     const routes = join(tmp, 'routes');
     const ghConfig = join(tmp, 'gh-config');
-    for (const d of [root, home, bin, routes, ghConfig]) mkdirSync(d, { recursive: true });
+    const npmDir = join(tmp, 'npm-answer');
+    for (const d of [root, home, bin, routes, ghConfig, npmDir]) mkdirSync(d, { recursive: true });
     const g = (...args: string[]): string => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', env: gitEnv(home) }).trim();
 
     // ---- the repository: B on main, H one commit on top ------------------------------
@@ -364,12 +415,20 @@ function run(plant: Plant = {}): Result {
       writeFileSync(join(bin, 'gh'), STUB);
       chmodSync(join(bin, 'gh'), 0o755);
     }
+    if (plant.path !== 'no-npm') {
+      writeFileSync(join(bin, 'npm'), STUB_NPM);
+      chmodSync(join(bin, 'npm'), 0o755);
+      writeFileSync(join(npmDir, 'body'), plant.npm?.body ?? AUDIT_ZERO);
+      if (plant.npm?.status !== undefined) writeFileSync(join(npmDir, 'status'), String(plant.npm.status));
+    } else {
+      symlinkSync(execFileSync('/bin/sh', ['-c', 'command -v unzip'], { encoding: 'utf8', env: { PATH: '/usr/bin:/bin' } }).trim(), join(bin, 'unzip'));
+    }
     symlinkSync(process.execPath, join(bin, 'node'));
     const realGit = execFileSync('/bin/sh', ['-c', 'command -v git'], { encoding: 'utf8', env: { PATH: '/usr/bin:/bin' } }).trim();
     symlinkSync(realGit, join(bin, 'git'));
-    const PATH = plant.path === 'no-unzip' || plant.path === 'no-gh' ? bin : `${bin}:/usr/bin:/bin`;
+    const PATH = plant.path === 'no-unzip' || plant.path === 'no-gh' || plant.path === 'no-npm' ? bin : `${bin}:/usr/bin:/bin`;
     const log = join(tmp, 'calls.log');
-    const env: NodeJS.ProcessEnv = { PATH, HOME: home, TMPDIR: tmp, GH_CONFIG_DIR: ghConfig, STUB_LOG: log, STUB_ROUTES: routes };
+    const env: NodeJS.ProcessEnv = { PATH, HOME: home, TMPDIR: tmp, GH_CONFIG_DIR: ghConfig, STUB_LOG: log, STUB_ROUTES: routes, STUB_NPM_DIR: npmDir };
     for (const k of ['GH_TOKEN', 'GITHUB_TOKEN', 'GH_HOST', 'GH_REPO', 'GH_ENTERPRISE_TOKEN']) delete env[k];
 
     // A slow reader: bash pipes the script's stdout to `(sleep 1; cat)`. PIPESTATUS[0] is the
@@ -398,6 +457,8 @@ function run(plant: Plant = {}): Result {
       merge,
       digests: artifacts.map((a) => String(a.digest)),
       object: greenObject,
+      npmCwd: existsSync(join(npmDir, 'cwd')) ? readFileSync(join(npmDir, 'cwd'), 'utf8').trim() : null,
+      root: realpathSync(root),
     };
   } finally {
     rmSync(tmp, { recursive: true, force: true });
@@ -425,6 +486,12 @@ function refused(r: Result, message: string, calls: number): void {
   expect(r.stderr, `refused, but not by this check:\n${out(r)}`).toContain(message);
   expect(r.stdout, `a refusal printed a block:\n${out(r)}`).not.toContain('```');
   expect(r.calls, `the calls up to the refusal:\n${out(r)}`).toEqual(greenCalls(r.head).slice(0, calls));
+}
+
+/** An audit refusal: reached only after all seven gh calls, and no Audit line may be printed. */
+function auditRefused(r: Result, message: string): void {
+  refused(r, message, 7);
+  expect(r.stdout, `a refused audit still printed an Audit line:\n${out(r)}`).not.toContain('Audit');
 }
 
 const artefact = (name: ArtName, f: (a: Art) => Art) => (arts: Art[]): Art[] => arts.map((a) => (a.name === name ? f(a) : a));
@@ -836,5 +903,59 @@ describe('pr_evidence.mjs: exit 2, no block', () => {
     const r = run({ record: RECORD_TEXT.replace('| A box item | R-2026-09-26-121 CW-2 | BOX | Its box |', '| A box item | R-2026-09-26-121 CW-2 | BOX |') });
     refused(r, MSG.register, 7);
     expect(r.stderr).toContain('4 cells expected and 3 found');
+  });
+});
+
+// R-2026-10-03-FH FH-5: the audit reading. A count above zero changes neither the Disposition nor the exit code
+// (the printed line is the gate, ruled on by the PR); anything that is not a reading is a refusal, never a "0".
+describe('pr_evidence.mjs: the audit reading (FH-5)', () => {
+  test('positive control — an audit at zero prints its Audit line, run in the --root checkout, exit 0', () => {
+    const r = run();
+    expect(r.status, out(r)).toBe(0);
+    expect(r.stdout, out(r)).toContain('Audit      : 0 high, 0 critical (npm audit --json, read now from the tree and the registry; rule on it before merge)');
+    expect(r.stdout, 'a zero audit named packages').not.toContain('high or critical:');
+    expect(r.stdout).toContain('Disposition: ZERO-RED');
+    // THE STUB RAN, in the --root tree: a script that skipped the audit prints no Audit line, and one that ran it
+    // elsewhere (the script's own checkout) would read another lockfile than the one under review.
+    expect(r.npmCwd, `the stub npm never ran:\n${out(r)}`).toBe(r.root);
+  });
+
+  test('plant — a high and a critical finding are named, and the exit and the Disposition do not move', () => {
+    // npm exits 1 whenever any finding exists, so the stub does too: the script must accept 1.
+    const r = run({ npm: { body: auditWith({ high: 1, critical: 1 }, { undici: 'high', 'form-data': 'critical', wrangler: 'moderate' }), status: 1 } });
+    expect(r.status, `a finding changed the exit code:\n${out(r)}`).toBe(0);
+    expect(r.stdout, out(r)).toContain('Audit      : 1 high, 1 critical (npm audit --json, read now from the tree and the registry; rule on it before merge)');
+    expect(r.stdout, out(r)).toContain('  high or critical: form-data (critical), undici (high)');
+    expect(r.stdout, 'a moderate finding was named as high or critical').not.toContain('wrangler');
+    expect(r.stdout, 'a finding changed the Disposition').toContain('Disposition: ZERO-RED');
+    expect(r.calls, out(r)).toEqual(greenCalls(r.head));
+  });
+
+  test('plant — no npm on PATH is a refusal, never a zero', () => {
+    const r = run({ path: 'no-npm' });
+    auditRefused(r, MSG.auditSpawn);
+  });
+
+  test('plant — npm audit exiting 2 is a refusal even though its output is a valid zero', () => {
+    const r = run({ npm: { body: AUDIT_ZERO, status: 2 } });
+    auditRefused(r, MSG.auditExit);
+  });
+
+  test('plant — output that is not JSON is a refusal, at exit 0 and at exit 1', () => {
+    for (const status of [0, 1]) {
+      const r = run({ npm: { body: 'npm error this is not json\n', status } });
+      auditRefused(r, MSG.auditNotJson);
+    }
+  });
+
+  test('plant — a JSON error object (registry unreachable, ENOLOCK) is a refusal, never a zero', () => {
+    const r = run({ npm: { body: JSON.stringify({ error: { code: 'ENOLOCK', summary: 'This command requires an existing lockfile.' } }), status: 1 } });
+    auditRefused(r, MSG.auditError);
+    expect(r.stderr, 'the refusal did not carry npm\'s own error code').toContain('ENOLOCK');
+  });
+
+  test('plant — a high count that is not an integer is a refusal', () => {
+    const r = run({ npm: { body: auditWith({ high: 3, critical: 0 }, { undici: 'high' }).replace('"high":3', '"high":"3"'), status: 1 } });
+    auditRefused(r, MSG.auditCounts);
   });
 });

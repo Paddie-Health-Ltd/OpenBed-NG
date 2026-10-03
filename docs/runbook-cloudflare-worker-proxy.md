@@ -31,9 +31,11 @@ The deploy checkout is a separate `git worktree`, detached at `origin/main`, tha
 nothing else writes to. Before every deploy, refresh it and read its HEAD:
 
 ```bash
-git -C ~/Desktop/OpenBed-NG-deploy fetch origin && git -C ~/Desktop/OpenBed-NG-deploy checkout --detach origin/main && (cd ~/Desktop/OpenBed-NG-deploy && npm ci)
+git -C ~/Desktop/OpenBed-NG-deploy fetch origin && git -C ~/Desktop/OpenBed-NG-deploy checkout --detach origin/main && (cd ~/Desktop/OpenBed-NG-deploy && npm ci --include=optional)
 cd ~/Desktop/OpenBed-NG-deploy && git rev-parse HEAD
 ```
+
+*Restated 2026-10-03 (R-2026-10-03-FH FH-3 c, -184). Until then the refresh line above ended with a bare `npm ci)`. The flag guards against an `omit` setting that skips optional packages, and the founder's was empty (`npm config get omit` printed nothing), so on 2026-10-03 it would have changed nothing: the first `npm ci` still left out the native workerd binary for the platform, most likely after a failed optional download, which npm skips without saying so (INFERRED; nothing else was observed). What catches that is the deploy wrappers' own toolchain check, which runs before any build or upload, and not the flag.*
 
 The last line must print the commit you mean to deploy. Every command below runs from
 that directory.
@@ -104,6 +106,15 @@ settings answer (INFERRED from its handler; probe 8 is what reads it on hosted),
 refusal, Cloudflare's error pages and the site's own HTML cannot contain it, so a keyword monitor
 on it cannot be satisfied by a page that is not GoTrue's. Probe 8's three checks are `rb_expect`
 reads, not legs.*
+
+*Restated 2026-10-03 (R-2026-10-03-FH FH-1 c, -184). **Probe 8 is CONFIRMED on hosted.** On the
+founder's W4 run of 2026-10-03 (read back by Cowork) it read 200, `forwarded`, with `disable_signup`
+found in the body, so the hosted gateway DOES take a publishable key from the query, and
+`"disable_signup"` is in the settings answer as hosted serves it: no longer only INFERRED from
+GoTrue's handler. The STOP clause above was not triggered. Until then the note above read, and is kept
+as the record of what was known on 2026-10-02: "Whether the hosted gateway accepts `?apikey=` for a
+publishable key is NOT CONFIRMED until this probe reads 200 on hosted", and "(INFERRED from its
+handler; probe 8 is what reads it on hosted)".*
 
 *Restated 2026-09-27 (R-2026-09-27-145 DU-2; R-2026-09-27-144 DT k): probe 1's path read
 `/rest/v1/rpc/my_facility_wards` until 026 renamed that function, and probe 1b is new. The
@@ -501,7 +512,19 @@ e. **The drill again,** by `docs/runbook-sensor.md` section 3 as amended, on the
 
 ## W4 hosted steps (R-2026-10-02-FF FF-9, -182)
 
-**Written, not run.** Cowork issues them one at a time, after the merge word on W4's pull request. Claude
+**Run on 2026-10-03** by the founder, from `~/Desktop/OpenBed-NG-deploy` at
+`87aa410005e6b306ec15485a68cd8c741e201944` (#111's merge). Each step was read back by Cowork before the
+next (R-2026-10-03-FH FH-1 b); the readings are in the checkbox after step d. Claude Code ran nothing
+hosted. Steps a, b and c read PASS, and D5 closed on them (R-2026-10-03-FH FH-2). **Two things the run
+found are not in the steps as written.** The ward console's first build FAILED before upload, because the
+first `npm ci` had skipped the native workerd binary for the platform without saying so; nothing was
+deployed, and `npm ci --include=optional` added it (the deploy wrappers now check for it before any
+build, FH-3). And the ward console's first read-back gave NO VERDICT: curl exit 28, a 12-second timeout
+on the founder's network, while Cowork's fetch from outside read 200 in 0.55 s; the re-run read PASS.
+*Restated 2026-10-03 (R-2026-10-03-FH FH-1 b, -184): until then this section opened with:* "**Written,
+not run.** Cowork issues them one at a time, after the merge word on W4's pull request."
+
+Cowork issued them one at a time, after the merge word on W4's pull request. Claude
 Code runs nothing hosted. They are D5's closing readings (R-2026-09-19-23 D5, by R-2026-09-22-56 A9), and
 they are read together with the local proof, `tests/db/ward_console_fallback_acceptance.test.ts`.
 
@@ -530,7 +553,8 @@ c. **The second monitor, created in UptimeRobot as `docs/runbook-sensor.md` sect
 d. **The close: D5**, in `docs/runbook-supabase-project-creation.md` step 12.4, on a, b and c together with
    the local proof. The founder's readings are relayed by Cowork, and nothing in this repository can show them.
 
-- [ ] W4's hosted steps a, b and c. Not run.
+- [x] On 2026-10-03, steps a, b and c, from `~/Desktop/OpenBed-NG-deploy` at `87aa410005e6b306ec15485a68cd8c741e201944`. The readings are the founder's, relayed by Cowork (hosted-run-w4-2026-10-03-readings.md, in Cowork's build records; R-2026-10-03-FH FH-1 b). **Step a:** `deploy_pages.sh --branch main ward-console`: the first build FAILED before upload, `wrangler pages functions build` throwing that the platform's workerd package could not be found (`npm config get omit` printed nothing; `npm ci --include=optional` added 223 packages against the first run's 222, with the platform binary present; INFERRED: npm skipped a failed optional download without saying so; the lockfile lists the package and had not changed since 48b2af5). The ward console deployed as 7414a2e2 (project openbed-ward-console), stamp 87aa410, clean, read back by the wrapper before upload. `readback_ward_console.sh`, first run: NO VERDICT, curl exit 28 on /version.json from the founder's network (Cowork's outside fetch at the same moment: 200, commit 87aa410, dirty false); second run PASS: `connect-src 'self'`, the API origin and the direct Supabase origin on the deployment and on app.openbed.ng, scripts own-host, favicon byte-equal on both hosts, font/woff2 served, one publishable key in the bundle (live half 200, dead half 401). Admin deployed as 8a0d148c, stamp 87aa410, clean; `readback_admin.sh` PASS: without the Access service token all six host reads gave 302 to Access, the stamp named 87aa410 on the deployment and on admin.openbed.ng, the CSP is `connect-src 'self'` and the API origin only on both, the operator call answered 401, marked `forwarded`. **Step b:** `deploy_worker.sh supabase-proxy` DONE, version `f9f88b09-d297-447e-bf9d-f4e847e371ed`, bindings LIMIT_OTP and LIMIT_VERIFY at 5 requests per 10 s and LIMIT_REFRESH at 10 per 10 s, the stamp naming 87aa410 on attempt 1 of 12. `readback_worker.sh https://api.openbed.ng` PASS: probes 1 and 1b 401 forwarded; probe 2 GET 200 and HEAD 405, both forwarded; probes 3, 5, 5b and 6 404, refused, the Worker's own body; probe 7 303 forwarded with the `Location` origin admin.openbed.ng; **probe 8 read 200, forwarded, with `disable_signup` found, so the hosted gateway takes a publishable key from the query**; the stamp 87aa410, dirty false, `limits_bound` all true, HEAD 200 marked `stamp`. Probe 4, Cowork's reading through the Cloudflare connector: PASS, the bundled stamp 87aa410 with dirty false, the bundled allow-list 30 forward entries, 2 direct_origin_exceptions and 3 refusal_probes with FF-7's restated serve.ts reason, and handler.ts matching the repository's. **Step c:** the second monitor created in UptimeRobot (Free): "OpenBed Worker (api.openbed.ng)", type Keyword, on the settings URL with the publishable key in the query (put on the clipboard from the tracked file, never printed), keyword `"disable_signup"` with its quotes, alerting when the keyword does not exist, every 5 minutes, to the support address by email and the founder's phone app. The founder's screenshot of the monitor list shows both monitors green: "OpenBed health" up 2 days 20 hours and the new one up 3 minutes 41 seconds. **Not run, by design:** no hosted step took the Worker away (FF-9), and no ward login exists on hosted (DY-2); the fallback's proof is local, `tests/db/ward_console_fallback_acceptance.test.ts`, green in CI on 87aa410 (push run 37115451672). **Step d:** D5 closed in the runbook's 12.4 step 1 by R-2026-10-03-FH FH-2.
+  *Restated 2026-10-03 (R-2026-10-03-FH FH-1 b, -184): until then this box read:* "- [ ] W4's hosted steps a, b and c. Not run."
 
 ## What stays true after this deploy, and what does not
 

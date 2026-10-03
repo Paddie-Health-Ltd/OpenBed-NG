@@ -179,9 +179,11 @@ The deploy checkout is a separate `git worktree`, detached at `origin/main`, tha
 nothing else writes to. Before every deploy, refresh it and read its HEAD:
 
 ```bash
-git -C ~/Desktop/OpenBed-NG-deploy fetch origin && git -C ~/Desktop/OpenBed-NG-deploy checkout --detach origin/main && (cd ~/Desktop/OpenBed-NG-deploy && npm ci)
+git -C ~/Desktop/OpenBed-NG-deploy fetch origin && git -C ~/Desktop/OpenBed-NG-deploy checkout --detach origin/main && (cd ~/Desktop/OpenBed-NG-deploy && npm ci --include=optional)
 cd ~/Desktop/OpenBed-NG-deploy && git rev-parse HEAD
 ```
+
+*Restated 2026-10-03 (R-2026-10-03-FH FH-3 c, -184). Until then the refresh line above ended with a bare `npm ci)`. The flag guards against an `omit` setting that skips optional packages, and the founder's was empty (`npm config get omit` printed nothing), so on 2026-10-03 it would have changed nothing: the first `npm ci` still left out the native workerd binary for the platform, most likely after a failed optional download, which npm skips without saying so (INFERRED; nothing else was observed). What catches that is the deploy wrappers' own toolchain check, which runs before any build or upload, and not the flag.*
 
 The last line must print the commit you mean to deploy. Every command below runs from
 that directory.

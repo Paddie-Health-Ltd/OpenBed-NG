@@ -79,12 +79,32 @@ b="\${bodies[$idx]}"
 [ "$b" = "FAIL" ] && { echo "curl: (6) Could not resolve host" >&2; exit 6; }
 printf '%s' "$b"
 `);
+  stubWorkerd(root);
   return bin;
+}
+
+/**
+ * THE `workerd` STAND-IN (R-2026-10-03-FH FH-3 b), the same as in deploy_guards.test.ts. The
+ * wrapper checks its own toolchain with `node -e "require('workerd')"` from the work tree, and
+ * node finds this package by walking up from there: it sits in the scratch ROOT's node_modules,
+ * the PARENT of `work/`, outside the git tree, so it never dirties the tree and the real
+ * node_modules is never touched. With STUB_WORKERD_MISSING set it throws workerd's own "could
+ * not be found" message, which is what an `npm ci` that skipped the optional platform binary
+ * produces. Without it every scratch tree has no node_modules and the check refuses every leg.
+ */
+function stubWorkerd(root: string): void {
+  const dir = join(root, 'node_modules', 'workerd');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, 'index.js'),
+    `if (process.env.STUB_WORKERD_MISSING) throw new Error('The package "@cloudflare/workerd-darwin-arm64" could not be found, and is needed by workerd.');\n`,
+    'utf8',
+  );
 }
 
 const stampOf = (commit: string, dirty = false): string => JSON.stringify({ commit, dirty, built_at: '2026-09-23T00:00:00.000Z' });
 
-function run(root: string, work: string, opts: { target?: string | null; stampBody?: string | null; curl?: string[]; rootArg?: string } = {}): Run {
+function run(root: string, work: string, opts: { target?: string | null; stampBody?: string | null; curl?: string[]; rootArg?: string; env?: Record<string, string> } = {}): Run {
   const bin = stubBin(root);
   const log = join(root, 'stub.log');
   writeFileSync(log, '');
@@ -99,6 +119,7 @@ function run(root: string, work: string, opts: { target?: string | null; stampBo
     STUB_CURL_COUNT: join(root, 'curl.count'),
     DEPLOY_WORKER_READBACK_ATTEMPTS: '3',
     DEPLOY_WORKER_READBACK_SLEEP: '0',
+    ...(opts.env ?? {}),
   };
   const args = [SCRIPT, ...(opts.target === null ? [] : [opts.target ?? 'supabase-proxy']), opts.rootArg ?? work];
   try {
@@ -123,6 +144,35 @@ describe('scripts/deploy_worker.sh', () => {
       expect(r.log).toContain('npm run --silent stamp:worker');
       expect(r.out).toContain(`DONE. https://api.openbed.ng/__openbed/version names ${head} (attempt 2 of 3)`);
       expect(r.out, 'the wrapper does not point at the read-back script').toContain("Now run: bash scripts/readback_worker.sh https://api.openbed.ng -- probe 4 is Cowork's");
+    });
+  });
+
+  test('plant — a workerd platform binary that npm skipped is refused before the stamp, and the missing package is named', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      // PRECONDITION, independent of the wrapper: the stand-in itself throws with the plant's env.
+      // If this fails the plant did not land; if only the assertions below fail, the wrapper is at fault.
+      stubWorkerd(root);
+      let directStatus = 0;
+      let directOut = '';
+      try {
+        execFileSync('node', ['-e', "require('workerd')"], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], cwd: work, env: { ...process.env, STUB_WORKERD_MISSING: '1' } });
+      } catch (e) {
+        const err = e as { status?: number; stderr?: string };
+        directStatus = err.status ?? -1;
+        directOut = err.stderr ?? '';
+      }
+      expect(directStatus, `the stand-in did not throw, so the plant cannot land:\n${directOut}`).not.toBe(0);
+      expect(directOut).toContain('could not be found, and is needed by workerd');
+      const r = run(root, work, { env: { STUB_WORKERD_MISSING: '1' } });
+      expect(r.status, `a missing workerd package was not refused with 2:\n${r.out}`).toBe(2);
+      expect(r.out, 'the missing package was not named').toContain('could not be found, and is needed by workerd');
+      expect(r.out).toContain('the native platform package that workerd needs is not installed here, so wrangler cannot run and nothing was stamped or uploaded');
+      expect(r.out, 'the refusal did not say how to fix it').toContain('npm ci --include=optional');
+      // BEFORE THE STAMP OR THE UPLOAD: the stub log holds no npm, npx or curl line.
+      expect(r.log, `the wrapper stamped, uploaded or read back after the toolchain check failed:\n${r.log}`).toBe('');
+      expect(uploaded(r)).toBe(false);
+      expect(existsSync(join(work, 'supabase-proxy', 'version.json')), 'a stamp exists, so the stamp step ran').toBe(false);
     });
   });
 

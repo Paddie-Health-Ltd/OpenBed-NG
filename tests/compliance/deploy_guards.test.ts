@@ -113,7 +113,28 @@ exit 0
   writeFileSync(join(bin, 'npx'), `#!/usr/bin/env bash\necho "npx $*" >> "$STUB_LOG"\nexit 0\n`, 'utf8');
   chmodSync(join(bin, 'npm'), 0o755);
   chmodSync(join(bin, 'npx'), 0o755);
+  stubWorkerd(root);
   return bin;
+}
+
+/**
+ * THE `workerd` STAND-IN (R-2026-10-03-FH FH-3 b). The wrapper checks its own toolchain
+ * with `node -e "require('workerd')"` from the work tree, and node finds this package by
+ * walking up from there. It sits in the scratch ROOT's node_modules -- the PARENT of
+ * `work/`, outside the git tree -- so it never dirties the tree and the real
+ * node_modules is never touched. With STUB_WORKERD_MISSING set it throws workerd's own
+ * "could not be found" message, which is what an `npm ci` that skipped the optional
+ * platform binary produces. Without a stand-in every scratch tree has no node_modules
+ * and the check would refuse every accept leg.
+ */
+function stubWorkerd(root: string): void {
+  const dir = join(root, 'node_modules', 'workerd');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, 'index.js'),
+    `if (process.env.STUB_WORKERD_MISSING) throw new Error('The package "@cloudflare/workerd-darwin-arm64" could not be found, and is needed by workerd.');\n`,
+    'utf8',
+  );
 }
 
 /**
@@ -199,6 +220,29 @@ describe('deploy_pages.sh — the accident case, refused', () => {
       // THE READBACK MUST HAVE RUN. Without this, a readback that silently stopped
       // executing would leave every plant below green and this leg green too.
       expect(res.out, 'the stamp readback did not run').toContain('the stamp reads back as');
+    });
+  });
+
+  test('plant — a workerd platform binary that npm skipped is refused before any build, and the missing package is named', () => {
+    withScratch((root) => {
+      repoWithOrigin(root);
+      const work = join(root, 'work');
+      // PRECONDITION, independent of the wrapper: the stand-in itself throws with the plant's env.
+      // If this fails the plant did not land; if only the assertions below fail, the wrapper is at fault.
+      stubWorkerd(root);
+      const direct = exec('node', ['-e', "require('workerd')"], { STUB_WORKERD_MISSING: '1' }, work);
+      expect(direct.status, `the stand-in did not throw, so the plant cannot land:\n${direct.out}`).not.toBe(0);
+      expect(direct.out).toContain('could not be found, and is needed by workerd');
+      const res = deploy(root, { env: { STUB_WORKERD_MISSING: '1' } });
+      expect(res.status, `a missing workerd package was not refused with 2:\n${res.out}`).toBe(2);
+      expect(res.out, 'the missing package was not named').toContain('could not be found, and is needed by workerd');
+      expect(res.out).toContain('the native platform package that workerd needs is not installed here, so wrangler cannot run and nothing was built or uploaded');
+      expect(res.out, 'the refusal did not say how to fix it').toContain('npm ci --include=optional');
+      // BEFORE ANY BUILD, STAMP OR UPLOAD: the stub log holds no npm and no npx line, and the
+      // stub build never wrote a stamp. A check placed after the build would fail the first.
+      expect(res.ran, `the wrapper built or uploaded after the toolchain check failed:\n${res.ran.join('\n')}`).toEqual([]);
+      expect(existsSync(join(work, 'apps', 'public-dashboard', SCRATCH_OUT_DIR, 'version.json')), 'a stamp exists, so the build ran').toBe(false);
+      expect(res.out, 'the wrapper announced a build before its toolchain check').not.toContain('building public-dashboard');
     });
   });
 

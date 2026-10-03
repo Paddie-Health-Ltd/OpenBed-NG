@@ -4655,9 +4655,21 @@ through the admin app.
      through the Worker reached Supabase from one Cloudflare address, so every ward shares
      one per-IP bucket; the edge limits bound each client. It closes on the Worker
      runbook's hosted steps a and b and Cowork's attribution read."
-   - [ ] Availability of the proxy on the clinical path. (R-2026-09-19-23 D5, by
+   - [x] Availability of the proxy on the clinical path. (R-2026-09-19-23 D5, by
      R-2026-09-22-56 A9)
-     **Built in R-2026-10-02-FF (-182); closes on its hosted steps** (the Worker runbook's "W4
+     **CLOSED 2026-10-03 (R-2026-10-03-FH FH-2, -184).** On the Worker runbook's "W4 hosted steps",
+     run by the founder on 2026-10-03 at 87aa410 and read PASS by Cowork: (a) the ward console and then
+     the admin app redeployed, `readback_ward_console.sh` PASS (it expects the direct origin in
+     `connect-src`) and `readback_admin.sh` PASS (it does not); (b) the Worker redeployed, then
+     `readback_worker.sh` whole PASS, probe 8 read 200, `forwarded`, with `disable_signup` found, and
+     probe 4 PASS by Cowork; (c) the second UptimeRobot monitor created and reading green, the founder's
+     screenshot being the reading. The local proof is
+     `tests/db/ward_console_fallback_acceptance.test.ts`, green in CI on 87aa410 (push run
+     37115451672, FF-4 f). The readings are in the Worker runbook's W4 run paragraph and box. **What this
+     does not claim:** that the fallback works on hosted with a real ward login. No hosted step took the
+     Worker away, no ward login exists on hosted (DY-2), and production was not broken to prove a
+     fallback; that proof is the local test. *Restated 2026-10-03: until then this box read:*
+     "**Built in R-2026-10-02-FF (-182); closes on its hosted steps** (the Worker runbook's "W4
      hosted steps"), read back together with the local proof, which is
      `tests/db/ward_console_fallback_acceptance.test.ts`: (a) the ward console and then the admin
      app redeployed at the merge commit, `readback_ward_console.sh` PASS (it now expects the direct
@@ -4666,7 +4678,7 @@ through the admin app.
      by Cowork; (c) the second UptimeRobot monitor created and reading green within 10 minutes, the
      founder's screenshot being the reading. **No hosted step takes the Worker away**: no ward
      login exists on hosted (DY-2), and production is not broken to prove a fallback. The box stays
-     open until those are read.
+     open until those are read."
    - [ ] Discoverability at facility one: `robots.txt` disallows everything today, and
      the `noindex` decision. (R-2026-09-20-36 A5, with R-2026-09-20-27 C5)
      **Found on 2026-09-25, and still OPEN** (R-2026-09-25-119 CU-4 b): Cloudflare's
