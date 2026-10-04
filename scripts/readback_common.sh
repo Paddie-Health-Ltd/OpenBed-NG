@@ -334,6 +334,38 @@ process.stdout.write(found.join("\n"));
     fi
 }
 
+# rb_search_state -- the one search setting this checkout ships (packages/origins/src/search.ts,
+# R-2026-09-30-190 FN-3), read through the module itself, never retyped here: RB_SEARCH is
+# "hidden" or "public", RB_META_ROBOTS the content its meta robots tag must carry, and
+# RB_ROBOTS_SOURCE the tracked robots file the built robots.txt must equal (repo-relative).
+# The node code carries the marker OPENBED_RB_SEARCH so a test can fail this one call alone.
+rb_search_state() {
+    local st=0 out
+    out="$(node --experimental-strip-types --no-warnings -e '
+// OPENBED_RB_SEARCH
+import(require("url").pathToFileURL(process.argv[1]).href).then((m) => {
+  process.stdout.write([m.SEARCH_VISIBILITY, m.robotsMetaContent(m.SEARCH_VISIBILITY), m.robotsTxtSource(m.SEARCH_VISIBILITY)].join("\n"));
+});
+' "$ROOT/packages/origins/src/search.ts")" || st=$?
+    if [ "$st" -ne 0 ]; then
+        echo "ERROR: node exited $st reading the search setting -- the check did not run, so this read-back has no verdict"
+        exit 2
+    fi
+    RB_SEARCH=""
+    RB_META_ROBOTS=""
+    RB_ROBOTS_SOURCE=""
+    { IFS= read -r RB_SEARCH; IFS= read -r RB_META_ROBOTS; IFS= read -r RB_ROBOTS_SOURCE; } <<< "$out" || true
+    case "$RB_SEARCH" in
+        hidden|public) ;;
+        *) echo "ERROR: the search setting read '$RB_SEARCH', which is neither hidden nor public -- the check did not run, so this read-back has no verdict"
+           exit 2 ;;
+    esac
+    if [ -z "$RB_META_ROBOTS" ] || [ -z "$RB_ROBOTS_SOURCE" ]; then
+        echo "ERROR: the search setting answered without a robots tag or a robots file -- the check did not run, so this read-back has no verdict"
+        exit 2
+    fi
+}
+
 # rb_scripts LABEL -- EVERY <script> element in the last body, listed. Any src that is
 # not same-origin with $SITE, and any inline script, reads WRONG naming it
 # (R-2026-09-25-119 CU-5 a). The page's own bundle is a same-origin src; nothing else

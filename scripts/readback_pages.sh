@@ -4,7 +4,8 @@
 # ============================================================
 # THE PUBLIC DASHBOARD'S DEPLOY READ-BACKS 4, 6 AND 8, THE PRIVACY NOTICE AT /privacy
 # (R-2026-09-26-136 DL-1 e), THE HEALTH ENDPOINT AT /api/health
-# (R-2026-09-29-173 EW-2 h), AND THE SERVE-TIME STAMP
+# (R-2026-09-29-173 EW-2 h), THE ABOUT AND HOW-IT-WORKS PAGES
+# (R-2026-09-30-190 FN-4), AND THE SERVE-TIME STAMP
 # (docs/runbook-cloudflare-pages-beds-json.md, "Reporting back"). Until the
 # R-2026-09-23-70 H4 note these were pasted fences; why they are a script now, and
 # the contract every read-back keeps, is in scripts/readback_common.sh.
@@ -16,11 +17,16 @@
 #   the tests can aim this at a scratch checkout; do not remove it because it looks
 #   unused. READBACK_SERVED_AT_SLEEP (default 5) is the pause between the two
 #   serve-time reads.
+# CLASSIFICATION (Clause 5): the About and How-it-works checks and the robots-file selection
+# are GUARD-AHEAD-OF-SUBJECT until the founder deploys the pages (R-2026-09-30-190 FN-4): the
+# checks run and are non-vacuous (a deployment without the pages reads WRONG), and the
+# deploy that makes them read ok comes after the merge. Every other check here is LIVE.
 # Exit: 0 PASS; 1 STOP (a check read WRONG); 2 nothing was checked, or a check could
 #       not run.
 #
-# NOT HERE, and the runbook says how to read each: read-back 7 (the /robots.txt
-# body), and, in a browser, read-backs 5 and 5b and the polling check.
+# NOT HERE, and the runbook says how to read each: in a browser, read-backs 5 and 5b
+# and the polling check. Read-back 7 (the /robots.txt body) IS here, against the file the
+# search setting selects (R-2026-09-30-190 FN-3).
 # ============================================================
 set -euo pipefail
 
@@ -35,6 +41,9 @@ DOMAIN='https://openbed.ng'
 SITE="${SITE%/}"
 PAUSE="${READBACK_SERVED_AT_SLEEP:-5}"
 rb_head "$ROOT"
+# The one search setting this checkout ships: the robots file read-back 7 compares against
+# and the meta robots tag the About and How-it-works pages must carry (FN-3, FN-4).
+rb_search_state
 
 JSON_CT='application/json; charset=utf-8'
 CACHE='public, s-maxage=30, stale-while-revalidate=300'
@@ -107,14 +116,14 @@ rb_scripts "openbed.ng scripts"
 SITE="$SITE_BEFORE"
 
 echo
-echo "=== read-back 7: /robots.txt on $SITE and on $DOMAIN, byte for byte this checkout's apps/public-dashboard/public/robots.txt ==="
+echo "=== read-back 7: /robots.txt on $SITE and on $DOMAIN, byte for byte this checkout's $RB_ROBOTS_SOURCE (the file the search setting, $RB_SEARCH, selects) ==="
 # Cloudflare's managed robots.txt prepended its own block on the custom domain only,
 # and its "Allow: /" won over our "Disallow: /" (R-2026-09-25-119 CU-4 b).
 page_probe /robots.txt
-rb_same_bytes "read-back 7 robots.txt" "$ROOT/apps/public-dashboard/public/robots.txt"
+rb_same_bytes "read-back 7 robots.txt" "$ROOT/$RB_ROBOTS_SOURCE"
 SITE="$DOMAIN"
 page_probe /robots.txt
-rb_same_bytes "read-back 7 openbed.ng robots.txt" "$ROOT/apps/public-dashboard/public/robots.txt"
+rb_same_bytes "read-back 7 openbed.ng robots.txt" "$ROOT/$RB_ROBOTS_SOURCE"
 SITE="$SITE_BEFORE"
 
 echo
@@ -219,6 +228,35 @@ done
 SITE="$SITE_BEFORE"
 
 echo
+echo "=== the About and How-it-works pages: GET /about and /how-it-works on $SITE and on $DOMAIN, as a browser -- their own pages, never the SPA index (R-2026-09-30-190 FN-4) ==="
+# Pages serves about.html at /about and how-it-works.html at /how-it-works. A deployment
+# without them answers both with the SPA fallback: 200 text/html, the dashboard's index. So a
+# 200 proves nothing here; the body must carry the page's own H1 and NOT the index's #app root,
+# and the meta robots tag must be the one the search setting ($RB_SEARCH) selects.
+for host in "$SITE_BEFORE" "$DOMAIN"; do
+    SITE="$host"
+    for page in about:About\ OpenBed how-it-works:How\ OpenBed\ works; do
+        route="${page%%:*}"
+        heading="${page#*:}"
+        label="$route"
+        [ "$host" = "$DOMAIN" ] && label="openbed.ng $route"
+        page_probe "/$route"
+        rb_expect "$label status" "$RB_CODE" 200
+        ct="$(rb_header content-type)"
+        case "$ct" in
+            text/html*) rb_ok "$label content-type" "$ct" ;;
+            *) rb_wrong "$label content-type" "$ct" "must be text/html" ;;
+        esac
+        rb_matches "<h1>$heading</h1>"
+        if [ "$RB_COUNT" -gt 0 ]; then rb_ok "$label heading" "$heading"; else rb_wrong "$label heading" "(absent)" "the page must carry its own H1, $heading"; fi
+        rb_matches 'id="app"'
+        if [ "$RB_COUNT" -eq 0 ]; then rb_ok "$label is not the SPA index" "no #app root"; else rb_wrong "$label is not the SPA index" "id=\"app\"" "that is the dashboard's index answering for a missing page"; fi
+        rb_matches '<meta name="robots" content="[^"]*"'
+        rb_expect "$label meta robots (the $RB_SEARCH state)" "${RB_MATCHES:-(absent)}" "<meta name=\"robots\" content=\"$RB_META_ROBOTS\""
+    done
+done
+SITE="$SITE_BEFORE"
+
 echo "=== the serve-time stamp: two GETs of $SITE/beds.json, ${PAUSE}s apart ==="
 site_probe GET /beds.json
 FIRST="$(rb_header x-openbed-served-at)"
@@ -240,4 +278,4 @@ else
     rb_wrong "serve-time stamp advances" "$FIRST -> $SECOND" "the second must be later than the first"
 fi
 
-rb_verdict "read-backs 4, 6, 7 and 8, the page's security headers and scripts on both hosts, the favicon on both hosts, the health endpoint on both hosts, the privacy notice on both hosts, a self-hosted font, and the serve-time stamp read as they must."
+rb_verdict "read-backs 4, 6, 7 and 8, the page's security headers and scripts on both hosts, the favicon on both hosts, the health endpoint on both hosts, the privacy notice on both hosts, the About and How-it-works pages on both hosts, a self-hosted font, and the serve-time stamp read as they must."

@@ -9,6 +9,7 @@ import { describe, expect, test } from 'vitest';
 import { renderNotice, type Contacts } from '../../apps/public-dashboard/privacy-notice.js';
 import CONTACTS from '../../packages/origins/contacts.json';
 import { hasViewport, VIEWPORT_CONTENT } from './_design.js';
+import { expectedBlocks, pageBlocks, squash } from './_notice_text.js';
 import { REPO_ROOT } from './_scratch.js';
 
 /**
@@ -58,8 +59,6 @@ const PRIOR_SHA256 = '0921ca415238d5ed96f3d287bf4fe02669a7c0e5cebac25b3f303a22be
 const PLACEHOLDER = '<!-- @PRIVACY_NOTICE@ -->';
 const contacts = CONTACTS as unknown as Contacts;
 
-const squash = (s: string): string => s.replace(/\s+/g, ' ').trim();
-
 /**
  * Addresses a plant needs, built at run time, so this file never carries an openbed.ng
  * address outside contacts.json's three (tests/compliance/contacts.test.ts scans it).
@@ -67,53 +66,6 @@ const squash = (s: string): string => s.replace(/\s+/g, ' ').trim();
 const DOMAIN = ['openbed', 'ng'].join('.');
 const PLANTED_ADDRESS = `planted${'@'}${DOMAIN}`;
 const UNKNOWN_ADDRESS = `ops${'@'}${DOMAIN}`;
-
-/**
- * THE INDEPENDENT REDUCTION: the source markdown as the list of text blocks a reader
- * sees -- one per heading, paragraph, list item and table cell, in order -- with the
- * markup characters removed and each openbed.ng address replaced by contacts.json's.
- * It shares nothing with the renderer: no escaping, no HTML, no refusals.
- */
-function expectedBlocks(markdown: string, book: Contacts): string[] {
-  const addressFor = (local: string): string => {
-    const entry = book[local];
-    return typeof entry === 'object' && entry !== null ? entry.address : `${local}@openbed.ng (NOT IN contacts.json)`;
-  };
-  const plain = (s: string): string =>
-    squash(
-      s
-        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-        .split('*').join('')
-        .replace(/([A-Za-z0-9._%+-]+)@openbed\.ng\b/g, (_w, local: string) => addressFor(local)),
-    );
-  const out: string[] = [];
-  let para: string[] = [];
-  const flush = (): void => {
-    if (para.length > 0) out.push(plain(para.join(' ')));
-    para = [];
-  };
-  for (const line of markdown.split('\n')) {
-    if (line.trim() === '') { flush(); continue; }
-    const heading = /^#{1,2} (.*)$/.exec(line);
-    if (heading) { flush(); out.push(plain(heading[1] ?? '')); continue; }
-    if (line.startsWith('- ')) { flush(); out.push(plain(line.slice(2))); continue; }
-    if (line.startsWith('|')) {
-      flush();
-      const cells = line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
-      if (cells.every((c) => /^-+$/.test(c))) continue;
-      for (const c of cells) out.push(plain(c));
-      continue;
-    }
-    para.push(line);
-  }
-  flush();
-  return out;
-}
-
-/** The page's text blocks, in document order: every heading, paragraph, item and cell. */
-function pageBlocks(main: Element): string[] {
-  return Array.from(main.querySelectorAll('h1, h2, p, li, th, td')).map((el) => squash(el.textContent ?? ''));
-}
 
 /** Why a built privacy page is not the notice, or []. Pure: HTML and markdown in. */
 function noticeViolations(html: string, markdown: string, book: Contacts): string[] {

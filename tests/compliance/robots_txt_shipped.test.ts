@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
+import { robotsTxtSource, SEARCH_VISIBILITY } from '../../packages/origins/src/search.js';
 import { REPO_ROOT } from './_scratch.js';
 import { deployableApps, outputDirOf } from './_apps.js';
 
@@ -37,7 +38,17 @@ import { deployableApps, outputDirOf } from './_apps.js';
  */
 const APPS = deployableApps();
 
-const sourceFor = (app: string): string => join(REPO_ROOT, 'apps', app, 'public', 'robots.txt');
+/**
+ * THE PUBLIC DASHBOARD'S SOURCE FOLLOWS THE SEARCH SETTING (R-2026-09-30-190 FN-3): the
+ * file its build copies to dist/robots.txt is the one robotsTxtSource() selects for
+ * SEARCH_VISIBILITY, so this pin moves with the setting and with nothing else. Every
+ * other app ships apps/<app>/public/robots.txt. tests/compliance/search_visibility.test.ts
+ * holds the setting's own legs, including that the shipped value is "hidden".
+ */
+const sourceFor = (app: string): string =>
+  app === 'public-dashboard'
+    ? join(REPO_ROOT, robotsTxtSource(SEARCH_VISIBILITY))
+    : join(REPO_ROOT, 'apps', app, 'public', 'robots.txt');
 const builtFor = (app: string): string => join(REPO_ROOT, 'apps', app, outputDirOf(app), 'robots.txt');
 
 describe('robots.txt', () => {

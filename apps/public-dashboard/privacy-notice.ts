@@ -38,44 +38,44 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function refuse(line: number, why: string): never {
-  throw new Error(`privacy notice line ${line}: ${why}`);
+function refuse(name: string, line: number, why: string): never {
+  throw new Error(`${name} line ${line}: ${why}`);
 }
 
 /** The published address for a local part, from contacts.json, or a refusal. */
-function published(contacts: Contacts, local: string, line: number): string {
+function published(contacts: Contacts, local: string, line: number, name: string): string {
   const entry = contacts[local];
   const address = typeof entry === 'object' && entry !== null ? entry.address : undefined;
   if (typeof address !== 'string' || !address.endsWith('@openbed.ng')) {
-    refuse(line, `${local}@openbed.ng has no entry in packages/origins/contacts.json`);
+    refuse(name, line, `${local}@openbed.ng has no entry in packages/origins/contacts.json`);
   }
   return address;
 }
 
 /** Inline markup: the link, strong, em and the addresses. Refuses anything else. */
-function inline(raw: string, contacts: Contacts, line: number): string {
-  if (raw.includes('`')) refuse(line, 'code spans are not in the notice subset');
-  if (raw.includes('<') || raw.includes('>')) refuse(line, 'raw HTML is not in the notice subset');
-  if (raw.includes('![')) refuse(line, 'images are not in the notice subset');
+function inline(raw: string, contacts: Contacts, line: number, name: string): string {
+  if (raw.includes('`')) refuse(name, line, 'code spans are not in the notice subset');
+  if (raw.includes('<') || raw.includes('>')) refuse(name, line, 'raw HTML is not in the notice subset');
+  if (raw.includes('![')) refuse(name, line, 'images are not in the notice subset');
   let text = escapeHtml(raw);
   const links: string[] = [];
   text = text.replace(LINK, (_whole, label: string, url: string) => {
     links.push(`<a href="${url}">${label}</a>`);
     return `\u0000${links.length - 1}\u0000`;
   });
-  if (text.includes('](') || text.includes('[')) refuse(line, 'a link that is not [text](https://...)');
+  if (text.includes('](') || text.includes('[')) refuse(name, line, 'a link that is not [text](https://...)');
   text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-  if (text.includes('*')) refuse(line, 'an unbalanced or nested * is not in the notice subset');
-  text = text.replace(ADDRESS, (_whole, local: string) => published(contacts, local, line));
+  if (text.includes('*')) refuse(name, line, 'an unbalanced or nested * is not in the notice subset');
+  text = text.replace(ADDRESS, (_whole, local: string) => published(contacts, local, line, name));
   // The link placeholders go back last, so an address or a * inside a link is never
   // rewritten by the passes above.
   return text.replace(/\u0000(\d+)\u0000/g, (_whole, i: string) => links[Number(i)] ?? '');
 }
 
-function cells(row: string, line: number): string[] {
+function cells(row: string, line: number, name: string): string[] {
   const trimmed = row.trim();
-  if (!trimmed.startsWith('|') || !trimmed.endsWith('|')) refuse(line, 'a table row must start and end with |');
+  if (!trimmed.startsWith('|') || !trimmed.endsWith('|')) refuse(name, line, 'a table row must start and end with |');
   return trimmed.slice(1, -1).split('|').map((c) => c.trim());
 }
 
@@ -88,8 +88,8 @@ function plainLabel(cell: string): string {
  * The notice as HTML, from its markdown and the published contacts. Pure: no file,
  * no clock, no environment.
  */
-export function renderNotice(markdown: string, contacts: Contacts): string {
-  if (markdown.trim() === '') throw new Error('privacy notice: the source is empty');
+export function renderNotice(markdown: string, contacts: Contacts, name = 'privacy notice'): string {
+  if (markdown.trim() === '') throw new Error(`${name}: the source is empty`);
   const lines = markdown.split('\n');
   const out: string[] = [];
   let i = 0;
@@ -100,56 +100,56 @@ export function renderNotice(markdown: string, contacts: Contacts): string {
       i += 1;
       continue;
     }
-    if (/^#{3,}\s/.test(line)) refuse(lineNo, 'only # and ## headings are in the notice subset');
-    if (/^\d+[.)]\s/.test(line)) refuse(lineNo, 'numbered lists are not in the notice subset');
-    if (/^>/.test(line)) refuse(lineNo, 'quotes are not in the notice subset');
-    if (/^\s+\S/.test(line)) refuse(lineNo, 'indented lines are not in the notice subset');
+    if (/^#{3,}\s/.test(line)) refuse(name, lineNo, 'only # and ## headings are in the notice subset');
+    if (/^\d+[.)]\s/.test(line)) refuse(name, lineNo, 'numbered lists are not in the notice subset');
+    if (/^>/.test(line)) refuse(name, lineNo, 'quotes are not in the notice subset');
+    if (/^\s+\S/.test(line)) refuse(name, lineNo, 'indented lines are not in the notice subset');
     if (line.startsWith('# ')) {
-      out.push(`<h1>${inline(line.slice(2), contacts, lineNo)}</h1>`);
+      out.push(`<h1>${inline(line.slice(2), contacts, lineNo, name)}</h1>`);
       i += 1;
       continue;
     }
     if (line.startsWith('## ')) {
-      out.push(`<h2>${inline(line.slice(3), contacts, lineNo)}</h2>`);
+      out.push(`<h2>${inline(line.slice(3), contacts, lineNo, name)}</h2>`);
       i += 1;
       continue;
     }
     if (line.startsWith('- ')) {
       const items: string[] = [];
       while (i < lines.length && (lines[i] ?? '').startsWith('- ')) {
-        items.push(`<li>${inline((lines[i] ?? '').slice(2), contacts, i + 1)}</li>`);
+        items.push(`<li>${inline((lines[i] ?? '').slice(2), contacts, i + 1, name)}</li>`);
         i += 1;
       }
       out.push(`<ul>${items.join('')}</ul>`);
       continue;
     }
     if (line.startsWith('|')) {
-      const header = cells(line, lineNo);
-      const separator = cells(lines[i + 1] ?? '', lineNo + 1);
+      const header = cells(line, lineNo, name);
+      const separator = cells(lines[i + 1] ?? '', lineNo + 1, name);
       if (separator.length !== header.length || !separator.every((c) => /^:?-{3,}:?$/.test(c))) {
-        refuse(lineNo + 1, 'a table header must be followed by a --- separator of the same width');
+        refuse(name, lineNo + 1, 'a table header must be followed by a --- separator of the same width');
       }
       i += 2;
       const rows: string[] = [];
       while (i < lines.length && (lines[i] ?? '').startsWith('|')) {
-        const row = cells(lines[i] ?? '', i + 1);
-        if (row.length !== header.length) refuse(i + 1, `a table row has ${row.length} cells, the header ${header.length}`);
-        const tds = row.map((c, k) => `<td data-label="${plainLabel(header[k] ?? '')}">${inline(c, contacts, i + 1)}</td>`);
+        const row = cells(lines[i] ?? '', i + 1, name);
+        if (row.length !== header.length) refuse(name, i + 1, `a table row has ${row.length} cells, the header ${header.length}`);
+        const tds = row.map((c, k) => `<td data-label="${plainLabel(header[k] ?? '')}">${inline(c, contacts, i + 1, name)}</td>`);
         rows.push(`<tr>${tds.join('')}</tr>`);
         i += 1;
       }
-      if (rows.length === 0) refuse(lineNo, 'a table with no rows');
-      const ths = header.map((c) => `<th scope="col">${inline(c, contacts, lineNo)}</th>`);
+      if (rows.length === 0) refuse(name, lineNo, 'a table with no rows');
+      const ths = header.map((c) => `<th scope="col">${inline(c, contacts, lineNo, name)}</th>`);
       out.push(`<table><thead><tr>${ths.join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`);
       continue;
     }
-    if (line.startsWith('#')) refuse(lineNo, 'a heading needs a space after its #');
+    if (line.startsWith('#')) refuse(name, lineNo, 'a heading needs a space after its #');
     // A paragraph: this line and every following line up to a blank or a block.
     const para: string[] = [];
     while (i < lines.length) {
       const next = lines[i] ?? '';
       if (next.trim() === '' || /^(#|- |\|)/.test(next)) break;
-      para.push(inline(next, contacts, i + 1));
+      para.push(inline(next, contacts, i + 1, name));
       i += 1;
     }
     out.push(`<p>${para.join(' ')}</p>`);

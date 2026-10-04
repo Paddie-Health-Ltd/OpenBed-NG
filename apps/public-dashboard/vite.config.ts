@@ -1,37 +1,47 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { copyFileSync, readFileSync } from 'node:fs';
+import { basename, resolve } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
+import { robotsTxtSource, SEARCH_VISIBILITY } from '../../packages/origins/src/search.js';
 import { renderNotice, type Contacts } from './privacy-notice.js';
+import { fillPage } from './site-pages.js';
 
 const REPO = resolve(import.meta.dirname, '../..');
-const PLACEHOLDER = '<!-- @PRIVACY_NOTICE@ -->';
 
 /**
- * THE PRIVACY NOTICE, WRITTEN INTO privacy.html AT BUILD TIME (R-2026-09-26-136 DL-1).
- * docs/legal/privacy-notice-v1.1.md is the single source (version 1.1 since
- * R-2026-09-28-155 EE-2; 1.0 stays in docs/legal/, unchanged, as the prior version) and
- * packages/origins/contacts.json supplies every openbed.ng address; privacy-notice.ts
- * renders them. The page carries no script, so this is the only moment the notice can
- * be put into it. Exactly one placeholder in privacy.html and none anywhere else, or the
- * build stops: a notice written twice, or into the dashboard, is a build error.
+ * THE STATIC PAGES' TEXT, FOOTER AND ROBOTS TAG, WRITTEN INTO THE HTML AT BUILD TIME.
+ *
+ * privacy.html (R-2026-09-26-136 DL-1): docs/legal/privacy-notice-v1.1.md is the single
+ * source (version 1.1 since R-2026-09-28-155 EE-2; 1.0 stays in docs/legal/, unchanged,
+ * as the prior version). about.html and how-it-works.html (R-2026-09-30-190 FN-2) are
+ * built the same way from docs/site/. packages/origins/contacts.json supplies every
+ * openbed.ng address; privacy-notice.ts renders them. The pages carry no script, so
+ * this is the only moment the text can be put into them. Exactly one placeholder in each
+ * page that is meant to have it and none anywhere else, or the build stops: site-pages.ts
+ * holds the table and the rule.
+ *
+ * SEARCH_VISIBILITY (packages/origins/src/search.ts) decides the meta robots tag of the
+ * home, About and How-it-works pages and which tracked robots file becomes
+ * dist/robots.txt. It decides nothing else.
  */
-function privacyNotice(): Plugin {
+function staticPages(): Plugin {
+  const contacts = JSON.parse(readFileSync(resolve(REPO, 'packages/origins/contacts.json'), 'utf8')) as Contacts;
   return {
-    name: 'openbed-privacy-notice',
+    name: 'openbed-static-pages',
     transformIndexHtml: {
       order: 'pre',
       handler(html, ctx) {
-        const count = html.split(PLACEHOLDER).length - 1;
-        const isNotice = ctx.filename.endsWith('/privacy.html');
-        if (!isNotice) {
-          if (count !== 0) throw new Error(`${ctx.filename}: the privacy-notice placeholder belongs in privacy.html only`);
-          return html;
-        }
-        if (count !== 1) throw new Error(`privacy.html: expected exactly one privacy-notice placeholder, found ${count}`);
-        const markdown = readFileSync(resolve(REPO, 'docs/legal/privacy-notice-v1.1.md'), 'utf8');
-        const contacts = JSON.parse(readFileSync(resolve(REPO, 'packages/origins/contacts.json'), 'utf8')) as Contacts;
-        return html.replace(PLACEHOLDER, renderNotice(markdown, contacts));
+        return fillPage(basename(ctx.filename), html, {
+          markdown: (path) => readFileSync(resolve(REPO, path), 'utf8'),
+          contacts,
+          visibility: SEARCH_VISIBILITY,
+          render: renderNotice,
+        });
       },
+    },
+    // Vite has already copied public/ into dist/ by now; the file the setting selects
+    // replaces the copy, byte for byte. In the hidden state that is the same file.
+    closeBundle() {
+      copyFileSync(resolve(REPO, robotsTxtSource(SEARCH_VISIBILITY)), resolve(import.meta.dirname, 'dist/robots.txt'));
     },
   };
 }
@@ -58,13 +68,16 @@ export default defineConfig({
   // future read cannot quietly reopen the route.
   envDir: false,
   envPrefix: ['OPENBED_NO_BUILD_ENV_'],
-  plugins: [privacyNotice()],
+  plugins: [staticPages()],
   build: {
-    // Two static entries: the dashboard, and the privacy notice at /privacy (DL-1 b).
+    // Four static entries: the dashboard, the privacy notice at /privacy (DL-1 b), and
+    // About and How-it-works at /about and /how-it-works (R-2026-09-30-190 FN-2).
     rollupOptions: {
       input: {
         index: resolve(import.meta.dirname, 'index.html'),
         privacy: resolve(import.meta.dirname, 'privacy.html'),
+        about: resolve(import.meta.dirname, 'about.html'),
+        'how-it-works': resolve(import.meta.dirname, 'how-it-works.html'),
       },
     },
     outDir: 'dist',
