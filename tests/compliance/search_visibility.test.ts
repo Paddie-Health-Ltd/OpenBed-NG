@@ -12,15 +12,16 @@ import { place, REPO_ROOT, withScratch } from './_scratch.js';
 /**
  * THE ONE SEARCH SETTING DECIDES TWO THINGS, AND NOTHING ELSE (R-2026-09-30-190 FN-3).
  *
- * SEARCH_VISIBILITY (packages/origins/src/search.ts) is shipped as "hidden". It decides
+ * SEARCH_VISIBILITY (packages/origins/src/search.ts) is shipped as "public" (FN-A; FN-3 first shipped it "hidden"). It decides
  * (a) the meta robots tag of the home, About and How-it-works pages and (b) which tracked
  * file becomes the built robots.txt. Legs, each with a plant:
  *
- *   1. SHIPPED VALUE. The value is "hidden". A flip to "public" is a one-line pull request
- *      that needs a ruling, and this is the line that reddens until the test is edited
- *      beside it.
+ *   1. SHIPPED VALUE. The value is "public". A flip in either direction is a one-line pull
+ *      request that needs a ruling, and this is the line that reddens until the test is
+ *      edited beside it.
  *   2. THE TWO PURE FUNCTIONS, both states, asserted by value.
- *   3. THE FILES. The hidden file is today's robots.txt byte for byte (sha256 pinned). The
+ *   3. THE FILES. The hidden file, the fallback, is the robots.txt shipped before FN-3 byte
+ *      for byte (sha256 pinned). The
  *      public file is PARSED as robots rules and each path is decided by the longest-match
  *      rule: the home, /about and /how-it-works are allowed; /beds.json, /privacy and every
  *      path not named are disallowed.
@@ -31,11 +32,9 @@ import { place, REPO_ROOT, withScratch } from './_scratch.js';
  *   5. NOTHING ELSE. Under apps/ and packages/ only search.ts (the definition) and
  *      apps/public-dashboard/vite.config.ts (the one reader) mention the setting.
  *
- * CLASSIFICATION (Clause 5): the hidden-state legs are LIVE, because the hidden files, the
- * built dist and the one reader exist now. The public-state legs are GUARD-AHEAD-OF-SUBJECT:
- * they run and are non-vacuous over the public robots file, the pure functions and the
- * plants, but the state they describe ships in the go-live pull request (runbook 12.4), which
- * flips the setting and re-classifies them LIVE.
+ * CLASSIFICATION (Clause 5): LIVE for the shipped (public) state, whose files, built dist
+ * and one reader exist now. The hidden-state legs guard the fallback: the hidden file is
+ * pinned and both pure functions are asserted, over a state that is not the shipped one.
  *
  * NOT ASSERTED HERE, deliberately: that the DEPLOYED site serves the selected robots.txt
  * and the selected meta tag -- a property of what was uploaded, which only
@@ -154,8 +153,8 @@ function trackedUnder(dirs: string[]): { path: string; text: string }[] {
 }
 
 describe('the search setting (R-2026-09-30-190 FN-3)', () => {
-  test('real shipped value is "hidden" — a flip to public needs a ruling', () => {
-    expect(SEARCH_VISIBILITY, 'SEARCH_VISIBILITY is not "hidden": going public is a one-line pull request that needs its own ruling and edits this line').toBe('hidden');
+  test('real shipped value is "public" — a flip needs a ruling', () => {
+    expect(SEARCH_VISIBILITY, 'SEARCH_VISIBILITY is not "public": a flip either way is a one-line pull request that needs its own ruling and edits this line').toBe('public');
   });
 
   test('the meta robots function states both outputs', () => {
@@ -170,7 +169,7 @@ describe('the search setting (R-2026-09-30-190 FN-3)', () => {
     expect(existsSync(join(REPO_ROOT, robotsTxtSource('public')))).toBe(true);
   });
 
-  test('real hidden-state file is accepted — today\'s robots.txt, byte for byte', () => {
+  test('real hidden-state file is accepted — the fallback, the robots.txt shipped before FN-3, byte for byte', () => {
     expect(sha(HIDDEN_FILE), 'the hidden-state robots.txt is no longer the file shipped before FN-3').toBe(HIDDEN_SHA256);
     expect(allowed(parseRules(readFileSync(HIDDEN_FILE, 'utf8')), '/'), 'the hidden file lets crawlers in').toBe(false);
   });

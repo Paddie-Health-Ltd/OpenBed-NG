@@ -39,7 +39,7 @@ function staticPages(): Plugin {
       },
     },
     // Vite has already copied public/ into dist/ by now; the file the setting selects
-    // replaces the copy, byte for byte. In the hidden state that is the same file.
+    // replaces the copy, byte for byte. In the hidden (fallback) state that is the same file.
     closeBundle() {
       copyFileSync(resolve(REPO, robotsTxtSource(SEARCH_VISIBILITY)), resolve(import.meta.dirname, 'dist/robots.txt'));
     },

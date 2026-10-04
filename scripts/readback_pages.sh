@@ -20,7 +20,8 @@
 # CLASSIFICATION (Clause 5): the About and How-it-works checks and the robots-file selection
 # are GUARD-AHEAD-OF-SUBJECT until the founder deploys the pages (R-2026-09-30-190 FN-4): the
 # checks run and are non-vacuous (a deployment without the pages reads WRONG), and the
-# deploy that makes them read ok comes after the merge. Every other check here is LIVE.
+# deploy that makes them read ok comes after the merge. They expect the state the search
+# setting ships, which is public (FN-A). Every other check here is LIVE.
 # Exit: 0 PASS; 1 STOP (a check read WRONG); 2 nothing was checked, or a check could
 #       not run.
 #

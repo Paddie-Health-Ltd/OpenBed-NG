@@ -5,9 +5,11 @@
  *   (a) the meta robots tag of the home, About and How-it-works pages (robotsMetaContent);
  *   (b) which tracked robots file the dashboard build writes to dist/robots.txt
  *       (robotsTxtSource).
- * It is shipped as 'hidden'. The go-live flip is a one-line edit of this value, in a pull
- * request of its own, and tests/compliance/search_visibility.test.ts asserts the shipped
- * value, so a flip without a ruling reddens a test.
+ * It is shipped as 'public' (R-2026-09-30-190 FN-A; FN-3 first shipped it 'hidden'). 'hidden'
+ * stays as the tested fallback: both outputs are asserted and the hidden robots file is
+ * pinned to the file shipped before FN-3, so going back is the same one-line edit.
+ * tests/compliance/search_visibility.test.ts asserts the shipped value, so a flip in either
+ * direction without a ruling reddens a test.
  *
  * NOT decided here, deliberately: the privacy notice page, whose meta robots stays
  * "noindex, nofollow" in both states, and the X-Robots-Tag on /beds.json, which
@@ -19,7 +21,7 @@
  */
 export type SearchVisibility = 'hidden' | 'public';
 
-export const SEARCH_VISIBILITY: SearchVisibility = 'hidden';
+export const SEARCH_VISIBILITY: SearchVisibility = 'public';
 
 /** The content of the meta robots tag on the home, About and How-it-works pages. */
 export function robotsMetaContent(visibility: SearchVisibility): string {

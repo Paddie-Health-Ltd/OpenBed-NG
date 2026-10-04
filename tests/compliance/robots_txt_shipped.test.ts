@@ -43,7 +43,7 @@ const APPS = deployableApps();
  * file its build copies to dist/robots.txt is the one robotsTxtSource() selects for
  * SEARCH_VISIBILITY, so this pin moves with the setting and with nothing else. Every
  * other app ships apps/<app>/public/robots.txt. tests/compliance/search_visibility.test.ts
- * holds the setting's own legs, including that the shipped value is "hidden".
+ * holds the setting's own legs, including that the shipped value is "public" (R-2026-09-30-190 FN-A).
  */
 const sourceFor = (app: string): string =>
   app === 'public-dashboard'

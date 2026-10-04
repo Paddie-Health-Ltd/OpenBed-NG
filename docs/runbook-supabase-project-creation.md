@@ -4989,18 +4989,27 @@ through the admin app.
    (021:273-285).
 8. **Read back `/beds.json`:** the facility appears within the snapshot's regeneration
    interval. Use `bash scripts/readback_pages.sh`, as its runbook says.
-**After step 8: at facility one's listing only.** Set `SEARCH_VISIBILITY` to public in a
-   one-line pull request (its tests state both outputs), merge it, deploy the public
-   dashboard and run `bash scripts/readback_pages.sh`. Then the founder reads the response
-   headers of / and /about with a HEAD request and reports any X-Robots-Tag the repository
-   does not set; Cowork reads the report. Whether and how a Cloudflare header is removed is
-   the founder's, in Cloudflare, and is read back. That Cloudflare header is INFERRED, from a
-   code comment (`apps/public-dashboard/functions/beds.json.ts`); nothing in the repository
-   sets it or names it. This is unnumbered, as the step above is.
-   *Restated 2026-10-04 (R-2026-09-30-190 FN-5). Until then this step read: "Remove the
-   search block, shipped by its own letter before this step, as R-2026-09-30-188 FL-5
-   records. That letter is Cowork's, and it makes the source or build-configuration edit
-   first. This is unnumbered, as the step above is."*
+**After step 8: moot.** Nothing is done here: search is on from the deploy of FN's pull
+   request, not at facility one's listing. This is unnumbered, as the step above is.
+   *Restated 2026-10-04 (R-2026-09-30-190 FN-A A3). Until then this step read, as restated
+   the same day by FN-5: "Set `SEARCH_VISIBILITY` to public in a one-line pull request (its
+   tests state both outputs), merge it, deploy the public dashboard and run
+   `bash scripts/readback_pages.sh`. Then the founder reads the response headers of / and
+   /about with a HEAD request and reports any X-Robots-Tag the repository does not set;
+   Cowork reads the report. Whether and how a Cloudflare header is removed is the founder's,
+   in Cloudflare, and is read back. That Cloudflare header is INFERRED, from a code comment
+   (`apps/public-dashboard/functions/beds.json.ts`); nothing in the repository sets it or
+   names it. This is unnumbered, as the step above is." And before that, as FN-5 kept it:
+   "Remove the search block, shipped by its own letter before this step, as
+   R-2026-09-30-188 FL-5 records. That letter is Cowork's, and it makes the source or
+   build-configuration edit first. This is unnumbered, as the step above is."*
+
+   **A note on search, not a listing step** (R-2026-09-30-190 FN-A A3): Search is on from the
+   deploy of FN's pull request (the founder's word, 2026-10-04). After that deploy and its
+   read-back, the founder reads the response headers of / and /about with a HEAD request and
+   reports any X-Robots-Tag the repository does not set; Cowork reads the report. Whether and
+   how a Cloudflare header is removed is the founder's, in Cloudflare, and is read back. That
+   Cloudflare header is INFERRED, from a code comment (`apps/public-dashboard/functions/beds.json.ts`).
 9. **The real path, end to end** (B1; R-2026-09-26-122 CX-1 b). Run it only once
    facility one is listed. The first publish from facility one's ward console, through
    `api.openbed.ng`, must succeed: the console says it was published. The count it
