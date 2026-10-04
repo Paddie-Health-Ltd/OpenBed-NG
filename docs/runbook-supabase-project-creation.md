@@ -4562,7 +4562,7 @@ through the admin app.
      merge's commit. **CLOSED on 2026-09-25** by the merge of #84,
      `dd59c7fac5de26137150f9c940dfed4074c4abda` (R-2026-09-25-118 CT-3,
      R-2026-09-25-119 CU-6).
-   - [ ] The clinicians confirm the freshness thresholds AND the public wording, which
+   - [x] The clinicians confirm the freshness thresholds AND the public wording, which
      removes the PROVISIONAL label. (R-2026-09-23-67 A7, extended by R-2026-09-23-68
      C3)
      The list includes the ward console's three control labels: "Fewer beds" (−), "More
@@ -4593,8 +4593,39 @@ through the admin app.
      follows one needs a new emailed link from a pool the whole project shares. A reload is
      still the right remedy for a broken row; what is wrong is that the sentence does not say
      what it costs. The finding is the clinicians' to word.
-   - [ ] Each facility's public number is answered 24/7 by someone who can confirm bed
+     *Restated 2026-10-04 (R-2026-09-30-188 FL-2): the text above is this box's text until
+     then, kept as written.* **Stated by the founder, relayed by Cowork:** the Medical Advisor
+     confirmed, on 3 October 2026, and the public wording is unchanged. Asked whether that
+     covered the sentences added since the thresholds were first set (the ward console's
+     "Reload the page" sentences and W4's five), the answer was "medical advisor fine with
+     everything". **The figures** 30 minutes, 2 hours and 12 hours, with the banner at 3
+     minutes, were those in Cowork's own question, and each was **READ in the code** on
+     2026-10-04: `packages/fixtures/snapshot-shape.json`, used by
+     `packages/snapshot/src/freshness.ts`. The lower edge is strict, so an age of exactly 30
+     minutes is ageing, exactly 2 hours is stale and exactly 12 hours is unknown; **that
+     boundary behaviour is READ from code, not clinician-stated.** **The folded row.** The
+     register's row "Gate 2's 60-second clause could be revisited" was subsumed by this box
+     (its threshold confirmation includes that clause, R-2026-09-26-122 CX-3); it closes
+     with this box, under CX-3, and both A7 rows leave the register in the same commit.
+     **What this does not claim:** Cowork has not read the clinician's own record; no name
+     is recorded; the confirmation of the thresholds rests on "fine with everything"
+     (INFERRED), the values having been checked against the code; and this box says
+     "clinicians" while the confirmation is one person's, the Medical Advisor's. **Not
+     edited, to be updated at the next touch of those files:** the PROVISIONAL status lines
+     and comments in `packages/fixtures/snapshot-shape.json`, `packages/labels/public-labels.json`,
+     `packages/labels/ward-labels.json`, `packages/snapshot/src/freshness.ts`,
+     `apps/public-dashboard/src/age-view.ts` and `apps/ward-console/src/main.ts`, and the
+     PROVISIONAL status pin in `tests/compliance/freshness_bands.test.ts`.
+     **CLOSED 2026-10-04 (R-2026-09-30-188 FL-2).**
+   - [x] Each facility's public number is answered 24/7 by someone who can confirm bed
      status, with a test call. (R-2026-09-23-66 C4)
+     *Restated 2026-10-04 (R-2026-09-30-188 FL-3): until then this box was open and read as
+     the two lines above.* **Ruled by the founder on 2026-10-04:** "before each facility is
+     publicly listed". It is a TRIGGER row in the decision record's register, and it recurs
+     at every facility, facility one included. **A TRIGGER row does not block facility one,
+     so the block is the step "Before step 7: at each listing" below,** which asks for the
+     test call before the facility is listed.
+     **CLOSED 2026-10-04 (R-2026-09-30-188 FL-3).**
    - [ ] A staffed phone or WhatsApp line for wards, with honest hours, in the facility
      agreement and the onboarding pack. The ward-facing support address is the interim contact.
      This also carries -66's "an operator contact number". (R-2026-09-23-67 B3)
@@ -4688,7 +4719,7 @@ through the admin app.
      founder's screenshot being the reading. **No hosted step takes the Worker away**: no ward
      login exists on hosted (DY-2), and production is not broken to prove a fallback. The box stays
      open until those are read."
-   - [ ] Discoverability at facility one: `robots.txt` disallows everything today, and
+   - [x] Discoverability at facility one: `robots.txt` disallows everything today, and
      the `noindex` decision. (R-2026-09-20-36 A5, with R-2026-09-20-27 C5)
      **Found on 2026-09-25, and still OPEN** (R-2026-09-25-119 CU-4 b): Cloudflare's
      zone-wide *managed robots.txt* prepended its own block to ours on `openbed.ng`
@@ -4699,6 +4730,21 @@ through the admin app.
      off on 2026-09-25, and the served file now equals the tracked one byte for byte on
      both hosts. `scripts/readback_pages.sh` compares both (read-back 7). The `noindex`
      decision is still the founder's, so the box stays open.
+     *Restated 2026-10-04 (R-2026-09-30-188 FL-5): the paragraph above is this box's text until
+     then, kept as written.* **The founder's decision, 2026-10-04:** openbed.ng "must be
+     searchable once we are fully live and have a facility onboarded", and he is "happy with
+     this for now" to index only the home and how-it-works pages and noindex anything
+     facility- or ward-scoped. Cowork's gloss: "fully live and have a facility onboarded"
+     means facility one is publicly listed. **This records a decision only.** The search
+     block sits in the meta tags of `apps/public-dashboard/index.html` and
+     `apps/public-dashboard/privacy.html`, the `robots.txt` Disallow in
+     `apps/public-dashboard/public/robots.txt` and its two pins, the X-Robots-Tag in
+     `packages/snapshot/src/serve.ts`, and a Cloudflare header with no source in this
+     repository; it is not a go-live setting. It is now a TRIGGER row, "when facility one is
+     publicly listed", and the step after step 8 below names it. No how-it-works page exists
+     in this repository; that page and the edit that ends the block are a letter Cowork
+     writes after this change merges.
+     **CLOSED 2026-10-04 (R-2026-09-30-188 FL-5).**
    - [x] The design pass: the OpenBed design system applied to the public dashboard, the
      ward console and admin; each deployed from merged `main`, read back PASS,
      browser-checked at 360 px and desktop widths, and the look approved by the founder
@@ -4759,6 +4805,11 @@ through the admin app.
    because it cannot run before a ward account exists. It is steps 6 and 9 below.
    *Added 2026-09-27 (R-2026-09-27-142 DR-2):* the design pass's box is ticked, so on
    2026-09-27 the checklist holds 16 boxes, 3 ticked.
+
+   *Added 2026-10-04 (R-2026-09-30-188 FL-2, FL-3, FL-5):* the clinicians' box, C4 and A5 are
+   ticked, so the checklist's unticked boxes are B3, CW-2 and CX-1, and the decision record's
+   register holds four BOX rows (those three and DN-2, which points at CW-2's box). C4's
+   block is now the step before step 7 and A5's is the step after step 8.
 
    *Restated 2026-09-25 (R-2026-09-25-115, then -116).* Until 2026-09-25 this item was
    headed "The -45 stop condition first". It read: "Step 4b must read CLOSED on every
@@ -4930,11 +4981,18 @@ through the admin app.
    path is closed at `api.openbed.ng` on purpose: the Worker's allow-list does not
    forward it, and no app calls it. The allow-list is not widened for a check. The real
    path is checked end to end at step 9.
+**Before step 7: at each listing.** Before this facility is publicly listed: confirm its
+   public number is answered 24/7, with a test call (R-2026-09-23-66 C4, R-2026-09-30-188
+   FL-3). This is unnumbered so that steps 7 to 9 keep the numbers other records cite.
 7. **List** the facility in the admin app. The List button is enabled only once the
    contact, the agreement and a category exist. The database refuses it otherwise
    (021:273-285).
 8. **Read back `/beds.json`:** the facility appears within the snapshot's regeneration
    interval. Use `bash scripts/readback_pages.sh`, as its runbook says.
+**After step 8: at facility one's listing only.** Remove the search block, shipped by its
+   own letter before this step, as R-2026-09-30-188 FL-5 records. That letter is Cowork's, and
+   it makes the source or build-configuration edit first. This is unnumbered, as the step
+   above is.
 9. **The real path, end to end** (B1; R-2026-09-26-122 CX-1 b). Run it only once
    facility one is listed. The first publish from facility one's ward console, through
    `api.openbed.ng`, must succeed: the console says it was published. The count it
