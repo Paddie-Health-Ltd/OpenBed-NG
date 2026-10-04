@@ -4618,12 +4618,21 @@ through the admin app.
      by email and by phone push (R-2026-09-30-175). *Restated 2026-10-01: until then this
      box read "The sensor bundle, sequenced after Bundle 3 and before facility one. Not
      started."*
-   - [ ] `snapshot_stale` seen on hosted: a drill records when it first appeared
+   - [x] `snapshot_stale` seen on hosted: a drill records when it first appeared
      (R-2026-09-30-177 FA-5 e)
-     The 2026-09-30 drill restored the job once both alerts had arrived and did not note
-     when `job_inactive` or `snapshot_stale` first showed; by the timings `snapshot_stale`
-     was showing from about 20:57:30Z, which is inference, not a reading. It closes on the
-     re-run of the drill (the Worker runbook's W3 hosted step e) with both times recorded.
+     **CLOSED 2026-10-04 (R-2026-09-30-186 FJ-1 d).** On the second drill, run by the founder on
+     2026-10-03 and recorded in `docs/runbook-sensor.md`'s second drill record (the Worker
+     runbook's W3 hosted step e): `snapshot_stale` read live on hosted at 23:07:07Z with
+     `snapshot_age_s` 188, in a body whose `checked_at` is the database's clock at the probe;
+     both alerts, on the phone and by email, arrived at 23:06Z; and the restore read-back read
+     five rows, all `t`. **What this does not claim:** when `job_inactive` first showed (NOT
+     OBSERVED: the founder did not note it), and that the first alert was raised by the job arm
+     (INFERRED, from its coming before `snapshot_stale` showed; no body from before 23:07Z was
+     read). *Restated 2026-10-04: until then this box read:* "The 2026-09-30 drill restored the
+     job once both alerts had arrived and did not note when `job_inactive` or `snapshot_stale`
+     first showed; by the timings `snapshot_stale` was showing from about 20:57:30Z, which is
+     inference, not a reading. It closes on the re-run of the drill (the Worker runbook's W3
+     hosted step e) with both times recorded."
    - [x] The NDPA sub-processor scope cell for Cloudflare, completed by DL-6 a in
      the processor-obligations table. (R-2026-09-19-23 D2, made a facility-one item by
      R-2026-09-22-56 A9)

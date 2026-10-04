@@ -9,11 +9,16 @@ whose absence is now the design.
 by email and by phone push, both at 20:59Z (the record is at the end of section 3). It is
 run monthly. The sensor box in the Supabase runbook's 12.4 is ticked on that alert
 (R-2026-09-30-177 FA-5 d). **The age arm, `snapshot_stale`, was NOT observed on hosted
-in that drill:** a second box in 12.4 stays open until a drill records when it first showed.
+in that drill, and was read on the second, on 2026-10-03** (R-2026-09-30-186 FJ-1 g): the
+second box in 12.4 closed on it.
 *Restated 2026-10-01 (R-2026-09-30-177 FA-5 c): until then this read "NOT YET RUN on
 hosted. It is run before facility one, then monthly. Until it has alerted on hosted, the
 sensor box in the Supabase runbook's 12.4 stays unticked; it closes citing this runbook
 when the alert has arrived."*
+*Restated 2026-10-04 (R-2026-09-30-186 FJ-1 g): until then the bold sentence read "**The
+age arm, `snapshot_stale`, was NOT observed on hosted in that drill:** a second box in 12.4
+stays open until a drill records when it first showed." The second drill's record, at the
+end of section 3, is the reading that closed that box.*
 
 Every psql block here begins with step P's PATH line from the Supabase runbook
 (`docs/runbook-supabase-project-creation.md`), and the connection line is pasted alone:
@@ -206,14 +211,35 @@ unset DATABASE_URL
 
 It must print `(1 row)`. `(0 rows)`, or any `ERROR` line: stop and report; nothing was switched off.
 
-**2. Watch `/api/health`.** Reload the tab. Within about 30 seconds (the edge cache) it reads 503 with
-`openbed-fail` and `job_inactive` among the reasons. **Write down, as they happen, the time `job_inactive` first
-shows and the time `snapshot_stale` first shows. Keep the job switched off until the second is written down AND
-both alerts have arrived** (`snapshot_stale` takes at least 3 minutes to appear), so the age arm is seen live and
-not only the job arm. Reload the tab every 30 seconds or so: the time written is the first reload that shows it.
+**2. Watch `/api/health`.** Reload the tab about every 30 seconds, from the first reload after the pause.
+
+- (1) **Paste each reload's whole body to Cowork as you read it.** Its `checked_at` is the database's clock at the
+  probe, so nothing is timed by eye.
+- (2) The first body with `job_inactive` in `reasons` gives the first time. It reads 503 with `openbed-fail` within
+  about 30 seconds (the edge cache).
+- (3) The first body with `snapshot_stale` in `reasons` gives the second time. It takes at least 3 minutes to
+  appear.
+- (4) **Keep the job switched off until the body with `snapshot_stale` has been pasted AND both alerts have
+  arrived**, so the age arm is seen live and not only the job arm.
+
+The cache holds an answer for 30 seconds, so a body's `checked_at` can lag the reload by up to that long, and the
+first body may already show both reasons. Then each time is "showing by that `checked_at`", not "first at it". A
+body that repeats the last one's `checked_at` is fine: paste it and reload again. The pause time and the two alert
+times stay written down by hand, because they have no body.
+
 *Restated 2026-10-01 (R-2026-09-30-177 FA-5 c): until then this step said to keep the job off until the reasons
 included `snapshot_stale`, and did not say to write the times down; on 2026-09-30 the job was restored once both
 alerts had arrived and neither time was noted (see the record below).*
+
+*Restated 2026-10-04 (R-2026-09-30-186 FJ-3 a): until then the live text of this step, from "Reload the tab.", read:*
+"Reload the tab. Within about 30 seconds (the edge cache) it reads 503 with `openbed-fail` and `job_inactive` among
+the reasons. **Write down, as they happen, the time `job_inactive` first shows and the time `snapshot_stale` first
+shows. Keep the job switched off until the second is written down AND both alerts have arrived** (`snapshot_stale`
+takes at least 3 minutes to appear), so the age arm is seen live and not only the job arm. Reload the tab every 30
+seconds or so: the time written is the first reload that shows it." *On 2026-09-30 neither time was written; on
+2026-10-03 one was, and it was the one that arrived as a paste of the body (see the two records below). A body
+carries `checked_at`, so a pasted body is a reading and a remembered minute is not; the step made the reading
+depend on a note taken while watching, and no longer does.*
 
 **3. Record the alert's arrival, on the email AND on the phone.** The monitor checks every 5 minutes, so
 the first alert can take that long after the 503 begins. Write down both times. If neither alert has arrived
@@ -258,11 +284,16 @@ seconds. The monitor reads green within its next 5-minute check.
 **7. The records.** Write down, in the change that records the drill:
 
 - when the job was paused;
-- **when `job_inactive` first showed, and when `snapshot_stale` first showed** (step 2);
+- **when `job_inactive` first showed, and when `snapshot_stale` first showed** (step 2) (the `checked_at` of the
+  first body that carried each);
 - when the first alert arrived, on the email and on the phone;
 - when it was restored;
 - what the restore read-back showed (five rows, all `t`);
 - when the monitor read green again.
+
+*Restated 2026-10-04 (R-2026-09-30-186 FJ-3 b): until then the second bullet read* "**when `job_inactive` first
+showed, and when `snapshot_stale` first showed** (step 2);". *Step 2 now gets each time from a pasted body, so the
+record names the body.*
 
 **And the monthly log read, which is Cowork's, taken with the drill:** the count of `429`
 answers for `api.openbed.ng` (the Worker's own `limited` answers) from Cloudflare's traffic
@@ -280,8 +311,9 @@ not offer the status filter, record that: the Worker-side half of this read is t
 ASSERTED, and the Supabase half stands alone.
 
 The drill's alert arriving is what closes the sensor box in the Supabase runbook's 12.4, citing
-R-2026-09-30-175 and this runbook. **The `snapshot_stale` box closes on a drill that records
-the second time in step 2.**
+R-2026-09-30-175 and this runbook. **The `snapshot_stale` box closed on 2026-10-04, on the second
+drill's record below** (R-2026-09-30-186 FJ-1 g). *Restated 2026-10-04 (R-2026-09-30-186 FJ-1 g): until
+then this read* "**The `snapshot_stale` box closes on a drill that records the second time in step 2.**"
 
 ### Record: the first drill on hosted, 2026-09-30 (R-2026-09-30-175, R-2026-09-30-177 FA-5 c)
 
@@ -301,3 +333,61 @@ showing from about 20:57:30Z, but that is **inference, not a reading**. The job 
 proven on hosted. The age arm is proven locally only (`tests/compliance/health_decision.test.ts`, over the decision in `packages/snapshot/src/health.ts`).
 The root cause is that step 7's list of what to record did not ask for those times, so nothing prompted
 them; it asks now. A drill that records both closes the `snapshot_stale` box in 12.4.
+
+*Restated 2026-10-04 (R-2026-09-30-186 FJ-1 b): the second drill, below, read `snapshot_stale` on hosted. The
+paragraph above stands as the 2026-09-30 drill's record.*
+
+### Record: the second drill on hosted, 2026-10-03 (R-2026-09-30-186 FJ-1 b)
+
+Run by the founder, from section 3, one fence at a time, each fence read back by Cowork before the next, at main
+`2f9111f`. Claude Code ran nothing. **Observed**, from the founder's terminal, the pasted `/api/health` bodies, and
+the alert email and phone push, as relayed by Cowork (hosted-run-drill-2026-10-03-readings.md, in Cowork's build
+records; R-2026-09-30-186 FJ-1 b). In time order:
+
+- paused at **23:04Z**, the terminal printing `(1 row)`;
+- **`job_inactive` first showed: NOT OBSERVED.** The founder did not note it (step 7 asks for it);
+- the first alert, on the **phone app** and by **email**, both at **23:06Z**, to the minute;
+- **`snapshot_stale`** first showed, on the first reload the founder noticed it on, at **23:07:07Z**. The body he
+  pasted read `reasons` `["snapshot_stale","job_inactive"]` and `snapshot_age_s` 188, with the job inactive and its
+  last start at 23:04:00;
+- restored at **23:10Z**, the terminal printing `(1 row)`;
+- the restore read-back: five rows, all `t`;
+- the monitor ("OpenBed health") green again at **23:11Z**;
+- a body at **23:12:48Z** read `openbed-ok`, `snapshot_age_s` 48, the job active. That is a reading, and **not
+  necessarily the first** `openbed-ok`.
+
+The job was off for about 6 minutes. **The times are in Z.** The founder gave them on his own clock, which reads one
+hour ahead of UTC; that offset is **inferred** from the pasted body's `checked_at` and `last_start_time`, and he did
+not state it. `checked_at` is the database's clock at the probe (`server_now`), not the founder's, and the 30-second
+edge cache means a body can lag his reload by up to 30 seconds.
+
+**READ.** The age arm, `snapshot_stale`, shows live on hosted for the first time: a body with `snapshot_stale` in its
+`reasons` and `snapshot_age_s` 188 was pasted, where the 2026-09-30 drill's reading of the age arm was inference from
+timings. The alert path worked again, on both channels, at 23:06Z.
+
+**INFERRED, not read.** The first alert came from the job arm, because it arrived a minute before `snapshot_stale`
+showed at 23:07:07Z. No body from before 23:07 was read, so nothing in a body says what the reasons were at 23:06.
+
+**NOT CLAIMED.** When `job_inactive` first showed. That 23:12:48Z is the first `openbed-ok`. And that the **second**
+monitor ("OpenBed Worker (api.openbed.ng)") alerts: this drill pauses the snapshot job, which the FIRST monitor
+watches. The second monitor has been read green and has not been seen to alert; its path to the founder's two
+contacts was configured as the first's was and has not been exercised. The founder ruled on 2026-10-04 that it needs
+no test. That is his ruling and not a deferral, so it has no row in the register.
+
+**The monthly log read** (step 7, Cowork's), taken with the drill, from Supabase's edge logs for the project:
+
+- 22:55Z to 23:20Z on 2026-10-03, every path: 19 requests, all 200, 3 of them on `/auth/v1/` (all
+  `/auth/v1/settings`);
+- 00:00Z to 23:30Z on 2026-10-03, the `/auth/v1/` paths only: `/auth/v1/settings` 69 at 200, 2 at 401 and 1 at 405;
+  `/auth/v1/verify` 1 at 303. No request to `/auth/v1/otp` or `/auth/v1/token`, and no `429` read anywhere. That the
+  401, 405 and 303 match the same day's W4 read-back probes is **inferred**;
+- **not read:** paths outside `/auth/v1/` over those 23.5 hours, and anything before 00:00Z on 2026-10-03. The
+  trigger on the shared per-IP bucket (a Supabase `429` at the Worker's address) has not fired in what was read.
+
+**The Worker's half of that read is NOT ASSERTED.** The founder read Cloudflare's traffic analytics for the account
+(Free plan) on 2026-10-04, and it offers no filter on status code, so the `429` count for `api.openbed.ng` cannot be
+read. That is the founder's reading, relayed by Cowork, and not something this repository can show. The Worker keeps
+no request logs (DL-3), so there is no other source, and the Supabase half above stands alone, as step 7 says it
+then does.
+
+This record closes the `snapshot_stale` box in the Supabase runbook's 12.4 (R-2026-09-30-186 FJ-1 d).
