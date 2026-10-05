@@ -5010,6 +5010,9 @@ through the admin app.
    reports any X-Robots-Tag the repository does not set; Cowork reads the report. Whether and
    how a Cloudflare header is removed is the founder's, in Cloudflare, and is read back. That
    Cloudflare header is INFERRED, from a code comment (`apps/public-dashboard/functions/beds.json.ts`).
+
+   *Deployed and read back 2026-10-05, from `d7a3477`: the read-back run read PASS and the header
+   report is in (R-2026-09-30-192 FP-2; the founder's reading, pasted into Cowork's session).*
 9. **The real path, end to end** (B1; R-2026-09-26-122 CX-1 b). Run it only once
    facility one is listed. The first publish from facility one's ward console, through
    `api.openbed.ng`, must succeed: the console says it was published. The count it
