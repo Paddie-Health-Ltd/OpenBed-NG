@@ -9,3 +9,12 @@
  * addresses only (DL-1 d).
  */
 export const PRIVACY_NOTICE_URL = 'https://openbed.ng/privacy';
+
+/**
+ * THE TWO STATIC PAGES' URLS (R-2026-09-30-190 FN-2), beside the notice's. The footers of
+ * the home page, About and How-it-works link here, each reading these constants;
+ * tests/compliance/privacy_links.test.ts asserts every link and refuses the URLs typed
+ * anywhere else under apps/ or packages/.
+ */
+export const ABOUT_URL = 'https://openbed.ng/about';
+export const HOW_IT_WORKS_URL = 'https://openbed.ng/how-it-works';

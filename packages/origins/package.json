@@ -10,6 +10,7 @@
     "./keys": "./src/keys.ts",
     "./support": "./src/support.ts",
     "./contacts": "./src/contacts.ts",
-    "./privacy": "./src/privacy.ts"
+    "./privacy": "./src/privacy.ts",
+    "./search": "./src/search.ts"
   }
 }

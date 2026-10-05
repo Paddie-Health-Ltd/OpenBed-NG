@@ -10,7 +10,7 @@ import {
   type FetchMark,
 } from '@openbed/snapshot';
 import { HELLO_EMAIL } from '@openbed/origins/contacts';
-import { PRIVACY_NOTICE_URL } from '@openbed/origins/privacy';
+import { ABOUT_URL, HOW_IT_WORKS_URL, PRIVACY_NOTICE_URL } from '@openbed/origins/privacy';
 import { rowStyle, snapshotBanner, wardLineParts, type ServeClock, type WardLineParts } from './age-view.js';
 // The design system's tokens and self-hosted fonts first, then this app's own rules
 // (the design pass, D1). Vite emits all three as same-origin assets.
@@ -271,10 +271,16 @@ export function renderFooter(): void {
   const mail = document.createElement('a');
   mail.href = `mailto:${HELLO_EMAIL}`;
   mail.textContent = HELLO_EMAIL;
+  const about = document.createElement('a');
+  about.href = ABOUT_URL;
+  about.textContent = 'About';
+  const how = document.createElement('a');
+  how.href = HOW_IT_WORKS_URL;
+  how.textContent = 'How it works';
   const privacy = document.createElement('a');
   privacy.href = PRIVACY_NOTICE_URL;
   privacy.textContent = 'Privacy notice';
-  footer.replaceChildren(mail, privacy);
+  footer.replaceChildren(mail, about, how, privacy);
 }
 
 function renderReal(root: HTMLElement, snapshot: Snapshot): void {

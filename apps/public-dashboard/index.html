@@ -3,10 +3,11 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- No indexing. The kickoff forbids a public API, a sitemap, and any bulk
-         export: named wards' duty numbers are an obvious prank-call and
-         harassment vector. -->
-    <meta name="robots" content="noindex, nofollow" />
+    <!-- The robots tag is written at build time from the one search setting in
+         packages/origins/src/search.ts, which ships as public: index, follow.
+         The kickoff forbids a public API, a sitemap, and any bulk export: named wards'
+         duty numbers are an obvious prank-call and harassment vector. -->
+    <!-- @ROBOTS_META@ -->
     <title>OpenBed</title>
     <!-- The mark as the favicon (the design pass, D1). Vite emits it as a hashed
          same-origin asset; public/favicon.ico answers /favicon.ico for clients that

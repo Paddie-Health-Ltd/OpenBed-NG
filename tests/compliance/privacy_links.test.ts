@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { PRIVACY_NOTICE_URL } from '../../packages/origins/src/privacy.js';
+import { ABOUT_URL, HOW_IT_WORKS_URL, PRIVACY_NOTICE_URL } from '../../packages/origins/src/privacy.js';
 import { deployableApps, outputDirOf } from './_apps.js';
 import { place, REPO_ROOT, withScratch } from './_scratch.js';
 
@@ -31,6 +31,15 @@ import { place, REPO_ROOT, withScratch } from './_scratch.js';
  *   4. 44 px. Each app's stylesheet gives the link a 44 px tap target, read as a
  *      literal from the rule that styles it.
  *
+ * WIDENED BY R-2026-09-30-190 FN-2 to EVERY FOOTER AND BODY LINK. The home page, About and
+ * How-it-works each carry a footer of About, How it works and Privacy notice, read from
+ * three tracked constants beside each other in privacy.ts (ABOUT_URL, HOW_IT_WORKS_URL,
+ * PRIVACY_NOTICE_URL), and About's text links the privacy notice by the same constant.
+ * footerViolations and bodyLinkViolations assert them on the home footer as rendered in
+ * jsdom and on the BUILT about.html and how-it-works.html, each with a plant per page; the
+ * one-constant leg covers all three URLs; and the built dashboard bundle carries the two
+ * new ones. The notice page itself has no footer, by FN-2.
+ *
  * NOT ASSERTED HERE, deliberately: that https://openbed.ng/privacy answers with the
  * notice -- the deployment's property. scripts/readback_pages.sh reads it (DL-1 e).
  */
@@ -43,6 +52,53 @@ function linkViolations(root: ParentNode, where: string): string[] {
   if (links.length === 0) return [`${where}: no <a href="${PRIVACY_NOTICE_URL}">`];
   if (!links.some((a) => (a.textContent ?? '').trim() === TEXT)) return [`${where}: the privacy link does not read "${TEXT}"`];
   return [];
+}
+
+const FOOTER_LINKS: readonly { readonly href: string; readonly text: string }[] = [
+  { href: ABOUT_URL, text: 'About' },
+  { href: HOW_IT_WORKS_URL, text: 'How it works' },
+  { href: PRIVACY_NOTICE_URL, text: TEXT },
+];
+
+/**
+ * Why a footer does not carry the three site links, in order and by their constants, or [].
+ * `root` holds the footer; the hello address, a mailto: link, is not part of this check.
+ */
+function footerViolations(root: ParentNode, where: string): string[] {
+  const links = Array.from(root.querySelectorAll('a'))
+    .filter((a) => !(a.getAttribute('href') ?? '').startsWith('mailto:'))
+    .map((a) => ({ href: a.getAttribute('href') ?? '', text: (a.textContent ?? '').trim() }));
+  if (links.length === 0) return [`${where}: the footer holds no site link`];
+  if (JSON.stringify(links) !== JSON.stringify(FOOTER_LINKS)) {
+    return [`${where}: the footer links are ${JSON.stringify(links)}, they must be ${JSON.stringify(FOOTER_LINKS)}`];
+  }
+  return [];
+}
+
+/** Why a page's body links are not exactly `expected` (hrefs, in order), or []. */
+function bodyLinkViolations(root: ParentNode, where: string, expected: string[]): string[] {
+  const hrefs = Array.from(root.querySelectorAll('main a')).map((a) => a.getAttribute('href') ?? '');
+  return JSON.stringify(hrefs) === JSON.stringify(expected) ? [] : [`${where}: the body links are ${JSON.stringify(hrefs)}, they must be ${JSON.stringify(expected)}`];
+}
+
+const STATIC_PAGES = [
+  { file: 'about.html', body: [PRIVACY_NOTICE_URL] },
+  { file: 'how-it-works.html', body: [] as string[] },
+] as const;
+
+const builtPage = (file: string): Document => {
+  const path = join(REPO_ROOT, 'apps', 'public-dashboard', 'dist', file);
+  if (!existsSync(path)) throw new Error(`${path} does not exist: build the dashboard first (npm run build -w @openbed/public-dashboard). CI builds it in the same job.`);
+  return new DOMParser().parseFromString(readFileSync(path, 'utf8'), 'text/html');
+};
+
+/** Why the built public dashboard bundle does not carry the About and How-it-works URLs, or []. */
+function dashboardBundleViolations(root: string): string[] {
+  const assets = join(root, 'apps', 'public-dashboard', 'dist', 'assets');
+  const js = existsSync(assets) ? readdirSync(assets).filter((f) => f.endsWith('.js')) : [];
+  if (js.length === 0) return ['apps/public-dashboard: no built JavaScript under dist/assets -- build it first'];
+  const text = js.map((f) => readFileSync(join(assets, f), 'utf8')).join('\n');
+  return [ABOUT_URL, HOW_IT_WORKS_URL].filter((u) => !text.includes(u)).map((u) => `apps/public-dashboard: the built bundle does not carry ${u}`);
 }
 
 /** Why an app's built bundle does not carry the URL, or [] -- for every app under `root`. */
@@ -69,7 +125,14 @@ const CONSTANT_FILE = 'packages/origins/src/privacy.ts';
 /** Every file other than the constant's own that types the URL. */
 function literalViolations(files: { path: string; text: string }[]): string[] {
   if (files.length === 0) return ['no file was scanned: the one-constant check read nothing'];
-  return files.filter((f) => f.path !== CONSTANT_FILE && f.text.includes(PRIVACY_NOTICE_URL)).map((f) => `${f.path}: types ${PRIVACY_NOTICE_URL}; import PRIVACY_NOTICE_URL from @openbed/origins/privacy`);
+  const urls = [
+    { url: PRIVACY_NOTICE_URL, name: 'PRIVACY_NOTICE_URL' },
+    { url: ABOUT_URL, name: 'ABOUT_URL' },
+    { url: HOW_IT_WORKS_URL, name: 'HOW_IT_WORKS_URL' },
+  ];
+  return files
+    .filter((f) => f.path !== CONSTANT_FILE)
+    .flatMap((f) => urls.filter((u) => f.text.includes(u.url)).map((u) => `${f.path}: types ${u.url}; import ${u.name} from @openbed/origins/privacy`));
 }
 
 function trackedUnder(dirs: string[]): { path: string; text: string }[] {
@@ -172,6 +235,76 @@ describe('the privacy notice is linked from every sign-in screen and the public 
     expect(linkViolations(notALink, 'x').join('\n')).toContain('no <a href=');
   });
 
+  test('real openbed.ng footer carries About, How it works and Privacy notice, by the three constants', async () => {
+    document.body.innerHTML = '<main id="app"></main><footer id="site-footer"></footer>';
+    vi.stubGlobal('fetch', vi.fn(async () => json(500, {})));
+    const { renderFooter } = await import('../../apps/public-dashboard/src/main.js');
+    renderFooter();
+    const out = footerViolations(document.getElementById('site-footer') as HTMLElement, 'the openbed.ng footer');
+    expect(out, out.join('\n')).toEqual([]);
+  });
+
+  test('plant — the openbed.ng footer with its About link pointed elsewhere, or dropped, is rejected', async () => {
+    document.body.innerHTML = '<main id="app"></main><footer id="site-footer"></footer>';
+    vi.stubGlobal('fetch', vi.fn(async () => json(500, {})));
+    const { renderFooter } = await import('../../apps/public-dashboard/src/main.js');
+    renderFooter();
+    const footer = document.getElementById('site-footer') as HTMLElement;
+    footer.querySelector(`a[href="${ABOUT_URL}"]`)?.setAttribute('href', 'https://openbed.ng/elsewhere');
+    expect(footer.querySelector(`a[href="${ABOUT_URL}"]`), 'the plant did not land').toBeNull();
+    expect(footerViolations(footer, 'home').join('\n')).toContain('the footer links are');
+    footer.querySelectorAll('a').forEach((a) => a.remove());
+    expect(footerViolations(footer, 'home').join('\n')).toContain('the footer holds no site link');
+  });
+
+  test.each(STATIC_PAGES)('real built $file is accepted — its footer and its body links are the constants', ({ file, body }) => {
+    const doc = builtPage(file);
+    const out = [...footerViolations(doc.querySelector('footer#site-footer') ?? doc.createElement('div'), file), ...bodyLinkViolations(doc, file, [...body])];
+    expect(out, out.join('\n')).toEqual([]);
+  });
+
+  test.each(STATIC_PAGES)('plant — built $file with a footer link repointed, a body link repointed, or a link added is rejected', ({ file, body }) => {
+    const footerDoc = builtPage(file);
+    const footer = footerDoc.querySelector('footer#site-footer') as HTMLElement;
+    footer.querySelector(`a[href="${PRIVACY_NOTICE_URL}"]`)?.setAttribute('href', 'https://openbed.ng/elsewhere');
+    expect(footer.querySelector(`a[href="${PRIVACY_NOTICE_URL}"]`), 'the footer plant did not land').toBeNull();
+    expect(footerViolations(footer, file).join('\n')).toContain('the footer links are');
+
+    const bodyDoc = builtPage(file);
+    const main = bodyDoc.querySelector('main') as HTMLElement;
+    const extra = bodyDoc.createElement('a');
+    extra.setAttribute('href', 'https://openbed.ng/elsewhere');
+    main.append(extra);
+    expect(bodyLinkViolations(bodyDoc, file, [...body]).join('\n')).toContain('the body links are');
+
+    if (body.length > 0) {
+      const repointed = builtPage(file);
+      repointed.querySelector(`main a[href="${PRIVACY_NOTICE_URL}"]`)?.setAttribute('href', 'https://openbed.ng/privacy-notice');
+      expect(repointed.querySelector(`main a[href="${PRIVACY_NOTICE_URL}"]`), 'the body plant did not land').toBeNull();
+      expect(bodyLinkViolations(repointed, file, [...body]).join('\n')).toContain('the body links are');
+    }
+  });
+
+  test('real built dashboard bundle carries the About and How-it-works URLs', () => {
+    const out = dashboardBundleViolations(REPO_ROOT);
+    expect(out, out.join('\n')).toEqual([]);
+  });
+
+  test('plant — a dashboard bundle without the How-it-works URL is named', () => {
+    withScratch((root) => {
+      place(root, 'apps/public-dashboard/dist/assets/index.js', `const a = "${ABOUT_URL}";`);
+      expect(dashboardBundleViolations(root)).toEqual([`apps/public-dashboard: the built bundle does not carry ${HOW_IT_WORKS_URL}`]);
+    });
+  });
+
+  test('plant — the About URL typed into an app is rejected', () => {
+    const out = literalViolations([
+      { path: CONSTANT_FILE, text: `export const ABOUT_URL = '${ABOUT_URL}';` },
+      { path: 'apps/public-dashboard/src/main.ts', text: `a.href = '${HOW_IT_WORKS_URL}';` },
+    ]);
+    expect(out).toEqual([`apps/public-dashboard/src/main.ts: types ${HOW_IT_WORKS_URL}; import HOW_IT_WORKS_URL from @openbed/origins/privacy`]);
+  });
+
   test('real built bundles are accepted — every deployable app carries the URL', () => {
     const out = bundleViolations(REPO_ROOT);
     expect(out, out.join('\n')).toEqual([]);
@@ -228,5 +361,7 @@ describe('the privacy notice is linked from every sign-in screen and the public 
       expect(bundleViolations(root)).toEqual(['no deployable app found: a link guard over no app is not a pass']);
     });
     expect(linkViolations(document.createElement('div'), 'empty').join('\n')).toContain('no <a href=');
+    expect(footerViolations(document.createElement('div'), 'empty')).toEqual(['empty: the footer holds no site link']);
+    expect(dashboardBundleViolations(join(REPO_ROOT, 'no-such-root'))).toEqual(['apps/public-dashboard: no built JavaScript under dist/assets -- build it first']);
   });
 });

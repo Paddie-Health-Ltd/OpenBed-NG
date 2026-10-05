@@ -7,6 +7,7 @@ import { deployableApps } from './_apps.js';
 import ORIGINS_JSON from '../../packages/origins/origins.json';
 import LIST_JSON from '../../supabase-proxy/allow-list.json';
 import { makeHandler, PROXY_HEADER, type AllowList } from '../../supabase-proxy/handler.js';
+import { robotsMetaContent, robotsTxtSource, SEARCH_VISIBILITY, type SearchVisibility } from '../../packages/origins/src/search.js';
 
 /**
  * GUARD OVER THE DEPLOY READ-BACK SCRIPTS: scripts/readback_pages.sh,
@@ -100,6 +101,14 @@ function repo(root: string, opts: { pushed?: boolean; remote?: boolean; headers?
   // The tracked robots.txt the dashboard read-back compares both hosts against, byte for
   // byte (R-2026-09-25-119 CU-5 c).
   if (opts.headers !== false) copyFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'public', 'robots.txt'), join(work, 'apps', 'public-dashboard', 'public', 'robots.txt'));
+  // The one search setting, and the robots file it can select, which read-back 7 and the
+  // About and How-it-works meta tags are read against (R-2026-09-30-190 FN-3, FN-4).
+  // Unconditional: the script reads the setting before it reads any _headers, so a checkout
+  // that omits the headers must still carry it to reach the check that test is about.
+  mkdirSync(join(work, 'packages', 'origins', 'src'), { recursive: true });
+  mkdirSync(join(work, 'apps', 'public-dashboard'), { recursive: true });
+  copyFileSync(join(REPO_ROOT, 'packages', 'origins', 'src', 'search.ts'), join(work, 'packages', 'origins', 'src', 'search.ts'));
+  copyFileSync(join(REPO_ROOT, robotsTxtSource('public')), join(work, robotsTxtSource('public')));
   // And the tracked favicon, which both hosts must serve byte for byte (R-2026-09-26-122 CX-3).
   if (opts.headers !== false) copyFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'public', 'favicon.ico'), join(work, 'apps', 'public-dashboard', 'public', 'favicon.ico'));
   // The ward console's, since D2 (R-2026-09-26-132 DH-3).
@@ -403,7 +412,7 @@ const FAVICON_ANSWER: Answer = { status: 200, headers: { 'content-type': 'image/
 const DASH_CSS = "@font-face{font-family:'Public Sans';src:url('/assets/public-sans-latin-400-normal-8Rpg0ruU.woff2') format('woff2')}";
 const FONT_PATH = '/assets/public-sans-latin-400-normal-8Rpg0ruU.woff2';
 /** The tracked robots.txt, read, never retyped: what both hosts must serve byte for byte. */
-const ROBOTS_TXT = readFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'public', 'robots.txt'), 'utf8');
+const ROBOTS_TXT = readFileSync(join(REPO_ROOT, robotsTxtSource(SEARCH_VISIBILITY)), 'utf8');
 /**
  * /privacy as Pages serves it (R-2026-09-26-136 DL-1 e): a page with no script and no
  * #app root, carrying the notice's own words, read from the tracked source, never retyped.
@@ -431,6 +440,27 @@ const HEALTH_FAIL_ANSWER: Answer = {
   headers: { ...HEALTH_HEADERS, 'x-openbed-health': 'fail' },
   body: '{"ok":false,"health":"openbed-fail","reasons":["snapshot_stale"],"snapshot_age_s":400,"checked_at":"2026-09-30T04:00:00.000+00:00","job":null}',
 };
+/**
+ * /about and /how-it-works as Pages serves them (R-2026-09-30-190 FN-4): their own page, with
+ * its own H1, the meta robots tag of the state the search setting selects, and no #app root.
+ * `robots` is the tag's content, so a plant can serve the other state.
+ */
+const STATIC_ROUTES = [
+  { route: 'about', heading: 'About OpenBed' },
+  { route: 'how-it-works', heading: 'How OpenBed works' },
+] as const;
+const staticPage = (heading: string, robots: string | null): string =>
+  `<!doctype html><html><head>${robots === null ? '' : `<meta name="robots" content="${robots}" />`}</head><body><main id="notice"><h1>${heading}</h1></main></body></html>`;
+const staticAnswer = (heading: string, robots: string | null): Answer => ({ status: 200, headers: { 'content-type': 'text/html; charset=utf-8' }, body: staticPage(heading, robots) });
+/** The static pages on both hosts, in the state `robots` names. */
+function staticFixtures(robots: string | null): Fixtures {
+  const f: Fixtures = {};
+  for (const { route, heading } of STATIC_ROUTES) {
+    f[`GET ${SITE}/${route}`] = staticAnswer(heading, robots);
+    f[`GET ${DASH_DOMAIN}/${route}`] = staticAnswer(heading, robots);
+  }
+  return f;
+}
 const PRIVACY_ANSWER: Answer = { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' }, body: PRIVACY_PAGE };
 /** The dashboard's index as the SPA fallback serves it for a missing page: its bundle, and the #app root it fills. */
 const SPA_INDEX = `${DASH_PAGE}<main id="app"></main>`;
@@ -460,6 +490,8 @@ function pagesFixtures(head: string): Fixtures {
     // The privacy notice on both hosts (DL-1 e).
     [`GET ${SITE}/privacy`]: PRIVACY_ANSWER,
     [`GET ${DASH_DOMAIN}/privacy`]: PRIVACY_ANSWER,
+    // The About and How-it-works pages on both hosts, in the state this checkout ships (FN-4).
+    ...staticFixtures(robotsMetaContent(SEARCH_VISIBILITY)),
   };
 }
 
@@ -498,7 +530,7 @@ describe('scripts/readback_pages.sh', () => {
       ]) {
         expect(r.out, `the check "${check}" never ran`).toContain(`  ok     ${check}: `);
       }
-      expect(r.out).toContain("PASS: read-backs 4, 6, 7 and 8, the page's security headers and scripts on both hosts, the favicon on both hosts, the health endpoint on both hosts, the privacy notice on both hosts, a self-hosted font, and the serve-time stamp read as they must.");
+      expect(r.out).toContain("PASS: read-backs 4, 6, 7 and 8, the page's security headers and scripts on both hosts, the favicon on both hosts, the health endpoint on both hosts, the privacy notice on both hosts, the About and How-it-works pages on both hosts, a self-hosted font, and the serve-time stamp read as they must.");
       for (const check of [
         'page scripts', 'openbed.ng content-security-policy', 'openbed.ng scripts', 'read-back 7 robots.txt', 'read-back 7 openbed.ng robots.txt',
         'favicon.ico status', 'favicon.ico', 'favicon.ico content-type', 'openbed.ng favicon.ico status', 'openbed.ng favicon.ico', 'openbed.ng favicon.ico content-type',
@@ -506,6 +538,7 @@ describe('scripts/readback_pages.sh', () => {
         'privacy status', 'privacy content-type', 'privacy controller', 'privacy version', 'privacy is not the SPA index', 'privacy scripts',
         'openbed.ng privacy status', 'openbed.ng privacy content-type', 'openbed.ng privacy controller', 'openbed.ng privacy version',
         'openbed.ng privacy is not the SPA index', 'openbed.ng privacy scripts',
+        ...STATIC_ROUTES.flatMap(({ route }) => [route, `openbed.ng ${route}`].flatMap((l) => [`${l} status`, `${l} content-type`, `${l} heading`, `${l} is not the SPA index`, `${l} meta robots (the ${SEARCH_VISIBILITY} state)`])),
         'health GET status', 'health GET x-openbed-health', 'health GET x-robots-tag',
         'health HEAD status', 'health HEAD x-openbed-health', 'health HEAD x-robots-tag',
         'openbed.ng health GET status', 'openbed.ng health GET x-openbed-health', 'openbed.ng health GET x-robots-tag',
@@ -2059,10 +2092,143 @@ describe('CU-5 could-not-run legs: a check that cannot run is an ERROR, never a 
     withScratch((root) => {
       const work = repo(root);
       const head = git(work, 'rev-parse', 'HEAD').trim();
-      rmSync(join(work, 'apps', 'public-dashboard', 'public', 'robots.txt'));
+      rmSync(join(work, robotsTxtSource(SEARCH_VISIBILITY)));
       const r = run(root, SCRIPTS.pages, [SITE, work], pagesFixtures(head));
       expect(r.status, r.out).toBe(2);
       expect(r.out).toContain('to compare against -- the check did not run, so this read-back has no verdict');
+      expect(r.out).not.toContain('PASS:');
+    });
+  });
+});
+
+describe('the About and How-it-works pages and the search setting (R-2026-09-30-190 FN-3, FN-4)', () => {
+  const scratchSetting = (work: string, source: string): void => {
+    writeFileSync(join(work, 'packages', 'origins', 'src', 'search.ts'), source);
+  };
+  /** The state this checkout does NOT ship, so the go-live flip edits no plant here. */
+  const OTHER: SearchVisibility = SEARCH_VISIBILITY === 'hidden' ? 'public' : 'hidden';
+  const publicChecked = (work: string): void => {
+    const real = readFileSync(join(work, 'packages', 'origins', 'src', 'search.ts'), 'utf8');
+    const flipped = real.replace(`SEARCH_VISIBILITY: SearchVisibility = '${SEARCH_VISIBILITY}';`, `SEARCH_VISIBILITY: SearchVisibility = '${OTHER}';`);
+    expect(flipped, 'the plant did not land: the setting line was not found').not.toBe(real);
+    scratchSetting(work, flipped);
+  };
+
+  test.each<[string, (f: Fixtures) => void, string]>([
+    ['/about answered by the SPA fallback, as today\'s deployment does', (f) => { f[`GET ${SITE}/about`] = { status: 200, headers: { 'content-type': 'text/html' }, body: SPA_INDEX }; }, 'about is not the SPA index'],
+    ['/how-it-works answered by the SPA fallback on openbed.ng only', (f) => { f[`GET ${DASH_DOMAIN}/how-it-works`] = { status: 200, headers: { 'content-type': 'text/html' }, body: SPA_INDEX }; }, 'openbed.ng how-it-works is not the SPA index'],
+    ['/about answered by the SPA fallback, which carries no H1', (f) => { f[`GET ${SITE}/about`] = { status: 200, headers: { 'content-type': 'text/html' }, body: SPA_INDEX }; }, 'about heading'],
+    ['/about not found', (f) => { f[`GET ${SITE}/about`] = { status: 404, headers: { 'content-type': 'text/html' }, body: 'Not found' }; }, 'about status'],
+    ['/how-it-works served as plain text', (f) => { f[`GET ${SITE}/how-it-works`] = { ...staticAnswer('How OpenBed works', 'noindex, nofollow'), headers: { 'content-type': 'text/plain' } }; }, 'how-it-works content-type'],
+    ['/how-it-works under another heading', (f) => { f[`GET ${DASH_DOMAIN}/how-it-works`] = staticAnswer('How it works', 'noindex, nofollow'); }, 'openbed.ng how-it-works heading'],
+    ['/about carrying the other state\'s tag', (f) => { f[`GET ${SITE}/about`] = staticAnswer('About OpenBed', robotsMetaContent(OTHER)); }, `about meta robots (the ${SEARCH_VISIBILITY} state)`],
+    ['/how-it-works on openbed.ng with no robots tag at all', (f) => { f[`GET ${DASH_DOMAIN}/how-it-works`] = staticAnswer('How OpenBed works', null); }, `openbed.ng how-it-works meta robots (the ${SEARCH_VISIBILITY} state)`],
+    ['/about with two robots tags', (f) => { f[`GET ${SITE}/about`] = { status: 200, headers: { 'content-type': 'text/html' }, body: staticPage('About OpenBed', robotsMetaContent(SEARCH_VISIBILITY)).replace('</head>', `<meta name="robots" content="${robotsMetaContent(OTHER)}" /></head>`) }; }, `about meta robots (the ${SEARCH_VISIBILITY} state)`],
+  ])('plant — %s is a STOP', (_label, plant, check) => {
+    withScratch((root) => {
+      const work = repo(root);
+      const f = pagesFixtures(git(work, 'rev-parse', 'HEAD').trim());
+      plant(f);
+      expectStopAt(run(root, SCRIPTS.pages, [SITE, work], f), check);
+    });
+  });
+
+  test('a deployment that serves neither page (today\'s) reads WRONG on every About and How-it-works check on both hosts, and STOPs', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const f = pagesFixtures(git(work, 'rev-parse', 'HEAD').trim());
+      for (const { route } of STATIC_ROUTES) {
+        f[`GET ${SITE}/${route}`] = { status: 200, headers: { 'content-type': 'text/html' }, body: SPA_INDEX };
+        f[`GET ${DASH_DOMAIN}/${route}`] = { status: 200, headers: { 'content-type': 'text/html' }, body: SPA_INDEX };
+      }
+      const r = run(root, SCRIPTS.pages, [SITE, work], f);
+      expect(r.status, r.out).toBe(1);
+      for (const { route } of STATIC_ROUTES) {
+        for (const label of [route, `openbed.ng ${route}`]) {
+          expect(r.out, `${label}: the SPA fallback was not read WRONG`).toContain(`  WRONG  ${label} is not the SPA index: `);
+          expect(r.out, `${label}: the missing heading was not read WRONG`).toContain(`  WRONG  ${label} heading: `);
+        }
+      }
+    });
+  });
+
+  test('real — the other state is accepted when the checkout, the robots file and both pages are in it', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      publicChecked(work);
+      git(work, 'add', '-A');
+      git(work, 'commit', '-q', '-m', 'public');
+      git(work, 'push', '-q', 'origin', 'main');
+      const f = pagesFixtures(git(work, 'rev-parse', 'HEAD').trim());
+      Object.assign(f, staticFixtures(robotsMetaContent(OTHER)));
+      const publicRobots = readFileSync(join(REPO_ROOT, robotsTxtSource(OTHER)), 'utf8');
+      f[`GET ${SITE}/robots.txt`] = { status: 200, headers: { 'content-type': 'text/plain' }, body: publicRobots };
+      f[`GET ${DASH_DOMAIN}/robots.txt`] = { status: 200, headers: { 'content-type': 'text/plain' }, body: publicRobots };
+      const r = run(root, SCRIPTS.pages, [SITE, work], f);
+      expect(r.status, r.out).toBe(0);
+      expect(r.out).toContain(`  ok     about meta robots (the ${OTHER} state): `);
+      expect(r.out).toContain(`  ok     read-back 7 openbed.ng robots.txt: byte for byte this checkout's ${robotsTxtSource(OTHER)}`);
+    });
+  });
+
+  test('plant — a checkout shipping the other state against a deployment still serving this one is a STOP on robots.txt and on every page tag', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      publicChecked(work);
+      git(work, 'add', '-A');
+      git(work, 'commit', '-q', '-m', 'public');
+      git(work, 'push', '-q', 'origin', 'main');
+      const r = run(root, SCRIPTS.pages, [SITE, work], pagesFixtures(git(work, 'rev-parse', 'HEAD').trim()));
+      expectStopAt(r, 'read-back 7 robots.txt');
+      expect(r.out).toContain('  WRONG  read-back 7 openbed.ng robots.txt: ');
+      for (const { route } of STATIC_ROUTES) expect(r.out).toContain(`  WRONG  ${route} meta robots (the ${OTHER} state): `);
+    });
+  });
+
+  test('could not run — node failing while reading the search setting is an ERROR', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const bin = stubBin(root);
+      const realNode = process.execPath;
+      writeFileSync(join(bin, 'curl'), readFileSync(join(bin, 'curl'), 'utf8').replace('#!/usr/bin/env node', `#!${realNode}`));
+      writeFileSync(join(bin, 'node'), `#!/usr/bin/env bash\ncase "$*" in *OPENBED_RB_SEARCH*) exit 9 ;; esac\nexec "${realNode}" "$@"\n`);
+      chmodSync(join(bin, 'node'), 0o755);
+      const r = run(root, SCRIPTS.pages, [SITE, work], pagesFixtures(git(work, 'rev-parse', 'HEAD').trim()));
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('ERROR: node exited 9 reading the search setting -- the check did not run, so this read-back has no verdict');
+      expect(r.out).not.toContain('PASS:');
+    });
+  });
+
+  test('could not run — a checkout with no search setting is an ERROR', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      rmSync(join(work, 'packages', 'origins', 'src', 'search.ts'));
+      const r = run(root, SCRIPTS.pages, [SITE, work], pagesFixtures(git(work, 'rev-parse', 'HEAD').trim()));
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('ERROR: node exited 1 reading the search setting -- the check did not run, so this read-back has no verdict');
+      expect(r.out).not.toContain('PASS:');
+    });
+  });
+
+  test('could not run — a setting that is neither hidden nor public is an ERROR', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      scratchSetting(work, "export const SEARCH_VISIBILITY = 'maybe';\nexport const robotsMetaContent = () => 'x';\nexport const robotsTxtSource = () => 'y';\n");
+      const r = run(root, SCRIPTS.pages, [SITE, work], pagesFixtures(git(work, 'rev-parse', 'HEAD').trim()));
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain("ERROR: the search setting read 'maybe', which is neither hidden nor public -- the check did not run, so this read-back has no verdict");
+      expect(r.out).not.toContain('PASS:');
+    });
+  });
+
+  test('could not run — a setting that answers with no robots tag is an ERROR', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      scratchSetting(work, "export const SEARCH_VISIBILITY = 'hidden';\nexport const robotsMetaContent = () => '';\nexport const robotsTxtSource = () => 'apps/public-dashboard/public/robots.txt';\n");
+      const r = run(root, SCRIPTS.pages, [SITE, work], pagesFixtures(git(work, 'rev-parse', 'HEAD').trim()));
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('ERROR: the search setting answered without a robots tag or a robots file -- the check did not run, so this read-back has no verdict');
       expect(r.out).not.toContain('PASS:');
     });
   });

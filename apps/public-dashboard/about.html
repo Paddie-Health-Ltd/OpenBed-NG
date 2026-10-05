@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- @ROBOTS_META@ -->
+    <title>About OpenBed</title>
+    <meta name="description" content="OpenBed is a free public map of hospital bed availability in Lagos, run by Paddie Health Ltd. Each count is the hospital's own, shown with how recently it was updated." />
+    <link rel="icon" type="image/svg+xml" href="../../packages/design/openbed-mark.svg" />
+    <!-- THE ABOUT PAGE (R-2026-09-30-190 FN-2). A static entry of this app, built as
+         /privacy is. NO SCRIPT on this page: the text is written into it at build time by
+         vite.config.ts from docs/site/about.md, with every openbed.ng address read from
+         packages/origins/contacts.json, and so are the footer and the robots tag. Its styles
+         are the same same-origin stylesheet as the privacy notice, because the CSP in
+         public/_headers allows style-src 'self' only. -->
+    <link rel="stylesheet" href="./src/privacy.css" />
+  </head>
+  <body>
+    <!-- PERMANENT EMERGENCY STRIP. On every page, always. -->
+    <div id="emergency-strip">
+      Emergency: <a href="tel:112">112</a> / <a href="tel:767">767</a> — LASAMBUS
+    </div>
+
+    <!-- The mark and lockup link home to the bed list, as on index.html (R-2026-09-28-159 EI). -->
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="home-link" href="/" aria-label="OpenBed home">
+          <img class="mark" src="../../packages/design/openbed-mark.svg" width="28" height="28" alt="" />
+          <span class="lockup"><span class="lockup-open">Open</span><span class="lockup-bed">Bed</span></span>
+        </a>
+      </div>
+    </header>
+
+    <main id="notice">
+      <!-- @PRIVACY_NOTICE@ -->
+    </main>
+
+    <!-- @SITE_FOOTER@ -->
+  </body>
+</html>
