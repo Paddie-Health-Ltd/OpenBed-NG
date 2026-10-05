@@ -4626,9 +4626,15 @@ through the admin app.
      so the block is the step "Before step 7: at each listing" below,** which asks for the
      test call before the facility is listed.
      **CLOSED 2026-10-04 (R-2026-09-30-188 FL-3).**
-   - [ ] A staffed phone or WhatsApp line for wards, with honest hours, in the facility
+   - [x] A staffed phone or WhatsApp line for wards, with honest hours, in the facility
      agreement and the onboarding pack. The ward-facing support address is the interim contact.
      This also carries -66's "an operator contact number". (R-2026-09-23-67 B3)
+     **CLOSED 2026-10-05 (R-2026-09-30-194 FR-1).** The founder ruled this closed on 2026-10-05,
+     the Board having confirmed its resolutions the same day (the founder's word). The gate is
+     met: the ward line is recorded (WhatsApp only, Monday to Friday, 09:00 to 15:00 Lagos time,
+     email support outside those hours) in the agreement's Schedule 1 part B and the joining
+     pack. **NOT CLAIMED:** that the line has been called or tested by anyone but the founder;
+     that any facility has signed (facility one has signed nothing).
    - [x] Where the magic-link emails point: the verify link is on `*.supabase.co`, and
      the custom-domain decision is needed. (R-2026-09-22-55 C)
      **CLOSED 2026-10-01 (R-2026-09-30-180 FD-4 c).** On the Worker runbook's step c: both
@@ -4783,12 +4789,16 @@ through the admin app.
      the first box above. Its transfer memo covers the notice's transfer sentence for
      Cloudflare, whose basis for transfers out of Nigeria is the founder's transfer pack
      (R-2026-09-27-138 DN-2).
-   - [ ] The facility agreement grants the facility's permission to publish its live
+   - [x] The facility agreement grants the facility's permission to publish its live
      capacity (Blocks facility-one onboarding, B1): the clause is drafted, is in the
      agreement version the facility accepts, and is approved by the founder. It is
      drafted as part of the founder's paperwork register item 8. (B1, recorded
      2026-09-14; made a box by R-2026-09-26-122 CX-1) *The item number is Cowork's
      statement about a register outside this repository.*
+     **CLOSED 2026-10-05 (R-2026-09-30-194 FR-1).** The founder ruled this closed on 2026-10-05,
+     the Board having confirmed its resolutions the same day (the founder's word). The gate is
+     met: the revised agreement is adopted and the contact part of its Schedule 1 is filled.
+     **NOT CLAIMED:** that any facility has signed (facility one has signed nothing).
 
    *Added 2026-09-26 (R-2026-09-26-121 CW-1, CW-2):* the last two boxes. Since then
    every deferral in the decision record names exactly one gate, BOX, TRIGGER or VERSION,
@@ -4810,6 +4820,10 @@ through the admin app.
    ticked, so the checklist's unticked boxes are B3, CW-2 and CX-1, and the decision record's
    register holds four BOX rows (those three and DN-2, which points at CW-2's box). C4's
    block is now the step before step 7 and A5's is the step after step 8.
+
+   *Added 2026-10-05 (R-2026-09-30-194 FR-1):* B3's box and CX-1's box are ticked, so the
+   checklist's only unticked box is CW-2, and the register holds two BOX rows (CW-2 and DN-2,
+   which points at CW-2's box).
 
    *Restated 2026-09-25 (R-2026-09-25-115, then -116).* Until 2026-09-25 this item was
    headed "The -45 stop condition first". It read: "Step 4b must read CLOSED on every
