@@ -4,7 +4,8 @@
  * THE DEFERRED-ITEMS REGISTER'S PARSER, importable (R-2026-09-29-171, EU-3 a).
  *
  * The register is the table under "Deferred items — this record is where the list
- * lives" in `Sprint Kickoffs/decision-2026-09-14-public-private-split.md`. Two readers
+ * lives" in the decision record, which is held outside this repository (see
+ * RECORD_IN_RECORDS_DIR below). Two readers
  * need the same parse: `tests/compliance/deferred_items.test.ts`, which guards the
  * table, and `scripts/pr_evidence.mjs`, which prints the register by kind in the PR
  * evidence block. Until EU the parser lived in the test file, which calls vitest's
@@ -28,6 +29,17 @@
 export const SECTION = '## Deferred items — this record is where the list lives';
 export const HEADER = '| Item | Ruling | Gate kind | Gate |';
 export const KINDS = ['BOX', 'TRIGGER', 'VERSION'];
+
+/**
+ * WHERE THE DECISION RECORD IS READ FROM (FU-1, FU-2). The record is not in this
+ * repository: it lives in the founder's records directory, which OPENBED_RECORDS_DIR
+ * names, unset by default. Both readers (scripts/pr_evidence.mjs and
+ * tests/compliance/deferred_items.test.ts) take the variable's name and the segments
+ * below from here, so neither restates them. Segments, not a joined string, because this
+ * module imports nothing.
+ */
+export const RECORDS_DIR_ENV = 'OPENBED_RECORDS_DIR';
+export const RECORD_IN_RECORDS_DIR = ['Decision records, sprint kickoffs and sweeps', 'decision-2026-09-14-public-private-split.md'];
 
 /** The register's rows, and every way the table failed to parse. */
 export function parseRegister(record) {

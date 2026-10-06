@@ -20,8 +20,7 @@
 #   - `=> NO` is not a hit: `>` stands between the = and the literal.
 #
 # CORPUS, three disjoint locations, each counted on its own:
-#   1. the tracked *.md files (git ls-files), except .claude/rules/ and the
-#      decision record below;
+#   1. the tracked *.md files (git ls-files), except .claude/rules/ (location 2);
 #   2. the tracked files under .claude/rules/;
 #   3. the `--` comments in database/migrations/*.sql, read from disk as the other
 #      migration lints read them, so a migration not yet added is still read. Only
@@ -39,12 +38,14 @@
 # and the defect it names was found in it.
 #
 # NOT ASSERTED HERE, deliberately:
-#   - Sprint Kickoffs/decision-2026-09-14-public-private-split.md is OUT OF SCOPE,
-#     not allowlisted. It is append-only, and it quotes the broken form as
-#     evidence (1148, 1187 and 8837 at 3bac730), as R-2026-09-28-162 does again.
-#     A guard over it would demand the record be rewritten, which the record's
-#     own rules forbid. The exclusion is one path, EXCLUDED below; a renamed
-#     record is scanned under its new name, and the test proves it.
+#   - the decision record, and every other private record. They are held outside
+#     this repository (FU-1, 2026-10-06), so this script, which lists TRACKED
+#     files, never reaches them. Until then one path was excluded by name,
+#     because the record is append-only and quotes the broken form as evidence;
+#     that exclusion left with the file, and the script now excludes nothing:
+#     the test pins the case arms of the file loop by identity. SQL quoted in a
+#     private record is therefore not checked by anything in public CI, and
+#     nothing here claims otherwise.
 #   - that quoted SQL COMPILES. This matches one shape. Fenced sql blocks and
 #     whole statements in prose were listed by R-2026-09-28-162 (EL-2 b), for a
 #     ruling, and are not validated here; tests/db/runbook_12_4_12_5_sql_live.test.ts
@@ -61,7 +62,6 @@
 set -euo pipefail
 ROOT="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
 MIG_DIR="$ROOT/database/migrations"
-EXCLUDED='Sprint Kickoffs/decision-2026-09-14-public-private-split.md'
 
 KW_IS='[Ii][Ss]'
 KW_NOT='[Nn][Oo][Tt]'
@@ -88,7 +88,6 @@ RULES=()
 while IFS= read -r -d '' p; do
     case "$p" in
         .claude/rules/*) RULES+=("$p") ;;
-        "$EXCLUDED") ;;
         *.md) MD+=("$p") ;;
     esac
 done < "$TMP"

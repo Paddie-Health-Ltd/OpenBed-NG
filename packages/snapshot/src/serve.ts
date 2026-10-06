@@ -81,7 +81,7 @@
  * an annotation count, which is not a clock check -- so nothing reaches this file;
  * and the rule itself
  * is specified-and-unbuilt in
- * Sprint Kickoffs/sprint-kickoff-bedspace-v2-2026-09-10.md. A `Date.now()` added
+ * the v2 sprint kickoff, held outside this repository. A `Date.now()` added
  * to this file today would pass lint, CI and every compliance test. Building the
  * guard is an open item with a trigger, not this change.
  *

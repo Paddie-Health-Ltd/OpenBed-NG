@@ -23,7 +23,8 @@ import { runLint, withScratch, place, REPO_ROOT } from './_scratch.js';
  */
 const LINT = 'lint_sql_quoted_in_prose.sh';
 const HIT = 'unquoted tri-state literal in quoted SQL';
-const RECORD = 'Sprint Kickoffs/decision-2026-09-14-public-private-split.md';
+// The path the decision record had before it left the repository. A plant, never a file.
+const OLD_RECORD_PATH = 'Sprint Kickoffs/decision-2026-09-14-public-private-split.md';
 
 function git(root: string, ...args: string[]): void {
   execFileSync('git', ['-C', root, ...args], { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -95,32 +96,33 @@ describe('lint_sql_quoted_in_prose', () => {
     });
   });
 
-  test('plant — the decision record is OUT OF SCOPE by path, and the same text is caught once renamed', () => {
+  // THE DECISION RECORD LEFT THIS REPOSITORY (FU-1, FU-6). It was the one path this script excluded, because
+  // the record is append-only and quotes the broken form as evidence. The exclusion is deleted with the file,
+  // and the two legs below replace the two that guarded it, STRONGER: the same text at the old path used to be
+  // accepted, and is now rejected; and the file loop's case arms are pinned by identity, so an exclusion
+  // cannot come back as a quiet new arm.
+  test.each([
+    ['the decision record\'s old path', OLD_RECORD_PATH],
+    ['a handoff-style path', 'docs/handoff-x.md'],
+  ])('plant — the broken form at %s is REJECTED: the script excludes nothing', (_what, path) => {
     const text = 'The broken form read `IS NOT DISTINCT FROM NO`.\n';
     withScratch((root) => {
-      scratchRepo(root, { [RECORD]: text });
-      const excluded = runLint(LINT, root);
-      expect(excluded.status, `the excluded record was scanned:\n${excluded.stdout}`).toBe(0);
-
-      git(root, 'mv', '--', RECORD, 'Sprint Kickoffs/renamed.md');
-      const renamed = runLint(LINT, root);
-      expect(renamed.status, `the renamed record was not scanned:\n${renamed.stdout}`).toBe(1);
-      expect(renamed.stdout).toContain(HIT);
-      expect(renamed.stdout).toContain('Sprint Kickoffs/renamed.md');
+      scratchRepo(root, { [path]: text });
+      const res = runLint(LINT, root);
+      expect(res.status, `an excluded path was accepted:\n${res.stdout}`).toBe(1);
+      expect(res.stdout).toContain(HIT);
+      expect(res.stdout, 'the guard did not name the file').toContain(path);
     });
   });
 
-  test('the exclusion in the filter is the one the header names, and it is a tracked file', () => {
-    // Section 2 d: the filter is written next to the claim, and this reads both.
+  test('the file loop has exactly two case arms, .claude/rules/* and *.md — no path is excluded by name', () => {
+    // Section 3: parse the artefact and assert against named things, not a count of lines.
     const src = readFileSync(join(REPO_ROOT, 'scripts', LINT), 'utf8');
-    const filter = /^EXCLUDED='([^']+)'$/m.exec(src);
-    expect(filter, 'no EXCLUDED= line in the script').not.toBeNull();
-    const header = src.split('\n').filter((l) => l.startsWith('#')).join('\n');
-    const notAsserted = header.slice(header.indexOf('NOT ASSERTED HERE'));
-    expect(header, 'the header has no NOT ASSERTED HERE block').toContain('NOT ASSERTED HERE');
-    expect(notAsserted.replace(/\n#\s*/g, ' '), 'the header does not name the path the filter excludes').toContain(filter?.[1] as string);
-    const tracked = execFileSync('git', ['-C', REPO_ROOT, 'ls-files', '--', filter?.[1] as string], { encoding: 'utf8' }).trim();
-    expect(tracked, 'the excluded path is not a tracked file; the exclusion is stale').toBe(filter?.[1]);
+    const block = /case "\$p" in\n([\s\S]*?)\n\s*esac/.exec(src);
+    expect(block, 'the file loop has no case "$p" block').not.toBeNull();
+    const arms = [...(block?.[1] as string).matchAll(/^\s*(\S+)\)/gm)].map((m) => m[1]);
+    expect(arms, 'the file loop gained or lost an arm').toEqual(['.claude/rules/*', '*.md']);
+    expect(src, 'an EXCLUDED variable is back').not.toMatch(/^EXCLUDED=/m);
   });
 
   test('anti-vacuity — no tracked .md file outside the rules FAILS', () => {

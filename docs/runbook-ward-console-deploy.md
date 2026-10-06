@@ -18,14 +18,14 @@ only on a rotation (R-2026-09-23-64).
 ## 1. Deploy through the wrapper
 
 **Deploy from the deploy checkout, never from a working tree (R-2026-09-23-70, after
-#67).** `~/Desktop/OpenBed-NG` is also the implementer's working tree, and a
+#67).** The implementer's working tree is a clone of this repository too, and a
 `git checkout main` there was refused on 2026-09-23 over uncommitted work in progress.
 The deploy checkout is a separate `git worktree`, detached at `origin/main`, that
-nothing else writes to. Before every deploy, refresh it and read its HEAD:
+nothing else writes to. Before every deploy, set `DEPLOY_TREE` in this shell to its path (the commands below refuse to run while it is unset, so they cannot fall through to the working tree you are standing in), refresh it, and read its HEAD:
 
 ```bash
-git -C ~/Desktop/OpenBed-NG-deploy fetch origin && git -C ~/Desktop/OpenBed-NG-deploy checkout --detach origin/main && (cd ~/Desktop/OpenBed-NG-deploy && npm ci --include=optional)
-cd ~/Desktop/OpenBed-NG-deploy && git rev-parse HEAD
+git -C "${DEPLOY_TREE:?set DEPLOY_TREE to the deploy checkout first}" fetch origin && git -C "$DEPLOY_TREE" checkout --detach origin/main && (cd "$DEPLOY_TREE" && npm ci --include=optional)
+cd "${DEPLOY_TREE:?set DEPLOY_TREE to the deploy checkout first}" && git rev-parse HEAD
 ```
 
 *Restated 2026-10-03 (R-2026-10-03-FH FH-3 c, -184). Until then the refresh line above ended with a bare `npm ci)`. The flag guards against an `omit` setting that skips optional packages, and the founder's was empty (`npm config get omit` printed nothing), so on 2026-10-03 it would have changed nothing: the first `npm ci` still left out the native workerd binary for the platform, most likely after a failed optional download, which npm skips without saying so (INFERRED; nothing else was observed). What catches that is the deploy wrappers' own toolchain check, which runs before any build or upload, and not the flag.*

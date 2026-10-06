@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { REPO_ROOT } from './_scratch.js';
 import { makeZip, type ZipEntry } from './_zip.js';
+import { RECORDS_DIR_ENV, RECORD_IN_RECORDS_DIR } from '../../scripts/deferred_register.mjs';
 
 /**
  * GUARD OVER A GUARD -- scripts/pr_evidence.mjs, the PR evidence block built from
@@ -60,7 +61,8 @@ import { makeZip, type ZipEntry } from './_zip.js';
 const SCRIPT = 'pr_evidence.mjs';
 const SCRIPT_PATH = join(REPO_ROOT, 'scripts', SCRIPT);
 const REPO = 'repos/Paddie-Health-Ltd/OpenBed-NG';
-const RECORD = join('Sprint Kickoffs', 'decision-2026-09-14-public-private-split.md');
+// The record's place UNDER the records directory (FU-1, FU-2): imported, never restated here.
+const RECORD = join(...RECORD_IN_RECORDS_DIR);
 const REQUIRED: string[] = (JSON.parse(readFileSync(join(REPO_ROOT, 'packages/fixtures/required-checks.json'), 'utf8')) as { jobs: string[] }).jobs;
 
 const RUN = 4242;
@@ -145,6 +147,7 @@ const MSG = {
   jobAttempt: ", not the provenance's attempt",
   attest: 'attest_counts.mjs gave no attestation for',
   noRecord: 'the decision record is not readable at',
+  recordsDir: 'OPENBED_RECORDS_DIR is set but is empty or does not name a directory',
   register: 'the deferred-items register did not parse (',
   auditSpawn: 'npm audit did not run to completion, so the audit has no reading and there is no block',
   auditExit: 'npm audit exited with a status other than 0 or 1, so its answer is not an audit reading',
@@ -159,7 +162,7 @@ const NOT_ASSERTED_LINES = [
   '  - Retention: the evidence expires when the artefacts do.',
   '  - Cowork cannot recheck the API calls; it still receives the block as a paste.',
   '  - Internal consistency is not correctness (attest_counts.mjs:14-18).',
-  '  - The register count comes from the tree, not from CI.',
+  '  - The register count comes from the records directory, not from CI.',
   '  - Re-running the named run replaces its artefacts; after that this block cannot be rechecked. Push, or edit the body, for a new run; never re-run one whose block is pasted.',
   '  - The audit is read from the tree and the registry at run time, not from CI.',
 ];
@@ -187,8 +190,14 @@ interface Plant {
   headPath?: string;
   /** A plant needing a repo without refs/remotes/origin/main. */
   noOriginMain?: boolean;
-  /** The decision record's text; null writes no record at all. */
+  /** The decision record's text, written under a scratch records directory; null writes no record at all. */
   record?: string | null;
+  /**
+   * The records directory the script is given (FU-4). Default: a scratch directory holding the record.
+   * 'unset': the variable is absent from the environment. 'empty': it is set to the empty string.
+   * 'not-a-directory': it names a path that does not exist.
+   */
+  records?: 'unset' | 'empty' | 'not-a-directory';
   prov?: Partial<Record<ArtName, Prov>>;
   junit?: Record<string, string>;
   entries?: Partial<Record<ArtName, (e: ZipEntry[]) => ZipEntry[]>>;
@@ -323,8 +332,10 @@ function run(plant: Plant = {}): Result {
 
     // ---- the repository: B on main, H one commit on top ------------------------------
     g('init', '-q', '-b', 'main');
-    mkdirSync(join(root, dirname(RECORD)), { recursive: true });
-    if (plant.record !== null) writeFileSync(join(root, RECORD), plant.record ?? RECORD_TEXT);
+    // The record is NOT in the scratch repository: it is under a scratch records directory beside it.
+    const recordsDir = join(tmp, 'records');
+    mkdirSync(join(recordsDir, dirname(RECORD)), { recursive: true });
+    if (plant.record !== null) writeFileSync(join(recordsDir, RECORD), plant.record ?? RECORD_TEXT);
     writeFileSync(join(root, 'README.md'), 'scratch\n');
     g('add', '-A');
     g('commit', '-q', '-m', 'base');
@@ -432,6 +443,11 @@ function run(plant: Plant = {}): Result {
     const log = join(tmp, 'calls.log');
     const env: NodeJS.ProcessEnv = { PATH, HOME: home, TMPDIR: tmp, GH_CONFIG_DIR: ghConfig, STUB_LOG: log, STUB_ROUTES: routes, STUB_NPM_DIR: npmDir };
     for (const k of ['GH_TOKEN', 'GITHUB_TOKEN', 'GH_HOST', 'GH_REPO', 'GH_ENTERPRISE_TOKEN']) delete env[k];
+    // FU-4: the records directory. `env` is built from scratch (not from process.env), so an unset
+    // variable here is genuinely unset in the child, whatever the machine running this test has set.
+    if (plant.records === 'empty') env[RECORDS_DIR_ENV] = '';
+    else if (plant.records === 'not-a-directory') env[RECORDS_DIR_ENV] = join(tmp, 'no-such-records-directory');
+    else if (plant.records !== 'unset') env[RECORDS_DIR_ENV] = recordsDir;
 
     // A slow reader: bash pipes the script's stdout to `(sleep 1; cat)`. PIPESTATUS[0] is the
     // script's own exit status, which the pipeline's would otherwise hide behind cat's.
@@ -512,7 +528,9 @@ describe('pr_evidence.mjs: the green fixture, and the controls', () => {
     expect(r.stdout).toContain(`  B=${r.base}`);
     expect(r.stdout).toContain(`  H=${r.head}`);
     expect(r.stdout).toContain(`origin/main is ${r.base}; main has moved 0 commits since B`);
-    expect(r.stdout).toContain('Register   : 4 (1 BOX, 2 TRIGGER, 1 VERSION), from the tree');
+    expect(r.stdout).toContain('Records    : SET (OPENBED_RECORDS_DIR; the decision record was read from it)');
+    expect(r.stdout).toContain('Register   : 4 (1 BOX, 2 TRIGGER, 1 VERSION), from the records directory');
+    expect(r.stdout, 'the block printed the records directory path').not.toContain('openbed-prev-');
     expect(r.stdout).toMatch(/^Disposition: ZERO-RED$/m);
     for (const l of NOT_ASSERTED_LINES) expect(r.stdout).toContain(l);
     expect(r.stdout, 'the block printed the commit object').not.toContain('gpgsig');
@@ -896,9 +914,51 @@ describe('pr_evidence.mjs: exit 2, no block', () => {
     expect(r.stderr).toContain('the JUnit file does not end with </testsuites>');
   });
 
-  test('plant — no decision record under --root', () => {
+  test('plant — no decision record in the records directory', () => {
     const r = run({ record: null });
     refused(r, MSG.noRecord, 7);
+  });
+
+  // FU-4: the records directory is stated in the block, SET or UNSET, and a value that is not a directory is
+  // refused BEFORE any API call, so no half-built block exists. A skip is not a red: UNSET leaves the
+  // Disposition alone, and says so on its own line rather than by the absence of one.
+  test('plant — OPENBED_RECORDS_DIR set to a path that is not a directory is refused before any API call', () => {
+    const r = run({ records: 'not-a-directory' });
+    refused(r, MSG.recordsDir, 0);
+  });
+
+  test('plant — OPENBED_RECORDS_DIR set to the empty string is refused before any API call', () => {
+    const r = run({ records: 'empty' });
+    refused(r, MSG.recordsDir, 0);
+  });
+
+  test('OPENBED_RECORDS_DIR unset — the block says UNSET and NOT READ, the register is not parsed, and it is not a red', () => {
+    const r = run({ records: 'unset' });
+    expect(r.status, out(r)).toBe(0);
+    expect(r.calls, out(r)).toEqual(greenCalls(r.head));
+    expect(r.stdout).toContain('Records    : UNSET -- the decision record was not read, and the real-record guards did not run in this invocation');
+    expect(r.stdout).toContain('Register   : NOT READ (OPENBED_RECORDS_DIR is unset)');
+    expect(r.stdout, 'an unset records directory still printed a register count').not.toMatch(/^Register   : \d/m);
+    expect(r.stdout).toMatch(/^Disposition: ZERO-RED$/m);
+  });
+
+  test('a SKIPPED case is not a red: the block still reads ZERO-RED, shows skipped=1 and the named-reason note', () => {
+    // The claim the rules now rest on (code-pipeline Standard O, a records-absent skip), proved over the
+    // artefact shape a real skip produces: a testcase holding an empty <skipped/>.
+    const SKIPPED_XML = GREEN_XML.replace('name="two" time="0.01">\n', 'name="two" time="0.01">\n      <skipped/>\n');
+    expect(SKIPPED_XML, 'the plant did not change the fixture').not.toBe(GREEN_XML);
+    const r = run({ records: 'unset', junit: { 'junit-compliance.xml': SKIPPED_XML } });
+    expect(r.status, out(r)).toBe(0);
+    expect(r.stdout).toContain('collected=2 ran=1 passed=1 failed=0 errored=0 skipped=1');
+    expect(r.stdout).toContain('1 test(s) skipped. Green-by-skip is not a pass; each skip needs a named reason.');
+    expect(r.stdout).toMatch(/^Disposition: ZERO-RED$/m);
+  });
+
+  test('OPENBED_RECORDS_DIR unset does not hide a red: the Disposition still reads RED for a red artefact', () => {
+    const r = run({ records: 'unset', junit: { 'junit-compliance.xml': RED_XML } });
+    expect(r.status, out(r)).toBe(1);
+    expect(r.stdout).toContain('Records    : UNSET');
+    expect(r.stdout).toMatch(/^Disposition: RED -- /m);
   });
 
   test('plant — a register parse error', () => {

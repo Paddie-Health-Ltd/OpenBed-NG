@@ -173,14 +173,14 @@ while a deployment was live did not reach it; a new deploy picked them up).
 ## 3. Deploy
 
 **Deploy from the deploy checkout, never from a working tree (R-2026-09-23-70, after
-#67).** `~/Desktop/OpenBed-NG` is also the implementer's working tree, and a
+#67).** The implementer's working tree is a clone of this repository too, and a
 `git checkout main` there was refused on 2026-09-23 over uncommitted work in progress.
 The deploy checkout is a separate `git worktree`, detached at `origin/main`, that
-nothing else writes to. Before every deploy, refresh it and read its HEAD:
+nothing else writes to. Before every deploy, set `DEPLOY_TREE` in this shell to its path (the commands below refuse to run while it is unset, so they cannot fall through to the working tree you are standing in), refresh it, and read its HEAD:
 
 ```bash
-git -C ~/Desktop/OpenBed-NG-deploy fetch origin && git -C ~/Desktop/OpenBed-NG-deploy checkout --detach origin/main && (cd ~/Desktop/OpenBed-NG-deploy && npm ci --include=optional)
-cd ~/Desktop/OpenBed-NG-deploy && git rev-parse HEAD
+git -C "${DEPLOY_TREE:?set DEPLOY_TREE to the deploy checkout first}" fetch origin && git -C "$DEPLOY_TREE" checkout --detach origin/main && (cd "$DEPLOY_TREE" && npm ci --include=optional)
+cd "${DEPLOY_TREE:?set DEPLOY_TREE to the deploy checkout first}" && git rev-parse HEAD
 ```
 
 *Restated 2026-10-03 (R-2026-10-03-FH FH-3 c, -184). Until then the refresh line above ended with a bare `npm ci)`. The flag guards against an `omit` setting that skips optional packages, and the founder's was empty (`npm config get omit` printed nothing), so on 2026-10-03 it would have changed nothing: the first `npm ci` still left out the native workerd binary for the platform, most likely after a failed optional download, which npm skips without saying so (INFERRED; nothing else was observed). What catches that is the deploy wrappers' own toolchain check, which runs before any build or upload, and not the flag.*
@@ -234,7 +234,7 @@ is only possible if the Production variables bound.
 > **non-production** Pages project, or Cloudflare documenting the non-git case.
 > **Do not run that test against this project** — its deploy history is evidence in
 > the open question of what is running versus what was reviewed
-> (`docs/handoff-2026-09-20-pages-direct-upload.md`).
+> (the 2026-09-20 handoff on the direct-upload finding, held outside this repository).
 
 Then, in the deployment's **Functions** tab, `/beds.json` must be listed.
 
@@ -1015,7 +1015,7 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    **Run on 2026-09-26, from the deploy checkout at `5be63d4`** (R-2026-09-26-129 DE-1;
    the founder's terminal output and browser, read back by Cowork). This is the first
    deploy after the design pass's D1 (#87):
-   - **The checkout:** `~/Desktop/OpenBed-NG-deploy`, detached at `origin/main`
+   - **The checkout:** the deploy checkout (`DEPLOY_TREE`), detached at `origin/main`
      `5be63d4bf6d3a12f647e295bbcef1924f883a334`; `npm ci` reported 0 vulnerabilities.
      `deploy_pages.sh` read the tree clean, and the stamp read back as `5be63d4`, clean.
    - **Deployed** `https://f56ae2af.openbed-public-dashboard.pages.dev`, 12 files. There

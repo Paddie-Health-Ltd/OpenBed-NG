@@ -41,7 +41,15 @@
  *   7. The counts, only through scripts/attest_counts.mjs. Its exit 2 is this
  *      script's exit 2; its exit 1 marks the block RED. Golden path phase 1 is
  *      corpus, not attested (scripts/run_e2e.sh).
- *   8. The register by kind, parsed by scripts/deferred_register.mjs.
+ *   0. (before any API call; FU-4) The records directory. OPENBED_RECORDS_DIR UNSET is a
+ *      state, not a failure: the block prints `Records    : UNSET`, the register as NOT
+ *      READ, and the Disposition is whatever the artefacts say. A skip is not a red, and
+ *      this line is how it is seen rather than inferred. SET to a value that is empty or
+ *      does not name a directory is a refusal (exit 2, no block): a confused variable is
+ *      not guessed at. The block prints SET or UNSET and never the directory's path.
+ *   8. The register by kind, parsed by scripts/deferred_register.mjs, from the decision
+ *      record under the records directory (not from the tree: the record is held outside
+ *      this repository). UNSET skips this step; SET but no readable record is a refusal.
  *   9. The audit (R-2026-10-03-FH FH-5): `npm audit --json --include=dev --include=optional
  *      --include=peer`, with its own 60 s timeout, run with cwd ROOT after the
  *      register parse, so no refusal above moves. Its exit is accepted only as 0 or 1 (npm
@@ -62,8 +70,10 @@
  *      downloads already made, so the audit has its own timeout.*
  * Then the block: one fenced block, pasted whole into the PR body.
  *
- * SEAMS. `--root <dir>` governs git, the decision record and the audit's working
- * directory (npm audit reads THAT checkout's package-lock.json). attest_counts,
+ * SEAMS. `--root <dir>` governs git and the audit's working directory (npm audit reads
+ * THAT checkout's package-lock.json). It no longer governs the decision record, which is
+ * read under OPENBED_RECORDS_DIR (FU-4, 2026-10-06; until then the record was read under
+ * --root, from the tree). attest_counts,
  * the register parser and packages/fixtures/required-checks.json are always this
  * script's own checkout's. The GitHub API is reached only through `gh api` on
  * PATH, naming the repository literally, and the registry only through `npm` on
@@ -94,7 +104,8 @@
  *     The run id and digests let anyone with GitHub access recheck it.
  *   - Internal consistency is not correctness (scripts/attest_counts.mjs, its
  *     header's note on what reconciliation proves).
- *   - The register count comes from the tree, not from CI.
+ *   - The register count comes from the records directory, not from CI. With the
+ *     variable UNSET there is no count, and the block says so.
  *   - A re-run of the named run replaces its artefacts, after which the block
  *     cannot be rechecked.
  *   - The audit is read from the tree and the registry at run time, not from CI: the
@@ -107,7 +118,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -116,7 +127,6 @@ const OWN_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ATTEST = join(OWN_ROOT, 'scripts', 'attest_counts.mjs');
 const REQUIRED_CHECKS = join(OWN_ROOT, 'packages', 'fixtures', 'required-checks.json');
 const REPO = 'repos/Paddie-Health-Ltd/OpenBed-NG';
-const RECORD = join('Sprint Kickoffs', 'decision-2026-09-14-public-private-split.md');
 const MAX_BUFFER = 256 * 1024 * 1024;
 const TIMEOUT_MS = 12_000;
 // The audit has its own, longer timeout (R-2026-10-03-FI FI-2): npm's own retry waits at least 10 s, a 12 s refusal
@@ -240,8 +250,27 @@ const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 async function main(work) {
   // This checkout's own register parser and jobs list, loaded here rather than at the
   // top so that a broken checkout is exit 2 like every other failure, never exit 1.
-  const { KINDS, parseRegister } = await import('./deferred_register.mjs');
+  const { KINDS, RECORDS_DIR_ENV, RECORD_IN_RECORDS_DIR, parseRegister } = await import('./deferred_register.mjs');
   const REQUIRED = JSON.parse(readFileSync(REQUIRED_CHECKS, 'utf8')).jobs;
+  const RECORD = join(...RECORD_IN_RECORDS_DIR);
+
+  // ---- the records directory (FU-4) -------------------------------------------------------
+  // UNSET is a state the block states. SET to anything that is not a directory is a refusal, before
+  // any API call, so no half-built block exists. The empty string is a confused value, not an unset one.
+  const recordsRaw = process.env[RECORDS_DIR_ENV];
+  const recordsSet = recordsRaw !== undefined;
+  if (recordsSet) {
+    let isDir = false;
+    try {
+      isDir = statSync(recordsRaw).isDirectory();
+    } catch {
+      isDir = false;
+    }
+    if (!isDir) {
+      console.error('ERROR: OPENBED_RECORDS_DIR is set but is empty or does not name a directory -- an unset variable is stated in the block, and a confused one is not guessed at');
+      throw REFUSED;
+    }
+  }
 
   const head = git(['rev-parse', 'HEAD']).stdout.trim();
 
@@ -479,21 +508,29 @@ async function main(work) {
     counts.push(`${a.label} (${a.file}, artefact ${a.artefact}):`, ...String(r.stdout).trimEnd().split('\n').map((l) => `  ${l}`));
   }
 
-  // ---- the register, from the tree ----------------------------------------------------
-  let record;
-  try {
-    record = readFileSync(join(ROOT, RECORD), 'utf8');
-  } catch {
-    console.error(`ERROR: the decision record is not readable at ${RECORD} under --root`);
-    throw REFUSED;
+  // ---- the register, from the records directory (FU-4) ----------------------------------
+  // UNSET reads nothing and says so on two lines of the block. SET reads the decision record under the
+  // directory; a record that cannot be read or parsed is a refusal, never a count.
+  let recordsLine = `Records    : UNSET -- the decision record was not read, and the real-record guards did not run in this invocation`;
+  let registerLine = `Register   : NOT READ (${RECORDS_DIR_ENV} is unset)`;
+  if (recordsSet) {
+    let record;
+    try {
+      record = readFileSync(join(recordsRaw, RECORD), 'utf8');
+    } catch {
+      console.error(`ERROR: the decision record is not readable at ${RECORD} under ${RECORDS_DIR_ENV}`);
+      throw REFUSED;
+    }
+    const reg = parseRegister(record);
+    if (reg.errors.length > 0) {
+      for (const e of reg.errors) process.stderr.write(`  ${e}\n`);
+      console.error(`ERROR: the deferred-items register did not parse (${reg.errors.length} error(s) above), so it has no count`);
+      throw REFUSED;
+    }
+    const byKind = KINDS.map((k) => `${reg.rows.filter((r) => r.kind === k).length} ${k}`).join(', ');
+    recordsLine = `Records    : SET (${RECORDS_DIR_ENV}; the decision record was read from it)`;
+    registerLine = `Register   : ${reg.rows.length} (${byKind}), from the records directory`;
   }
-  const reg = parseRegister(record);
-  if (reg.errors.length > 0) {
-    for (const e of reg.errors) process.stderr.write(`  ${e}\n`);
-    console.error(`ERROR: the deferred-items register did not parse (${reg.errors.length} error(s) above), so it has no count`);
-    throw REFUSED;
-  }
-  const byKind = KINDS.map((k) => `${reg.rows.filter((r) => r.kind === k).length} ${k}`).join(', ');
 
   // ---- the audit, read now from the tree and the registry (R-2026-10-03-FH FH-5) --------
   // After the register parse, so no refusal above moves. `--audit-level` would change only the exit code,
@@ -579,7 +616,7 @@ async function main(work) {
   out.push(`Tested as merge M = base B + head H`, `  M=${merge}`, `  B=${base}`, `  H=${head}`, ...mainLines);
   out.push(`git log --oneline B..HEAD:`, ...log.split('\n').filter((l) => l !== '').map((l) => `  ${l}`));
   out.push(`git diff -M --name-status B...HEAD:`, ...nameStatus.split('\n').filter((l) => l !== '').map((l) => `  ${l}`));
-  out.push(`Register   : ${reg.rows.length} (${byKind}), from the tree`);
+  out.push(recordsLine, registerLine);
   out.push(`Audit      : ${auditCounts.high} high, ${auditCounts.critical} critical (npm audit --json --include=dev --include=optional --include=peer, read now from the tree and the registry; rule on it before merge)`);
   if (auditNamed.length > 0) out.push(`  high or critical: ${auditNamed.join(', ')}`);
   if (touched.size > 0) {
@@ -593,7 +630,7 @@ async function main(work) {
     '  - Retention: the evidence expires when the artefacts do.',
     '  - Cowork cannot recheck the API calls; it still receives the block as a paste.',
     '  - Internal consistency is not correctness (attest_counts.mjs:14-18).',
-    '  - The register count comes from the tree, not from CI.',
+    '  - The register count comes from the records directory, not from CI.',
     '  - Re-running the named run replaces its artefacts; after that this block cannot be rechecked. Push, or edit the body, for a new run; never re-run one whose block is pasted.',
     '  - The audit is read from the tree and the registry at run time, not from CI.',
     '```',

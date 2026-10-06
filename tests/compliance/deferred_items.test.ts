@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { REPO_ROOT } from './_scratch.js';
-import { HEADER, KINDS, SECTION, parseRegister } from '../../scripts/deferred_register.mjs';
+import { HEADER, KINDS, RECORDS_DIR_ENV, RECORD_IN_RECORDS_DIR, SECTION, parseRegister } from '../../scripts/deferred_register.mjs';
 import type { Row } from '../../scripts/deferred_register.mjs';
 
 /**
@@ -47,7 +47,20 @@ import type { Row } from '../../scripts/deferred_register.mjs';
  * lines. It is also bounded on both sides, so R-2026-09-25-11 never matches inside
  * R-2026-09-25-113.
  *
+ * THE REAL-RECORD LEG IS LOCAL-ONLY (FU-1, FU-3). The decision record is held outside this
+ * repository, in the records directory that OPENBED_RECORDS_DIR names. The ONE test below
+ * that reads it is skipped when the variable is unset, which is every public CI run, and its
+ * name says why. When the variable is SET the test is never skipped: a record that cannot be
+ * read then reds loudly (test-conventions.md section 6). Everything else in this file runs
+ * over constructed input in every run: the PLANT legs and the empty-corpus leg stay in CI;
+ * only the ACCEPT leg over the real artefact moves to the implementer's machine, run before
+ * each pull request, its result stated in the PR body. A skip is not a red; the evidence
+ * block shows it as skipped=N and its Records line says SET or UNSET.
+ *
  * NOT ASSERTED HERE, deliberately:
+ *   - in public CI, that the REAL record's register agrees with the boxes at runbook 12.4
+ *     step 1. It is checked only where the records directory is present (above). Nothing in
+ *     CI can discharge it, and this header does not claim otherwise.
  *   - that a gate is TRUE, or that a TRIGGER names an event someone can observe. Both are
  *     judgements about what a sentence means, made by reading (CW-5's sweep), not by a
  *     parser. A check that a trigger merely has words in it would pass "waits for X".
@@ -55,7 +68,10 @@ import type { Row } from '../../scripts/deferred_register.mjs';
  *     down as one. The sweep that seeded the register is recorded in CW's entry.
  */
 
-const RECORD = join(REPO_ROOT, 'Sprint Kickoffs', 'decision-2026-09-14-public-private-split.md');
+// Unset in public CI. Set, even to the empty string, means "read it": the empty string joins to a relative
+// path that does not exist, and the test then reds loudly instead of skipping.
+const RECORDS_DIR = process.env[RECORDS_DIR_ENV];
+const RECORD = RECORDS_DIR === undefined ? undefined : join(RECORDS_DIR, ...RECORD_IN_RECORDS_DIR);
 const RUNBOOK = join(REPO_ROOT, 'docs', 'runbook-supabase-project-creation.md');
 
 export const STEP_HEADING = '### 12.4 Creating a facility';
@@ -187,8 +203,8 @@ function plant(base: string, from: string, to: string): string {
 }
 
 describe('the deferred-items register and the facility-one checklist hold each other', () => {
-  test('real record and runbook are accepted — every row gated, every box and BOX row matched', () => {
-    const record = readFileSync(RECORD, 'utf8');
+  test.skipIf(RECORD === undefined)('real record and runbook are accepted — every row gated, every box and BOX row matched (needs OPENBED_RECORDS_DIR)', () => {
+    const record = readFileSync(RECORD as string, 'utf8');
     const runbook = readFileSync(RUNBOOK, 'utf8');
     const out = check(record, runbook);
     expect(out, out.join('\n')).toEqual([]);

@@ -63,7 +63,7 @@ import { adminMessageFor, type Refusal } from './messages.js';
  *
  * TIMES ARE LAGOS TIMES, AND FRESHNESS COMES FROM THE SERVER'S CLOCK. `server_now` from
  * the register, plus monotonic time since the fetch (packages/snapshot's anchor), never
- * the device clock: the operator is often in Hong Kong. A band never filters, sorts or
+ * the device clock: the operator's device may be in any time zone. A band never filters, sorts or
  * hides a row (AJ D8).
  *
  * THE EDIT FORM SHOWS WHAT IS SAVED (R-2026-09-24-98 BZ-1, BZ-3). Since 023 the register

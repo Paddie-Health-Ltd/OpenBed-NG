@@ -1301,7 +1301,7 @@ DDL event trigger should make PostgREST reload, and "should" is how a
 production-only failure gets written. So the reload is sent explicitly, then the
 answer is probed. No session is needed, which is the point: a ward session cannot
 exist before onboarding (B1 in
-`Sprint Kickoffs/decision-2026-09-14-public-private-split.md`).
+the decision record, which is held outside this repository).
 
 **The mechanism, observed 2026-09-15 on the local stack (PostgREST 16.2, Supabase
 CLI 2.117.0) with the local anon key.** Both answers are HTTP 401 with code
@@ -2447,7 +2447,7 @@ this apply. On 2026-09-28 it was (R-2026-09-28-149).
 
 ### 027's apply — the scheduler's status; the first service_role grant (R-2026-09-29-173 EW-1)
 
-**Run on 2026-09-30** by the founder from `~/Desktop/OpenBed-NG-deploy` at `89c74b0`
+**Run on 2026-09-30** by the founder from the deploy checkout at `89c74b0`
 (#107's merge), before the public dashboard was redeployed from that merge: `/api/health`
 calls the function this creates, and answers 503 with `probe_failed` until it exists.
 Each fence was read back by Cowork before the next (R-2026-09-30-175 EY-1). The readings
@@ -2496,11 +2496,11 @@ functions and changes no data.
 **Afterwards:** the frozen boundary is recorded with `27`, in the change that records this
 apply. On 2026-09-30 it was (R-2026-09-30-175).
 
-- [x] On 2026-09-30, 027 applied, the probe read as `service_role`, and the public dashboard redeployed and read back, from `~/Desktop/OpenBed-NG-deploy` at `89c74b0d744a05f9a42304d8e982b4c866abd7fc` (#107's merge). The readings are the founder's, relayed by Cowork (R-2026-09-30-175 EY-1). Fence 1: twenty-six `already applied` (001 to 026), `WOULD APPLY` `027_scheduler_status.sql`, one pending. Fence 2: `FINGERPRINT beds.json=0/0:543f06c0b0c4,facility_public=0:d41d8cd98f00,ward_public=0:d41d8cd98f00,lga_rollup=0:d41d8cd98f00`, `RECORDED`. Fence 3: 027 applied (`CREATE FUNCTION`, `DO`, `CREATE FUNCTION`, `DO`, `INSERT 0 1`, `INSERT 0 0`); "1 applied this run". Fence 4: all four parts `ok`, "PASS (VACUOUS FOR B1)". Fence 5: twenty-seven `already applied` (001 to 027), "0 migration(s) pending." Fence 6: PASS, every function `ok`; `app.scheduler_status() EXECUTE: none`; `public.health_probe() EXECUTE: service_role`. The default ACL for functions (R-2026-09-30-174 EX-4): nine rows, every one per-schema, none with `defaclnamespace` 0, so no role holds a global default; `postgres`'s row in public reads `{postgres=X/postgres}`, as locally; named grants to anon, authenticated and service_role appear only in `supabase_admin`'s rows (public, graphql_public, graphql) and `postgres`'s row in storage. The probe as `service_role`: five `openbed_` jobs, all active, every last status `succeeded`; the snapshot job's last finished run `13:36:00Z`; `server_now` `13:36:18Z`; `generated_at` `13:36:00Z`. This is the first hosted proof that the definer owned by the migration role reads `cron.job_run_details`. The public dashboard redeployed as `e6711029` at `89c74b0` by `bash scripts/deploy_pages.sh --branch main public-dashboard`; `readback_pages.sh` PASS on every line, and `/api/health` GET and HEAD read 200 `openbed-ok` on both hosts. The founder's monitor (UptimeRobot free, keyword `openbed-ok` on `/api/health`, alerting when the keyword is absent, every 5 minutes, email and phone push) was created 2026-09-30 and reads green.
+- [x] On 2026-09-30, 027 applied, the probe read as `service_role`, and the public dashboard redeployed and read back, from the deploy checkout at `89c74b0d744a05f9a42304d8e982b4c866abd7fc` (#107's merge). The readings are the founder's, relayed by Cowork (R-2026-09-30-175 EY-1). Fence 1: twenty-six `already applied` (001 to 026), `WOULD APPLY` `027_scheduler_status.sql`, one pending. Fence 2: `FINGERPRINT beds.json=0/0:543f06c0b0c4,facility_public=0:d41d8cd98f00,ward_public=0:d41d8cd98f00,lga_rollup=0:d41d8cd98f00`, `RECORDED`. Fence 3: 027 applied (`CREATE FUNCTION`, `DO`, `CREATE FUNCTION`, `DO`, `INSERT 0 1`, `INSERT 0 0`); "1 applied this run". Fence 4: all four parts `ok`, "PASS (VACUOUS FOR B1)". Fence 5: twenty-seven `already applied` (001 to 027), "0 migration(s) pending." Fence 6: PASS, every function `ok`; `app.scheduler_status() EXECUTE: none`; `public.health_probe() EXECUTE: service_role`. The default ACL for functions (R-2026-09-30-174 EX-4): nine rows, every one per-schema, none with `defaclnamespace` 0, so no role holds a global default; `postgres`'s row in public reads `{postgres=X/postgres}`, as locally; named grants to anon, authenticated and service_role appear only in `supabase_admin`'s rows (public, graphql_public, graphql) and `postgres`'s row in storage. The probe as `service_role`: five `openbed_` jobs, all active, every last status `succeeded`; the snapshot job's last finished run `13:36:00Z`; `server_now` `13:36:18Z`; `generated_at` `13:36:00Z`. This is the first hosted proof that the definer owned by the migration role reads `cron.job_run_details`. The public dashboard redeployed as `e6711029` at `89c74b0` by `bash scripts/deploy_pages.sh --branch main public-dashboard`; `readback_pages.sh` PASS on every line, and `/api/health` GET and HEAD read 200 `openbed-ok` on both hosts. The founder's monitor (UptimeRobot free, keyword `openbed-ok` on `/api/health`, alerting when the keyword is absent, every 5 minutes, email and phone push) was created 2026-09-30 and reads green.
 
 ### 028's apply — the operator's read of the scheduler's status (R-2026-09-30-175 EY-2)
 
-**Run on 2026-09-30** by the founder from `~/Desktop/OpenBed-NG-deploy` at
+**Run on 2026-09-30** by the founder from the deploy checkout at
 `7b71b28d66267b61aac8b498030a0687b208080c` (#108's merge), BEFORE the Worker and the
 admin app were redeployed from that merge: the admin app's System status section calls
 the function this creates, and until it exists that section shows the server's "function
@@ -2552,7 +2552,7 @@ function and changes no data.
 **Afterwards:** the frozen boundary is recorded with `28`, in the change that records this
 apply. On 2026-10-01 it was (R-2026-09-30-177), with 028's sha256 as at `7b71b28`.
 
-- [x] On 2026-09-30, 028 applied; the Worker redeployed and the admin app redeployed from the same checkout; and the operator's read of System status taken, from `~/Desktop/OpenBed-NG-deploy` at `7b71b28d66267b61aac8b498030a0687b208080c` (#108's merge). The readings are the founder's, relayed by Cowork (R-2026-09-30-177 FA-5 b), who read each fence before the next. Fence 1: twenty-seven `already applied` (001 to 027), `WOULD APPLY` `028_operator_scheduler_status.sql`, one pending. Fence 2: `FINGERPRINT beds.json=0/0:543f06c0b0c4,facility_public=0:d41d8cd98f00,ward_public=0:d41d8cd98f00,lga_rollup=0:d41d8cd98f00`, `RECORDED`, identical to 027's. Fence 3: 028 applied (`CREATE FUNCTION`, `DO`, `INSERT 0 1`, `INSERT 0 0`); "1 applied this run". The `INSERT 0 0` is `run_migrations.sh`'s own ledger insert finding the row the file's `INSERT 0 1` had already written, as at 027: the expectation omitted that line, and the reading was right. Fence 4: all four parts `ok`, "PASS (VACUOUS FOR B1)". Fence 5: twenty-eight `already applied` (001 to 028), no `WOULD APPLY`, "0 migration(s) pending." Fence 6: thirty-seven lines, every one `ok`, including the new `public.operator_scheduler_status() EXECUTE: authenticated`; `public.health_probe()` is still the only `service_role` line apart from Supabase's own `graphql_public.graphql`. The Worker: `deploy_worker.sh supabase-proxy` at `7b71b28`, Current Version ID `ea15d63e-52a7-4dc5-89fb-67918591c5ad`; `readback_worker.sh` read PASS on probes 1 to 3 and the stamp; probe 4, read by Cowork through the Cloudflare connector, PASS, the bundled allow-list equal to the file entry for entry (forward 29: 14 `POST`, 1 `GET`, 14 `OPTIONS`; 3 direct-origin exceptions; 1 refusal probe), stamp `7b71b28`, dirty false. The admin app: `deploy_pages.sh --branch main admin`, deployed as `3151a953`, `readback_admin.sh` read PASS. The operator's read of System status (the founder's browser, a fresh private window, through Access and the sign-in link, read by Cowork from the founder's screenshots): no caution line; both ages "less than a minute ago"; five jobs, each "Running — last run succeeded"; no console error. This is the first hosted proof that `public.operator_scheduler_status()` answers the operator through the Worker.
+- [x] On 2026-09-30, 028 applied; the Worker redeployed and the admin app redeployed from the same checkout; and the operator's read of System status taken, from the deploy checkout at `7b71b28d66267b61aac8b498030a0687b208080c` (#108's merge). The readings are the founder's, relayed by Cowork (R-2026-09-30-177 FA-5 b), who read each fence before the next. Fence 1: twenty-seven `already applied` (001 to 027), `WOULD APPLY` `028_operator_scheduler_status.sql`, one pending. Fence 2: `FINGERPRINT beds.json=0/0:543f06c0b0c4,facility_public=0:d41d8cd98f00,ward_public=0:d41d8cd98f00,lga_rollup=0:d41d8cd98f00`, `RECORDED`, identical to 027's. Fence 3: 028 applied (`CREATE FUNCTION`, `DO`, `INSERT 0 1`, `INSERT 0 0`); "1 applied this run". The `INSERT 0 0` is `run_migrations.sh`'s own ledger insert finding the row the file's `INSERT 0 1` had already written, as at 027: the expectation omitted that line, and the reading was right. Fence 4: all four parts `ok`, "PASS (VACUOUS FOR B1)". Fence 5: twenty-eight `already applied` (001 to 028), no `WOULD APPLY`, "0 migration(s) pending." Fence 6: thirty-seven lines, every one `ok`, including the new `public.operator_scheduler_status() EXECUTE: authenticated`; `public.health_probe()` is still the only `service_role` line apart from Supabase's own `graphql_public.graphql`. The Worker: `deploy_worker.sh supabase-proxy` at `7b71b28`, Current Version ID `ea15d63e-52a7-4dc5-89fb-67918591c5ad`; `readback_worker.sh` read PASS on probes 1 to 3 and the stamp; probe 4, read by Cowork through the Cloudflare connector, PASS, the bundled allow-list equal to the file entry for entry (forward 29: 14 `POST`, 1 `GET`, 14 `OPTIONS`; 3 direct-origin exceptions; 1 refusal probe), stamp `7b71b28`, dirty false. The admin app: `deploy_pages.sh --branch main admin`, deployed as `3151a953`, `readback_admin.sh` read PASS. The operator's read of System status (the founder's browser, a fresh private window, through Access and the sign-in link, read by Cowork from the founder's screenshots): no caution line; both ages "less than a minute ago"; five jobs, each "Running — last run succeeded"; no console error. This is the first hosted proof that `public.operator_scheduler_status()` answers the operator through the Worker.
 
 ### Expected output, including the one line that looks like a failure and is not
 
@@ -3395,7 +3395,7 @@ reason as "Supabase's `postgres` role is a superuser locally and is not hosted".
 - hosted `postgres` on `klrlpxysjsjpdkeqdhvl` is `rolsuper f`, `rolbypassrls t`.
 
 The graphs match on those attributes (recorded in
-`Sprint Kickoffs/decision-2026-09-14-public-private-split.md`, "Hosted role rows
+the decision record, held outside this repository, "Hosted role rows
 — R-2026-09-15-08"). Step 8's result stands on what it observed on hosted, not on
 the old asymmetry.
 
@@ -3800,7 +3800,7 @@ call was used.
   impression. That makes custom SMTP a prerequisite for facility one. It is
   recorded **once**, as one item with the email provider's written processor
   agreement, in the open processor obligations of
-  `Sprint Kickoffs/decision-2026-09-14-public-private-split.md`. Point to it there;
+  the decision record, held outside this repository. Point to it there;
   do not restate it here.
 - **`redirect_to=http://localhost:3000` in both links examined.** That is the
   Supabase default Site URL. A ward clicking a real link today would be sent to
@@ -3822,7 +3822,7 @@ reading below is still OPEN:** it is taken at H6 step 6, by script, never by eye
 **The processor agreement is not done, and it gates facility one, not H6**
 (R-2026-09-25-108 CJ-2). Proton's s.29 agreement, the s.41 transfer basis and log
 retention are pending the founder's approval (the email-provider row of the open
-processor obligations in `Sprint Kickoffs/decision-2026-09-14-public-private-split.md`).
+processor obligations in the decision record, held outside this repository).
 Until that agreement is approved, no hospital or ward address is sent a link. H6 may
 run before it: at H6 the only address Proton sends to is the operator's sign-in
 address, Paddie Health's own role address in a mailbox Proton already hosts.
@@ -3916,7 +3916,7 @@ deciding whether these boxes are still needed will decide from them:
 
 **Precondition: custom SMTP is configured** (the email-provider row of the open
 processor obligations in
-`Sprint Kickoffs/decision-2026-09-14-public-private-split.md`). After that it
+the decision record, held outside this repository). After that it
 takes two emails and about five minutes, using the three blocks above.
 `security@openbed.ng` is now confirmed, so every link it is sent is `magiclink`.
 
@@ -4427,7 +4427,7 @@ now wait only on the open items at 12.4 step 1 with the trigger "before facility
 
 - [x] H6: preconditions 1-7 read; steps 1-8 as above (date, Cowork's reading of each step)
   - **On 2026-09-25, all eight steps read as they must, and the admin app is LIVE**
-    (R-2026-09-25-113). All commands ran from `~/Desktop/OpenBed-NG-deploy` at
+    (R-2026-09-25-113). All commands ran from the deploy checkout at
     `5786626a100c3f05e9aa42eb3bc0907b04b43959`. Cowork read back each step from the
     founder's terminal and from outside. Preconditions 1-7 were all met on hosted,
     as recorded in R-2026-09-25-105 to -110.
@@ -4513,7 +4513,7 @@ section: (a) The -45 gate. Step 4b must read CLOSED on every row. Its row 5, the
 restore drill, has never been run. (b) The email provider's processor agreement …"
 
 **This is new.** No facility-creation step existed before PR 3.4b-app C (-45 B). It
-replaces the plan at `Sprint Kickoffs/sprint-kickoff-bundle3-operator-path-2026-09-22.md`
+replaces the plan in the Bundle 3 operator-path kickoff, held outside this repository,
 line 173, whose `agreement_accepted_at` line that kickoff already marks superseded at
 line 190: 021 removed that column. The agreement and the contact are now recorded
 through the admin app.
@@ -4528,7 +4528,7 @@ through the admin app.
 
    **Open before facility one** (R-2026-09-25-116 CR-1 b). This list was compiled on
    2026-09-25 by searching
-   `Sprint Kickoffs/decision-2026-09-14-public-private-split.md` for "before facility
+   the decision record (held outside this repository) for "before facility
    one" and its variants ("for facility one", "facility one", "first facility",
    "onboarding blocker", "before go-live", "before launch"), and reading each hit in
    context. *The last two were searched but missing from this list until R-2026-09-25-117
@@ -5185,10 +5185,10 @@ Note what was found.
 |---|---|
 | Region pin | Assertable via the Management API, declined on credential-surface grounds |
 | Hosted exposed-schemas list | A dashboard setting with no in-database representation — **but not unobservable.** Discharged by hand probe on 2026-09-13: the live project's `PGRST106` body carries `hint: "Only the following schemas are exposed: public, graphql_public"` (step 2). No test carries it, because the suite never targets hosted (step 6). `extra_search_path` is a separate setting, discharged by its own single-field probe on 2026-09-13 (step 2): `public, extensions`, the untouched Supabase default |
-| Hosted Auth Site URL and redirect allowlist | A dashboard setting with no in-database representation, the same idiom as the exposed-schemas list. Decided 2026-09-14 (`Sprint Kickoffs/decision-2026-09-14-public-private-split.md`, D2): the Site URL is on `app.openbed.ng`, and `openbed.ng` is never an auth redirect target. **The Site URL is exactly `https://app.openbed.ng`, and the redirect list is exactly `https://app.openbed.ng/` and `https://admin.openbed.ng/`**: the strings the apps send (R-2026-09-23-71 D, amending D2's "confined to it"; slashes by R-2026-09-23-72 AZ-1). A redirect that does not match falls back silently to the Site URL, and that is a STOP. The strings and their read-back are under "Entering the Site URL and redirect URLs" above. **Observed 2026-09-14 (step 9): the hosted Site URL is still http://localhost:3000, the Supabase default.** It arrives as `redirect_to` in every link examined, so a ward clicking a real link today is sent to their own machine. It becomes https://app.openbed.ng when the app exists. Record the exact hosted strings here when they are entered. **On 2026-09-25 they were entered (H3, R-2026-09-25-108): Site URL `https://app.openbed.ng`; redirect URLs `https://app.openbed.ng/` and `https://admin.openbed.ng/`, exact, no wildcards** (the founder's entry, read by Cowork from dashboard screenshots). **The observed `redirect_to`, 2026-09-25 (H6 step 6, by script, R-2026-09-25-113): `https://admin.openbed.ng/`, as sent and decoded. PASS.** *Restated 2026-09-25;* until then this read "The observed `redirect_to` is still open: it is read at H6 step 6, by script." The values in `supabase/config.toml` are local-only |
+| Hosted Auth Site URL and redirect allowlist | A dashboard setting with no in-database representation, the same idiom as the exposed-schemas list. Decided 2026-09-14 (the decision record, held outside this repository, D2): the Site URL is on `app.openbed.ng`, and `openbed.ng` is never an auth redirect target. **The Site URL is exactly `https://app.openbed.ng`, and the redirect list is exactly `https://app.openbed.ng/` and `https://admin.openbed.ng/`**: the strings the apps send (R-2026-09-23-71 D, amending D2's "confined to it"; slashes by R-2026-09-23-72 AZ-1). A redirect that does not match falls back silently to the Site URL, and that is a STOP. The strings and their read-back are under "Entering the Site URL and redirect URLs" above. **Observed 2026-09-14 (step 9): the hosted Site URL is still http://localhost:3000, the Supabase default.** It arrives as `redirect_to` in every link examined, so a ward clicking a real link today is sent to their own machine. It becomes https://app.openbed.ng when the app exists. Record the exact hosted strings here when they are entered. **On 2026-09-25 they were entered (H3, R-2026-09-25-108): Site URL `https://app.openbed.ng`; redirect URLs `https://app.openbed.ng/` and `https://admin.openbed.ng/`, exact, no wildcards** (the founder's entry, read by Cowork from dashboard screenshots). **The observed `redirect_to`, 2026-09-25 (H6 step 6, by script, R-2026-09-25-113): `https://admin.openbed.ng/`, as sent and decoded. PASS.** *Restated 2026-09-25;* until then this read "The observed `redirect_to` is still open: it is read at H6 step 6, by script." The values in `supabase/config.toml` are local-only |
 | Hosted role attributes | A property of Supabase-managed roles; no migration can assert it and a platform upgrade or project restore can change it. **Observed 2026-09-15 by Cowork, read-only:** hosted `postgres` and `service_role` are both `rolsuper f`, `rolbypassrls t`, identical to local. The old row said the local role graph differs from the hosted one; on these attributes it does not. Re-observe after any Supabase platform change |
 | Hosted auth session bounds (`timebox`, `inactivity_timeout`) | A dashboard setting with no in-database representation. Both bounds ARE proved locally in `tests/db/auth_refresh_live.test.ts`; the hosted values are step 3 |
-| Magic-link single-use and expiry | Enforced by Supabase auth, not by this schema, since `app.invite` no longer holds a token. Step 9 is the hand check, partly closed on 2026-09-14. Closing it needs custom SMTP, which is recorded once, as the email-provider row of the open processor obligations in `Sprint Kickoffs/decision-2026-09-14-public-private-split.md` |
+| Magic-link single-use and expiry | Enforced by Supabase auth, not by this schema, since `app.invite` no longer holds a token. Step 9 is the hand check, partly closed on 2026-09-14. Closing it needs custom SMTP, which is recorded once, as the email-provider row of the open processor obligations in the decision record, held outside this repository |
 | E2E harness: `session_replication_role` via supautils — **LOCAL AND CI ONLY** | A vendor dependency of `tests/e2e/_harness.ts`'s `seedE2eCorpus()`, found 2026-09-15 while correcting a false "because superuser" claim. Setting `session_replication_role` needs superuser **by default**, and `postgres` is `rolsuper f`. On PostgreSQL 17 (`supabase/config.toml` pins `major_version = 17`) there is another route: `GRANT SET ON PARAMETER session_replication_role`, available since PG15. **That route is not the one in use here:** `has_parameter_privilege('postgres', 'session_replication_role', 'SET')` is f (observed 2026-09-15). `postgres` can set it because it is a member of `supabase_privileged_role` (= `supautils.privileged_role`), and `session_replication_role` is on `supautils.privileged_role_allowed_configs`. **Observed** locally on 2026-09-15, and in CI on 2439938 through the `golden-path` job's frontier ratchet, `tests/e2e/ratchet.test.ts`. That is 10 tests, not the 20-step golden path. Its anti-vacuity leg, and its "every step at or before the frontier PASSED" leg, cannot be green unless the corpus seeded, and both were green. **Failure mode:** grant absent → `seedE2eCorpus()` fails loudly and seeds nothing, never half a corpus. **Not a hosted dependency:** the E2E never targets the hosted project, so there is no hosted equivalent to look for. Re-observe after a Supabase CLI or Postgres image upgrade |
 | Branch protection and its required-check set | A GitHub setting; reading it in CI needs a token this public repository should not carry |
 | Push protection | A GitHub repository setting; CI runs after the push |

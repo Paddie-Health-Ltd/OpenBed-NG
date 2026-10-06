@@ -72,9 +72,23 @@ Every guard is therefore classified, in `README` or in its own header, as one of
 - **LIVE** — the code it guards exists now.
 - **GUARD-AHEAD-OF-SUBJECT** — the guard runs and is non-vacuous, but the code it
   is aimed at arrives in a named later bundle.
+- **LOCAL-ONLY** *(added 2026-10-06, FU-3 c)* — the guard's subject is held outside
+  the repository, in the founder's records directory that `OPENBED_RECORDS_DIR`
+  names (unset by default, and unset in every public CI run). It is not LIVE: the
+  record it guards is not in the tree CI checks. Its true present-tense claim is
+  *"this guard executes over constructed input in every run, and over the real
+  record only where the variable is set, run by the implementer before each pull
+  request."* Writing "CI checks the register against the runbook" instead would be
+  a claim that is present and does not reach. Today two controls are LOCAL-ONLY: the
+  real-record leg of `tests/compliance/deferred_items.test.ts`, which skips when the
+  variable is unset, and the register read of `scripts/pr_evidence.mjs`, which prints
+  a `Records` line reading UNSET and does not read the record. Nothing in this repository enforces
+  that the implementer ran them: that is a human step, stated in the pull request
+  body (Clause 4, the weaker form the repository can execute).
 
 Reclassifying a guard from GUARD-AHEAD-OF-SUBJECT to LIVE is part of the bundle
-that brings its subject matter, not a separate tidy-up.
+that brings its subject matter, not a separate tidy-up. Reclassifying one from
+LOCAL-ONLY to LIVE means its subject came back into the repository.
 
 ---
 
@@ -136,6 +150,18 @@ bucket.**
   with a determinism plan; and a sunset date. Missing any one of these makes it a
   loosening, which is branch (i) and blocking. A growing quarantine list is the
   failure mode resurfacing — stop and reassess.
+
+**A records-absent skip is a declared, counted skip: not a red, and not a
+quarantine** *(added 2026-10-06, FU-3 b)*. A test skipped because `OPENBED_RECORDS_DIR`
+is unset, under the named exception in `.claude/rules/test-conventions.md` section 6,
+is counted in the attestation's `skipped=` and named by its own test name. It hides
+no failure, so it needs no quarantine ticket, and it is not "green by skip" while it
+is declared, because the count and the name are both in the evidence. The bar on a
+net-new `.skip` above is unchanged for every other test: this paragraph excuses the
+listed legs and nothing else. A pull request whose evidence block has a `Records`
+line reading UNSET says in its body that the real-record legs were run locally with
+the variable set, and with what result; an omitted statement is what a reviewer is
+there to see.
 
 **Scope guard.** A change owns only the reds on surfaces it touches or asserts
 zero on. It is never required to fix an unrelated failure elsewhere. Gating a
@@ -262,8 +288,7 @@ only because the commit still existed locally.
 - **Identifiers are read from the API or from git and pasted verbatim.** A commit
   SHA, PR number, migration number, key id or count is never composed, extended,
   padded or inferred from a short form. Carry it through a variable filled by the
-  system that issues it. (Method note 16 in
-  `Sprint Kickoffs/decision-2026-09-14-public-private-split.md`.)
+  system that issues it. (Method note 16 of the decision record, held outside this repository.)
 - **Never delete a branch, local or remote, until the PR that has it as head reports
   `MERGED` from the API** — `gh pr view <n> --json state` — not from the web UI and
   not from inference.
