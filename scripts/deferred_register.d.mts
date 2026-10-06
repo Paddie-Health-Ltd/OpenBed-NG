@@ -10,6 +10,8 @@
 export declare const SECTION: string;
 export declare const HEADER: string;
 export declare const KINDS: readonly ['BOX', 'TRIGGER', 'VERSION'];
+export declare const RECORDS_DIR_ENV: string;
+export declare const RECORD_IN_RECORDS_DIR: readonly string[];
 
 export interface Row {
   item: string;

@@ -317,7 +317,7 @@ then this read* "**The `snapshot_stale` box closes on a drill that records the s
 
 ### Record: the first drill on hosted, 2026-09-30 (R-2026-09-30-175, R-2026-09-30-177 FA-5 c)
 
-Run by the founder from `~/Desktop/OpenBed-NG-deploy` at `7b71b28`, each fence read back by Cowork
+Run by the founder from the deploy checkout at `7b71b28`, each fence read back by Cowork
 before the next. **Observed**, from the founder's terminal and the alert email and phone push, as
 relayed by Cowork:
 

@@ -89,7 +89,7 @@ incomplete. **Each property below still holds; what changed is the list it names
 A migration recorded in `database/migrations/applied-hosted.json` is frozen and is
 never edited, so a false comment inside one is corrected here, and in the ruling
 block that found it, rather than in the file. Recorded 2026-09-17 by the v1 sweep
-(R-2026-09-17-03 and -04, `Sprint Kickoffs/sweep-2026-09-17-v1-enumeration.md`).
+(R-2026-09-17-03 and -04, the 2026-09-17 v1 sweep record, held outside this repository).
 The 2026-09-15 correction to 005:211 is repeated here so every correction lives in
 one place.
 
@@ -142,7 +142,7 @@ Realtime publication:
 ## Ward-level identity
 
 Migrations 002–005, 010–012 were amended in place on 2026-09-08, before the first
-hosted push, by `Sprint Kickoffs/decision-2026-09-08-ward-level-identity.md`.
+hosted push, by the 2026-09-08 ward-level-identity decision record, held outside this repository.
 There are no individual accounts: an auth account represents a ward, or a facility
 for admin. The audit log and the event stream contain no personal data, so they
 need no retention period and no partitioning. Editing in place rather than adding

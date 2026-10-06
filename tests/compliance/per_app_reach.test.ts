@@ -16,7 +16,7 @@ import PER_APP from '../../packages/fixtures/per-app.json';
  * (tests/compliance/_apps.ts), or FENCED against that derivation
  * (tests/compliance/_per_app.ts), or a deliberate literal in
  * packages/fixtures/per-app.json, whose keys are fenced. The design report of record,
- * Sprint Kickoffs/pr-b-design-report-2026-09-24.md, carries the site-by-site table.
+ * the PR B design report (held outside this repository), carries the site-by-site table.
  *
  * THE PLANT IS A SCRATCH APP. A copy of every file the fences read, plus
  * apps/zz-scratch with a wrangler.toml, a tsconfig.json and a functions/ directory,

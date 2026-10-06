@@ -9,16 +9,17 @@ import { REPO_ROOT } from './_scratch.js';
  * PR 3.4b-app C).
  *
  * packages/snapshot/src/time.ts's lagosTime is shared by the public dashboard and the
- * admin app. The operator is often in Hong Kong, so the admin app runs on a device
- * whose zone is eight hours from Lagos; a formatter that fell back to the device zone
- * would show every time eight hours out, and nothing on the page would look wrong.
+ * admin app. The operator's device may be in any time zone, so the admin app can run on
+ * a device whose zone is hours from Lagos; a formatter that fell back to the device zone
+ * would show every time hours out, and nothing on the page would look wrong.
  *
  * THE ZONE IS SET ON A CHILD PROCESS, never on this one: TZ is read when the process
  * starts, and changing process.env.TZ inside a running test changes nothing reliably.
- * So the formatter is run in a fresh `node` under TZ=Asia/Hong_Kong, and again under
- * TZ=UTC as the control, and both must print what this process prints.
+ * So the formatter is run in a fresh `node` under TZ=Asia/Kolkata, a non-Lagos zone and a
+ * half-hour one, which a whole-hour zone would not exercise, and again under TZ=UTC as
+ * the control, and both must print what this process prints.
  *
- * NOT ASSERTED HERE, deliberately (method note 12): that a real phone in Hong Kong
+ * NOT ASSERTED HERE, deliberately (method note 12): that a real phone in another zone
  * renders it so. The browser's Intl is the same ICU data Node ships, which is the
  * premise; a device whose ICU lacks Africa/Lagos would throw, not drift.
  */
@@ -38,10 +39,10 @@ function inZone(tz: string): { status: number; out: string; err: string } {
 describe('lagosTime', () => {
   const expected = INSTANTS.map((i) => lagosTime(i)).join('\n') + '\n';
 
-  test('real formatter under TZ=Asia/Hong_Kong prints Lagos time, identical to this process', () => {
-    const hk = inZone('Asia/Hong_Kong');
-    expect(hk.status, hk.err).toBe(0);
-    expect(hk.out).toBe(expected);
+  test('real formatter under TZ=Asia/Kolkata prints Lagos time, identical to this process', () => {
+    const kolkata = inZone('Asia/Kolkata');
+    expect(kolkata.status, kolkata.err).toBe(0);
+    expect(kolkata.out).toBe(expected);
   });
 
   test('control — the same under TZ=UTC, so the comparison is not vacuous', () => {
@@ -50,15 +51,15 @@ describe('lagosTime', () => {
     expect(utc.out).toBe(expected);
   });
 
-  test('plant — a formatter that uses the DEVICE zone differs under Hong Kong, so the child really ran in it', () => {
+  test('plant — a formatter that uses the DEVICE zone differs under a non-Lagos zone, so the child really ran in it', () => {
     const script = `for (const i of ${JSON.stringify(INSTANTS)}) console.log(new Date(i).toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, day: 'numeric', month: 'short' }) + ' (Lagos time)');`;
-    const r = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8', env: { ...process.env, TZ: 'Asia/Hong_Kong' } });
+    const r = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8', env: { ...process.env, TZ: 'Asia/Kolkata' } });
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout, 'the device-zone formatter printed Lagos time, so TZ did not reach the child').not.toBe(expected);
   });
 
   test('the ordinary case reads as a Lagos wall time', () => {
-    // 22:59:59 UTC is 23:59 in Lagos (UTC+1, no daylight saving) and 06:59 next day in Hong Kong.
+    // 22:59:59 UTC is 23:59 in Lagos (UTC+1, no daylight saving) and 04:29 next day in Kolkata (UTC+5:30).
     expect(lagosTime('2026-09-24T22:59:59.000Z')).toBe('24 Sept, 23:59 (Lagos time)');
   });
 });

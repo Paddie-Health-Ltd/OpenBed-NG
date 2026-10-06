@@ -2,7 +2,7 @@
  * api.openbed.ng -- the Worker as deployed. The decision it makes lives in
  * ./handler.ts; this file binds it to the production origin, the tracked allow-list
  * and the build stamp. See the 2026-09-19 addendum in
- * Sprint Kickoffs/decision-2026-09-14-public-private-split.md for why this domain
+ * the decision record (held outside this repository) for why this domain
  * exists, and R-2026-09-23-70 for what it forwards.
  *
  * SINCE PR 3.3 IT FORWARDS ONLY WHAT THE APPS CALL (./allow-list.json). Until then it

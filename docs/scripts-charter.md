@@ -45,7 +45,7 @@ _Added by R-2026-09-29-171 (EU-4), the last item of the `scripts/` survey. One r
 | lint_sql_quoted_in_prose.sh | Prose SQL comparing to an unquoted YES, NO or UNKNOWN is caught; readers copy it. | `tests/compliance/lint_sql_quoted_in_prose.test.ts` | yes | probed | 9 / 0 | OK |
 | neuter.sh | The tracked neuter harness: plant, run the named tests, restore; an untracked one lied. | `tests/compliance/neuter.test.ts` | yes | probed | 10 / 2 | OK |
 | neuter_plant.mjs | neuter.sh's plant half; a plant that does not land is fatal. | `tests/compliance/neuter.test.ts` | yes | probed | 13 / 0 | OK |
-| pr_evidence.mjs | The PR evidence block, only from one CI run's artefacts, bound to the tested merge. | `tests/compliance/pr_evidence.test.ts` | yes | probed | 47 / 0 | OK |
+| pr_evidence.mjs | The PR evidence block, only from one CI run's artefacts, bound to the tested merge. | `tests/compliance/pr_evidence.test.ts` | yes | probed | 48 / 0 | OK |
 | predict_counts.mjs | Predict totals from an artefact baseline plus typed deltas; a typed baseline is refused. | `tests/compliance/predict_counts.test.ts` | yes | probed | 22 / 0 | OK |
 | provision_target.mjs | The host check: a local run never reaches hosted; hosted writes only the named project. | via provision_ward_account.mjs: `tests/compliance/provision_ward_account.test.ts`, `tests/db/provision_script.test.ts` | yes | probed | 0 / 0 | OK |
 | provision_ward_account.mjs | Provision one reporting account through the SQL gates, with one confirmed Auth user. | `tests/db/provision_script.test.ts`, `tests/compliance/provision_ward_account.test.ts` | yes | probed | 18 / 2 | NOT ASSERTED |

@@ -17,8 +17,8 @@ Each vendor's current published text was fetched with one GET, following the ven
 own redirects: the three DPAs on **2026-09-26 at 23:24 UTC** (00:24 WAT on 2026-09-27),
 and Cloudflare's Self-Serve Subscription Agreement on **2026-09-27 at 07:09 UTC**
 (R-2026-09-27-137 DM-3 a). Each was
-saved byte for byte **outside this repository**, in the founder's folder
-~/OpenBed-records/legal/, because this repository is public and the texts are the
+saved byte for byte **outside this repository**, in the founder's records folder,
+because this repository is public and the texts are the
 vendors'. The sha256 below is of the saved file. The page is saved as served, and the
 hash therefore changes if the vendor changes anything on it, including navigation. A
 later reading is a new row, not an edit to this one.

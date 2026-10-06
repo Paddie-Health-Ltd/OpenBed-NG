@@ -40,6 +40,12 @@ one looks. `compliance` is run wholesale, so a file placed here runs by existing
 there. If you add an `e2e` file, add it to that script in the same change, or it is
 decoration.
 
+**One more input, optional, since 2026-10-06 (FU-1):** the founder's records directory,
+named by `OPENBED_RECORDS_DIR` and unset by default. Only the real-record legs of a
+guard use it, and where it is unset they skip by name; section 6 states the exception
+and its limits. Nothing about the property above changes: the project still runs
+anywhere with nothing started.
+
 **Neither job is ever paths-filtered.** GitHub counts a skipped required check as
 passing, so a required check with an `if:` on a paths filter is not a gate on
 the pull requests it skips — it is a gate that reports success on exactly the
@@ -270,6 +276,36 @@ The corollary for Standard O: `skipped` is one of the six counts precisely so
 that green-by-skip is visible in the attestation rather than invisible in a
 terminal summary.
 
+### A named exception: a subject held outside the repository *(added 2026-10-06, FU-3 a)*
+
+The business and privacy records are not in this repository. They are held in the
+founder's records directory, which `OPENBED_RECORDS_DIR` names; it is unset by
+default, and unset in every public CI run. A guard over one of those records cannot
+run its real-artefact ACCEPT leg where the record is absent. The rule above holds
+with ONE exception, limited as follows, and nothing outside it is excused:
+
+- **Only the real-artefact ACCEPT leg may skip, and only when the variable is UNSET.**
+  The guard's PLANT and ANTI-VACUITY legs (section 2) run over constructed input in
+  every run, public CI included. All three legs are still written; for these guards
+  the ACCEPT leg is conditional on the variable.
+- **When the variable is SET the leg never skips.** A record that cannot be read
+  then reds, loudly, as this section requires. The empty string counts as set.
+- **The listed legs are the whole exception.** Today the list is one test: the
+  real-record leg of `tests/compliance/deferred_items.test.ts`. Adding a second is
+  an edit to this paragraph, in the same pull request.
+- **Each skipped test carries "needs OPENBED_RECORDS_DIR" in its own name,** so the
+  junit file names the reason for every skip. Observed on 2026-10-06: a skipped case
+  keeps its full name in the junit file, with an empty `skipped` element.
+- **The leg runs where the records are.** The implementer runs it with the variable
+  set before each pull request and states the result in the pull request body. That
+  is a human step. No script or CI job enforces it and none is cited (Clause 4, the
+  weaker form the repository can execute); what makes an omission visible is the
+  `Records` line of the evidence block, SET or UNSET, and the `skipped=` count.
+
+The guard class for these is LOCAL-ONLY (`.claude/rules/code-pipeline.md`, Clause 5),
+and a records-absent skip is a declared, counted skip and not a quarantine (Standard O,
+same file).
+
 ---
 
 ## 7. Two derivation sites are asserted in one block, never two
@@ -399,12 +435,12 @@ distinction §8's plant rule above is about, one layer out.
 
 **And a rule about what this is not.** The instrumentation is not a fix, and a
 green re-run of an unchanged commit is not a diagnosis. Both were recorded as an
-OPEN, UNDIAGNOSED intermittent — see `docs/handoff-2026-09-10.md` Appendix A1 —
+OPEN, UNDIAGNOSED intermittent — see Appendix A1 of the 2026-09-10 handoff, held outside this repository —
 because a
 flake written down as "flaky" is a symptom accepted as a cause.
 
 **The intermittent that produced this rule is now closed** — see
-`docs/handoff-2026-09-10.md` Appendix A1. The instrumentation named the cause on
+Appendix A1 of the 2026-09-10 handoff, held outside this repository. The instrumentation named the cause on
 first outing, which is the entire argument for this rule: one CI failure with the
 guard's output attached ended an investigation that seven excluded hypotheses had
 not. **What it found is the next entry below.**

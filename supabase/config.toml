@@ -331,7 +331,7 @@ max_frequency = "5s"
 #
 # SET, NOT LEFT AS THE SUPABASE DEFAULT, and this is the ward-identity
 # decision's central guarantee rather than a hardening preference. That memo
-# (Sprint Kickoffs/decision-2026-09-08-ward-level-identity.md) resolved the
+# (the 2026-09-08 ward-level-identity decision record, held outside this repository) resolved the
 # revocation question in the CTO's favour precisely because SHORT SESSIONS make
 # an offboarding SOP unnecessary: access follows PHYSICAL CONTROL OF THE WARD
 # HANDSET, and a nurse who no longer holds it loses access by default with no

@@ -92,7 +92,7 @@
 // ROLE ADDRESS -- maternity@<facility> -- never to a person. app.invite carries
 // facility_id, ward_category, role and the two timestamps, and deliberately NO
 // ADDRESS COLUMN: the address lives once, in auth.users, so there is exactly one
-// place to erase. See docs/facility-agreement-clause-x-access-addresses.md for
+// place to erase. See the facility agreement's clause on access addresses (held outside this repository) for
 // what the Operator does and does not warrant about that address.
 //
 // THE FACILITY-LEVEL LOGIN (--role FACILITY_REPORTER; R-2026-09-27-144 DT, Bundle 2):

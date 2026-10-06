@@ -44,23 +44,19 @@ import { REPO_ROOT, withScratch, place } from './_scratch.js';
  * Backticked citations of a gitignored path that are exempt BY FILE, not by path.
  *
  * Keyed `citedIn::path`, so the same path cited from any OTHER file is still
- * refused. Two entries, and each exists only because the document it sits in is
- * committed byte-identical by ruling and may not be edited to repair it.
+ * refused.
+ *
+ * EMPTY SINCE 2026-10-06 (FU-1, FU-6), BY DESIGN, AND THE MECHANISM IS KEPT. There were two
+ * entries, one for the Bundle 3 operator-path kickoff and one for the PR 3.4b-app C design
+ * report. Each existed only because the document it sat in was committed byte-identical by
+ * ruling and could not be edited to repair its backticked citation of a gitignored path. Both
+ * documents are held outside this repository now, so each entry would match no citation and
+ * the anti-rot leg below would red it ("matches no citation -- delete it"): the entry's subject
+ * left, and the entry leaves with it. The defect each recorded is not repaired by this; it left
+ * the tracked tree with the documents. A future entry needs a tracked document that cannot be
+ * edited, which the repository no longer expects to have.
  */
-const IGNORED_CITATION_EXEMPTIONS: Record<string, string> = {
-  'Sprint Kickoffs/sprint-kickoff-bundle3-operator-path-2026-09-22.md::apps/public-dashboard/dist/version.json':
-    'Cowork\'s Clause 4 scope defect in the Bundle 3 kickoff, listed and NOT fixed by ' +
-    'R-2026-09-22-57 G3 and R-2026-09-22-62 B2, because that kickoff is committed ' +
-    'byte-identical to what was pasted. It passes the existence check only because CI ' +
-    'builds before the compliance suite, which is exactly the machine-dependence this ' +
-    'check exists to refuse; the exemption is the record of that, not a repair.',
-  'Sprint Kickoffs/pr-c-design-report-2026-09-24.md::apps/admin/public/version.json':
-    'The implementer\'s own Clause 4 scope defect in the PR 3.4b-app C design report (section ' +
-    '6.2), found when that report was committed. It is NOT fixed there, because the report ' +
-    'is committed byte-identical to what Cowork read and accepted (R-2026-09-24-97, sha256 ' +
-    '1f28046b…3b2a). The path is the admin app\'s gitignored build stamp; the .gitignore ' +
-    'line it describes is real. The exemption is the record of the defect, not a repair.',
-};
+const IGNORED_CITATION_EXEMPTIONS: Record<string, string> = {};
 
 /**
  * Paths cited deliberately BECAUSE THEY DO NOT EXIST.
@@ -115,12 +111,25 @@ const DELIBERATE_ABSENCES: Record<string, string> = {
  * from a script, a rule file, a test or a workflow reds regardless -- those are
  * executable artefacts, and a reader of one has no reason to expect a plan.
  */
-const PLANNED_ARTEFACTS: Record<string, { stage: number | string }> = {
-  'packages/fixtures/referral-columns.json': { stage: 5 },
-  'scripts/lint_referral_ward_to_ward.sh': { stage: 5 },
-  'tests/compliance/referral_ward_to_ward.test.ts': { stage: 5 },
-  'tests/db/referral_column_list.test.ts': { stage: 5 },
-};
+/**
+ * EMPTY SINCE 2026-10-06 (FU-1, FU-6), BY DESIGN, AND THE MECHANISM IS KEPT. It held four entries,
+ * all stage 5 and all cited from one planning document, the v2 sprint kickoff: the referral
+ * column fixture, the ward-to-ward referral lint, and its two tests (a compliance test and a
+ * db test, each named in that kickoff). That kickoff is held outside this repository now. With
+ * its only citer gone each entry is "registered but cited nowhere", which the anti-rot leg
+ * below reds, so each is removed in the commit that moves the document, for that reason and no
+ * other: the entry's subject left the tree. None of the four artefacts has been built, and
+ * removing the entries does not claim otherwise; the plan that names them is in the records
+ * directory. NOT a weakened guard: the plants below still prove, over constructed registers,
+ * that a registered phantom is excused only for a planning document and that both anti-rot
+ * directions red.
+ *
+ * A register that cannot be cited is a bypass list with no subject, so while no planning
+ * document is tracked the register is asserted EMPTY below. Retiring the mechanism entirely
+ * (this register, the planning-document pattern and their plants) is a larger change that is
+ * not made here and is for Cowork to rule on.
+ */
+const PLANNED_ARTEFACTS: Record<string, { stage: number | string }> = {};
 
 /**
  * A planning document may cite what it plans. Nothing else may.
@@ -269,8 +278,31 @@ export function ignoredCitationViolations(
   return [...new Set(out)];
 }
 
+/**
+ * THE ANTI-ROT CHECK FOR THE IGNORED-CITATION EXEMPTIONS, PURE. Each exemption must still match a real
+ * citation, of a path that is still gitignored and untracked. It was an inline loop; it is a function now
+ * because the real map is EMPTY (see its comment), and a loop over nothing cannot fail. The plants below
+ * feed this a constructed map, so the leg keeps its teeth for the day an entry is added.
+ */
+export function staleIgnoredExemptions(
+  exempt: Record<string, string>,
+  citations: readonly Citation[],
+  isIgnoredUntracked: (path: string) => boolean,
+): string[] {
+  const out: string[] = [];
+  for (const key of Object.keys(exempt)) {
+    const [citedIn, path] = key.split('::') as [string, string];
+    if (!citations.some((c) => c.citedIn === citedIn && c.path === path)) out.push(`exemption ${key} matches no citation — delete it`);
+    if (!isIgnoredUntracked(path)) out.push(`exemption ${key} names a path that is no longer gitignored — delete it`);
+  }
+  return out;
+}
+
 /** Batch `git check-ignore` plus the tracked set, read once. */
 function realIgnoredUntracked(paths: readonly string[]): (p: string) => boolean {
+  // `git check-ignore --stdin` with nothing to read is a usage error (exit 128), not "nothing ignored":
+  // an empty list has no ignored path, and asking git would turn a true answer into a thrown one.
+  if (paths.length === 0) return () => false;
   const tracked = new Set(execFileSync('git', ['-C', REPO_ROOT, 'ls-files'], { encoding: 'utf8' }).split('\n'));
   let ignoredOut = '';
   try {
@@ -300,11 +332,13 @@ describe('Clause 4 — no phantom enforcement', () => {
     expect(citations.length, 'no repo-relative citations found at all').toBeGreaterThan(30);
   });
 
-  test('the planned-artefact register is not empty', () => {
-    // The other half of anti-vacuity. An empty register with the exemption logic
-    // still wired in reads as "nothing is exempt" and as "the register stopped
-    // being loaded" identically.
-    expect(Object.keys(PLANNED_ARTEFACTS).length, 'register parsed to nothing').toBeGreaterThan(0);
+  test('the planned-artefact register is EMPTY: no planning document is tracked to cite an entry', () => {
+    // This was "the register is not empty", the other half of anti-vacuity. It is inverted, not deleted,
+    // and the inversion is the stronger claim: the register is a literal in this file, so it cannot
+    // "stop being loaded", and while its planning documents are held outside the repository an entry
+    // would be an exemption with no subject. An entry needs a tracked planning document first, and
+    // adding one means editing this assertion, which is where the question gets asked.
+    expect(Object.keys(PLANNED_ARTEFACTS), 'a planned-artefact entry has no tracked planning document to cite it').toEqual([]);
   });
 
   test('every cited repo-relative path exists, or is registered against a planning document', () => {
@@ -324,11 +358,31 @@ describe('Clause 4 — no phantom enforcement', () => {
 
   test('anti-rot — every ignored-citation exemption still matches a real citation, of a path still ignored', () => {
     const isIgnored = realIgnoredUntracked(Object.keys(IGNORED_CITATION_EXEMPTIONS).map((k) => k.split('::')[1] ?? ''));
-    for (const key of Object.keys(IGNORED_CITATION_EXEMPTIONS)) {
-      const [citedIn, path] = key.split('::') as [string, string];
-      expect(citations.some((c) => c.citedIn === citedIn && c.path === path), `exemption ${key} matches no citation — delete it`).toBe(true);
-      expect(isIgnored(path), `exemption ${key} names a path that is no longer gitignored — delete it`).toBe(true);
-    }
+    expect(staleIgnoredExemptions(IGNORED_CITATION_EXEMPTIONS, citations, isIgnored), 'an ignored-citation exemption has gone stale').toEqual([]);
+  });
+
+  test('plant — an exemption that matches no citation is rejected by the anti-rot leg', () => {
+    const exempt = { 'docs/nobody-cites-this.md::apps/x/dist/version.json': 'a constructed exemption' };
+    const out = staleIgnoredExemptions(exempt, [{ path: 'apps/x/dist/version.json', citedIn: 'docs/other.md' }], () => true);
+    expect(out, `a stale exemption survived: ${JSON.stringify(out)}`).toEqual(['exemption docs/nobody-cites-this.md::apps/x/dist/version.json matches no citation — delete it']);
+  });
+
+  test('plant — an exemption whose path is no longer gitignored is rejected by the anti-rot leg', () => {
+    const exempt = { 'docs/cites.md::apps/x/dist/version.json': 'a constructed exemption' };
+    const out = staleIgnoredExemptions(exempt, [{ path: 'apps/x/dist/version.json', citedIn: 'docs/cites.md' }], () => false);
+    expect(out, `an exemption for a tracked path survived: ${JSON.stringify(out)}`).toEqual(['exemption docs/cites.md::apps/x/dist/version.json names a path that is no longer gitignored — delete it']);
+  });
+
+  test('positive control — an exemption that matches a real citation of a still-ignored path is accepted', () => {
+    const exempt = { 'docs/cites.md::apps/x/dist/version.json': 'a constructed exemption' };
+    expect(staleIgnoredExemptions(exempt, [{ path: 'apps/x/dist/version.json', citedIn: 'docs/cites.md' }], () => true)).toEqual([]);
+  });
+
+  test('anti-vacuity — the anti-rot leg over an EMPTY exemption map and an empty git list does not throw and finds nothing', () => {
+    // The real map is empty. Asking `git check-ignore --stdin` about nothing exits 128, which this leg once
+    // read as a failure to run: the reader of an empty list must answer "nothing ignored", not throw.
+    expect(realIgnoredUntracked([])('anything')).toBe(false);
+    expect(staleIgnoredExemptions({}, [], () => false)).toEqual([]);
   });
 
   test('plant — a backticked gitignored path is rejected even though it EXISTS on this disk', () => {
@@ -338,8 +392,12 @@ describe('Clause 4 — no phantom enforcement', () => {
   });
 
   test('plant — the exemption is BY FILE: the same path cited from another file is still rejected', () => {
-    const cites = [{ path: 'apps/public-dashboard/dist/version.json', citedIn: 'docs/runbook-x.md' }];
-    expect(ignoredCitationViolations(cites, () => true, IGNORED_CITATION_EXEMPTIONS).length).toBe(1);
+    // The real map is empty (see its comment), so this runs over a constructed one: stronger than before, because
+    // it now also proves the exempt file IS excused, which the real entries used to prove by existing.
+    const exempt = { 'docs/exempt-x.md::apps/public-dashboard/dist/version.json': 'a constructed exemption' };
+    const path = 'apps/public-dashboard/dist/version.json';
+    expect(ignoredCitationViolations([{ path, citedIn: 'docs/runbook-x.md' }], () => true, exempt).length).toBe(1);
+    expect(ignoredCitationViolations([{ path, citedIn: 'docs/exempt-x.md' }], () => true, exempt)).toEqual([]);
   });
 
   test('a kept gate log is not source: .gate-logs/ is not read, and the same file elsewhere is (EB-2 d)', () => {

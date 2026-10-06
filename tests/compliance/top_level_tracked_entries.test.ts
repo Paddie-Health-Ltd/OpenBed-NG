@@ -48,7 +48,11 @@ export function topLevelEntries(root: string): string[] {
 }
 
 /**
- * THE SET, as of R-2026-09-22-58 C. Twelve directories and thirteen files.
+ * THE SET, as of R-2026-09-22-58 C, less one directory. Eleven directories and thirteen
+ * files: the records directory that held the sprint kickoffs, sweeps and design reports
+ * left the repository on 2026-10-06 (FU-1), and its entry left this table with it. The
+ * table is compared by identity, so the plant that would catch that directory coming
+ * back is the table itself: a tracked file under it reddens the first test below.
  *
  * Adding an entry here is a deliberate act with a name attached, which is the whole
  * point: the two strays that produced this guard would each have required an edit to
@@ -64,7 +68,6 @@ const EXPECTED = [
   'NOTICE',
   'README.md',
   'SECURITY.md',
-  'Sprint Kickoffs',
   'apps',
   'database',
   'docs',

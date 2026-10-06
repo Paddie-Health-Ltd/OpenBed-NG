@@ -56,7 +56,7 @@ const dutyFlagRules = [
 
 /**
  * FINDING F3, THE DISPLAY PATH'S CLOCK (R-2026-09-21-38 D1; built by PR F, R-2026-09-26-130
- * DF-1). Specified in `Sprint Kickoffs/sprint-kickoff-bedspace-v2-2026-09-10.md` ("The F3
+ * DF-1). Specified in the v2 sprint kickoff, held outside this repository ("The F3
  * guard, specified to implement") and unbuilt until PR F.
  *
  * A device clock is wrong on a real handset -- hours off, a year off, set by hand -- and a
