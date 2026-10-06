@@ -76,6 +76,8 @@ function facility(id: string, name: string): Record<string, unknown> {
     facility_id: id, name, lga: 'Ikeja', state: 'Lagos', lat: 6.6, lng: 3.35, public_phone_e164: '+2348000000301', version: 4,
     listed_at: SERVER_NOW, is_active: true, has_contact: true, agreement_state: 'recorded', categories: [],
     reporting_model: 'NONE', reporter_login: 'none', hefamaa_reg_no: null,
+    // 029's three keys: no approval and no login reads JSON null for all three.
+    approved_model: null, approved_on: null, reporting_approval_state: null,
   };
 }
 const REGISTER = { server_now: SERVER_NOW, retention_alert: [], facilities: [facility(FAC_A, 'Facility A'), facility(FAC_B, 'Facility B')] };

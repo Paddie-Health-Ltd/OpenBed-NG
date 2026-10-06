@@ -40,6 +40,15 @@ export const BLOCKS = {
   '12.5-1': { name: '12.5 step 1', section: '### 12.5 Withdrawing an agreement', anchor: '**1. Set `withdrawn_on`.**', reads: ['FACILITY_ID', 'DATABASE_URL'], psql: 2 },
   '12.5-2': { name: '12.5 step 2', section: '### 12.5 Withdrawing an agreement', anchor: "**2. Deactivate the facility's ward accounts.**", reads: ['FACILITY_ID', 'DATABASE_URL'], psql: 2 },
   '12.5-3': { name: '12.5 step 3', section: '### 12.5 Withdrawing an agreement', anchor: '**3. Clear `listed_at`**', reads: ['FACILITY_ID', 'DATABASE_URL'], psql: 2 },
+  // 029 (R-2026-09-30-201 GA): the founder SQL under 12.4's "Changing a facility's reporting model". It sits
+  // under 12.4's heading because the procedure's own heading is a level-four heading, which does not end 12.4.
+  '12.4-switch-2': {
+    name: "12.4 changing a facility's reporting model, step 2",
+    section: '### 12.4 Creating a facility',
+    anchor: '**2. Deactivate the logins of the kind being replaced.**',
+    reads: ['FACILITY_ID', 'LOGIN_KIND', 'DATABASE_URL'],
+    psql: 2,
+  },
 } as const satisfies Record<string, Block>;
 export type BlockId = keyof typeof BLOCKS;
 

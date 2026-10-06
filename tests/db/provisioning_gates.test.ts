@@ -41,7 +41,21 @@ import { sql, sqlSecond, withRole } from '../setup/db.js';
 const FAC = '0b000000-0000-4000-8000-0000000000fa';
 const EMAIL = 'onboarding-contact@example.invalid';
 
-async function facility(tx: TransactionSql, contact: 'none' | 'unsigned' | 'signed'): Promise<void> {
+/**
+ * 029 (GA; ruling FX P2): app.provision_begin refuses a reporting login that contradicts the
+ * LATEST approval, and any reporting login at a facility with no approval. So a "signed"
+ * facility here carries one approval, WARD unless the test says otherwise, and a test that
+ * begins the other kind appends one: the gate reads the latest. These rows are written
+ * directly, as the owner, inside the rolled-back transaction, so no approval outlives a
+ * test (the 020-028 round trips reverse 029, which refuses while any row exists).
+ */
+async function approve(tx: TransactionSql, model: 'WARD' | 'FACILITY'): Promise<void> {
+  await tx.unsafe(`
+    insert into app.facility_reporting_approval (facility_id, model, approved_on, agreement_version)
+    values ('${FAC}', '${model}', '2026-09-15', 'v1.0')`);
+}
+
+async function facility(tx: TransactionSql, contact: 'none' | 'unsigned' | 'signed', approval: 'WARD' | 'FACILITY' | null = 'WARD'): Promise<void> {
   await tx.unsafe(`
     insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, listed_at)
     values ('${FAC}', 'Provisioning Facility', 'Yaba', 'Lagos', 6.51, 3.38, '+2348000000401', NULL)`);
@@ -54,6 +68,7 @@ async function facility(tx: TransactionSql, contact: 'none' | 'unsigned' | 'sign
   // 021 (BD-1): a signed agreement is its own row, never the contact's.
   if (contact === 'signed') {
     await tx.unsafe(`insert into app.facility_agreement (facility_id, accepted_on, version) values ('${FAC}', '2026-09-01', 'v1.0')`);
+    if (approval !== null) await approve(tx, approval);
   }
 }
 
@@ -359,7 +374,7 @@ describe('026 — the facility reporter is provisioned through the same gates, a
       );
       expect(acct).toEqual({ role: REPORTER, facility_id: FAC, ward_category: null, is_active: true });
       expect(await reporterBegin(tx), 'begin opened a second reporter invite while one is active').toEqual({ status: 'complete', invite_id: null });
-    }, (tx) => facility(tx, 'signed'));
+    }, (tx) => facility(tx, 'signed', 'FACILITY'));
   });
 
   test('a reporter invite with a category is refused INVALID_ARGUMENT', async () => {
@@ -401,6 +416,8 @@ describe('026 — the facility reporter is provisioned through the same gates, a
     await withRole('postgres', null, async (tx) => {
       const w = await begin(tx);
       await complete(tx, w.invite_id ?? '', randomUUID());
+      // 029: the approval now says FACILITY, so the gate passes and the conflict is what refuses.
+      await approve(tx, 'FACILITY');
       const r = await refusal(tx.savepoint((sp) => sp.unsafe(`select * from app.provision_begin('${FAC}', NULL, '${REPORTER}')`)));
       expect(r.message).toBe('REPORTING_MODEL_CONFLICT');
       const [n] = await tx.unsafe<{ n: number }[]>(`select count(*)::int as n from app.invite where facility_id = '${FAC}' and role = '${REPORTER}'`);
@@ -412,11 +429,13 @@ describe('026 — the facility reporter is provisioned through the same gates, a
     await withRole('postgres', null, async (tx) => {
       const b = await reporterBegin(tx);
       await complete(tx, b.invite_id ?? '', randomUUID());
+      // 029: the approval now says WARD, so the gate passes and the conflict is what refuses.
+      await approve(tx, 'WARD');
       const r = await refusal(tx.savepoint((sp) => sp.unsafe(`select * from app.provision_begin('${FAC}', 'ICU_ADULT', 'WARD_STAFF')`)));
       expect(r.message).toBe('REPORTING_MODEL_CONFLICT');
       const [n] = await tx.unsafe<{ n: number }[]>(`select count(*)::int as n from app.invite where facility_id = '${FAC}' and role = 'WARD_STAFF'`);
       expect(n?.n, 'an invite opened despite the conflict').toBe(0);
-    }, (tx) => facility(tx, 'signed'));
+    }, (tx) => facility(tx, 'signed', 'FACILITY'));
   });
 
   test.each<['WARD_STAFF' | 'FACILITY_REPORTER', 'WARD_STAFF' | 'FACILITY_REPORTER']>([
@@ -436,6 +455,7 @@ describe('026 — the facility reporter is provisioned through the same gates, a
       const w = await begin(tx);
       await complete(tx, w.invite_id ?? '', ward);
       await deactivate(tx, ward);
+      await approve(tx, 'FACILITY');
       const b = await reporterBegin(tx);
       await complete(tx, b.invite_id ?? '', randomUUID());
       // begin refuses the ward now (above), so the reopening invite is made directly.
@@ -486,7 +506,7 @@ describe('026 — the facility reporter is provisioned through the same gates, a
       const raw = await refusal(tx.savepoint((sp) => insertAccount(sp, 'FACILITY_REPORTER')));
       expect(raw.code, 'the index did not refuse a second active reporter written directly').toBe('23505');
       expect(raw.message).toContain('ward_account_one_active_reporter');
-    }, (tx) => facility(tx, 'signed'));
+    }, (tx) => facility(tx, 'signed', 'FACILITY'));
   });
 
   test('a deactivated reporter re-provisioned through the gates is reactivated', async () => {
@@ -498,7 +518,7 @@ describe('026 — the facility reporter is provisioned through the same gates, a
       const again = await reporterBegin(tx);
       expect(again.status, 'begin treated a switched-off reporter as complete').toBe('open');
       expect(await complete(tx, again.invite_id ?? '', user)).toBe('reactivated');
-    }, (tx) => facility(tx, 'signed'));
+    }, (tx) => facility(tx, 'signed', 'FACILITY'));
   });
 
   test('an erased reporter login is refused LOGIN_ERASED, as a ward login is', async () => {
@@ -510,7 +530,7 @@ describe('026 — the facility reporter is provisioned through the same gates, a
       const again = await reporterBegin(tx);
       const r = await refusal(tx.savepoint((sp) => sp.unsafe(`select * from app.provision_complete('${again.invite_id}', '${user}')`)));
       expect(r.message).toBe('LOGIN_ERASED');
-    }, (tx) => facility(tx, 'signed'));
+    }, (tx) => facility(tx, 'signed', 'FACILITY'));
   });
 
   test('the race — a reporter and a ward login activated at one facility over two real connections: exactly one succeeds, and the second WAITED on the first', async () => {

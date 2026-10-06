@@ -18,6 +18,7 @@ import {
   recordAgreementBody,
   recordContactBody,
   recordRegistrationBody,
+  recordReportingApprovalBody,
   registerBody,
   schedulerStatusBody,
   setListedBody,
@@ -149,7 +150,7 @@ function show(heading: string, detail: string, kind: 'caution' | 'lead' = 'cauti
 // ------------------------------------------------------------------ calls
 
 /**
- * THE TEN CALLS, EACH A LITERAL PATH (-58 A5; the ninth since R-2026-09-27-144 DT Bundle 3, the tenth since R-2026-09-30-175 EY-3). The Worker's allow-list is derived from
+ * THE ELEVEN CALLS, EACH A LITERAL PATH (-58 A5; the ninth since R-2026-09-27-144 DT Bundle 3, the tenth since R-2026-09-30-175 EY-3, the eleventh since R-2026-09-30-201 GA). The Worker's allow-list is derived from
  * the code's call sites by tests/compliance/proxy_allow_list.test.ts, which reads a
  * `.authedFetch('<literal>')` and refuses a computed path as unresolved. So each call
  * names its path here, in full, rather than building `rpc/${name}` -- which would be
@@ -169,6 +170,7 @@ const CALL = {
   setListed: (h, body) => h.authedFetch('rpc/operator_set_facility_listed', { method: 'POST', headers: JSON_HEADERS, body }),
   recordRegistration: (h, body) => h.authedFetch('rpc/operator_record_registration', { method: 'POST', headers: JSON_HEADERS, body }),
   schedulerStatus: (h, body) => h.authedFetch('rpc/operator_scheduler_status', { method: 'POST', headers: JSON_HEADERS, body }),
+  recordReportingApproval: (h, body) => h.authedFetch('rpc/operator_record_reporting_approval', { method: 'POST', headers: JSON_HEADERS, body }),
 } satisfies Record<keyof typeof RPC, Call>;
 
 /**
@@ -292,6 +294,44 @@ const MODEL_WORD: Record<ReportingModel, string> = {
   WARD: W.REPORTING_MODEL_WARD,
   NONE: W.REPORTING_MODEL_NONE,
 };
+
+/** The model in lowercase words, for the middle of a sentence (029; the approval sentences below). */
+const APPROVED_WORD: Record<ReportingModel, string> = {
+  FACILITY: W.APPROVED_MODEL_FACILITY,
+  WARD: W.APPROVED_MODEL_WARD,
+  NONE: W.APPROVED_MODEL_NONE,
+};
+
+/** Fills {A}, {B} and {date} in one of the approval sentences. */
+const fillWords = (sentence: string, words: { A: string; B: string; date: string }): string =>
+  sentence.replace(/\{(A|B|date)\}/g, (_m, k: 'A' | 'B' | 'date') => words[k]);
+
+/**
+ * WHAT A FACILITY APPROVED, AND WHETHER ITS LOGINS MATCH, in the register's words or the detail
+ * view's (029; ruling FX P2; the design report's section 6). The state is READ from the row: the
+ * rule that compares the active logins with the LATEST approval is in public.operator_register()
+ * and nowhere else, and this only picks the sentence. JSON null (no approval and no login) is its
+ * own sentence and is not a fifth state.
+ */
+function approvalSentence(f: Facility, where: 'register' | 'detail'): string {
+  const words = { A: f.approvedModel === null ? '' : APPROVED_WORD[f.approvedModel], B: APPROVED_WORD[f.reportingModel], date: f.approvedOn ?? '' };
+  const detail = where === 'detail';
+  switch (f.reportingApprovalState) {
+    case 'NOT_YET_PROVISIONED':
+      return fillWords(detail ? (f.approvedModel === 'WARD' ? W.APPROVAL_DETAIL_NOT_YET_WARD : W.APPROVAL_DETAIL_NOT_YET_FACILITY) : W.APPROVAL_REGISTER_NOT_YET, words);
+    case 'APPROVAL_NOT_RECORDED':
+      return detail ? W.APPROVAL_DETAIL_NOT_RECORDED : W.APPROVAL_REGISTER_NOT_RECORDED;
+    case 'MATCHES':
+      return fillWords(detail ? W.APPROVAL_DETAIL_MATCHES : W.APPROVAL_REGISTER_MATCHES, words);
+    case 'MISMATCH':
+      return fillWords(detail ? W.APPROVAL_DETAIL_MISMATCH : W.APPROVAL_REGISTER_MISMATCH, words);
+    case null:
+      return detail ? W.APPROVAL_DETAIL_NONE : W.APPROVAL_REGISTER_NONE;
+  }
+}
+
+/** The two states that ask the operator to act: logins with nothing approved, and logins against what was approved. */
+const approvalNeedsAction = (f: Facility): boolean => f.reportingApprovalState === 'APPROVAL_NOT_RECORDED' || f.reportingApprovalState === 'MISMATCH';
 
 function loginWord(w: Ward, model: ReportingModel): string {
   // Under a facility login a ward has no login of its own: the facility's reports for it.
@@ -462,6 +502,11 @@ function renderRegister(holder: SessionHolder, reg: Register, mark: FetchMark, s
       wardsCell.append(el('p', `Worst ward: ${BAND_WORD[worst]}`, 'worst'));
     }
     wardsCell.append(el('p', MODEL_WORD[f.reportingModel], 'reporting-model'));
+    // 029: what the facility approved and whether its logins match. A withdrawn facility shows
+    // the withdrawn line above and no approval line here; its detail view keeps the sentence.
+    if (f.agreementState !== 'withdrawn') {
+      wardsCell.append(el('p', approvalSentence(f, 'register'), approvalNeedsAction(f) ? 'reporting-approval warning notice notice-caution' : 'reporting-approval'));
+    }
     const wards = el('ul', undefined, 'wards');
     for (const w of f.categories) wards.append(wardLine(w, f.reportingModel, reg, mark));
     wardsCell.append(wards);
@@ -1018,6 +1063,60 @@ function renderDetail(holder: SessionHolder, first: Detail): void {
   });
   patches.push(agreement.patch);
 
+  // THE APPROVED REPORTING MODEL (029; ruling FX P2): what the facility approved in its signed
+  // Schedule 1, and whether the active logins match it. The sentence is read from the register
+  // row, never derived here. The form APPENDS: a changed model, or a corrected date or title, is
+  // a new row and the earlier one stays. There is no version field: the function copies the
+  // acceptance row's. The form is offered only under a recorded, unwithdrawn agreement; the
+  // server refuses the other two cases too, and refuses a date after today, which this page
+  // cannot judge (it keeps no clock of the operator's).
+  let approvalPatch: () => void = () => undefined;
+  const approval = modal('approval-detail', W.APPROVAL_HEADING, () => d.f.agreementState, () => {
+    approvalPatch = () => undefined;
+    if (d.f.agreementState === 'withdrawn') return [el('p', W.APPROVAL_DETAIL_WITHDRAWN, 'notice notice-caution')];
+    if (d.f.agreementState === 'none') return [el('p', W.APPROVAL_NEEDS_AGREEMENT, 'notice notice-caution')];
+    const line = el('p');
+    const paint = (): void => {
+      line.textContent = approvalSentence(d.f, 'detail');
+      line.className = approvalNeedsAction(d.f) ? 'notice notice-caution' : '';
+    };
+    paint();
+    approvalPatch = paint;
+    const model = select(W.APPROVAL_MODEL_LABEL, 'model', [['FACILITY', MODEL_WORD.FACILITY], ['WARD', MODEL_WORD.WARD]]);
+    const on = field(W.APPROVAL_DATE_LABEL, 'approved_on', '', 'date');
+    const title = field(W.APPROVAL_ROLE_LABEL, 'approved_by_role');
+    return [
+      line,
+      form('record-reporting-approval', W.APPROVAL_SAVE, [model.wrap, on.wrap, title.wrap], async (s) => {
+        if (model.input.value !== 'FACILITY' && model.input.value !== 'WARD') {
+          refuse(s, ADMIN_CODES['INVALID_ARGUMENT:p_model'] ?? ADMIN_FIXED.UNRECOGNISED, model.input);
+          return;
+        }
+        // An empty date, or one the field itself cannot read, is refused here in the server's own
+        // words for a missing date, rather than sent as blank.
+        if (on.input.value === '' || on.input.validity.badInput) {
+          refuse(s, ADMIN_CODES['INVALID_ARGUMENT:p_approved_on'] ?? ADMIN_FIXED.UNRECOGNISED, on.input);
+          return;
+        }
+        const typedTitle = title.input.value.trim();
+        if ([...typedTitle].length > 64) {
+          refuse(s, ADMIN_CODES['INVALID_ARGUMENT:p_approved_by_role'] ?? ADMIN_FIXED.UNRECOGNISED, title.input);
+          return;
+        }
+        const r = await write(holder, 'recordReportingApproval', recordReportingApprovalBody(d.f.facilityId, model.input.value, on.input.value, typedTitle === '' ? null : typedTitle));
+        if ((await after(r, s, null)) !== 'ok') return;
+        model.input.value = '';
+        on.input.value = '';
+        title.input.value = '';
+        await refresh(W.APPROVAL_SAVED, 'info');
+      }),
+    ];
+  });
+  patches.push(() => {
+    approval.patch();
+    approvalPatch();
+  });
+
   // THE REGISTRATION (DT Bundle 3, k): the HEFAMAA number, optional, operator-only. Its form
   // keeps the saved row it was filled from while it holds unsent input, and sends THAT
   // row's version (DO-4 d); an untouched form follows every re-read. Empty clears it.
@@ -1067,7 +1166,7 @@ function renderDetail(holder: SessionHolder, first: Detail): void {
   });
   patches.push(listing.patch);
 
-  root.replaceChildren(heading, back, status, facility, registration, wards, contact.node, agreement.node, listing.node);
+  root.replaceChildren(heading, back, status, facility, registration, wards, contact.node, agreement.node, approval.node, listing.node);
 }
 
 // ------------------------------------------------------------------ sign-in

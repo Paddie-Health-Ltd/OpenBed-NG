@@ -63,7 +63,8 @@ describe('the authenticated-executable surface', () => {
     // operator_get_contact. 026 (R-2026-09-27-144 DT k; R-2026-09-27-145 DU-1):
     // operator_record_registration, and my_facility_wards restated as
     // my_reporting_wards, for the same reason 021 renamed its list. 028
-    // (R-2026-09-30-175 EY-2): operator_scheduler_status.
+    // (R-2026-09-30-175 EY-2): operator_scheduler_status. 029 (R-2026-09-30-201 GA):
+    // operator_record_reporting_approval.
     expect(Object.keys(CLOSED_LIST).sort()).toEqual([
       'graphql_public.graphql',
       'public.my_reporting_wards',
@@ -74,6 +75,7 @@ describe('the authenticated-executable surface', () => {
       'public.operator_record_agreement',
       'public.operator_record_contact',
       'public.operator_record_registration',
+      'public.operator_record_reporting_approval',
       'public.operator_register',
       'public.operator_scheduler_status',
       'public.operator_set_facility_listed',

@@ -87,6 +87,13 @@ const RPCS = [
     signature: 'public.operator_scheduler_status()',
     call: `select public.operator_scheduler_status()`,
   },
+  // 029 (R-2026-09-30-201 GA): the operator's write of the approved reporting model. It takes
+  // the model as text, never as the app-typed enum, which the app-typed-parameter leg below forbids.
+  {
+    name: 'operator_record_reporting_approval',
+    signature: 'public.operator_record_reporting_approval(text, text, date, text)',
+    call: `select * from public.operator_record_reporting_approval('00000000-0000-4000-8000-000000000000', 'WARD', '2026-09-15', 'CMD')`,
+  },
 ] as const;
 
 /** Every function in public with an input parameter whose type lives in schema app. */

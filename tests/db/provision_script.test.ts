@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
-import { afterAll, afterEach, beforeAll, describe, expect, test } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import { sql, sqlSecond } from '../setup/db.js';
 import { dbUrl } from '../setup/local-keys.js';
 
@@ -28,6 +28,13 @@ import { dbUrl } from '../setup/local-keys.js';
  * functions write audit rows. After each test the accounts and invites these tests
  * made are deleted, so no active PLATFORM_ADMIN outlives a test (R-2026-09-24-91
  * BS-1 a: migration 022's down refuses while one exists).
+ *
+ * 029 (GA): THE GATE ALSO READS THE FACILITY'S APPROVED REPORTING MODEL, so a committed
+ * approval is written for the facility the script provisions, and EVERY approval these tests
+ * made is cleared after each test and after all of them. The table is append-only, so the
+ * clearing disables its row trigger inside one transaction and re-enables it ENABLE ALWAYS
+ * (a plain ENABLE would leave the config-drift test reading 'O'); and migration 029's down
+ * refuses while any approval row exists, which would red every earlier round trip.
  *
  * F3, THE FAILURE AFTER THE AUTH USER EXISTS, IS INJECTED IN FLIGHT. The design
  * report proposed terminating the script's backend before the stub answers. On
@@ -158,6 +165,20 @@ async function account(id: string) {
   return a;
 }
 
+/** A committed approval: the script opens its own connection, so a rolled-back one would not be seen. */
+async function approveCommitted(fac: string, model: 'WARD' | 'FACILITY'): Promise<void> {
+  await sql()`insert into app.facility_reporting_approval (facility_id, model, approved_on, agreement_version)
+              values (${fac}::uuid, ${model}::app.reporting_model, '2026-09-15', 'synthetic-v1')`;
+}
+/** Removes every approval these fixtures made. One transaction, so a crash leaves the trigger as it was. */
+async function clearApprovals(): Promise<void> {
+  await sql().begin(async (tx) => {
+    await tx`alter table app.facility_reporting_approval disable trigger trg_facility_reporting_approval_append_only`;
+    await tx`delete from app.facility_reporting_approval where facility_id = any(${FACILITIES}::uuid[])`;
+    await tx`alter table app.facility_reporting_approval enable always trigger trg_facility_reporting_approval_append_only`;
+  });
+}
+
 beforeAll(async () => {
   server = createServer((req, res) => {
     requests.push(`${req.method} ${req.url}`);
@@ -167,6 +188,7 @@ beforeAll(async () => {
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
   stubUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
+  await clearApprovals();
   const db = sql();
   for (const [i, fac] of FACILITIES.entries()) {
     await db`
@@ -191,6 +213,11 @@ beforeAll(async () => {
   expect(n?.n, 'a script-test facility is listed, so it could reach public output').toBe(0);
 });
 
+// The ward approval is the default; a test that provisions the other kind appends its own.
+beforeEach(async () => {
+  await approveCommitted(FAC_OK, 'WARD');
+});
+
 afterEach(async () => {
   expect(requests.filter((r) => r.includes('generate_link')), 'the script called admin/generate_link, which A.2 removed from the provisioning path').toEqual([]);
   const db = sql();
@@ -198,10 +225,12 @@ afterEach(async () => {
   await db`delete from app.invite where facility_id = any(${FACILITIES}::uuid[])`;
   await db`delete from app.ward_account where role = 'PLATFORM_ADMIN' and id = any(${operators}::uuid[])`;
   await db`delete from app.invite where role = 'PLATFORM_ADMIN'`;
+  await clearApprovals();
   requests = [];
 });
 
 afterAll(async () => {
+  await clearApprovals();
   await new Promise<void>((r) => server.close(() => r()));
 });
 
@@ -442,6 +471,7 @@ describe('022 through the script (R-2026-09-24-90 BR-1 e)', () => {
 
 describe('the facility-level login through the script (R-2026-09-27-144 DT, Bundle 2)', () => {
   test('a facility login is provisioned with ONE Auth request: role FACILITY_REPORTER, the facility, and no category', async () => {
+    await approveCommitted(FAC_OK, 'FACILITY');
     const user = randomUUID();
     handler = gotrue({ newId: user });
     const r = await run(reporter(FAC_OK));
@@ -474,6 +504,8 @@ describe('the facility-level login through the script (R-2026-09-27-144 DT, Bund
     handler = gotrue();
     expect((await run(ward(FAC_OK))).status).toBe(0);
     requests = [];
+    // 029: the approval now says FACILITY, so the gate passes and the conflict is what refuses.
+    await approveCommitted(FAC_OK, 'FACILITY');
     const r = await run(reporter(FAC_OK));
     expect(r.status, r.out).toBe(1);
     expect(r.out).toContain(
@@ -484,6 +516,11 @@ describe('the facility-level login through the script (R-2026-09-27-144 DT, Bund
 });
 
 describe('DV-4 — a refusal at provision_complete after the Auth user exists names it, says how to delete it, and never retries (R-2026-09-27-146)', () => {
+  // 029: every test here provisions the facility login, so the latest approval is FACILITY.
+  beforeEach(async () => {
+    await approveCommitted(FAC_OK, 'FACILITY');
+  });
+
   // THE RACE, FORCED IN FLIGHT. begin passed (no other login at the facility), then,
   // while the script waits on the Auth call, the stub makes the conflicting login
   // committed. provision_complete then meets 026's trigger or its one-reporter index.
@@ -662,5 +699,26 @@ describe('the host check refuses before anything is read or written', () => {
     expect(r.out).toContain('SUPABASE_API_URL names project aaaaaaaaaaaaaaaaaaaa and DATABASE_URL names the local stack');
     const [after] = await sql()<{ n: number }[]>`select count(*)::int as n from app.invite`;
     expect(after?.n, 'the refused run opened an invite').toBe(before?.n);
+  });
+});
+
+describe("029 — the facility's approved reporting model, through the script (ruling FX P2; the founder's decision 2)", () => {
+  const SAID = "REPORTING_MODEL_NOT_APPROVED — this login does not match the facility's approved reporting model, or none is recorded: record it in the admin app from the signed Schedule 1, then provision the kind of login it approved";
+
+  // The default approval is WARD (the file's beforeEach), so a facility login contradicts it.
+  test.each<[string, string[], 'none' | 'WARD' | 'FACILITY']>([
+    ['a ward login where no approval is recorded', ward(FAC_OK), 'none'],
+    ['a facility login where no approval is recorded', reporter(FAC_OK), 'none'],
+    ['a facility login where the latest approval is WARD', reporter(FAC_OK), 'WARD'],
+    ['a ward login where the latest approval is FACILITY', ward(FAC_OK), 'FACILITY'],
+  ])('%s is refused at begin in its plain sentence, with ZERO Auth requests and no invite opened', async (_name, args, approval) => {
+    if (approval === 'none') await clearApprovals();
+    if (approval === 'FACILITY') await approveCommitted(FAC_OK, 'FACILITY');
+    handler = gotrue();
+    const r = await run(args);
+    expect(r.status, r.out).toBe(1);
+    expect(r.out).toContain(`REFUSED by app.provision_begin: ${SAID}. No invite was opened and no Auth call was made.`);
+    expect(requests, 'a refused run reached the Auth admin API').toEqual([]);
+    expect(await openInvites(FAC_OK), 'a refused run opened an invite').toEqual([]);
   });
 });

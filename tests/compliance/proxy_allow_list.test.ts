@@ -501,6 +501,7 @@ describe('the allow-list against the code and the runbooks', () => {
       'POST /rest/v1/rpc/operator_record_contact @ apps/admin/src/main.ts',
       // R-2026-09-27-144 DT Bundle 3: the Registration section's write, until then a runbook probe's alone.
       'POST /rest/v1/rpc/operator_record_registration @ apps/admin/src/main.ts',
+      'POST /rest/v1/rpc/operator_record_reporting_approval @ apps/admin/src/main.ts',
       'POST /rest/v1/rpc/operator_register @ apps/admin/src/main.ts',
       'POST /rest/v1/rpc/operator_scheduler_status @ apps/admin/src/main.ts',
       'POST /rest/v1/rpc/operator_set_facility_listed @ apps/admin/src/main.ts',

@@ -80,6 +80,8 @@ const CALLS: [string, (id: string) => string][] = [
   ['operator_record_registration', () => `select * from public.operator_record_registration('${FAC}', 1, 'LSHEFAMAA-0001')`],
   // 028 (R-2026-09-30-175 EY-2): the scheduler's status, for the admin System status view.
   ['operator_scheduler_status', () => `select public.operator_scheduler_status()`],
+  // 029 (R-2026-09-30-201 GA): the approved reporting model's one writer.
+  ['operator_record_reporting_approval', () => `select * from public.operator_record_reporting_approval('${FAC}', 'WARD', '2026-09-15', 'CMD')`],
 ];
 
 describe('the operator functions refuse every caller that is not an active PLATFORM_ADMIN', () => {

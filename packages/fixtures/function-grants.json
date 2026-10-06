@@ -34,6 +34,7 @@
     "public.operator_record_agreement(text, date, text, text)": { "execute": ["authenticated"], "why": "021: an operator records the facility's agreement, never overwriting one (BD-1 c)" },
     "public.operator_record_contact(text, text, text, text, text, boolean, integer)": { "execute": ["authenticated"], "why": "021: an operator records the facility's contact (BC-5 a, BD-1 c)" },
     "public.operator_record_registration(text, integer, text)": { "execute": ["authenticated"], "why": "026: an operator records a facility's HEFAMAA registration number, operator-only and never public (R-2026-09-27-144 DT k)" },
+    "public.operator_record_reporting_approval(text, text, date, text)": { "execute": ["authenticated"], "why": "029: an operator records the reporting model a facility approved in its signed Schedule 1, appending to an append-only history and never overwriting one (ruling FX P2)" },
     "public.operator_register()": { "execute": ["authenticated"], "why": "021: the operator's register, 020's list as an envelope carrying server_now (AJ D8, BC-5 c)" },
     "public.operator_scheduler_status()": { "execute": ["authenticated"], "why": "028: the operator's read of the scheduler's status (app.scheduler_status() behind app.assert_operator()), for the admin System status view (R-2026-09-30-175 EY-2)" },
     "public.operator_set_facility_listed(text, integer)": { "execute": ["authenticated"], "why": "020: an operator lists a facility (-71 B)" },

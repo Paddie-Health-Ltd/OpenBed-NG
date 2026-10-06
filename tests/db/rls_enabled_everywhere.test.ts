@@ -85,6 +85,8 @@ describe('row level security', () => {
     // `device` survives, re-scoped to a ward account and without its fingerprint.
     // 17 since 021 (R-2026-09-24-76 BD-1): IN facility_agreement -- the facility's
     // acceptance, moved off the contact row so that no erasure of a person reaches it.
+    // 18 since 029 (R-2026-09-30-201 GA): IN facility_reporting_approval -- the append-only
+    // history of the reporting model a facility approved.
     expect(names).toEqual([
       'alert',
       'audit_log',
@@ -94,6 +96,7 @@ describe('row level security', () => {
       'facility_agreement',
       'facility_contact',
       'facility_ops',
+      'facility_reporting_approval',
       'invite',
       'notification_outbox',
       'referral',

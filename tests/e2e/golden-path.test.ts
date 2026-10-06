@@ -42,6 +42,7 @@ import {
   recordAgreementBody,
   recordContactBody,
   recordRegistrationBody,
+  recordReportingApprovalBody,
   registerBody,
   setListedBody,
 } from '../../apps/admin/src/bodies.js';
@@ -184,6 +185,16 @@ describe('golden path — release gate 2', () => {
     expect(view.contact?.full_name).toBe(ALPHA_CONTACT.fullName);
     expect(view.agreement?.version).toBe(ALPHA_AGREEMENT.version);
     expect(view.agreement?.withdrawn_on).toBeNull();
+    // 029 (R-2026-09-30-201 GA): app.provision_begin also reads the facility's approved reporting model, so it is
+    // recorded from the signed Schedule 1 BEFORE any login is provisioned. ALPHA reports per ward. It is recorded
+    // inside this step and not as a new one, so the step list and the ratchet's frontier do not move. A re-run
+    // on the same database finds the logins already there, so the state may already read MATCHES; it never
+    // reads MISMATCH, which would mean the approval and the logins disagree.
+    const approval = await operatorCall(RPC.recordReportingApproval, recordReportingApprovalBody(ALPHA.id, 'WARD', ALPHA_AGREEMENT.acceptedOn, 'Medical Director'));
+    expect(approval.status, `operator_record_reporting_approval failed: ${JSON.stringify(approval.body)}`).toBe(200);
+    const approved = await alphaInRegister();
+    expect([approved['approved_model'], approved['approved_on']]).toEqual(['WARD', ALPHA_AGREEMENT.acceptedOn]);
+    expect(['NOT_YET_PROVISIONED', 'MATCHES'], `ALPHA reads ${String(approved['reporting_approval_state'])} right after its approval`).toContain(approved['reporting_approval_state']);
   });
 
   test(name('operator-adds-category'), async () => {
@@ -216,6 +227,7 @@ describe('golden path — release gate 2', () => {
     const row = await alphaInRegister();
     const logins = Object.fromEntries((row['categories'] as { category: string; has_account: boolean }[]).map((c) => [c.category, c.has_account]));
     expect(logins[PUBLISH_CATEGORY], 'the publishing ward has no active login').toBe(true);
+    expect(row['reporting_approval_state'], "the register does not read ALPHA's ward logins as matching the model it approved").toBe('MATCHES');
     // The ward steps' baseline, including the stale ward no operator function can make.
     await restoreAlphaWardBaseline();
     await assertAlphaPublic();
@@ -387,6 +399,9 @@ describe('golden path — release gate 2', () => {
       recordAgreementBody(GAMMA.id, GAMMA_AGREEMENT.acceptedOn, GAMMA_AGREEMENT.version, GAMMA_AGREEMENT.signatoryRole),
     );
     expect(agreement.status, JSON.stringify(agreement.body)).toBe(200);
+    // 029: GAMMA reports through one facility login, approved from its signed Schedule 1 before the login is made.
+    const approval = await operatorCall(RPC.recordReportingApproval, recordReportingApprovalBody(GAMMA.id, 'FACILITY', GAMMA_AGREEMENT.acceptedOn, 'Medical Director'));
+    expect(approval.status, `operator_record_reporting_approval failed: ${JSON.stringify(approval.body)}`).toBe(200);
     for (const category of GAMMA_CATEGORIES) {
       const r = await operatorCall(RPC.addCategory, addCategoryBody(GAMMA.id, category, 'OFFERED'));
       expect(r.status, JSON.stringify(r.body)).toBe(200);
@@ -395,6 +410,7 @@ describe('golden path — release gate 2', () => {
     expect((row['categories'] as { category: string }[]).map((c) => c.category).sort()).toEqual([...GAMMA_CATEGORIES].sort());
     expect(row['listed_at'], 'GAMMA must stay unlisted, so nothing public changes').toBeNull();
     expect(row['reporting_model'], 'GAMMA has a reporting login before one was provisioned').toBe('NONE');
+    expect([row['approved_model'], row['reporting_approval_state']], 'GAMMA is not approved and waiting for its login').toEqual(['FACILITY', 'NOT_YET_PROVISIONED']);
   });
 
   test(name('operator-records-hefamaa'), async () => {
@@ -416,6 +432,7 @@ describe('golden path — release gate 2', () => {
     const row = await gammaInRegister();
     expect(row['reporting_model'], 'the register does not read GAMMA as reporting through one login').toBe('FACILITY');
     expect(row['reporter_login']).toBe('active');
+    expect(row['reporting_approval_state'], "the register does not read GAMMA's facility login as matching the model it approved").toBe('MATCHES');
     const cats = row['categories'] as { category: string; has_account: boolean; provisioning_incomplete: boolean }[];
     expect(cats.map((c) => [c.category, c.has_account, c.provisioning_incomplete]).sort()).toEqual(
       [...GAMMA_CATEGORIES].sort().map((c) => [c, true, false]),
