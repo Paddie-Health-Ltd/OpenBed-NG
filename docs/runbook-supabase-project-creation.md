@@ -1019,11 +1019,15 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions.
 Restated 2026-09-14: until then this read `exactly 13 migration(s) pending.`, and
 migration 014 made that wrong.
 
-- **The hosted project today** holds 001 through 028 (see step 7), and so does the
-  repository. Every file up to and including
+- **The hosted project today** holds 001 through 028 (see step 7), and the
+  repository ends at 029. Every file up to and including
   `028_operator_scheduler_status.sql` must read `already applied`;
-  there must be no `WOULD APPLY` line; and the dry run must end
-  `0 migration(s) pending.`
+  there must be exactly one `WOULD APPLY` line, naming `029_facility_reporting_approval.sql`; and the dry
+  run must end
+  `1 migration(s) pending.` Apply it by the fences below, in the order step 5 gives them.
+- **Restated 2026-10-06 (R-2026-09-30-201 GA), in the change that ADDS 029.** Until then
+  this expected no `WOULD APPLY` line and `0 migration(s) pending.`, which was right
+  from 028's hosted apply while the repository also ended at 028.
 - **Restated 2026-10-01 (R-2026-09-30-177 FA-5 b), in the change that records 028's
   hosted apply.** Until then this expected 001 through 027, exactly one `WOULD APPLY`
   line naming `028_operator_scheduler_status.sql`, and `1 migration(s) pending.` The
@@ -1127,10 +1131,14 @@ migration 014 made that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line AT ALL, or any count other than
-  `0 migration(s) pending.`: stop and report.** Another file pending means
+- **Any `WOULD APPLY` line OTHER than the one named above, or any count other than
+  `1 migration(s) pending.`: stop and report.** Another file pending means
   either a migration reached the repository after the list was last restated, or
   hosted is not where this document says it is.
+  - *Restated 2026-10-06 (R-2026-09-30-201 GA), in the change that adds 029.
+    Until then this bullet read "Any `WOULD APPLY` line AT ALL, or any count other than
+    `0 migration(s) pending.`", which was right from 028's hosted apply until this
+    change merged.*
   - *Restated 2026-10-01 (R-2026-09-30-177 FA-5 b), in the change that records 028's
     hosted apply. Until then this bullet read "Any `WOULD APPLY` line OTHER than the one
     named above, or any count other than `1 migration(s) pending.`", which was right from
@@ -2554,14 +2562,99 @@ apply. On 2026-10-01 it was (R-2026-09-30-177), with 028's sha256 as at `7b71b28
 
 - [x] On 2026-09-30, 028 applied; the Worker redeployed and the admin app redeployed from the same checkout; and the operator's read of System status taken, from the deploy checkout at `7b71b28d66267b61aac8b498030a0687b208080c` (#108's merge). The readings are the founder's, relayed by Cowork (R-2026-09-30-177 FA-5 b), who read each fence before the next. Fence 1: twenty-seven `already applied` (001 to 027), `WOULD APPLY` `028_operator_scheduler_status.sql`, one pending. Fence 2: `FINGERPRINT beds.json=0/0:543f06c0b0c4,facility_public=0:d41d8cd98f00,ward_public=0:d41d8cd98f00,lga_rollup=0:d41d8cd98f00`, `RECORDED`, identical to 027's. Fence 3: 028 applied (`CREATE FUNCTION`, `DO`, `INSERT 0 1`, `INSERT 0 0`); "1 applied this run". The `INSERT 0 0` is `run_migrations.sh`'s own ledger insert finding the row the file's `INSERT 0 1` had already written, as at 027: the expectation omitted that line, and the reading was right. Fence 4: all four parts `ok`, "PASS (VACUOUS FOR B1)". Fence 5: twenty-eight `already applied` (001 to 028), no `WOULD APPLY`, "0 migration(s) pending." Fence 6: thirty-seven lines, every one `ok`, including the new `public.operator_scheduler_status() EXECUTE: authenticated`; `public.health_probe()` is still the only `service_role` line apart from Supabase's own `graphql_public.graphql`. The Worker: `deploy_worker.sh supabase-proxy` at `7b71b28`, Current Version ID `ea15d63e-52a7-4dc5-89fb-67918591c5ad`; `readback_worker.sh` read PASS on probes 1 to 3 and the stamp; probe 4, read by Cowork through the Cloudflare connector, PASS, the bundled allow-list equal to the file entry for entry (forward 29: 14 `POST`, 1 `GET`, 14 `OPTIONS`; 3 direct-origin exceptions; 1 refusal probe), stamp `7b71b28`, dirty false. The admin app: `deploy_pages.sh --branch main admin`, deployed as `3151a953`, `readback_admin.sh` read PASS. The operator's read of System status (the founder's browser, a fresh private window, through Access and the sign-in link, read by Cowork from the founder's screenshots): no caution line; both ages "less than a minute ago"; five jobs, each "Running — last run succeeded"; no console error. This is the first hosted proof that `public.operator_scheduler_status()` answers the operator through the Worker.
 
+### 029's apply — the approved reporting model (R-2026-09-30-201 GA)
+
+**Not yet run.** The founder runs it after the pull request that adds 029 merges, and
+BEFORE the Worker and the admin app are redeployed from that merge. The admin app's
+register now requires three keys that 029 adds, and an admin app redeployed before the
+apply shows every facility as "could not be read". Claude Code runs nothing hosted.
+
+**What 029 changes** (its header says why). The enum `app.reporting_model`; the table
+`app.facility_reporting_approval`, append-only, with its two triggers; one operator
+function, `public.operator_record_reporting_approval(text, text, date, text)`, executable
+by `authenticated` alone; `app.provision_begin` with one gate added to each reporting
+branch; and `public.operator_register()` with three keys added to each facility. **It
+inserts no row and backfills nothing.** Two consequences, stated so they are not found by
+surprise:
+- **From the apply, `app.provision_begin` refuses any reporting login at a facility with
+  no approval recorded**, and any login that contradicts the latest one
+  (`REPORTING_MODEL_NOT_APPROVED`). A login that is already active is untouched, and a
+  re-run for it still reads `complete`.
+- **If facility one already has a reporting login on hosted, its approval is not there.**
+  Its register line reads "Logins are active. No approved reporting model is on file."
+  until the operator records it, in the admin app, from the signed Schedule 1 (12.4 step
+  3a), and the line then reads "Logins match the approved model". A new login at a
+  facility with no approval is refused until then.
+
+**Run the six fences of "020's apply" above, in the same order, with these
+expectations for 029.** Only what each must read changes:
+
+1. **The dry run:** exactly one `WOULD APPLY` line, naming
+   `029_facility_reporting_approval.sql`, and the count the list at the top of this step
+   states. Anything else: stop and report.
+2. **The before-reading:** as for 020. Keep the `FINGERPRINT` line.
+3. **The apply:** as for 020. It applies the one file, and ends by saying one was applied
+   this run.
+4. **The after-reading:** as for 020. `PASS (VACUOUS FOR B1)` is expected while hosted
+   lists no facility: 029 writes no public row and changes no projection.
+5. **The second dry run:** twenty-nine `already applied` lines, naming
+   `001_app_schema_and_migration_ledger.sql` through `029_facility_reporting_approval.sql`,
+   no `WOULD APPLY` line, and the same last line as 020's fence 5, saying nothing is
+   pending. Anything else: stop and report.
+6. **Who can execute what:** as for 020, run after the apply. One line is new:
+   `public.operator_record_reporting_approval(text, text, date, text) EXECUTE: authenticated`.
+   `app.provision_begin(uuid, text, text)` still reads `EXECUTE: none`. Every other line
+   reads as before, and `public.rls_auto_enable()` reads `ok` under `(hosted-only)`. This
+   read-back runs BEFORE the boundary is frozen. Anything else: stop and report.
+
+**Then two readings of what 029 created.** They only read. **They must read `t|2`, and
+then `0`.** `t` is the table, `2` the number of its triggers that are ENABLE ALWAYS, and
+`0` the number of approvals, because 029 inserts none (after 12.4 step 3a the last reads
+the number of approvals recorded). **Anything else: stop and report.**
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select to_regclass('app.facility_reporting_approval') is not null, (select count(*) from pg_trigger where tgrelid = 'app.facility_reporting_approval'::regclass and tgenabled = 'A' and not tgisinternal)"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select count(*) from app.facility_reporting_approval"
+unset DATABASE_URL
+```
+
+**Then read it as the operator.** A psql session cannot: the register reads the caller's
+identity from `auth.uid()`, which a psql session does not carry. The reading is the admin
+app, in a browser, signed in as the operator, after the admin redeploy. A facility with
+no approval and no login must read "No approved reporting model is on file yet.", and a
+facility's detail view must show a "Reporting approval" section with its form.
+
+**The Worker and the admin app are redeployed after the apply**, each with its read-back:
+the Worker's allow-list gained `operator_record_reporting_approval` and its preflight, and
+the admin app's register now requires 029's keys.
+
+**The down migration is not applied here on anyone's own authority.** It refuses while any
+approval exists (`REPORTING_APPROVALS_RECORDED`); otherwise it removes the operator
+function, restores 026's two bodies, and drops the table and the enum.
+
+**Afterwards:** the frozen boundary is recorded with `29`, in the change that records this
+apply.
+
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 028 applied, and so does the repository
-end), the dry run prints twenty-eight `already applied` lines and:
+**On the hosted project today** (001 through 028 applied, and the repository ends at
+029), the dry run prints twenty-eight `already applied` lines and:
 
 ```
-0 migration(s) pending.
+  WOULD APPLY     : 029_facility_reporting_approval.sql   <- dry run
+1 migration(s) pending.
 ```
+
+*Restated 2026-10-06 (R-2026-09-30-201 GA), in the change that adds 029.* Until then this
+block showed twenty-eight `already applied` lines, no WOULD APPLY line, and a count of
+zero -- right from 028's hosted apply while the repository ended at 028.
 
 *Restated 2026-10-01 (R-2026-09-30-177 FA-5 b), in the change that records 028's hosted
 apply.* Until then this block showed twenty-seven `already applied` lines, one WOULD APPLY
@@ -2777,9 +2870,14 @@ Migrations complete (3 applied this run).   <- apply
 second is lower:
 
 ```
-28 migration(s) pending.          <- dry run
-Migrations complete (27 applied this run).   <- apply
+29 migration(s) pending.          <- dry run
+Migrations complete (28 applied this run).   <- apply
 ```
+
+*Restated 2026-10-06 (R-2026-09-30-201 GA), in the change that adds 029. This block
+read `28` and `27` -- right while the repository ended at 028. Observed on the local
+stack in this change: a fresh `db:reset` printed `Migrations complete (28 applied this
+run).`*
 
 *Restated 2026-09-30 (R-2026-09-30-175 EY-2), in the change that adds 028. This block
 read `27` and `26` -- right while the repository ended at 027. Observed on the local
@@ -2823,13 +2921,15 @@ so from that merge it named a count one lower than a correct virgin run prints. 
 not one of the hosted expectations the guard parses; it was found by reading the
 section for this restatement.*
 
-**Twenty-seven is correct there. Nothing was skipped.** Migration 001 creates the `app`
+**Twenty-eight is correct there. Nothing was skipped.** Migration 001 creates the `app`
 schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
 recorded by a ledger that does not exist yet. The runner applies and ledgers it
 in a separate **bootstrap** step, and the apply loop then counts only what it
-applied itself -- 002 through 028, which is twenty-seven. The dry run has no bootstrap
+applied itself -- 002 through 029, which is twenty-eight. The dry run has no bootstrap
 branch: `is_applied` returns 0 while the ledger is absent, so it counts all
-twenty-eight as pending. The two numbers are measuring different things.
+twenty-nine as pending. The two numbers are measuring different things.
+*Restated 2026-10-06 (R-2026-09-30-201 GA), in the change that adds 029; until then this
+paragraph read twenty-seven, 002 through 028, and twenty-eight.*
 *Restated 2026-09-30 (R-2026-09-30-175 EY-2), in the change that adds 028; until then this
 paragraph read twenty-six, 002 through 027, and twenty-seven.*
 *Restated 2026-09-30 (R-2026-09-29-173 EW-1), in the change that adds 027; until then this
@@ -2843,9 +2943,12 @@ this paragraph read twenty-two, 002 through 023, and twenty-three.*
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `28`, with `0 migration(s) pending.` from the
-dry run** -- the founder's second dry run after 028's apply, on 2026-09-30, read
-twenty-eight `already applied` lines, 001 through 028.
+THAT PROJECT. **On hosted today that is `28`, with `1 migration(s) pending.` from the
+dry run** -- 029, in the repository and not yet applied. The founder's second dry run
+after 028's apply, on 2026-09-30, read twenty-eight `already applied` lines, 001
+through 028.
+*Restated 2026-10-06 (R-2026-09-30-201 GA), in the change that adds 029; until then it
+read `28` with `0 migration(s) pending.`, right while the repository ended at 028.*
 *Restated 2026-10-01 (R-2026-09-30-177 FA-5 b), in the change that records that apply;
 until then it read `27` with `1 migration(s) pending.`, naming
 `028_operator_scheduler_status.sql`, in the repository and not yet applied. The founder's
@@ -4839,16 +4942,33 @@ through the admin app.
    numbers other records cite: the hosted register was empty at D3's deploy, so this is
    the facility view's first hosted sight.
 3. **Record the contact and the agreement** in the facility's detail view.
+   3a. **Record the approved reporting model** in the facility's detail view, from the
+   facility's signed Schedule 1, Part A ("Who reports"). Read the box the facility ticked.
+   Do not ask the facility, and do not infer it from who is available to sign in. Enter the
+   model (one login for the whole facility, or one login per ward), the date the facility
+   signed it, and the signer's job title, **never a name**. It needs the agreement recorded
+   first. The date cannot be earlier than the date the agreement was accepted, or later than
+   today in Lagos. PASS: the facility's line in the register reads "Approved: …" and not "No
+   approved reporting model is on file yet." It is lettered, not numbered, so steps 4 to 9
+   keep the numbers other records cite (R-2026-09-30-201 GA).
 4. **Add the ward categories**, each with its offering stated. There is no default.
 5. **Provision the facility's reporting login, or its ward logins,** with the script.
    *Restated 2026-09-28 (R-2026-09-27-144 DT, Bundle 2): until then this read "Provision
    each ward's login with the script, one ward at a time", and that is now step 5a.*
+   *Restated 2026-10-06 (R-2026-09-30-201 GA): until then this step opened by asking the
+   facility "Does one nurse in charge know the beds for the whole hospital on each shift?"
+   and routed to 5a or 5b by the answer (the model itself is R-2026-09-27-141 DQ-3). The
+   model is what the facility APPROVED in its signed Schedule 1, recorded at step 3a. The
+   operator provisions that, and the register reconciles the two.*
 
-   **First, ask the facility: "Does one nurse in charge know the beds for the whole
-   hospital on each shift?"** (R-2026-09-27-144 DT, Bundle 2; the reporting model is
-   R-2026-09-27-141 DQ-3.)
-   - **Yes:** one login for the whole facility, the facility's own. Step 5b.
-   - **No:** one login per ward. Step 5a, one ward at a time.
+   **Provision to what step 3a recorded.** The register's reporting line for this facility
+   names the approved model. Read it, and then:
+   - **One login for the whole facility:** step 5b.
+   - **One login per ward:** step 5a, one ward at a time.
+   - **The register says no approved reporting model is on file:** stop. Do step 3a first.
+     `app.provision_begin` refuses any reporting login at a facility with no approval, and
+     any login that contradicts the latest one: `REPORTING_MODEL_NOT_APPROVED`, before an
+     invite opens and before any Auth call.
    - **Never both at one facility:** one reporting source per ward. 026 refuses the second
      kind of login where the first is active, `REPORTING_MODEL_CONFLICT`.
 
@@ -4871,8 +4991,9 @@ through the admin app.
    bash scripts/readback_ward_console.sh https://app.openbed.ng
    ```
 
-   5a. **One login per ward**, one ward at a time. A gate refusal names what is missing,
-   and no Auth call is made. The connection line waits, in order, for the ward's role
+   5a. **One login per ward**, one ward at a time. A gate refusal names what is missing
+   (the approval of step 3a among it), and no Auth call is made. The connection line waits,
+   in order, for the ward's role
    address, the facility id (shown in the admin app), the category code, such as
    `MATERNITY`, and then, silently, the service-role key and the database URL:
 
@@ -4889,7 +5010,8 @@ through the admin app.
 
    5b. **One login for the whole facility** (R-2026-09-27-144 DT, Bundle 2). There is no
    category: the login publishes for every ward at its facility, and for no other. The
-   gates are 5a's (the contact and the agreement), plus `NO_CATEGORY` when the facility has
+   gates are 5a's (the contact, the agreement and the approved model of step 3a), plus
+   `NO_CATEGORY` when the facility has
    no ward yet (add its categories first, step 4) and `REPORTING_MODEL_CONFLICT` when a
    ward login is already active there. The connection line waits, in order, for the
    facility's role address for this login, the facility id, and then, silently, the
@@ -4916,9 +5038,9 @@ through the admin app.
      dashboard, go to Authentication, then Users, open the user with the id it printed,
      and choose Delete user.
    - **"… already holds an account row … do NOT delete it":** leave the user alone.
-   - **Either way:** do not re-run the command, and nothing was retried. Decide the
-     facility's reporting model first (the question at the head of this step), and report
-     it.
+   - **Either way:** do not re-run the command, and nothing was retried. Read what the
+     register says about the facility's approved model and its logins (step 3a), and
+     report it.
    - **After `REPORTING_MODEL_CONFLICT`:** The admin app shows each ward without its own
      login as 'Setup incomplete' until a later provisioning run at this facility succeeds.
      That is expected. Record the facility id and report it. (R-2026-09-28-151 EA-3 a)
@@ -4995,6 +5117,13 @@ through the admin app.
    path is closed at `api.openbed.ng` on purpose: the Worker's allow-list does not
    forward it, and no app calls it. The allow-list is not widened for a check. The real
    path is checked end to end at step 9.
+**After step 6: the register's reporting line (R-2026-09-30-201 GA).** Once the last login
+   this facility needs is provisioned, read its line in the admin register. **It must read
+   "Logins match the approved model: …"**, which is the state MATCHES. "Approved: …. Not set
+   up yet." after the last intended login means a login is missing: provision it. "Logins
+   do not match the approved model. Approved: …. Active: …." means STOP: do not list the
+   facility, and report it. This is unnumbered so that steps 7 to 9 keep the numbers other
+   records cite.
 **Before step 7: at each listing.** Before this facility is publicly listed: confirm its
    public number is answered 24/7, with a test call (R-2026-09-23-66 C4, R-2026-09-30-188
    FL-3). This is unnumbered so that steps 7 to 9 keep the numbers other records cite.
@@ -5043,6 +5172,51 @@ through the admin app.
 
    *Renumbered 2026-09-26 (R-2026-09-26-122):* steps 6 and 9 are new, and the old steps 6
    (List) and 7 (Read back) are now 7 and 8. Nothing cited them by number.
+
+#### Changing a facility's reporting model
+
+*Added 2026-10-06 (R-2026-09-30-201 GA; ruling FX P2).* Use this when management approves
+the other model for a facility that already has logins: a facility that reported per ward
+moving to one login for the whole facility, or the reverse. **Three steps, in this order,
+because every other order is refused by name.** The approval history is append-only, so
+nothing is overwritten: the earlier approval stays on file.
+
+**1. Record the new approval** in the facility's detail view, exactly as step 3a does: the
+model, the date the facility signed it, and the signer's job title, never a name.
+**Read back:** the facility's register line reads "Logins do not match the approved model.
+Approved: …. Active: …." That is the state MISMATCH. It is expected here, and this is the
+one time it is.
+
+**2. Deactivate the logins of the kind being replaced.** Founder SQL, never an operator
+function, in 12.5 step 2's form but for one kind of login and not the whole facility. The
+connection line waits, in order, for the facility id, the kind of login being replaced
+(`WARD_STAFF` for ward logins, `FACILITY_REPORTER` for the facility's login), and then,
+silently, the database URL:
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -r FACILITY_ID; read -r LOGIN_KIND; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its values at their prompts, in the order this step lists them. Then paste:
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "update app.ward_account set is_active = false, deactivated_at = now() where facility_id = '$FACILITY_ID' and is_active and role = '$LOGIN_KIND'"
+psql "$DATABASE_URL" -tAc "select count(*) from app.ward_account where facility_id = '$FACILITY_ID' and is_active and role = '$LOGIN_KIND'"
+unset DATABASE_URL FACILITY_ID LOGIN_KIND
+```
+
+**Must read** the count `0`. **Read back:** the register line reads "Approved: …. Not set up
+yet.", which is the state NOT_YET_PROVISIONED.
+
+**3. Provision the new kind** by step 5a or 5b, as for a new facility, then read step 6's
+line: the register reads "Logins match the approved model: …", which is the state MATCHES.
+
+**What refuses the wrong orders.** Provisioning before step 1 is refused
+`REPORTING_MODEL_NOT_APPROVED`, because the latest approval is still the old kind.
+Provisioning between steps 1 and 2 is refused `REPORTING_MODEL_CONFLICT`, because the old
+kind is still active. Deactivating at step 2 without step 1 leaves nothing approved to
+provision to, so step 3 is refused `REPORTING_MODEL_NOT_APPROVED`.
 
 ### 12.5 Withdrawing an agreement
 

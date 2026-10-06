@@ -222,6 +222,7 @@ that moves, turns the build red until this page is restated.
 | POST | /rest/v1/rpc/operator_record_agreement | — | — | apps/admin: the operator records a facility's agreement |
 | POST | /rest/v1/rpc/operator_set_facility_listed | — | — | apps/admin: the operator lists a facility |
 | POST | /rest/v1/rpc/operator_record_registration | — | — | apps/admin: the operator records a facility's HEFAMAA registration number (R-2026-09-27-144 DT k, Bundle 3), and probe 1b of docs/runbook-cloudflare-worker-proxy.md, run by scripts/readback_worker.sh |
+| POST | /rest/v1/rpc/operator_record_reporting_approval | — | — | apps/admin: the operator records the reporting model a facility approved in its signed Schedule 1 (R-2026-09-30-201 GA; ruling FX P2) |
 | GET | /auth/v1/settings | — | — | runbook probe: the ward console's live-key probe (docs/runbook-ward-console-deploy.md step 3, run by scripts/readback_ward_console.sh; R-2026-09-23-65 B2), and probe 2 of docs/runbook-cloudflare-worker-proxy.md, run by scripts/readback_worker.sh |
 | GET | /auth/v1/verify | — | LIMIT_VERIFY (5 per 10 s) | the emailed sign-in link: docs/auth-email-templates/ (R-2026-09-22-55 C, option T1) |
 | OPTIONS | /auth/v1/otp | — | — | preflight for POST /auth/v1/otp |
@@ -238,6 +239,7 @@ that moves, turns the build red until this page is restated.
 | OPTIONS | /rest/v1/rpc/operator_record_agreement | — | — | preflight for POST /rest/v1/rpc/operator_record_agreement |
 | OPTIONS | /rest/v1/rpc/operator_set_facility_listed | — | — | preflight for POST /rest/v1/rpc/operator_set_facility_listed |
 | OPTIONS | /rest/v1/rpc/operator_record_registration | — | — | preflight for POST /rest/v1/rpc/operator_record_registration |
+| OPTIONS | /rest/v1/rpc/operator_record_reporting_approval | — | — | preflight for POST /rest/v1/rpc/operator_record_reporting_approval |
 <!-- surface:end -->
 
 **Methods.** `POST`, `GET` and `OPTIONS` only; `HEAD` is served on a `GET` entry.

@@ -248,6 +248,8 @@ const SENTENCES = {
   REPORTING_MODEL_CONFLICT: 'this facility already reports through the other kind of login: one login for the whole facility, or one per ward, never both',
   NO_CATEGORY: 'add at least one ward category to the facility first',
   REPORTER_ALREADY_EXISTS: 'this facility already has an active facility-level login',
+  // 029 (GA; ruling FX P2): the gate reads the facility's approved reporting model.
+  REPORTING_MODEL_NOT_APPROVED: "this login does not match the facility's approved reporting model, or none is recorded: record it in the admin app from the signed Schedule 1, then provision the kind of login it approved",
 };
 
 // The two refusals provision_complete can raise AFTER the Auth user exists, which a

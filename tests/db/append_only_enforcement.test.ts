@@ -31,7 +31,9 @@ import { sql, withRole } from '../setup/db.js';
  * to would be worse than the gap it pretended to close.
  */
 describe('append-only enforcement', () => {
-  const TABLES = ['ward_status_event', 'audit_log'] as const;
+  // 029 (GA) adds app.facility_reporting_approval: append-only by 010's pattern, with the
+  // owner's TRUNCATE stopped as well (tests/db/reporting_approval.test.ts holds those legs).
+  const TABLES = ['ward_status_event', 'audit_log', 'facility_reporting_approval'] as const;
 
   test('UPDATE on app.ward_status_event raises APPEND_ONLY_VIOLATION, even as the table owner postgres', async () => {
     await expect(
@@ -113,7 +115,7 @@ describe('append-only enforcement', () => {
       select distinct grantee
         from information_schema.table_privileges
        where table_schema = 'app'
-         and table_name in ('ward_status_event', 'audit_log')
+         and table_name in ('ward_status_event', 'audit_log', 'facility_reporting_approval')
          and privilege_type in ('UPDATE', 'DELETE', 'TRUNCATE')
        order by grantee
     `;

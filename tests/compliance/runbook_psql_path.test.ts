@@ -78,8 +78,13 @@ import { bashFences, isGoverned, loadRunbooks, PSQL_SCRIPTS } from './_fences.js
  * holds five blocks that call psql -- the probe read, the jobs read, the drill's pause and its
  * restore, and the restore read-back -- each carrying step P's PATH line. Its connection lines
  * call no psql and move nothing.
+ * 44 -> 46 on 2026-10-06 (R-2026-09-30-201 GA): "029's apply" adds one block that calls psql -- the
+ * two reads of what 029 created, the table with its two ALWAYS triggers and the approval count --
+ * and 12.4's new procedure "Changing a facility's reporting model" adds one, the founder SQL that
+ * deactivates one kind of login at one facility and reads the count back, each carrying step P's
+ * PATH line. Each has a connection line that calls no psql and moves nothing.
  */
-const GOVERNED_TODAY = 44;
+const GOVERNED_TODAY = 46;
 
 /**
  * THE READER MOVED (R-2026-09-29-165, EO-1 a). RUNBOOKS, bashFences(), PSQL_SCRIPTS and

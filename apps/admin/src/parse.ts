@@ -25,6 +25,13 @@ export type AgreementState = 'none' | 'recorded' | 'withdrawn';
 export type ReportingModel = 'FACILITY' | 'WARD' | 'NONE';
 /** 026's facility-level login state. */
 export type ReporterLogin = 'active' | 'setup incomplete' | 'none';
+/** The reporting model a facility approved in its signed Schedule 1, as 029 stores it. */
+export type ApprovedModel = 'FACILITY' | 'WARD';
+/**
+ * 029's four states, computed once in SQL by public.operator_register() (R-2026-09-30-201 GA;
+ * ruling FX P2). They are READ here and never derived: the page holds no copy of the rule.
+ */
+export type ReportingApprovalState = 'NOT_YET_PROVISIONED' | 'APPROVAL_NOT_RECORDED' | 'MATCHES' | 'MISMATCH';
 
 export interface Facility {
   readonly kind: 'facility';
@@ -46,6 +53,14 @@ export interface Facility {
   readonly reportingModel: ReportingModel;
   readonly reporterLogin: ReporterLogin;
   readonly hefamaaRegNo: string | null;
+  /**
+   * Since 029 (R-2026-09-30-201 GA): the latest approval, and the state of the active logins
+   * against it. approvedModel and approvedOn are null with no approval. The state is null only
+   * for a facility with neither an approval nor a login, which is not a fifth state.
+   */
+  readonly approvedModel: ApprovedModel | null;
+  readonly approvedOn: string | null;
+  readonly reportingApprovalState: ReportingApprovalState | null;
 }
 
 /** A register row that could not be read. Shown in place, never dropped. */
@@ -114,7 +129,7 @@ function facilityFrom(x: unknown): Facility | UnreadableFacility {
   const id = isObj(x) && str(x['facility_id']) ? x['facility_id'] : null;
   const unreadable: UnreadableFacility = { kind: 'unreadable', facilityId: id };
   if (!isObj(x) || id === null) return unreadable;
-  const { name, lga, state, lat, lng, public_phone_e164, version, listed_at, is_active, has_contact, agreement_state, categories, reporting_model, reporter_login, hefamaa_reg_no } = x;
+  const { name, lga, state, lat, lng, public_phone_e164, version, listed_at, is_active, has_contact, agreement_state, categories, reporting_model, reporter_login, hefamaa_reg_no, approved_model, approved_on, reporting_approval_state } = x;
   if (!str(name) || !str(lga) || !str(state)) return unreadable;
   // 023's three keys. Absent -- a database at 021 -- the row is unreadable, never
   // defaulted: an edit form showing a guessed phone is the defect 023 exists to close.
@@ -128,6 +143,25 @@ function facilityFrom(x: unknown): Facility | UnreadableFacility {
   if (reporting_model !== 'FACILITY' && reporting_model !== 'WARD' && reporting_model !== 'NONE') return unreadable;
   if (reporter_login !== 'active' && reporter_login !== 'setup incomplete' && reporter_login !== 'none') return unreadable;
   if (!strOrNull(hefamaa_reg_no)) return unreadable;
+  // 029's three keys, read like 026's: absent or of the wrong kind, the row is unreadable, never
+  // defaulted. JSON null is a real answer for each (no approval; and, for the state, no approval
+  // and no login), so the key ABSENT -- a database at 028 -- is undefined, is not null, and is
+  // refused. A guessed state would tell the operator that the logins match what was approved.
+  if (approved_model !== null && approved_model !== 'FACILITY' && approved_model !== 'WARD') return unreadable;
+  if (approved_on !== null && !(str(approved_on) && /^\d{4}-\d{2}-\d{2}$/.test(approved_on))) return unreadable;
+  if (
+    reporting_approval_state !== null &&
+    reporting_approval_state !== 'NOT_YET_PROVISIONED' &&
+    reporting_approval_state !== 'APPROVAL_NOT_RECORDED' &&
+    reporting_approval_state !== 'MATCHES' &&
+    reporting_approval_state !== 'MISMATCH'
+  ) return unreadable;
+  // The keys must agree with each other, or a sentence would be printed with a hole in it: a state
+  // that compares against an approval needs one, and the other two (and null) have none.
+  const hasApproval = approved_model !== null;
+  if ((approved_on === null) === hasApproval) return unreadable;
+  const comparesApproval = reporting_approval_state === 'NOT_YET_PROVISIONED' || reporting_approval_state === 'MATCHES' || reporting_approval_state === 'MISMATCH';
+  if (comparesApproval !== hasApproval) return unreadable;
   const wards = categories.map(wardFrom);
   if (wards.some((w) => w === null)) return unreadable;
   return {
@@ -148,6 +182,9 @@ function facilityFrom(x: unknown): Facility | UnreadableFacility {
     reportingModel: reporting_model,
     reporterLogin: reporter_login,
     hefamaaRegNo: hefamaa_reg_no,
+    approvedModel: approved_model,
+    approvedOn: approved_on,
+    reportingApprovalState: reporting_approval_state,
   };
 }
 

@@ -61,10 +61,17 @@ const RUNBOOK = join(import.meta.dirname, '..', '..', 'docs', 'runbook-supabase-
 const FAC_REPORTER = '0e000000-0000-4000-8000-0000000012a1';
 const FAC_WARD = '0e000000-0000-4000-8000-0000000012a2';
 const FAC_WITHDRAW = '0e000000-0000-4000-8000-0000000012a3';
-const FACILITIES = [FAC_REPORTER, FAC_WARD, FAC_WITHDRAW];
+// 029 (R-2026-09-30-201 GA): two more throwaway facilities for 12.4's "Changing a facility's reporting model",
+// whose step 2 deactivates ONE KIND of login. They are their own, so nothing that deactivates a login here can
+// reach the facilities 6a and 6b read as.
+const FAC_SWITCH = '0e000000-0000-4000-8000-0000000012a4';
+const FAC_SWITCH_R = '0e000000-0000-4000-8000-0000000012a5';
+const FACILITIES = [FAC_REPORTER, FAC_WARD, FAC_WITHDRAW, FAC_SWITCH, FAC_SWITCH_R];
 const U_REPORTER = '0e000000-0000-4000-8000-0000000012b1';
 const U_WARD = '0e000000-0000-4000-8000-0000000012b2';
 const U_WITHDRAW = '0e000000-0000-4000-8000-0000000012b3';
+const U_SWITCH = '0e000000-0000-4000-8000-0000000012b4';
+const U_SWITCH_R = '0e000000-0000-4000-8000-0000000012b5';
 
 /**
  * THE LOCATOR, THE RUNNER, THE TABLE READER AND THE FINGERPRINT LIVE IN tests/setup/runbook.ts
@@ -125,6 +132,8 @@ beforeAll(async () => {
     [FAC_REPORTER, 'Runbook SQL Facility Reporter', '+2348000001201', false],
     [FAC_WARD, 'Runbook SQL Facility Ward', '+2348000001202', false],
     [FAC_WITHDRAW, 'Runbook SQL Facility Withdrawn', '+2348000001203', true],
+    [FAC_SWITCH, 'Runbook SQL Facility Switch Ward', '+2348000001204', false],
+    [FAC_SWITCH_R, 'Runbook SQL Facility Switch Reporter', '+2348000001205', false],
   ];
   for (const [id, name, phone, listed] of rows) {
     await db`
@@ -142,6 +151,10 @@ beforeAll(async () => {
   await db`insert into app.ward_account (id, facility_id, ward_category, role) values (${U_REPORTER}::uuid, ${FAC_REPORTER}::uuid, null, 'FACILITY_REPORTER')`;
   await db`insert into app.ward_account (id, facility_id, ward_category, role) values (${U_WARD}::uuid, ${FAC_WARD}::uuid, 'ICU_ADULT', 'WARD_STAFF')`;
   await db`insert into app.ward_account (id, facility_id, ward_category, role) values (${U_WITHDRAW}::uuid, ${FAC_WITHDRAW}::uuid, 'ICU_ADULT', 'WARD_STAFF')`;
+  await db`insert into app.ward_status (facility_id, category, offering) values (${FAC_SWITCH}::uuid, 'ICU_ADULT', 'OFFERED')`;
+  await db`insert into app.ward_status (facility_id, category, offering) values (${FAC_SWITCH_R}::uuid, 'ICU_ADULT', 'OFFERED')`;
+  await db`insert into app.ward_account (id, facility_id, ward_category, role) values (${U_SWITCH}::uuid, ${FAC_SWITCH}::uuid, 'ICU_ADULT', 'WARD_STAFF')`;
+  await db`insert into app.ward_account (id, facility_id, ward_category, role) values (${U_SWITCH_R}::uuid, ${FAC_SWITCH_R}::uuid, null, 'FACILITY_REPORTER')`;
   const [pub] = await db<{ n: number }[]>`select count(*)::int as n from public.facility_public where facility_id = ${FAC_WITHDRAW}::uuid`;
   expect(pub?.n, 'the facility 12.5 withdraws is not on the public mirror to begin with, so its removal would prove nothing').toBe(1);
 });
@@ -245,5 +258,61 @@ describe('12.5 steps 1 to 3: withdrawing an agreement, against a throwaway facil
     expect(r.stdout.trim().split('\n'), shown(r)).toEqual(['UPDATE 1', 't']);
     const [f] = await sql()<{ n: boolean }[]>`select listed_at is null as n from app.facility where id = ${FAC_WITHDRAW}::uuid`;
     expect(f?.n, shown(r)).toBe(true);
+  });
+});
+
+describe("12.4 'Changing a facility's reporting model', step 2: founder SQL that deactivates ONE KIND of login (R-2026-09-30-201 GA)", () => {
+  const state = async (id: string): Promise<{ active: boolean; stamped: boolean }> => {
+    const [a] = await sql()<{ active: boolean; stamped: boolean }[]>`
+      select is_active as active, deactivated_at is not null as stamped from app.ward_account where id = ${id}::uuid`;
+    if (a === undefined) throw new Error(`no ward_account ${id}`);
+    return a;
+  };
+
+  test('naming the OTHER kind changes nothing: UPDATE 0 then 0, and the ward login at the facility stays active', async () => {
+    const r = runFence(commandFence(TEXT, '12.4-switch-2'), { FACILITY_ID: FAC_SWITCH, LOGIN_KIND: 'FACILITY_REPORTER' });
+    expect(r.stderr, shown(r)).toBe('');
+    expect(r.stdout.trim().split('\n'), shown(r)).toEqual(['UPDATE 0', '0']);
+    expect(await state(U_SWITCH), 'the fence deactivated a login of the kind it was not given').toEqual({ active: true, stamped: false });
+  });
+
+  test('naming the ward kind deactivates the ward login, stamps deactivated_at (the CHECK needs both), and the count reads 0', async () => {
+    const r = runFence(commandFence(TEXT, '12.4-switch-2'), { FACILITY_ID: FAC_SWITCH, LOGIN_KIND: 'WARD_STAFF' });
+    expect(r.stderr, shown(r)).toBe('');
+    expect(r.stdout.trim().split('\n'), shown(r)).toEqual(['UPDATE 1', '0']);
+    expect(await state(U_SWITCH)).toEqual({ active: false, stamped: true });
+  });
+
+  test("plant — the fence with its role clause removed deactivates the wrong login, so the 'other kind' leg above would red", async () => {
+    // Control first: the REAL fence, given the ward kind at the facility whose active login is the reporter, changes nothing.
+    const real = runFence(commandFence(TEXT, '12.4-switch-2'), { FACILITY_ID: FAC_SWITCH_R, LOGIN_KIND: 'WARD_STAFF' });
+    expect(real.stdout.trim().split('\n'), shown(real)).toEqual(['UPDATE 0', '0']);
+    expect(await state(U_SWITCH_R)).toEqual({ active: true, stamped: false });
+
+    const fence = commandFence(TEXT, '12.4-switch-2');
+    const planted = fence.replace(" and is_active and role = '$LOGIN_KIND'\"\npsql", ' and is_active"\npsql');
+    expect(planted, 'the plant did not land: the update line has no such role clause').not.toBe(fence);
+    const r = runFence(planted, { FACILITY_ID: FAC_SWITCH_R, LOGIN_KIND: 'WARD_STAFF' });
+    expect(r.stdout.trim().split('\n')[0], `the plant did not change what the fence does\n${shown(r)}`).toBe('UPDATE 1');
+    expect(await state(U_SWITCH_R), 'the planted fence did not deactivate the login it should not touch').toEqual({ active: false, stamped: true });
+    // Put it back, so the real-fence leg below has the login it needs.
+    await sql()`update app.ward_account set is_active = true, deactivated_at = null where id = ${U_SWITCH_R}::uuid`;
+  });
+
+  test('naming the facility-login kind deactivates the facility login, and the count reads 0', async () => {
+    const r = runFence(commandFence(TEXT, '12.4-switch-2'), { FACILITY_ID: FAC_SWITCH_R, LOGIN_KIND: 'FACILITY_REPORTER' });
+    expect(r.stderr, shown(r)).toBe('');
+    expect(r.stdout.trim().split('\n'), shown(r)).toEqual(['UPDATE 1', '0']);
+    expect(await state(U_SWITCH_R)).toEqual({ active: false, stamped: true });
+  });
+
+  test('a kind that is neither is refused by the database, and nothing is deactivated: the founder reads an ERROR where the UPDATE line should be', async () => {
+    // The fence's last command is the unset, so its exit status is 0 whatever psql said, as for every
+    // fence in this runbook: what the founder reads is the output, so that is what is asserted.
+    await sql()`update app.ward_account set is_active = true, deactivated_at = null where id = ${U_SWITCH_R}::uuid`;
+    const r = runFence(commandFence(TEXT, '12.4-switch-2'), { FACILITY_ID: FAC_SWITCH_R, LOGIN_KIND: 'NOT_A_KIND' });
+    expect(r.stdout, shown(r)).not.toContain('UPDATE');
+    expect(r.stderr, shown(r)).toContain('invalid input value for enum');
+    expect(await state(U_SWITCH_R), 'a login was deactivated by a kind that names no role').toEqual({ active: true, stamped: false });
   });
 });

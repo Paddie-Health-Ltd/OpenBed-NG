@@ -99,6 +99,11 @@ function facility(id: string, over: Record<string, unknown> = {}): Record<string
     reporting_model: 'WARD',
     reporter_login: 'none',
     hefamaa_reg_no: null,
+    // 029's three keys (R-2026-09-30-201 GA): the register refuses a row without them. A WARD approval
+    // beside the ward logins reads MATCHES, a plain line, so no test below counts a caution it did not ask for.
+    approved_model: 'WARD',
+    approved_on: '2026-09-15',
+    reporting_approval_state: 'MATCHES',
     ...over,
   };
 }
@@ -789,6 +794,9 @@ describe('every refusal has a sentence, and every sentence a refusal', () => {
     'public.operator_set_facility_listed',
     // The ninth (R-2026-09-27-144 DT Bundle 3): the Registration section's write (026).
     'public.operator_record_registration',
+    // The tenth (R-2026-09-30-201 GA): the approved reporting model's write (029). Its codes need
+    // sentences, both ways, exactly as the nine before it.
+    'public.operator_record_reporting_approval',
     'app.assert_operator',
     'app.operator_session',
   ];
@@ -853,7 +861,7 @@ describe('every refusal has a sentence, and every sentence a refusal', () => {
     return out;
   }
 
-  test('the code table covers EXACTLY the codes the nine functions and their two guards can raise', () => {
+  test('the code table covers EXACTLY the codes the ten functions and their two guards can raise', () => {
     const raised = raisedKeys();
     expect(raised.length, 'no codes parsed from the migrations — the checker read nothing').toBeGreaterThan(20);
     expect(raised).toContain('MOBILE_NOT_E164');
@@ -1096,5 +1104,245 @@ describe('the sign-in request', () => {
     await renderAt('', () => json(500, {}));
     await until(() => document.querySelector('form.signin-request') !== null);
     expect(text()).toContain(ADMIN_LABELS.screens.ACCESS_ORDER);
+  });
+});
+
+describe('029 — the approved reporting model: four states, the null cell, and the form (R-2026-09-30-201 GA; ruling FX P2)', () => {
+  const S = ADMIN_LABELS.screens;
+  const C = ADMIN_LABELS.codes;
+  const withRegister = (facilities: Record<string, unknown>[], over: Record<string, Route> = {}) =>
+    server({ operator_register: () => json(200, { server_now: SERVER_NOW, retention_alert: [], facilities }), ...over });
+  async function openFirst(route: Route) {
+    const stub = await renderAt(sessionFragment(), route);
+    await until(() => text().includes('Facilities'));
+    button('Open').click();
+    await until(() => document.querySelector('section.approval-detail') !== null);
+    return stub;
+  }
+  const FAC = 'one login for the whole facility';
+  const WARD = 'one login per ward';
+  const approved = (model: 'FACILITY' | 'WARD', state: string, extra: Record<string, unknown> = {}) => ({
+    approved_model: model, approved_on: '2026-09-15', reporting_approval_state: state, ...extra,
+  });
+
+  // The design report's section 6, word for word. A literal here and not the label table, so a
+  // reworded sentence reds this file instead of passing through its own source.
+  const STATES: [string, Record<string, unknown>, string, string, boolean][] = [
+    [
+      'NOT_YET_PROVISIONED, whole facility',
+      approved('FACILITY', 'NOT_YET_PROVISIONED', { reporting_model: 'NONE' }),
+      `Approved: ${FAC}. Not set up yet.`,
+      `This facility approved ${FAC} on 2026-09-15. That login is not set up yet.`,
+      false,
+    ],
+    [
+      'NOT_YET_PROVISIONED, per ward',
+      approved('WARD', 'NOT_YET_PROVISIONED', { reporting_model: 'NONE' }),
+      `Approved: ${WARD}. Not set up yet.`,
+      `This facility approved ${WARD} on 2026-09-15. No ward login is set up yet.`,
+      false,
+    ],
+    [
+      'APPROVAL_NOT_RECORDED',
+      { reporting_model: 'WARD', approved_model: null, approved_on: null, reporting_approval_state: 'APPROVAL_NOT_RECORDED' },
+      'Logins are active. No approved reporting model is on file.',
+      "This facility has active logins, but no approved reporting model is recorded. Record it from the facility's signed Schedule 1.",
+      true,
+    ],
+    [
+      'MATCHES, per ward',
+      approved('WARD', 'MATCHES', { reporting_model: 'WARD' }),
+      `Logins match the approved model: ${WARD}.`,
+      `The active logins match what the facility approved on 2026-09-15: ${WARD}.`,
+      false,
+    ],
+    [
+      'MATCHES, whole facility',
+      approved('FACILITY', 'MATCHES', { reporting_model: 'FACILITY', reporter_login: 'active' }),
+      `Logins match the approved model: ${FAC}.`,
+      `The active logins match what the facility approved on 2026-09-15: ${FAC}.`,
+      false,
+    ],
+    [
+      'MISMATCH',
+      approved('FACILITY', 'MISMATCH', { reporting_model: 'WARD' }),
+      `Logins do not match the approved model. Approved: ${FAC}. Active: ${WARD}.`,
+      `The active logins do not match what the facility approved on 2026-09-15. Approved: ${FAC}. Active: ${WARD}. Do not add logins until this is resolved.`,
+      true,
+    ],
+    [
+      'null: no approval and no login',
+      { reporting_model: 'NONE', approved_model: null, approved_on: null, reporting_approval_state: null },
+      'No approved reporting model is on file yet.',
+      "No reporting model is approved for this facility yet. Record it from the facility's signed Schedule 1 before any login is set up.",
+      false,
+    ],
+  ];
+
+  test.each(STATES)('the register line for %s reads the sentence, and is a caution only where the operator must act', async (_name, over, registerLine, _detail, caution) => {
+    await renderAt(sessionFragment(), withRegister([facility(FAC_A, over)]));
+    await until(() => text().includes('Facilities'));
+    const line = document.querySelector('li.facility .reporting-approval');
+    expect(line?.textContent).toBe(registerLine);
+    expect(line?.classList.contains('notice-caution'), `the caution tone is wrong for: ${registerLine}`).toBe(caution);
+    // The model line that was already there is untouched.
+    expect(document.querySelector('li.facility .reporting-model')?.textContent).toBe(
+      { FACILITY: S.REPORTING_MODEL_FACILITY, WARD: S.REPORTING_MODEL_WARD, NONE: S.REPORTING_MODEL_NONE }[over['reporting_model'] as 'FACILITY' | 'WARD' | 'NONE'],
+    );
+  });
+
+  test.each(STATES)('the detail view for %s reads the sentence, and the form is offered under a recorded agreement', async (_name, over, _register, detailLine, caution) => {
+    await openFirst(withRegister([facility(FAC_A, over)]));
+    const line = document.querySelector('section.approval-detail > p');
+    expect(line?.textContent).toBe(detailLine);
+    expect(line?.classList.contains('notice-caution')).toBe(caution);
+    expect(document.querySelector('section.approval-detail h2')?.textContent).toBe(S.APPROVAL_HEADING);
+    expect(document.querySelector('section.approval-detail form.record-reporting-approval'), 'no approval form under a recorded agreement').not.toBeNull();
+  });
+
+  test('a withdrawn facility shows the withdrawn line only in the register, and the withdrawn sentence with NO form in the detail view', async () => {
+    await renderAt(sessionFragment(), withRegister([facility(FAC_A, { agreement_state: 'withdrawn', ...approved('WARD', 'MATCHES') })]));
+    await until(() => text().includes('Facilities'));
+    expect(document.querySelector('li.facility .reporting-approval'), 'a withdrawn facility shows an approval line in the register').toBeNull();
+    expect(Array.from(document.querySelectorAll('li.facility .warning')).map((n) => n.textContent)).toContain(S.WITHDRAWN_WARNING);
+    button('Open').click();
+    await until(() => document.querySelector('section.approval-detail') !== null);
+    expect(document.querySelector('section.approval-detail > p')?.textContent).toBe('This facility has withdrawn. Its approved reporting model stays on file for the record.');
+    expect(document.querySelector('form.record-reporting-approval')).toBeNull();
+  });
+
+  test('a facility with no agreement says to record it first, and offers no approval form', async () => {
+    await openFirst(withRegister([facility(FAC_A, { agreement_state: 'none', reporting_model: 'NONE', approved_model: null, approved_on: null, reporting_approval_state: null })]));
+    expect(document.querySelector('section.approval-detail > p')?.textContent).toBe('Record the agreement first. The approved reporting model is recorded under it.');
+    expect(document.querySelector('form.record-reporting-approval')).toBeNull();
+  });
+
+  test.each<[string, Record<string, unknown>]>([
+    ['approved_model absent (a database at 028)', { approved_model: undefined }],
+    ['approved_on absent', { approved_on: undefined }],
+    ['reporting_approval_state absent', { reporting_approval_state: undefined }],
+    ['an approved_model it does not know', { approved_model: 'BOTH' }],
+    ['an approved_model in the wrong case', { approved_model: 'ward' }],
+    ['an approved_on that is not a date string', { approved_on: 'yesterday' }],
+    ['an approved_on that is a number', { approved_on: 20260915 }],
+    ['an approved_on with a time on it', { approved_on: '2026-09-15T00:00:00Z' }],
+    ['a state it does not know', { reporting_approval_state: 'MAYBE' }],
+    ['a state in the wrong case', { reporting_approval_state: 'matches' }],
+    ['a state that compares against an approval, with none', { approved_model: null, approved_on: null, reporting_approval_state: 'MATCHES' }],
+    ['APPROVAL_NOT_RECORDED beside an approval', { reporting_approval_state: 'APPROVAL_NOT_RECORDED' }],
+    ['a null state beside an approval', { reporting_approval_state: null }],
+    ['a model with no date', { approved_on: null }],
+    ['a date with no model', { approved_model: null, reporting_approval_state: null }],
+  ])('plant — a row with %s is unreadable, never defaulted', async (_name, over) => {
+    const row = facility(FAC_A, { ...approved('WARD', 'MATCHES'), ...over });
+    for (const [k, v] of Object.entries(over)) if (v === undefined) delete row[k];
+    await renderAt(sessionFragment(), withRegister([row]));
+    await until(() => text().includes('Facilities'));
+    expect(text()).toContain("This facility's record could not be read.");
+    expect(document.querySelector('li.facility .reporting-approval'), 'an unreadable row shows an approval line').toBeNull();
+  });
+
+  test('the form sends exactly the four parameters, with the title trimmed and no version, and the page says it was recorded', async () => {
+    // The register is read at page load and again when the facility opens, so the "before" state
+    // holds for two reads; the re-read after the write is the third.
+    let reads = 0;
+    const stub = await openFirst(
+      server({
+        operator_register: () => {
+          reads += 1;
+          return json(200, { server_now: SERVER_NOW, retention_alert: [], facilities: [facility(FAC_A, reads <= 2 ? { reporting_model: 'WARD', approved_model: null, approved_on: null, reporting_approval_state: 'APPROVAL_NOT_RECORDED' } : approved('WARD', 'MATCHES'))] });
+        },
+        operator_record_reporting_approval: () => json(200, [{ facility_id: FAC_A, recorded: true }]),
+      }),
+    );
+    expect(document.querySelector('section.approval-detail > p')?.textContent).toBe(
+      "This facility has active logins, but no approved reporting model is recorded. Record it from the facility's signed Schedule 1.",
+    );
+    setInput('record-reporting-approval', 'model', 'WARD');
+    setInput('record-reporting-approval', 'approved_on', '2026-09-15');
+    setInput('record-reporting-approval', 'approved_by_role', '  Medical Director ');
+    submit('record-reporting-approval');
+    await until(() => text().includes(S.APPROVAL_SAVED));
+    expect(calls(stub, 'operator_record_reporting_approval')).toEqual([
+      { p_facility_id: FAC_A, p_model: 'WARD', p_approved_on: '2026-09-15', p_approved_by_role: 'Medical Director' },
+    ]);
+    const status = document.querySelector('#app > p.status');
+    expect(status?.textContent).toBe('Reporting approval recorded.');
+    expect(status?.classList.contains('notice-info')).toBe(true);
+    // The sentence follows the re-read register, and the form is empty again, ready for a correction.
+    expect(document.querySelector('section.approval-detail > p')?.textContent).toBe(`The active logins match what the facility approved on 2026-09-15: ${WARD}.`);
+    expect(document.querySelector<HTMLSelectElement>('form.record-reporting-approval [name="model"]')?.value).toBe('');
+    expect(document.querySelector<HTMLInputElement>('form.record-reporting-approval [name="approved_on"]')?.value).toBe('');
+  });
+
+  test('a blank title is sent as null', async () => {
+    const stub = await openFirst(withRegister([facility(FAC_A)], { operator_record_reporting_approval: () => json(200, [{ facility_id: FAC_A, recorded: true }]) }));
+    setInput('record-reporting-approval', 'model', 'FACILITY');
+    setInput('record-reporting-approval', 'approved_on', '2026-09-16');
+    submit('record-reporting-approval');
+    await until(() => calls(stub, 'operator_record_reporting_approval').length === 1);
+    expect(calls(stub, 'operator_record_reporting_approval')[0]).toEqual({ p_facility_id: FAC_A, p_model: 'FACILITY', p_approved_on: '2026-09-16', p_approved_by_role: null });
+  });
+
+  test.each<[string, [string, string, string], string, string]>([
+    ['no model chosen', ['', '2026-09-15', ''], C['INVALID_ARGUMENT:p_model'] as string, 'model'],
+    ['no date', ['WARD', '', ''], C['INVALID_ARGUMENT:p_approved_on'] as string, 'approved_on'],
+    ['a title of 65 characters', ['WARD', '2026-09-15', 'x'.repeat(65)], C['INVALID_ARGUMENT:p_approved_by_role'] as string, 'approved_by_role'],
+  ])('%s is refused on the page, in its sentence and the caution tone, with focus on the field, and nothing is sent', async (_name, [model, on, title], sentence, field) => {
+    const stub = await openFirst(withRegister([facility(FAC_A)]));
+    setInput('record-reporting-approval', 'model', model);
+    setInput('record-reporting-approval', 'approved_on', on);
+    setInput('record-reporting-approval', 'approved_by_role', title);
+    submit('record-reporting-approval');
+    await until(() => (document.querySelector('form.record-reporting-approval p.status')?.textContent ?? '') !== '');
+    const status = document.querySelector('form.record-reporting-approval p.status');
+    expect(status?.textContent).toBe(sentence);
+    expect(status?.classList.contains('notice-caution')).toBe(true);
+    expect(document.activeElement?.getAttribute('name')).toBe(field);
+    expect(calls(stub, 'operator_record_reporting_approval')).toHaveLength(0);
+  });
+
+  test('a title of exactly 64 characters is sent', async () => {
+    const stub = await openFirst(withRegister([facility(FAC_A)], { operator_record_reporting_approval: () => json(200, [{ facility_id: FAC_A, recorded: true }]) }));
+    setInput('record-reporting-approval', 'model', 'WARD');
+    setInput('record-reporting-approval', 'approved_on', '2026-09-15');
+    setInput('record-reporting-approval', 'approved_by_role', 'x'.repeat(64));
+    submit('record-reporting-approval');
+    await until(() => calls(stub, 'operator_record_reporting_approval').length === 1);
+    expect(calls(stub, 'operator_record_reporting_approval')[0]?.['p_approved_by_role']).toBe('x'.repeat(64));
+  });
+
+  test.each([
+    ['APPROVAL_DATE_IN_FUTURE', 'The approval date cannot be after today in Lagos.'],
+    ['APPROVAL_BEFORE_AGREEMENT', 'The approval date cannot be earlier than the date the agreement was accepted.'],
+  ])("the server's %s refusal reads as the page's sentence, in the caution tone, and the form keeps what was typed", async (code, sentence) => {
+    expect(C[code as keyof typeof C]).toBe(sentence);
+    const stub = await openFirst(withRegister([facility(FAC_A)], { operator_record_reporting_approval: () => json(400, { code: 'P0001', message: code }) }));
+    setInput('record-reporting-approval', 'model', 'WARD');
+    setInput('record-reporting-approval', 'approved_on', '2026-09-15');
+    submit('record-reporting-approval');
+    await until(() => (document.querySelector('form.record-reporting-approval p.status')?.textContent ?? '') !== '');
+    const status = document.querySelector('form.record-reporting-approval p.status');
+    expect(status?.textContent).toBe(sentence);
+    expect(status?.classList.contains('notice-caution')).toBe(true);
+    expect(calls(stub, 'operator_record_reporting_approval')).toHaveLength(1);
+    expect(document.querySelector<HTMLInputElement>('form.record-reporting-approval [name="approved_on"]')?.value, 'a refused form discarded the operator\'s input').toBe('2026-09-15');
+  });
+
+  test('a dropped answer is NEVER re-sent: the form says it could not reach the server, and one request was made', async () => {
+    const stub = await openFirst(withRegister([facility(FAC_A)], { operator_record_reporting_approval: () => { throw new TypeError('down'); } }));
+    setInput('record-reporting-approval', 'model', 'WARD');
+    setInput('record-reporting-approval', 'approved_on', '2026-09-15');
+    submit('record-reporting-approval');
+    await until(() => (document.querySelector('form.record-reporting-approval p.status')?.textContent ?? '') !== '');
+    expect(document.querySelector('form.record-reporting-approval p.status')?.textContent).toBe(ADMIN_LABELS.fixed.UNREACHABLE);
+    expect(calls(stub, 'operator_record_reporting_approval')).toHaveLength(1);
+  });
+
+  test('the model select offers exactly the two models, in the register\'s words, after the empty choice', async () => {
+    await openFirst(withRegister([facility(FAC_A)]));
+    const options = Array.from(document.querySelectorAll('form.record-reporting-approval [name="model"] option')).map((o) => [(o as HTMLOptionElement).value, o.textContent]);
+    expect(options).toEqual([['', 'Choose'], ['FACILITY', S.REPORTING_MODEL_FACILITY], ['WARD', S.REPORTING_MODEL_WARD]]);
+    expect(document.querySelector('form.record-reporting-approval [name="version"]'), 'the approval form carries a version field').toBeNull();
   });
 });

@@ -13,9 +13,10 @@
  */
 
 /**
- * The ten functions the app calls (R-2026-09-24-88 BP-2; the ninth, operator_record_registration,
+ * The eleven functions the app calls (R-2026-09-24-88 BP-2; the ninth, operator_record_registration,
  * since R-2026-09-27-144 DT Bundle 3; the tenth, operator_scheduler_status, since
- * R-2026-09-30-175 EY-3), by the name PostgREST routes on.
+ * R-2026-09-30-175 EY-3; the eleventh, operator_record_reporting_approval, since
+ * R-2026-09-30-201 GA), by the name PostgREST routes on.
  */
 export const RPC = {
   register: 'operator_register',
@@ -28,6 +29,7 @@ export const RPC = {
   setListed: 'operator_set_facility_listed',
   recordRegistration: 'operator_record_registration',
   schedulerStatus: 'operator_scheduler_status',
+  recordReportingApproval: 'operator_record_reporting_approval',
 } as const;
 
 export interface FacilityFields {
@@ -107,6 +109,20 @@ export const recordAgreementBody = (facilityId: string, acceptedOn: string, vers
   p_accepted_on: acceptedOn,
   p_version: version,
   p_signatory_role: signatoryRole,
+});
+
+/**
+ * The reporting model a facility approved in its signed Schedule 1 (029). There is NO version
+ * parameter: the function copies the agreement version from the acceptance row, so it cannot be
+ * mistyped. The title is a job title, never a name; blank is sent as null, which the function
+ * stores as no title. An identical repeat of the latest approval writes nothing; anything else
+ * appends, and the earlier row is kept.
+ */
+export const recordReportingApprovalBody = (facilityId: string, model: 'FACILITY' | 'WARD', approvedOn: string, approvedByRole: string | null) => ({
+  p_facility_id: facilityId,
+  p_model: model,
+  p_approved_on: approvedOn,
+  p_approved_by_role: approvedByRole,
 });
 
 /**

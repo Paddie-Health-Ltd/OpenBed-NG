@@ -30,7 +30,12 @@
     "MOBILE_REQUIRES_SMS_OPT_IN": "A mobile number is kept only with SMS opt-in ticked. Tick it only if the contact agreed.",
     "AGREEMENT_VERSION_NOT_A_LABEL": "The agreement version must be a short label, such as v1 or 2026-09.",
     "AGREEMENT_DATE_IN_FUTURE": "The acceptance date cannot be after today in Lagos.",
-    "AGREEMENT_ALREADY_RECORDED": "An agreement is already recorded for this facility, and it is never replaced. A facility whose agreement was withdrawn cannot be listed again in this release of OpenBed."
+    "AGREEMENT_ALREADY_RECORDED": "An agreement is already recorded for this facility, and it is never replaced. A facility whose agreement was withdrawn cannot be listed again in this release of OpenBed.",
+    "INVALID_ARGUMENT:p_model": "Choose the approved reporting model: one login for the whole facility, or one login per ward.",
+    "INVALID_ARGUMENT:p_approved_on": "Enter the date the facility approved it, as signed in its Schedule 1.",
+    "INVALID_ARGUMENT:p_approved_by_role": "The signer's job title is too long: 64 characters at most. Give a job title, never a name.",
+    "APPROVAL_DATE_IN_FUTURE": "The approval date cannot be after today in Lagos.",
+    "APPROVAL_BEFORE_AGREEMENT": "The approval date cannot be earlier than the date the agreement was accepted."
   },
   "constraints": {
     "facility_lat_in_nigeria": "Latitude must be between 4.0 and 14.0. Check that latitude and longitude are not swapped.",
@@ -137,6 +142,28 @@
     "SCHEDULER_ACTION": "Follow the sensor runbook, section 2.",
     "SIGN_OUT": "Sign out",
     "AGREEMENT_NEEDS_CONTACT": "The agreement can be recorded once the contact can be read. Reload the page.",
-    "CONTACT_UNREADABLE": "The contact could not be read. Reload the page."
+    "CONTACT_UNREADABLE": "The contact could not be read. Reload the page.",
+    "APPROVED_MODEL_FACILITY": "one login for the whole facility",
+    "APPROVED_MODEL_WARD": "one login per ward",
+    "APPROVED_MODEL_NONE": "no login",
+    "APPROVAL_REGISTER_NOT_YET": "Approved: {A}. Not set up yet.",
+    "APPROVAL_REGISTER_NOT_RECORDED": "Logins are active. No approved reporting model is on file.",
+    "APPROVAL_REGISTER_MATCHES": "Logins match the approved model: {A}.",
+    "APPROVAL_REGISTER_MISMATCH": "Logins do not match the approved model. Approved: {A}. Active: {B}.",
+    "APPROVAL_REGISTER_NONE": "No approved reporting model is on file yet.",
+    "APPROVAL_DETAIL_NOT_YET_FACILITY": "This facility approved one login for the whole facility on {date}. That login is not set up yet.",
+    "APPROVAL_DETAIL_NOT_YET_WARD": "This facility approved one login per ward on {date}. No ward login is set up yet.",
+    "APPROVAL_DETAIL_NOT_RECORDED": "This facility has active logins, but no approved reporting model is recorded. Record it from the facility's signed Schedule 1.",
+    "APPROVAL_DETAIL_MATCHES": "The active logins match what the facility approved on {date}: {A}.",
+    "APPROVAL_DETAIL_MISMATCH": "The active logins do not match what the facility approved on {date}. Approved: {A}. Active: {B}. Do not add logins until this is resolved.",
+    "APPROVAL_DETAIL_NONE": "No reporting model is approved for this facility yet. Record it from the facility's signed Schedule 1 before any login is set up.",
+    "APPROVAL_DETAIL_WITHDRAWN": "This facility has withdrawn. Its approved reporting model stays on file for the record.",
+    "APPROVAL_NEEDS_AGREEMENT": "Record the agreement first. The approved reporting model is recorded under it.",
+    "APPROVAL_HEADING": "Reporting approval",
+    "APPROVAL_MODEL_LABEL": "Approved model",
+    "APPROVAL_DATE_LABEL": "Approved on",
+    "APPROVAL_ROLE_LABEL": "Signer's job title (never a name)",
+    "APPROVAL_SAVE": "Record approval",
+    "APPROVAL_SAVED": "Reporting approval recorded."
   }
 }

@@ -1,0 +1,60 @@
+{
+  "comment": "The EXACT column lists of the two tables that hold what a facility signed: app.facility_reporting_approval (029, the append-only history of the reporting model a facility approved) and app.facility_agreement (021, the acceptance record). Two guards read THIS FILE and nothing else: tests/compliance/reporting_approval_columns.test.ts (static, over database/migrations/) and tests/db/reporting_approval_column_list.test.ts (the live catalogue). They cannot be one test.each block, because they live in different vitest projects and one has no database, so each imports this file rather than restating it (.claude/rules/test-conventions.md section 8): drift needs an edit here, which reddens both.",
+  "approval": {
+    "table": "app.facility_reporting_approval",
+    "columns": [
+      "id",
+      "facility_id",
+      "model",
+      "approved_on",
+      "agreement_version",
+      "approved_by_role",
+      "recorded_at",
+      "recorded_session"
+    ],
+    "why_id_is_here": "`id` is a bigint identity counter, not a column about anyone: it orders the history, and the row with the highest id for a facility is the approval in force.",
+    "forbidden": [
+      "actor_id",
+      "user_id",
+      "ward_account_id",
+      "person_id",
+      "staff_id",
+      "created_by",
+      "updated_by",
+      "approved_by",
+      "approved_by_name",
+      "signed_by",
+      "signatory",
+      "signatory_name",
+      "approver_name",
+      "contact_name",
+      "full_name",
+      "display_name",
+      "name",
+      "email",
+      "role_address",
+      "mobile_e164",
+      "phone",
+      "ip_address",
+      "user_agent",
+      "device_id",
+      "fingerprint",
+      "notes",
+      "comment",
+      "detail"
+    ]
+  },
+  "agreement": {
+    "table": "app.facility_agreement",
+    "why_it_is_here": "Ruling FX P2, requirement 2: the approval history is kept OUT of the acceptance record. app.facility_agreement is one row per facility and is never overwritten, so a reporting model on it would be overwritten by the first approved change. Its column set is pinned so that no model, approval date or history column can land on it.",
+    "columns": [
+      "facility_id",
+      "accepted_on",
+      "version",
+      "signatory_role",
+      "recorded_at",
+      "recorded_session",
+      "withdrawn_on"
+    ]
+  }
+}

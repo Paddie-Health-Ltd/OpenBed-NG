@@ -103,6 +103,11 @@ const facility = (id: string, over: Record<string, unknown> = {}): Record<string
   reporting_model: 'WARD',
   reporter_login: 'none',
   hefamaa_reg_no: null,
+  // 029's three keys (R-2026-09-30-201 GA): the register refuses a row without them. A WARD approval
+  // beside the ward logins reads MATCHES, a plain line, so no test below counts a caution it did not ask for.
+  approved_model: 'WARD',
+  approved_on: '2026-09-15',
+  reporting_approval_state: 'MATCHES',
   ...over,
 });
 
@@ -394,16 +399,17 @@ describe('every outcome is a Notice in the design system\'s tone, and every stat
     await openA(server(() => [facility(FAC_A, { listed_at: null })], {}, () => NO_AGREEMENT));
     const statuses = Array.from(document.querySelectorAll('p.status'));
     // The page's line, and edit, record-registration (DT Bundle 3), add-category,
-    // record-contact, record-agreement, list-facility.
-    expect(statuses.length).toBe(7);
+    // record-contact, record-agreement, record-reporting-approval (029, R-2026-09-30-201 GA),
+    // list-facility.
+    expect(statuses.length).toBe(8);
     await renderAt(sessionFragment(), server(() => [facility(FAC_A)]));
     await until(() => document.querySelector('li.facility') !== null);
     statuses.push(...Array.from(document.querySelectorAll('p.status')));
     await renderAt('', () => json(500, {}));
     statuses.push(...Array.from(document.querySelectorAll('p.status')));
     // R-2026-09-30-175 EY-3: the register now holds the System status section's own line, so
-    // the register adds one and the total is 10. The detail view (7, above) has no section.
-    expect(statuses.length).toBe(10);
+    // the register adds one and the total is 11 (the detail view's 8, above, has no section).
+    expect(statuses.length).toBe(11);
     for (const s of statuses) expect(s.getAttribute('role'), 'a status line is not announced').toBe('status');
   });
 });
@@ -457,7 +463,7 @@ describe('the operator forms do their own validation (DO-4 c); the sign-in form 
   test('every operator form sets noValidate; the sign-in form does not', async () => {
     await openA(server(() => [facility(FAC_A, { listed_at: null })], {}, () => NO_AGREEMENT));
     const operator = Array.from(document.querySelectorAll<HTMLFormElement>('form'));
-    expect(operator.map((f) => f.classList[0]).sort()).toEqual(['add-category', 'edit-facility', 'list-facility', 'record-agreement', 'record-contact', 'record-registration']);
+    expect(operator.map((f) => f.classList[0]).sort()).toEqual(['add-category', 'edit-facility', 'list-facility', 'record-agreement', 'record-contact', 'record-registration', 'record-reporting-approval']);
     await renderAt(sessionFragment(), server(() => []));
     await until(() => document.querySelector('ul.register') !== null);
     button('New facility').click();

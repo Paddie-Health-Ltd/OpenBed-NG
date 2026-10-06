@@ -370,6 +370,9 @@ describe('the gates read the two tables — a contact AND an agreement that is n
       await fixture(tx);
       await tx.unsafe(`insert into app.facility_contact (facility_id, full_name, job_title, email) values ('${FAC}', 'A', 'Matron', '${EMAIL}')`);
       await tx.unsafe(`insert into app.facility_agreement (facility_id, accepted_on, version) values ('${FAC}', '2026-09-01', 'v1.0')`);
+      // 029 (GA): a reporting login also needs the facility's approved model, which the
+      // gate reads. Written directly, inside this rolled-back transaction.
+      await tx.unsafe(`insert into app.facility_reporting_approval (facility_id, model, approved_on, agreement_version) values ('${FAC}', 'WARD', '2026-09-15', 'v1.0')`);
       const [r] = await tx.unsafe<{ status: string }[]>(BEGIN);
       return r?.status;
     });

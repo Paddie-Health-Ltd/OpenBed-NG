@@ -8,8 +8,10 @@ import {
   addCategoryBody,
   createFacilityBody,
   editFacilityBody,
+  recordAgreementBody,
   recordContactBody,
   recordRegistrationBody,
+  recordReportingApprovalBody,
   registerBody,
   schedulerStatusBody,
   type ContactFields,
@@ -50,6 +52,16 @@ let wardUser: WardSession | null = null;
 
 afterAll(async () => {
   const db = sql();
+  // 029 (R-2026-09-30-201 GA): the approval and agreement this file records through the real API are
+  // COMMITTED. The approval table is append-only, so its row trigger is disabled and re-enabled ENABLE
+  // ALWAYS inside ONE transaction (a crash leaves it as it was); and 029's down, and 021's, refuse
+  // while an approval or an agreement exists, which would red every earlier migration's round trip.
+  await db.begin(async (tx) => {
+    await tx`alter table app.facility_reporting_approval disable trigger trg_facility_reporting_approval_append_only`;
+    await tx`delete from app.facility_reporting_approval where facility_id = any(${created}::uuid[])`;
+    await tx`alter table app.facility_reporting_approval enable always trigger trg_facility_reporting_approval_append_only`;
+    await tx`delete from app.facility_agreement where facility_id = any(${created}::uuid[])`;
+  });
   for (const s of [operator, wardUser]) if (s) await db`delete from app.ward_account where id = ${s.userId}::uuid`;
   await db`delete from auth.users where email in (${OPERATOR_EMAIL}, ${WARD_EMAIL})`;
   for (const id of created) await db`update app.facility set is_active = false where id = ${id}::uuid`;
@@ -171,7 +183,7 @@ describe('the admin app’s calls, live', () => {
     const unreadable = (reg?.facilities ?? []).filter((f) => f.kind === 'unreadable');
     expect(unreadable, 'live rows the page cannot read').toEqual([]);
     const mine = reg?.facilities.find((f) => f.facilityId === id);
-    expect(mine?.kind === 'facility' ? [mine.reportingModel, mine.reporterLogin, mine.hefamaaRegNo] : null).toEqual(['NONE', 'none', null]);
+    expect(mine?.kind === 'facility' ? [mine.reportingModel, mine.reporterLogin, mine.hefamaaRegNo, mine.approvedModel, mine.approvedOn, mine.reportingApprovalState] : null).toEqual(['NONE', 'none', null, null, null, null]);
   });
 
   // THE TENTH CALL (R-2026-09-30-175 EY-3): the System status, through the page's own body and
@@ -188,6 +200,48 @@ describe('the admin app’s calls, live', () => {
     const status = parseSchedulerStatus(r.body);
     expect(status, 'the live status is unreadable to the page').not.toBeNull();
     expect(status?.jobs.every((j) => j.name.startsWith('openbed_'))).toBe(true);
+  });
+
+  // THE ELEVENTH CALL (029; R-2026-09-30-201 GA): the approved reporting model, through the page's own
+  // body and parser, over real PostgREST with a real operator session.
+  test("the approved reporting model, through the page's own body: recorded, read back and parsed, appended and never overwritten, and each refusal read as the page's sentence", async () => {
+    const id = await newFacility();
+    const approve = (model: string, on: string | null, role: string | null) => ({ ...recordReportingApprovalBody(id, 'WARD', '2026-09-15', role), p_model: model, p_approved_on: on });
+
+    // No agreement yet: there is nothing to approve under.
+    expect(refusal(await call(RPC.recordReportingApproval, recordReportingApprovalBody(id, 'WARD', '2026-09-15', 'Matron'))).key).toBe('AGREEMENT_NOT_RECORDED');
+    expect((await call(RPC.recordAgreement, recordAgreementBody(id, '2026-09-01', 'v1.0', 'CMD'))).status).toBe(200);
+
+    const saved = await call(RPC.recordReportingApproval, recordReportingApprovalBody(id, 'WARD', '2026-09-15', 'Matron'));
+    expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+    expect(saved.body).toEqual([{ facility_id: id, recorded: true }]);
+    const row = await registerRow(id);
+    expect([row['approved_model'], row['approved_on'], row['reporting_approval_state']]).toEqual(['WARD', '2026-09-15', 'NOT_YET_PROVISIONED']);
+    const parsed = parseRegister((await call(RPC.register, registerBody())).body)?.facilities.find((f) => f.facilityId === id);
+    expect(parsed?.kind === 'facility' ? [parsed.approvedModel, parsed.approvedOn, parsed.reportingApprovalState] : null).toEqual(['WARD', '2026-09-15', 'NOT_YET_PROVISIONED']);
+
+    // An identical repeat writes nothing; a changed model appends, and the first row is kept.
+    const again = await call(RPC.recordReportingApproval, recordReportingApprovalBody(id, 'WARD', '2026-09-15', 'Matron'));
+    expect((again.body as { recorded: boolean }[])[0]?.recorded, 'an identical repeat appended').toBe(false);
+    const changed = await call(RPC.recordReportingApproval, recordReportingApprovalBody(id, 'FACILITY', '2026-09-16', 'Matron'));
+    expect((changed.body as { recorded: boolean }[])[0]?.recorded).toBe(true);
+    expect((await registerRow(id))['approved_model']).toBe('FACILITY');
+    const history = await sql()<{ model: string }[]>`select model::text from app.facility_reporting_approval where facility_id = ${id}::uuid order by id`;
+    expect(history.map((h) => h.model), 'a changed approval overwrote the earlier one').toEqual(['WARD', 'FACILITY']);
+
+    // Each refusal, read through the page's own message table.
+    const [tomorrow] = await sql()<{ d: string }[]>`select ((now() at time zone 'Africa/Lagos')::date + 1)::text as d`;
+    for (const [what, body, key] of [
+      ['a date after today in Lagos', approve('WARD', tomorrow?.d ?? '', 'Matron'), 'APPROVAL_DATE_IN_FUTURE'],
+      ['a date before the agreement was accepted', approve('WARD', '2026-08-31', 'Matron'), 'APPROVAL_BEFORE_AGREEMENT'],
+      ['a model that is neither', approve('BOTH', '2026-09-15', 'Matron'), 'INVALID_ARGUMENT:p_model'],
+      ['no date', approve('WARD', null, 'Matron'), 'INVALID_ARGUMENT:p_approved_on'],
+      ['a 65-character title', approve('WARD', '2026-09-15', 'x'.repeat(65)), 'INVALID_ARGUMENT:p_approved_by_role'],
+    ] as const) {
+      const m = refusal(await call(RPC.recordReportingApproval, body));
+      expect(m.key, what).toBe(key);
+      expect(m.sentence, what).toBe(ADMIN_LABELS.codes[key]);
+    }
   });
 
   // THE NINTH CALL (R-2026-09-27-144 DT Bundle 3): the Registration section's body, live.

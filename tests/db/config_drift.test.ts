@@ -211,17 +211,20 @@ describe('configuration drift', () => {
     }
   });
 
-  test('both append-only triggers are ENABLE ALWAYS, not merely enabled', async () => {
+  test('every append-only trigger is ENABLE ALWAYS, not merely enabled', async () => {
     // tgenabled 'O' (origin) does NOT fire under session_replication_role =
     // 'replica', which is what logical replication and many restore scripts set.
     // An 'O' trigger silently stops enforcing while every grant still looks right.
     const rows = await sql()<{ tgname: string; tgenabled: string }[]>`
       select tgname, tgenabled::text
         from pg_trigger
-       where tgname in ('trg_ward_status_event_append_only', 'trg_audit_log_append_only')
+       where tgname in ('trg_ward_status_event_append_only', 'trg_audit_log_append_only',
+                        'trg_facility_reporting_approval_append_only', 'trg_facility_reporting_approval_no_truncate')
        order by tgname
     `;
-    expect(rows.length, 'append-only triggers are missing').toBe(2);
+    // Four since 029 (R-2026-09-30-201 GA): 010's two row-level triggers, and the new table's
+    // row-level trigger and its statement-level TRUNCATE trigger.
+    expect(rows.length, 'append-only triggers are missing').toBe(4);
     for (const row of rows) {
       expect(row.tgenabled, `${row.tgname} is not ENABLE ALWAYS`).toBe('A');
     }

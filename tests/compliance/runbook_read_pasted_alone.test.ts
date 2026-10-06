@@ -105,7 +105,11 @@ describe('a shell block that reads a value is pasted alone (DZ-3 c)', () => {
     // at 1f84101 after docs/runbook-sensor.md's five (R-2026-09-30-175 EY-4), one before each of its psql
     // blocks. A connection block added or removed now reds until this number is restated, in the same
     // change, with the reason. The set of documents below is an equality too, with three members.
-    expect(reading.length, `connection blocks read: ${reading.length}`).toBe(50);
+    // 50 -> 52 on 2026-10-06 (R-2026-09-30-201 GA): "029's apply" adds a connection block before its
+    // two readings of what 029 created, and 12.4's procedure "Changing a facility's reporting model"
+    // adds one before its founder SQL that deactivates one kind of login. Both are in the Supabase
+    // runbook, so the set of documents is unchanged.
+    expect(reading.length, `connection blocks read: ${reading.length}`).toBe(52);
     expect(new Set(reading.map((f) => f.doc))).toEqual(new Set([RUNBOOK, join(DOCS, 'runbook-cloudflare-pages-beds-json.md'), join(DOCS, 'runbook-sensor.md')]));
     expect(inScratch({ 'runbook-x.md': '```bash\necho no reads\n```\n' }).join('\n')).toContain('no shell fence under docs/ reads a value');
   });
