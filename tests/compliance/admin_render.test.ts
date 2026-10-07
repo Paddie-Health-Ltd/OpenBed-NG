@@ -1200,15 +1200,51 @@ describe('029 — the approved reporting model: four states, the null cell, and 
     expect(document.querySelector('section.approval-detail form.record-reporting-approval'), 'no approval form under a recorded agreement').not.toBeNull();
   });
 
-  test('a withdrawn facility shows the withdrawn line only in the register, and the withdrawn sentence with NO form in the detail view', async () => {
-    await renderAt(sessionFragment(), withRegister([facility(FAC_A, { agreement_state: 'withdrawn', ...approved('WARD', 'MATCHES') })]));
+  // THE WITHDRAWN SENTENCE MUST BE TRUE IN BOTH CASES (R-2026-10-07 GM). It said the approved model "stays on
+  // file" for every withdrawn facility, including one for which none was ever recorded, which is the usual case
+  // for a facility that withdrew before 029 existed. The two literals are checked-in, so a reworded sentence
+  // reds this file instead of passing through its own source. NONE_RECORDED is the wording PROPOSED to Cowork
+  // in the pull request; it ships only on that review.
+  const STAYS_ON_FILE = 'This facility has withdrawn. Its approved reporting model stays on file for the record.';
+  const NONE_RECORDED = 'This facility has withdrawn. No approved reporting model was recorded for it.';
+  const WITHDRAWN_CASES: [string, Record<string, unknown>, string][] = [
+    ['an approval IS recorded (per ward, logins match)', { agreement_state: 'withdrawn', ...approved('WARD', 'MATCHES') }, STAYS_ON_FILE],
+    ['an approval IS recorded (whole facility, not set up yet)', { agreement_state: 'withdrawn', ...approved('FACILITY', 'NOT_YET_PROVISIONED', { reporting_model: 'NONE' }) }, STAYS_ON_FILE],
+    [
+      'NONE was ever recorded, and no login exists',
+      { agreement_state: 'withdrawn', reporting_model: 'NONE', approved_model: null, approved_on: null, reporting_approval_state: null },
+      NONE_RECORDED,
+    ],
+    [
+      'NONE was ever recorded, and logins are still active',
+      { agreement_state: 'withdrawn', reporting_model: 'WARD', approved_model: null, approved_on: null, reporting_approval_state: 'APPROVAL_NOT_RECORDED' },
+      NONE_RECORDED,
+    ],
+  ];
+
+  test.each(WITHDRAWN_CASES)('a withdrawn facility where %s shows the withdrawn line only in the register, and a TRUE withdrawn sentence with NO form in the detail view', async (_name, over, sentence) => {
+    await renderAt(sessionFragment(), withRegister([facility(FAC_A, over)]));
     await until(() => text().includes('Facilities'));
     expect(document.querySelector('li.facility .reporting-approval'), 'a withdrawn facility shows an approval line in the register').toBeNull();
     expect(Array.from(document.querySelectorAll('li.facility .warning')).map((n) => n.textContent)).toContain(S.WITHDRAWN_WARNING);
     button('Open').click();
     await until(() => document.querySelector('section.approval-detail') !== null);
-    expect(document.querySelector('section.approval-detail > p')?.textContent).toBe('This facility has withdrawn. Its approved reporting model stays on file for the record.');
+    const line = document.querySelector('section.approval-detail > p');
+    expect(line?.textContent).toBe(sentence);
+    // The claim "stays on file" is made if and only if an approval is recorded: the false statement is the defect.
+    expect(line?.textContent?.includes('stays on file'), `"stays on file" is ${sentence === STAYS_ON_FILE ? 'missing where an approval is recorded' : 'said of a facility with no approval recorded'}`).toBe(sentence === STAYS_ON_FILE);
+    expect(line?.classList.contains('notice-caution')).toBe(true);
     expect(document.querySelector('form.record-reporting-approval')).toBeNull();
+  });
+
+  test('anti-vacuity — the two withdrawn sentences differ, and the cases cover an approval and none, so the leg above can tell them apart', () => {
+    expect(NONE_RECORDED).not.toBe(STAYS_ON_FILE);
+    const recorded = WITHDRAWN_CASES.filter(([, over]) => over['approved_model'] !== null).map(([, , s]) => s);
+    const none = WITHDRAWN_CASES.filter(([, over]) => over['approved_model'] === null).map(([, , s]) => s);
+    expect(recorded.length, 'no case has an approval recorded').toBeGreaterThan(0);
+    expect(none.length, 'no case has none recorded').toBeGreaterThan(0);
+    expect(new Set(recorded), 'the recorded cases do not all expect the same sentence').toEqual(new Set([STAYS_ON_FILE]));
+    expect(new Set(none), 'the none-recorded cases do not all expect the same sentence').toEqual(new Set([NONE_RECORDED]));
   });
 
   test('a facility with no agreement says to record it first, and offers no approval form', async () => {
