@@ -1201,8 +1201,8 @@ describe('029 — the approved reporting model: four states, the null cell, and 
   });
 
   // THE WITHDRAWN SENTENCE MUST BE TRUE IN BOTH CASES (R-2026-10-07 GM). It said the approved model "stays on
-  // file" for every withdrawn facility, including one for which none was ever recorded, which is the usual case
-  // for a facility that withdrew before 029 existed. The two literals are checked-in, so a reworded sentence
+  // file" for every withdrawn facility, including one whose agreement was withdrawn before any approval was
+  // recorded, for which nothing is on file. The two literals are checked-in, so a reworded sentence
   // reds this file instead of passing through its own source. NONE_RECORDED is the wording PROPOSED to Cowork
   // in the pull request; it ships only on that review.
   const STAYS_ON_FILE = 'This facility has withdrawn. Its approved reporting model stays on file for the record.';
