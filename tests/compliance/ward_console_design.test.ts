@@ -231,15 +231,20 @@ describe('a double tap on Publish still sends one request', () => {
   });
 
   test('plant — a button re-enabled between the taps sends two, and the count sees it', async () => {
-    let release: (r: Response) => void = () => undefined;
-    const { stub, publish } = await oneWard(GOOD_ROW, () => new Promise<Response>((r) => { release = r; }));
+    // EVERY request's resolver is kept (R-2026-10-07 GI). It used to keep only the last, so the first of
+    // the two requests was never answered and stayed in flight when the file ended; the class guard
+    // (tests/setup/compliance-guard.ts) found it.
+    const releases: Array<(r: Response) => void> = [];
+    const { stub, publish } = await oneWard(GOOD_ROW, () => new Promise<Response>((r) => { releases.push(r); }));
     publish.click();
     await until(() => publishCalls(stub) > 0);
     publish.disabled = false;
     publish.click();
     await settle();
     expect(publishCalls(stub), 'the plant did not send a second request: the check cannot fail').toBe(2);
-    release(json(200, PUBLISHED));
+    expect(releases, 'the plant held a different number of requests open than it sent').toHaveLength(2);
+    for (const release of releases) release(json(200, PUBLISHED));
+    await settle();
   });
 });
 

@@ -39,6 +39,23 @@ export interface OwnedDashboard {
 
 const FOUR = ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] as const;
 
+/**
+ * FOR A TEST THAT RENDERS A REAL SNAPSHOT (R-2026-10-07 GI). A successful render() starts a
+ * 30 s polling setInterval (main.ts) that is module-private, so no test can clear it. The only way a
+ * test owns it is to create it under FAKE timers, which useRealTimers() then drops. Call this before
+ * the import or the render, and releaseTimers() in afterEach. It does nothing when a fake clock is
+ * already installed, so a test that fakes the clock for its own reasons (a device date, say) must name
+ * the four timer functions in its own useFakeTimers call.
+ */
+export function ownTimers(): void {
+  if (!vi.isFakeTimers()) vi.useFakeTimers({ toFake: [...FOUR] });
+}
+
+export function releaseTimers(): void {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+}
+
 export async function importDashboardOwned(status = 500): Promise<OwnedDashboard> {
   vi.useFakeTimers({ toFake: [...FOUR] });
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status })));

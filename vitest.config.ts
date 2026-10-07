@@ -39,6 +39,10 @@ export default defineConfig({
         test: {
           name: 'compliance',
           include: ['tests/compliance/**/*.test.ts'],
+          // THE CLASS GUARD (R-2026-10-07 GI): per file, an unmocked fetch fails loudly and nothing a
+          // test starts may still be scheduled when the file ends. This project only: the db and e2e
+          // projects use real fetch against a real stack, by design.
+          setupFiles: ['tests/setup/compliance-guard.ts'],
           testTimeout: 30_000,
         },
       },

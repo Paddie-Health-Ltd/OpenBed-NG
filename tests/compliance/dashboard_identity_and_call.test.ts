@@ -2,8 +2,9 @@
 /// <reference lib="dom" />
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { facilityColumns, wardColumns } from '../../packages/snapshot/src/codec.js';
+import { ownTimers, releaseTimers } from './_dashboard_import.js';
 import { REPO_ROOT } from './_scratch.js';
 
 /**
@@ -54,7 +55,12 @@ function payload(facilities: unknown[][], wards: unknown[][]) {
   return { v: 1, generated_at: '2026-09-23T08:00:00+00:00', server_now: '2026-09-23T08:00:00+00:00', facilities, wards };
 }
 
+afterEach(() => {
+  releaseTimers();
+});
+
 async function renderWith(p: unknown): Promise<string> {
+  ownTimers();
   document.body.innerHTML = '<main id="app"></main>';
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(p), { status: 200, headers: { 'content-type': 'application/json' } })));
   const { render } = await import('../../apps/public-dashboard/src/main.js');

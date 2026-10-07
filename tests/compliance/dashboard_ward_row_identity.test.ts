@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { decodeWard, facilityColumns, wardColumns } from '../../packages/snapshot/src/codec.js';
 import { wardLine } from '../../apps/public-dashboard/src/age-view.js';
+import { ownTimers, releaseTimers } from './_dashboard_import.js';
 import { REPO_ROOT } from './_scratch.js';
 
 /**
@@ -112,6 +113,7 @@ const UNKNOWN_AGE_CASES: readonly Case[] = [
 const rows = (cases: readonly Case[]): unknown[][] => cases.map((c) => encode(wardColumns(), { ...base, ...c.row }));
 
 async function renderRows(encoded: unknown[][], withClock: boolean, generatedAt: number = GEN): Promise<HTMLLIElement[]> {
+  ownTimers();
   document.body.innerHTML = '<main id="app"></main>';
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (withClock) headers['x-openbed-served-at'] = iso(SERVED);
@@ -174,7 +176,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  vi.unstubAllGlobals();
+  releaseTimers();
 });
 
 describe('a ward row says exactly what wardLine says, and colours only a fresh claim', () => {

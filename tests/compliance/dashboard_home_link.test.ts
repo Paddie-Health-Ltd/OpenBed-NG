@@ -2,8 +2,9 @@
 /// <reference lib="dom" />
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { facilityColumns, wardColumns } from '../../packages/snapshot/src/codec.js';
+import { ownTimers, releaseTimers } from './_dashboard_import.js';
 import { builtCss } from './_design.js';
 import { REPO_ROOT } from './_scratch.js';
 
@@ -154,7 +155,12 @@ const PAYLOAD = {
 };
 
 /** The bed list as a visitor gets it: the built index.html's body, then src/main.ts run over it. */
+afterEach(() => {
+  releaseTimers();
+});
+
 async function renderedIndex(): Promise<Document> {
+  ownTimers();
   document.body.innerHTML = parse(readBuilt(BUILT_INDEX)).body.innerHTML.replace(/<script\b[\s\S]*?<\/script>/gi, '');
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(PAYLOAD), { status: 200, headers: { 'content-type': 'application/json' } })));
   const { render } = await import('../../apps/public-dashboard/src/main.js');
