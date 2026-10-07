@@ -158,6 +158,7 @@
     "APPROVAL_DETAIL_MISMATCH": "The active logins do not match what the facility approved on {date}. Approved: {A}. Active: {B}. Do not add logins until this is resolved.",
     "APPROVAL_DETAIL_NONE": "No reporting model is approved for this facility yet. Record it from the facility's signed Schedule 1 before any login is set up.",
     "APPROVAL_DETAIL_WITHDRAWN": "This facility has withdrawn. Its approved reporting model stays on file for the record.",
+    "APPROVAL_DETAIL_WITHDRAWN_NONE": "This facility has withdrawn. No approved reporting model was recorded for it.",
     "APPROVAL_NEEDS_AGREEMENT": "Record the agreement first. The approved reporting model is recorded under it.",
     "APPROVAL_HEADING": "Reporting approval",
     "APPROVAL_MODEL_LABEL": "Approved model",

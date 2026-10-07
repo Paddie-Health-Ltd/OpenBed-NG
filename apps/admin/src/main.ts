@@ -503,7 +503,8 @@ function renderRegister(holder: SessionHolder, reg: Register, mark: FetchMark, s
     }
     wardsCell.append(el('p', MODEL_WORD[f.reportingModel], 'reporting-model'));
     // 029: what the facility approved and whether its logins match. A withdrawn facility shows
-    // the withdrawn line above and no approval line here; its detail view keeps the sentence.
+    // the withdrawn line above and no approval line here; its detail view says whether an approval
+    // stays on file or none was recorded (GM).
     if (f.agreementState !== 'withdrawn') {
       wardsCell.append(el('p', approvalSentence(f, 'register'), approvalNeedsAction(f) ? 'reporting-approval warning notice notice-caution' : 'reporting-approval'));
     }
@@ -1073,7 +1074,9 @@ function renderDetail(holder: SessionHolder, first: Detail): void {
   let approvalPatch: () => void = () => undefined;
   const approval = modal('approval-detail', W.APPROVAL_HEADING, () => d.f.agreementState, () => {
     approvalPatch = () => undefined;
-    if (d.f.agreementState === 'withdrawn') return [el('p', W.APPROVAL_DETAIL_WITHDRAWN, 'notice notice-caution')];
+    // GM (R-2026-10-07): "stays on file" is said only where an approval IS on file. The register reports
+    // approvedModel as null exactly when no approval row exists, so that is the whole test.
+    if (d.f.agreementState === 'withdrawn') return [el('p', d.f.approvedModel === null ? W.APPROVAL_DETAIL_WITHDRAWN_NONE : W.APPROVAL_DETAIL_WITHDRAWN, 'notice notice-caution')];
     if (d.f.agreementState === 'none') return [el('p', W.APPROVAL_NEEDS_AGREEMENT, 'notice notice-caution')];
     const line = el('p');
     const paint = (): void => {
