@@ -1020,11 +1020,14 @@ Restated 2026-09-14: until then this read `exactly 13 migration(s) pending.`, an
 migration 014 made that wrong.
 
 - **The hosted project today** holds 001 through 029 (see step 7), and the
-  repository ends at 029. Every file up to and including
+  repository ends at 030. Every file up to and including
   `029_facility_reporting_approval.sql` must read `already applied`;
-  there must be no `WOULD APPLY` line; and the dry
+  there must be exactly one `WOULD APPLY` line, naming `030_truncate_guard_audit_tables.sql`; and the dry
   run must end
-  `0 migration(s) pending.` A migration added after this one is applied by the fences below, in the order step 5 gives them.
+  `1 migration(s) pending.` Apply it by the fences below, in the order step 5 gives them.
+- **Restated 2026-10-07 (R-2026-09-30-205 GE), in the change that ADDS 030.** Until then
+  this expected no `WOULD APPLY` line and `0 migration(s) pending.`, which was right
+  from 029's hosted apply while the repository also ended at 029.
 - **Restated 2026-10-06 (R-2026-09-30-203 GC), in the change that records 029's
   hosted apply.** Until then this expected 001 through 028, exactly one `WOULD APPLY`
   line naming `029_facility_reporting_approval.sql`, and `1 migration(s) pending.` The
@@ -1136,10 +1139,14 @@ migration 014 made that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line AT ALL, or any count other than
-  `0 migration(s) pending.`: stop and report.** Another file pending means
+- **Any `WOULD APPLY` line OTHER than the one named above, or any count other than
+  `1 migration(s) pending.`: stop and report.** Another file pending means
   either a migration reached the repository after the list was last restated, or
   hosted is not where this document says it is.
+  - *Restated 2026-10-07 (R-2026-09-30-205 GE), in the change that adds 030. Until then
+    this bullet read "Any `WOULD APPLY` line AT ALL, or any count other than
+    `0 migration(s) pending.`", which was right from 029's hosted apply until this
+    change.*
   - *Restated 2026-10-06 (R-2026-09-30-203 GC), in the change that records 029's
     hosted apply. Until then this bullet read "Any `WOULD APPLY` line OTHER than the one
     named above, or any count other than `1 migration(s) pending.`", which was right from
@@ -2662,14 +2669,86 @@ apply. On 2026-10-06 it was (R-2026-09-30-203), with 029's sha256 as at `55fa3bc
 
 - [x] On 2026-10-06, 029 applied; the Worker redeployed and the admin app redeployed, each from a checkout at `55fa3bc4d844136994415e60ac11f00e549c9abc` (#122's merge). The readings are the founder's, relayed by Cowork (R-2026-09-30-203 GC), who read each fence before the next. Fence 1: twenty-eight `already applied` (001 to 028), `WOULD APPLY` `029_facility_reporting_approval.sql`, "1 migration(s) pending." Fence 2: `FINGERPRINT beds.json=0/0:543f06c0b0c4,facility_public=0:d41d8cd98f00,ward_public=0:d41d8cd98f00,lga_rollup=0:d41d8cd98f00`, `RECORDED`. Fence 3: 029 applied, no error, "Migrations complete (1 applied this run)." Fence 4: all four parts `ok`, "PASS (VACUOUS FOR B1)": nothing public before or after. Fence 5: the founder pasted the tail only, which reads `already applied : 029_facility_reporting_approval.sql` and "0 migration(s) pending."; the zero count excludes any `WOULD APPLY` line, and the twenty-nine `already applied` lines above it were not pasted, so they are not claimed as read. Fence 6: every line `ok`, including `public.operator_record_reporting_approval(text, text, date, text) EXECUTE: authenticated`; `app.provision_begin(uuid, text, text)` reads `EXECUTE: none`; `public.rls_auto_enable()` reads `ok` under `(hosted-only)`; no line count was reported. The two readings of what 029 created: `t|2`, then `0`. The Worker: `deploy_worker.sh` at `55fa3bc`, the stamp naming `55fa3bc` on attempt 1, Current Version ID `b80826e7-9392-40ff-88da-f17d2f2f1c87`, with `LIMIT_OTP`, `LIMIT_VERIFY` and `LIMIT_REFRESH` bound; `readback_worker.sh` read PASS on probes 1, 1b, 2, 3, 5, 5b, 6, 7 (a 303 to the admin origin), 8 and the stamp. **Probe 4, the bundled allow-list equal to the file, was NOT RUN: Cowork's Cloudflare connector was unavailable that session. It is OWED, and so the new allow-list entries are not yet confirmed in the deployed bundle by that probe.** The admin app: `deploy_pages.sh` at `55fa3bc`, deployed as `10698d15`; `readback_admin.sh` read PASS (all six host/path pairs 302 to Access; commit `55fa3bc`, dirty false; a live call 200, a dead key 401, the operator call forwarded). The operator's read in the founder's browser (a private window, signed in as the operator): no console error; the register loads with System status and "No facility exists yet." **The "Reporting approval" section and the "No approved reporting model is on file yet." line were NOT SEEN on hosted: no facility exists there. First sight is at facility one, 12.4 step 3a.** The hosted `npm` install reported the known three high advisories (`sharp`, through `wrangler` and `miniflare`); none was acted on here.
 
+### 030's apply — the truncate guard on 010's two tables (R-2026-09-30-205 GE)
+
+**Not yet run.** The founder runs it after the pull request that adds 030 merges. Unlike
+028's and 029's, **no Worker or admin-app redeploy is needed, before or after**: 030
+creates no function, changes no grant and no column, and inserts no row, so nothing the
+Worker's allow-list or the admin app's register reads has moved. Claude Code runs nothing
+hosted.
+
+**What 030 changes** (its header says why). Two triggers and nothing else: a
+statement-level `BEFORE TRUNCATE` trigger on `app.audit_log` and one on
+`app.ward_status_event`, each calling `app.raise_append_only()` and each `ENABLE ALWAYS`.
+010's row-level triggers stop `UPDATE` and `DELETE`, and its revoke removes `TRUNCATE` from
+the client roles, but a revoke does not bind the table's owner and a row trigger is never
+fired by `TRUNCATE`: until this apply the owner can empty either table in one statement,
+and nothing raises. After it the owner is refused with `APPEND_ONLY_VIOLATION`, naming the
+table. A client role is refused earlier, by the privilege check (`42501`), as before. No
+data moves, and no behaviour a client can reach changes.
+
+**Run the six fences of "020's apply" above, in the same order, with these
+expectations for 030.** Only what each must read changes:
+
+1. **The dry run:** exactly one `WOULD APPLY` line, naming
+   `030_truncate_guard_audit_tables.sql`, and the count the list at the top of this step
+   states. Anything else: stop and report.
+2. **The before-reading:** as for 020. Keep the `FINGERPRINT` line.
+3. **The apply:** as for 020. It applies the one file, and ends by saying one was applied
+   this run.
+4. **The after-reading:** as for 020. `PASS (VACUOUS FOR B1)` is expected while hosted
+   lists no facility: 030 writes no public row and changes no projection.
+5. **The second dry run:** thirty `already applied` lines, naming
+   `001_app_schema_and_migration_ledger.sql` through `030_truncate_guard_audit_tables.sql`,
+   no `WOULD APPLY` line, and the same last line as 020's fence 5, saying nothing is
+   pending. Anything else: stop and report.
+6. **Who can execute what:** as for 020, run after the apply. **Every line reads exactly
+   as it did after 029's apply:** 030 adds no function and changes no grant, so a new or
+   changed line is a stop. `public.rls_auto_enable()` reads `ok` under `(hosted-only)`.
+   This read-back runs BEFORE the boundary is frozen. Anything else: stop and report.
+
+**Then one reading of what 030 created.** It only reads. **It must print two lines,
+`app.audit_log|2` and then `app.ward_status_event|2`.** Each `2` is the number of that
+table's triggers that are `ENABLE ALWAYS`: 010's row-level trigger, which was there before,
+and 030's truncate trigger. **Anything else: stop and report.** A `1` on a table means 030's
+trigger is missing or merely enabled; a line absent means the table has none.
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select tgrelid::regclass::text, count(*) from pg_trigger where tgrelid in ('app.audit_log'::regclass, 'app.ward_status_event'::regclass) and tgenabled = 'A' and not tgisinternal group by 1 order by 1"
+unset DATABASE_URL
+```
+
+**No probe of the refusal itself is run on hosted.** Proving it there would mean running a
+`TRUNCATE` against the real safety record, and the trigger is what makes that refused; the
+refusal is proved on the local stack by `tests/db/append_only_enforcement.test.ts`, and the
+hosted reading above is the trigger's presence and its `ENABLE ALWAYS` state.
+
+**The down migration is not applied here on anyone's own authority.** It drops the two
+triggers and nothing else, and doing so lets the owner truncate the safety record again.
+
+**Afterwards:** the frozen boundary is recorded with `30`, in the change that records this
+apply.
+
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 029 applied, and so does the repository
-end), the dry run prints twenty-nine `already applied` lines and:
+**On the hosted project today** (001 through 029 applied, and the repository ends at
+030), the dry run prints twenty-nine `already applied` lines and:
 
 ```
-0 migration(s) pending.
+  WOULD APPLY     : 030_truncate_guard_audit_tables.sql   <- dry run
+1 migration(s) pending.
 ```
+
+*Restated 2026-10-07 (R-2026-09-30-205 GE), in the change that adds 030.* Until then this
+block showed twenty-nine `already applied` lines, no WOULD APPLY line, and a count of
+zero -- right from 029's hosted apply while the repository ended at 029.
 
 *Restated 2026-10-06 (R-2026-09-30-203 GC), in the change that records 029's hosted
 apply.* Until then this block showed twenty-eight `already applied` lines, one WOULD APPLY
@@ -2902,9 +2981,15 @@ Migrations complete (3 applied this run).   <- apply
 second is lower:
 
 ```
-29 migration(s) pending.          <- dry run
-Migrations complete (28 applied this run).   <- apply
+30 migration(s) pending.          <- dry run
+Migrations complete (29 applied this run).   <- apply
 ```
+
+*Restated 2026-10-07 (R-2026-09-30-205 GE), in the change that adds 030. This block
+read `29` and `28` -- right while the repository ended at 029. Observed on the local
+stack in this change: a fresh `supabase db reset` followed by the runner's dry run
+printed `30 migration(s) pending.`, and the apply printed `Migrations complete (29
+applied this run).`*
 
 *Restated 2026-10-06 (R-2026-09-30-201 GA), in the change that adds 029. This block
 read `28` and `27` -- right while the repository ended at 028. Observed on the local
@@ -2953,13 +3038,15 @@ so from that merge it named a count one lower than a correct virgin run prints. 
 not one of the hosted expectations the guard parses; it was found by reading the
 section for this restatement.*
 
-**Twenty-eight is correct there. Nothing was skipped.** Migration 001 creates the `app`
+**Twenty-nine is correct there. Nothing was skipped.** Migration 001 creates the `app`
 schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
 recorded by a ledger that does not exist yet. The runner applies and ledgers it
 in a separate **bootstrap** step, and the apply loop then counts only what it
-applied itself -- 002 through 029, which is twenty-eight. The dry run has no bootstrap
+applied itself -- 002 through 030, which is twenty-nine. The dry run has no bootstrap
 branch: `is_applied` returns 0 while the ledger is absent, so it counts all
-twenty-nine as pending. The two numbers are measuring different things.
+thirty as pending. The two numbers are measuring different things.
+*Restated 2026-10-07 (R-2026-09-30-205 GE), in the change that adds 030; until then this
+paragraph read twenty-eight, 002 through 029, and twenty-nine.*
 *Restated 2026-10-06 (R-2026-09-30-201 GA), in the change that adds 029; until then this
 paragraph read twenty-seven, 002 through 028, and twenty-eight.*
 *Restated 2026-09-30 (R-2026-09-30-175 EY-2), in the change that adds 028; until then this
@@ -2975,11 +3062,14 @@ this paragraph read twenty-two, 002 through 023, and twenty-three.*
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `29`, with `0 migration(s) pending.` from the
-dry run.** On 2026-10-06 the founder's second dry run after 029's apply ended with
+THAT PROJECT. **On hosted today that is `29`, with `1 migration(s) pending.` from the
+dry run** -- 030, in the repository and not yet applied. On 2026-10-06 the founder's second dry run after 029's apply ended with
 `already applied : 029_facility_reporting_approval.sql` and `0 migration(s) pending.`;
 the founder pasted that tail only, so the twenty-nine `already applied` lines, 001
 through 029, were not read, and the zero count is what excludes any `WOULD APPLY` line.
+*Restated 2026-10-07 (R-2026-09-30-205 GE), in the change that adds 030; until then it
+read `29` with `0 migration(s) pending.`, right from 029's hosted apply while the
+repository ended at 029.*
 *Restated 2026-10-06 (R-2026-09-30-203 GC), in the change that records 029's hosted
 apply; until then it read `28` with `1 migration(s) pending.`, 029 in the repository and
 not yet applied. The founder's second dry run after 028's apply, on 2026-09-30, read

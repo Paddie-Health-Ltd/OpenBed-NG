@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import type { TransactionSql } from 'postgres';
 import { sql, withRole } from '../setup/db.js';
 
 /**
@@ -12,6 +13,12 @@ import { sql, withRole } from '../setup/db.js';
  *   - a BEFORE UPDATE OR DELETE trigger that raises unconditionally.
  * Grants alone do not stop a maintenance script running as service_role, which is
  * the realistic threat here -- far likelier than a hostile client.
+ *
+ * TRUNCATE is a statement, not a row, so the row-level trigger never sees it. Migration 030
+ * (R-2026-09-30-205 GE) adds a statement-level BEFORE TRUNCATE trigger to each table; the last
+ * describe block in this file holds those legs, layer by layer: the owner is stopped by the
+ * trigger (APPEND_ONLY_VIOLATION), a client role by the grant (42501), and the trigger is
+ * shown to stop a client role that were ever granted TRUNCATE.
  *
  * NOT ASSERTED HERE, AND THIS MATTERS -- read before trusting a green run.
  *
@@ -123,5 +130,121 @@ describe('append-only enforcement', () => {
       select tableowner as owner from pg_tables where schemaname = 'app' and tablename = 'audit_log'
     `;
     expect(rows.map((r) => r.grantee)).toEqual([owner?.owner]);
+  });
+});
+
+/**
+ * TRUNCATE on the two tables of 010, stopped at the statement (migration 030; 029 did the same
+ * for its own table, tests/db/reporting_approval.test.ts).
+ *
+ * LAYER BY LAYER, because the two layers refuse with different errors and a test that accepted
+ * either would not know which one was holding:
+ *   - the OWNER holds TRUNCATE implicitly; only the statement-level trigger stops it, with
+ *     APPEND_ONLY_VIOLATION naming the table;
+ *   - a CLIENT role is refused earlier, by the privilege check (SQLSTATE 42501), because 010
+ *     revoked TRUNCATE from it and PostgreSQL checks privileges before it fires a BEFORE trigger.
+ *     So "APPEND_ONLY_VIOLATION for each client role" is not what an ungranted role sees;
+ *   - the trigger is then shown to refuse a client role GRANTED TRUNCATE (the grant is made inside
+ *     the transaction, before the role switch, and rolled back with it), so the second layer is
+ *     proven on its own and not inferred from the first.
+ *
+ * TRUNCATE ... CASCADE from app.facility reaches both tables through their foreign keys, and
+ * BEFORE TRUNCATE triggers fire for the cascaded tables too: asserted below.
+ */
+const TRUNCATE_TARGETS = ['audit_log', 'ward_status_event'] as const;
+const CLIENT_ROLES = ['anon', 'authenticated', 'service_role'] as const;
+
+async function fixtureRows(tx: TransactionSql): Promise<void> {
+  await tx.unsafe(`insert into app.audit_log (action) values ('test.truncate_guard')`);
+  await tx.unsafe(`
+    insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164)
+    values ('cccccccc-0000-4000-8000-000000000011','TG Test','Ikeja','Lagos',6.6,3.35,'+2348000000098')`);
+  await tx.unsafe(`
+    insert into app.ward_status (id, facility_id, category, offering, bed_count, accepting)
+    values ('cccccccc-0000-4000-8000-000000000012','cccccccc-0000-4000-8000-000000000011','ICU_ADULT','OFFERED',1,true)`);
+  await tx.unsafe(`
+    insert into app.ward_status_event
+      (ward_status_id, facility_id, category, offering, bed_count, accepting, state, source, version)
+    values ('cccccccc-0000-4000-8000-000000000012','cccccccc-0000-4000-8000-000000000011',
+            'ICU_ADULT','OFFERED',1,true,'OK','WARD',1)`);
+}
+
+describe('TRUNCATE on the two append-only tables of 010 is refused', () => {
+  test.each(TRUNCATE_TARGETS)(
+    'owner (postgres) truncate of app.%s rejected with APPEND_ONLY_VIOLATION naming the table',
+    async (table) => {
+      await expect(
+        withRole('postgres', null, (tx) => tx.unsafe(`truncate app.${table}`), fixtureRows),
+      ).rejects.toThrow(new RegExp(`APPEND_ONLY_VIOLATION: TRUNCATE on app\\.${table} is not permitted`));
+    },
+  );
+
+  test.each(TRUNCATE_TARGETS)('owner truncate of app.%s leaves every row in place', async (table) => {
+    const out = await withRole(
+      'postgres',
+      null,
+      async (tx) => {
+        const [before] = await tx.unsafe<{ n: number }[]>(`select count(*)::int as n from app.${table}`);
+        let refused = false;
+        try {
+          await tx.savepoint((sp) => sp.unsafe(`truncate app.${table}`));
+        } catch {
+          refused = true;
+        }
+        const [after] = await tx.unsafe<{ n: number }[]>(`select count(*)::int as n from app.${table}`);
+        return { before: before?.n ?? -1, after: after?.n ?? -2, refused };
+      },
+      fixtureRows,
+    );
+    expect(out.refused, 'the truncate was not refused').toBe(true);
+    expect(out.before, 'the fixture left the table empty: this leg would pass on an empty table').toBeGreaterThan(0);
+    expect(out.after).toBe(out.before);
+  });
+
+  test.each(TRUNCATE_TARGETS.flatMap((t) => CLIENT_ROLES.map((r) => [r, t] as const)))(
+    '%s truncate of app.%s rejected with 42501, by the grant layer',
+    async (role, table) => {
+      await expect(
+        withRole(role, null, (tx) => tx.unsafe(`truncate app.${table}`), fixtureRows),
+      ).rejects.toMatchObject({ code: '42501' });
+    },
+  );
+
+  test.each(TRUNCATE_TARGETS.flatMap((t) => CLIENT_ROLES.map((r) => [r, t] as const)))(
+    '%s, even if granted TRUNCATE on app.%s, is rejected by the trigger with APPEND_ONLY_VIOLATION',
+    async (role, table) => {
+      await expect(
+        withRole(role, null, (tx) => tx.unsafe(`truncate app.${table}`), async (tx) => {
+          await fixtureRows(tx);
+          await tx.unsafe(`grant usage on schema app to ${role}`);
+          await tx.unsafe(`grant truncate on app.${table} to ${role}`);
+        }),
+      ).rejects.toThrow(new RegExp(`APPEND_ONLY_VIOLATION: TRUNCATE on app\\.${table} is not permitted`));
+    },
+  );
+
+  test('owner truncate of app.facility CASCADE is rejected naming one of the two tables: the cascade reaches them', async () => {
+    // 029's table also references app.facility and carries its own TRUNCATE trigger, which
+    // could fire first and satisfy a looser match. Its trigger is disabled inside this
+    // rolled-back transaction, so only 010's two tables can be the ones that refuse.
+    await expect(
+      withRole('postgres', null, (tx) => tx.unsafe(`truncate app.facility cascade`), async (tx) => {
+        await fixtureRows(tx);
+        await tx.unsafe(`alter table app.facility_reporting_approval disable trigger trg_facility_reporting_approval_no_truncate`);
+      }),
+    ).rejects.toThrow(/APPEND_ONLY_VIOLATION: TRUNCATE on app\.(audit_log|ward_status_event) is not permitted/);
+  });
+
+  test('positive control — an INSERT by the owner still works after 030, so the refusals above are not an always-raising trigger', async () => {
+    const n = await withRole(
+      'postgres',
+      null,
+      async (tx) => {
+        const [c] = await tx.unsafe<{ n: number }[]>(`select count(*)::int as n from app.audit_log where action = 'test.truncate_guard'`);
+        return c?.n;
+      },
+      fixtureRows,
+    );
+    expect(n).toBe(1);
   });
 });

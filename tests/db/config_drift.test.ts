@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { sql } from '../setup/db.js';
+import { sql, withRole } from '../setup/db.js';
 import PUBLIC_RELATIONS from '../../packages/fixtures/public-relations.json';
 
 /**
@@ -32,6 +32,20 @@ import PUBLIC_RELATIONS from '../../packages/fixtures/public-relations.json';
  */
 
 const REPO_ROOT = join(import.meta.dirname, '..', '..');
+
+/**
+ * Every append-only trigger the schema is expected to carry, by name. A checked-in literal on
+ * purpose (test-conventions section 3): it decays loudly, because the set read from pg_trigger
+ * must equal it, so adding or renaming a trigger reddens the identity assertion below.
+ */
+const APPEND_ONLY_TRIGGERS: string[] = [
+  'trg_ward_status_event_append_only',
+  'trg_audit_log_append_only',
+  'trg_ward_status_event_no_truncate',
+  'trg_audit_log_no_truncate',
+  'trg_facility_reporting_approval_append_only',
+  'trg_facility_reporting_approval_no_truncate',
+];
 
 /**
  * Minimal TOML reader for the handful of keys asserted below.
@@ -218,16 +232,41 @@ describe('configuration drift', () => {
     const rows = await sql()<{ tgname: string; tgenabled: string }[]>`
       select tgname, tgenabled::text
         from pg_trigger
-       where tgname in ('trg_ward_status_event_append_only', 'trg_audit_log_append_only',
-                        'trg_facility_reporting_approval_append_only', 'trg_facility_reporting_approval_no_truncate')
+       where tgname in ${sql()(APPEND_ONLY_TRIGGERS)}
        order by tgname
     `;
-    // Four since 029 (R-2026-09-30-201 GA): 010's two row-level triggers, and the new table's
-    // row-level trigger and its statement-level TRUNCATE trigger.
-    expect(rows.length, 'append-only triggers are missing').toBe(4);
+    // Six since 030 (R-2026-09-30-205 GE). Four since 029 (R-2026-09-30-201 GA): 010's two
+    // row-level triggers, and the new table's row-level trigger and its statement-level
+    // TRUNCATE trigger. 030 adds the statement-level TRUNCATE trigger on each of 010's two
+    // tables. Asserted by identity against the named list, not by a count alone: six triggers
+    // of the wrong names would satisfy a count.
+    expect(
+      rows.map((r) => r.tgname).sort(),
+      'append-only triggers are missing, or an unexpected one matched',
+    ).toEqual([...APPEND_ONLY_TRIGGERS].sort());
     for (const row of rows) {
       expect(row.tgenabled, `${row.tgname} is not ENABLE ALWAYS`).toBe('A');
     }
+  });
+
+  test('plant — a trigger that is merely enabled reads O, and one that is disabled reads D, so the ENABLE ALWAYS check above would red', async () => {
+    // Confirms the check can fail: each plant is made inside a rolled-back transaction, and the
+    // state it produces is read back before any conclusion is drawn.
+    const seen = await withRole('postgres', null, async (tx) => {
+      const read = async (): Promise<string> => {
+        const [r] = await tx.unsafe<{ s: string }[]>(
+          `select tgenabled::text as s from pg_trigger where tgname = 'trg_audit_log_no_truncate'`,
+        );
+        return r?.s ?? '(missing)';
+      };
+      const real = await read();
+      await tx.unsafe('alter table app.audit_log enable trigger trg_audit_log_no_truncate');
+      const merelyEnabled = await read();
+      await tx.unsafe('alter table app.audit_log disable trigger trg_audit_log_no_truncate');
+      const disabled = await read();
+      return { real, merelyEnabled, disabled };
+    });
+    expect(seen).toEqual({ real: 'A', merelyEnabled: 'O', disabled: 'D' });
   });
 
   test('001 revoke wall: no default privilege grants EXECUTE in public to anon', async () => {
