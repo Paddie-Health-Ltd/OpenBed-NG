@@ -307,6 +307,16 @@ on `main`.
   first lands.** Merge `main` in rather than rebasing, and run the suite again on the
   merged head: the attestation belongs to a commit, and a merge makes a new one.
 
+Added 2026-10-07 by R-2026-09-30-211 GK, after one push on 2026-10-07 (15:05 to 15:12Z)
+drew six `remote: Internal Server Error` responses under one request ID, and its cause was
+never established: the pushes traced since then landed.
+
+- **A push failure is traced on the FIRST attempt**, with `GIT_TRACE=1 GIT_CURL_VERBOSE=1`
+  and every credential redacted from what is kept, so that the failing request, its response
+  headers and its request ID exist the one time they can. No blind retries, and no throwaway
+  branch to push around it. *A human rule: nothing in this repository enforces it, and none
+  is cited (Clause 4, the weaker form the repository can execute).*
+
 ---
 
 ## AI Agent Self-Check Protocol
