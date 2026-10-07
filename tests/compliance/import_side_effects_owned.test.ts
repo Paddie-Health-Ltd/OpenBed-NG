@@ -25,6 +25,16 @@ import { importDashboardOwned } from './_dashboard_import.js';
  *     helper in tests/compliance/_dashboard_import.ts leaves nothing scheduled, so nothing fires after
  *     teardown. It is RED against the helper's first version (a bare import) and GREEN against the owned one.
  *
+ * RE-AIMED BY R-2026-10-07 GJ. GJ makes the public page catch ANY throw on its way out of render() and
+ * fall back to the real snapshot, the held one, or the outage notice. So the same recipe no longer ends in
+ * an unhandled ReferenceError: renderOutage's last resort catches it, logs it by stage and error NAME, and
+ * keeps the page. The PLANT leg therefore asserts the fault still HAPPENS on demand and is now CONTAINED:
+ * exactly one logged ReferenceError and no unhandled error. The ACCEPT leg is unchanged in meaning: an owned
+ * import leaves no fault at all, logged or not. What this costs, stated here and in the pull request: a
+ * teardown race of this kind no longer reddens CI by itself as an unhandled error. The class guard is the
+ * control that still does, because it fails any file that ends with a timer pending, whether or not the page
+ * would have coped with it firing.
+ *
  * NOT ASSERTED HERE, deliberately: that every test file in the project owns its imports. That is the
  * class guard's job (tests/setup/compliance-guard.ts), over every file, not this file's.
  */
@@ -70,8 +80,9 @@ afterEach(() => {
 });
 
 describe('importing the dashboard in a test: the retry after teardown', () => {
-  test('plant — the unowned import (stubbed 500, teardown, retry fires) surfaces ReferenceError: document is not defined, every time', async () => {
+  test('plant — the unowned import (stubbed 500, teardown, retry fires) still faults with ReferenceError: document is not defined, every time, and the page now contains it', async () => {
     for (let i = 0; i < 10; i += 1) {
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
       vi.resetModules();
       document.body.innerHTML = BODY;
       vi.useFakeTimers({ toFake: [...FOUR] });
@@ -95,18 +106,21 @@ describe('importing the dashboard in a test: the retry after teardown', () => {
         vi.useRealTimers();
         vi.unstubAllGlobals();
       }
+      const faults = logged.mock.calls.map((c) => JSON.stringify(c[1] ?? null));
+      logged.mockRestore();
       expect(documentWas, `run ${i}: the plant did not remove document`).toBe('undefined');
-      expect(errors, `run ${i}: expected exactly the one ReferenceError`).toHaveLength(1);
-      expect(errors[0]).toBeInstanceOf(ReferenceError);
-      expect((errors[0] as ReferenceError).message).toBe('document is not defined');
+      expect(errors, `run ${i}: since GJ the page catches this, so nothing may be unhandled`).toHaveLength(0);
+      expect(faults.filter((f) => f === '{"error":"ReferenceError"}'), `run ${i}: the ReferenceError did not happen and get logged`).toHaveLength(1);
     }
   });
 
   test('real pattern — an owned import leaves no error after teardown, however long the environment outlives it', async () => {
     vi.resetModules();
     document.body.innerHTML = BODY;
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const owned = await importDashboardOwned(500);
     owned.dispose();
+    const loggedBefore = logged.mock.calls.length;
 
     const restore = tearDownDocument();
     let errors: unknown[];
@@ -118,7 +132,10 @@ describe('importing the dashboard in a test: the retry after teardown', () => {
     } finally {
       restore();
     }
+    const after = logged.mock.calls.slice(loggedBefore).map((c) => JSON.stringify(c[1] ?? null));
+    logged.mockRestore();
     expect(errors.map(String), 'the import left something scheduled that fired after teardown').toEqual([]);
+    expect(after, 'the import left something scheduled that faulted after teardown, even though the page contained it').toEqual([]);
   });
 
   test('anti-vacuity — the listener sees an unhandled rejection raised on purpose, and the helper restores real timers', async () => {
