@@ -882,8 +882,10 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
       Network tab is open it shows the `beds.json` request the page makes by itself.
 
    **Stop condition — the real snapshot must replace the notice, with no reload, within
-   that wait:** at least one facility name with its **Call to confirm beds** link and its
-   ward lines, and the outage sentence gone. **Record the wait you observed**, in seconds
+   that wait:** the outage sentence gone, and in its place whatever the snapshot holds.
+   While no facility is public (hosted on 2026-10-07: none), that is read-back 5's sentence,
+   "No facility has joined OpenBed yet", and no list. Once one is, it is at least one
+   facility name with its **Call to confirm beds** link and its ward lines. **Record the wait you observed**, in seconds
    from unblocking to the snapshot appearing, in what you paste back. It falls somewhere
    between 0 and the cadence plus the request's own time, because the page asks on its own
    schedule and not when you unblock; a figure near the top of that range is normal.
@@ -894,6 +896,18 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    its own is the defect GJ closed.
 
    Nothing to restore afterwards: the URL is already unblocked.
+
+   *Restated 2026-10-07 (R-2026-09-30-211 GK). Until then the stop condition read "the real
+   snapshot must replace the notice, with no reload, within that wait: at least one facility
+   name with its **Call to confirm beds** link and its ward lines, and the outage sentence
+   gone." Hosted holds no facility, so a correct recovery there shows read-back 5's sentence
+   and no name, and the old wording would have read FAILED on a page that recovered. The
+   wording came in with the pull request that made the page recover (#127) and was not
+   read against an empty register until the read-back came due.*
+
+   **5c has NOT BEEN RUN on hosted, and 5b not since GJ. Both are OWED** (2026-10-07; see
+   the run record below). They are gated to facility one's hosted run, and the gate is a
+   line at step 3b of `docs/runbook-supabase-project-creation.md` section 12.4.
 
 6. **`X-Robots-Tag`, `Content-Type` AND THE STATUS on `/beds.json`, READ WITH A
    GET.** Paste the header lines **and the body prefix**. They must read
@@ -1101,6 +1115,24 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    - A third zone setting changing what the custom domain serves, invisible from the
      deployment URL, the same shape as CU-4's two. It was caught by a read-back, as
      CU-5 made them able to, and not by a visitor.
+
+   **Run on 2026-10-07, from the deploy checkout at `f0d0ba72f7e9f429c0bd5cbddc20626a68cc53b0`**
+   (R-2026-09-30-210 GJ, recorded by R-2026-09-30-211 GK; #127's merge, the page that never
+   goes blank and recovers by itself; the founder's terminal output, relayed by Cowork; the
+   implementer read none of it). The checkout is ~/Desktop/OpenBed-NG-deploy, the command
+   `bash scripts/deploy_pages.sh --branch main public-dashboard`:
+   - **The stamp read back as `f0d0ba7`, clean.** Deployment `1413fe3b`.
+   - **`readback_pages.sh`: PASS on every line, on both hosts:** read-backs 4, 6, 7 and 8,
+     the headers and scripts, the favicon, health, privacy, About and How it works, the font,
+     and the serve-time stamp. `openbed.ng` serves `/assets/index-BD2N8cOl.js`.
+   - **Read-backs 5b and 5c were NOT RUN, by the founder's decision. The hosted recovery is
+     therefore unobserved.** What is established about the page's recovery rests on the
+     tests in the repository (`tests/compliance/dashboard_never_blank.test.ts` and its
+     anti-vacuity file) and not on a reading of the deployed page.
+   - **OWED, and gated to facility one's hosted run, alongside step 3a of the Supabase runbook's 12.4** (the gate is a
+     line at step 3b of `docs/runbook-supabase-project-creation.md` section 12.4, and a
+     TRIGGER row in the decision record's deferred-items register). It closes on a record
+     of the 5b reading, the 5c reading and the wait observed.
 
    **The `openbed.ng` zone settings that must stay OFF** (R-2026-09-25-119 CU-4;
    R-2026-09-27-139 DO-1 b). Each one changed what the custom domain served, on that
