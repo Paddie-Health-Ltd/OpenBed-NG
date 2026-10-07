@@ -100,6 +100,24 @@ import './style.css';
  *     ages keep growing and the banner arrives when it should. It never blanks the
  *     page and never shows the outage state while good data is held. Only a first
  *     load with nothing held renders the outage.
+ *
+ * THE PAGE NEVER GOES BLANK, AND AN OUTAGE RECOVERS BY ITSELF (R-2026-10-07 GJ).
+ * Until GJ, `void render()` had no catch, so any throw on a first render left the main
+ * area EMPTY -- and a blank bed board reads as "no beds" to someone in a hurry. And a
+ * first-load outage never retried: polling started only after a successful load, so a
+ * dispatcher who opened the page during a blip saw the outage until they happened to
+ * reload. Now:
+ *   - Every path out of render() ends in exactly one of three states: the real snapshot,
+ *     the held snapshot, or the outage notice. A throw from the fetch, the parse, or
+ *     renderReal is caught and falls back to one of those, and is logged by STAGE and
+ *     error NAME only: an error's message can quote the payload (a JSON parse error names
+ *     the text it choked on), and no data payload belongs in a console.
+ *   - A snapshot is HELD only once it has been drawn. One that cannot be drawn is not held;
+ *     the page keeps what it was showing, or the outage notice if it showed nothing.
+ *   - Polling starts after the first load WHATEVER its outcome, on the same cadence. The
+ *     first good answer replaces the outage notice with the real snapshot, and normal
+ *     polling continues. There is ONE interval, started once per render(); the generation
+ *     counter still drops a stale answer. Nothing here changes what an outage may say.
  */
 
 interface SnapshotEnvelope {
@@ -136,7 +154,19 @@ interface Snapshot {
 /** How often the page polls, and re-states every age. One source: the fixture. */
 const POLL_MS = POLL_CADENCE_SECONDS * 1000;
 
+/**
+ * A page fault is logged by STAGE and error NAME (or HTTP status) only (R-2026-10-07 GJ). An error's
+ * message can quote the payload -- a JSON parse error names the text it choked on -- and no data
+ * payload belongs in a console.
+ */
+function logFault(stage: 'fetch' | 'render', e: unknown): void {
+  console.error(`OpenBed: the public page hit a fault at the ${stage} stage and fell back`, {
+    error: e instanceof Error ? e.name : typeof e,
+  });
+}
+
 async function fetchSnapshot(): Promise<Snapshot | null> {
+  let fault = 'no answer';
   for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt += 1) {
     try {
       // no-store, on every fetch: a copy from the browser's HTTP cache carries the
@@ -156,13 +186,16 @@ async function fetchSnapshot(): Promise<Snapshot | null> {
           mark,
         };
       }
-    } catch {
+      fault = `HTTP ${res.status}`;
+    } catch (e) {
       // fall through to retry, then to null
+      fault = e instanceof Error ? e.name : typeof e;
     }
     if (attempt < FETCH_ATTEMPTS) {
       await new Promise((resolve) => setTimeout(resolve, 150 + Math.random() * 150));
     }
   }
+  console.error('OpenBed: the snapshot could not be fetched', { fault });
   return null;
 }
 
@@ -194,24 +227,34 @@ export function emptyStateMessage(facilities: DecodedRow[], wards: DecodedRow[])
  * the same reason -- but the test asserts the RENDERED TEXT, never this return
  * value, because a page can return the right string and render nothing.
  *
- * Three things it must do, each for a reason rather than for tone: say plainly
+ * Four things it must do, each for a reason rather than for tone: say plainly
  * that this is an outage; DENY being an availability report, because a blank bed
- * board reads as "no beds" to someone in a hurry; and give the number to call
- * instead. It renders ONE PARAGRAPH and no list -- there is no row here to be
- * misread, which is the whole point.
+ * board reads as "no beds" to someone in a hurry; say that the page keeps checking
+ * and will update by itself BUT THAT THE READER SHOULD NOT WAIT FOR IT (the page
+ * recovers on its own since R-2026-10-07 GJ, and a dispatcher must not read that as
+ * a reason to hold a patient); and give the number to call instead. It renders ONE
+ * PARAGRAPH and no list -- there is no row here to be misread, which is the whole
+ * point. The sentence is the one Cowork approved on 2026-10-07 (GJ), exactly.
  */
 export function outageMessage(): string {
   return (
     "Live bed information can't be loaded right now. This is NOT a report that beds are unavailable — " +
-    'we cannot see anything either way. Call the facility directly, or 112 / 767 in an emergency.'
+    'we cannot see anything either way. This page keeps checking and will update by itself, but do not wait for it: ' +
+    'call the facility directly, or 112 / 767 in an emergency.'
   );
 }
 
 function renderOutage(root: HTMLElement): void {
-  const notice = document.createElement('p');
-  notice.className = 'outage-state';
-  notice.textContent = outageMessage();
-  root.replaceChildren(notice);
+  try {
+    const notice = document.createElement('p');
+    notice.className = 'outage-state';
+    notice.textContent = outageMessage();
+    root.replaceChildren(notice);
+  } catch (e) {
+    // Last resort (R-2026-10-07 GJ): the same words, as plain text. Never an empty main.
+    logFault('render', e);
+    root.textContent = outageMessage();
+  }
 }
 
 /** What a count needs beside it before it may render: a name, and a number to call. */
@@ -380,31 +423,73 @@ export async function render(): Promise<void> {
   generation += 1;
   const mine = generation;
 
-  const first = await fetchSnapshot();
-  if (mine !== generation) return;
-  if (first === null) {
-    renderOutage(root);
-    return;
-  }
-
-  let held: Snapshot = first;
+  /** The snapshot on screen. null while the outage notice is. A snapshot is held only once it has been drawn. */
+  let held: Snapshot | null = null;
   let inFlight = false;
-  renderReal(root, held);
-  polling = setInterval(() => {
+
+  /** Draws what the page holds, or the outage notice. Never throws, never leaves the main area empty. */
+  const restore = (): void => {
+    if (held !== null) {
+      try {
+        renderReal(root, held);
+        return;
+      } catch (e) {
+        logFault('render', e);
+        held = null;
+      }
+    }
+    renderOutage(root);
+  };
+
+  /** Draws `next` and holds it. If it cannot be drawn, the page falls back to what it showed before. */
+  const tryShow = (next: Snapshot): boolean => {
+    try {
+      renderReal(root, next);
+      held = next;
+      return true;
+    } catch (e) {
+      logFault('render', e);
+      restore();
+      return false;
+    }
+  };
+
+  const tick = (): void => {
     // One poll at a time. A tick that finds one still in flight re-states the
     // ages of what is held rather than starting a second request.
     if (inFlight) {
-      renderReal(root, held);
+      if (held !== null) restore();
       return;
     }
     inFlight = true;
-    void fetchSnapshot().then((next) => {
-      inFlight = false;
-      if (mine !== generation) return;
-      if (next !== null) held = next;
-      renderReal(root, held);
-    });
-  }, POLL_MS);
+    void fetchSnapshot()
+      .then((next) => {
+        inFlight = false;
+        if (mine !== generation) return;
+        if (next !== null) {
+          tryShow(next);
+          return;
+        }
+        // A failed poll keeps the held snapshot on screen; with none held, the outage notice stays.
+        restore();
+      })
+      .catch((e: unknown) => {
+        inFlight = false;
+        logFault('render', e);
+      });
+  };
+
+  try {
+    const first = await fetchSnapshot();
+    if (mine !== generation) return;
+    if (first === null) renderOutage(root);
+    else tryShow(first);
+    // Polling starts whatever the first load did: an outage recovers on the next good answer.
+    polling = setInterval(tick, POLL_MS);
+  } catch (e) {
+    logFault('render', e);
+    renderOutage(root);
+  }
 }
 
 renderFooter();
