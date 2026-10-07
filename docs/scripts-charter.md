@@ -19,6 +19,7 @@ _Added by R-2026-09-29-171 (EU-4), the last item of the `scripts/` survey. One r
 | Script | Stated reason | Planting test(s) | Both ways? | Probed or outcome only | Legs reached / registered | Verdict |
 |---|---|---|---|---|---|---|
 | attest_counts.mjs | Derive the six red-disposition counts from the JUnit artefact, never a terminal summary. | `tests/compliance/attest_counts.test.ts`, `tests/compliance/pr_evidence.test.ts` | yes | probed | 15 / 0 | OK |
+| attest_run.sh | Attest one project and keep every phase's output; on abort, show the collector's own errors. | `tests/compliance/attest_run.test.ts` | yes | probed | 6 / 0 | OK |
 | check_pr_migration_line.mjs | A migration PR must answer the template's runbook-expectations line; a template cannot force it. | `tests/compliance/pr_migration_line.test.ts` | yes | probed | 6 / 0 | OK |
 | commit.sh | The one commit entry point: the gate is the commit's precondition, not a remembered step. | `tests/compliance/commit_gate.test.ts`, `tests/compliance/runner_aggregation.test.ts` | yes | probed | 3 / 1 | OK |
 | deferred_register.d.mts | Types for deferred_register.mjs, so a TypeScript test imports its parser, not a copy. | via deferred_register.mjs, the module it declares: `tests/compliance/deferred_register_types.test.ts` | yes | probed | 0 / 0 | OK |
