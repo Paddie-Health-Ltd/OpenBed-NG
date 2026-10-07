@@ -2,9 +2,10 @@
 /// <reference lib="dom" />
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { facilityColumns, wardColumns } from '../../packages/snapshot/src/codec.js';
 import TABLE from '../../packages/labels/public-labels.json';
+import { ownTimers, releaseTimers } from './_dashboard_import.js';
 import { withScratch, place, copyMigrations, REPO_ROOT } from './_scratch.js';
 
 /**
@@ -223,7 +224,12 @@ function ward(extra: Record<string, unknown>): unknown[] {
   });
 }
 
+afterEach(() => {
+  releaseTimers();
+});
+
 async function renderWards(wards: unknown[][]): Promise<string> {
+  ownTimers();
   document.body.innerHTML = '<main id="app"></main>';
   const payload = { v: 1, generated_at: iso(GEN), server_now: iso(GEN), facilities: [FACILITY], wards };
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(payload), {

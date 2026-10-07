@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { ABOUT_URL, HOW_IT_WORKS_URL, PRIVACY_NOTICE_URL } from '../../packages/origins/src/privacy.js';
 import { deployableApps, outputDirOf } from './_apps.js';
+import { importDashboardOwned, type OwnedDashboard } from './_dashboard_import.js';
 import { place, REPO_ROOT, withScratch } from './_scratch.js';
 
 /**
@@ -177,7 +178,19 @@ async function until(cond: () => boolean, deadlineMs = 5000): Promise<void> {
 
 const BAD_LINK = '#error=access_denied&error_code=otp_expired';
 
+/**
+ * THE DASHBOARD IS IMPORTED THROUGH THE OWNED HELPER (R-2026-10-07 GI). Importing it starts a render,
+ * and with the network answering 500 that render schedules a 150-300 ms retry. This file used to stub
+ * fetch and import, leave the retry pending, and run 30 tests that mostly never yield to the event
+ * loop; the retry could then fire after the environment was torn down, where `document` is gone
+ * (CI run 37602732458). _dashboard_import.ts runs that retry under fake timers before the test goes on,
+ * and the afterEach below drops whatever is left.
+ */
+let owned: OwnedDashboard | null = null;
+
 afterEach(() => {
+  owned?.dispose();
+  owned = null;
   vi.unstubAllGlobals();
 });
 
@@ -188,8 +201,8 @@ describe('the privacy notice is linked from every sign-in screen and the public 
 
   test('real openbed.ng footer is accepted — it carries the privacy link', async () => {
     document.body.innerHTML = '<main id="app"></main><footer id="site-footer"></footer>';
-    vi.stubGlobal('fetch', vi.fn(async () => json(500, {})));
-    const { renderFooter } = await import('../../apps/public-dashboard/src/main.js');
+    owned = await importDashboardOwned(500);
+    const { renderFooter } = owned.mod;
     renderFooter();
     const footer = document.getElementById('site-footer') as HTMLElement;
     const out = linkViolations(footer, 'the openbed.ng footer');
@@ -237,8 +250,8 @@ describe('the privacy notice is linked from every sign-in screen and the public 
 
   test('real openbed.ng footer carries About, How it works and Privacy notice, by the three constants', async () => {
     document.body.innerHTML = '<main id="app"></main><footer id="site-footer"></footer>';
-    vi.stubGlobal('fetch', vi.fn(async () => json(500, {})));
-    const { renderFooter } = await import('../../apps/public-dashboard/src/main.js');
+    owned = await importDashboardOwned(500);
+    const { renderFooter } = owned.mod;
     renderFooter();
     const out = footerViolations(document.getElementById('site-footer') as HTMLElement, 'the openbed.ng footer');
     expect(out, out.join('\n')).toEqual([]);
@@ -246,8 +259,8 @@ describe('the privacy notice is linked from every sign-in screen and the public 
 
   test('plant — the openbed.ng footer with its About link pointed elsewhere, or dropped, is rejected', async () => {
     document.body.innerHTML = '<main id="app"></main><footer id="site-footer"></footer>';
-    vi.stubGlobal('fetch', vi.fn(async () => json(500, {})));
-    const { renderFooter } = await import('../../apps/public-dashboard/src/main.js');
+    owned = await importDashboardOwned(500);
+    const { renderFooter } = owned.mod;
     renderFooter();
     const footer = document.getElementById('site-footer') as HTMLElement;
     footer.querySelector(`a[href="${ABOUT_URL}"]`)?.setAttribute('href', 'https://openbed.ng/elsewhere');

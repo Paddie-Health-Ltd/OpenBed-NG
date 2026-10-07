@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { facilityColumns, wardColumns } from '../../packages/snapshot/src/codec.js';
 import SHAPE from '../../packages/fixtures/snapshot-shape.json';
 import LABEL_TABLE from '../../packages/labels/public-labels.json';
+import { ownTimers, releaseTimers } from './_dashboard_import.js';
 import { REPO_ROOT } from './_scratch.js';
 
 /**
@@ -56,6 +57,7 @@ function ward(category: string, updatedMinutesBeforeGen: number, extra: Record<s
 let perfNow = 1_000;
 
 async function renderAt(opts: { wards: unknown[][]; servedAfterGenMinutes: number | null }): Promise<string> {
+  ownTimers();
   document.body.innerHTML = '<main id="app"></main>';
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (opts.servedAfterGenMinutes !== null) headers['x-openbed-served-at'] = iso(GEN + opts.servedAfterGenMinutes * MIN);
@@ -78,7 +80,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  vi.useRealTimers();
+  releaseTimers();
 });
 
 describe('each band, in words, on the rendered page', () => {
@@ -148,7 +150,8 @@ describe('the snapshot banner, and the clock it is measured by', () => {
   });
 
   test('FAILING HALF — the same stale snapshot on a device whose clock says it is fresh STILL shows the banner', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
+    // The device date AND the four timer functions: the render's 30 s poll must be a fake timer too (GI).
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'] });
     vi.setSystemTime(GEN); // the handset believes the snapshot was generated this instant
     await renderAt({ wards: [ward('A_AND_E', 0)], servedAfterGenMinutes: B.snapshotBannerAfterMinutes + 1 });
     expect(banner(), 'the device clock hid a stale snapshot').not.toBeNull();

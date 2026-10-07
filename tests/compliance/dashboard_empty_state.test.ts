@@ -5,8 +5,9 @@
 // server code that reaches for a browser global should not type-check. Only the app
 // tsconfigs add DOM. This directive widens one file, and a project-wide `lib` edit
 // to make one test compile would quietly remove that boundary everywhere.
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { wardColumns, facilityColumns } from '../../packages/snapshot/src/codec.js';
+import { ownTimers, releaseTimers } from './_dashboard_import.js';
 // The ward-category vocabulary is DERIVED from the truth table, never restated here:
 // a category added to the fixture must redden this file rather than slip past a
 // hand-written list (test-conventions section 3).
@@ -106,7 +107,12 @@ const POPULATED_PAYLOAD = {
   generated_at: '2026-09-20T18:45:00.136688+00:00',
 };
 
+afterEach(() => {
+  releaseTimers();
+});
+
 async function renderWith(payload: unknown): Promise<string> {
+  ownTimers();
   document.body.innerHTML = '<main id="app"></main>';
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(payload), {
     status: 200,
@@ -204,6 +210,7 @@ type FailureMode = 'non-2xx' | 'network' | 'timeout' | 'parse' | 'codec';
  * tell the two apart -- both land in the same bare `catch`.
  */
 async function renderWithFailure(mode: FailureMode): Promise<string> {
+  ownTimers();
   document.body.innerHTML = '<main id="app"></main>';
   const timeout = Object.assign(new Error('simulated timeout'), { name: 'TimeoutError' });
   const shortWard = [...Array(3).keys()];
@@ -219,7 +226,11 @@ async function renderWithFailure(mode: FailureMode): Promise<string> {
   };
   vi.stubGlobal('fetch', vi.fn(responders[mode]));
   const { render } = await import('../../apps/public-dashboard/src/main.js');
-  await render();
+  // The failed first attempt waits 150-300 ms before its one retry (fetchSnapshot). That wait is a fake
+  // timer now, so the test runs it itself instead of leaving it to the real clock.
+  const done = render();
+  await vi.advanceTimersByTimeAsync(1_000);
+  await done;
   return document.body.textContent ?? '';
 }
 
