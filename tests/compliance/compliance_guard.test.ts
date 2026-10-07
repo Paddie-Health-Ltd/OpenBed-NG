@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readCases, type Case } from './_junit.js';
 import { place, REPO_ROOT, withScratch } from './_scratch.js';
 
 /**
@@ -57,34 +58,6 @@ const REJECTED: Record<string, RegExp[]> = {
   'inflight.test.mjs': [/stubbed fetch call\(s\) still in flight/, /fetch\(\/publish\)/],
 };
 const ACCEPTED = ['owned.test.mjs', 'own_afterall.test.mjs'];
-
-interface Case {
-  file: string;
-  name: string;
-  failed: boolean;
-  body: string;
-}
-
-const decode = (s: string): string =>
-  s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#10;/g, '\n').replace(/&amp;/g, '&');
-
-/** Reads a JUnit file into cases. REFUSES a run that collected nothing: an empty reader would pass every "no failure" assertion. */
-export function readCases(xml: string): Case[] {
-  const out: Case[] = [];
-  const re = /<testcase\b([^>]*?)(?:\/>|>([\s\S]*?)<\/testcase>)/g;
-  for (const m of xml.matchAll(re)) {
-    const attrs = m[1] ?? '';
-    const body = decode(m[2] ?? '');
-    out.push({
-      file: /classname="([^"]*)"/.exec(attrs)?.[1] ?? '',
-      name: decode(/name="([^"]*)"/.exec(attrs)?.[1] ?? ''),
-      failed: /<(failure|error)\b/.test(m[2] ?? ''),
-      body,
-    });
-  }
-  if (out.length === 0) throw new Error('ERROR: the child vitest collected no test cases, so no verdict about the guard can be read from it');
-  return out;
-}
 
 function childRun(root: string, withGuard: boolean): Case[] {
   const setup = withGuard ? `, setupFiles: [${JSON.stringify(GUARD)}]` : '';
