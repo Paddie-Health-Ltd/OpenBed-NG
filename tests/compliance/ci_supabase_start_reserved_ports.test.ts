@@ -173,7 +173,7 @@ describe('ci.yml: every supabase start is reserved before and diagnosed after (G
   /**
    * A PLANT PROVES NOTHING AGAINST A WORKFLOW THAT IS ALREADY DIRTY: it would be "rejected" for the
    * defects the real file has. Every plant below starts from a workflow this refuses to build
-   * unless the real one is clean. Found by the red-first run, where seven plants passed against the
+   * unless the real one is clean. Found by the red-first run, where ten plants passed against the
    * unmodified workflow for exactly that reason.
    */
   const requireCleanBase = (): void => {
