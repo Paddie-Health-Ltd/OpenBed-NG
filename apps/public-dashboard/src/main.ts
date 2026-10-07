@@ -227,16 +227,20 @@ export function emptyStateMessage(facilities: DecodedRow[], wards: DecodedRow[])
  * the same reason -- but the test asserts the RENDERED TEXT, never this return
  * value, because a page can return the right string and render nothing.
  *
- * Three things it must do, each for a reason rather than for tone: say plainly
+ * Four things it must do, each for a reason rather than for tone: say plainly
  * that this is an outage; DENY being an availability report, because a blank bed
- * board reads as "no beds" to someone in a hurry; and give the number to call
- * instead. It renders ONE PARAGRAPH and no list -- there is no row here to be
- * misread, which is the whole point.
+ * board reads as "no beds" to someone in a hurry; say that the page keeps checking
+ * and will update by itself BUT THAT THE READER SHOULD NOT WAIT FOR IT (the page
+ * recovers on its own since R-2026-10-07 GJ, and a dispatcher must not read that as
+ * a reason to hold a patient); and give the number to call instead. It renders ONE
+ * PARAGRAPH and no list -- there is no row here to be misread, which is the whole
+ * point. The sentence is the one Cowork approved on 2026-10-07 (GJ), exactly.
  */
 export function outageMessage(): string {
   return (
     "Live bed information can't be loaded right now. This is NOT a report that beds are unavailable — " +
-    'we cannot see anything either way. Call the facility directly, or 112 / 767 in an emergency.'
+    'we cannot see anything either way. This page keeps checking and will update by itself, but do not wait for it: ' +
+    'call the facility directly, or 112 / 767 in an emergency.'
   );
 }
 

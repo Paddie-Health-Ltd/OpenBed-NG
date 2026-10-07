@@ -27,9 +27,9 @@ import SHAPE from '../../packages/fixtures/snapshot-shape.json';
  * ANTI-VACUITY is tests/compliance/dashboard_never_blank_antivacuity.test.ts, which runs a copy of THIS file
  * against planted variants of the page and shows each leg turn red. DASHBOARD below is the one line it swaps.
  *
- * NOT ASSERTED HERE, deliberately: what the wording of the outage notice should become. GJ asks for a
- * proposed sentence in the pull request and ships none; outageMessage() is unchanged, and
- * tests/compliance/dashboard_empty_state.test.ts still holds its meaning.
+ * NOT ASSERTED HERE, deliberately: the outage sentence in full. Cowork approved its exact wording on
+ * 2026-10-07 (GJ), and tests/compliance/dashboard_empty_state.test.ts holds it, character for character, on
+ * the rendered element. This file asserts only the fragments its legs depend on.
  */
 
 const DASHBOARD = '../../apps/public-dashboard/src/main.js';
@@ -106,6 +106,9 @@ describe('the public page never goes blank, and an outage recovers by itself', (
     server.failing = true;
     await openPage();
     expect(text(), 'the first load did not render the outage').toMatch(/can.t be loaded right now/i);
+    expect(text(), 'the outage notice does not say the page keeps checking, and not to wait for it').toMatch(
+      /keeps checking and will update by itself, but do not wait for it/,
+    );
     expect(lines(), 'the outage rendered a list').toEqual([]);
     expect(vi.getTimerCount(), 'no poll interval is running after a first-load outage').toBe(1);
     const callsAtOutage = fetchMock.mock.calls.length;

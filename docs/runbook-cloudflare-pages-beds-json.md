@@ -838,9 +838,23 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
       throttle instead — it blocks everything, which is a coarser but valid version.)
    3. Reload.
 
-   **Stop condition — the page must say all three:** that live bed information
-   **cannot be loaded**; that this is **NOT a report that beds are unavailable**; and
-   **112 / 767**. Copy the sentence verbatim.
+   **Stop condition — the page must say all four:** that live bed information
+   **cannot be loaded**; that this is **NOT a report that beds are unavailable**; that
+   **the page keeps checking and will update by itself, but you should not wait for
+   it**; and **112 / 767**. Copy the sentence verbatim. **It must read exactly:**
+
+   > Live bed information can't be loaded right now. This is NOT a report that beds are
+   > unavailable — we cannot see anything either way. This page keeps checking and will
+   > update by itself, but do not wait for it: call the facility directly, or 112 / 767
+   > in an emergency.
+
+   *Restated 2026-10-07 (R-2026-10-07 GJ). Until then this read "the page must say all
+   three: that live bed information **cannot be loaded**; that this is **NOT a report
+   that beds are unavailable**; and **112 / 767**. Copy the sentence verbatim", and the
+   sentence read "... we cannot see anything either way. Call the facility directly, or
+   112 / 767 in an emergency." The page now recovers by itself (5c below), so the
+   sentence says so, and says not to wait for it. The test that holds this wording
+   character for character is `tests/compliance/dashboard_empty_state.test.ts`.*
 
    **FAILED, whatever the build said, if ANY of these appear:** a bed count, a ward
    category **in words or as a code** (`Emergency (A&E)`, `Adult ICU`, `A_AND_E`,
@@ -849,7 +863,37 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    appear as its words from `packages/labels/public-labels.json`. **Those are the defect this read-back exists to catch, and
    they were live on the public domain until 2026-09-21.**
 
-   Unblock the URL afterwards.
+   **Do not unblock the URL yet, and do not reload: 5c starts from this state.**
+   *(Until 2026-10-07 (R-2026-10-07 GJ) this line read "Unblock the URL afterwards.")*
+
+5c. **THE OUTAGE RECOVERS BY ITSELF — the second half of read-back 5b, run from the
+   state 5b leaves you in (R-2026-10-07 GJ).** Until GJ a first-load outage never
+   retried: polling started only after a successful load, so a visitor who opened the
+   page during a blip saw the notice until they happened to reload. The page now keeps
+   polling through an outage, on the poll cadence (`POLL_CADENCE_SECONDS`, 30 s today,
+   from `packages/fixtures/snapshot-shape.json`), and the first good answer replaces the
+   notice with the real snapshot. **Start from 5b's end state: `*/beds.json` still
+   blocked, and the outage notice showing.**
+
+   1. In DevTools, **unblock** `*/beds.json` (remove the block rule; Safari: turn the
+      offline throttle off). **Do NOT reload.**
+   2. Start a timer at that moment.
+   3. **Wait up to one poll plus 10 s** — 40 s today. Do not touch the page. If the
+      Network tab is open it shows the `beds.json` request the page makes by itself.
+
+   **Stop condition — the real snapshot must replace the notice, with no reload, within
+   that wait:** at least one facility name with its **Call to confirm beds** link and its
+   ward lines, and the outage sentence gone. **Record the wait you observed**, in seconds
+   from unblocking to the snapshot appearing, in what you paste back. It falls somewhere
+   between 0 and the cadence plus the request's own time, because the page asks on its own
+   schedule and not when you unblock; a figure near the top of that range is normal.
+
+   **FAILED, whatever the build said, if ANY of these:** the notice is still showing after
+   one poll plus 10 s with no reload; the main area is blank at any point; or a bed count
+   or a ward appears while the notice is still on screen. A page that does not recover on
+   its own is the defect GJ closed.
+
+   Nothing to restore afterwards: the URL is already unblocked.
 
 6. **`X-Robots-Tag`, `Content-Type` AND THE STATUS on `/beds.json`, READ WITH A
    GET.** Paste the header lines **and the body prefix**. They must read

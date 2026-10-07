@@ -250,6 +250,26 @@ describe('a failed fetch renders an outage, never invented data', () => {
     expect(text, 'the outage page did not point anywhere').toMatch(/112 \/ 767/);
   });
 
+  /**
+   * THE APPROVED SENTENCE, WRITTEN OUT (R-2026-10-07 GJ). A checked-in literal on purpose: it decays
+   * loudly, so a change to public wording is a change to this line and to a reviewer's eye. It is asserted
+   * on the RENDERED element, never on outageMessage()'s return value, because a page can return the right
+   * string and render nothing. It adds the fourth property the three regexes above cannot: the page says it
+   * keeps checking AND says not to wait for it.
+   */
+  const APPROVED_OUTAGE_SENTENCE =
+    "Live bed information can't be loaded right now. This is NOT a report that beds are unavailable — " +
+    'we cannot see anything either way. This page keeps checking and will update by itself, but do not wait for it: ' +
+    'call the facility directly, or 112 / 767 in an emergency.';
+
+  test.each(MODES)('%s — the outage notice is exactly the approved sentence, in one paragraph and nothing else', async (mode) => {
+    await renderWithFailure(mode);
+    const notices = document.querySelectorAll('#app .outage-state');
+    expect(notices.length, 'the outage rendered no notice, or more than one').toBe(1);
+    expect(notices[0]?.textContent, 'the rendered notice is not the approved sentence').toBe(APPROVED_OUTAGE_SENTENCE);
+    expect(document.querySelectorAll('#app > *').length, 'the outage page holds more than its one paragraph').toBe(1);
+  });
+
   test.each(MODES)('%s — NO INVENTED BED COUNT reaches the page', async (mode) => {
     const text = await renderWithFailure(mode);
     expect(text, `a bed count rendered on an outage page:\n${text}`).not.toMatch(/\d+\s*beds/i);
