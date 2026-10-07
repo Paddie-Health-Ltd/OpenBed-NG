@@ -17,6 +17,8 @@ only on a rotation (R-2026-09-23-64).
 
 ## 1. Deploy through the wrapper
 
+**FIRST, because the lockfile changed on 2026-10-07 (R-2026-10-07 GL): run the refresh below in full, including its `npm ci --include=optional`.** A deploy checkout whose `node_modules` predates that change still holds the old sharp, and a refresh cut down to its `git` half keeps it.
+
 **Deploy from the deploy checkout, never from a working tree (R-2026-09-23-70, after
 #67).** The implementer's working tree is a clone of this repository too, and a
 `git checkout main` there was refused on 2026-09-23 over uncommitted work in progress.

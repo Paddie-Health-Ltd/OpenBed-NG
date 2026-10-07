@@ -80,6 +80,8 @@ step P's rule).
 
 ## 1. Deploy through the wrapper
 
+**FIRST, because the lockfile changed on 2026-10-07 (R-2026-10-07 GL): run the refresh below in full, including its `npm ci --include=optional`.** A deploy checkout whose `node_modules` predates that change still holds the old sharp, and a refresh cut down to its `git` half keeps it.
+
 **Deploy from the deploy checkout, never from a working tree** (the ward console's
 reason, R-2026-09-23-70). Set `DEPLOY_TREE` in this shell to its path (the commands below refuse to run while it is unset, so they cannot fall through to the working tree you are standing in), then refresh it and read its HEAD:
 
