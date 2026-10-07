@@ -71,7 +71,8 @@ echo "npm $*" >> "$STUB_LOG"
 case "$*" in
   "run db:reset")
     echo "STUB RESET OUTPUT"
-    if [ "\${STUB_RESET_RC:-0}" != "0" ]; then echo "STUB RESET ERROR: supabase db reset could not restart containers" >&2; fi
+    if [ -n "\${STUB_RESET_LINE:-}" ]; then echo "$STUB_RESET_LINE"; fi
+    if [ "\${STUB_RESET_RC:-0}" != "0" ] && [ -z "\${STUB_RESET_LINE:-}" ]; then echo "STUB RESET ERROR: supabase db reset could not restart containers" >&2; fi
     exit "\${STUB_RESET_RC:-0}" ;;
   "run build")
     echo "STUB BUILD OUTPUT"
@@ -110,6 +111,7 @@ interface Scenario {
   collectorRc?: number;
   collectorLine?: string;
   resetRc?: number;
+  resetLine?: string;
   buildRc?: number;
   staleJunit?: boolean;
   databaseUrl?: string | null;
@@ -131,6 +133,7 @@ function runScript(root: string, s: Scenario, scriptText?: string): Run {
   };
   if (s.junit !== null && s.junit !== undefined) env['STUB_JUNIT_FILE'] = join(root, 'stub-junit.xml');
   if (s.collectorLine !== undefined) env['STUB_COLLECTOR_LINE'] = s.collectorLine;
+  if (s.resetLine !== undefined) env['STUB_RESET_LINE'] = s.resetLine;
   if (s.databaseUrl !== null) env['DATABASE_URL'] = s.databaseUrl ?? 'stub://local';
   const r = spawnSync('bash', [join(root, 'scripts', ATTEST_RUN), project], { cwd: root, env, encoding: 'utf8' });
   const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
@@ -234,6 +237,19 @@ describe('scripts/attest_run.sh', () => {
     });
   });
 
+  test("leg — the reset's own line is shown even when it names no \"Error:\": the real Supabase CLI failure, observed 2026-10-07, is a JSON line", () => {
+    // OBSERVED, not invented: the run that failed on 2026-10-07 printed exactly this, and the first version of
+    // the summary's keyword filter did not match it, so the section headed "the collector's own error lines" was
+    // EMPTY for the one failure this script was written for. Only the log tail showed it.
+    const REAL_CLI_LINE = '{"_tag":"Error","error":{"code":"LegacyDbSetupError","message":"error running container: exit 1"}}';
+    withScratch((root) => {
+      const r = runScript(root, { junit: 'clean', resetRc: 1, resetLine: REAL_CLI_LINE });
+      expect(r.status).toBe(1);
+      const errorLines = r.summary.slice(r.summary.indexOf("the collector's own error lines"), r.summary.indexOf('the last 40 lines of the log'));
+      expect(errorLines, "the error-lines section is empty for the real CLI failure").toContain(REAL_CLI_LINE);
+    });
+  });
+
   test('leg — a failed build aborts the compliance run RED before any collection', () => {
     withScratch((root) => {
       const r = runScript(root, { project: 'compliance', junit: 'clean', buildRc: 2 });
@@ -289,7 +305,7 @@ describe('scripts/attest_run.sh', () => {
 
     test('the abort prints no error lines and no log tail: leg a goes red on the verbatim line', () => {
       const text = neutered(
-        "    awk '/Unhandled Error|Startup Error|No test files found|Cannot reach the database|not migrated|Error:|ERROR:|FAIL /{print; n++; if (n >= 40) exit}' \"$LOG\"\n    echo \"--- the last 40 lines of the log:\"\n    tail -n 40 \"$LOG\"\n",
+        "    awk '/[Ee]rror|ERROR|FAIL|No test files found/{print; n++; if (n >= 40) exit}' \"$LOG\"\n    echo \"--- the last 40 lines of the log:\"\n    tail -n 40 \"$LOG\"\n",
         '',
       );
       withScratch((root) => {

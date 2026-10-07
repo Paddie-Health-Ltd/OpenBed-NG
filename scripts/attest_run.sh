@@ -32,6 +32,12 @@
 #     collector's own error lines verbatim from the log (the lines naming an error, bounded), the last 40
 #     lines of the log, and the log's path. Zero tests collected is an abort. An unhandled error with every
 #     test passing is an abort: attest_counts reads it as errored=1, and this script does not second-guess it.
+#     "Error lines" means any line containing error, Error, ERROR or FAIL, or vitest's No test files found,
+#     bounded at 40. It is deliberately broad. Its first version listed named banners (Unhandled Error,
+#     Error:, and so on) and came back EMPTY for the one failure this script was written for: on 2026-10-07
+#     supabase db reset failed with {"_tag":"Error","error":{"code":"LegacyDbSetupError","message":
+#     "error running container: exit 1"}}, a line with the word Error and no colon after it. Only the log
+#     tail showed it. A filter that has to know what the failure will say is the filtering this script exists to end.
 #   - attest_counts.mjs is run as it is. This script does not interpret a JUnit file.
 #
 # STATUS IS CAPTURED, NOT PIPED AWAY. Each phase is `cmd 2>&1 | tee -a log || rc=$?` under pipefail, so a
@@ -77,7 +83,7 @@ abort() {
     echo ""
     echo "ATTESTATION: RED -- $1"
     echo "--- the collector's own error lines, verbatim, from the log:"
-    awk '/Unhandled Error|Startup Error|No test files found|Cannot reach the database|not migrated|Error:|ERROR:|FAIL /{print; n++; if (n >= 40) exit}' "$LOG"
+    awk '/[Ee]rror|ERROR|FAIL|No test files found/{print; n++; if (n >= 40) exit}' "$LOG"
     echo "--- the last 40 lines of the log:"
     tail -n 40 "$LOG"
     echo "Full log: $LOG"
