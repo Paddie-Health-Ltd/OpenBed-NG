@@ -188,11 +188,41 @@ jobs:
           fi
           psql --version
 
+      # GF (R-2026-09-30-206): take the ports `supabase start` binds out of the kernel's
+      # ephemeral range BEFORE it binds them. 54321-54329 lie inside Linux's default range
+      # (32768-60999), and `supabase start` has failed on 54324 about 1 job in 100 with no
+      # holder named in the log. The cause is INFERRED, not observed: a transient outbound
+      # socket holding the port at bind time. The setting is read back in the same step and the
+      # step fails if the range is not in it, so a runner that refused the write is a loud
+      # failure here and not a silent no-op. A recurrence with this step in force and its
+      # read-back visible in the run's log reopens the ruling.
+      - name: Reserve the Supabase local ports from the ephemeral range
+        run: |
+          sudo sysctl -w net.ipv4.ip_local_reserved_ports=54320-54329
+          sysctl net.ipv4.ip_local_reserved_ports
+          got=$(sysctl -n net.ipv4.ip_local_reserved_ports)
+          case ",$got," in
+            *,54320-54329,*) ;;
+            *) echo "ERROR: net.ipv4.ip_local_reserved_ports reads '$got' after the write; 54320-54329 is not reserved" >&2; exit 1 ;;
+          esac
+
       # The Supabase CLI is a devDependency, so the version is pinned by
       # package-lock.json rather than by a marketplace action's tag. One fewer
       # thing that can change under the build without a commit.
       - name: Start Supabase (Postgres + PostgREST + GoTrue + Realtime)
         run: npx supabase start
+
+      # GF: read-only. Runs only when a step before it failed, which includes the start. It
+      # names who holds 54320-54329 (every TCP state, with the owning process) and which
+      # containers exist, and the job still fails. No retry, no teardown, no
+      # --ignore-health-check: each would hide the cause.
+      - name: Who holds the Supabase ports, and which containers exist (read-only)
+        if: failure()
+        run: |
+          echo "--- TCP sockets on 54320-54329, every state, with the owning process"
+          sudo ss -ltnap | awk 'NR == 1 || $4 ~ /:5432[0-9]$/'
+          echo "--- containers"
+          docker ps -a
 
       # NOT `supabase db reset` -- the CLI's migration runner is disabled in
       # supabase/config.toml, so a reset would leave an empty schema. The house
@@ -265,6 +295,24 @@ jobs:
           fi
           psql --version
 
+      # GF (R-2026-09-30-206): take the ports `supabase start` binds out of the kernel's
+      # ephemeral range BEFORE it binds them. 54321-54329 lie inside Linux's default range
+      # (32768-60999), and `supabase start` has failed on 54324 about 1 job in 100 with no
+      # holder named in the log. The cause is INFERRED, not observed: a transient outbound
+      # socket holding the port at bind time. The setting is read back in the same step and the
+      # step fails if the range is not in it, so a runner that refused the write is a loud
+      # failure here and not a silent no-op. A recurrence with this step in force and its
+      # read-back visible in the run's log reopens the ruling.
+      - name: Reserve the Supabase local ports from the ephemeral range
+        run: |
+          sudo sysctl -w net.ipv4.ip_local_reserved_ports=54320-54329
+          sysctl net.ipv4.ip_local_reserved_ports
+          got=$(sysctl -n net.ipv4.ip_local_reserved_ports)
+          case ",$got," in
+            *,54320-54329,*) ;;
+            *) echo "ERROR: net.ipv4.ip_local_reserved_ports reads '$got' after the write; 54320-54329 is not reserved" >&2; exit 1 ;;
+          esac
+
       # ITS OWN RUNNER AND ITS OWN DATABASE, NOT SHARED WITH db-tests. The
       # decisive reason: db-tests is a rollback-only suite over a pristine corpus
       # -- withRole() throws a sentinel to force rollback precisely so a probe
@@ -278,6 +326,18 @@ jobs:
       # is a misleading sensor.
       - name: Start Supabase (Postgres + PostgREST + GoTrue + Realtime)
         run: npx supabase start
+
+      # GF: read-only. Runs only when a step before it failed, which includes the start. It
+      # names who holds 54320-54329 (every TCP state, with the owning process) and which
+      # containers exist, and the job still fails. No retry, no teardown, no
+      # --ignore-health-check: each would hide the cause.
+      - name: Who holds the Supabase ports, and which containers exist (read-only)
+        if: failure()
+        run: |
+          echo "--- TCP sockets on 54320-54329, every state, with the owning process"
+          sudo ss -ltnap | awk 'NR == 1 || $4 ~ /:5432[0-9]$/'
+          echo "--- containers"
+          docker ps -a
 
       - name: Apply migrations
         run: bash scripts/run_migrations.sh
