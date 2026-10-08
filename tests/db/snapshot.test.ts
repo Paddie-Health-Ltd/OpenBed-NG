@@ -74,9 +74,13 @@ async function payloadViolations(tx: TransactionSql): Promise<{ violations: stri
   const { v, payload } = await generate(tx);
   const out: string[] = [];
 
+  // The generator emits every optional key since 031 (R-2026-09-30-214 GN), so the expected set is the
+  // required keys plus ALL of the optional ones. The Function accepts a payload without them (one
+  // from before 031); this generator never writes one.
   const keys = Object.keys(payload).sort();
-  if (JSON.stringify(keys) !== JSON.stringify([...SHAPE.envelope].sort())) {
-    out.push(`payload envelope is ${JSON.stringify(keys)}, the fixture's is ${JSON.stringify([...SHAPE.envelope].sort())}`);
+  const expectedKeys = [...SHAPE.envelope, ...SHAPE.envelopeOptional].sort();
+  if (JSON.stringify(keys) !== JSON.stringify(expectedKeys)) {
+    out.push(`payload envelope is ${JSON.stringify(keys)}, the fixture's is ${JSON.stringify(expectedKeys)}`);
   }
   if (Number(payload['v']) !== v) out.push(`payload.v is ${String(payload['v'])} but the row is v=${v}`);
 
@@ -106,6 +110,22 @@ async function payloadViolations(tx: TransactionSql): Promise<{ violations: stri
   };
 
   const facilities = await check('facilities', 'public.facility_public', SHAPE.facilityColumns, (r) => String(r['facility_id']));
+  // facility_extras: exactly the mirror rows that hold an address, by value, in the fixture's columns.
+  {
+    const mirror = await tx.unsafe<{ r: Row }[]>(`select to_jsonb(t) as r from public.facility_public t where t.address is not null`);
+    const extras = (payload['facility_extras'] ?? []) as unknown[][];
+    if (extras.length !== mirror.length) out.push(`facility_extras: payload has ${extras.length} rows, ${mirror.length} facility_public rows hold an address`);
+    const byId = new Map(mirror.map((m) => [String(m.r['facility_id']), m.r]));
+    for (const row of extras) {
+      if (row.length !== SHAPE.facilityExtraColumns.length) {
+        out.push(`facility_extras: a row has ${row.length} values, the fixture has ${SHAPE.facilityExtraColumns.length} columns`);
+        continue;
+      }
+      const src = byId.get(String(row[0]));
+      if (!src) out.push(`facility_extras: encoded row ${JSON.stringify(row.slice(0, 1))} matches no addressed facility_public row`);
+      else if (row[1] !== src['address']) out.push(`facility_extras: the address of ${String(row[0])} differs from the mirror's`);
+    }
+  }
   const wards = await check('wards', 'public.ward_public', SHAPE.wardColumns, (r) => `${String(r['facility_id'])}|${String(r['category'])}`);
   return { violations: out, facilities, wards };
 }

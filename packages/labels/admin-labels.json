@@ -15,6 +15,7 @@
     "INVALID_ARGUMENT:p_accepted_on": "Enter the date the agreement was accepted.",
     "INVALID_ARGUMENT:p_signatory_role": "The signatory's role is too long: 64 characters at most.",
     "INVALID_ARGUMENT:p_email": "That email address is not in a form this page can read. Check it for a missing @ or a space.",
+    "INVALID_ARGUMENT:p_address": "Enter the street address as it should show to the public: 1 to 200 characters, on one line.",
     "INVALID_ARGUMENT:p_hefamaa_reg_no": "Enter the registration number as it appears on the certificate, up to 64 characters, or leave it empty.",
     "NO_SUCH_FACILITY": "This facility no longer exists. Reload the page.",
     "IDEMPOTENCY_CONFLICT": "A facility was already created from this form with other details. Reload to see it.",
@@ -49,7 +50,8 @@
     "facility_agreement_signatory_role_is_short": "The signatory's role is too long: 64 characters at most.",
     "facility_agreement_withdrawn_after_accepted": "A withdrawal date cannot be before the acceptance date.",
     "facility_contact_email_form": "That email address is not in a form this page can read. Check it for a missing @ or a space.",
-    "facility_hefamaa_reg_no_form": "Enter the registration number as it appears on the certificate, up to 64 characters, or leave it empty."
+    "facility_hefamaa_reg_no_form": "Enter the registration number as it appears on the certificate, up to 64 characters, or leave it empty.",
+    "facility_address_form": "Enter the street address as it should show to the public: 1 to 200 characters, on one line."
   },
   "not_null": {
     "facility.name": "The facility needs a name.",

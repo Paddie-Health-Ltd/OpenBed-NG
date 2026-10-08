@@ -39,6 +39,12 @@ export interface FacilityFields {
   readonly lat: number;
   readonly lng: number;
   readonly publicPhoneE164: string;
+  /**
+   * The street address, SHOWN PUBLICLY (R-2026-09-30-214 GN). Required by both write functions since 031, and
+   * sent exactly as given: the page trims what the operator typed before it reaches here, and the server
+   * refuses anything it would have to trim (INVALID_ARGUMENT, p_address).
+   */
+  readonly address: string;
 }
 
 export interface ContactFields {
@@ -69,9 +75,10 @@ export const createFacilityBody = (id: string, f: FacilityFields) => ({
   p_lat: f.lat,
   p_lng: f.lng,
   p_public_phone_e164: f.publicPhoneE164,
+  p_address: f.address,
 });
 
-/** NOT safe to repeat (020:466-526): the page never re-sends it (R-2026-09-24-97 BY-2 e). */
+/** NOT safe to repeat (031, which replaced 020's): the page never re-sends it (R-2026-09-24-97 BY-2 e). */
 export const editFacilityBody = (facilityId: string, expectedVersion: number, f: FacilityFields) => ({
   p_facility_id: facilityId,
   p_expected_version: expectedVersion,
@@ -81,6 +88,7 @@ export const editFacilityBody = (facilityId: string, expectedVersion: number, f:
   p_lat: f.lat,
   p_lng: f.lng,
   p_public_phone_e164: f.publicPhoneE164,
+  p_address: f.address,
 });
 
 /** No default offering: "a clinical claim, stated or refused. Never defaulted." (020:624). */

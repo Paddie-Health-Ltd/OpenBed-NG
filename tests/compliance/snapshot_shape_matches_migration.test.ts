@@ -125,6 +125,36 @@ describe('snapshot shape matches migration 007', () => {
       .toEqual(SHAPE.facilityColumns);
   });
 
+  // facilityExtraColumns (R-2026-09-30-214 GN) ride in the OPTIONAL `facility_extras` envelope key, not in a
+  // facility row. Each must be a column of public.facility_public as 007 created it plus the columns later
+  // migrations ADD to it, and NONE of the ones added later may appear in facilityColumns: a ninth value in
+  // a facility row throws in the decoder of every page already open (see snapshot_compat_as_at_6866161).
+  const MIG_031 = readFileSync(join(REPO_ROOT, 'database/migrations/031_facility_address.sql'), 'utf8');
+  const addedToFacilityPublic = [...MIG_031.matchAll(/ALTER TABLE public\.facility_public ADD COLUMN IF NOT EXISTS (\w+)/g)].map((m) => m[1] as string);
+
+  /** Every way the extras columns and the facility row columns disagree with the table. Empty means they agree. */
+  const extrasViolations = (extras: readonly string[], facility: readonly string[], table: readonly string[], added: readonly string[]): string[] => {
+    const out: string[] = [];
+    for (const c of extras) if (!table.includes(c)) out.push(`facilityExtraColumns names ${c}, which public.facility_public does not have`);
+    for (const c of facility) if (added.includes(c)) out.push(`facilityColumns names ${c}, a column ADDED after 007: a facility row of a new width breaks every open page`);
+    if (extras.length === 0) out.push('facilityExtraColumns is empty');
+    return out;
+  };
+
+  test('facility_extras columns are columns of facility_public (007 plus the migrations that add to it), and none is in a facility row', () => {
+    expect(addedToFacilityPublic, 'the scan of 031 found no ADD COLUMN, so the check below would be vacuous').toEqual(['address']);
+    const table = [...columnsOf(sql, 'public.facility_public'), ...addedToFacilityPublic];
+    expect(extrasViolations(SHAPE.facilityExtraColumns, SHAPE.facilityColumns, table, addedToFacilityPublic)).toEqual([]);
+    expect(SHAPE.facilityExtraColumns).toEqual(['facility_id', 'address']);
+  });
+
+  test('plant — an extras column the table does not have, and an added column appended to the facility row, are each rejected', () => {
+    const table = ['facility_id', 'name', 'address'];
+    expect(extrasViolations(['facility_id', 'landmark'], ['facility_id', 'name'], table, ['address']).join('\n')).toContain('landmark, which public.facility_public does not have');
+    expect(extrasViolations(['facility_id', 'address'], ['facility_id', 'name', 'address'], table, ['address']).join('\n')).toContain('a facility row of a new width breaks every open page');
+    expect(extrasViolations([], ['facility_id'], table, ['address'])).toEqual(['facilityExtraColumns is empty']);
+  });
+
   const TABLE = 'public.demo';
   const base = `CREATE TABLE IF NOT EXISTS ${TABLE} (
     facility_id uuid NOT NULL,

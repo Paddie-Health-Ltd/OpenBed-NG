@@ -148,7 +148,10 @@ describe('GET /beds.json — the served document', () => {
 
   test('the served envelope equals the fixture envelope exactly, as a set of names', async () => {
     const body = (await (await serveBeds(localOrigin(), serviceEnv())).json()) as Record<string, unknown>;
-    expect(Object.keys(body).sort()).toEqual([...SHAPE.envelope].sort());
+    // The generator writes every optional key since 031 (R-2026-09-30-214 GN), so the served document
+    // holds the required keys AND all of the optional ones. The Function also accepts a document
+    // without them: see 'a payload from BEFORE 031 is still served' below.
+    expect(Object.keys(body).sort()).toEqual([...SHAPE.envelope, ...SHAPE.envelopeOptional].sort());
   });
 
   test('every served row decodes to exactly the fixture columns, and none of them is forbidden', async () => {
@@ -777,6 +780,27 @@ describe('GET /beds.json — what is refused rather than served', () => {
     expect(res.status, `a malformed document was served: ${JSON.stringify(body)}`).toBe(502);
     expect(body.error).toContain('envelope');
     expect(res.headers.get('cache-control')).toBe('no-store');
+  });
+
+  test('a payload from BEFORE 031 (no facility_extras key) is still served 200 — the dashboard deploys first and meets the old generator', async () => {
+    const stored = await newestRow();
+    const before031: Record<string, unknown> = { ...(stored.payload as Record<string, unknown>) };
+    delete before031['facility_extras'];
+    expect(Object.keys(before031), 'the plant did not remove the key, so this would pass vacuously').not.toContain('facility_extras');
+    const { fetchImpl } = scripted([async () => json(200, [{ v: stored.v, payload: before031 }])]);
+    const res = await serveBeds(localOrigin(), serviceEnv(), fetchImpl);
+    expect(res.status, `a pre-031 document was refused: ${await res.clone().text()}`).toBe(200);
+  });
+
+  test('plant — a facility_extras row of the wrong width is refused with 502, never served', async () => {
+    const stored = await newestRow();
+    const payload = stored.payload as Record<string, unknown>;
+    const doctored = { ...payload, facility_extras: [['00000000-0000-4000-8000-000000000000', 'an address', 'LEAKED']] };
+    const { fetchImpl } = scripted([async () => json(200, [{ v: stored.v, payload: doctored }])]);
+    const res = await serveBeds(localOrigin(), serviceEnv(), fetchImpl);
+    const body = (await res.json()) as { error?: string };
+    expect(res.status, `a malformed extras row was served: ${JSON.stringify(body)}`).toBe(502);
+    expect(body.error).toContain('facility_extras');
   });
 
   test('plant — a ward row with one value too many is refused with 502, never served', async () => {

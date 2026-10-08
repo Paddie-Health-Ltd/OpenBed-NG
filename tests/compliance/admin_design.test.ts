@@ -92,6 +92,7 @@ const facility = (id: string, over: Record<string, unknown> = {}): Record<string
   lat: 6.45,
   lng: 3.4,
   public_phone_e164: '+2348000000303',
+  address: '12 Example Street, Lagos Island',
   version: 4,
   listed_at: '2026-09-20T09:00:00.000Z',
   quiet_mode: false,
@@ -301,7 +302,7 @@ describe('every outcome is a Notice in the design system\'s tone, and every stat
       await renderAt(sessionFragment(), server(facs, { operator_create_facility: answer }));
       await until(() => document.querySelector('li.facility') !== null);
       button('New facility').click();
-      for (const [n, v] of [['name', 'New Hospital'], ['lga', 'Ikeja'], ['state', 'Lagos'], ['lat', lat], ['lng', '3.35'], ['phone', '0800 000 0303']]) setInput('create-facility', n as string, v as string);
+      for (const [n, v] of [['name', 'New Hospital'], ['lga', 'Ikeja'], ['state', 'Lagos'], ['address', '3 Example Road, Ikeja'], ['lat', lat], ['lng', '3.35'], ['phone', '0800 000 0303']]) setInput('create-facility', n as string, v as string);
       submit('create-facility');
       await until(() => (formStatus('create-facility')?.textContent ?? '') !== '' || (pageStatus()?.textContent ?? '') !== '');
       await settle();
@@ -500,6 +501,9 @@ describe('the operator forms do their own validation (DO-4 c); the sign-in form 
       ['lat', '', 'Enter the latitude as a number, such as 6.5244.'],
       ['lng', 'east', 'Enter the longitude as a number, such as 3.3792.'],
       ['phone', '12', 'The public phone is not in international form (+234...). Check the preview.'],
+      // 031 (R-2026-09-30-214 GN): the street address, in the sentence the label table holds for the server's own refusal.
+      ['address', '', 'Enter the street address as it should show to the public: 1 to 200 characters, on one line.'],
+      ['address', '1 Example\u2028Street', 'Enter the street address as it should show to the public: 1 to 200 characters, on one line.'],
     ] as const) {
       const stub = await openA(server(facs));
       setInput('edit-facility', name, value);
@@ -528,7 +532,9 @@ describe('the operator forms do their own validation (DO-4 c); the sign-in form 
     submit('record-contact');
     await settle();
     rows.push(row('contact: an email with no @', 'That email address is not in a form this page can read. Check it for a missing @ or a space.', 'record-contact', 'email', stub, 'operator_record_contact'));
-    expect(rows.length).toBe(7);
+    // Nine rows: the seven that stood before 031, plus the two street-address rows (R-2026-09-30-214 GN). The count is
+    // the anti-vacuity leg: a loop that checked fewer would pass on what it did check.
+    expect(rows.length).toBe(9);
     const out = validationViolations(rows);
     expect(out, out.join('\n')).toEqual([]);
   });

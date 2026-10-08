@@ -83,11 +83,15 @@ import { bashFences, isGoverned, loadRunbooks, PSQL_SCRIPTS } from './_fences.js
  * and 12.4's new procedure "Changing a facility's reporting model" adds one, the founder SQL that
  * deactivates one kind of login at one facility and reads the count back, each carrying step P's
  * PATH line. Each has a connection line that calls no psql and moves nothing.
+ * 47 -> 48 on 2026-10-08 (R-2026-09-30-214 GN): "031's apply" adds one block that calls psql -- the
+ * one reading of what 031 created (the argument counts of the two replaced functions, and the two
+ * tables that carry `address`) -- carrying step P's PATH line. Its connection line calls no psql and
+ * moves nothing.
  * 46 -> 47 on 2026-10-07 (R-2026-09-30-205 GE): "030's apply" adds one block that calls psql -- the
  * one reading of what 030 created, the count of ENABLE ALWAYS triggers on each of the two tables --
  * carrying step P's PATH line. Its connection line calls no psql and moves nothing.
  */
-const GOVERNED_TODAY = 47;
+const GOVERNED_TODAY = 48;
 
 /**
  * THE READER MOVED (R-2026-09-29-165, EO-1 a). RUNBOOKS, bashFences(), PSQL_SCRIPTS and

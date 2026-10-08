@@ -50,8 +50,20 @@ const DIST = join(DASH, 'dist');
 /** sha256 of each file as Cowork issued it (R-2026-09-30-190 FN-1). */
 const ABOUT_SHA256 = '2eeeadce5479fd253582bd393946ac960757e05b7ff3248c51baffbc3211ec97';
 const HOW_SHA256 = 'd2aa6f70cfa52f755d0527655baa5cd43905e2dcf88aa240fb864f44e96aaabc';
-/** The built dist/privacy.html before this change: FN-2 says it stays byte for byte. */
-const BUILT_PRIVACY_SHA256 = 'fd00dc10392b8dc85c8432d8a8f9d95d9b3e128ce4cf2ace7e8129d578162869';
+/**
+ * The built dist/privacy.html before FN-2: FN-2 says it stays byte for byte.
+ *
+ * RESTATED 2026-10-08 (R-2026-09-30-214 GN), in the change that styles the facility card. Until then this was
+ * 'fd00dc10392b8dc85c8432d8a8f9d95d9b3e128ce4cf2ace7e8129d578162869'. privacy.css imports style.css, so any
+ * change to style.css changes the content hash in the filename of the stylesheet privacy.html links
+ * (`privacy-Ceml8vr4.css` became `privacy-C5hzVzfN.css`), and with it the page's bytes. NOTHING ELSE moved,
+ * and that was MEASURED rather than assumed: the base commit 6866161 was built in a scratch worktree
+ * (reproducing the old value exactly), and this build's privacy.html with that one filename put back is
+ * byte-identical to it (`diff` empty, the same sha256). The privacy notice's words, markup and links are
+ * unchanged. The next change to style.css moves this again, for the same reason; the proof above is how to
+ * check that it is the only thing that moved.
+ */
+const BUILT_PRIVACY_SHA256 = '977aac3fe61d8a8f17fc028eae46eaa829b1823107711e513478e14edf63d8e8';
 
 interface Spec {
   readonly file: string;

@@ -89,6 +89,7 @@ const FIELDS: FacilityFields = {
   lat: 6.45,
   lng: 3.4,
   publicPhoneE164: '+2348000000303',
+  address: '12 Example Street, Off Sample Avenue, Ikeja',
 };
 
 async function newFacility(over: Partial<FacilityFields> = {}): Promise<string> {
@@ -120,6 +121,45 @@ describe('the admin app’s calls, live', () => {
     expect(n?.n).toBe(1);
     const changed = await call(RPC.createFacility, createFacilityBody(id, { ...FIELDS, lga: 'Ikeja' }));
     expect(refusal(changed).key).toBe('IDEMPOTENCY_CONFLICT');
+  });
+
+  test('the street address (031, GN): saved on create and read back in the register; an edit changes it and the version moves', async () => {
+    const id = await newFacility({ address: '5 First Road, Ikeja' });
+    expect((await registerRow(id))['address']).toBe('5 First Road, Ikeja');
+    const v = (await registerRow(id))['version'] as number;
+    const edited = await call(RPC.editFacility, editFacilityBody(id, v, { ...FIELDS, address: '6 Second Road, Ikeja' }));
+    expect(edited.status, JSON.stringify(edited.body)).toBe(200);
+    const row = await registerRow(id);
+    expect(row['address']).toBe('6 Second Road, Ikeja');
+    expect(row['version']).toBe(v + 1);
+  });
+
+  test('operator create with NO address is rejected INVALID_ARGUMENT:p_address, read as its sentence', async () => {
+    const r = await call(RPC.createFacility, { ...createFacilityBody(randomUUID(), FIELDS), p_address: null });
+    expect(r.status).toBe(400);
+    const m = refusal(r);
+    expect(m.key).toBe('INVALID_ARGUMENT:p_address');
+    expect(m.sentence).toBe(ADMIN_LABELS.codes['INVALID_ARGUMENT:p_address']);
+  });
+
+  test('operator create with an address over 200 characters is rejected, and the page reads it as the address sentence', async () => {
+    const r = await call(RPC.createFacility, { ...createFacilityBody(randomUUID(), FIELDS), p_address: 'x'.repeat(201) });
+    expect(refusal(r).key).toBe('INVALID_ARGUMENT:p_address');
+  });
+
+  test('THE WINDOW BETWEEN 031 AND THE ADMIN REDEPLOY — the OLD seven-field create the previous bundle sends is refused PGRST202, read as FUNCTION_MISSING, and nothing is created', async () => {
+    const id = randomUUID();
+    const oldShape: Record<string, unknown> = { ...createFacilityBody(id, FIELDS) };
+    delete oldShape['p_address'];
+    expect(Object.keys(oldShape), 'the plant is not the old seven-argument shape').toHaveLength(7);
+    const r = await call(RPC.createFacility, oldShape);
+    expect(r.status, 'the old shape was ACCEPTED: a caller still on it would have created a facility with no address').toBe(404);
+    expect((r.body as { code?: string }).code).toBe('PGRST202');
+    const m = refusal(r);
+    expect(m.key).toBe('FUNCTION_MISSING');
+    expect(m.sentence).toBe(ADMIN_LABELS.fixed.FUNCTION_MISSING);
+    const [n] = await sql()<{ n: number }[]>`select count(*)::int as n from app.facility where id = ${id}::uuid`;
+    expect(n?.n, 'a facility was created by the old shape').toBe(0);
   });
 
   test('the register shows what is saved: each facility carries its lat, lng and public_phone_e164 (023, BZ-2)', async () => {

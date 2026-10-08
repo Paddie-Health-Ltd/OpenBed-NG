@@ -111,7 +111,9 @@ describe('a shell block that reads a value is pasted alone (DZ-3 c)', () => {
     // runbook, so the set of documents is unchanged.
     // 52 -> 53 on 2026-10-07 (R-2026-09-30-205 GE): "030's apply" adds a connection block before its
     // one reading of what 030 created. In the Supabase runbook, so the set of documents is unchanged.
-    expect(reading.length, `connection blocks read: ${reading.length}`).toBe(53);
+    // 53 -> 54 on 2026-10-08 (R-2026-09-30-214 GN): "031's apply" adds a connection block before its
+    // one reading of what 031 created. In the Supabase runbook, so the set of documents is unchanged.
+    expect(reading.length, `connection blocks read: ${reading.length}`).toBe(54);
     expect(new Set(reading.map((f) => f.doc))).toEqual(new Set([RUNBOOK, join(DOCS, 'runbook-cloudflare-pages-beds-json.md'), join(DOCS, 'runbook-sensor.md')]));
     expect(inScratch({ 'runbook-x.md': '```bash\necho no reads\n```\n' }).join('\n')).toContain('no shell fence under docs/ reads a value');
   });

@@ -68,8 +68,8 @@ import { adminMessageFor, type Refusal } from './messages.js';
  * hides a row (AJ D8).
  *
  * THE EDIT FORM SHOWS WHAT IS SAVED (R-2026-09-24-98 BZ-1, BZ-3). Since 023 the register
- * carries each facility's latitude, longitude and public phone, so all six fields are
- * prefilled and nothing is retyped to fix an unrelated field. Each changed field is shown
+ * carries each facility's latitude, longitude and public phone, and since 031 its street
+ * address (shown publicly), so all seven fields are prefilled and nothing is retyped to fix an unrelated field. Each changed field is shown
  * as `<saved> → <new>` while the operator edits. A change to the PUBLIC PHONE -- the
  * number the public page shows for an emergency call -- is never sent on the Save press:
  * it needs an explicit confirm, and Cancel sends nothing. A latitude or longitude change
@@ -661,15 +661,31 @@ function refuse(status: HTMLParagraphElement, sentence: string, input: HTMLInput
 /** The check the browser made on an email field, made here in this page's own words (DO-4 c). */
 const EMAIL_UNREADABLE = 'That email address is not in a form this page can read. Check it for a missing @ or a space.';
 
+/**
+ * The street address is shown PUBLICLY (R-2026-09-30-214 GN), so it is held to what the server will accept before
+ * anything is sent: 1 to 200 characters after trimming, on one line. The page trims what was typed (the server
+ * refuses what it would have to trim) and says why in the one sentence the label table holds for the server's
+ * own refusal, so the two cannot word it differently. The server stays the authority; this is the courtesy.
+ */
+const ADDRESS_SENTENCE = ADMIN_CODES['INVALID_ARGUMENT:p_address'] as string;
+const LINE_BREAK = /[\n\r\v\f\u0085\u2028\u2029]/;
+function addressFrom(raw: string): string | null {
+  const a = raw.trim();
+  return a === '' || a.length > 200 || LINE_BREAK.test(a) ? null : a;
+}
+
 function facilityFieldsFrom(parts: {
   name: HTMLInputElement;
   lga: HTMLInputElement;
   state: HTMLInputElement;
+  address: HTMLInputElement;
   lat: HTMLInputElement;
   lng: HTMLInputElement;
   phone: () => string | null;
   phoneInput: HTMLInputElement;
 }): FacilityFields | { readonly sentence: string; readonly input: HTMLInputElement } {
+  const address = addressFrom(parts.address.value);
+  if (address === null) return { sentence: ADDRESS_SENTENCE, input: parts.address };
   const lat = Number(parts.lat.value.trim());
   const lng = Number(parts.lng.value.trim());
   if (parts.lat.value.trim() === '' || !Number.isFinite(lat)) return { sentence: 'Enter the latitude as a number, such as 6.5244.', input: parts.lat };
@@ -677,23 +693,26 @@ function facilityFieldsFrom(parts: {
   const phone = parts.phone();
   if (phone === null) return { sentence: 'The public phone is not in international form (+234...). Check the preview.', input: parts.phoneInput };
   // Sent exactly as typed, apostrophes, hyphens and diacritics included.
-  return { name: parts.name.value, lga: parts.lga.value, state: parts.state.value, lat, lng, publicPhoneE164: phone };
+  return { name: parts.name.value, lga: parts.lga.value, state: parts.state.value, lat, lng, publicPhoneE164: phone, address };
 }
 
-function facilityInputs(values?: { name: string; lga: string; state: string; lat: number; lng: number; publicPhoneE164: string }) {
+function facilityInputs(values?: { name: string; lga: string; state: string; address: string | null; lat: number; lng: number; publicPhoneE164: string }) {
   const name = field('Facility name', 'name', values?.name ?? '');
   const lga = field('LGA', 'lga', values?.lga ?? '');
   const state = field('State', 'state', values?.state ?? '');
+  // SHOWN PUBLICLY (R-2026-09-30-214 GN): the label says so, because everything else on this form that the
+  // public sees is a name, a place and a number, and an operator should not have to know this one is too.
+  const address = field('Street address (shown publicly)', 'address', values?.address ?? '');
   const lat = field('Latitude', 'lat', values === undefined ? '' : String(values.lat));
   lat.input.inputMode = 'decimal';
   const lng = field('Longitude', 'lng', values === undefined ? '' : String(values.lng));
   lng.input.inputMode = 'decimal';
   const phone = phoneField('Public phone', 'phone', values?.publicPhoneE164 ?? '');
-  return { name, lga, state, lat, lng, phone };
+  return { name, lga, state, address, lat, lng, phone };
 }
 
 /** Each field that differs from what is saved, as `<Label>: <saved> → <new>`. */
-function changesFrom(saved: Facility, typed: { name: string; lga: string; state: string; lat: string; lng: string; phone: string | null }): string[] {
+function changesFrom(saved: Facility, typed: { name: string; lga: string; state: string; address: string; lat: string; lng: string; phone: string | null }): string[] {
   const out: string[] = [];
   const line = (label: string, a: string, b: string): void => {
     if (a !== b) out.push(`${label}: ${a} → ${b}`);
@@ -701,6 +720,7 @@ function changesFrom(saved: Facility, typed: { name: string; lga: string; state:
   line('Name', saved.name, typed.name);
   line('LGA', saved.lga, typed.lga);
   line('State', saved.state, typed.state);
+  line('Street address', saved.address ?? '(none)', typed.address.trim());
   line('Latitude', String(saved.lat), typed.lat.trim());
   line('Longitude', String(saved.lng), typed.lng.trim());
   line('Public phone', saved.publicPhoneE164, typed.phone ?? '(not a number this page can read)');
@@ -716,8 +736,8 @@ function openCreate(holder: SessionHolder): void {
   const back = el('button', 'Back');
   back.type = 'button';
   back.addEventListener('click', () => guarded(() => loadRegister(holder)));
-  const f = form('create-facility', 'Create', [i.name.wrap, i.lga.wrap, i.state.wrap, i.lat.wrap, i.lng.wrap, i.phone.wrap], async (status) => {
-    const fields = facilityFieldsFrom({ name: i.name.input, lga: i.lga.input, state: i.state.input, lat: i.lat.input, lng: i.lng.input, phone: i.phone.value, phoneInput: i.phone.input });
+  const f = form('create-facility', 'Create', [i.name.wrap, i.lga.wrap, i.state.wrap, i.address.wrap, i.lat.wrap, i.lng.wrap, i.phone.wrap], async (status) => {
+    const fields = facilityFieldsFrom({ name: i.name.input, lga: i.lga.input, state: i.state.input, address: i.address.input, lat: i.lat.input, lng: i.lng.input, phone: i.phone.value, phoneInput: i.phone.input });
     if ('sentence' in fields) {
       refuse(status, fields.sentence, fields.input);
       return;
@@ -879,13 +899,13 @@ function renderDetail(holder: SessionHolder, first: Detail): void {
   // THAT row's version (023, BZ-3 a; 020 J1). It moves to a newer row only when the form
   // holds nothing unsent, or after the form's own Save or a conflict.
   let base = d.f;
-  const e = facilityInputs({ name: base.name, lga: base.lga, state: base.state, lat: base.lat, lng: base.lng, publicPhoneE164: base.publicPhoneE164 });
-  const typed = () => ({ name: e.name.input.value, lga: e.lga.input.value, state: e.state.input.value, lat: e.lat.input.value, lng: e.lng.input.value, phone: e.phone.value() });
+  const e = facilityInputs({ name: base.name, lga: base.lga, state: base.state, address: base.address, lat: base.lat, lng: base.lng, publicPhoneE164: base.publicPhoneE164 });
+  const typed = () => ({ name: e.name.input.value, lga: e.lga.input.value, state: e.state.input.value, address: e.address.input.value, lat: e.lat.input.value, lng: e.lng.input.value, phone: e.phone.value() });
   const changes = el('ul', undefined, 'changes');
   const showChanges = (): void => {
     changes.replaceChildren(...changesFrom(base, typed()).map((l) => el('li', l)));
   };
-  for (const input of [e.name.input, e.lga.input, e.state.input, e.lat.input, e.lng.input, e.phone.input]) input.addEventListener('input', showChanges);
+  for (const input of [e.name.input, e.lga.input, e.state.input, e.address.input, e.lat.input, e.lng.input, e.phone.input]) input.addEventListener('input', showChanges);
   const confirmPanel = el('div', undefined, 'phone-confirm');
   confirmPanel.hidden = true;
   const closeConfirm = (): void => {
@@ -897,6 +917,7 @@ function renderDetail(holder: SessionHolder, first: Detail): void {
     e.name.input.value = base.name;
     e.lga.input.value = base.lga;
     e.state.input.value = base.state;
+    e.address.input.value = base.address ?? '';
     e.lat.input.value = String(base.lat);
     e.lng.input.value = String(base.lng);
     e.phone.input.value = base.publicPhoneE164;
@@ -917,8 +938,8 @@ function renderDetail(holder: SessionHolder, first: Detail): void {
     else rebase();
   };
 
-  const editForm = form('edit-facility', 'Save facility', [e.name.wrap, e.lga.wrap, e.state.wrap, e.lat.wrap, e.lng.wrap, e.phone.wrap, el('p', W.CHANGES, 'note'), changes], async (s) => {
-    const fields = facilityFieldsFrom({ name: e.name.input, lga: e.lga.input, state: e.state.input, lat: e.lat.input, lng: e.lng.input, phone: e.phone.value, phoneInput: e.phone.input });
+  const editForm = form('edit-facility', 'Save facility', [e.name.wrap, e.lga.wrap, e.state.wrap, e.address.wrap, e.lat.wrap, e.lng.wrap, e.phone.wrap, el('p', W.CHANGES, 'note'), changes], async (s) => {
+    const fields = facilityFieldsFrom({ name: e.name.input, lga: e.lga.input, state: e.state.input, address: e.address.input, lat: e.lat.input, lng: e.lng.input, phone: e.phone.value, phoneInput: e.phone.input });
     if ('sentence' in fields) {
       refuse(s, fields.sentence, fields.input);
       return;

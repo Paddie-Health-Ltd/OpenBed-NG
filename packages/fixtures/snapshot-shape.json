@@ -24,6 +24,14 @@
     "facilities",
     "wards"
   ],
+  "envelopeOptional": [
+    "facility_extras"
+  ],
+  "why_envelopeOptional_and_not_a_facility_column": "R-2026-09-30-214 GN. The street address is carried in a SEPARATE, OPTIONAL envelope key, facility_extras, and NOT as a ninth value in a facility row. packages/snapshot/src/codec.ts throws on a facility row of the wrong arity, so a ninth column would have put every page already open on the previous bundle (a dispatcher's tab) on the outage notice the moment migration 031 was applied. A page at the previous commit reads only facilities, wards and generated_at, so it never sees the new key. The Pages Function compares the envelope as an exact set: it accepts envelope, or envelope plus any of these, and refuses any other key. A page that meets a snapshot WITHOUT the key (one generated before 031) shows no address line. tests/compliance/snapshot_compat_as_at_6866161.test.ts proves both directions against the codec and the Function as at 6866161, read from git.",
+  "facilityExtraColumns": [
+    "facility_id",
+    "address"
+  ],
   "facilityColumns": [
     "facility_id",
     "name",

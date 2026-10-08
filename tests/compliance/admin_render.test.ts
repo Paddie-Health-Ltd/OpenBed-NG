@@ -88,6 +88,8 @@ function facility(id: string, over: Record<string, unknown> = {}): Record<string
     lat: 6.45,
     lng: 3.4,
     public_phone_e164: '+2348000000303',
+    // 031 (R-2026-09-30-214 GN): the street address, shown publicly. The key is required; the value may be null.
+    address: '12 Example Street, Lagos Island',
     version: 4,
     listed_at: '2026-09-20T09:00:00.000Z',
     quiet_mode: false,
@@ -210,6 +212,7 @@ function fillFacility(formClass: string): void {
   setInput(formClass, 'name', "St. Placeholder's Hospital");
   setInput(formClass, 'lga', 'Lagos Island');
   setInput(formClass, 'state', 'Lagos');
+  setInput(formClass, 'address', '12 Example Street, Lagos Island');
   setInput(formClass, 'lat', '6.45');
   setInput(formClass, 'lng', '3.40');
   setInput(formClass, 'phone', '0800 000 0303');
@@ -357,6 +360,8 @@ describe('writes are never re-sent', () => {
     expect(bodies[0]?.['p_id']).toBe(bodies[1]?.['p_id']);
     expect(bodies[0]?.['p_public_phone_e164']).toBe('+2348000000303');
     expect(bodies[0]?.['p_name'], 'the name was not sent exactly as typed').toBe("St. Placeholder's Hospital");
+    expect(bodies[0]?.['p_address'], 'the address was not sent').toBe('12 Example Street, Lagos Island');
+    expect(bodies[1]?.['p_address']).toBe(bodies[0]?.['p_address']);
   });
 
   test('edit: a dropped answer is NEVER re-sent -- the page reloads and says so', async () => {
@@ -407,10 +412,10 @@ describe('the edit form shows what is saved, and a phone change needs a confirm 
   const value = (name: string): string => document.querySelector<HTMLInputElement>(`form.edit-facility [name="${name}"]`)?.value ?? '(no input)';
   const panel = (): HTMLElement | null => document.querySelector<HTMLElement>('div.phone-confirm');
 
-  test('all six fields are prefilled from the register row, the phone and location included', async () => {
+  test('all seven fields are prefilled from the register row, the phone, location and street address included', async () => {
     await openEdit();
-    expect([value('name'), value('lga'), value('state'), value('lat'), value('lng'), value('phone')]).toEqual([
-      "St. Placeholder's Hospital", 'Lagos Island', 'Lagos', '6.45', '3.4', '+2348000000303',
+    expect([value('name'), value('lga'), value('state'), value('address'), value('lat'), value('lng'), value('phone')]).toEqual([
+      "St. Placeholder's Hospital", 'Lagos Island', 'Lagos', '12 Example Street, Lagos Island', '6.45', '3.4', '+2348000000303',
     ]);
     expect(text(), 'the retype note survived').not.toContain('Enter all three as they should be now');
   });
@@ -465,6 +470,55 @@ describe('the edit form shows what is saved, and a phone change needs a confirm 
     await until(() => calls(stub, 'operator_edit_facility').length === 1);
     expect(panel()?.hidden).not.toBe(false);
     expect(calls(stub, 'operator_edit_facility')[0]?.['p_lat']).toBe(6.46);
+  });
+
+  test('031 — a street address change is shown as <saved> → <new>, trimmed, and sent on Save with no confirm', async () => {
+    const stub = await openEdit();
+    setInput('edit-facility', 'address', '  99 New Road, Lagos Island  ');
+    expect(text()).toContain('Street address: 12 Example Street, Lagos Island → 99 New Road, Lagos Island');
+    submit('edit-facility');
+    await until(() => calls(stub, 'operator_edit_facility').length === 1);
+    expect(panel()?.hidden, 'an address change asked for the phone confirm').not.toBe(false);
+    expect(calls(stub, 'operator_edit_facility')[0]?.['p_address'], 'the address was not trimmed before it was sent').toBe('99 New Road, Lagos Island');
+  });
+
+  test('031 — a LEGACY facility with no address opens with an empty field, shows (none) → <new>, and Save refuses an empty one with its sentence and sends nothing', async () => {
+    const stub = await renderAt(sessionFragment(), server({ operator_register: () => json(200, { server_now: SERVER_NOW, retention_alert: [], facilities: [facility(FAC_A, { address: null })] }) }));
+    await until(() => text().includes('Facilities'));
+    button('Open').click();
+    await until(() => document.querySelector('form.edit-facility') !== null);
+    expect(value('address')).toBe('');
+    submit('edit-facility');
+    await until(() => text().includes(ADMIN_LABELS.codes['INVALID_ARGUMENT:p_address'] as string));
+    expect(calls(stub, 'operator_edit_facility'), 'an edit with no address was sent').toHaveLength(0);
+    setInput('edit-facility', 'address', '3 First Street');
+    expect(text()).toContain('Street address: (none) → 3 First Street');
+  });
+
+  test.each<[string, string]>([
+    ['empty', ''],
+    ['only spaces', '    '],
+    ['201 characters', 'x'.repeat(201)],
+    ['a line separator inside it', '1 Example\u2028Street'],
+    ['a vertical tab inside it', '1 Example\u000bStreet'],
+  ])('031 — an address that is %s is refused by the page with its sentence, focus goes to the field, and nothing is sent (create)', async (_n, bad) => {
+    const stub = await renderAt(sessionFragment(), server({}));
+    await until(() => text().includes('Facilities'));
+    button('New facility').click();
+    fillFacility('create-facility');
+    setInput('create-facility', 'address', bad);
+    submit('create-facility');
+    await until(() => text().includes(ADMIN_LABELS.codes['INVALID_ARGUMENT:p_address'] as string));
+    expect(document.activeElement?.getAttribute('name')).toBe('address');
+    expect(calls(stub, 'operator_create_facility'), 'a create with a bad address was sent').toHaveLength(0);
+  });
+
+  test('031 — a register row WITHOUT the address key is unreadable, never defaulted; one with address: null is readable', async () => {
+    const row = facility(FAC_A);
+    delete row['address'];
+    await renderAt(sessionFragment(), server({ operator_register: () => json(200, { server_now: SERVER_NOW, retention_alert: [], facilities: [row] }) }));
+    await until(() => text().includes('Facilities'));
+    expect(text()).toContain("This facility's record could not be read.");
   });
 
   test('a register row without 023’s keys is unreadable, never defaulted', async () => {

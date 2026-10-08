@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from 'vitest';
+import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -24,6 +24,14 @@ import { sql, psqlCommand } from '../setup/db.js';
  * COMMITTED, and the forward apply must fail naming it. The row is removed and
  * 019 re-applied in a `finally`.
  *
+ * 031 RESTATES THE GENERATOR (R-2026-09-30-214 GN), and this file COMMITS: it applies 019's files
+ * straight to the shared database, not inside a rolled-back transaction. So before any leg runs,
+ * 031 is REVERSED (its down restores 019's body exactly), and after the last leg 019 and then 031
+ * are re-applied, in that order. Without it, this file's own afterAll re-applied 019's generator
+ * over 031's and left the shared database with a generator that writes no `facility_extras`,
+ * which turned tests/db/snapshot.test.ts red in the next file. The set of later migrations that
+ * touch the generator is pinned by name below, so a further one reds the first leg and is read.
+ *
  * SAFE ON THE SHARED DATABASE for the reason 018's file gives: the db project
  * runs files one at a time, and every leg restores 019 in a `finally`, with an
  * unconditional `afterAll` behind it.
@@ -33,6 +41,9 @@ const MIG_DIR = join(import.meta.dirname, '..', '..', 'database', 'migrations');
 const FORWARD = join(MIG_DIR, '019_snapshot_single_read_and_mirror_integrity.sql');
 const DOWN = join(MIG_DIR, '019_snapshot_single_read_and_mirror_integrity.down.sql');
 const LEDGER = '019_snapshot_single_read_and_mirror_integrity.sql';
+/** Later migrations that restate app.regenerate_snapshot(), newest first. */
+const LATER_GENERATOR = ['031_facility_address'] as const;
+const laterFile = (name: string, down: boolean): string => join(MIG_DIR, `${name}${down ? '.down' : ''}.sql`);
 
 function applyFile(path: string): void {
   const cmd = `${psqlCommand()} -v ON_ERROR_STOP=1 --single-transaction < ${JSON.stringify(path)}`;
@@ -79,8 +90,13 @@ const STATE_019 = {
 };
 const STATE_018 = { body: BODY_016, constraints: [] as string[], ledger: 0 };
 
+beforeAll(() => {
+  for (const m of LATER_GENERATOR) applyFile(laterFile(m, true));
+});
+
 afterAll(() => {
   applyFile(FORWARD);
+  for (const m of [...LATER_GENERATOR].reverse()) applyFile(laterFile(m, false));
 });
 
 describe('migration 019 round trip', () => {

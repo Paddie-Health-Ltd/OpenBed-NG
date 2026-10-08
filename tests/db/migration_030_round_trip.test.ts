@@ -134,7 +134,11 @@ const OLD_DEF = (name: string, table: string): string =>
 
 describe('migration 030 round trip', () => {
   test('the database starts in the 030 state, and the two states discriminate', async () => {
-    expect(LATER, 'a migration above 030 exists: this file reverses it first, and its own state expectations must be re-read').toEqual([]);
+    // 031 (R-2026-09-30-214 GN) touches the facility address, its two operator functions, the register,
+    // the projection and the snapshot generator, and none of 030's triggers; inTx reverses it first.
+    expect(LATER, 'the set of migrations above 030 changed: this file reverses them first, and its own state expectations must be re-read').toEqual([
+      '031_facility_address.sql',
+    ]);
     const s = await inTx(state);
     expect(s.newTriggers).toEqual(Object.fromEntries(Object.entries(NEW_TRIGGERS).map(([n, t]) => [n, NEW_DEF(n, t)])));
     expect(s.oldTriggers).toEqual(Object.fromEntries(Object.entries(OLD_TRIGGERS).map(([n, t]) => [n, OLD_DEF(n, t)])));

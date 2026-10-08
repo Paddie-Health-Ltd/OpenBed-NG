@@ -36,6 +36,8 @@ export const ALPHA = {
   lat: 6.5244,
   lng: 3.3792,
   phone: '+2348000000001',
+  // 031 (R-2026-09-30-214 GN): invented, like every other value here. Operator create and edit require an address.
+  address: '1 E2E Alpha Road',
 } as const;
 
 export const BETA = {
@@ -62,6 +64,7 @@ export const GAMMA = {
   lat: 6.4541,
   lng: 3.3947,
   phone: '+2348000000003',
+  address: '3 E2E Gamma Road',
 } as const;
 export const GAMMA_CATEGORIES = ['MATERNITY', 'THEATRE'] as const;
 /** The facility-level reporting login's address. A ROLE address, never a person. */

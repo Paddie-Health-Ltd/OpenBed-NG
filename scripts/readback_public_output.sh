@@ -20,6 +20,16 @@
 #   - public.facility_public and public.ward_public: every column, updated_at
 #     INCLUDED. 020's backfill claims to fire no projection trigger (-71 B1), and a
 #     fired trigger would show up as exactly an updated_at that moved.
+#     ONE EXCEPTION, NAMED (R-2026-09-30-214 GN): facility_public is read through its
+#     EIGHT columns as they stood at 030, not `select *`. Migration 031 adds a ninth,
+#     `address`, and a `select *` row's text changes with a new column: every row would
+#     hash differently across 031's apply although nothing public moved, and fence 4
+#     of "031's apply" would read STOP on any hosted project that lists a facility.
+#     The address is NULL on every row when 031 applies (no backfill) and reaches the
+#     public only in the snapshot's facility_extras key, which part 1 above does not
+#     read (it keeps `facilities` and `wards`). So this reading does NOT see an address
+#     change, and it is not asked to: it is the B1 reading for the apply of 031, before
+#     any address is entered (hosted order step (d) follows it).
 #   - public.lga_rollup: every column EXCEPT updated_at, which the five-minute
 #     refresh rewrites whether anything changed or not (017's refresh_lga_rollup).
 # Each table is read as a row count and the first 12 hex digits of an md5 over its
@@ -72,7 +82,7 @@ if [ -n "$EXPECTED" ] && ! [[ "$EXPECTED" =~ $FP_SHAPE ]]; then
     exit 2
 fi
 
-Q_FACILITY_PUBLIC="select count(*) || ':' || left(coalesce(md5(string_agg(t::text, E'\n' order by t::text)), md5('')), 12) from (select * from public.facility_public) t"
+Q_FACILITY_PUBLIC="select count(*) || ':' || left(coalesce(md5(string_agg(t::text, E'\n' order by t::text)), md5('')), 12) from (select facility_id, name, lga, state, lat, lng, public_phone_e164, updated_at from public.facility_public) t"
 Q_WARD_PUBLIC="select count(*) || ':' || left(coalesce(md5(string_agg(t::text, E'\n' order by t::text)), md5('')), 12) from (select * from public.ward_public) t"
 Q_LGA_ROLLUP="select count(*) || ':' || left(coalesce(md5(string_agg(t::text, E'\n' order by t::text)), md5('')), 12) from (select state, lga, category, facility_count, total_beds from public.lga_rollup) t"
 

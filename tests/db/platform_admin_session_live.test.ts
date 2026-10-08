@@ -94,8 +94,8 @@ describe('a real PLATFORM_ADMIN session, function by function', () => {
   });
 
   test.each([
-    ['operator_create_facility', { p_id: 'not-a-uuid', p_name: 'x', p_lga: 'x', p_state: 'x', p_lat: 6.5, p_lng: 3.4, p_public_phone_e164: '+2348000000000' }, 'INVALID_ARGUMENT'],
-    ['operator_edit_facility', { p_facility_id: NO_SUCH, p_expected_version: 1, p_name: 'x', p_lga: 'x', p_state: 'x', p_lat: 6.5, p_lng: 3.4, p_public_phone_e164: '+2348000000000' }, 'NO_SUCH_FACILITY'],
+    ['operator_create_facility', { p_id: 'not-a-uuid', p_name: 'x', p_lga: 'x', p_state: 'x', p_lat: 6.5, p_lng: 3.4, p_public_phone_e164: '+2348000000000', p_address: '1 Example Street' }, 'INVALID_ARGUMENT'],
+    ['operator_edit_facility', { p_facility_id: NO_SUCH, p_expected_version: 1, p_name: 'x', p_lga: 'x', p_state: 'x', p_lat: 6.5, p_lng: 3.4, p_public_phone_e164: '+2348000000000', p_address: '1 Example Street' }, 'NO_SUCH_FACILITY'],
     ['operator_add_category', { p_facility_id: NO_SUCH, p_category: 'ICU_ADULT', p_offering: 'OFFERED' }, 'NO_SUCH_FACILITY'],
     ['operator_set_facility_listed', { p_facility_id: NO_SUCH, p_expected_version: 1 }, 'NO_SUCH_FACILITY'],
     // 021 (R-2026-09-24-75/76).

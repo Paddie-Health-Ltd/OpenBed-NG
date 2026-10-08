@@ -228,11 +228,14 @@ function mutate(text: string, from: string, to: string): string {
 
 describe('migration 029 round trip', () => {
   test('the database starts in the 029 state, and the two states discriminate', async () => {
-    // 030 (R-2026-09-30-205 GE) is the one migration above 029: it touches 010's two tables and
-    // none of 029's objects, and inTx reverses it first. Pinned by name, so a further migration
-    // above 029 reds this and its effect on 029's state is re-read, as the empty list did.
+    // 030 (R-2026-09-30-205 GE) touches 010's two tables and none of 029's objects. 031
+    // (R-2026-09-30-214 GN) restates public.operator_register(), whose 029 body this file compares,
+    // so inTx reverses 031 first and the comparison below is of 029's own body. Pinned by name,
+    // so a further migration above 029 reds this and its effect on 029's state is re-read, as the
+    // empty list did.
     expect(LATER, 'the set of migrations above 029 changed: this file reverses them first, and its own state expectations must be re-read').toEqual([
       '030_truncate_guard_audit_tables.sql',
+      '031_facility_address.sql',
     ]);
     for (const sig of Object.keys(FUNCTIONS)) expect(bodies026[sig], `${sig} is the same in both states`).not.toBe(bodies029[sig]);
     const s = await inTx(state);

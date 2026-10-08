@@ -1,6 +1,7 @@
 import {
   decodeWard,
   decodeFacility,
+  decodeFacilityExtra,
   elapsedSince,
   markFetch,
   POLL_CADENCE_SECONDS,
@@ -12,6 +13,7 @@ import {
 import { HELLO_EMAIL } from '@openbed/origins/contacts';
 import { ABOUT_URL, HOW_IT_WORKS_URL, PRIVACY_NOTICE_URL } from '@openbed/origins/privacy';
 import { rowStyle, snapshotBanner, wardLineParts, type ServeClock, type WardLineParts } from './age-view.js';
+import { addressLine, areaLine, directionsUrl, formatPhoneDisplay, LOADING_TEXT } from './card.js';
 // The design system's tokens and self-hosted fonts first, then this app's own rules
 // (the design pass, D1). Vite emits all three as same-origin assets.
 import '@openbed/design/tokens.css';
@@ -126,6 +128,12 @@ interface SnapshotEnvelope {
   readonly server_now: string;
   readonly facilities: readonly EncodedRow[];
   readonly wards: readonly EncodedRow[];
+  /**
+   * OPTIONAL, and absent from any snapshot generated before migration 031 (R-2026-09-30-214 GN): rows of
+   * [facility_id, address]. The address is NOT a ninth column of a facility row, because the codec throws on
+   * a facility row of the wrong width and a page already open on the previous bundle would show the outage.
+   */
+  readonly facility_extras?: unknown;
 }
 
 // Matches packages/snapshot/src/serve.ts's own UPSTREAM_TIMEOUT_MS /
@@ -146,6 +154,8 @@ const FETCH_ATTEMPTS = 2;
 interface Snapshot {
   readonly facilities: DecodedRow[];
   readonly wards: DecodedRow[];
+  /** facility_id -> street address, for the facilities that have one. Empty when the block is absent or unreadable. */
+  readonly addresses: ReadonlyMap<string, string>;
   readonly generatedAt: string;
   readonly servedAt: string | null;
   readonly mark: FetchMark;
@@ -159,10 +169,35 @@ const POLL_MS = POLL_CADENCE_SECONDS * 1000;
  * message can quote the payload -- a JSON parse error names the text it choked on -- and no data
  * payload belongs in a console.
  */
-function logFault(stage: 'fetch' | 'render', e: unknown): void {
+function logFault(stage: 'fetch' | 'render' | 'extras', e: unknown): void {
   console.error(`OpenBed: the public page hit a fault at the ${stage} stage and fell back`, {
     error: e instanceof Error ? e.name : typeof e,
   });
+}
+
+/**
+ * The street addresses from the optional facility_extras block, or an empty map. NEVER THROWS: an address is
+ * an enhancement of a card and can never take the beds down, so a block that is missing, not an array, or
+ * holds a row the codec refuses yields NO addresses and a log line by stage and error name only (no row, no
+ * address, no message: the codec's message names its columns and a payload must not reach a console).
+ */
+function readAddresses(extras: unknown): ReadonlyMap<string, string> {
+  const out = new Map<string, string>();
+  if (extras === undefined) return out;
+  try {
+    if (!Array.isArray(extras)) throw new TypeError('facility_extras is not an array');
+    for (const row of extras as EncodedRow[]) {
+      if (!Array.isArray(row)) throw new TypeError('a facility_extras row is not an array');
+      const decoded = decodeFacilityExtra(row);
+      const address = addressLine(decoded['address']);
+      const id = decoded['facility_id'];
+      if (typeof id === 'string' && address !== null) out.set(id, address);
+    }
+  } catch (e) {
+    logFault('extras', e);
+    return new Map<string, string>();
+  }
+  return out;
 }
 
 async function fetchSnapshot(): Promise<Snapshot | null> {
@@ -181,6 +216,7 @@ async function fetchSnapshot(): Promise<Snapshot | null> {
         return {
           facilities: payload.facilities.map(decodeFacility),
           wards: payload.wards.map(decodeWard),
+          addresses: readAddresses(payload.facility_extras),
           generatedAt: typeof payload.generated_at === 'string' ? payload.generated_at : '',
           servedAt,
           mark,
@@ -242,6 +278,28 @@ export function outageMessage(): string {
     'we cannot see anything either way. This page keeps checking and will update by itself, but do not wait for it: ' +
     'call the facility directly, or 112 / 767 in an emergency.'
   );
+}
+
+/**
+ * THE LOADING LINE (R-2026-09-30-214 GN): "Loading bed information…", shown only while the main area holds
+ * nothing at all, so only before the first render. EVERY path out of render() replaces it: the snapshot,
+ * the held snapshot, the outage notice or the empty-state line, each of which calls replaceChildren on the
+ * same element, so it can never sit beside a ward row. A second render() over a page that already holds
+ * data finds the area occupied and shows nothing, so a refresh never flashes "loading" over live counts.
+ *
+ * It claims nothing about beds: no count, no digit, no word that could be read as a status. It sits under
+ * the never-blank guard, and its own failure is logged and ignored, since the paths that follow still draw.
+ */
+function showLoading(root: HTMLElement): void {
+  try {
+    if (root.childElementCount > 0) return;
+    const line = document.createElement('p');
+    line.className = 'loading-state';
+    line.textContent = LOADING_TEXT;
+    root.replaceChildren(line);
+  } catch (e) {
+    logFault('render', e);
+  }
 }
 
 function renderOutage(root: HTMLElement): void {
@@ -327,7 +385,7 @@ export function renderFooter(): void {
 }
 
 function renderReal(root: HTMLElement, snapshot: Snapshot): void {
-  const { facilities, wards } = snapshot;
+  const { facilities, wards, addresses } = snapshot;
   const clock: ServeClock = { servedAt: snapshot.servedAt, elapsedMs: elapsedSince(snapshot.mark) };
   const empty = emptyStateMessage(facilities, wards);
   if (empty !== null) {
@@ -366,12 +424,42 @@ function renderReal(root: HTMLElement, snapshot: Snapshot): void {
   const banner = snapshotBanner(snapshot.generatedAt, clock);
 
   const sections: HTMLElement[] = [];
-  for (const { identity, wards: facilityWards } of shown.values()) {
+  for (const [facilityId, { identity, wards: facilityWards }] of shown.entries()) {
     const section = document.createElement('section');
     section.className = 'facility';
 
     const heading = document.createElement('h2');
     heading.textContent = identity.name;
+
+    // THE LOCATION BLOCK (R-2026-09-30-214 GN): the street address when the facility has one, then
+    // "<LGA>, <State>", then Directions. All text via textContent, never markup. Each part is left out
+    // when it is missing, and none of them can cost the card its call link.
+    const place: HTMLElement[] = [];
+    const facilityRow = byId.get(facilityId);
+    const address = addresses.get(String(facilityId));
+    if (address !== undefined) {
+      const line = document.createElement('p');
+      line.className = 'facility-address';
+      line.textContent = address;
+      place.push(line);
+    }
+    const area = areaLine(facilityRow?.['lga'], facilityRow?.['state']);
+    if (area !== null) {
+      const line = document.createElement('p');
+      line.className = 'facility-area';
+      line.textContent = area;
+      place.push(line);
+    }
+    const url = directionsUrl(facilityRow?.['lat'], facilityRow?.['lng']);
+    if (url !== null) {
+      const directions = document.createElement('a');
+      directions.className = 'directions';
+      directions.href = url;
+      directions.target = '_blank';
+      directions.rel = 'noopener noreferrer';
+      directions.textContent = 'Directions';
+      place.push(directions);
+    }
 
     const call = document.createElement('a');
     call.className = 'call';
@@ -380,7 +468,8 @@ function renderReal(root: HTMLElement, snapshot: Snapshot): void {
     // set in mono. The link's textContent is unchanged.
     const phone = document.createElement('span');
     phone.className = 'phone';
-    phone.textContent = identity.phone;
+    // The number is shown in a readable form; the tel: link above keeps the E.164 form.
+    phone.textContent = formatPhoneDisplay(identity.phone);
     call.append('Call to confirm beds: ', phone);
 
     const list = document.createElement('ul');
@@ -390,7 +479,7 @@ function renderReal(root: HTMLElement, snapshot: Snapshot): void {
       list.appendChild(item);
     }
 
-    section.append(heading, call, list);
+    section.append(heading, ...place, call, list);
     sections.push(section);
   }
 
@@ -478,6 +567,8 @@ export async function render(): Promise<void> {
         logFault('render', e);
       });
   };
+
+  showLoading(root);
 
   try {
     const first = await fetchSnapshot();

@@ -113,8 +113,11 @@ import WARD_PUBLIC_FROZEN_COLUMNS_SOURCE from '../../packages/fixtures/snapshot-
 const WARD_PUBLIC_FROZEN_COLUMNS = WARD_PUBLIC_FROZEN_COLUMNS_SOURCE.wardColumns;
 
 /**
- * THE FROZEN COLUMN LIST for public.facility_public. Eight columns, in ordinal
- * order.
+ * THE FROZEN COLUMN LIST for public.facility_public. Nine columns, in ordinal
+ * order. `address` was added by migration 031 (R-2026-09-30-214 GN) and is PUBLIC ON PURPOSE:
+ * the founder decided on 2026-10-08 that a facility's street address is shown on its card.
+ * It is not in packages/fixtures/forbidden-columns.json, which lists what must never be
+ * public; adding a public column is this edit and nothing else.
  *
  * public.facility_public feeds the snapshot exactly as ward_public does, and
  * until 2026-09-18 it had no exact column list at all -- only the forbidden-name
@@ -134,6 +137,7 @@ const FACILITY_PUBLIC_FROZEN_COLUMNS = [
   'lng',
   'public_phone_e164',
   'updated_at',
+  'address',
 ];
 
 /**

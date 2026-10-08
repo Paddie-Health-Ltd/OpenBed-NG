@@ -115,7 +115,14 @@ jobs:
     # cold image cache and for GitHub-side variance, not a claim about the spread.
     timeout-minutes: 10
     steps:
+      # FULL HISTORY (R-2026-09-30-214 GN). tests/compliance/snapshot_compat_as_at_6866161.test.ts,
+      # csp_unchanged_as_at_6866161.test.ts and dashboard_facility_card.test.ts read files AS AT a
+      # past commit with `git archive` / `git show`, so that the contract they prove compatibility
+      # with is the bytes that were deployed and not a copy. A shallow checkout does not hold that
+      # commit; those tests then FAIL, naming the ref and this setting, and never skip.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -173,7 +180,13 @@ jobs:
     # observed on the measuring run. That retry path is the variable part.
     timeout-minutes: 15
     steps:
+      # FULL HISTORY (R-2026-09-30-214 GN). tests/db/snapshot_compat_as_at_6866161.test.ts reads the
+      # snapshot codec AS AT a past commit with `git archive`, so that the contract it proves
+      # compatibility with is the bytes that were deployed and not a copy. A shallow checkout does
+      # not hold that commit; the test then FAILS, naming the ref and this setting, and never skips.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}

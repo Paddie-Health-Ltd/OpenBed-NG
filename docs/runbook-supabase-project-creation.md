@@ -1020,11 +1020,14 @@ Restated 2026-09-14: until then this read `exactly 13 migration(s) pending.`, an
 migration 014 made that wrong.
 
 - **The hosted project today** holds 001 through 030 (see step 7), and the
-  repository ends at 030. Every file up to and including
+  repository ends at 031. Every file up to and including
   `030_truncate_guard_audit_tables.sql` must read `already applied`;
-  there must be no `WOULD APPLY` line; and the dry
+  there must be exactly one `WOULD APPLY` line, naming `031_facility_address.sql`; and the dry
   run must end
-  `0 migration(s) pending.` A migration added after this one is applied by the fences below, in the order step 5 gives them.
+  `1 migration(s) pending.` Apply it by the fences below, in the order step 5 gives them.
+- **Restated 2026-10-08 (R-2026-09-30-214 GN), in the change that ADDS 031.** Until then
+  this expected no `WOULD APPLY` line and `0 migration(s) pending.`, which was right
+  from 030's hosted apply while the repository also ended at 030.
 - **Restated 2026-10-07 (R-2026-09-30-208 GH), in the change that records 030's
   hosted apply.** Until then this expected 001 through 029, exactly one `WOULD APPLY`
   line naming `030_truncate_guard_audit_tables.sql`, and `1 migration(s) pending.` The
@@ -1144,10 +1147,14 @@ migration 014 made that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line AT ALL, or any count other than
-  `0 migration(s) pending.`: stop and report.** Another file pending means
+- **Any `WOULD APPLY` line OTHER than the one named above, or any count other than
+  `1 migration(s) pending.`: stop and report.** Another file pending means
   either a migration reached the repository after the list was last restated, or
   hosted is not where this document says it is.
+  - *Restated 2026-10-08 (R-2026-09-30-214 GN), in the change that adds 031. Until then
+    this bullet read "Any `WOULD APPLY` line AT ALL, or any count other than
+    `0 migration(s) pending.`", which was right from 030's hosted apply until this
+    change.*
   - *Restated 2026-10-07 (R-2026-09-30-208 GH), in the change that records 030's
     hosted apply. Until then this bullet read "Any `WOULD APPLY` line OTHER than the one
     named above, or any count other than `1 migration(s) pending.`", which was right from
@@ -2755,14 +2762,118 @@ apply. On 2026-10-07 it was (R-2026-09-30-208), with 030's sha256 as at `e364cc1
 
 - [x] On 2026-10-07, 030 applied, from the founder's deploy checkout at `e364cc100cc17beb9a24ebca3e3587e60bfcdba6` (#124's merge), clean, with `psql` 18.6; no redeploy was needed or done. The readings are the founder's, relayed by Cowork (R-2026-09-30-208 GH), who read each fence before the next. **Which readings were tail-only or verdict-only is stated here so that nothing is claimed read that was not.** Fence 1: the founder pasted the tail only, `WOULD APPLY : 030_truncate_guard_audit_tables.sql` and "1 migration(s) pending."; the count of one with that line excludes anything else pending, and the `already applied` lines above it were not pasted, so they are not claimed as read. Fence 2: `FINGERPRINT beds.json=0/0:543f06c0b0c4,facility_public=0:d41d8cd98f00,ward_public=0:d41d8cd98f00,lga_rollup=0:d41d8cd98f00`, `RECORDED`, the same string as 029's. Fence 3: "Applying 030_truncate_guard_audit_tables.sql...", `DO`, `DO`, `INSERT 0 1`, `INSERT 0 0`, "Migrations complete (1 applied this run)." No error; the `INSERT 0 0` is `run_migrations.sh`'s own ledger insert finding the row the file's `INSERT 0 1` had already written, as recorded at 027 and 028. Fence 4: the verdict line only, "PASS (VACUOUS FOR B1)", which is printed only when all four parts read ok; the four parts' own lines were not pasted. Fence 5: the founder pasted the tail only, "0 migration(s) pending."; the zero count excludes any `WOULD APPLY` line, and the thirty `already applied` lines above it were not pasted, so they are not claimed as read. Fence 6: the verdict line only, "PASS: every function ... exactly the roles" the fixture names, unchanged from 029's because 030 adds no function; no per-line reading and no line count was reported. The one reading of what 030 created: `app.audit_log|2`, then `app.ward_status_event|2`, as expected. No hosted `TRUNCATE` probe was run, by design (the section above says why).
 
+### 031's apply — the facility's street address; the public dashboard goes FIRST (R-2026-09-30-214 GN)
+
+**Not yet run.** The founder runs it after the pull request that adds 031 merges, and **in
+the order below, which is not the order of the migration number.** Claude Code runs nothing
+hosted.
+
+**What 031 changes** (its header says why). A nullable `address` column on `app.facility`
+and on `public.facility_public`, with a CHECK (1 to 200 characters, trimmed, no line break
+anywhere); `app.project_facility()` copies it; `public.operator_register()` returns it;
+`public.operator_create_facility` and `public.operator_edit_facility` are **replaced** (not
+overloaded) by an eight- and a nine-argument function that both require it; and
+`app.regenerate_snapshot()` writes the address into a NEW OPTIONAL envelope key,
+`facility_extras`, leaving the facility and ward rows exactly as they were. The address is
+public on purpose: it is shown on the facility's card. No row is written and nothing is
+backfilled, so every existing facility keeps no address until the operator enters one.
+
+**THE HOSTED ORDER, and the reason for each step.**
+
+1. **(a) The public dashboard is deployed FIRST,** from the merge commit, and
+   `scripts/readback_pages.sh` must read PASS. **Why first:** the Pages Function at the
+   previous commit compares the snapshot's envelope as an exact set and answers `502` to
+   a key it does not know, so a snapshot carrying `facility_extras` would put
+   `/beds.json` into an outage for every visitor until the Function was redeployed.
+   `tests/compliance/snapshot_compat_as_at_6866161.test.ts` runs that Function from git
+   and asserts it refuses such a payload. The new Function and page accept a snapshot with
+   the key and without it, so deploying first is safe while hosted is still at 030.
+2. **(b) 031 is applied on hosted, step by step by the founder,** by the six fences below,
+   each read by Cowork before the next.
+3. **(c) The admin app is redeployed and `scripts/readback_admin.sh` must read PASS.**
+   **Run (b) and (c) back to back, and make NO admin writes in between.** The admin app
+   deployed at the previous commit calls the old seven- and eight-argument functions, and
+   031 dropped them. In that window its Create and Save fail, **and the operator sees a
+   readable refusal, never a quiet success:** PostgREST answers `PGRST202` (no such
+   function), the page maps it to `FUNCTION_MISSING`, and shows *"This operator function is
+   not on the server yet: a migration has not been applied."* **That sentence says the
+   opposite of the truth in this window** (the migration HAS been applied; the page is the
+   old one), which is why the rule is to make no write, not to rely on reading it.
+   `tests/db/admin_calls_live.test.ts` sends the old shape to the live functions and reads
+   the refusal. Reads (the register, the contact) are unaffected: `operator_register` keeps
+   its signature, and the old page ignores the extra `address` key.
+4. **(d) The facility's address is entered in the admin app,** in the facility's edit view
+   ("Street address (shown publicly)"). For the first facility that is Iduna's.
+   Creating a facility from now on requires it (12.4 step 2).
+
+**Run the six fences of "020's apply" above, in the same order, with these
+expectations for 031.** Only what each must read changes:
+
+1. **The dry run:** exactly one `WOULD APPLY` line, naming `031_facility_address.sql`, and
+   the count the list at the top of this step states. Anything else: stop and report.
+2. **The before-reading:** as for 020. Keep the `FINGERPRINT` line.
+3. **The apply:** as for 020. It applies the one file, and ends by saying one was applied
+   this run.
+4. **The after-reading:** as for 020. **It must read `PASS`** (or `PASS (VACUOUS FOR B1)`
+   while hosted lists no facility): 031 writes no public row, and the reading is taken
+   through the eight columns `facility_public` had at 030, so the new `address` column does
+   not move a digest. `scripts/readback_public_output.sh` read `select *` until this
+   change, which would have hashed every public facility differently across this apply and
+   read STOP on a project that lists one. The `beds.json` part keeps only `facilities` and
+   `wards`, so the new `facility_extras` key does not move it either. **A digest that
+   moves is a stop.**
+5. **The second dry run:** thirty-one `already applied` lines, naming
+   `001_app_schema_and_migration_ledger.sql` through `031_facility_address.sql`, no `WOULD
+   APPLY` line, and the same last line as 020's fence 5, saying nothing is pending.
+   Anything else: stop and report.
+6. **Who can execute what:** as for 020, run after the apply. **Two lines change, and no
+   others:** `public.operator_create_facility(text, text, text, text, double precision,
+   double precision, text, text)` and `public.operator_edit_facility(text, integer, text,
+   text, text, double precision, double precision, text, text)` each read `EXECUTE:
+   authenticated`, and the two old signatures are gone. Every other line reads exactly as
+   after 030's apply. This read-back runs BEFORE the boundary is frozen. Anything else: stop
+   and report.
+
+**Then one reading of what 031 created.** It only reads. **It must print four lines:
+`operator_create_facility|8`, `operator_edit_facility|9`, `app.facility` and
+`public.facility_public`.** The first two are the argument counts of the only overload of
+each function (a `7` or an `8` means the old function survived and the old admin can still
+create a facility with no address); the last two are the tables that now carry `address`.
+**Anything else: stop and report.**
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"; read -rs DATABASE_URL && export DATABASE_URL
+```
+
+Paste the line above on its own, and give it its value at its prompt. Then paste:
+
+```bash
+export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select proname || '|' || pronargs from pg_proc where pronamespace = 'public'::regnamespace and proname in ('operator_create_facility', 'operator_edit_facility') order by proname"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -tAc "select table_schema || '.' || table_name from information_schema.columns where column_name = 'address' and table_schema in ('app', 'public') order by 1"
+unset DATABASE_URL
+```
+
+**The down migration is not applied here on anyone's own authority.** It drops the column
+from both tables, and so discards every address entered; it recreates the seven- and
+eight-argument functions, which the admin deployed at this commit cannot call.
+
+**Afterwards:** the frozen boundary is recorded with `31`, in the change that records this
+apply.
+
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 030 applied, and so does the repository
-end), the dry run prints thirty `already applied` lines and:
+**On the hosted project today** (001 through 030 applied, and the repository ends at
+031), the dry run prints thirty `already applied` lines and:
 
 ```
-0 migration(s) pending.
+  WOULD APPLY     : 031_facility_address.sql   <- dry run
+1 migration(s) pending.
 ```
+
+*Restated 2026-10-08 (R-2026-09-30-214 GN), in the change that adds 031.* Until then this
+block showed thirty `already applied` lines, no WOULD APPLY line, and a count of
+zero -- right from 030's hosted apply while the repository ended at 030.
 
 *Restated 2026-10-07 (R-2026-09-30-208 GH), in the change that records 030's hosted
 apply.* Until then this block showed twenty-nine `already applied` lines, one WOULD APPLY
@@ -3013,9 +3124,15 @@ Migrations complete (3 applied this run).   <- apply
 second is lower:
 
 ```
-30 migration(s) pending.          <- dry run
-Migrations complete (29 applied this run).   <- apply
+31 migration(s) pending.          <- dry run
+Migrations complete (30 applied this run).   <- apply
 ```
+
+*Restated 2026-10-08 (R-2026-09-30-214 GN), in the change that adds 031. This block
+read `30` and `29` -- right while the repository ended at 030. Observed on the local
+stack in this change: a fresh `supabase db reset` followed by the runner's dry run
+printed `31 migration(s) pending.`, and the apply printed `Migrations complete (30
+applied this run).`*
 
 *Restated 2026-10-07 (R-2026-09-30-205 GE), in the change that adds 030. This block
 read `29` and `28` -- right while the repository ended at 029. Observed on the local
@@ -3070,13 +3187,15 @@ so from that merge it named a count one lower than a correct virgin run prints. 
 not one of the hosted expectations the guard parses; it was found by reading the
 section for this restatement.*
 
-**Twenty-nine is correct there. Nothing was skipped.** Migration 001 creates the `app`
+**Thirty is correct there. Nothing was skipped.** Migration 001 creates the `app`
 schema, the revoke wall and `app.schema_migrations` itself, so it cannot be
 recorded by a ledger that does not exist yet. The runner applies and ledgers it
 in a separate **bootstrap** step, and the apply loop then counts only what it
-applied itself -- 002 through 030, which is twenty-nine. The dry run has no bootstrap
+applied itself -- 002 through 031, which is thirty. The dry run has no bootstrap
 branch: `is_applied` returns 0 while the ledger is absent, so it counts all
-thirty as pending. The two numbers are measuring different things.
+thirty-one as pending. The two numbers are measuring different things.
+*Restated 2026-10-08 (R-2026-09-30-214 GN), in the change that adds 031; until then this
+paragraph read twenty-nine, 002 through 030, and thirty.*
 *Restated 2026-10-07 (R-2026-09-30-205 GE), in the change that adds 030; until then this
 paragraph read twenty-eight, 002 through 029, and twenty-nine.*
 *Restated 2026-10-06 (R-2026-09-30-201 GA), in the change that adds 029; until then this
@@ -3094,8 +3213,12 @@ this paragraph read twenty-two, 002 through 023, and twenty-three.*
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `30`, with `0 migration(s) pending.` from the
-dry run.** On 2026-10-07 the founder's second dry run after 030's apply ended with
+THAT PROJECT. **On hosted today that is `30`, with `1 migration(s) pending.` from the
+dry run** -- 031, in the repository and not yet applied.
+*Restated 2026-10-08 (R-2026-09-30-214 GN), in the change that adds 031; until then it
+read `30` with `0 migration(s) pending.`, right from 030's hosted apply while the
+repository ended at 030.*
+On 2026-10-07 the founder's second dry run after 030's apply ended with
 `0 migration(s) pending.`; the founder pasted that tail only, so the thirty
 `already applied` lines, 001 through 030, were not read, and the zero count is what
 excludes any `WOULD APPLY` line. On 2026-10-06 the founder's second dry run after 029's apply ended with
@@ -5109,8 +5232,15 @@ through the admin app.
    row, and its count check must read as its stop condition says. **Today step 4b's row
    5, the backup restore, is OPEN, so this step STOPS here.**" #83 then named CJ-2 as
    the only thing left. That was wrong, and -116 CR-1 corrects it.
-2. **Create** the facility in the admin app: name, LGA, state, latitude, longitude,
-   public phone. The phone is shown in international form before it is saved.
+2. **Create** the facility in the admin app: name, LGA, state, **street address**,
+   latitude, longitude, public phone. The street address is **shown publicly** on the
+   facility's card (the field says so), so enter it as it should read there: 1 to 200
+   characters, on one line. The create is refused without it. The phone is shown in
+   international form before it is saved.
+   *Restated 2026-10-08 (R-2026-09-30-214 GN): until then this step listed name, LGA, state, latitude,
+   longitude and public phone, and the address stayed offline (the founder's position of
+   2026-10-07, withdrawn for the address only: the landmark, CAC number and fee class stay
+   offline).*
 
    2a. **Open the facility in admin on desktop and on a phone, and read the Console.**
    PASS: the view reads as the D3 screenshots do, and there is no red line.

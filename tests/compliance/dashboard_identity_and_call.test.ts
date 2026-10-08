@@ -69,7 +69,7 @@ async function renderWith(p: unknown): Promise<string> {
 }
 
 /** Every way the rendered call links disagree with the payload. Empty means they agree. */
-export function callLinkViolations(doc: Document, shown: { name: string; phone: string }[]): string[] {
+export function callLinkViolations(doc: Document, shown: { name: string; phone: string; display: string }[]): string[] {
   const out: string[] = [];
   const links = Array.from(doc.querySelectorAll('#app a.call')) as HTMLAnchorElement[];
   if (links.length !== shown.length) out.push(`${links.length} call links for ${shown.length} facilities shown`);
@@ -84,8 +84,10 @@ export function callLinkViolations(doc: Document, shown: { name: string; phone: 
     if (own.length !== 1) out.push(`${f.name} carries ${own.length} call links, not one`);
     for (const a of own) {
       if (a.getAttribute('href') !== `tel:${f.phone}`) out.push(`${f.name}'s link dials ${a.getAttribute('href')}, not tel:${f.phone}`);
-      if (!(a.textContent ?? '').includes(f.phone)) out.push(`${f.name}'s link does not show the number ${f.phone}`);
-      if (!(a.textContent ?? '').includes('Call to confirm beds')) out.push(`${f.name}'s link is not labelled "Call to confirm beds"`);
+      // R-2026-09-30-214 GN: the href keeps the E.164 form and the TEXT shows the readable form. `display` is a
+      // literal in the caller's table and is never computed by the formatter under test; the whole text is
+      // compared, so the old raw number sitting beside the new one would fail here.
+      if (a.textContent !== `Call to confirm beds: ${f.display}`) out.push(`${f.name}'s link reads ${JSON.stringify(a.textContent)}, not "Call to confirm beds: ${f.display}"`);
     }
   }
   return out;
@@ -195,8 +197,8 @@ describe('one tap-to-call link per facility', () => {
     [ward('f1', 'A_AND_E', 3), ward('f1', 'ICU_ADULT', 1), ward('f2', 'MATERNITY', 2)],
   );
   const SHOWN = [
-    { name: 'Synthetic General Hospital', phone: '+2348000000001' },
-    { name: 'Synthetic Annex', phone: '+2348000000002' },
+    { name: 'Synthetic General Hospital', phone: '+2348000000001', display: '+234 800 000 0001' },
+    { name: 'Synthetic Annex', phone: '+2348000000002', display: '+234 800 000 0002' },
   ];
 
   test('real render is accepted — each facility dials its own number, shows it, once, however many wards it has', async () => {
