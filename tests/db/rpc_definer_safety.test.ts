@@ -41,13 +41,13 @@ const RPCS = [
   // surface since 014, so each gets the anon refusal and the exact ACL below.
   {
     name: 'operator_create_facility',
-    signature: 'public.operator_create_facility(text, text, text, text, double precision, double precision, text)',
-    call: `select * from public.operator_create_facility('00000000-0000-4000-8000-000000000000', 'x', 'x', 'x', 6.5, 3.4, '+2348000000000')`,
+    signature: 'public.operator_create_facility(text, text, text, text, double precision, double precision, text, text)',
+    call: `select * from public.operator_create_facility('00000000-0000-4000-8000-000000000000', 'x', 'x', 'x', 6.5, 3.4, '+2348000000000', '1 Example Street')`,
   },
   {
     name: 'operator_edit_facility',
-    signature: 'public.operator_edit_facility(text, integer, text, text, text, double precision, double precision, text)',
-    call: `select * from public.operator_edit_facility('00000000-0000-4000-8000-000000000000', 1, 'x', 'x', 'x', 6.5, 3.4, '+2348000000000')`,
+    signature: 'public.operator_edit_facility(text, integer, text, text, text, double precision, double precision, text, text)',
+    call: `select * from public.operator_edit_facility('00000000-0000-4000-8000-000000000000', 1, 'x', 'x', 'x', 6.5, 3.4, '+2348000000000', '1 Example Street')`,
   },
   {
     name: 'operator_set_facility_listed',

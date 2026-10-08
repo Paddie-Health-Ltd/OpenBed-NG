@@ -56,19 +56,19 @@ const claims = (sub: string): Record<string, unknown> => ({ sub, role: 'authenti
 async function accounts(tx: TransactionSql): Promise<void> {
   await tx.unsafe(`insert into app.ward_account (id, role) values ('${OP}', 'PLATFORM_ADMIN')`);
   await tx.unsafe(`
-    insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, listed_at)
-    values ('${FAC}', 'Existing Facility', 'Ikeja', 'Lagos', 6.6, 3.35, '+2348000000301', now())`);
+    insert into app.facility (id, name, lga, state, lat, lng, public_phone_e164, address, listed_at)
+    values ('${FAC}', 'Existing Facility', 'Ikeja', 'Lagos', 6.6, 3.35, '+2348000000301', '2 Example Street, Ikeja', now())`);
   await tx.unsafe(`insert into app.ward_status (facility_id, category, offering) values ('${FAC}', 'ICU_ADULT', 'OFFERED')`);
   await tx.unsafe(`insert into app.ward_account (id, facility_id, ward_category, role) values ('${WARD}', '${FAC}', 'ICU_ADULT', 'WARD_STAFF')`);
 }
 
 const CREATE = (id: string, name = 'New Facility'): string =>
-  `select * from public.operator_create_facility('${id}', '${name}', 'Surulere', 'Lagos', 6.5, 3.36, '+2348000000302')`;
+  `select * from public.operator_create_facility('${id}', '${name}', 'Surulere', 'Lagos', 6.5, 3.36, '+2348000000302', '1 Example Street, Surulere')`;
 
 /** One call per operator function, each valid, so a refusal can only come from the identity check. */
 const CALLS: [string, (id: string) => string][] = [
   ['operator_create_facility', (id) => CREATE(id)],
-  ['operator_edit_facility', () => `select * from public.operator_edit_facility('${FAC}', 1, 'Renamed', 'Ikeja', 'Lagos', 6.6, 3.35, '+2348000000301')`],
+  ['operator_edit_facility', () => `select * from public.operator_edit_facility('${FAC}', 1, 'Renamed', 'Ikeja', 'Lagos', 6.6, 3.35, '+2348000000301', '2 Example Street, Ikeja')`],
   ['operator_add_category', () => `select * from public.operator_add_category('${FAC}', 'MATERNITY', 'OFFERED')`],
   ['operator_set_facility_listed', () => `select * from public.operator_set_facility_listed('${FAC}', 1)`],
   ['operator_register', () => `select public.operator_register()`],
@@ -191,7 +191,7 @@ describe('operator_create_facility', () => {
 
 describe('operator_edit_facility', () => {
   const EDIT = (version: number, name: string): string =>
-    `select * from public.operator_edit_facility('${FAC}', ${version}, '${name}', 'Ikeja', 'Lagos', 6.6, 3.35, '+2348000000301')`;
+    `select * from public.operator_edit_facility('${FAC}', ${version}, '${name}', 'Ikeja', 'Lagos', 6.6, 3.35, '+2348000000301', '2 Example Street, Ikeja')`;
 
   test('J1 — two edits from the same loaded version: the first lands, the second is refused and names the current version', async () => {
     const r = await refusal(
