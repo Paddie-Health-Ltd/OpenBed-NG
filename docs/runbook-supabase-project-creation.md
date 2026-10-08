@@ -5322,9 +5322,12 @@ through the admin app.
    names this step, and this line is where the sitting that runs step 3a will read it. It
    leaves the register, and this line is restated, in the ruling that records the reading.
    **STILL OWED, 2026-10-08 (R-2026-09-30-215 GN): step 3a was done at facility one's hosted run, and 5b
-   then 5c were NOT run in that sitting.** The row's gate, "Facility one's hosted run reaches
-   12.4 step 3a", was therefore reached without the read-backs. Nothing was ticked and the row
-   is not edited here; it is Cowork's to rule whether the gate has fired.
+   then 5c were NOT run in that sitting.** Nothing was ticked. Cowork ruled on its review of #132
+   that the row is **not marked fired**, and **restated its gate as "before the next public
+   dashboard deploy, or before facility two, whichever is first"**; the old gate, "Facility one's
+   hosted run reaches 12.4 step 3a", is kept in the row's text. **So the sentence above that says
+   the row's gate "names this step" is superseded by that restated gate**, and it is still owed:
+   run 5b, then 5c from 5b's end state, before whichever of the two comes first.
 4. **Add the ward categories**, each with its offering stated. There is no default.
 5. **Provision the facility's reporting login, or its ward logins,** with the script.
    *Restated 2026-09-28 (R-2026-09-27-144 DT, Bundle 2): until then this read "Provision
@@ -5581,8 +5584,8 @@ facility; its name and id are already public, in `/beds.json`).
   deployment `4cfe8959`, and its read-back read PASS (stamp `6866161` on the deployment and on
   app.openbed.ng, bundle `index-_mU1UHE_.js`).
 - **Step 3a:** the approval was recorded in admin by the founder. **Step 5b:** the facility's
-  reporting login was provisioned (`FACILITY_REPORTER`), address masked `n…@gmail.com`,
-  account `3223e188-8691-4235-a8f9-585275b55261`, the auth user created and confirmed.
+  reporting login was provisioned (`FACILITY_REPORTER`): the facility's reporting login
+  (account id and masked address in the records folder), the auth user created and confirmed.
   **Step 6b:** `claims_set` read `t`; `MEDICAL_ADULT`, `PAEDIATRIC` and `MATERNITY` each read
   `history_rows 0`; the last line was `ROLLBACK`. **After step 6,** the register read "Logins
   match the approved model: one login for the whole facility."
