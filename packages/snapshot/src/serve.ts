@@ -93,7 +93,7 @@
  * (OPENBED-CLOCK-READ, R-2026-09-23-67 A3), and tests/compliance/eslint_wall_clock.test.ts
  * pins it: a second one would go red.
  */
-import { decodeFacility, decodeWard } from './codec.js';
+import { decodeFacility, decodeFacilityExtra, decodeWard } from './codec.js';
 import { SERVED_AT_HEADER } from './headers.js';
 import shape from '../../fixtures/snapshot-shape.json';
 // Relative, matching the fixtures import above: this module is bundled by
@@ -203,10 +203,11 @@ function failure(status: number, reason: string): Response {
  * The document's shape, checked against the frozen fixture before it is served.
  * Returns a list of problems; empty means servable.
  *
- * Envelope keys are compared as a SET against `envelope` -- parsed identity, not a
- * count. Every row is decoded through the codec, which throws on a wrong arity:
- * a positional payload with an extra value decodes into the wrong columns, and a
- * column appended by the generator would otherwise ship silently.
+ * Envelope keys are compared as a SET against `envelope`, plus any of `envelopeOptional`
+ * (R-2026-09-30-214 GN) -- parsed identity, not a count. Every row is decoded through the codec,
+ * which throws on a wrong arity: a positional payload with an extra value decodes into the
+ * wrong columns, and a column appended by the generator would otherwise ship silently. The
+ * optional key's rows are decoded too when it is present.
  */
 export function payloadProblems(payload: unknown): string[] {
   if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
@@ -215,18 +216,27 @@ export function payloadProblems(payload: unknown): string[] {
   const doc = payload as Record<string, unknown>;
   const problems: string[] = [];
 
-  const expected = [...shape.envelope].sort();
+  // The required keys must all be present and nothing outside required + optional may be (R-2026-09-30-214
+  // GN): the optional ones are the fixture's `envelopeOptional`. Compared as sets, by identity, never by
+  // a count. A payload from before 031 has no optional key and is accepted unchanged.
+  const required = [...shape.envelope].sort();
+  const allowed = new Set<string>([...shape.envelope, ...shape.envelopeOptional]);
   const actual = Object.keys(doc).sort();
-  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    problems.push(`envelope is ${JSON.stringify(actual)}, the fixture's is ${JSON.stringify(expected)}`);
+  const present = actual.filter((k) => !shape.envelopeOptional.includes(k));
+  if (JSON.stringify(present) !== JSON.stringify(required) || actual.some((k) => !allowed.has(k))) {
+    problems.push(
+      `envelope is ${JSON.stringify(actual)}, the fixture's is ${JSON.stringify(required)} plus any of ${JSON.stringify([...shape.envelopeOptional].sort())}`,
+    );
   }
 
-  const rows: Array<[string, (r: readonly unknown[]) => unknown]> = [
-    ['wards', decodeWard],
-    ['facilities', decodeFacility],
+  const rows: Array<[string, (r: readonly unknown[]) => unknown, boolean]> = [
+    ['wards', decodeWard, true],
+    ['facilities', decodeFacility, true],
+    ['facility_extras', decodeFacilityExtra, false],
   ];
-  for (const [key, decode] of rows) {
+  for (const [key, decode, mandatory] of rows) {
     const list = doc[key];
+    if (list === undefined && !mandatory) continue;
     if (!Array.isArray(list)) {
       problems.push(`${key} is not an array`);
       continue;

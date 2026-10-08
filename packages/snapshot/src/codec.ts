@@ -32,6 +32,7 @@ import shape from '../../fixtures/snapshot-shape.json';
 
 const WARD_COLUMNS: readonly string[] = shape.wardColumns;
 const FACILITY_COLUMNS: readonly string[] = shape.facilityColumns;
+const FACILITY_EXTRA_COLUMNS: readonly string[] = shape.facilityExtraColumns;
 
 /** The client polls at the snapshot's own cadence. One source: the fixture. */
 export const POLL_CADENCE_SECONDS: number = shape.pollCadenceSeconds;
@@ -86,11 +87,19 @@ function buildCodec(columns: readonly string[], label: string): RowCodec {
 
 const wardCodec = buildCodec(WARD_COLUMNS, 'wardColumns');
 const facilityCodec = buildCodec(FACILITY_COLUMNS, 'facilityColumns');
+// R-2026-09-30-214 GN: the street address rides in an OPTIONAL envelope key, `facility_extras`, whose rows
+// are decoded here and whose facility rows are NOT. facilityColumns is untouched, because a page on the
+// previous bundle throws on a facility row of any other width. See `why_envelopeOptional_and_not_a_facility_column`
+// in the fixture.
+const facilityExtraCodec = buildCodec(FACILITY_EXTRA_COLUMNS, 'facilityExtraColumns');
 
 export const encodeWard = (row: DecodedRow): unknown[] => wardCodec.encode(row);
 export const decodeWard = (row: EncodedRow): DecodedRow => wardCodec.decode(row);
 export const encodeFacility = (row: DecodedRow): unknown[] => facilityCodec.encode(row);
 export const decodeFacility = (row: EncodedRow): DecodedRow => facilityCodec.decode(row);
+export const encodeFacilityExtra = (row: DecodedRow): unknown[] => facilityExtraCodec.encode(row);
+export const decodeFacilityExtra = (row: EncodedRow): DecodedRow => facilityExtraCodec.decode(row);
 
 export const wardColumns = (): readonly string[] => WARD_COLUMNS;
 export const facilityColumns = (): readonly string[] => FACILITY_COLUMNS;
+export const facilityExtraColumns = (): readonly string[] => FACILITY_EXTRA_COLUMNS;

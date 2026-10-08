@@ -124,7 +124,7 @@ describe('each band, in words, on the rendered page', () => {
     expect(document.querySelectorAll('#app small').length, 'small print came back').toBe(0);
     expect(text(), 'the old count reached the page').not.toContain(String(OLD_COUNT));
     expect(document.querySelector('#app h2')?.textContent).toBe('Synthetic General Hospital');
-    expect(document.querySelector('#app a.call')?.textContent, 'the call link went with the count').toContain('+2348000000001');
+    expect(document.querySelector('#app a.call')?.textContent, 'the call link went with the count').toBe('Call to confirm beds: +234 800 000 0001');
   });
 
   test.each(['PENDING', 'PAUSED'])('%s — "not currently reporting", and no count at all', async (state) => {

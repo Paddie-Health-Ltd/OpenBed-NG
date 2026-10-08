@@ -123,6 +123,25 @@ section.facility {
 section.facility h2 { margin: 0; font-family: var(--font-sans); font-weight: 600; font-size: 24px; line-height: 1.25; color: var(--text-strong); overflow-wrap: anywhere; }
 section.facility ul { list-style: none; margin: 0; padding: 0; }
 
+/* The location block under the name (R-2026-09-30-214 GN): the street address, "<LGA>, <State>" and the
+   Directions link. All three are body text, well below the name's 24 px and the number's 20 px, so the
+   size order in dashboard_identity_and_call.test.ts (name > number > count) is untouched. The grid's gap
+   would space them like separate cards, so the block pulls its own lines together. Long unbroken text
+   wraps rather than widening the card on a 375 px handset. */
+section.facility p.facility-address,
+section.facility p.facility-area { margin: 0; font: var(--text-body-md); color: var(--text-body); overflow-wrap: anywhere; }
+section.facility p.facility-address { color: var(--text-strong); }
+section.facility p.facility-address + p.facility-area { margin-top: calc(-1 * var(--space-2)); }
+/* Directions: a text link with a 44 px tap target (the design system's minimum hit size), kept clear of
+   the full-width call button below it. */
+section.facility a.directions { display: inline-flex; align-items: center; justify-self: start; min-height: 44px; min-width: 44px; font: var(--text-subheading); }
+/* The link's 44 px box centres its text, which left a gap under the area line that the lines above do not
+   have. The box stays 44 px tall (the tap target); only its place is pulled up, by what the centring added. */
+section.facility p + a.directions { margin-top: calc(-1 * var(--space-3)); }
+
+/* The loading line: the empty-state's register, and nothing stronger. It is replaced, never joined. */
+.loading-state { margin: 0; color: var(--text-muted); font: var(--text-body-md); max-width: var(--measure-content); }
+
 /* A ward row. The li holds the whole sentence; the spans only style pieces of it. */
 section.facility li {
   border-top: var(--border-width) solid var(--border-hairline);
