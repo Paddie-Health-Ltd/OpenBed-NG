@@ -211,7 +211,25 @@ describe('the deferred-items register and the facility-one checklist hold each o
     const { rows } = parseRegister(record);
     const { boxes } = parseStep1Boxes(runbook);
     expect(rows.length, `rows parsed: ${rows.length}`).toBeGreaterThan(0);
-    expect(boxes.filter((b) => !b.ticked).length, `boxes parsed: ${JSON.stringify(boxes.map((b) => b.text.slice(0, 40)))}`).toBeGreaterThan(0);
+    // RESTATED 2026-10-08 (R-2026-09-30-215 GN), when the last open box at 12.4 step 1 was ticked and the two
+    // BOX rows that named it left the register. Until then this asked for AT LEAST ONE UNTICKED box, as its
+    // proof that the box parser had reached something to match. That is true while an item is open and FALSE
+    // IN THE END STATE THIS REGISTER EXISTS TO REACH (every box closed, no BOX row): the first time it was
+    // reached, this line reddened a correct record and runbook. What proves the parser reached the list is
+    // that it found boxes and told a ticked one from an unticked one; (d) and (e), which are what the
+    // matching is FOR, are proved by their constructed plants below, not by the state of this week's list.
+    expect(boxes.length, `boxes parsed: ${JSON.stringify(boxes.map((b) => b.text.slice(0, 40)))}`).toBeGreaterThan(0);
+    expect(boxes.filter((b) => b.ticked).length, 'the box parser recognised no ticked box').toBeGreaterThan(0);
+  });
+
+  test('the END STATE — every box ticked and no BOX row left — is accepted, and its parse is not empty', () => {
+    // The state the register is for. OK_RECORD without its BOX row, OK_RUNBOOK with its one open box ticked.
+    const record = plant(OK_RECORD, '| The first item | R-2026-01-01-01 A1 | BOX | Its box at runbook 12.4 step 1 |\n', '');
+    const runbook = plant(OK_RUNBOOK, '   - [ ] The first item', '   - [x] The first item');
+    const out = check(record, runbook);
+    expect(out, out.join('\n')).toEqual([]);
+    expect(parseStep1Boxes(runbook).boxes.map((b) => b.ticked), 'the end-state runbook parsed no boxes, so this accepted nothing').toEqual([true, true]);
+    expect(parseRegister(record).rows.map((r) => r.kind), 'the end-state record lost a row it should keep').toEqual(['TRIGGER', 'VERSION']);
   });
 
   test('the most ordinary valid register and checklist are accepted', () => {
