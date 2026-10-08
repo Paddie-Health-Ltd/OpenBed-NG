@@ -43,6 +43,12 @@ export interface Facility {
   readonly lat: number;
   readonly lng: number;
   readonly publicPhoneE164: string;
+  /**
+   * Since 031 (R-2026-09-30-214 GN): the street address, SHOWN PUBLICLY. The key is required in the register and
+   * its value is null for a facility that has none yet. Absent -- a database at 030 -- the row is unreadable,
+   * never defaulted, as 023's keys are.
+   */
+  readonly address: string | null;
   readonly version: number;
   readonly listedAt: string | null;
   readonly isActive: boolean;
@@ -129,11 +135,13 @@ function facilityFrom(x: unknown): Facility | UnreadableFacility {
   const id = isObj(x) && str(x['facility_id']) ? x['facility_id'] : null;
   const unreadable: UnreadableFacility = { kind: 'unreadable', facilityId: id };
   if (!isObj(x) || id === null) return unreadable;
-  const { name, lga, state, lat, lng, public_phone_e164, version, listed_at, is_active, has_contact, agreement_state, categories, reporting_model, reporter_login, hefamaa_reg_no, approved_model, approved_on, reporting_approval_state } = x;
+  const { name, lga, state, lat, lng, public_phone_e164, address, version, listed_at, is_active, has_contact, agreement_state, categories, reporting_model, reporter_login, hefamaa_reg_no, approved_model, approved_on, reporting_approval_state } = x;
   if (!str(name) || !str(lga) || !str(state)) return unreadable;
   // 023's three keys. Absent -- a database at 021 -- the row is unreadable, never
   // defaulted: an edit form showing a guessed phone is the defect 023 exists to close.
   if (typeof lat !== 'number' || !Number.isFinite(lat) || typeof lng !== 'number' || !Number.isFinite(lng) || !str(public_phone_e164)) return unreadable;
+  // 031's key, read like 023's: ABSENT (undefined) is refused, JSON null is a real answer (no address yet).
+  if (!strOrNull(address)) return unreadable;
   if (typeof version !== 'number' || !Number.isInteger(version)) return unreadable;
   if (!strOrNull(listed_at) || !bool(is_active) || !bool(has_contact)) return unreadable;
   if (agreement_state !== 'none' && agreement_state !== 'recorded' && agreement_state !== 'withdrawn') return unreadable;
@@ -173,6 +181,7 @@ function facilityFrom(x: unknown): Facility | UnreadableFacility {
     lat,
     lng,
     publicPhoneE164: public_phone_e164,
+    address,
     version,
     listedAt: listed_at,
     isActive: is_active,

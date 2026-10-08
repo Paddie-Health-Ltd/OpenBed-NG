@@ -160,7 +160,7 @@ describe('golden path — release gate 2', () => {
   // that has run before, each is the identical repeat the app's retry model relies on.
   test(name('operator-creates-facility'), async () => {
     const [before] = await sql()<{ n: number }[]>`select count(*)::int as n from app.facility where id = ${ALPHA.id}::uuid`;
-    const fields = { name: ALPHA.name, lga: ALPHA.lga, state: 'Lagos', lat: ALPHA.lat, lng: ALPHA.lng, publicPhoneE164: ALPHA.phone };
+    const fields = { name: ALPHA.name, lga: ALPHA.lga, state: 'Lagos', lat: ALPHA.lat, lng: ALPHA.lng, publicPhoneE164: ALPHA.phone, address: ALPHA.address };
     const first = await operatorCall(RPC.createFacility, createFacilityBody(ALPHA.id, fields));
     expect(first.status, JSON.stringify(first.body)).toBe(200);
     expect((first.body as { created: boolean }[])[0]?.created, 'created must be true exactly when ALPHA did not exist').toBe(before?.n === 0);
@@ -389,7 +389,7 @@ describe('golden path — release gate 2', () => {
 
   // ------------------------- the facility-level login (R-2026-09-27-144 DT, Bundle 1)
   test(name('operator-onboards-reporter-facility'), async () => {
-    const fields = { name: GAMMA.name, lga: GAMMA.lga, state: 'Lagos', lat: GAMMA.lat, lng: GAMMA.lng, publicPhoneE164: GAMMA.phone };
+    const fields = { name: GAMMA.name, lga: GAMMA.lga, state: 'Lagos', lat: GAMMA.lat, lng: GAMMA.lng, publicPhoneE164: GAMMA.phone, address: GAMMA.address };
     const created = await operatorCall(RPC.createFacility, createFacilityBody(GAMMA.id, fields));
     expect(created.status, JSON.stringify(created.body)).toBe(200);
     const contact = await operatorCall(RPC.recordContact, recordContactBody(GAMMA.id, GAMMA_CONTACT, null));
