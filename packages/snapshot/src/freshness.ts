@@ -117,3 +117,46 @@ export function snapshotAge(generatedAtIso: string, servedAtIso: string | null, 
 export function freshnessBucket(band: FreshnessBand): number {
   return { GREEN: 0, YELLOW: 1, GREY: 2, SUPPRESSED: 3 }[band];
 }
+
+/**
+ * THE PUBLIC SEARCH RANK (R-2026-10-09 GO, section A). LOWER IS FIRST, and it is an ORDERING input
+ * only: it orders hospitals, and it never removes one.
+ *
+ *   0  fresh                        a claim in the GREEN band
+ *   1  ageing                       a claim in the YELLOW band
+ *   2  stale                        a claim in the GREY band
+ *   3  unknown, suppressed, paused  a claim in the SUPPRESSED band, a claim whose age could not be
+ *                                   measured, a row the label table cannot read, or a PAUSED ward
+ *   4  not yet reported             an offered ward that has never published
+ *
+ * The input is what the page has ALREADY worked out: the band freshnessBand gave (null where no age
+ * could be banded), or which kind of non-claim the ward is. This function reads no clock and no
+ * timestamp, so the age is still derived in exactly one place, and the comparator that uses it has
+ * nothing finer than a band to break a tie on: a report from one minute ago never outranks one from
+ * fifty minutes ago when both are in the same band.
+ *
+ * A NOT_OFFERED ward is not ranked at all. The public page does not show it (GO, A1), so it has no
+ * place in an order.
+ */
+export type SearchRankInput =
+  | { readonly state: 'claim'; readonly band: FreshnessBand | null }
+  | { readonly state: 'unreadable' }
+  | { readonly state: 'paused' }
+  | { readonly state: 'not-yet-reported' };
+
+export type SearchRank = 0 | 1 | 2 | 3 | 4;
+
+export function searchRank(input: SearchRankInput): SearchRank {
+  switch (input.state) {
+    case 'claim':
+      if (input.band === 'GREEN') return 0;
+      if (input.band === 'YELLOW') return 1;
+      if (input.band === 'GREY') return 2;
+      return 3;
+    case 'unreadable':
+    case 'paused':
+      return 3;
+    case 'not-yet-reported':
+      return 4;
+  }
+}

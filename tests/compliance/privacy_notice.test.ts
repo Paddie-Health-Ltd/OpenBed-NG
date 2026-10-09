@@ -10,17 +10,20 @@ import { renderNotice, type Contacts } from '../../apps/public-dashboard/privacy
 import CONTACTS from '../../packages/origins/contacts.json';
 import { hasViewport, VIEWPORT_CONTENT } from './_design.js';
 import { expectedBlocks, pageBlocks, squash } from './_notice_text.js';
+import { CURRENT_NOTICE, PRIOR_NOTICES } from './_notice_pins.js';
 import { REPO_ROOT } from './_scratch.js';
 
 /**
  * THE PAGE AT /privacy IS THE APPROVED NOTICE, WORD FOR WORD (R-2026-09-26-136 DL-1 c;
- * version 1.1 since R-2026-09-28-155 EE-2 and R-2026-09-28-156 EF-1).
+ * version 1.2 since R-2026-10-09 GO, GO-3; 1.1 since R-2026-09-28-155 EE-2 and -156 EF-1).
  *
- * docs/legal/privacy-notice-v1.1.md is the single source. The founder approved it on
- * 2026-09-28, and Cowork handed it over as a file with its sha256, so the first leg pins
- * that hash: the file cannot be "fixed" by hand without this going red. Version 1.0 stays
- * in the repository as the prior version, unchanged, and its own hash is pinned too: a
- * published version is never edited, a change is a new file.
+ * The current notice is the file CURRENT_NOTICE names in tests/compliance/_notice_pins.ts, which is
+ * the one place its version, file name and sha256 are written. Cowork handed each version over as a
+ * file with its sha256, so the first leg pins that hash: the file cannot be "fixed" by hand without
+ * this going red. Every prior version stays in the repository unchanged, and each one's hash is
+ * pinned too: a published version is never edited, a change is a new file. And
+ * docs/legal/README.md is asserted to carry every one of those hashes, so the README cannot name a
+ * sha the pins do not hold.
  *
  * THE BUILT PAGE IS READ, NOT THE RENDERER'S RETURN VALUE. The renderer
  * (apps/public-dashboard/privacy-notice.ts) runs inside the Vite build; a test over its
@@ -47,15 +50,11 @@ import { REPO_ROOT } from './_scratch.js';
  * reads it on the deployment and on openbed.ng after the founder's deploy (DL-1 e).
  */
 
-const SOURCE = join(REPO_ROOT, 'docs', 'legal', 'privacy-notice-v1.1.md');
-const PRIOR = join(REPO_ROOT, 'docs', 'legal', 'privacy-notice-v1.0.md');
+const LEGAL = join(REPO_ROOT, 'docs', 'legal');
+const SOURCE = join(LEGAL, CURRENT_NOTICE.file);
 const BUILT = join(REPO_ROOT, 'apps', 'public-dashboard', 'dist', 'privacy.html');
 const PAGE_SOURCE = join(REPO_ROOT, 'apps', 'public-dashboard', 'privacy.html');
 const INDEX_SOURCE = join(REPO_ROOT, 'apps', 'public-dashboard', 'index.html');
-/** Issued with the file (R-2026-09-28-156 EF-1 a). */
-const NOTICE_SHA256 = '9e38c81335715db959651b07096b48d200e48c8199361f3571a0020de5baec76';
-/** Version 1.0's, issued with R-2026-09-26-136 DL ("NOTICE INTEGRITY CHECK"). */
-const PRIOR_SHA256 = '0921ca415238d5ed96f3d287bf4fe02669a7c0e5cebac25b3f303a22be524db1';
 const PLACEHOLDER = '<!-- @PRIVACY_NOTICE@ -->';
 const contacts = CONTACTS as unknown as Contacts;
 
@@ -107,20 +106,46 @@ const readBuilt = (): string => {
 const markdown = (): string => readFileSync(SOURCE, 'utf8');
 
 describe('the privacy notice at /privacy is the approved text (R-2026-09-26-136 DL-1)', () => {
-  test('real docs/legal/privacy-notice-v1.1.md is accepted — its sha256 is the one issued with the file', () => {
+  test('real current notice is accepted — its sha256 is the one issued with the file', () => {
     const got = createHash('sha256').update(readFileSync(SOURCE)).digest('hex');
-    expect(got, 'the notice file is not the approved text: a paste error, never to be fixed by hand').toBe(NOTICE_SHA256);
+    expect(got, `docs/legal/${CURRENT_NOTICE.file} is not the approved text: a paste error, never to be fixed by hand`).toBe(CURRENT_NOTICE.sha256);
   });
 
-  test('the prior version, docs/legal/privacy-notice-v1.0.md, is kept unchanged — its sha256 is still 1.0\'s', () => {
-    const got = createHash('sha256').update(readFileSync(PRIOR)).digest('hex');
-    expect(got, 'version 1.0 was edited: a published version is never changed, a change is a new file').toBe(PRIOR_SHA256);
+  // The prior versions, each kept byte for byte. 1.1 gets the pinned-unchanged leg 1.0 has had (R-2026-10-09 GO, GO-3 c).
+  test.each(PRIOR_NOTICES.map((n) => [n.version, n] as const))('the prior version %s is kept unchanged — its sha256 is still its own', (_version, notice) => {
+    const got = createHash('sha256').update(readFileSync(join(LEGAL, notice.file))).digest('hex');
+    expect(got, `version ${notice.version} was edited: a published version is never changed, a change is a new file`).toBe(notice.sha256);
   });
 
-  test('the built page states "Version 1.1" and never "Version 1.0" (R-2026-09-28-155 EE-2)', () => {
+  test('every pinned notice is a different file with a different sha256 — a pin cannot be satisfied by copying the current text', () => {
+    const all = [CURRENT_NOTICE, ...PRIOR_NOTICES];
+    expect(new Set(all.map((n) => n.file)).size).toBe(all.length);
+    expect(new Set(all.map((n) => n.sha256)).size).toBe(all.length);
+    expect(new Set(all.map((n) => n.version)).size).toBe(all.length);
+  });
+
+  test('docs/legal/README.md carries every pinned sha256, so it cannot name a hash the pins do not hold', () => {
+    const readme = readFileSync(join(LEGAL, 'README.md'), 'utf8');
+    for (const n of [CURRENT_NOTICE, ...PRIOR_NOTICES]) {
+      expect(readme, `docs/legal/README.md does not carry version ${n.version}'s sha256`).toContain(n.sha256);
+    }
+  });
+
+  test('the built page states the current version and never a prior one (R-2026-09-28-155 EE-2)', () => {
     const text = squash(new DOMParser().parseFromString(readBuilt(), 'text/html').body.textContent ?? '');
-    expect(text).toContain('Version 1.1');
-    expect(text, 'the page still states version 1.0').not.toContain('Version 1.0');
+    expect(text, 'the page does not state the current version').toContain(`Version ${CURRENT_NOTICE.version}.`);
+    for (const n of PRIOR_NOTICES) {
+      expect(text, `the page still states version ${n.version} as its own`).not.toContain(`Version ${n.version}. Effective`);
+    }
+  });
+
+  // T-NOTICE-1's plant (R-2026-10-09 GO, GO-3 c): the prior version's text under the current page is rejected, on its own named
+  // leg, against a temp copy, so the sha leg above cannot be what rejects it.
+  test('plant — the previous version\'s text under a current-version page is rejected', () => {
+    const prior = readFileSync(join(LEGAL, PRIOR_NOTICES[0]!.file), 'utf8');
+    expect(prior, 'the plant target is not the previous version').toContain(`Version ${PRIOR_NOTICES[0]!.version}.`);
+    const out = noticeViolations(readBuilt(), prior, contacts);
+    expect(out.join('\n')).toContain('differs');
   });
 
   test('real built privacy page is accepted — its text equals the source with contacts.json addresses', () => {

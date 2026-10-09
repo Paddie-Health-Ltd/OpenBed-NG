@@ -1,0 +1,190 @@
+{
+  "name": "OpenBed LGA reference points",
+  "version": 1,
+  "attribution": "Area reference points © OpenStreetMap contributors",
+  "licence": "ODbL 1.0, https://www.openstreetmap.org/copyright",
+  "retrieved": "2026-10-09",
+  "rule": "Each point is the representative point OpenStreetMap (via Nominatim) returns for the LGA's admin_level=6 boundary relation, except Lagos Island, where that point lies in the lagoon and the Lagos Island place=town node is used. Every point was checked inside its own LGA boundary and inside no other LGA boundary on 2026-10-09. These are search starting points for straight-line distance, never centres and never Directions destinations.",
+  "points": [
+    {
+      "slug": "agege",
+      "label": "Agege",
+      "lat": 6.6252516,
+      "lng": 3.3112096,
+      "osm_type": "relation",
+      "osm_id": 3718183,
+      "boundary_relation": 3718183
+    },
+    {
+      "slug": "ajeromi-ifelodun",
+      "label": "Ajeromi-Ifelodun",
+      "lat": 6.4551345,
+      "lng": 3.3359655,
+      "osm_type": "relation",
+      "osm_id": 3718184,
+      "boundary_relation": 3718184
+    },
+    {
+      "slug": "alimosho",
+      "label": "Alimosho",
+      "lat": 6.5843883,
+      "lng": 3.2575876,
+      "osm_type": "relation",
+      "osm_id": 3718185,
+      "boundary_relation": 3718185
+    },
+    {
+      "slug": "amuwo-odofin",
+      "label": "Amuwo-Odofin",
+      "lat": 6.4470565,
+      "lng": 3.2663155,
+      "osm_type": "relation",
+      "osm_id": 3718186,
+      "boundary_relation": 3718186
+    },
+    {
+      "slug": "apapa",
+      "label": "Apapa",
+      "lat": 6.445187,
+      "lng": 3.3683732,
+      "osm_type": "relation",
+      "osm_id": 3718187,
+      "boundary_relation": 3718187
+    },
+    {
+      "slug": "badagry",
+      "label": "Badagry",
+      "lat": 6.4393223,
+      "lng": 2.9060324,
+      "osm_type": "relation",
+      "osm_id": 3718188,
+      "boundary_relation": 3718188
+    },
+    {
+      "slug": "epe",
+      "label": "Epe",
+      "lat": 6.5857286,
+      "lng": 3.975694,
+      "osm_type": "relation",
+      "osm_id": 3718189,
+      "boundary_relation": 3718189
+    },
+    {
+      "slug": "eti-osa",
+      "label": "Eti-Osa",
+      "lat": 6.4592426,
+      "lng": 3.532073,
+      "osm_type": "relation",
+      "osm_id": 3718190,
+      "boundary_relation": 3718190
+    },
+    {
+      "slug": "ibeju-lekki",
+      "label": "Ibeju-Lekki",
+      "lat": 6.4711251,
+      "lng": 3.8147504,
+      "osm_type": "relation",
+      "osm_id": 3718191,
+      "boundary_relation": 3718191
+    },
+    {
+      "slug": "ifako-ijaiye",
+      "label": "Ifako-Ijaiye",
+      "lat": 6.6604933,
+      "lng": 3.3214708,
+      "osm_type": "relation",
+      "osm_id": 3718192,
+      "boundary_relation": 3718192
+    },
+    {
+      "slug": "ikeja",
+      "label": "Ikeja",
+      "lat": 6.601627,
+      "lng": 3.3515981,
+      "osm_type": "relation",
+      "osm_id": 3718193,
+      "boundary_relation": 3718193
+    },
+    {
+      "slug": "ikorodu",
+      "label": "Ikorodu",
+      "lat": 6.6191233,
+      "lng": 3.5041271,
+      "osm_type": "relation",
+      "osm_id": 3718194,
+      "boundary_relation": 3718194
+    },
+    {
+      "slug": "kosofe",
+      "label": "Kosofe",
+      "lat": 6.581974,
+      "lng": 3.4148359,
+      "osm_type": "relation",
+      "osm_id": 3718195,
+      "boundary_relation": 3718195
+    },
+    {
+      "slug": "lagos-island",
+      "label": "Lagos Island",
+      "lat": 6.4545947,
+      "lng": 3.3897024,
+      "osm_type": "node",
+      "osm_id": 14169062286,
+      "boundary_relation": 5404351
+    },
+    {
+      "slug": "lagos-mainland",
+      "label": "Lagos Mainland",
+      "lat": 6.4932779,
+      "lng": 3.3883546,
+      "osm_type": "relation",
+      "osm_id": 5403871,
+      "boundary_relation": 5403871
+    },
+    {
+      "slug": "mushin",
+      "label": "Mushin",
+      "lat": 6.5247655,
+      "lng": 3.3516348,
+      "osm_type": "relation",
+      "osm_id": 3718196,
+      "boundary_relation": 3718196
+    },
+    {
+      "slug": "ojo",
+      "label": "Ojo",
+      "lat": 6.4624975,
+      "lng": 3.1657099,
+      "osm_type": "relation",
+      "osm_id": 3718197,
+      "boundary_relation": 3718197
+    },
+    {
+      "slug": "oshodi-isolo",
+      "label": "Oshodi-Isolo",
+      "lat": 6.5398494,
+      "lng": 3.312384,
+      "osm_type": "relation",
+      "osm_id": 3718198,
+      "boundary_relation": 3718198
+    },
+    {
+      "slug": "shomolu",
+      "label": "Shomolu",
+      "lat": 6.5335645,
+      "lng": 3.3841634,
+      "osm_type": "relation",
+      "osm_id": 3718199,
+      "boundary_relation": 3718199
+    },
+    {
+      "slug": "surulere",
+      "label": "Surulere",
+      "lat": 6.4855737,
+      "lng": 3.3539907,
+      "osm_type": "relation",
+      "osm_id": 3718200,
+      "boundary_relation": 3718200
+    }
+  ]
+}

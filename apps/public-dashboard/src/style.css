@@ -215,3 +215,99 @@ section.facility li {
   main#app { padding: var(--space-6) var(--gutter-page-wide); }
   #site-footer { padding-left: var(--gutter-page-wide); padding-right: var(--gutter-page-wide); }
 }
+
+/* 7. The search controls (R-2026-10-09 GO, C): outside main#app, in the same 960 px column, so the poll's
+   re-render of the results never touches them. Every control is at least 44 px tall (the design system's
+   minimum hit size), and nothing here is sticky or fixed. */
+#search {
+  display: grid;
+  gap: var(--space-3);
+  max-width: var(--measure-app);
+  margin: 0 auto;
+  padding: var(--space-4) var(--gutter-page) 0;
+}
+#search .field { display: grid; gap: var(--space-1); }
+#search label { font: var(--text-label); color: var(--text-strong); }
+#search .combo { position: relative; }
+#search .combo-input,
+#search .order-select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  font: var(--text-body-md);
+  color: var(--text-strong);
+  background: var(--surface-card);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+#search .combo-list {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--surface-card);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+#search .combo-option { min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 var(--space-3); font: var(--text-body-md); color: var(--text-strong); cursor: pointer; }
+#search .combo-option[hidden] { display: none; }
+#search .combo-option.is-active { background: var(--surface-accent-soft); }
+#search .combo-option[aria-selected='true'] { font-weight: 600; }
+/* THE hidden ATTRIBUTE MUST WIN. A rule that sets `display` outranks the browser's own [hidden] rule, so a control the script hides with
+   `hidden` would stay on screen (the no-match message and its "Clear search" button did, in the first screenshot pass). jsdom lays nothing out
+   and could not see it; tests/compliance/search_static.test.ts holds this rule in the stylesheet. */
+#search [hidden] { display: none !important; }
+#search .combo-none { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-1); font: var(--text-body-md); color: var(--text-body); }
+/* The area picker and "Near me" share a row, and stack when the handset is narrow. */
+#search .area-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); }
+#search .area-row .field { flex: 1 1 220px; }
+#search .near-me {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-4);
+  font: var(--text-subheading);
+  color: var(--action-secondary-fg);
+  background: var(--action-secondary-bg);
+  border: var(--border-width) solid var(--action-secondary-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+#search .near-me:hover { background: var(--action-secondary-bg-hover); }
+#search .link-button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-2);
+  font: var(--text-body-md);
+  color: var(--text-link);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+#search .link-button:hover { color: var(--text-link-hover); }
+#search p { margin: 0; font: var(--text-body-md); color: var(--text-body); max-width: var(--measure-content); }
+#search p[hidden] { display: none; }
+/* The attribution, the coverage line and the share note are small print: smaller and quieter than the
+   controls, and the coverage line is NOT a live region. */
+#search .attribution,
+#search .share-note { font: var(--text-body-sm); color: var(--text-muted); }
+#search .coverage { font: var(--text-body-sm); color: var(--text-muted); }
+#search .order-row { display: grid; gap: var(--space-1); }
+#search .order-explain { font: var(--text-body-sm); color: var(--text-muted); }
+#search .share-row { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--space-3); }
+#search .aged-order { padding: var(--space-2) var(--space-3); background: var(--surface-sunken); border-left: var(--border-accent-width) solid var(--ob-navy-500); border-radius: var(--radius-md); color: var(--text-strong); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* The distance under the facility's area line, outside the ward rows. */
+section.facility p.facility-distance { margin: 0; font: var(--text-body-md); color: var(--text-body); overflow-wrap: anywhere; }
+
+@media (min-width: 720px) {
+  #search { padding-left: var(--gutter-page-wide); padding-right: var(--gutter-page-wide); }
+}

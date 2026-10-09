@@ -1,15 +1,22 @@
 # Legal texts: the privacy notice, and the processors' agreements
 
-**The privacy notice.** `docs/legal/privacy-notice-v1.1.md` is the single source of the
-notice served at https://openbed.ng/privacy. A change to the notice is a new file with a
+**The privacy notice.** `docs/legal/privacy-notice-v1.2.md` is the single source of the
+notice the dashboard builds for https://openbed.ng/privacy. A change to the notice is a new file with a
 new version number, never an edit to an existing one, and
-`tests/compliance/privacy_notice.test.ts` pins each version's sha256.
+`tests/compliance/privacy_notice.test.ts` pins each version's sha256, every one of which is held in
+`tests/compliance/_notice_pins.ts` and asserted to appear in this file.
 
-- **Version 1.1:** `docs/legal/privacy-notice-v1.1.md`, approved by the founder 2026-09-28, R-2026-09-28-155. Handed over by Cowork as a file (R-2026-09-28-156 EF-1), sha256 `9e38c81335715db959651b07096b48d200e48c8199361f3571a0020de5baec76`. Not yet deployed: https://openbed.ng/privacy serves 1.0 until hosted run 3 deploys and reads back 1.1 (runbook 12.4 step 1's box).
+- **Version 1.2:** `docs/legal/privacy-notice-v1.2.md`, issued by Cowork as a hand-over file with its sha256 (R-2026-10-09 GO, GO-3 a), sha256 `f8c6e3ef14b7ee3742abfff9571adf667f78f55021fbffde315b27e32905feac`. It differs from 1.1 in exactly three lines: the version line, the location bullet under "What OpenBed does not do" (the founder's wording, approved 2026-10-09; *evidence kind: relayed by Cowork in R-2026-10-09 GO, not observable from this repository*) and the Changes sentence. Not yet deployed: https://openbed.ng/privacy serves 1.1 until the founder's one public-dashboard deploy carrying this notice and "Near me" together reads back Version 1.2 (hosted step 2 of that letter). The date version 1.2 is first published is recorded here at that hosted read-back, and not before.
+- **Version 1.1:** `docs/legal/privacy-notice-v1.1.md`, approved by the founder 2026-09-28, R-2026-09-28-155. Handed over by Cowork as a file (R-2026-09-28-156 EF-1), sha256 `9e38c81335715db959651b07096b48d200e48c8199361f3571a0020de5baec76`. Deployed and read back in hosted run 3 on 2026-09-28, recorded as R-2026-09-28-158 (EH-2) and ticked in runbook 12.4 step 1: readback_pages.sh read PASS with Version 1.1 on both hosts, and the founder's browser showed it. *Evidence kind: relayed. That is Cowork's reading of the founder's pasted output, kept in the decision record outside this repository; nothing here can verify it.* It stays in the repository unchanged.
 - **Version 1.0, the prior version, kept unchanged:** `docs/legal/privacy-notice-v1.0.md` (R-2026-09-26-136 DL-1). The founder approved the record it is written from, and Cowork issued it with its sha256, `0921ca415238d5ed96f3d287bf4fe02669a7c0e5cebac25b3f303a22be524db1`.
 
 *Restated 2026-09-28 (R-2026-09-28-155 EE-1).* Until then this paragraph named
 `privacy-notice-v1.0.md` as the single source, which it was until version 1.1.
+
+*Restated 2026-10-09 (R-2026-10-09 GO, GO-3 d).* Until then the Version 1.1 line read "Not yet deployed:
+https://openbed.ng/privacy serves 1.0 until hosted run 3 deploys and reads back 1.1", which stopped being true
+on 2026-09-28 when hosted run 3 did exactly that. It is restated above in the past tense from the record. The
+paragraph at the top named version 1.1 as the single source, which it was until version 1.2.
 
 ## The data-processing agreements (register items 1–3; R-2026-09-26-136 DL-4)
 

@@ -100,7 +100,6 @@ const CASES: readonly Case[] = [
   { name: 'past the ceiling (SUPPRESSED)', row: { category: 'NICU', updated_at: ageMin(13 * 60) }, tone: 'none', status: null, stamp: null },
   { name: 'not reporting (PENDING)', row: { category: 'MATERNITY', monitoring_state: 'PENDING' }, tone: 'not-reporting', status: null, stamp: null },
   { name: 'not reporting (PAUSED)', row: { category: 'A_AND_E', monitoring_state: 'PAUSED' }, tone: 'not-reporting', status: null, stamp: null },
-  { name: 'not offered', row: { category: 'SCBU', offering: 'NOT_OFFERED' }, tone: 'not-offered', status: null, stamp: null },
   { name: 'an unknown code', row: { category: 'THEATRE', monitoring_state: 'NOT_A_STATE' }, tone: 'unknown', status: null, stamp: null },
 ];
 
@@ -188,6 +187,16 @@ describe('a ward row says exactly what wardLine says, and colours only a fresh c
     expect(out, out.join('\n')).toEqual([]);
   });
 
+  // RESTATED 2026-10-09 (R-2026-10-09 GO, A1). This fixture held a 'not offered' row whose li read "not offered at this
+  // facility". The public page no longer draws a ward the hospital stated it does not offer, so there is no row to hold
+  // to the identity rule: what is asserted instead is that the row is absent and the rows around it are untouched.
+  test('a NOT_OFFERED ward has no row — and the rows beside it are exactly as they were', async () => {
+    const hidden = encode(wardColumns(), { ...base, category: 'SCBU', offering: 'NOT_OFFERED', bed_count: null });
+    const lis = await renderRows([...rows(CASES), hidden], true);
+    expect(lis.length, 'a NOT_OFFERED ward was drawn, or a neighbour went with it').toBe(CASES.length);
+    expect(document.querySelector('#app')?.textContent ?? '', 'the hidden ward\'s words reached the page').not.toMatch(/Special care baby unit|not offered at this facility/);
+  });
+
   test('real rows with no serve-time clock — the age is unknown, the stamp grey, and no fill', async () => {
     const lis = await renderRows(rows(UNKNOWN_AGE_CASES), false);
     expect(lis.length).toBe(UNKNOWN_AGE_CASES.length);
@@ -198,7 +207,7 @@ describe('a ward row says exactly what wardLine says, and colours only a fresh c
 
   test('the fixture covers every tone and every stamp colour — the coverage is asserted, not assumed', () => {
     const all = [...CASES, ...UNKNOWN_AGE_CASES];
-    expect(new Set(all.map((c) => c.tone))).toEqual(new Set(['fresh', 'aged', 'none', 'not-reporting', 'not-offered', 'unknown']));
+    expect(new Set(all.map((c) => c.tone))).toEqual(new Set(['fresh', 'aged', 'none', 'not-reporting', 'unknown']));
     expect(new Set(all.map((c) => c.stamp))).toEqual(new Set(['green', 'yellow', 'grey', null]));
     expect(new Set(all.map((c) => c.status))).toEqual(new Set(['available', 'full', 'unknown', null]));
   });

@@ -8,11 +8,11 @@ import { fillPage } from './site-pages.js';
 const REPO = resolve(import.meta.dirname, '../..');
 
 /**
- * THE STATIC PAGES' TEXT, FOOTER AND ROBOTS TAG, WRITTEN INTO THE HTML AT BUILD TIME.
+ * THE STATIC PAGES' TEXT, FOOTER, ROBOTS TAG, CANONICAL LINK AND ATTRIBUTION, WRITTEN INTO THE HTML AT BUILD TIME.
  *
- * privacy.html (R-2026-09-26-136 DL-1): docs/legal/privacy-notice-v1.1.md is the single
- * source (version 1.1 since R-2026-09-28-155 EE-2; 1.0 stays in docs/legal/, unchanged,
- * as the prior version). about.html and how-it-works.html (R-2026-09-30-190 FN-2) are
+ * privacy.html (R-2026-09-26-136 DL-1): docs/legal/privacy-notice-v1.2.md is the single
+ * source (version 1.2 since R-2026-10-09 GO, GO-3; 1.1 and 1.0 stay in docs/legal/, unchanged,
+ * as the prior versions). about.html and how-it-works.html (R-2026-09-30-190 FN-2) are
  * built the same way from docs/site/. packages/origins/contacts.json supplies every
  * openbed.ng address; privacy-notice.ts renders them. The pages carry no script, so
  * this is the only moment the text can be put into them. Exactly one placeholder in each

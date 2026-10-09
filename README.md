@@ -34,6 +34,8 @@ privately — see [SECURITY.md](SECURITY.md).
 
 Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
+packages/fixtures/lga-reference-points.json is © OpenStreetMap contributors and is available under the Open Database Licence 1.0 (https://opendatacommons.org/licenses/odbl/1-0/). It is not covered by this repository's own licence.
+
 **Apache 2.0 permits commercial use by anyone.** Any commitment that OpenBed is
 not monetised, is not a lead-generation channel, and shares no infrastructure
 with any commercial health product is a *contractual* commitment by the operator

@@ -1,4 +1,5 @@
-import { freshnessBand, lagosTime, snapshotAge, type DecodedRow } from '@openbed/snapshot';
+import { freshnessBand, lagosTime, searchRank, snapshotAge, type DecodedRow, type SearchRank } from '@openbed/snapshot';
+import { phrase } from '@openbed/labels';
 import { bedCountText, categoryLabel, precedence, reasonLabel, UNKNOWN_STATUS } from './labels.js';
 
 /**
@@ -9,31 +10,41 @@ import { bedCountText, categoryLabel, precedence, reasonLabel, UNKNOWN_STATUS } 
  * WORDS -- colour may de-emphasise, never carry the meaning alone.
  *
  * THE BANDS, from packages/fixtures/snapshot-shape.json (PROVISIONAL until a
- * clinician ruling):
- *   FRESH   "updated 6 min ago"
- *   AGEING  "last reported 46 min ago — call to confirm"
- *   STALE   "last reported at 04:12, 23 Sept (Lagos time) — call to confirm" -- past two
- *           hours a relative age is replaced by the time it was reported
+ * clinician ruling), and the words each one speaks (R-2026-10-09 GO, GO-4 b):
+ *   FRESH   "3 beds reported — updated 6 min ago"
+ *   AGEING  "3 beds reported — last reported 46 min ago — call to confirm"
+ *   STALE   "Last known: 3 beds — Last reported accepting admissions — last reported at
+ *           04:12, 23 Sept (Lagos time) — call to confirm", muted. Past two hours a relative
+ *           age is replaced by the time it was reported, and the count is "last known".
+ *   AGE UNKNOWN (no serve-time clock)  "3 beds reported — age unknown — call to confirm": today's words with the
+ *           one word every current count gained. The page's banner says it cannot tell how recent anything is.
  *   STATUS UNKNOWN  "Status unknown — call to confirm", and NO NUMBER anywhere, in any
- *           size (R-2026-09-23-68 B1; v1:242's ceiling). Until -68 the old count
- *           survived as small print, which is the count still on the page.
- *   PENDING / PAUSED  "not currently reporting", and no count at all
+ *           size (R-2026-09-23-68 B1; v1:242's ceiling). A suppressed row carries no digit.
+ *   A claim whose count is null reads "Bed count not reported" (STALE: "Last known: bed
+ *           count not reported"); "not yet reporting" is no longer said on the public page.
+ *   PAUSED   "Reporting paused — call to confirm", and no count at all.
+ *   PENDING  "Availability not yet reported — call to confirm", offered and never published.
  *
- * WHICH STATE WINS is precedence() in packages/labels/src/index.ts, shared with the
- * ward console since R-2026-09-23-70 E so the two screens cannot disagree:
- *   1. any of monitoring_state, offering, status_source or status_state that the
- *      label table does not know -> "Status unknown -- call to confirm";
- *   2. PENDING or PAUSED -> "not currently reporting", WHATEVER THE OFFERING;
- *   3. NOT_OFFERED -> "not offered at this facility", with no count, age or
- *      accepting clause -- reached only by a ward that has left PENDING, and every
- *      path out of PENDING states the offering (tests/compliance/public_labels.test.ts);
- *   4. otherwise, the count, the words for an ADMIN source and an UNDER_REVIEW state
- *      BESIDE it (R-2026-09-23-69 (b); 002 section 6), and its age band, below.
+ * WHICH STATE WINS, on the PUBLIC page (R-2026-10-09 GO, A1), in this order. It is decided HERE,
+ * in the public layer, and NOT by precedence() in packages/labels/src/index.ts, which the ward
+ * console still calls and whose words and tests this change leaves alone:
+ *   1. any of monitoring_state, offering, status_source or status_state that the label table
+ *      does not know -> "Status unknown -- call to confirm". It is SHOWN, not hidden: the
+ *      hiding below answers a ward a hospital has STATED it does not offer, and an unreadable
+ *      value is not that statement;
+ *   2. offering NOT_OFFERED -> the ward is NOT RENDERED at all, in the chosen-ward view and
+ *      under "Any". This is a filter on the offering, not on age, and the only filter there is;
+ *   3. monitoring_state PAUSED -> "Reporting paused -- call to confirm";
+ *   4. monitoring_state PENDING -> "Availability not yet reported -- call to confirm";
+ *   5. otherwise the count and its band, below, with the words for an ADMIN source and an
+ *      UNDER_REVIEW state BESIDE it (R-2026-09-23-69 (b); 002 section 6).
  * Every category, reason and state is shown in words from the shared table.
  *
  * AGE NEVER CHANGES A CLAIM. A stale ward is not shown as 0 beds or as not accepting
  * because it is stale; whatever the ward itself last said is shown, with its age.
- * And age never filters or reorders: every ward is rendered, in the order served.
+ * Age never filters. In the chosen-ward view it ORDERS facilities by band (searchRank,
+ * through packages/snapshot/src/freshness.ts), and under "Any" no band is derived from a
+ * hospital's other wards: wards inside one card stay in the order served.
  *
  * THE CLOCK. Every age here is `served_at - updated_at + elapsed` (see
  * packages/snapshot/src/anchor.ts): the Pages Function's serve time, the ward's own
@@ -60,7 +71,7 @@ function relative(minutes: number): string {
 export interface WardLine {
   readonly text: string;
   /** For styling only; the words above carry the meaning. */
-  readonly tone: 'fresh' | 'aged' | 'none' | 'not-reporting' | 'not-offered' | 'unknown';
+  readonly tone: 'fresh' | 'aged' | 'none' | 'not-reporting' | 'unknown';
 }
 
 /**
@@ -96,7 +107,26 @@ export interface WardLineParts {
   readonly hasCount: boolean;
   /** Whether the claim carries a qualifier ("set by admin…", "under review"). A qualified claim is never shown as live (DC-1). */
   readonly qualified: boolean;
+  /**
+   * True for a ward the hospital has stated it does not offer (offering NOT_OFFERED, every code read). The
+   * public page does not render it, anywhere, and it has no rank. Its segments are empty.
+   */
+  readonly hidden: boolean;
+  /** Where this ward sorts when it is the chosen ward (searchRank); null for a hidden ward. */
+  readonly rank: SearchRank | null;
   readonly segments: readonly WardLineSegment[];
+}
+
+/**
+ * A phrase that carries a count ("{count} reported", "Last known: {count}"), as pieces: the count alone in the
+ * badge, whatever the phrase says around it as plain text. The pieces joined are exactly the phrase.
+ */
+function countSegments(key: 'count_reported' | 'last_known', count: string): WardLineSegment[] {
+  const full = phrase(key, { count });
+  const at = full.indexOf(count);
+  const before = full.slice(0, at);
+  const after = full.slice(at + count.length);
+  return [...(before === '' ? [] : [{ text: before }]), { text: count, role: 'badge' as const }, ...(after === '' ? [] : [{ text: after }])];
 }
 
 /** The whole line for one ward, in pieces: its claim, and how old that claim is. */
@@ -109,46 +139,88 @@ export function wardLineParts(ward: DecodedRow, clock: ServeClock): WardLinePart
     source: ward['source'],
     state: ward['state'],
   });
-  if (p.kind === 'unknown' || p.kind === 'not-reporting' || p.kind === 'not-offered') {
-    return { tone: p.kind, band: null, status: 'unknown', hasCount: false, qualified: false, segments: [...head, { text: p.words, role: 'words' }] };
+  const noClaim = (tone: WardLine['tone'], words: string, rank: SearchRank): WardLineParts => ({
+    tone, band: null, status: 'unknown', hasCount: false, qualified: false, hidden: false, rank,
+    segments: [...head, { text: words, role: 'words' }],
+  });
+  // 1. A code the table cannot read is shown as unknown, never hidden (GO, A1).
+  if (p.kind === 'unknown') return noClaim('unknown', p.words, searchRank({ state: 'unreadable' }));
+  // 2. A ward the hospital has stated it does not offer is not rendered. The only filter on the page.
+  if (ward['offering'] === 'NOT_OFFERED') {
+    return { tone: 'none', band: null, status: 'unknown', hasCount: false, qualified: false, hidden: true, rank: null, segments: [] };
   }
+  // 3 and 4. Reported before and paused, or offered and never published: never a count.
+  if (ward['monitoring_state'] === 'PAUSED') return noClaim('not-reporting', phrase('reporting_paused'), searchRank({ state: 'paused' }));
+  if (ward['monitoring_state'] === 'PENDING') return noClaim('not-reporting', phrase('not_yet_reported'), searchRank({ state: 'not-yet-reported' }));
 
+  // 5. A claim. precedence() has already refused every other state, so what is left is its qualifiers.
   const bedCount = ward['bed_count'];
   const open = ward['accepting_effective'] === true;
   const reason = ward['gated_by'];
-  const count: WardLineSegment =
-    bedCount === null ? { text: 'not yet reporting', role: 'words' } : { text: bedCountText(bedCount), role: 'badge' };
-  const rest = `${open ? '' : ' — not accepting'}${reason === null || reason === undefined ? '' : ` (${reasonLabel(reason)})`}${p.qualifiers}`;
-  const claim: WardLineSegment[] = rest === '' ? [...head, count] : [...head, count, { text: rest }];
-  const aged = (band: WardLineParts['band'], tone: WardLine['tone'], stamp: string, status: WardStatus = 'unknown'): WardLineParts => ({
+  const gated = reason !== null && reason !== undefined;
+  const qualifiers = p.kind === 'claim' ? p.qualifiers : '';
+  // FRESH and AGEING: "<count> reported", then today's gate words and qualifiers, then the stamp.
+  const current: WardLineSegment[] = [
+    ...head,
+    ...(bedCount === null ? [{ text: phrase('count_not_reported'), role: 'words' as const }] : countSegments('count_reported', bedCountText(bedCount))),
+  ];
+  const currentRest = `${open ? '' : ' — not accepting'}${gated ? ` (${reasonLabel(reason)})` : ''}${qualifiers}`;
+  // STALE and age-unknown: the count is only the last known one, then what the ward last said about admissions.
+  const accepting = open
+    ? phrase('last_accepting')
+    : gated
+      ? phrase('last_not_accepting_gated', { reason: reasonLabel(reason) })
+      : phrase('last_not_accepting');
+  const lastKnown: WardLineSegment[] = [
+    ...head,
+    ...(bedCount === null ? [{ text: phrase('last_known_not_reported'), role: 'words' as const }] : countSegments('last_known', bedCountText(bedCount))),
+    { text: ' — ' },
+    { text: accepting, role: 'words' },
+    ...(qualifiers === '' ? [] : [{ text: qualifiers }]),
+  ];
+  const aged = (
+    band: WardLineParts['band'],
+    tone: WardLine['tone'],
+    stamp: string,
+    status: WardStatus = 'unknown',
+    last = false,
+  ): WardLineParts => ({
     tone,
     band,
     status,
     hasCount: bedCount !== null,
-    qualified: p.qualifiers !== '',
-    segments: [...claim, { text: ' — ' }, { text: stamp, role: 'stamp' }],
+    qualified: qualifiers !== '',
+    hidden: false,
+    rank: searchRank({ state: 'claim', band }),
+    segments: [...(last ? lastKnown : currentRest === '' ? current : [...current, { text: currentRest }]), { text: ' — ' }, { text: stamp, role: 'stamp' }],
   });
 
   const updatedAt = typeof ward['updated_at'] === 'string' ? ward['updated_at'] : '';
   if (clock.servedAt === null || Number.isNaN(Date.parse(clock.servedAt)) || Number.isNaN(Date.parse(updatedAt))) {
-    return aged(null, 'unknown', 'age unknown — call to confirm');
+    // An age that cannot be measured keeps today's words with the count beside it ("N beds reported — age unknown — call to confirm"):
+    // the letter words FRESH, AGEING, STALE and SUPPRESSED and not this case, so it changes by the one word every current count gained.
+    return aged(null, 'unknown', 'age unknown — call to confirm', 'unknown', false);
   }
 
   const f = freshnessBand(updatedAt, clock.servedAt, clock.elapsedMs);
   switch (f.band) {
     case 'GREEN': {
       const status: WardStatus =
-        typeof bedCount !== 'number' || p.qualifiers !== '' ? 'unknown' : open && bedCount > 0 ? 'available' : 'full';
+        typeof bedCount !== 'number' || qualifiers !== '' ? 'unknown' : open && bedCount > 0 ? 'available' : 'full';
       return aged('GREEN', 'fresh', `updated ${relative(f.ageMinutes)} ago`, status);
     }
     case 'YELLOW':
       return aged('YELLOW', 'aged', `last reported ${relative(f.ageMinutes)} ago — call to confirm`);
     case 'GREY':
-      return aged('GREY', 'aged', `last reported at ${lagosTime(updatedAt)} — call to confirm`);
+      return aged('GREY', 'aged', `last reported at ${lagosTime(updatedAt)} — call to confirm`, 'unknown', true);
     case 'SUPPRESSED':
       // No count, no reported time, no reason: past the ceiling nothing about the
       // old claim is shown. The facility heading and its call link stay.
-      return { tone: 'none', band: 'SUPPRESSED', status: 'unknown', hasCount: false, qualified: false, segments: [...head, { text: UNKNOWN_STATUS, role: 'words' }] };
+      return {
+        tone: 'none', band: 'SUPPRESSED', status: 'unknown', hasCount: false, qualified: false, hidden: false,
+        rank: searchRank({ state: 'claim', band: 'SUPPRESSED' }),
+        segments: [...head, { text: UNKNOWN_STATUS, role: 'words' }],
+      };
   }
 }
 

@@ -8,6 +8,10 @@
          The kickoff forbids a public API, a sitemap, and any bulk export: named wards'
          duty numbers are an obvious prank-call and harassment vector. -->
     <!-- @ROBOTS_META@ -->
+    <!-- The canonical link is written at build time from HOME_URL in packages/origins/src/privacy.ts,
+         so every address with a query string names one page (R-2026-10-09 GO, E). It is NOT the control
+         that keeps search results out of an index: robots-public.txt is. -->
+    <!-- @CANONICAL_LINK@ -->
     <title>OpenBed</title>
     <!-- The mark as the favicon (the design pass, D1). Vite emits it as a hashed
          same-origin asset; public/favicon.ico answers /favicon.ico for clients that
@@ -41,6 +45,11 @@
         </a>
       </div>
     </header>
+
+    <!-- THE SEARCH CONTROLS (R-2026-10-09 GO, C): built once by src/main.ts into this element, OUTSIDE
+         #app, so the 30-second re-render of the results can never wipe a selection, close a list or take
+         focus from a control. It is empty until the script runs, and the results below it stand without it. -->
+    <div id="search" role="search"></div>
 
     <main id="app"></main>
 

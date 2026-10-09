@@ -22,14 +22,20 @@
 # `OPENBED-FRESHNESS-ORDER-ONLY` and this lint accepts them; the annotation is
 # grep-able, so how many exist is itself reviewable.
 #
-# CLASSIFICATION (Clause 5): GUARD-AHEAD-OF-SUBJECT. The public search path
-# (distance-based search and filtering) is still built in Bundle 4 and does not
-# exist yet. UPDATED when apps/public-dashboard/src/main.ts's stub was replaced
-# by a real /beds.json fetch: this no longer runs over ONLY the Bundle 1 stub --
-# main.ts now fetches, decodes and renders the real snapshot, and the stub
-# survives only as that fetch's failure-fallback branch. Neither path filters
-# on updated_at, so this guard stays non-vacuous and clean, but its true
-# subject has still not arrived.
+# CLASSIFICATION (Clause 5): LIVE since R-2026-10-09 GO. The public search path this guard
+# names, ordering and filtering the dashboard's results, exists: apps/public-dashboard/src/search.ts
+# builds the eligible hospitals and orders them, and apps/public-dashboard/src/main.ts draws them.
+# This script scans both, among every client source file under apps/ and packages/ (its PASS line
+# prints how many). Until that change this was GUARD-AHEAD-OF-SUBJECT: it ran over a /beds.json
+# fetch-and-render path that filtered on nothing, with its true subject still to come.
+#
+# WHAT THIS GREP IS NOT. It reads one line at a time and looks for a timestamp beside a filter
+# call, so a filter on a band (a `.filter` that drops the SUPPRESSED rows) has no timestamp on its
+# line and PASSES. It is therefore NOT the control that proves the page never empties by age.
+# THAT CONTROL IS BEHAVIOURAL: tests/compliance/search_freshness.test.ts renders the real page over
+# a payload whose every ward is SUPPRESSED, then one whose every age is unknown, then the 4am case,
+# and asserts every hospital's name and call link is on the page. The script itself is unchanged by
+# the reclassification, except for this header.
 #
 # Usage: bash scripts/lint_no_updated_at_filter.sh [ROOT]
 # Exit: 0 clean, 1 violation, 2 usage or empty corpus.

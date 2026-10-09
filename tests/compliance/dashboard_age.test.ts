@@ -34,6 +34,7 @@ const B = SHAPE.freshnessBands;
 // The words the page shows for a category (R-2026-09-23-68 C); these legs asserted
 // the raw code until -68, and assert the same line with the words in its place.
 const AE = LABEL_TABLE.labels.ward_category.A_AND_E;
+const PHRASES = LABEL_TABLE.phrases;
 const MIN = 60_000;
 const GEN = Date.parse('2026-09-23T03:12:00.000Z'); // 04:12 in Lagos
 const iso = (ms: number): string => new Date(ms).toISOString();
@@ -86,29 +87,33 @@ afterEach(() => {
 describe('each band, in words, on the rendered page', () => {
   test('FRESH — the count, then "updated N min ago", and no banner', async () => {
     await renderAt({ wards: [ward('A_AND_E', 5)], servedAfterGenMinutes: 1 });
-    expect(lines()[0]).toBe(`${AE}: 3 beds — updated 6 min ago`);
+    expect(lines()[0]).toBe(`${AE}: 3 beds reported — updated 6 min ago`);
     expect(banner()).toBeNull();
   });
 
   // R-2026-09-27-140 DP-5 a, R-2026-09-27-144 DT Bundle 4: one bed is "1 bed", and none is "0 beds".
   test.each([[1, '1 bed'], [0, '0 beds'], [2, '2 beds']])('a count of %s reads "%s" on the rendered page (DT Bundle 4)', async (n, words) => {
     await renderAt({ wards: [ward('A_AND_E', 5, { bed_count: n })], servedAfterGenMinutes: 1 });
-    expect(lines()[0]).toBe(`${AE}: ${words} — updated 6 min ago`);
+    expect(lines()[0]).toBe(`${AE}: ${words} reported — updated 6 min ago`);
   });
 
   test('AGEING — the count stays, "last reported N min ago — call to confirm"', async () => {
     const age = B.greenUnderMinutes + 15;
     await renderAt({ wards: [ward('A_AND_E', age - 1)], servedAfterGenMinutes: 1 });
-    expect(lines()[0]).toBe(`${AE}: 3 beds — last reported ${age} min ago — call to confirm`);
+    expect(lines()[0]).toBe(`${AE}: 3 beds reported — last reported ${age} min ago — call to confirm`);
     expect(document.querySelector('#app li')?.className).toBe('age-aged');
   });
 
-  test('STALE — past the ageing band the age becomes a Lagos time, and the count stays', async () => {
+  // RESTATED 2026-10-09 (R-2026-10-09 GO, GO-4 b): a STALE count is "Last known: N beds", then what the ward last said
+  // about admissions, then the absolute Lagos time. The count stays; it is no longer said in the present tense.
+  test('STALE — past the ageing band the age becomes a Lagos time, the count is "Last known", and it stays', async () => {
     await renderAt({ wards: [ward('A_AND_E', B.yellowUnderMinutes + 60)], servedAfterGenMinutes: 1 });
     const line = lines()[0] ?? '';
-    expect(line.startsWith(`${AE}: 3 beds — last reported at `), line).toBe(true);
+    expect(line.startsWith(`${AE}: Last known: 3 beds — ${PHRASES.last_accepting} — last reported at `), line).toBe(true);
     expect(line).toMatch(/01:12.*\(Lagos time\) — call to confirm$/);
     expect(line, 'a stale ward was shown as closed because it is stale').not.toMatch(/not accepting|\b0 beds/);
+    expect(line, 'a stale count was said in the present tense').not.toMatch(/\b3 beds reported/);
+    expect(document.querySelector('#app li')?.className).toBe('age-aged');
   });
 
   // RESTATED by R-2026-09-23-68 B1 (v1:242's ceiling). This leg asserted the count
@@ -127,19 +132,43 @@ describe('each band, in words, on the rendered page', () => {
     expect(document.querySelector('#app a.call')?.textContent, 'the call link went with the count').toBe('Call to confirm beds: +234 800 000 0001');
   });
 
-  test.each(['PENDING', 'PAUSED'])('%s — "not currently reporting", and no count at all', async (state) => {
+  // RESTATED 2026-10-09 (R-2026-10-09 GO, A1): the two states each have their own public phrase, asserted
+  // separately, and "no count at all" is kept for both. The shared "not currently reporting" is the ward
+  // console's and appears nowhere on the public page.
+  test.each([
+    ['PENDING', PHRASES.not_yet_reported],
+    ['PAUSED', PHRASES.reporting_paused],
+  ])('%s — its own phrase, and no count at all', async (state, words) => {
     await renderAt({ wards: [ward('A_AND_E', 0, { monitoring_state: state, bed_count: 0 })], servedAfterGenMinutes: 1 });
-    expect(lines()[0]).toBe(`${AE}: not currently reporting`);
+    expect(lines()[0]).toBe(`${AE}: ${words}`);
     expect(text(), `a ${state} ward was shown with a count`).not.toMatch(/\d+\s*beds/);
+    expect(text(), `a ${state} ward read with the console's shared words`).not.toContain('not currently reporting');
   });
 
-  test('age never filters or reorders — every ward renders, in the order served', async () => {
+  // RENAMED 2026-10-09 (R-2026-10-09 GO, section 2). It read "age never filters or reorders", which stopped being
+  // true of the chosen-ward view: there a band orders FACILITIES (tests/compliance/search_order.test.ts). What holds
+  // here, and the assertion is kept as it was, is that under "Any" no band orders or removes the wards inside a card.
+  test('under "Any", age never filters or reorders the wards in a card — every ward renders, in the order served', async () => {
     await renderAt({
       wards: [ward('A_AND_E', B.suppressAfterHours * 60 + 5), ward('ICU_ADULT', 1), ward('MATERNITY', B.yellowUnderMinutes + 5)],
       servedAfterGenMinutes: 1,
     });
     const W = LABEL_TABLE.labels.ward_category;
     expect(lines().map((l) => l.split(':')[0])).toEqual([W.A_AND_E, W.ICU_ADULT, W.MATERNITY]);
+  });
+
+  // The stronger sibling: the same three wards, and every one of them is on the page in its own band's words, with the
+  // hospital's call link, so "rendered" cannot mean "an empty row".
+  test('under "Any", every band of ward is drawn with its words and the call link stays', async () => {
+    await renderAt({
+      wards: [ward('A_AND_E', B.suppressAfterHours * 60 + 5), ward('ICU_ADULT', 1), ward('MATERNITY', B.yellowUnderMinutes + 5)],
+      servedAfterGenMinutes: 1,
+    });
+    const W = LABEL_TABLE.labels.ward_category;
+    expect(lines()[0]).toBe(`${W.A_AND_E}: Status unknown — call to confirm`);
+    expect(lines()[1]).toBe(`${W.ICU_ADULT}: 3 beds reported — updated 2 min ago`);
+    expect(lines()[2]?.startsWith(`${W.MATERNITY}: Last known: 3 beds — `), lines()[2]).toBe(true);
+    expect(document.querySelectorAll('#app a.call').length, 'the facility lost its call link').toBe(1);
   });
 });
 
@@ -162,7 +191,7 @@ describe('the snapshot banner, and the clock it is measured by', () => {
     // snapshot has been stale since. Its age is the stall, not zero.
     const stall = B.snapshotBannerAfterMinutes + 7;
     await renderAt({ wards: [ward('A_AND_E', 0)], servedAfterGenMinutes: stall });
-    expect(lines()[0]).toBe(`${AE}: 3 beds — updated ${stall} min ago`);
+    expect(lines()[0]).toBe(`${AE}: 3 beds reported — updated ${stall} min ago`);
     expect(text()).not.toMatch(/less than a minute|just now/);
   });
 
@@ -186,13 +215,13 @@ describe('the snapshot banner, and the clock it is measured by', () => {
     perfNow += stall;
     await vi.advanceTimersByTimeAsync(stall);
     expect(banner(), 'the open page never aged').not.toBeNull();
-    expect(lines()[0]).toBe(`${AE}: 3 beds — updated ${B.snapshotBannerAfterMinutes + 1} min ago`);
+    expect(lines()[0]).toBe(`${AE}: 3 beds reported — updated ${B.snapshotBannerAfterMinutes + 1} min ago`);
   });
 
   test('NO SERVE-TIME CLOCK — the page never reads fresh: the banner says it cannot tell, and every age is unknown', async () => {
     await renderAt({ wards: [ward('A_AND_E', 0)], servedAfterGenMinutes: null });
     expect(banner()).toBe("We can't confirm how recent this page is. Counts may be out of date — call before you travel.");
-    expect(lines()[0]).toBe(`${AE}: 3 beds — age unknown — call to confirm`);
+    expect(lines()[0]).toBe(`${AE}: 3 beds reported — age unknown — call to confirm`);
     expect(text()).not.toMatch(/updated/);
   });
 });
