@@ -75,23 +75,24 @@ export function writeSearch(state: SearchState): string {
 }
 
 /**
- * THE SYNONYMS, for typed search only (R-2026-10-09 GO, GO-4 d). A fixed table, one entry per ward
- * category, validated against the ten categories by identity in tests/compliance/search_controls.test.ts.
- * Typed text is matched against these words and the label; it is never echoed into the page or the address,
- * and a synonym is never read from or written to the URL. The words are the clinicians' to approve with the
- * rest of the wording, and the pull request carries this table for that check.
+ * THE SYNONYMS, for typed search only (R-2026-10-09 GO, GO-4 d; Addendum 2, item 2). Mock v5's own words, EXACTLY, one entry per ward
+ * category, as the letter gave them; the pull request carries the table for Cowork's check and tests/compliance/search_pure.test.ts pins
+ * it as a literal, so a change to one word is a deliberate edit and a red test, never a quiet one. Some words belong to more than one
+ * category on purpose ("baby", "children", "icu", "intensive", "surgery"): a typed word finds every bed type that carries it.
+ * Typed text is matched against these words and the label (by word prefix, in controls.ts); it is never echoed into the page or the
+ * address, and a synonym is never read from or written to the URL.
  */
 export const WARD_SYNONYMS: Readonly<Record<string, readonly string[]>> = {
-  A_AND_E: ['emergency', 'a and e', 'accident', 'casualty', 'er', 'trauma'],
-  ICU_ADULT: ['icu', 'intensive care', 'critical care', 'adult intensive care', 'ventilator'],
-  ICU_PAEDIATRIC: ['picu', 'paediatric icu', 'pediatric icu', 'children icu', 'child intensive care', 'kids intensive care'],
-  MEDICAL_ADULT: ['medical', 'general medicine', 'adult medicine', 'internal medicine', 'physician'],
-  PAEDIATRIC: ['children', 'child', 'kids', 'paediatrics', 'pediatric', 'pediatrics', 'baby', 'infant'],
-  THEATRE: ['operating room', 'operating theater', 'surgery room', 'or', 'operation'],
-  SURGICAL: ['surgery', 'surgeon', 'operation ward', 'post-operative', 'postoperative'],
-  MATERNITY: ['labour', 'labor', 'delivery', 'pregnancy', 'pregnant', 'obstetric', 'antenatal', 'birth', 'caesarean', 'cesarean'],
-  NICU: ['newborn', 'neonatal', 'neonate', 'premature', 'preterm', 'newborn icu'],
-  SCBU: ['special care baby', 'special care', 'baby unit', 'small baby', 'neonatal care'],
+  A_AND_E: ['emergency', 'a&e', 'ae', 'accident', 'casualty'],
+  THEATRE: ['theatre', 'theater', 'operating', 'surgery', 'operation'],
+  SURGICAL: ['surgical', 'surgery'],
+  MATERNITY: ['maternity', 'labour', 'labor', 'delivery', 'birth', 'pregnancy', 'pregnant', 'obstetric', 'antenatal'],
+  NICU: ['nicu', 'newborn', 'neonatal', 'baby', 'babies', 'infant', 'intensive'],
+  SCBU: ['scbu', 'special care', 'baby', 'babies', 'newborn', 'neonatal', 'infant'],
+  PAEDIATRIC: ['children', 'child', 'kids', 'paediatric', 'pediatric', 'paeds'],
+  ICU_ADULT: ['icu', 'intensive', 'critical care', 'adult', 'itu'],
+  ICU_PAEDIATRIC: ['children', 'child', 'kids', 'paediatric', 'pediatric', 'picu', 'icu', 'intensive', 'critical'],
+  MEDICAL_ADULT: ['medical', 'general medicine', 'adult'],
 };
 
 /** Mean Earth radius, kilometres. */

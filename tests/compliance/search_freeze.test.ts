@@ -65,14 +65,14 @@ describe('T-FREEZE-1 — a ward crossing a band on a poll keeps its place and up
     const page = await openPage({ world: pair(25, 24), search: '?ward=maternity' });
     expect(cards()).toEqual(['Alpha General', 'Beta Clinic']);
     expect(await sorts(), 'the sort ran other than once at load').toBe(1);
-    expect(wardLines()[0]).toBe(`${MATERNITY}: 3 beds reported — updated 26 min ago`);
+    expect(wardLines()[0]).toBe(`${MATERNITY}: 3 beds reported\u00a0— updated 26 min ago`);
 
     page.setWorld(betaReportsLater());
     await page.advance(10); // twenty 30 s polls
     // Alpha is now YELLOW (36 min) and Beta is GREEN (3 min): a re-sort would put Beta first.
     expect(cards(), 'a poll re-sorted the list: Beta moved above Alpha').toEqual(['Alpha General', 'Beta Clinic']);
-    expect(wardLines()[0], 'Alpha\'s words did not update in place').toBe(`${MATERNITY}: 3 beds reported — last reported 36 min ago — call to confirm`);
-    expect(wardLines()[1]).toBe(`${MATERNITY}: 3 beds reported — updated 3 min ago`);
+    expect(wardLines()[0], 'Alpha\'s words did not update in place').toBe(`${MATERNITY}: 3 beds reported\u00a0— last reported 36 min ago — call to confirm`);
+    expect(wardLines()[1]).toBe(`${MATERNITY}: 3 beds reported\u00a0— updated 3 min ago`);
     expect(await sorts(), 'the sort ran again on a poll').toBe(1);
   });
 
@@ -99,9 +99,9 @@ describe('T-FREEZE-1 — a ward crossing a band on a poll keeps its place and up
 
   test('crossing two hours switches "N beds reported" to "Last known: N beds" on the same hospital, and crossing twelve removes every digit', async () => {
     const page = await openPage({ world: { facilities: [{ id: 'fa', name: 'Alpha General' }], wards: [{ facility: 'fa', category: 'MATERNITY', agoMin: B.yellowUnderMinutes - 20 }] }, search: '?ward=maternity' });
-    expect(wardLines()[0]).toMatch(/^Maternity: 3 beds reported — last reported .* ago — call to confirm$/);
+    expect(wardLines()[0]).toMatch(/^Maternity: 3 beds reported\u00a0— last reported .* ago — call to confirm$/);
     await page.advance(25); // past two hours
-    expect(wardLines()[0]).toMatch(new RegExp(`^${MATERNITY}: Last known: 3 beds — ${PHRASES.last_accepting} — last reported at .*\\(Lagos time\\) — call to confirm$`));
+    expect(wardLines()[0]).toMatch(new RegExp(`^${MATERNITY}: Last known: 3 beds\u00a0— ${PHRASES.last_accepting}\u00a0— last reported at .*\\(Lagos time\\) — call to confirm$`));
     expect(wardLines()[0], 'a stale count was still said in the present tense').not.toContain('beds reported');
     await page.advance(B.suppressAfterHours * 60); // past twelve hours
     expect(wardLines()[0]).toBe(`${MATERNITY}: Status unknown — call to confirm`);

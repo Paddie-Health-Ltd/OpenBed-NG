@@ -30,8 +30,8 @@ export interface NoticePin {
 export const CURRENT_NOTICE: NoticePin = {
   version: '1.2',
   file: 'privacy-notice-v1.2.md',
-  sha256: 'f8c6e3ef14b7ee3742abfff9571adf667f78f55021fbffde315b27e32905feac',
-  issuedBy: 'R-2026-10-09 GO, GO-3 a',
+  sha256: 'c48b1b92860ccdd699ee6e29841d95f6d7662d759f34888994a3fcaeffef1f7f',
+  issuedBy: 'R-2026-10-09 GO, GO-3 a, replaced by Addendum 2 (Tally BV added as a provider)',
 };
 
 /** Prior versions, kept byte for byte: a published version is never edited, a change is a new file. Newest first. */

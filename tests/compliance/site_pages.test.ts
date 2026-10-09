@@ -70,7 +70,7 @@ const ABOUT_SHA256 = '69af8a41c973409b4e032194093267afe8b062ee79f929ad4e51a55d98
  * What stops that being a rubber stamp is the leg beside it: tests/compliance/privacy_notice.test.ts compares the built page's text,
  * block by block, with the source by an independent reduction, so a hash re-pinned over wrong text still goes red there.
  */
-const BUILT_PRIVACY_SHA256 = 'c77c982c6fd7b112bcaf5a0aa8547283cdd0c81f1b55ed284e901467448d1d06';
+const BUILT_PRIVACY_SHA256 = '3527bd23f467bafaf303483e51d23ce3a7846b3466464765b19dfff4256ed7cc';
 
 interface Spec {
   readonly file: string;

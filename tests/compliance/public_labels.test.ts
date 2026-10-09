@@ -271,7 +271,7 @@ describe('the rendered page shows words, never codes', () => {
 
   test('plant — a raw code in rendered text is caught, and a label abbreviation is not', () => {
     const codes = [...enumDefinitions(MIGRATIONS).values()].flat();
-    expect(rawCodesIn('ICU_ADULT: 3 beds — not accepting (NO_ANAESTHETIST_ON_DUTY)', codes, TABLE.labels)).toEqual([
+    expect(rawCodesIn('ICU_ADULT: 3 beds\u00a0— not accepting (NO_ANAESTHETIST_ON_DUTY)', codes, TABLE.labels)).toEqual([
       'ICU_ADULT',
       'NO_ANAESTHETIST_ON_DUTY',
     ]);
@@ -284,7 +284,7 @@ describe('the rendered page shows words, never codes', () => {
     const text = await renderWards([
       ward({ category: 'BURNS_UNIT', accepting_effective: false, gated_by: 'NO_SURGEON_ON_DUTY', bed_count: 41 }),
     ]);
-    expect(lines()[0]).toBe(`${TABLE.fallbacks.ward_category}: 41 beds reported — not accepting (${TABLE.fallbacks.gate_reason}) — updated 1 min ago`);
+    expect(lines()[0]).toBe(`${TABLE.fallbacks.ward_category}: 41 beds reported\u00a0— not accepting (${TABLE.fallbacks.gate_reason})\u00a0— updated 1 min ago`);
     expect(text).not.toMatch(/BURNS_UNIT|NO_SURGEON_ON_DUTY/);
     const logged = JSON.stringify(error.mock.calls);
     expect(logged).toContain('BURNS_UNIT');
@@ -316,7 +316,7 @@ describe('offering and monitoring state: which one the page believes', () => {
   test.each([
     ['PENDING', 'OFFERED', `${ADULT_ICU}: ${NOT_YET}`, 'a never-reported ward showed a claim, or the old shared words'],
     ['PAUSED', 'OFFERED', `${ADULT_ICU}: ${PAUSED_WORDS}`, 'a paused ward showed a claim, or read as not yet reported'],
-    ['ACTIVE', 'OFFERED', `${ADULT_ICU}: 3 beds reported — updated 1 min ago`, 'an ordinary reporting ward lost its count'],
+    ['ACTIVE', 'OFFERED', `${ADULT_ICU}: 3 beds reported\u00a0— updated 1 min ago`, 'an ordinary reporting ward lost its count'],
   ])('%s + %s reads exactly as decided', async (monitoring_state, offering, expected, why) => {
     await renderWards([ward({ category: 'ICU_ADULT', monitoring_state, offering, bed_count: 3, accepting_effective: true }), ward({ category: 'A_AND_E' })]);
     expect(lines()[0], why).toBe(expected);
@@ -337,7 +337,7 @@ describe('offering and monitoring state: which one the page believes', () => {
       ward({ category: 'ICU_ADULT', monitoring_state, offering: 'NOT_OFFERED', bed_count: null, accepting_effective: false }),
       ward({ category: 'A_AND_E' }),
     ]);
-    expect(lines(), why).toEqual([`${AE}: 3 beds reported — updated 1 min ago`]);
+    expect(lines(), why).toEqual([`${AE}: 3 beds reported\u00a0— updated 1 min ago`]);
     expect(text, 'the hidden ward\'s category word reached the page').not.toContain(ADULT_ICU);
     expect(text, 'the old shared words for a state this ward is not in reached the page').not.toMatch(/not offered at this facility|not currently reporting/);
     expect(document.querySelectorAll('#app section.facility').length, 'the facility card went with its hidden ward').toBe(1);
@@ -379,10 +379,10 @@ describe('R-2026-09-23-69 (b) — ADMIN and UNDER_REVIEW are rendered beside the
   const ADULT_ICU = 'Adult ICU';
 
   test.each([
-    ['WARD', 'OK', `${ADULT_ICU}: 3 beds reported — updated 1 min ago`],
-    ['ADMIN', 'OK', `${ADULT_ICU}: 3 beds reported — set by admin, not ward-confirmed — updated 1 min ago`],
-    ['WARD', 'UNDER_REVIEW', `${ADULT_ICU}: 3 beds reported — under review — updated 1 min ago`],
-    ['ADMIN', 'UNDER_REVIEW', `${ADULT_ICU}: 3 beds reported — set by admin, not ward-confirmed — under review — updated 1 min ago`],
+    ['WARD', 'OK', `${ADULT_ICU}: 3 beds reported\u00a0— updated 1 min ago`],
+    ['ADMIN', 'OK', `${ADULT_ICU}: 3 beds reported\u00a0— set by admin, not ward-confirmed\u00a0— updated 1 min ago`],
+    ['WARD', 'UNDER_REVIEW', `${ADULT_ICU}: 3 beds reported\u00a0— under review\u00a0— updated 1 min ago`],
+    ['ADMIN', 'UNDER_REVIEW', `${ADULT_ICU}: 3 beds reported\u00a0— set by admin, not ward-confirmed\u00a0— under review\u00a0— updated 1 min ago`],
   ])('source %s, state %s reads exactly as decided (002 section 6)', async (source, state, expected) => {
     await renderWards([ward({ category: 'ICU_ADULT', source, state })]);
     expect(lines()[0]).toBe(expected);
@@ -396,7 +396,7 @@ describe('R-2026-09-23-69 (b) — ADMIN and UNDER_REVIEW are rendered beside the
     try {
       if (source) source['ADMIN'] = '';
       await renderWards([ward({ category: 'ICU_ADULT', source: 'ADMIN' })]);
-      expect(lines()[0], 'the plant did not reach the rendered line').toBe(`${ADULT_ICU}: 3 beds reported — updated 1 min ago`);
+      expect(lines()[0], 'the plant did not reach the rendered line').toBe(`${ADULT_ICU}: 3 beds reported\u00a0— updated 1 min ago`);
       expect(lines()[0]).not.toContain('set by admin');
     } finally {
       if (source && original !== undefined) source['ADMIN'] = original;

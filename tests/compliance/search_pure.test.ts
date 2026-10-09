@@ -388,22 +388,60 @@ describe('T-PARSE-1 — the address is read through two fixed tables, and only `
 // The synonym table.
 // ---------------------------------------------------------------------------
 
-describe('the synonym table (GO-4 d) — one entry per ward category, validated against the labels by identity', () => {
-  test('its keys are exactly the ten ward categories of the label table, in no other order than the table\'s', () => {
-    expect(Object.keys(WARD_SYNONYMS).sort()).toEqual(Object.keys(TABLE.labels.ward_category).sort());
+/** Mock v5's words, exactly as Cowork gave them (R-2026-10-09 GO, Addendum 2, item 2), by category. A second copy of the table, on purpose: it decays loudly. */
+const MOCK_V5: Record<string, string[]> = {
+  A_AND_E: ['emergency', 'a&e', 'ae', 'accident', 'casualty'],
+  THEATRE: ['theatre', 'theater', 'operating', 'surgery', 'operation'],
+  SURGICAL: ['surgical', 'surgery'],
+  MATERNITY: ['maternity', 'labour', 'labor', 'delivery', 'birth', 'pregnancy', 'pregnant', 'obstetric', 'antenatal'],
+  NICU: ['nicu', 'newborn', 'neonatal', 'baby', 'babies', 'infant', 'intensive'],
+  SCBU: ['scbu', 'special care', 'baby', 'babies', 'newborn', 'neonatal', 'infant'],
+  PAEDIATRIC: ['children', 'child', 'kids', 'paediatric', 'pediatric', 'paeds'],
+  ICU_ADULT: ['icu', 'intensive', 'critical care', 'adult', 'itu'],
+  ICU_PAEDIATRIC: ['children', 'child', 'kids', 'paediatric', 'pediatric', 'picu', 'icu', 'intensive', 'critical'],
+  MEDICAL_ADULT: ['medical', 'general medicine', 'adult'],
+};
+
+/** Everything wrong with a synonym table against the labels and mock v5's words, as messages. Pure, so the plants feed it a changed table. */
+export function synonymViolations(table: Readonly<Record<string, readonly string[]>>): string[] {
+  const out: string[] = [];
+  const categories = Object.keys(TABLE.labels.ward_category).sort();
+  if (JSON.stringify(Object.keys(table).sort()) !== JSON.stringify(categories)) out.push(`the table's categories are not the ten of the label table: ${JSON.stringify(Object.keys(table).sort())}`);
+  for (const [category, words] of Object.entries(table)) {
+    if (words.length === 0) out.push(`${category} has no synonym`);
+    if (new Set(words).size !== words.length) out.push(`${category} repeats a word`);
+    for (const w of words) if (w !== w.toLowerCase() || w.trim() !== w || w === '') out.push(`${category}: "${w}" is not a lower-case word or phrase`);
+    if (JSON.stringify(words) !== JSON.stringify(MOCK_V5[category])) out.push(`${category}: ${JSON.stringify(words)} is not mock v5's ${JSON.stringify(MOCK_V5[category])}`);
+  }
+  return out;
+}
+
+describe('the synonym table (GO-4 d; Addendum 2 item 2) — mock v5\'s words, one entry per ward category, validated against the labels by identity', () => {
+  test('real WARD_SYNONYMS is accepted: the ten categories of the label table, each exactly mock v5\'s words', () => {
+    expect(synonymViolations(WARD_SYNONYMS)).toEqual([]);
     expect([...WARD_VALUES].sort()).toEqual(Object.keys(TABLE.labels.ward_category).sort());
   });
 
-  test('every entry is a non-empty list of lower-case words, and no word is shared between two categories', () => {
-    const seen = new Map<string, string>();
-    for (const [category, words] of Object.entries(WARD_SYNONYMS)) {
-      expect(words.length, `${category} has no synonym`).toBeGreaterThan(0);
-      for (const w of words) {
-        expect(w, `${category}: "${w}" is not lower case`).toBe(w.toLowerCase());
-        expect(seen.get(w), `"${w}" belongs to ${seen.get(w)} and ${category}`).toBeUndefined();
-        seen.set(w, category);
-      }
-    }
+  test('a word may belong to more than one category on purpose, and the ones that do are exactly these', () => {
+    const owners = new Map<string, string[]>();
+    for (const [category, words] of Object.entries(WARD_SYNONYMS)) for (const w of words) owners.set(w, [...(owners.get(w) ?? []), category]);
+    const shared = Object.fromEntries([...owners].filter(([, c]) => c.length > 1).sort(([a], [b]) => a.localeCompare(b)));
+    expect(shared).toEqual({
+      adult: ['ICU_ADULT', 'MEDICAL_ADULT'],
+      babies: ['NICU', 'SCBU'],
+      baby: ['NICU', 'SCBU'],
+      child: ['PAEDIATRIC', 'ICU_PAEDIATRIC'],
+      children: ['PAEDIATRIC', 'ICU_PAEDIATRIC'],
+      icu: ['ICU_ADULT', 'ICU_PAEDIATRIC'],
+      infant: ['NICU', 'SCBU'],
+      intensive: ['NICU', 'ICU_ADULT', 'ICU_PAEDIATRIC'],
+      kids: ['PAEDIATRIC', 'ICU_PAEDIATRIC'],
+      neonatal: ['NICU', 'SCBU'],
+      newborn: ['NICU', 'SCBU'],
+      paediatric: ['PAEDIATRIC', 'ICU_PAEDIATRIC'],
+      pediatric: ['PAEDIATRIC', 'ICU_PAEDIATRIC'],
+      surgery: ['THEATRE', 'SURGICAL'],
+    });
   });
 
   test.each([
@@ -412,11 +450,22 @@ describe('the synonym table (GO-4 d) — one entry per ward category, validated 
     expect(WARD_SYNONYMS[category]).toContain(word);
   });
 
-  test('plant — a table missing a category, or with a category the labels lack, is rejected', () => {
-    const missing = Object.keys(WARD_SYNONYMS).filter((k) => k !== 'NICU').sort();
-    expect(missing, 'the plant did not remove a key').not.toEqual(Object.keys(TABLE.labels.ward_category).sort());
-    const extra = [...Object.keys(WARD_SYNONYMS), 'BURNS_UNIT'].sort();
-    expect(extra).not.toEqual(Object.keys(TABLE.labels.ward_category).sort());
+  test.each<[string, (t: Record<string, string[]>) => void, string]>([
+    ['a category missing', (t) => { delete t['NICU']; }, 'not the ten of the label table'],
+    ['a category the labels lack', (t) => { t['BURNS_UNIT'] = ['burns']; }, 'not the ten of the label table'],
+    ['one word changed', (t) => { (t['MATERNITY'] as string[])[1] = 'labor ward'; }, 'MATERNITY'],
+    ['one word added', (t) => { (t['SCBU'] as string[]).push('cot'); }, 'SCBU'],
+    ['one word removed', (t) => { (t['ICU_ADULT'] as string[]).pop(); }, 'ICU_ADULT'],
+    ['a word in capitals', (t) => { (t['THEATRE'] as string[])[0] = 'Theatre'; }, 'not a lower-case word'],
+    ['a repeated word', (t) => { (t['SURGICAL'] as string[]).push('surgery'); }, 'repeats a word'],
+  ])('plant — %s is rejected', (_name, plant, message) => {
+    const copy: Record<string, string[]> = JSON.parse(JSON.stringify(WARD_SYNONYMS));
+    plant(copy);
+    expect(synonymViolations(copy).join('\n')).toContain(message);
+  });
+
+  test('anti-vacuity — an empty table is rejected', () => {
+    expect(synonymViolations({}).join('\n')).toContain('not the ten of the label table');
   });
 });
 

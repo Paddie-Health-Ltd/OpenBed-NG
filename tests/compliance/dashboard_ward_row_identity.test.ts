@@ -251,7 +251,7 @@ describe('a ward row says exactly what wardLine says, and colours only a fresh c
     const c = CASES.find((x) => x.name === 'fresh, set by admin') as Case;
     const li = document.createElement('li');
     li.className = 'age-fresh';
-    li.innerHTML = '<span class="ward-category">Paediatric</span>: <span class="badge status-available">3 beds</span> — set by admin, not ward-confirmed — <span class="stamp stamp-green">updated 5 min ago</span>';
+    li.innerHTML = '<span class="ward-category">Paediatric</span>: <span class="badge status-available">3 beds</span>\u00a0— set by admin, not ward-confirmed — <span class="stamp stamp-green">updated 5 min ago</span>';
     expect(rowViolations(li, li.textContent ?? '', c).join('\n')).toContain('expected one badge with status-unknown');
   });
 
@@ -259,7 +259,7 @@ describe('a ward row says exactly what wardLine says, and colours only a fresh c
     const c = CASES.find((x) => x.name === 'fresh, set by admin') as Case;
     const li = document.createElement('li');
     li.className = 'age-fresh';
-    li.innerHTML = '<span class="ward-category">Paediatric</span>: <span class="badge status-unknown">3 beds</span> — set by admin, not ward-confirmed — <span class="stamp stamp-green">updated 5 min ago</span>';
+    li.innerHTML = '<span class="ward-category">Paediatric</span>: <span class="badge status-unknown">3 beds</span>\u00a0— set by admin, not ward-confirmed — <span class="stamp stamp-green">updated 5 min ago</span>';
     expect(rowViolations(li, li.textContent ?? '', c).join('\n')).toContain('expected one stamp-grey, found stamp stamp-green');
   });
 

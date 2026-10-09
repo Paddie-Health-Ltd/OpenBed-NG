@@ -439,3 +439,42 @@ describe('the controls\' stylesheet makes `hidden` win', () => {
     expect(hiddenWinsViolations('')).toEqual(['the stylesheet is empty, so nothing was checked']);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The no-match message must not move "Near me" (Addendum 2, item 4 c).
+// ---------------------------------------------------------------------------
+
+/**
+ * The area picker and "Near me" share a row, and the button is aligned to the bottom of the picker's field. A no-match message IN FLOW made the
+ * field taller, so the button dropped below the input. Held as the stylesheet fact that prevents it: the message (like the list) is positioned
+ * OUT of flow, under the input. jsdom lays nothing out, so this is the part a test can hold; the screenshots show the result.
+ */
+export function noMatchOutOfFlowViolations(css: string): string[] {
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  if (bare.trim() === '') return ['the stylesheet is empty, so nothing was checked'];
+  const out: string[] = [];
+  for (const sel of ['#search \\.combo-none', '#search \\.combo-list']) {
+    const rule = new RegExp(`${sel}\\s*\\{([^}]*)\\}`).exec(bare)?.[1] ?? '';
+    if (!/position\s*:\s*absolute/.test(rule)) out.push(`${sel.replace(/\\/g, '')} is not position: absolute, so it takes room in the field and moves the button beside it`);
+  }
+  return out;
+}
+
+describe('the no-match message and the list are out of flow', () => {
+  const css = (): string => readFileSync(join(DASH, 'src', 'style.css'), 'utf8');
+  test('real style.css is accepted', () => {
+    expect(noMatchOutOfFlowViolations(css())).toEqual([]);
+  });
+  test('plant — the message put back in flow is rejected, and so is the list', () => {
+    const real = css();
+    const inFlow = real.replace('#search .combo-none { position: absolute;', '#search .combo-none { position: static;');
+    expect(inFlow, 'the plant did not land').not.toBe(real);
+    expect(noMatchOutOfFlowViolations(inFlow).join('\n')).toContain('#search .combo-none is not position: absolute');
+    const list = real.replace(/(#search \.combo-list \{[^}]*)position: absolute;/, '$1position: static;');
+    expect(list, 'the list plant did not land').not.toBe(real);
+    expect(noMatchOutOfFlowViolations(list).join('\n')).toContain('#search .combo-list is not position: absolute');
+  });
+  test('anti-vacuity — an empty stylesheet fails', () => {
+    expect(noMatchOutOfFlowViolations('')).toEqual(['the stylesheet is empty, so nothing was checked']);
+  });
+});

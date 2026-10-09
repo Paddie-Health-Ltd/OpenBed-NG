@@ -87,20 +87,20 @@ afterEach(() => {
 describe('each band, in words, on the rendered page', () => {
   test('FRESH — the count, then "updated N min ago", and no banner', async () => {
     await renderAt({ wards: [ward('A_AND_E', 5)], servedAfterGenMinutes: 1 });
-    expect(lines()[0]).toBe(`${AE}: 3 beds reported — updated 6 min ago`);
+    expect(lines()[0]).toBe(`${AE}: 3 beds reported\u00a0— updated 6 min ago`);
     expect(banner()).toBeNull();
   });
 
   // R-2026-09-27-140 DP-5 a, R-2026-09-27-144 DT Bundle 4: one bed is "1 bed", and none is "0 beds".
   test.each([[1, '1 bed'], [0, '0 beds'], [2, '2 beds']])('a count of %s reads "%s" on the rendered page (DT Bundle 4)', async (n, words) => {
     await renderAt({ wards: [ward('A_AND_E', 5, { bed_count: n })], servedAfterGenMinutes: 1 });
-    expect(lines()[0]).toBe(`${AE}: ${words} reported — updated 6 min ago`);
+    expect(lines()[0]).toBe(`${AE}: ${words} reported\u00a0— updated 6 min ago`);
   });
 
   test('AGEING — the count stays, "last reported N min ago — call to confirm"', async () => {
     const age = B.greenUnderMinutes + 15;
     await renderAt({ wards: [ward('A_AND_E', age - 1)], servedAfterGenMinutes: 1 });
-    expect(lines()[0]).toBe(`${AE}: 3 beds reported — last reported ${age} min ago — call to confirm`);
+    expect(lines()[0]).toBe(`${AE}: 3 beds reported\u00a0— last reported ${age} min ago — call to confirm`);
     expect(document.querySelector('#app li')?.className).toBe('age-aged');
   });
 
@@ -109,7 +109,7 @@ describe('each band, in words, on the rendered page', () => {
   test('STALE — past the ageing band the age becomes a Lagos time, the count is "Last known", and it stays', async () => {
     await renderAt({ wards: [ward('A_AND_E', B.yellowUnderMinutes + 60)], servedAfterGenMinutes: 1 });
     const line = lines()[0] ?? '';
-    expect(line.startsWith(`${AE}: Last known: 3 beds — ${PHRASES.last_accepting} — last reported at `), line).toBe(true);
+    expect(line.startsWith(`${AE}: Last known: 3 beds\u00a0— ${PHRASES.last_accepting}\u00a0— last reported at `), line).toBe(true);
     expect(line).toMatch(/01:12.*\(Lagos time\) — call to confirm$/);
     expect(line, 'a stale ward was shown as closed because it is stale').not.toMatch(/not accepting|\b0 beds/);
     expect(line, 'a stale count was said in the present tense').not.toMatch(/\b3 beds reported/);
@@ -166,8 +166,8 @@ describe('each band, in words, on the rendered page', () => {
     });
     const W = LABEL_TABLE.labels.ward_category;
     expect(lines()[0]).toBe(`${W.A_AND_E}: Status unknown — call to confirm`);
-    expect(lines()[1]).toBe(`${W.ICU_ADULT}: 3 beds reported — updated 2 min ago`);
-    expect(lines()[2]?.startsWith(`${W.MATERNITY}: Last known: 3 beds — `), lines()[2]).toBe(true);
+    expect(lines()[1]).toBe(`${W.ICU_ADULT}: 3 beds reported\u00a0— updated 2 min ago`);
+    expect(lines()[2]?.startsWith(`${W.MATERNITY}: Last known: 3 beds\u00a0— `), lines()[2]).toBe(true);
     expect(document.querySelectorAll('#app a.call').length, 'the facility lost its call link').toBe(1);
   });
 });
@@ -191,7 +191,7 @@ describe('the snapshot banner, and the clock it is measured by', () => {
     // snapshot has been stale since. Its age is the stall, not zero.
     const stall = B.snapshotBannerAfterMinutes + 7;
     await renderAt({ wards: [ward('A_AND_E', 0)], servedAfterGenMinutes: stall });
-    expect(lines()[0]).toBe(`${AE}: 3 beds reported — updated ${stall} min ago`);
+    expect(lines()[0]).toBe(`${AE}: 3 beds reported\u00a0— updated ${stall} min ago`);
     expect(text()).not.toMatch(/less than a minute|just now/);
   });
 
@@ -215,13 +215,13 @@ describe('the snapshot banner, and the clock it is measured by', () => {
     perfNow += stall;
     await vi.advanceTimersByTimeAsync(stall);
     expect(banner(), 'the open page never aged').not.toBeNull();
-    expect(lines()[0]).toBe(`${AE}: 3 beds reported — updated ${B.snapshotBannerAfterMinutes + 1} min ago`);
+    expect(lines()[0]).toBe(`${AE}: 3 beds reported\u00a0— updated ${B.snapshotBannerAfterMinutes + 1} min ago`);
   });
 
   test('NO SERVE-TIME CLOCK — the page never reads fresh: the banner says it cannot tell, and every age is unknown', async () => {
     await renderAt({ wards: [ward('A_AND_E', 0)], servedAfterGenMinutes: null });
     expect(banner()).toBe("We can't confirm how recent this page is. Counts may be out of date — call before you travel.");
-    expect(lines()[0]).toBe(`${AE}: 3 beds reported — age unknown — call to confirm`);
+    expect(lines()[0]).toBe(`${AE}: 3 beds reported\u00a0— age unknown — call to confirm`);
     expect(text()).not.toMatch(/updated/);
   });
 });

@@ -129,19 +129,26 @@ function buildCombo(opts: {
     optionNodes.forEach((n) => n.setAttribute('aria-selected', n.dataset['value'] === selected ? 'true' : 'false'));
   };
   /**
-   * Hide the options that do not match what was typed; "" shows all of them. A match is a WORD PREFIX: the typed text begins one of the
-   * words of the option's label or of one of its synonyms ("mat" finds maternity and not "premature", "intensive care" finds a
-   * phrase), and every punctuation mark counts as a space. Typed text is only ever compared here; it is never stored or shown.
+   * Hide the options that do not match what was typed; "" shows all of them. A match is by WORD PREFIX: every word the visitor typed
+   * must begin some word of the option's label or of one of its synonyms ("mat" finds maternity and not "premature"; "intensive care"
+   * finds Adult ICU, whose words include "intensive" and "care"). Every punctuation mark counts as a space, except that an ampersand is
+   * kept inside a word ("a&e"). Typed text is only ever compared here; it is never stored or shown.
    */
-  const words = (t: string): string => ` ${t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()}`;
+  const wordsOf = (t: string): string[] => t.toLowerCase().replace(/[^a-z0-9&]+/g, ' ').trim().split(' ').filter((w) => w !== '');
+  const bags = opts.options.map((o) => o.terms.flatMap(wordsOf));
+  const visibleCount = (): number => optionNodes.filter((n) => !n.hidden).length;
   const filter = (typed: string): void => {
-    const needle = words(typed).trim();
-    opts.options.forEach((o, i) => {
+    const needles = wordsOf(typed);
+    opts.options.forEach((_o, i) => {
       const node = optionNodes[i];
       if (node === undefined) return;
-      node.hidden = needle !== '' && !o.terms.some((t) => words(t).includes(` ${needle}`));
+      node.hidden = !needles.every((needle) => (bags[i] ?? []).some((w) => w.startsWith(needle)));
     });
-    none.hidden = visible().length > 0 || list.hidden;
+    const matches = visibleCount() > 0;
+    // Nothing matches: the empty list is hidden (an empty bordered box is a stray line) and the message takes its place.
+    const open = input.getAttribute('aria-expanded') === 'true';
+    list.hidden = !open || !matches;
+    none.hidden = !open || matches;
   };
   const restore = (): void => {
     input.value = labelOf(selected);
@@ -273,7 +280,8 @@ export function mountControls(host: HTMLElement, handlers: ControlHandlers, init
   const status = el('p', { id: 'location-status', class: 'location-status' }, { role: 'status', 'aria-live': 'polite' });
 
   const orderRow = el('div', { class: 'order-row' });
-  const orderLabel = el('label', { htmlFor: 'order-select', class: 'visually-hidden', textContent: phrase('order_label') });
+  // A VISIBLE label, like the two pickers' (Addendum 2, item 4 a): the control is named on the page, not only to a screen reader.
+  const orderLabel = el('label', { htmlFor: 'order-select', textContent: phrase('order_label') });
   const orderSelect = el('select', { id: 'order-select', class: 'order-select' });
   const orderExplain = el('p', { id: 'order-explain', class: 'order-explain' });
   orderRow.append(orderLabel, orderSelect, orderExplain);

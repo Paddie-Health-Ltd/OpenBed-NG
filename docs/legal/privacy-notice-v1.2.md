@@ -25,20 +25,22 @@ OpenBed is a service run by **Paddie Health Ltd**, a company registered in Niger
 | --- | --- | --- | --- | --- |
 | **Anyone who opens openbed.ng** | Your IP address and basic request details, seen by OpenBed's hosting network when it delivers the page. OpenBed itself does not store them | To deliver the page and protect it from abuse | Legitimate interests (s.25(1)(f)): running a free public service safely | As set by the hosting provider for delivery and security. OpenBed keeps no copy |
 | **Hospital staff signing in at app.openbed.ng, for one ward or for a whole hospital** | The sign-in address for the ward or the hospital (it must belong to the hospital, a ward or a role, never to a person); sign-in sessions, which include the device's IP address and browser type; the sign-in emails sent to that address | To let a hospital publish its bed status, ward by ward, and to keep sign-in secure | Legitimate interests (s.25(1)(f)): operating the service the hospital has agreed to | The address: until the sign-in is closed, then deleted within 30 days. Sessions: deleted 30 days after they end. Service logs: 7 days |
-| **A hospital's named contact person** | Name, job title and work email; a mobile number only if they agree to receive text messages | So OpenBed can reach the hospital about its listing | Legitimate interests (s.25(1)(f)): keeping a participating hospital reachable | While the hospital takes part; deleted within 30 days of the hospital leaving or naming a new contact, or sooner on request |
+| **A hospital's named contact person** | Name, job title and work email, given on OpenBed's joining form or the signed agreement; a mobile number only if they agree to receive text messages | So OpenBed can reach the hospital about its listing | Legitimate interests (s.25(1)(f)): keeping a participating hospital reachable | While the hospital takes part; deleted within 30 days of the hospital leaving or naming a new contact, or sooner on request. Joining-form responses are deleted from the form provider within 14 days of the hospital being set up |
+| **Hospital staff who fill in the joining form** | Their name and work email if given, what they enter, and the time of submission and IP address the form provider records | To set up the hospital on OpenBed | Legitimate interests (s.25(1)(f)) | Deleted from the form provider within 14 days of set-up; filed details kept while the hospital takes part |
 | **Anyone who writes to an openbed.ng address** | Your name, email address and what you write | To answer you | Legitimate interests (s.25(1)(f)); legal obligation (s.25(1)(c)) for a data-protection request | 12 months from the last message. Data-protection requests, complaints, security reports and legal matters: 6 years from closure, the Lagos limitation period for claims |
 
 Bed counts, their history and the service's audit log record **wards and hospitals**, never people, and hold no personal data.
 
 ## Who else handles the data
 
-OpenBed uses three service providers, each bound by a written data-processing agreement that limits them to acting on OpenBed's instructions:
+OpenBed uses four service providers, each bound by a written data-processing agreement that limits them to acting on OpenBed's instructions:
 
 | Provider | What it does for OpenBed | Where |
 | --- | --- | --- |
 | Cloudflare, Inc. | Delivers all three OpenBed sites and protects them | A global network; the account is held in the United States |
 | Supabase (Supabase Pte. Ltd.) | Hosts the database and sign-in system | Ireland (EU), with support from outside the EU |
 | Proton AG | Sends sign-in emails and hosts the openbed.ng mailboxes | Switzerland, Germany and Norway |
+| Tally BV | Hosts the form hospitals use to send their joining details | The European Union |
 
 A hospital's sign-in address belongs to the hospital. Where the hospital uses its own email system, or a free email account such as Gmail, for that address, the account is the hospital's own, and its provider acts for the hospital, not for OpenBed.
 
@@ -46,7 +48,7 @@ No other person or organisation receives personal data from OpenBed, except wher
 
 ## Transfers outside Nigeria
 
-All three providers operate outside Nigeria. Each transfer relies on the provider's data-processing agreement, including its standard contractual clauses, and on data-protection law in the destination that gives substantially similar protection (NDPA ss.41–42). The basis for each transfer is recorded as s.41(2) requires. A hospital's named contact also consents to the transfer when their details are given. You can ask for details at hello@openbed.ng.
+All four providers operate outside Nigeria. Each transfer relies on the provider's data-processing agreement and on data-protection law in the destination that gives substantially similar protection (NDPA ss.41–42). The basis for each transfer is recorded as the Act requires. A hospital's named contact is told which providers handle their details, and where, before the details are given. Paddie Health Ltd also keeps its own records, such as signed agreements and joining details, on encrypted company devices outside Nigeria. You can ask for details at hello@openbed.ng.
 
 ## Your rights
 
@@ -72,4 +74,4 @@ OpenBed has no passwords to steal: hospital staff sign in with single-use email 
 
 ## Changes
 
-When this notice changes, the new version is published here with a new version number and date. Version 1.2 explains the “Near me” and “Directions” options on openbed.ng. Earlier versions are available on request at hello@openbed.ng.
+When this notice changes, the new version is published here with a new version number and date. Version 1.2 explains the “Near me” and “Directions” options on openbed.ng, and adds Tally, which hosts the hospital joining form. Earlier versions are available on request at hello@openbed.ng.

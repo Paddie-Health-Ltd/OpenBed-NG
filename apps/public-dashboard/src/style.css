@@ -263,7 +263,9 @@ section.facility li {
    `hidden` would stay on screen (the no-match message and its "Clear search" button did, in the first screenshot pass). jsdom lays nothing out
    and could not see it; tests/compliance/search_static.test.ts holds this rule in the stylesheet. */
 #search [hidden] { display: none !important; }
-#search .combo-none { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-1); font: var(--text-body-md); color: var(--text-body); }
+/* THE NO-MATCH MESSAGE IS AN OVERLAY, like the list (Addendum 2, item 4 c): out of flow, under the input, so the field never grows and the
+   "Near me" button stays beside the input in every state. In flow, it pushed the button below the input. */
+#search .combo-none { position: absolute; z-index: 2; left: 0; right: 0; top: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-1); padding: var(--space-1) var(--space-3); box-sizing: border-box; background: var(--surface-card); border: var(--border-width) solid var(--border-strong); border-radius: var(--radius-md); font: var(--text-body-md); color: var(--text-body); }
 /* The area picker and "Near me" share a row, and stack when the handset is narrow. */
 #search .area-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); }
 #search .area-row .field { flex: 1 1 220px; }
@@ -303,7 +305,6 @@ section.facility li {
 #search .order-explain { font: var(--text-body-sm); color: var(--text-muted); }
 #search .share-row { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--space-3); }
 #search .aged-order { padding: var(--space-2) var(--space-3); background: var(--surface-sunken); border-left: var(--border-accent-width) solid var(--ob-navy-500); border-radius: var(--radius-md); color: var(--text-strong); }
-.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 /* The distance under the facility's area line, outside the ward rows. */
 section.facility p.facility-distance { margin: 0; font: var(--text-body-md); color: var(--text-body); overflow-wrap: anywhere; }

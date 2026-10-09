@@ -10,7 +10,9 @@ import { bedCountText, categoryLabel, precedence, reasonLabel, UNKNOWN_STATUS } 
  * WORDS -- colour may de-emphasise, never carry the meaning alone.
  *
  * THE BANDS, from packages/fixtures/snapshot-shape.json (PROVISIONAL until a
- * clinician ruling), and the words each one speaks (R-2026-10-09 GO, GO-4 b):
+ * clinician ruling), and the words each one speaks (R-2026-10-09 GO, GO-4 b). Every dash between two parts of a row
+ * is written below with plain spaces and BUILT with a non-breaking space before it, so a dash never starts a line or
+ * stands alone at the end of one on a phone (Addendum 2, item 4 b); the table's own phrases are unchanged:
  *   FRESH   "3 beds reported — updated 6 min ago"
  *   AGEING  "3 beds reported — last reported 46 min ago — call to confirm"
  *   STALE   "Last known: 3 beds — Last reported accepting admissions — last reported at
@@ -158,13 +160,15 @@ export function wardLineParts(ward: DecodedRow, clock: ServeClock): WardLinePart
   const open = ward['accepting_effective'] === true;
   const reason = ward['gated_by'];
   const gated = reason !== null && reason !== undefined;
-  const qualifiers = p.kind === 'claim' ? p.qualifiers : '';
+  // The words beside a count come from the shared table with a plain-space dash; the public page joins each dash to the word before it, so a dash
+  // never starts a line (Addendum 2, item 4 b). The console, which reads the same table, is unchanged.
+  const qualifiers = p.kind === 'claim' ? p.qualifiers.replace(/ — /g, '\u00a0— ') : '';
   // FRESH and AGEING: "<count> reported", then today's gate words and qualifiers, then the stamp.
   const current: WardLineSegment[] = [
     ...head,
     ...(bedCount === null ? [{ text: phrase('count_not_reported'), role: 'words' as const }] : countSegments('count_reported', bedCountText(bedCount))),
   ];
-  const currentRest = `${open ? '' : ' — not accepting'}${gated ? ` (${reasonLabel(reason)})` : ''}${qualifiers}`;
+  const currentRest = `${open ? '' : '\u00a0— not accepting'}${gated ? ` (${reasonLabel(reason)})` : ''}${qualifiers}`;
   // STALE and age-unknown: the count is only the last known one, then what the ward last said about admissions.
   const accepting = open
     ? phrase('last_accepting')
@@ -174,7 +178,7 @@ export function wardLineParts(ward: DecodedRow, clock: ServeClock): WardLinePart
   const lastKnown: WardLineSegment[] = [
     ...head,
     ...(bedCount === null ? [{ text: phrase('last_known_not_reported'), role: 'words' as const }] : countSegments('last_known', bedCountText(bedCount))),
-    { text: ' — ' },
+    { text: '\u00a0— ' },
     { text: accepting, role: 'words' },
     ...(qualifiers === '' ? [] : [{ text: qualifiers }]),
   ];
@@ -192,7 +196,9 @@ export function wardLineParts(ward: DecodedRow, clock: ServeClock): WardLinePart
     qualified: qualifiers !== '',
     hidden: false,
     rank: searchRank({ state: 'claim', band }),
-    segments: [...(last ? lastKnown : currentRest === '' ? current : [...current, { text: currentRest }]), { text: ' — ' }, { text: stamp, role: 'stamp' }],
+    // NBSP BEFORE THE DASH (Addendum 2, item 4 b): on a phone the stamp takes its own line, and a plain space let the dash be left alone at the end of
+    // the line above it ("…(no anaesthetist on duty)" then "—"). Joined to the word before it, the dash always travels with that word.
+    segments: [...(last ? lastKnown : currentRest === '' ? current : [...current, { text: currentRest }]), { text: '\u00a0— ' }, { text: stamp, role: 'stamp' }],
   });
 
   const updatedAt = typeof ward['updated_at'] === 'string' ? ward['updated_at'] : '';

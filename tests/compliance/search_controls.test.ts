@@ -96,7 +96,12 @@ describe('T-CTRL-2 — both pickers are searchable comboboxes: a labelled input,
     expect(app().contains(byId('search')), 'the controls are inside #app, so a poll would replace them').toBe(false);
     expect(byId('search').contains(byId('ward-input'))).toBe(true);
     expect(byId('near-me').textContent).toBe('Near me');
-    expect(document.querySelector('label[for="order-select"]')?.textContent).toBe(P.order_label);
+    // A VISIBLE label, like the two pickers' (Addendum 2, item 4 a): the same words as before, and no class that hides it.
+    const orderLabel = document.querySelector('label[for="order-select"]');
+    expect(orderLabel?.textContent).toBe('Order');
+    expect(orderLabel?.textContent).toBe(P.order_label);
+    expect(orderLabel?.className, 'the Order label is visually hidden').toBe('');
+    expect(orderLabel?.closest('[hidden]'), 'the Order label sits inside a hidden element').toBeNull();
     expect(byId('origin-clear').getAttribute('aria-label')).toBe('Clear starting point');
     expect(byId('origin-clear').textContent).toBe('Clear');
   });
@@ -161,20 +166,28 @@ describe('T-CTRL-2 — both pickers are searchable comboboxes: a labelled input,
     await openPage({ world: WORLD });
     type('ward', 'labour');
     expect(visibleOptions('ward')).toEqual([W.MATERNITY]);
+    type('ward', 'paeds');
+    expect(visibleOptions('ward'), 'a word that belongs to one bed type finds only it').toEqual([W.PAEDIATRIC]);
     type('ward', 'infant');
-    expect(visibleOptions('ward')).toEqual([W.PAEDIATRIC]);
+    expect(visibleOptions('ward'), 'a word the two newborn units share finds both').toEqual([W.NICU, W.SCBU]);
     type('ward', 'kids');
     expect(visibleOptions('ward'), 'a word that belongs to two bed types finds both').toEqual([W.ICU_PAEDIATRIC, W.PAEDIATRIC]);
     type('ward', 'intensive care');
-    expect(visibleOptions('ward'), 'a phrase matches on word starts').toContain(W.ICU_ADULT);
+    expect(visibleOptions('ward'), 'each typed word must start a word of the option: "intensive care" finds Adult ICU alone').toEqual([W.ICU_ADULT]);
+    type('ward', 'a&e');
+    expect(visibleOptions('ward'), 'an ampersand stays inside a word').toEqual([W.A_AND_E]);
     type('ward', 'zzzz');
     expect(visibleOptions('ward')).toEqual([]);
+    expect(byId('ward-list').hidden, 'an EMPTY bordered list was left on the page beside the no-match message').toBe(true);
+    expect(byId<HTMLInputElement>('ward-input').getAttribute('aria-expanded')).toBe('true');
     const none = document.querySelector<HTMLElement>('#ward-input ~ .combo-none') as HTMLElement;
     expect(none.hidden, 'no message for a word that matches nothing').toBe(false);
     expect(none.textContent).toBe(`${P.no_match_ward}${P.clear_search}`);
     (none.querySelector('button') as HTMLButtonElement).dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(byId<HTMLInputElement>('ward-input').value).toBe('');
     expect(visibleOptions('ward').length, '"Clear search" did not restore every option').toBe(11);
+    expect(byId('ward-list').hidden, '"Clear search" left the list closed').toBe(false);
+    expect(none.hidden, 'the message outlived "Clear search"').toBe(true);
     expect(cards(), 'Clear search selected').toEqual(BY_NAME);
   });
 
@@ -539,7 +552,7 @@ describe('T-CARD-1 and 2 — the chosen ward leads, and a count never reads as "
     expect(card.querySelector('.facility-address')?.textContent).toBe('1 Wharf Road, Apapa');
     expect(card.querySelector('.facility-area')?.textContent).toBe('Apapa, Lagos');
     expect(card.querySelectorAll('li').length, 'the chosen-ward card drew other wards').toBe(1);
-    expect(card.querySelector('li')?.textContent).toBe(`${W.MATERNITY}: 3 beds reported — last reported 51 min ago — call to confirm`);
+    expect(card.querySelector('li')?.textContent).toBe(`${W.MATERNITY}: 3 beds reported\u00a0— last reported 51 min ago — call to confirm`);
   });
 
   test('T-CARD-1: under Any each hospital keeps its per-ward presentation and no count is summed across categories', async () => {
@@ -547,15 +560,15 @@ describe('T-CARD-1 and 2 — the chosen ward leads, and a count never reads as "
     const card = cardEl('Ikeja Medical') as HTMLElement;
     // In the order served: the fixture lists the hospital's maternity ward before its A&E.
     expect(Array.from(card.querySelectorAll('li')).map((l) => l.textContent)).toEqual([
-      `${W.MATERNITY}: 3 beds reported — updated 6 min ago`,
-      `${W.A_AND_E}: 3 beds reported — updated 6 min ago`,
+      `${W.MATERNITY}: 3 beds reported\u00a0— updated 6 min ago`,
+      `${W.A_AND_E}: 3 beds reported\u00a0— updated 6 min ago`,
     ]);
     expect(card.textContent, 'a count was summed').not.toMatch(/\b6 beds/);
   });
 
   test.each([
-    ['FRESH', 5, `${W.MATERNITY}: 3 beds reported — not accepting (no anaesthetist on duty) — updated 6 min ago`],
-    ['AGEING', 50, `${W.MATERNITY}: 3 beds reported — not accepting (no anaesthetist on duty) — last reported 51 min ago — call to confirm`],
+    ['FRESH', 5, `${W.MATERNITY}: 3 beds reported\u00a0— not accepting (no anaesthetist on duty)\u00a0— updated 6 min ago`],
+    ['AGEING', 50, `${W.MATERNITY}: 3 beds reported\u00a0— not accepting (no anaesthetist on duty)\u00a0— last reported 51 min ago — call to confirm`],
   ])('T-CARD-2: a positive count with accepting_effective false reads "not accepting" with its reason when %s', async (_band, ago, line) => {
     await openPage({ world: { facilities: [{ id: 'f1', name: 'Gated Hospital' }], wards: [{ facility: 'f1', category: 'MATERNITY', agoMin: ago, accepting: false, gatedBy: 'NO_ANAESTHETIST_ON_DUTY' }] }, search: '?ward=maternity' });
     expect(wardLines()[0]).toBe(line);
@@ -568,19 +581,19 @@ describe('T-CARD-1 and 2 — the chosen ward leads, and a count never reads as "
       wards: [{ facility: 'f1', category: 'MATERNITY', agoMin: 200, accepting: false, gatedBy: gated ? 'NO_ANAESTHETIST_ON_DUTY' : null }],
     });
     await openPage({ world: world(true), search: '?ward=maternity' });
-    expect(wardLines()[0]).toMatch(new RegExp(`^${W.MATERNITY}: Last known: 3 beds — Last reported not accepting admissions \\(no anaesthetist on duty\\) — last reported at .*\\(Lagos time\\) — call to confirm$`));
+    expect(wardLines()[0]).toMatch(new RegExp(`^${W.MATERNITY}: Last known: 3 beds\u00a0— Last reported not accepting admissions \\(no anaesthetist on duty\\)\u00a0— last reported at .*\\(Lagos time\\) — call to confirm$`));
     releaseTimers();
     await openPage({ world: world(false), search: '?ward=maternity' });
-    expect(wardLines()[0]).toMatch(new RegExp(`^${W.MATERNITY}: Last known: 3 beds — Last reported not accepting admissions — last reported at .*\\(Lagos time\\) — call to confirm$`));
+    expect(wardLines()[0]).toMatch(new RegExp(`^${W.MATERNITY}: Last known: 3 beds\u00a0— Last reported not accepting admissions\u00a0— last reported at .*\\(Lagos time\\) — call to confirm$`));
   });
 
   test('a null count after a first report reads "Bed count not reported" (STALE: "Last known: bed count not reported"), never "not yet reporting", never zero', async () => {
     await openPage({ world: { facilities: [{ id: 'f1', name: 'Quiet Hospital' }], wards: [{ facility: 'f1', category: 'MATERNITY', agoMin: 5, bed: null }] }, search: '?ward=maternity' });
-    expect(wardLines()[0]).toBe(`${W.MATERNITY}: Bed count not reported — updated 6 min ago`);
+    expect(wardLines()[0]).toBe(`${W.MATERNITY}: Bed count not reported\u00a0— updated 6 min ago`);
     expect(pageText()).not.toContain('not yet reporting');
     releaseTimers();
     await openPage({ world: { facilities: [{ id: 'f1', name: 'Quiet Hospital' }], wards: [{ facility: 'f1', category: 'MATERNITY', agoMin: 200, bed: null }] }, search: '?ward=maternity' });
-    expect(wardLines()[0]).toMatch(new RegExp(`^${W.MATERNITY}: Last known: bed count not reported — ${P.last_accepting} — last reported at`));
+    expect(wardLines()[0]).toMatch(new RegExp(`^${W.MATERNITY}: Last known: bed count not reported\u00a0— ${P.last_accepting}\u00a0— last reported at`));
     expect(pageText()).not.toContain('not yet reporting');
   });
 
@@ -672,7 +685,7 @@ describe('T-LABEL-1 and 2, T-A11Y-1 and the five states (GO, H) — the public p
       search: '?ward=maternity',
     });
     const lineFor = (name: string): string => cardEl(name)?.querySelector('li')?.textContent ?? '';
-    expect(lineFor('Zero Hospital')).toBe(`${W.MATERNITY}: 0 beds reported — updated 6 min ago`);
+    expect(lineFor('Zero Hospital')).toBe(`${W.MATERNITY}: 0 beds reported\u00a0— updated 6 min ago`);
     expect(lineFor('None Hospital')).toBe(`${W.MATERNITY}: ${P.not_yet_reported}`);
     expect(lineFor('Old Hospital')).toContain('Last known: 3 beds');
     expect(lineFor('Suppressed Hospital')).toBe(`${W.MATERNITY}: Status unknown — call to confirm`);
@@ -701,5 +714,75 @@ describe('the page with no controls host, and an address that asks for something
     expect(byId<HTMLInputElement>('area-input').value).toBe('Ikeja');
     expect(originText()).toBe('From the Ikeja reference point');
     expect(location.search).toBe('?ward=maternity&area=ikeja');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A dash never stands alone (Addendum 2, item 4 b).
+// ---------------------------------------------------------------------------
+
+/**
+ * On a phone the age stamp takes its own line, so the dash before it ends the line above. With a plain space before the dash, a long claim
+ * (a gate reason in brackets, "0 beds reported") let the dash wrap alone onto a line of its own at 360 px. With a NON-BREAKING space it travels
+ * with the word before it. A browser breaks a line at a plain space and never at U+00A0, so what a test can hold is the TEXT: in every ward row
+ * that has a stamp, the characters immediately before the stamp are U+00A0, an em dash and one space, and a plain-space form is absent.
+ */
+export function danglingDashViolations(rows: readonly Element[]): string[] {
+  const out: string[] = [];
+  let checked = 0;
+  for (const li of rows) {
+    const stamp = li.querySelector('.stamp');
+    if (stamp === null) continue;
+    checked += 1;
+    const text = li.textContent ?? '';
+    const at = text.lastIndexOf(stamp.textContent ?? '');
+    const before = text.slice(Math.max(0, at - 3), at);
+    if (before !== '\u00a0— ') out.push(`the characters before the stamp "${stamp.textContent}" are ${JSON.stringify(before)}, not a non-breaking space, a dash and a space`);
+    if (/[^\u00a0] — (updated|last reported|age unknown|not accepting|Last reported|set by admin|under review)/.test(text)) out.push(`a plain-space dash before a stamp in "${text}"`);
+  }
+  if (checked === 0) out.push('no ward row with a stamp was checked');
+  return out;
+}
+
+describe('the dash before the age stamp is joined to the word before it', () => {
+  const gated = (ago: number, extra: Record<string, unknown> = {}): World => ({
+    facilities: [{ id: 'f1', name: 'Gated Hospital' }],
+    wards: [{ facility: 'f1', category: 'MATERNITY', agoMin: ago, accepting: false, gatedBy: 'NO_ANAESTHETIST_ON_DUTY', ...extra }],
+  });
+
+  test.each<[string, World]>([
+    ['FRESH and gated, the case the review found', gated(5)],
+    ['AGEING and gated', gated(50)],
+    ['zero beds', { facilities: [{ id: 'f1', name: 'Zero Hospital' }], wards: [{ facility: 'f1', category: 'MATERNITY', agoMin: 5, bed: 0 }] }],
+    ['STALE', gated(200)],
+    ['a count that was never given', { facilities: [{ id: 'f1', name: 'Quiet Hospital' }], wards: [{ facility: 'f1', category: 'MATERNITY', agoMin: 5, bed: null }] }],
+  ])('%s', async (_name, world) => {
+    await openPage({ world, search: '?ward=maternity' });
+    expect(danglingDashViolations(Array.from(document.querySelectorAll('#app li')))).toEqual([]);
+  });
+
+  test('an age that cannot be measured has the same join', async () => {
+    await openPage({ world: gated(5), search: '?ward=maternity', servedAfterGen: null });
+    expect(danglingDashViolations(Array.from(document.querySelectorAll('#app li')))).toEqual([]);
+  });
+
+  test('plant — a row whose dash follows a plain space is rejected, and so is a row with the dash missing', async () => {
+    await openPage({ world: gated(5), search: '?ward=maternity' });
+    const li = document.querySelector('#app li') as HTMLElement;
+    const real = li.innerHTML;
+    // The LAST dash is the one before the stamp (a gated row has an earlier one before "not accepting").
+    const cut = real.lastIndexOf('&nbsp;— ');
+    li.innerHTML = `${real.slice(0, cut)} — ${real.slice(cut + '&nbsp;— '.length)}`;
+    expect(li.innerHTML, 'the plant did not land').not.toBe(real);
+    expect(danglingDashViolations([li]).join('\n')).toContain('not a non-breaking space');
+    li.innerHTML = `${real.slice(0, cut)}${real.slice(cut + '&nbsp;— '.length)}`;
+    expect(danglingDashViolations([li]).join('\n')).toContain('not a non-breaking space');
+  });
+
+  test('anti-vacuity — a page with no stamped row is rejected, not passed', () => {
+    expect(danglingDashViolations([])).toEqual(['no ward row with a stamp was checked']);
+    const li = document.createElement('li');
+    li.textContent = 'Maternity: Status unknown — call to confirm';
+    expect(danglingDashViolations([li])).toEqual(['no ward row with a stamp was checked']);
   });
 });
