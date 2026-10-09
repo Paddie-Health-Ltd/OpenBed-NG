@@ -1019,12 +1019,17 @@ wrong on a correct run teaches whoever runs it to ignore stop conditions.
 Restated 2026-09-14: until then this read `exactly 13 migration(s) pending.`, and
 migration 014 made that wrong.
 
-- **The hosted project today** holds 001 through 030 (see step 7), and the
+- **The hosted project today** holds 001 through 031 (see step 7), and the
   repository ends at 031. Every file up to and including
-  `030_truncate_guard_audit_tables.sql` must read `already applied`;
-  there must be exactly one `WOULD APPLY` line, naming `031_facility_address.sql`; and the dry
+  `031_facility_address.sql` must read `already applied`;
+  there must be no `WOULD APPLY` line; and the dry
   run must end
-  `1 migration(s) pending.` Apply it by the fences below, in the order step 5 gives them.
+  `0 migration(s) pending.` A migration added after this one is applied by the fences below, in the order step 5 gives them.
+- **Restated 2026-10-08 (R-2026-09-30-215 GN), in the change that records 031's
+  hosted apply.** Until then this expected 001 through 030, exactly one `WOULD APPLY`
+  line naming `031_facility_address.sql`, and `1 migration(s) pending.` The
+  founder's dry run printed exactly that on 2026-10-08 (its tail was pasted), and the
+  apply that followed took the ledger to 31.
 - **Restated 2026-10-08 (R-2026-09-30-214 GN), in the change that ADDS 031.** Until then
   this expected no `WOULD APPLY` line and `0 migration(s) pending.`, which was right
   from 030's hosted apply while the repository also ended at 030.
@@ -1147,10 +1152,14 @@ migration 014 made that wrong.
   `3 migration(s) pending.` The founder's run printed exactly those three, in
   that order, and applied them. Left as it was, the expectation would now read
   wrong on a correct run, which is the failure this section is about.
-- **Any `WOULD APPLY` line OTHER than the one named above, or any count other than
-  `1 migration(s) pending.`: stop and report.** Another file pending means
+- **Any `WOULD APPLY` line AT ALL, or any count other than
+  `0 migration(s) pending.`: stop and report.** Another file pending means
   either a migration reached the repository after the list was last restated, or
   hosted is not where this document says it is.
+  - *Restated 2026-10-08 (R-2026-09-30-215 GN), in the change that records 031's
+    hosted apply. Until then this bullet read "Any `WOULD APPLY` line OTHER than the one
+    named above, or any count other than `1 migration(s) pending.`", which was right from
+    #131's merge until the apply.*
   - *Restated 2026-10-08 (R-2026-09-30-214 GN), in the change that adds 031. Until then
     this bullet read "Any `WOULD APPLY` line AT ALL, or any count other than
     `0 migration(s) pending.`", which was right from 030's hosted apply until this
@@ -1870,6 +1879,7 @@ node scripts/freeze_applied_migrations.mjs 19 YYYY-MM-DD R-YYYY-MM-DD-NN
 - [x] Frozen boundary recorded, 2026-09-17: 17 migrations, `001_app_schema_and_migration_ledger.sql` first, `017_snapshot_schedule.sql` last (R-2026-09-17-01), with the frozen_migrations placeholder moved to 018 in the same change
 - [x] Frozen boundary recorded, 2026-09-22: 18 migrations, `001_app_schema_and_migration_ledger.sql` first, `018_close_mirror_read_and_push_surfaces.sql` last (R-2026-09-22-52), with the frozen_migrations placeholder moved to 019 in the same change. `ledger_rows: 18`, matching the `18` read from hosted `app.schema_migrations` in the apply session; the recorder would have refused any other number.
 - [x] Frozen boundary recorded, 2026-10-07: 30 migrations, `001_app_schema_and_migration_ledger.sql` first, `030_truncate_guard_audit_tables.sql` last (R-2026-09-30-208 GH), recorded by `node scripts/freeze_applied_migrations.mjs 30 2026-10-07 R-2026-09-30-208`. `ledger_rows: 30`. On 2026-10-07 the founder's second dry run (fence 5 of "030's apply") pasted a tail reading `0 migration(s) pending.`; the lines above the tail were not pasted, so the `30` is the count of forward files in the repository at `e364cc1` with nothing pending, and is not a ledger row count read from hosted. 030's sha256 is the tracked file's at `e364cc1`, the checkout the founder ran from; the file is unchanged since the commit that added it.
+- [x] Frozen boundary recorded, 2026-10-08: 31 migrations, `001_app_schema_and_migration_ledger.sql` first, `031_facility_address.sql` last (R-2026-09-30-215 GN), recorded by `node scripts/freeze_applied_migrations.mjs 31 2026-10-08 R-2026-09-30-215`. `ledger_rows: 31`. On 2026-10-08 the founder's second dry run (fence 5 of "031's apply") pasted a tail reading `0 migration(s) pending.`; the lines above the tail were not pasted, so the `31` is the count of forward files in the repository at `0e287fc` with nothing pending, and is not a ledger row count read from hosted. 031's sha256 is the tracked file's at `0e287fc`, the checkout the founder ran from; the file is unchanged since the commit that added it (`de640cf`).
 - [x] Frozen boundary recorded, 2026-10-06: 29 migrations, `001_app_schema_and_migration_ledger.sql` first, `029_facility_reporting_approval.sql` last (R-2026-09-30-203 GC), recorded by `node scripts/freeze_applied_migrations.mjs 29 2026-10-06 R-2026-09-30-203`. `ledger_rows: 29`. On 2026-10-06 the founder's second dry run (fence 5 of "029's apply") pasted a tail reading `already applied : 029_facility_reporting_approval.sql` and `0 migration(s) pending.`; the lines above the tail were not pasted. 029's sha256 is the tracked file's at `55fa3bc`, the checkout the founder ran from; the file is unchanged since the commit that added it.
 - [x] Frozen boundary recorded, 2026-09-30: 28 migrations, `001_app_schema_and_migration_ledger.sql` first, `028_operator_scheduler_status.sql` last (R-2026-09-30-177 FA-5 b), recorded by `node scripts/freeze_applied_migrations.mjs 28 2026-09-30 R-2026-09-30-177`. `ledger_rows: 28`, matching the twenty-eight `already applied` lines of the founder's second dry run (fence 5 of "028's apply"). 028's sha256 is the tracked file's at `7b71b28`, the checkout the founder ran from; the file is unchanged since the commit that added it.
 - [x] Frozen boundary recorded, 2026-09-30: 27 migrations, `001_app_schema_and_migration_ledger.sql` first, `027_scheduler_status.sql` last (R-2026-09-30-175 EY-1), recorded by `node scripts/freeze_applied_migrations.mjs 27 2026-09-30 R-2026-09-30-175`. `ledger_rows: 27`, matching the twenty-seven `already applied` lines of the founder's second dry run (fence 5 of "027's apply"). 027's sha256 is the tracked file's at `89c74b0`, the checkout the founder ran from. The recorder ran BEFORE 028's file was added to this change, because it refuses any row count other than the number of forward files.
@@ -2764,9 +2774,15 @@ apply. On 2026-10-07 it was (R-2026-09-30-208), with 030's sha256 as at `e364cc1
 
 ### 031's apply — the facility's street address; the public dashboard goes FIRST (R-2026-09-30-214 GN)
 
-**Not yet run.** The founder runs it after the pull request that adds 031 merges, and **in
-the order below, which is not the order of the migration number.** Claude Code runs nothing
-hosted.
+**Run on 2026-10-08** by the founder, one step at a time, from the deploy checkout at
+`0e287fc2173767645a68f8ab541a56f1e16feb9e` (#131's merge; `npm ci` read 0 vulnerabilities),
+**in the order below, which is not the order of the migration number.** Each fence was read
+by Cowork (R-2026-09-30-215 GN). The readings are in the checkboxes at the end of this
+section. Claude Code ran nothing hosted and observed nothing hosted: every reading here is the
+founder's, relayed by Cowork.
+*Restated 2026-10-08 (R-2026-09-30-215 GN): until then this read "Not yet run. The founder
+runs it after the pull request that adds 031 merges, and in the order below, which is not the
+order of the migration number. Claude Code runs nothing hosted."*
 
 **What 031 changes** (its header says why). A nullable `address` column on `app.facility`
 and on `public.facility_public`, with a CHECK (1 to 200 characters, trimmed, no line break
@@ -2859,16 +2875,31 @@ from both tables, and so discards every address entered; it recreates the seven-
 eight-argument functions, which the admin deployed at this commit cannot call.
 
 **Afterwards:** the frozen boundary is recorded with `31`, in the change that records this
-apply.
+apply: it is, on 2026-10-08 (R-2026-09-30-215 GN).
+
+- [x] On 2026-10-08, 031 applied, hosted order (a) to (d), from the founder's deploy checkout at `0e287fc2173767645a68f8ab541a56f1e16feb9e` (#131's merge). The readings are the founder's, relayed by Cowork (R-2026-09-30-215 GN), who read each fence before the next. **Which readings were tail-only or verdict-only is stated here so that nothing is claimed read that was not.** **(a)** The public dashboard, deployment `77d017ae`; `readback_pages.sh` read PASS on both hosts, with the stamp reading `0e287fc` and the page bundle `index-XrL_-ReK.js` on openbed.ng. **(b)** Fence 1: the founder pasted the tail only, `WOULD APPLY : 031_facility_address.sql` and "1 migration(s) pending."; the count of one with that line excludes anything else pending, and the `already applied` lines above it were not pasted, so they are not claimed as read. Fence 2: `FINGERPRINT beds.json=1/3:cff5b7d39bc7,facility_public=1:ab5561004c76,ward_public=3:657f2cc6f0d7,lga_rollup=0:d41d8cd98f00`: one facility, three wards, the first fingerprint taken against a LISTED facility. Fence 3: the founder pasted the tail only, "Migrations complete (1 applied this run)."; nothing above it is claimed read. **Fence 4: PASS, and a REAL comparison, the first this procedure has made against a listed facility**. It was reported as the verdict `PASS`; the four parts' own lines were not relayed to me. Cowork confirmed that no ward published between the two readings (the ward's `updated_at` unchanged), so `readback_public_output.sh`'s caveat, "valid only while no ward can publish", did not bite on this run; **it will not hold for an apply made while wards publish, and that needs a design of its own** (a TRIGGER row records it, below). Fence 5: the founder pasted the tail only, "0 migration(s) pending."; the zero count excludes any `WOULD APPLY` line, and the thirty-one `already applied` lines above it were not pasted, so they are not claimed as read. Fence 6: PASS, reported with `public.operator_create_facility` (the 8-argument signature) and `public.operator_edit_facility` (the 9-argument signature) each `EXECUTE: authenticated`, and the two old signatures absent; no per-line count was relayed. The one reading of what 031 created: `operator_create_facility|8`, `operator_edit_facility|9`, `app.facility`, `public.facility_public`, as expected. Cowork saw `/beds.json` carry `facility_extras` (an empty array) at 16:38Z, served 200 (Cowork's observation, relayed). **(c)** The admin app, deployment `321ba566`, run straight after (b) with no admin write between; `readback_admin.sh` read PASS, with the stamp reading `0e287fc` and the bundle `index-DRNhqP_c.js`. **(d)** Facility one's street address was entered in the admin app; Cowork saw it on openbed.ng at 20:43Z (Cowork's observation, relayed).
 
 ### Expected output, including the one line that looks like a failure and is not
 
-**On the hosted project today** (001 through 030 applied, and the repository ends at
-031), the dry run prints thirty `already applied` lines and:
+**On the hosted project today** (001 through 031 applied, and so does the repository
+end), the dry run prints thirty-one `already applied` lines and:
+
+```
+0 migration(s) pending.
+```
+
+*Restated 2026-10-08 (R-2026-09-30-215 GN), in the change that records 031's hosted
+apply.* Until then this block showed thirty `already applied` lines, one WOULD APPLY
+line naming `031_facility_address.sql`, and a count of one -- right while hosted
+was at 030 and the repository ended at 031. That is what the founder's dry run printed on
+2026-10-08 (its tail was pasted: that line and the count), and the apply that followed
+ended with the last line below. It is kept with the other dated runs rather than
+overwritten:
 
 ```
   WOULD APPLY     : 031_facility_address.sql   <- dry run
 1 migration(s) pending.
+Migrations complete (1 applied this run).
 ```
 
 *Restated 2026-10-08 (R-2026-09-30-214 GN), in the change that adds 031.* Until then this
@@ -3213,8 +3244,14 @@ this paragraph read twenty-two, 002 through 023, and twenty-three.*
 count:**
 
 Expect the ledger query to return one row per forward migration file APPLIED TO
-THAT PROJECT. **On hosted today that is `30`, with `1 migration(s) pending.` from the
-dry run** -- 031, in the repository and not yet applied.
+THAT PROJECT. **On hosted today that is `31`, with `0 migration(s) pending.` from the
+dry run.** On 2026-10-08 the founder's second dry run after 031's apply ended with
+`0 migration(s) pending.`; the founder pasted that tail only, so the thirty-one
+`already applied` lines, 001 through 031, were not read, and the zero count is what
+excludes any `WOULD APPLY` line.
+*Restated 2026-10-08 (R-2026-09-30-215 GN), in the change that records 031's hosted
+apply; until then it read `30` with `1 migration(s) pending.`, 031 in the repository and
+not yet applied.*
 *Restated 2026-10-08 (R-2026-09-30-214 GN), in the change that adds 031; until then it
 read `30` with `0 migration(s) pending.`, right from 030's hosted apply while the
 repository ended at 030.*
@@ -3740,7 +3777,7 @@ than a number that has to be maintained.)* This table
 previously recorded server versions only, which left the one tool every SQL
 result above passed through unrecorded.
 
-**Hosted now holds 001 through 030.** Migrations 014, 015 and 016 were applied on
+**Hosted now holds 001 through 031.** Migrations 014, 015 and 016 were applied on
 2026-09-16 (R-2026-09-16-02), 017 on 2026-09-17 (R-2026-09-17-01), **018 on
 2026-09-22 at 05:40:40 UTC (R-2026-09-22-52)**, **019 on 2026-09-23
 (R-2026-09-23-69)**, **020 on 2026-09-24 (R-2026-09-24-77)**, **021 on 2026-09-24
@@ -3748,9 +3785,13 @@ result above passed through unrecorded.
 (R-2026-09-25-105)**, **024 on 2026-09-27 (R-2026-09-27-139)**, **025 and 026
 together, in one run, on 2026-09-28 (R-2026-09-28-149)**, **027 on 2026-09-30
 (R-2026-09-30-175)**, **028 on 2026-09-30 (R-2026-09-30-177)**, **029 on 2026-10-06
-(R-2026-09-30-203)**, and **030 on 2026-10-07 (R-2026-09-30-208)**; step 5 carries each run's output, its post-apply probe, the
+(R-2026-09-30-203)**, **030 on 2026-10-07 (R-2026-09-30-208)**, and **031 on 2026-10-08 (R-2026-09-30-215)**; step 5 carries each run's output, its post-apply probe, the
 owners read, the reader-policy read, 017's jobs read, 018's pre-apply reading and
 read-back, and the frozen-boundary record.
+
+*Restated 2026-10-08 (R-2026-09-30-215 GN), in the change that records 031's hosted
+apply.* Until then this read *"Hosted now holds 001 through 030."*, its list ending at
+030 on 2026-10-07 (R-2026-09-30-208).
 
 *Restated 2026-10-07 (R-2026-09-30-208 GH), in the change that records 030's hosted
 apply.* Until then this read *"Hosted now holds 001 through 029."*, its list ending at
@@ -5186,11 +5227,18 @@ through the admin app.
      (`https://3f0e1e17.openbed-public-dashboard.pages.dev`), and its read-back read PASS
      with Version 1.1 on both hosts. The founder's browser shows "Version 1.1" at
      openbed.ng/privacy. No facility-level login existed before this box closed.
-   - [ ] The founder's launch paperwork register reads Approved on every item. The
+   - [x] The founder's launch paperwork register reads Approved on every item. The
      register is outside this repository. (R-2026-09-26-121 CW-2) It does not replace
      the first box above. Its transfer memo covers the notice's transfer sentence for
      Cloudflare, whose basis for transfers out of Nigeria is the founder's transfer pack
      (R-2026-09-27-138 DN-2).
+     **CLOSED 2026-10-08 (R-2026-09-30-215 GN).** The founder approved the register's row 13 on
+     2026-10-08, on the basis that counsel's C4 applies only before the FIRST PUBLIC hospital
+     signs, and facility one is private; the register therefore reads 14 of 14 Approved.
+     *Evidence kind: the founder's ruling and Cowork's reading of the register, relayed to me;
+     the register is outside this repository, so nothing here can verify it.* DN-2's row,
+     which named this same box, leaves the deferred-items register with it, and the register's
+     BOX count reads 0 (recounted in the decision record).
    - [x] The facility agreement grants the facility's permission to publish its live
      capacity (Blocks facility-one onboarding, B1): the clause is drafted, is in the
      agreement version the facility accepts, and is approved by the founder. It is
@@ -5247,6 +5295,9 @@ through the admin app.
    (R-2026-09-27-142 DR-4.) It is lettered, not numbered, so steps 3 to 9 keep the
    numbers other records cite: the hosted register was empty at D3's deploy, so this is
    the facility view's first hosted sight.
+   **OWED, 2026-10-08 (R-2026-09-30-215 GN): not done at facility one's hosted run.** The facility was
+   entered and listed without this read; it stays open, and it is not ticked anywhere. It has
+   no row in the deferred-items register: DR-4 landed it as a lettered step only.
 3. **Record the contact and the agreement** in the facility's detail view.
    3a. **Record the approved reporting model** in the facility's detail view, from the
    facility's signed Schedule 1, Part A ("Who reports"). Read the box the facility ticked.
@@ -5270,6 +5321,13 @@ through the admin app.
    2:** it is a TRIGGER row in the decision record's deferred-items register, whose gate
    names this step, and this line is where the sitting that runs step 3a will read it. It
    leaves the register, and this line is restated, in the ruling that records the reading.
+   **STILL OWED, 2026-10-08 (R-2026-09-30-215 GN): step 3a was done at facility one's hosted run, and 5b
+   then 5c were NOT run in that sitting.** Nothing was ticked. Cowork ruled on its review of #132
+   that the row is **not marked fired**, and **restated its gate as "before the next public
+   dashboard deploy, or before facility two, whichever is first"**; the old gate, "Facility one's
+   hosted run reaches 12.4 step 3a", is kept in the row's text. **So the sentence above that says
+   the row's gate "names this step" is superseded by that restated gate**, and it is still owed:
+   run 5b, then 5c from 5b's end state, before whichever of the two comes first.
 4. **Add the ward categories**, each with its offering stated. There is no default.
 5. **Provision the facility's reporting login, or its ward logins,** with the script.
    *Restated 2026-09-28 (R-2026-09-27-144 DT, Bundle 2): until then this read "Provision
@@ -5489,8 +5547,60 @@ through the admin app.
    refused publish, a ward whose card has no Publish button under the facility's login,
    or either count missing from `/beds.json`. Stop and report it.
 
+   **OWED, 2026-10-08 (R-2026-09-30-215 GN): not ticked, and not yet runnable.** Facility one's ward
+   console published its first counts at 12:01:42Z to 12:01:45Z (6, 2 and 2 beds), but the
+   facility was re-listed at 12:02:53Z, AFTER them, so those publishes do not prove the listed
+   path end to end. This step needs a publish made AFTER 12:02:53Z; Cowork will confirm it
+   from `/beds.json`. It stays under B1's onboarding-checks row in the deferred-items register.
+
    *Renumbered 2026-09-26 (R-2026-09-26-122):* steps 6 and 9 are new, and the old steps 6
    (List) and 7 (Read back) are now 7 and 8. Nothing cited them by number.
+
+#### Facility one's hosted run, 2026-10-08 (relayed)
+
+*Added 2026-10-08 (R-2026-09-30-215 GN), records only.* **Everything below was run by the founder on
+2026-10-08, one step at a time, and read by Cowork. It is recorded as RELAYED, not
+observed: I ran and read nothing hosted.** Where a reading was given as a verdict only, or
+as a tail only, this says so. The founder's machine is not named here; one read-back
+printed a local path in its header, and it is omitted.
+
+**Facility one: Iduna Specialist Hospital, facility id `144cab4a-55af-4962-b2be-8c1003ece518`** (a private
+facility; its name and id are already public, in `/beds.json`).
+
+- **The agreement** was signed on 2026-10-07 (founder-reported). **The paperwork register's
+  row 13** was approved by the founder on 2026-10-08 (basis: counsel's C4 applies only before
+  the first public hospital signs; facility one is private), so the register reads 14 of 14
+  Approved and step 1's CW-2 box is ticked, CLOSED 2026-10-08.
+- **Order as it happened, which is not the order above.** The facility, its agreement, its
+  contact and three wards (`MEDICAL_ADULT`, `PAEDIATRIC` and `MATERNITY`, each OFFERED) were
+  entered, and the facility was **LISTED early, at 08:11Z, before any login existed.** Cowork
+  saw it on openbed.ng reading "not currently reporting". **The founder unlisted it by SQL at
+  about 08:45Z** (`UPDATE app.facility SET listed_at = NULL`, `UPDATE 1`, `COMMIT`); the 08:47Z
+  snapshot held 0 facilities and the page showed the empty state. **That SQL step wrote no
+  `app.audit_log` row**, because no operator function was used; the unlisting is on record
+  only here and in the decision record.
+- **The ward console precondition (step 5).** `readback_ward_console.sh` on app.openbed.ng read
+  STOP: the deployed console was `87aa410` (#111). It was redeployed from `6866161` as
+  deployment `4cfe8959`, and its read-back read PASS (stamp `6866161` on the deployment and on
+  app.openbed.ng, bundle `index-_mU1UHE_.js`).
+- **Step 3a:** the approval was recorded in admin by the founder. **Step 5b:** the facility's
+  reporting login was provisioned (`FACILITY_REPORTER`): the facility's reporting login
+  (account id and masked address in the records folder), the auth user created and confirmed.
+  **Step 6b:** `claims_set` read `t`; `MEDICAL_ADULT`, `PAEDIATRIC` and `MATERNITY` each read
+  `history_rows 0`; the last line was `ROLLBACK`. **After step 6,** the register read "Logins
+  match the approved model: one login for the whole facility."
+- **Before step 7:** the public number was called and was answered (founder-reported).
+- **The first publishes** were made at 12:01:42Z to 12:01:45Z (6, 2 and 2 beds). **The founder
+  re-listed the facility at 12:02:53Z, and it has been public at openbed.ng since.**
+- **GN's hosted order (a) to (d)** is recorded under "031's apply" in step 5, with each reading's
+  extent. In short: (a) the public dashboard, deployment `77d017ae`, read-back PASS on both hosts
+  (stamp `0e287fc`); (b) 031 applied, fence 4 `PASS` against live data; (c) the admin app,
+  deployment `321ba566`, read-back PASS (stamp `0e287fc`), straight after (b); (d) the street
+  address entered, seen by Cowork on openbed.ng at 20:43Z.
+- **OWED, not done, and NOT ticked:** step 2a's console read (above); step 3b, read-backs 5b
+  then 5c (above); and step 9, which needs a publish AFTER 12:02:53Z (above).
+
+*Restated 2026-10-08 (R-2026-09-30-215 GN), in the same change:* until then this subsection did not exist.
 
 #### Changing a facility's reporting model
 
