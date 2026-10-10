@@ -1,9 +1,10 @@
-import { copyFileSync, readFileSync } from 'node:fs';
+import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
 import { robotsTxtSource, SEARCH_VISIBILITY } from '../../packages/origins/src/search.js';
 import { renderNotice, type Contacts } from './privacy-notice.js';
-import { fillPage } from './site-pages.js';
+import { fillPage, PAGES } from './site-pages.js';
+import { HOME_URL } from '../../packages/origins/src/privacy.js';
 
 const REPO = resolve(import.meta.dirname, '../..');
 
@@ -20,8 +21,8 @@ const REPO = resolve(import.meta.dirname, '../..');
  * holds the table and the rule.
  *
  * SEARCH_VISIBILITY (packages/origins/src/search.ts) decides the meta robots tag of the
- * home, About and How-it-works pages and which tracked robots file becomes
- * dist/robots.txt. It decides nothing else.
+ * home, About, How-it-works and discovery guides, which tracked robots file becomes
+ * dist/robots.txt, and whether the informational sitemap is emitted.
  */
 function staticPages(): Plugin {
   const contacts = JSON.parse(readFileSync(resolve(REPO, 'packages/origins/contacts.json'), 'utf8')) as Contacts;
@@ -42,6 +43,12 @@ function staticPages(): Plugin {
     // replaces the copy, byte for byte. In the hidden (fallback) state that is the same file.
     closeBundle() {
       copyFileSync(resolve(REPO, robotsTxtSource(SEARCH_VISIBILITY)), resolve(import.meta.dirname, 'dist/robots.txt'));
+      // Only informational pages: no snapshot, filter URLs, hospital identities or duty numbers.
+      if (SEARCH_VISIBILITY === 'public') {
+        const paths = ['/', '/about', '/how-it-works', ...Object.values(PAGES).flatMap((page) => page.canonicalPath === undefined ? [] : [page.canonicalPath])];
+        const urls = paths.map((path) => `<url><loc>${new URL(path, HOME_URL).href}</loc></url>`).join('');
+        writeFileSync(resolve(import.meta.dirname, 'dist/sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>\n`);
+      }
     },
   };
 }
@@ -70,10 +77,13 @@ export default defineConfig({
   envPrefix: ['OPENBED_NO_BUILD_ENV_'],
   plugins: [staticPages()],
   build: {
-    // Four static entries: the dashboard, the privacy notice at /privacy (DL-1 b), and
-    // About and How-it-works at /about and /how-it-works (R-2026-09-30-190 FN-2).
+    // Static entries: dashboard, privacy, About, How-it-works and four discovery guides.
     rollupOptions: {
       input: {
+        'hospital-bed-availability-nigeria': resolve(import.meta.dirname, 'hospital-bed-availability-nigeria.html'),
+        'hospital-bed-availability-lagos': resolve(import.meta.dirname, 'hospital-bed-availability-lagos.html'),
+        'icu-bed-availability-nigeria': resolve(import.meta.dirname, 'icu-bed-availability-nigeria.html'),
+        'hospital-bed-reporting': resolve(import.meta.dirname, 'hospital-bed-reporting.html'),
         index: resolve(import.meta.dirname, 'index.html'),
         privacy: resolve(import.meta.dirname, 'privacy.html'),
         about: resolve(import.meta.dirname, 'about.html'),

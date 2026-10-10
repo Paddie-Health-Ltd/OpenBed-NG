@@ -320,31 +320,31 @@ describe('the build step\'s rules for the static pages (R-2026-09-30-190 FN-2, F
   });
 
   test('real — the home page fills its canonical placeholder and its robots one', () => {
-    const html = fillPage('index.html', `<head>${ROBOTS_PLACEHOLDER}${CANONICAL_PLACEHOLDER}</head>`, inputs());
+    const html = fillPage('index.html', `<head>${ROBOTS_PLACEHOLDER}${CANONICAL_PLACEHOLDER}</head>${FOOTER_PLACEHOLDER}`, inputs());
     expect(html).toContain(canonicalLink());
     expect(html).not.toContain(CANONICAL_PLACEHOLDER);
   });
 
   test('the public state writes index, follow into the three setting pages, and never into privacy.html', () => {
     expect(fillPage('about.html', shell(ROBOTS_PLACEHOLDER), inputs('public'))).toContain('<meta name="robots" content="index, follow" />');
-    expect(fillPage('index.html', `<head>${ROBOTS_PLACEHOLDER}${CANONICAL_PLACEHOLDER}</head>`, inputs('public'))).toContain('content="index, follow"');
+    expect(fillPage('index.html', `<head>${ROBOTS_PLACEHOLDER}${CANONICAL_PLACEHOLDER}</head>${FOOTER_PLACEHOLDER}`, inputs('public'))).toContain('content="index, follow"');
     expect(PAGES['privacy.html']?.robotsFromSetting, 'privacy.html must be noindex in both states').toBe(false);
     expect(() => fillPage('privacy.html', `<head>${ROBOTS_PLACEHOLDER}</head>${NOTICE_PLACEHOLDER}`, inputs('public'))).toThrow('robots placeholder does not belong');
   });
 
   test.each([
-    ['a page text placeholder in the dashboard index', 'index.html', `${ROBOTS_PLACEHOLDER}${CANONICAL_PLACEHOLDER}${NOTICE_PLACEHOLDER}`, 'page-text placeholder does not belong'],
+    ['a page text placeholder in the dashboard index', 'index.html', `${ROBOTS_PLACEHOLDER}${CANONICAL_PLACEHOLDER}${FOOTER_PLACEHOLDER}${NOTICE_PLACEHOLDER}`, 'page-text placeholder does not belong'],
     ['a page text placeholder in an unknown page', 'other.html', NOTICE_PLACEHOLDER, 'page-text placeholder does not belong'],
     ['a second page text placeholder', 'about.html', shell(ROBOTS_PLACEHOLDER, NOTICE_PLACEHOLDER), 'expected exactly one page-text placeholder, found 2'],
     ['no page text placeholder', 'about.html', `<head>${ROBOTS_PLACEHOLDER}</head>${FOOTER_PLACEHOLDER}`, 'expected exactly one page-text placeholder, found 0'],
     ['no footer placeholder on a page that needs one', 'how-it-works.html', `<head>${ROBOTS_PLACEHOLDER}</head>${NOTICE_PLACEHOLDER}`, 'expected exactly one footer placeholder, found 0'],
-    ['no canonical placeholder in the home page', 'index.html', ROBOTS_PLACEHOLDER, 'expected exactly one canonical placeholder, found 0'],
-    ['a second canonical placeholder in the home page', 'index.html', `${ROBOTS_PLACEHOLDER}${CANONICAL_PLACEHOLDER}${CANONICAL_PLACEHOLDER}`, 'expected exactly one canonical placeholder, found 2'],
+    ['no canonical placeholder in the home page', 'index.html', `${ROBOTS_PLACEHOLDER}${FOOTER_PLACEHOLDER}`, 'expected exactly one canonical placeholder, found 0'],
+    ['a second canonical placeholder in the home page', 'index.html', `${ROBOTS_PLACEHOLDER}${CANONICAL_PLACEHOLDER}${CANONICAL_PLACEHOLDER}${FOOTER_PLACEHOLDER}`, 'expected exactly one canonical placeholder, found 2'],
     ['a canonical placeholder in About', 'about.html', `${shell(ROBOTS_PLACEHOLDER)}${CANONICAL_PLACEHOLDER}`, 'canonical placeholder does not belong'],
     ['a canonical placeholder in the privacy notice', 'privacy.html', `${NOTICE_PLACEHOLDER}${CANONICAL_PLACEHOLDER}`, 'canonical placeholder does not belong'],
     ['no attribution placeholder in About', 'about.html', `<head>${ROBOTS_PLACEHOLDER}</head>${NOTICE_PLACEHOLDER}${FOOTER_PLACEHOLDER}`, 'expected exactly one attribution placeholder, found 0'],
     ['an attribution placeholder in how-it-works', 'how-it-works.html', `${plainShell(ROBOTS_PLACEHOLDER)}${ATTRIBUTION_PLACEHOLDER}`, 'attribution placeholder does not belong'],
-    ['an attribution placeholder in the home page', 'index.html', `${ROBOTS_PLACEHOLDER}${CANONICAL_PLACEHOLDER}${ATTRIBUTION_PLACEHOLDER}`, 'attribution placeholder does not belong'],
+    ['an attribution placeholder in the home page', 'index.html', `${ROBOTS_PLACEHOLDER}${CANONICAL_PLACEHOLDER}${FOOTER_PLACEHOLDER}${ATTRIBUTION_PLACEHOLDER}`, 'attribution placeholder does not belong'],
     ['a footer placeholder on the privacy notice', 'privacy.html', `${NOTICE_PLACEHOLDER}${FOOTER_PLACEHOLDER}`, 'footer placeholder does not belong'],
     ['no robots placeholder on a page the setting decides', 'about.html', `${NOTICE_PLACEHOLDER}${FOOTER_PLACEHOLDER}${ATTRIBUTION_PLACEHOLDER}`, 'expected exactly one robots placeholder, found 0'],
   ])('plant — %s stops the build', (_name, file, html, message) => {
@@ -352,7 +352,7 @@ describe('the build step\'s rules for the static pages (R-2026-09-30-190 FN-2, F
   });
 
   test('anti-vacuity — the page table is not empty, and the footer refuses a missing address', () => {
-    expect(Object.keys(PAGES).length, 'no page declared: every leg above is vacuous').toBe(4);
+    expect(Object.keys(PAGES).length, 'no page declared: every leg above is vacuous').toBe(8);
     expect(() => siteFooter({})).toThrow('contacts.json has no hello address');
   });
 });

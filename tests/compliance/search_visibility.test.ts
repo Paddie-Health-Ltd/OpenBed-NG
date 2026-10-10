@@ -10,11 +10,12 @@ import { robotsMetaContent, robotsTxtSource, SEARCH_VISIBILITY, type SearchVisib
 import { place, REPO_ROOT, withScratch } from './_scratch.js';
 
 /**
- * THE ONE SEARCH SETTING DECIDES TWO THINGS, AND NOTHING ELSE (R-2026-09-30-190 FN-3).
+ * THE ONE SEARCH SETTING CONTROLS PUBLIC DISCOVERY (R-2026-09-30-190 FN-3).
  *
  * SEARCH_VISIBILITY (packages/origins/src/search.ts) is shipped as "public" (FN-A; FN-3 first shipped it "hidden"). It decides
  * (a) the meta robots tag of the home, About and How-it-works pages and (b) which tracked
- * file becomes the built robots.txt. Legs, each with a plant:
+ * file becomes the built robots.txt. The build now emits an informational sitemap only
+ * in the public state; search_discovery.test.ts checks its exact URLs. Legs here, each with a plant:
  *
  *   1. SHIPPED VALUE. The value is "public". A flip in either direction is a one-line pull
  *      request that needs a ruling, and this is the line that reddens until the test is
@@ -23,8 +24,8 @@ import { place, REPO_ROOT, withScratch } from './_scratch.js';
  *   3. THE FILES. The hidden file, the fallback, is the robots.txt shipped before FN-3 byte
  *      for byte (sha256 pinned). The
  *      public file is PARSED as robots rules and each path is decided by the longest-match
- *      rule: the home, /about and /how-it-works are allowed; /beds.json, /privacy and every
- *      path not named are disallowed.
+ *      rule: informational pages, the sitemap and rendering assets are allowed;
+ *      /beds.json, /privacy, query URLs and every other path not named are disallowed.
  *   4. THE BUILT DIST matches the shipped state: dist/robots.txt is a byte copy of the
  *      selected file, and each page's built meta robots is the function's value. A stale
  *      dist, a flipped page and a robots file that disagrees with the setting are each
@@ -52,7 +53,7 @@ const PUBLIC_FILE = join(REPO_ROOT, 'apps', 'public-dashboard', 'robots-public.t
 const DIST = join(REPO_ROOT, 'apps', 'public-dashboard', 'dist');
 /** Today's file, as shipped before this change (R-2026-09-30-190 P6). */
 const HIDDEN_SHA256 = 'd12fcd98c7664f42c515f3ccb7446746bf34e1fc3efa4bfcccb3160c5b294e33';
-const SETTING_PAGES = ['index.html', 'about.html', 'how-it-works.html'] as const;
+const SETTING_PAGES = ['index.html', 'about.html', 'how-it-works.html', 'hospital-bed-availability-nigeria.html', 'hospital-bed-availability-lagos.html', 'icu-bed-availability-nigeria.html', 'hospital-bed-reporting.html'] as const;
 const NOINDEX = 'noindex, nofollow';
 /** The state the setting does NOT ship: the plants aim at it, so the go-live flip needs no plant edited. */
 const OTHER: SearchVisibility = SEARCH_VISIBILITY === 'hidden' ? 'public' : 'hidden';
@@ -94,8 +95,8 @@ function allowed(rules: Rule[], path: string): boolean {
   return best === null ? true : best.allow;
 }
 
-const NAMED_ALLOWED = ['/', '/about', '/how-it-works'];
-const NOT_ALLOWED = ['/beds.json', '/privacy', '/api/health', '/index.html', '/anything-else', '/facility/1'];
+const NAMED_ALLOWED = ['/', '/about', '/how-it-works', '/hospital-bed-availability-nigeria', '/hospital-bed-availability-lagos', '/icu-bed-availability-nigeria', '/hospital-bed-reporting', '/assets/index.js', '/assets/index.css', '/assets/font.woff2', '/favicon.ico', '/sitemap.xml'];
+const NOT_ALLOWED = ['/beds.json', '/privacy', '/api/health', '/index.html', '/anything-else', '/facility/1', '/?ward=ICU_ADULT', '/?area=ikeja', '/about-unrelated', '/hospital-bed-availability-nigeria-unrelated'];
 
 /** Why a robots file is not the public-state file, or []. */
 function publicRobotsViolations(text: string): string[] {
@@ -174,13 +175,13 @@ describe('the search setting (R-2026-09-30-190 FN-3)', () => {
     expect(allowed(parseRules(readFileSync(HIDDEN_FILE, 'utf8')), '/'), 'the hidden file lets crawlers in').toBe(false);
   });
 
-  test('real public-state file is accepted — the home, /about and /how-it-works allowed, everything else disallowed', () => {
+  test('real public-state file is accepted — the informational pages and rendering assets allowed, data and query URLs disallowed', () => {
     const out = publicRobotsViolations(readFileSync(PUBLIC_FILE, 'utf8'));
     expect(out, out.join('\n')).toEqual([]);
   });
 
-  test('real public-state file reads exactly the five lines the ruling names', () => {
-    expect(readFileSync(PUBLIC_FILE, 'utf8')).toBe('User-agent: *\nAllow: /$\nAllow: /about\nAllow: /how-it-works\nDisallow: /\n');
+  test('real public-state file names exactly the informational pages and rendering assets', () => {
+    expect(readFileSync(PUBLIC_FILE, 'utf8')).toBe('User-agent: *\nAllow: /$\nAllow: /about$\nAllow: /how-it-works$\nAllow: /assets/\nAllow: /favicon.ico$\nAllow: /sitemap.xml$\nAllow: /hospital-bed-availability-nigeria$\nAllow: /hospital-bed-availability-lagos$\nAllow: /icu-bed-availability-nigeria$\nAllow: /hospital-bed-reporting$\nDisallow: /\n\nSitemap: https://openbed.ng/sitemap.xml\n');
   });
 
   test.each([

@@ -1,15 +1,15 @@
 /**
  * THE STATIC PAGES' BUILD-TIME PIECES (R-2026-09-30-190 FN-2, FN-3).
  *
- * vite.config.ts writes five things into the HTML entries at build time, all of them
+ * vite.config.ts writes five kinds of pieces into the HTML entries at build time, all of them
  * from this file or the tracked sources it names, because the pages ship no script:
  *   - the page text, rendered from a markdown source by privacy-notice.ts's renderer;
- *   - the static footer of About and How-it-works (siteFooter), whose links are the
+ *   - the static footer of home, About, How-it-works and the discovery guides (siteFooter), whose links are the
  *     constants in packages/origins/src/privacy.ts and whose address is read from
  *     packages/origins/contacts.json, the way the home page's footer reads it;
- *   - the meta robots tag of index.html, about.html and how-it-works.html, from
+ *   - the meta robots tag of the home and public informational pages, from
  *     packages/origins/src/search.ts;
- *   - the canonical link of index.html alone, from HOME_URL in packages/origins/src/privacy.ts
+ *   - the canonical links of the home and discovery pages, from HOME_URL in packages/origins/src/privacy.ts
  *     (R-2026-10-09 GO, E);
  *   - the attribution of the area reference points on about.html alone, from the one constant in
  *     src/lga-points.ts (R-2026-10-09 GO, GO-2 e).
@@ -35,18 +35,24 @@ export interface PageConfig {
   readonly footer: boolean;
   /** True where the setting decides the meta robots tag; privacy.html is always noindex. */
   readonly robotsFromSetting: boolean;
-  /** True for the one page that names its own canonical address: the home page. */
+  /** True for pages that name their canonical address: home and discovery guides. */
   readonly canonical: boolean;
+  /** Relative path for a discovery page; the existing home canonical uses HOME_URL. */
+  readonly canonicalPath?: string;
   /** True for the one static page that carries the area reference points' attribution: About. */
   readonly attribution: boolean;
 }
 
 /** Keyed by the entry's file name. */
 export const PAGES: Readonly<Record<string, PageConfig>> = {
-  'index.html': { source: null, name: 'home page', footer: false, robotsFromSetting: true, canonical: true, attribution: false },
+  'index.html': { source: null, name: 'home page', footer: true, robotsFromSetting: true, canonical: true, attribution: false },
   'privacy.html': { source: 'docs/legal/privacy-notice-v1.2.md', name: 'privacy notice', footer: false, robotsFromSetting: false, canonical: false, attribution: false },
   'about.html': { source: 'docs/site/about.md', name: 'about page', footer: true, robotsFromSetting: true, canonical: false, attribution: true },
   'how-it-works.html': { source: 'docs/site/how-it-works.md', name: 'how-it-works page', footer: true, robotsFromSetting: true, canonical: false, attribution: false },
+  'hospital-bed-availability-nigeria.html': { source: 'docs/site/hospital-bed-availability-nigeria.md', name: 'hospital-bed-availability-nigeria guide', footer: true, robotsFromSetting: true, canonical: true, canonicalPath: '/hospital-bed-availability-nigeria', attribution: false },
+  'hospital-bed-availability-lagos.html': { source: 'docs/site/hospital-bed-availability-lagos.md', name: 'hospital-bed-availability-lagos guide', footer: true, robotsFromSetting: true, canonical: true, canonicalPath: '/hospital-bed-availability-lagos', attribution: false },
+  'icu-bed-availability-nigeria.html': { source: 'docs/site/icu-bed-availability-nigeria.md', name: 'icu-bed-availability-nigeria guide', footer: true, robotsFromSetting: true, canonical: true, canonicalPath: '/icu-bed-availability-nigeria', attribution: false },
+  'hospital-bed-reporting.html': { source: 'docs/site/hospital-bed-reporting.md', name: 'hospital-bed-reporting guide', footer: true, robotsFromSetting: true, canonical: true, canonicalPath: '/hospital-bed-reporting', attribution: false },
 };
 
 function count(html: string, needle: string): number {
@@ -55,9 +61,9 @@ function count(html: string, needle: string): number {
 
 const escapeHtml = (text: string): string => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-/** The canonical link: the home page's one address, from the constant. */
-export function canonicalLink(): string {
-  return `<link rel="canonical" href="${escapeHtml(HOME_URL)}" />`;
+/** Canonical address derived from the one home origin, with an optional guide path. */
+export function canonicalLink(path = ''): string {
+  return `<link rel="canonical" href="${escapeHtml(path === '' ? HOME_URL : new URL(path, HOME_URL).href)}" />`;
 }
 
 /** The attribution paragraph: the constant's text, its "© OpenStreetMap contributors" part linked. */
@@ -124,7 +130,7 @@ export function fillPage(file: string, html: string, inputs: BuildInputs): strin
     out = out.replace(NOTICE_PLACEHOLDER, () => text);
   }
   if (page.footer) out = out.replace(FOOTER_PLACEHOLDER, () => siteFooter(inputs.contacts));
-  if (page.canonical) out = out.replace(CANONICAL_PLACEHOLDER, () => canonicalLink());
+  if (page.canonical) out = out.replace(CANONICAL_PLACEHOLDER, () => canonicalLink(page.canonicalPath));
   if (page.attribution) out = out.replace(ATTRIBUTION_PLACEHOLDER, () => attributionBlock());
   if (page.robotsFromSetting) {
     const meta = `<meta name="robots" content="${robotsMetaContent(inputs.visibility)}" />`;
