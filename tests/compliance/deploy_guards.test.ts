@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { withScratch, place, REPO_ROOT } from './_scratch.js';
 import { deployableApps, pagesProjectOf } from './_apps.js';
+import { TRACE_ONLY_CURL } from './_edge_stub.js';
 
 /**
  * GUARDS OVER THE DEPLOY PATH — scripts/deploy_pages.sh and scripts/run_e2e.sh
@@ -15,10 +16,16 @@ import { deployableApps, pagesProjectOf } from './_apps.js';
  * NAMED files while everyone believed it ran the directory.
  *
  * HOW. Each leg builds a scratch git repository and puts a stubbed `npx` (and `npm`
- * where needed) first on PATH, so nothing is built, uploaded, or run for real. The
+ * where needed) first on PATH, so nothing is built, uploaded, or run for real. A stubbed
+ * `curl` answers the edge guard's trace request and nothing else (tests/compliance/_edge_stub.ts,
+ * R-2026-09-30-217 GP); without it every leg would ask Cloudflare. The
  * stub RECORDS that it was invoked, which is what makes the accept legs non-vacuous:
  * a script that refused everything, or that silently did nothing, would pass a bare
  * "exit 0" assertion.
+ *
+ * THE EDGE (R-2026-09-30-217 GP). The block after the main one holds only the wrapper's WIRING of
+ * scripts/edge_guard.sh: where in its order the wrapper asks, and that a refusal builds and uploads
+ * nothing. The table of traces is tests/compliance/edge_guard.test.ts.
  *
  * NOT ASSERTED HERE, deliberately (method note 12):
  *   - that the wrapper is a CONTROL. It is local and defeatable: `npx wrangler pages
@@ -114,6 +121,11 @@ exit 0
   writeFileSync(join(bin, 'npx'), `#!/usr/bin/env bash\necho "npx $*" >> "$STUB_LOG"\necho "npx WRANGLER_SEND_METRICS=\${WRANGLER_SEND_METRICS:-unset}" >> "$STUB_LOG.env"\nexit 0\n`, 'utf8');
   chmodSync(join(bin, 'npm'), 0o755);
   chmodSync(join(bin, 'npx'), 0o755);
+  // THE EDGE GUARD'S TRACE (R-2026-09-30-217 GP). Without this stand-in every leg below would ask Cloudflare for
+  // the real trace, and a run from Lagos would be refused by the very guard these legs are not about. The one
+  // stand-in is shared with tests/compliance/edge_guard.test.ts and answers a trace request and nothing else.
+  writeFileSync(join(bin, 'curl'), TRACE_ONLY_CURL, 'utf8');
+  chmodSync(join(bin, 'curl'), 0o755);
   stubWorkerd(root);
   return bin;
 }
@@ -513,6 +525,78 @@ describe('deploy_pages.sh — the accident case, refused', () => {
       const res = deploy(root);
       expect(res.status, `a non-repository was deployed:\n${res.out}`).toBe(2);
       expect(res.out).toContain('is not a git work tree, so nothing about this build can be checked');
+    });
+  });
+});
+
+const TRACE_CALL = 'curl -q -sS -m 12 https://www.cloudflare.com/cdn-cgi/trace';
+const REFUSAL_SENTENCE =
+  "Cloudflare's Lagos edge refuses deploys from Nigerian networks (R-2026-09-30-217 GP). Connect a VPN exiting outside Nigeria, check colo is not LOS, and run this again.";
+
+/**
+ * THE EDGE (R-2026-09-30-217 GP, GP-3). The trace table lives in tests/compliance/edge_guard.test.ts; THIS block
+ * holds the wrapper's WIRING: that it asks, where in its order it asks, and that a refusal builds and uploads
+ * nothing.
+ */
+describe('deploy_pages.sh — the edge it would go out through is read before anything is built', () => {
+  const builtOrUploaded = (ran: string[]): string[] => ran.filter((l) => /^np[mx] /.test(l));
+
+  test('accept — an ordinary London edge is printed, then the build, then the upload, in that order', () => {
+    withScratch((root) => {
+      repoWithOrigin(root);
+      const res = deploy(root);
+      expect(res.status, `a clean, merged tree on a London edge was refused:\n${res.out}`).toBe(0);
+      expect(res.out, 'the edge was not printed').toContain('deploy_pages.sh: edge trace reads colo=LHR loc=GB');
+      const at = (needle: string): number => res.ran.findIndex((l) => l.includes(needle));
+      expect(at(TRACE_CALL), `the guard never asked for a trace:\n${res.ran.join('\n')}`).toBeGreaterThanOrEqual(0);
+      expect(at(TRACE_CALL), 'the trace was read after the build').toBeLessThan(at('npm run build'));
+      expect(at('npm run build'), 'the build did not come before the upload').toBeLessThan(at('npx wrangler pages deploy'));
+    });
+  });
+
+  test.each([
+    ['colo LOS', { STUB_TRACE_BODY: 'colo=LOS\nloc=GB\n' }],
+    ['loc NG', { STUB_TRACE_BODY: 'colo=LHR\nloc=NG\n' }],
+    ['an answer that is not a trace', { STUB_TRACE_BODY: '<html>429 Too Many Requests</html>' }],
+    ['a trace that cannot be fetched', { STUB_TRACE_EXIT: '6' }],
+  ])('plant — %s is refused with exit 1 BEFORE the build, and nothing is built, stamped or uploaded', (_label, env) => {
+    withScratch((root) => {
+      repoWithOrigin(root);
+      const res = deploy(root, { env });
+      expect(res.status, `a refused edge was deployed from:\n${res.out}`).toBe(1);
+      expect(res.out).toContain(REFUSAL_SENTENCE);
+      expect(res.ran, 'the guard never asked for a trace').toContain(TRACE_CALL);
+      // BEFORE ANY BUILD OR UPLOAD: no npm line (the build) and no npx line (the upload) in the stub log, and the
+      // stub build never wrote a stamp. A guard placed after the build would fail the first two.
+      expect(builtOrUploaded(res.ran), `the wrapper built or uploaded after the edge was refused:\n${res.ran.join('\n')}`).toEqual([]);
+      expect(existsSync(join(root, 'work', 'apps', 'public-dashboard', SCRATCH_OUT_DIR, 'version.json')), 'a stamp exists, so the build ran').toBe(false);
+      expect(res.out, 'the wrapper announced a build before refusing').not.toContain('building public-dashboard');
+    });
+  });
+
+  test('plant — an unmerged HEAD is refused as unmerged even on a Lagos edge, so the edge is read after the ancestor check', () => {
+    withScratch((root) => {
+      repoWithOrigin(root);
+      const work = join(root, 'work');
+      writeFileSync(join(work, 'local-only.txt'), 'x\n', 'utf8');
+      git(work, 'add', '-A');
+      git(work, 'commit', '-q', '-m', 'a commit no PR merged');
+      const res = deploy(root, { env: { STUB_TRACE_BODY: 'colo=LOS\nloc=NG\n' } });
+      expect(res.status, `not refused as unmerged:\n${res.out}`).toBe(1);
+      expect(res.out).toContain('is not an ancestor of origin/main, so this is code no pull request merged');
+      expect(res.out, 'the edge was judged before the ancestor check').not.toContain(REFUSAL_SENTENCE);
+      expect(res.ran, 'the trace was asked for before the ancestor check').toEqual([]);
+    });
+  });
+
+  test('plant — a missing workerd package is refused as a toolchain fault even on a Lagos edge, so the edge is read after the toolchain check', () => {
+    withScratch((root) => {
+      repoWithOrigin(root);
+      const res = deploy(root, { env: { STUB_WORKERD_MISSING: '1', STUB_TRACE_BODY: 'colo=LOS\nloc=NG\n' } });
+      expect(res.status, `not refused as a toolchain fault:\n${res.out}`).toBe(2);
+      expect(res.out).toContain('the native platform package that workerd needs is not installed here');
+      expect(res.out, 'the edge was judged before the toolchain check').not.toContain(REFUSAL_SENTENCE);
+      expect(res.ran, 'the trace was asked for before the toolchain check').toEqual([]);
     });
   });
 });

@@ -96,6 +96,8 @@ cd "${DEPLOY_TREE:?set DEPLOY_TREE to the deploy checkout first}" && git rev-par
 
 The last line must print the commit you mean to deploy. Then:
 
+**BEFORE THE DEPLOY COMMAND, CONNECT THE VPN (Proton, UK or NL); the wrapper checks the edge** (R-2026-09-30-217 GP). Cloudflare's Lagos edge answers API calls from Nigerian networks with an HTML 429 (the cause as ruled, from the founder's runs of 2026-10-10, relayed by Cowork), so before anything is built the wrapper reads Cloudflare's own trace, prints the `colo` and `loc` it read, and refuses with exit 1 when the colo is LOS, the loc is NG, or the trace cannot be read. If it refuses, connect the VPN, check that the colo it prints is not LOS, and run the same command again. Optionally `export CLOUDFLARE_ACCOUNT_ID=<the account id>` in your shell first, never in a file in this repository: it makes wrangler skip its `GET /accounts` call, which was not the cause and is not fixed by skipping it.
+
 ```bash
 bash scripts/deploy_pages.sh --branch main admin
 ```
@@ -272,6 +274,14 @@ the founder's terminal and browser, read back by Cowork):
   as a transient edge block on the founder's network, not the account.
   - **Open item:** on a second occurrence, evaluate setting `CLOUDFLARE_ACCOUNT_ID` in
     the deploy environment, so wrangler skips `GET /accounts`.
+    *Closed 2026-10-10 (R-2026-09-30-217 GP). The second occurrence came on 2026-10-10 (the
+    public dashboard's deploy, relayed by Cowork), and setting `CLOUDFLARE_ACCOUNT_ID` did not
+    fix it: wrangler's next call, `POST /pages/assets/check-missing`, answered 429 twice
+    more. The cause is Cloudflare's Lagos edge answering API calls from Nigerian networks
+    with an HTML 429, not the `GET /accounts` call. The deploy wrappers now refuse that edge
+    before building (`scripts/edge_guard.sh`), and the step before the deploy command in
+    section 1 is the VPN. The note above, "Read as a transient edge block on the founder's
+    network", stands as what was read then.*
 - **The third attempt deployed** `https://4fc4ffd3.openbed-admin.pages.dev`.
 - **Read-back PASS.** Step 1 read 302 to Access on all six host and path pairs. Step 2
   read commit `dd59c7f`, dirty false, and `admin.openbed.ng` commit `dd59c7f`. The CSP

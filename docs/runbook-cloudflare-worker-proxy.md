@@ -46,6 +46,8 @@ that directory.
 
 From a clean checkout of `main`:
 
+**BEFORE THE DEPLOY COMMAND, CONNECT THE VPN (Proton, UK or NL); the wrapper checks the edge** (R-2026-09-30-217 GP). Cloudflare's Lagos edge answers API calls from Nigerian networks with an HTML 429 (the cause as ruled, from the founder's runs of 2026-10-10, relayed by Cowork), so before anything is built the wrapper reads Cloudflare's own trace, prints the `colo` and `loc` it read, and refuses with exit 1 when the colo is LOS, the loc is NG, or the trace cannot be read. If it refuses, connect the VPN, check that the colo it prints is not LOS, and run the same command again. Optionally `export CLOUDFLARE_ACCOUNT_ID=<the account id>` in your shell first, never in a file in this repository: it makes wrangler skip its `GET /accounts` call, which was not the cause and is not fixed by skipping it.
+
 ```bash
 bash scripts/deploy_worker.sh supabase-proxy
 ```
