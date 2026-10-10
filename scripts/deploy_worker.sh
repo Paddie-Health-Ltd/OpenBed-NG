@@ -15,7 +15,12 @@
 #   - a failed fetch of origin/main, which would make the ancestor check stale;
 #   - a working tree with uncommitted changes;
 #   - a HEAD that is not an ancestor of origin/main;
-#   - a stamp that is missing, unreadable, dirty, or names another commit.
+#   - a stamp that is missing, unreadable, dirty, or names another commit;
+#   - a network whose Cloudflare edge is Lagos (colo LOS) or Nigeria (loc NG), or whose
+#     edge cannot be read, before anything is stamped (R-2026-09-30-217 GP). The check is
+#     scripts/edge_guard.sh, which this file sources, the same check as the Pages wrapper's;
+#     its header holds the evidence, the evidence kinds and what it does not assert. The
+#     edge is printed in every run.
 #
 # AND ONE THING THE PAGES WRAPPER CANNOT DO, because a Worker serves its own stamp:
 # after the upload it reads https://api.openbed.ng/__openbed/version until it names
@@ -33,10 +38,13 @@
 #   tree; do not remove it because it looks unused.
 #   DEPLOY_WORKER_READBACK_ATTEMPTS (default 12) and DEPLOY_WORKER_READBACK_SLEEP
 #   (default 5 seconds) bound the read-back window -- a minute by default.
-# Exit: 0 deployed and read back; 1 refused, or the read-back did not confirm the
-#       deploy; 2 a check could not run.
+# Exit: 0 deployed and read back; 1 refused (an unreadable or Lagos edge included), or the
+#       read-back did not confirm the deploy; 2 a check could not run.
 # ============================================================
 set -euo pipefail
+
+# shellcheck source=edge_guard.sh
+source "$(dirname "$0")/edge_guard.sh"
 
 TARGET="${1:-}"
 ROOT="${2:-$(cd "$(dirname "$0")/.." && pwd)}"
@@ -112,6 +120,10 @@ case "$wst" in
 esac
 
 echo "deploy_worker.sh: HEAD $HEAD_SHA is on origin/main and the tree is clean."
+# THE EDGE (R-2026-09-30-217 GP). After every refusal about WHAT is being deployed and about this machine's
+# toolchain, and before the stamp or the upload: a refusal about WHERE the deploy would go out is reported last.
+# The position is held by plants in tests/compliance/deploy_worker.test.ts. A refusal exits 1 inside the call.
+edge_guard "deploy_worker.sh"
 echo "deploy_worker.sh: stamping $TARGET/version.json"
 ( cd "$ROOT" && npm run --silent stamp:worker )
 

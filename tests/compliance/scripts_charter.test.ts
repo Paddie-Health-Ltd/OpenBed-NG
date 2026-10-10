@@ -48,6 +48,7 @@ export const HEADER = '| Script | Stated reason | Planting test(s) | Both ways? 
 export const HOSTED = [
   'deploy_pages.sh',
   'deploy_worker.sh',
+  'edge_guard.sh',
   'get_extra_search_path.sh',
   'get_publishable_key.sh',
   'provision_ward_account.mjs',
@@ -62,7 +63,7 @@ export const HOSTED = [
 ];
 
 /** Files with no entry point of their own, credited through their callers. */
-export const LIBRARIES = ['deferred_register.d.mts', 'deferred_register.mjs', 'provision_target.mjs', 'readback_common.sh'];
+export const LIBRARIES = ['deferred_register.d.mts', 'deferred_register.mjs', 'edge_guard.sh', 'provision_target.mjs', 'readback_common.sh'];
 
 type Guards = Record<string, Record<string, { state: string }>>;
 

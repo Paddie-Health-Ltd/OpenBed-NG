@@ -907,9 +907,15 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    wording came in with the pull request that made the page recover (#127) and was not
    read against an empty register until the read-back came due.*
 
-   **5c has NOT BEEN RUN on hosted, and 5b not since GJ. Both are OWED** (2026-10-07; see
-   the run record below). They are gated to facility one's hosted run, and the gate is a
-   line at step 3b of `docs/runbook-supabase-project-creation.md` section 12.4.
+   **5b and 5c were run on the live page on 2026-10-10, before that day's deploy, and read
+   PASS** (the founder's, relayed by Cowork; see the run record of that date below). Until
+   then 5c had never been run on hosted and 5b not since GJ, by the founder's decision on
+   2026-10-07.
+
+   *Restated 2026-10-10 (R-2026-09-30-217 GP). Until then this paragraph read: "**5c has
+   NOT BEEN RUN on hosted, and 5b not since GJ. Both are OWED** (2026-10-07; see the run
+   record below). They are gated to facility one's hosted run, and the gate is a line at
+   step 3b of `docs/runbook-supabase-project-creation.md` section 12.4."*
 
 6. **`X-Robots-Tag`, `Content-Type` AND THE STATUS on `/beds.json`, READ WITH A
    GET.** Paste the header lines **and the body prefix**. They must read
@@ -1135,6 +1141,41 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
      line at step 3b of `docs/runbook-supabase-project-creation.md` section 12.4, and a
      TRIGGER row in the decision record's deferred-items register). It closes on a record
      of the 5b reading, the 5c reading and the wait observed.
+     **Closed 2026-10-10 (R-2026-09-30-217 GP): the record is the run below.**
+
+   **Run on 2026-10-10, from the deploy checkout at `8e5c53b32a586403906fdd5043360cac74f92fe2`**
+   (R-2026-09-30-217 GP; #133's merge, public search and "Near me" with privacy notice 1.2).
+   **Everything in this record is the founder's, relayed by Cowork, unless a line says
+   otherwise; the implementer observed none of it.** The command was
+   `bash scripts/deploy_pages.sh --branch main public-dashboard`:
+   - **Before the deploy, on the live page: read-backs 5b and 5c, PASS** (step 3b of
+     `docs/runbook-supabase-project-creation.md` section 12.4).
+     5b showed the outage sentence word for word, with no facility, ward or count, and with
+     both `beds.json` calls blocked. 5c recovered with no reload in **9 s** (the wait
+     observed), showing Iduna's card, its call link and three ward lines.
+   - **Three attempts failed before upload, and nothing was uploaded.** `GET /accounts`
+     answered 429 (Ray ID `a48466b51d3df9bd-LOS`). Then, with `CLOUDFLARE_ACCOUNT_ID` set,
+     `POST /pages/assets/check-missing` answered 429 twice (Ray IDs `a484737148fa2727-LOS`
+     and `a48485e9eec195f6-LOS`), once on home Wi-Fi and once on a phone hotspot.
+   - **The fourth attempt, through a VPN whose trace read colo=LHR and loc=GB, uploaded:**
+     8 files uploaded, 9 already present. Deployment `ed6e258e`; the stamp read back clean.
+   - **The cause, as ruled (GP-2):** Cloudflare's Lagos edge answering API calls from
+     Nigerian networks with an HTML 429. It is not the `GET /accounts` call, which setting
+     the account id skips without fixing. That closes the wrangler-429 trigger
+     (R-2026-09-25-119 CU-1), and `scripts/edge_guard.sh` is the guard added in the same
+     change. *Evidence kind of the cause: relayed. The four attempts cannot tell the
+     client's country from the colo, since both changed together. The records show a 429
+     that cleared on a third attempt in the same sitting (admin, 2026-09-25), so the 429
+     is intermittent and the guard's refusal is not; that is the ruling's design.*
+   - **`readback_pages.sh`: PASS on both hosts.** The privacy notice reads "Version 1.2" on
+     both hosts, `openbed.ng` serves `/assets/index-DGAgb-UK.js`, and the facility-flags
+     section printed no FLAG line. *Evidence kind of the bundle name, mine: a build of this
+     tree on 2026-10-10 names the same file, which shows the code builds that bundle and
+     not what is served.*
+   - **Handset check, PASS, on one Android and one iPhone:** "Near me" allowed, denied and
+     in airplane mode; the copied link carries ward and area only.
+   - **Notice 1.2 went live with "Near me" in this one deploy**, as ordered; its first
+     publication date, 2026-10-10, is in `docs/legal/README.md`.
 
    **The `openbed.ng` zone settings that must stay OFF** (R-2026-09-25-119 CU-4;
    R-2026-09-27-139 DO-1 b). Each one changed what the custom domain served, on that
@@ -1238,3 +1279,15 @@ so the wrapper and Cloudflare read the same source. **It is local and defeatable
 hand bypasses it entirely — so it removes the accident, not the deliberate act, and
 it still cannot see what Cloudflare serves afterwards. That is what clause 4's
 reading is for.
+
+**BEFORE THE DEPLOY COMMAND, CONNECT THE VPN (Proton, UK or NL); the wrapper checks the
+edge** (R-2026-09-30-217 GP). Cloudflare's Lagos edge answers API calls from Nigerian
+networks with an HTML 429 (the cause as ruled, from the founder's runs of 2026-10-10,
+relayed by Cowork), and a deploy that meets it fails after the build and before anything
+is uploaded. So before anything is built the wrapper reads Cloudflare's own trace, prints
+the `colo` and `loc` it read, and refuses with exit 1 when the colo is LOS, the loc is NG,
+or the trace cannot be read. If it refuses, connect the VPN, check that the colo it prints
+is not LOS, and run the same command again. Optionally `export CLOUDFLARE_ACCOUNT_ID=<the
+account id>` in your shell first, never in a file in this repository: it makes wrangler
+skip its `GET /accounts` call, which was not the cause and is not fixed by skipping it.
+The check is `scripts/edge_guard.sh`, local and defeatable like the wrapper that sources it.

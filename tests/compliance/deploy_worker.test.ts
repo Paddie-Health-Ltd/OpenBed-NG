@@ -3,6 +3,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync }
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { withScratch, REPO_ROOT } from './_scratch.js';
+import { TRACE_ANSWER } from './_edge_stub.js';
 
 /**
  * GUARD OVER scripts/deploy_worker.sh (R-2026-09-23-70; PR 3.3).
@@ -74,7 +75,9 @@ exit 0
 echo "curl $*" >> "$STUB_LOG"
 # Every request starts with -q so curl ignores the caller's ~/.curlrc (R-2026-09-30-181 FE-5).
 [ "$1" = "-q" ] || { echo "curl stub: the first argument must be -q, so that ~/.curlrc is not read" >&2; exit 98; }
-n=$(cat "$STUB_CURL_COUNT" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$STUB_CURL_COUNT"
+# THE EDGE GUARD'S TRACE (R-2026-09-30-217 GP) is answered BEFORE the counter below, so it is never counted as a
+# read-back attempt: the plants that move the read-back on by attempt keep meaning what they say.
+${TRACE_ANSWER}n=$(cat "$STUB_CURL_COUNT" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$STUB_CURL_COUNT"
 IFS='|' read -r -a bodies <<< "$STUB_CURL_BODIES"
 idx=$((n - 1)); [ "$idx" -ge "\${#bodies[@]}" ] && idx=$((\${#bodies[@]} - 1))
 b="\${bodies[$idx]}"
@@ -327,6 +330,78 @@ describe('scripts/deploy_worker.sh', () => {
       const r = run(root, work, { curl: ['{"error":"requested path is invalid"}'] });
       expect(r.status, r.out).toBe(1);
       expect(r.out).toContain('still gave a body that is not a stamp');
+    });
+  });
+});
+
+const TRACE_CALL = 'curl -q -sS -m 12 https://www.cloudflare.com/cdn-cgi/trace';
+const REFUSAL_SENTENCE =
+  "Cloudflare's Lagos edge refuses deploys from Nigerian networks (R-2026-09-30-217 GP). Connect a VPN exiting outside Nigeria, check colo is not LOS, and run this again.";
+
+/**
+ * THE EDGE (R-2026-09-30-217 GP, GP-3). The trace table lives in tests/compliance/edge_guard.test.ts; THIS block
+ * holds the Worker wrapper's WIRING: that it asks, where in its order it asks, and that a refusal stamps and
+ * uploads nothing.
+ */
+describe('scripts/deploy_worker.sh — the edge it would go out through is read before anything is stamped', () => {
+  test('accept — an ordinary London edge is printed, then the stamp, then the upload, and the trace is not a read-back attempt', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const r = run(root, work);
+      expect(r.status, `a clean, merged tree on a London edge was refused:\n${r.out}`).toBe(0);
+      expect(r.out, 'the edge was not printed').toContain('deploy_worker.sh: edge trace reads colo=LHR loc=GB');
+      const lines = r.log.trim().split('\n');
+      const at = (needle: string): number => lines.findIndex((l) => l.includes(needle));
+      expect(at(TRACE_CALL), `the guard never asked for a trace:\n${r.log}`).toBeGreaterThanOrEqual(0);
+      expect(at(TRACE_CALL), 'the trace was read after the stamp').toBeLessThan(at('npm run --silent stamp:worker'));
+      expect(at('npm run --silent stamp:worker'), 'the stamp did not come before the upload').toBeLessThan(at('npx wrangler deploy'));
+      // The read-back found the stamp on its FIRST attempt: the trace request did not use one up.
+      expect(r.out).toContain('(attempt 1 of 3)');
+    });
+  });
+
+  test.each([
+    ['colo LOS', { STUB_TRACE_BODY: 'colo=LOS\nloc=GB\n' }],
+    ['loc NG', { STUB_TRACE_BODY: 'colo=LHR\nloc=NG\n' }],
+    ['an answer that is not a trace', { STUB_TRACE_BODY: '<html>429 Too Many Requests</html>' }],
+    ['a trace that cannot be fetched', { STUB_TRACE_EXIT: '6' }],
+  ])('plant — %s is refused with exit 1 BEFORE the stamp, and nothing is stamped, uploaded or read back', (_label, env) => {
+    withScratch((root) => {
+      const work = repo(root);
+      const r = run(root, work, { env });
+      expect(r.status, `a refused edge was deployed from:\n${r.out}`).toBe(1);
+      expect(r.out).toContain(REFUSAL_SENTENCE);
+      expect(r.log, 'the guard never asked for a trace').toContain(TRACE_CALL);
+      expect(r.log, `the wrapper stamped after the edge was refused:\n${r.log}`).not.toContain('npm run --silent stamp:worker');
+      expect(uploaded(r), 'a refused edge still reached the upload').toBe(false);
+      expect(r.log, 'a refused edge still reached the live read-back').not.toContain('api.openbed.ng');
+      expect(existsSync(join(work, 'supabase-proxy', 'version.json')), 'a stamp exists, so the stamp step ran').toBe(false);
+      expect(r.out, 'the wrapper announced a stamp before refusing').not.toContain('stamping supabase-proxy');
+    });
+  });
+
+  test('plant — an unmerged HEAD is refused as unmerged even on a Lagos edge, so the edge is read after the ancestor check', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      writeFileSync(join(work, 'unmerged.txt'), 'x\n');
+      git(work, 'add', 'unmerged.txt');
+      git(work, 'commit', '-q', '-m', 'not on main');
+      const r = run(root, work, { env: { STUB_TRACE_BODY: 'colo=LOS\nloc=NG\n' } });
+      expect(r.status, r.out).toBe(1);
+      expect(r.out).toContain('is not an ancestor of origin/main, so this is code no pull request merged');
+      expect(r.out, 'the edge was judged before the ancestor check').not.toContain(REFUSAL_SENTENCE);
+      expect(r.log, 'the trace was asked for before the ancestor check').toBe('');
+    });
+  });
+
+  test('plant — a missing workerd package is refused as a toolchain fault even on a Lagos edge, so the edge is read after the toolchain check', () => {
+    withScratch((root) => {
+      const work = repo(root);
+      const r = run(root, work, { env: { STUB_WORKERD_MISSING: '1', STUB_TRACE_BODY: 'colo=LOS\nloc=NG\n' } });
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain('the native platform package that workerd needs is not installed here');
+      expect(r.out, 'the edge was judged before the toolchain check').not.toContain(REFUSAL_SENTENCE);
+      expect(r.log, 'the trace was asked for before the toolchain check').toBe('');
     });
   });
 });

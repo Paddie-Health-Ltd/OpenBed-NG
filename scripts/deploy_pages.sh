@@ -17,7 +17,11 @@
 #     merged;
 #   - a directory that is not a git work tree -- then nothing can be checked at all;
 #   - an app name it does not recognise -- NEVER defaulted, because a typo that
-#     deployed a different site would be the accident wearing the guard's uniform.
+#     deployed a different site would be the accident wearing the guard's uniform;
+#   - a network whose Cloudflare edge is Lagos (colo LOS) or Nigeria (loc NG), or whose
+#     edge cannot be read, before anything is built (R-2026-09-30-217 GP). The check is
+#     scripts/edge_guard.sh, which this file sources; its header holds the evidence, the
+#     evidence kinds and what it does not assert. The edge is printed in every run.
 #
 # WHICH APPS IT DEPLOYS, AND WHY IT IS NOT A LIST HERE. A deployable app is a
 # directory under apps/ carrying a wrangler.toml, and its Pages project name and
@@ -47,9 +51,12 @@
 #   or the deployment reads the Preview environment variables and finds them unset.
 #   ROOT exists so the guard-over-a-guard tests can aim this at a scratch tree.
 #     Do not remove it because it looks unused; it is the seam every plant hangs on.
-# Exit: 0 deployed, 1 refused, 2 the check could not run.
+# Exit: 0 deployed, 1 refused (an unreadable or Lagos edge included), 2 the check could not run.
 # ============================================================
 set -euo pipefail
+
+# shellcheck source=edge_guard.sh
+source "$(dirname "$0")/edge_guard.sh"
 
 # A LOOP RATHER THAN A FIRST-POSITION CHECK. Until 2026-09-22 --branch was only
 # recognised as $1, so `deploy_pages.sh public-dashboard --branch main` would have
@@ -170,6 +177,10 @@ case "$wst" in
 esac
 
 echo "deploy_pages.sh: HEAD $HEAD_SHA is on origin/main and the tree is clean."
+# THE EDGE (R-2026-09-30-217 GP). After every refusal about WHAT is being deployed and about this machine's
+# toolchain, and before the first build or upload: a refusal about WHERE the deploy would go out is reported last.
+# The position is held by plants in tests/compliance/deploy_guards.test.ts. A refusal exits 1 inside the call.
+edge_guard "deploy_pages.sh"
 echo "deploy_pages.sh: building $APP (this stamps apps/$APP/public/version.json)"
 ( cd "$ROOT" && npm run build )
 

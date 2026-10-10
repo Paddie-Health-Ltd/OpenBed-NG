@@ -5298,6 +5298,12 @@ through the admin app.
    **OWED, 2026-10-08 (R-2026-09-30-215 GN): not done at facility one's hosted run.** The facility was
    entered and listed without this read; it stays open, and it is not ticked anywhere. It has
    no row in the deferred-items register: DR-4 landed it as a lettered step only.
+   **MET, 2026-10-10 (R-2026-09-30-217 GP), as ruled and relayed; I read nothing hosted.** The
+   reading given was that the card and its Directions link work on the founder's phone.
+   *The extent, stated: that is a reading of the PUBLIC facility card and its link, and this
+   step's PASS text asks for the admin Console, on desktop and on a phone, with no red line.
+   What was relayed does not say the admin read was made. The ruling is recorded as given, and
+   Cowork is asked to confirm which was read.*
 3. **Record the contact and the agreement** in the facility's detail view.
    3a. **Record the approved reporting model** in the facility's detail view, from the
    facility's signed Schedule 1, Part A ("Who reports"). Read the box the facility ticked.
@@ -5328,6 +5334,12 @@ through the admin app.
    hosted run reaches 12.4 step 3a", is kept in the row's text. **So the sentence above that says
    the row's gate "names this step" is superseded by that restated gate**, and it is still owed:
    run 5b, then 5c from 5b's end state, before whichever of the two comes first.
+   **MET, 2026-10-10 (R-2026-09-30-217 GP): PASS, relayed.** Run on the live page before that
+   day's deploy, which is what the restated gate asked for. 5b showed the outage sentence word
+   for word, with no facility, ward or count, and with both `beds.json` calls blocked. 5c
+   recovered with no reload in **9 s** (the wait observed), showing Iduna's card, its call link
+   and three ward lines. The TRIGGER row left the register in that ruling, as this step said
+   it would, and the sentences above that name its gate are history.
 4. **Add the ward categories**, each with its offering stated. There is no default.
 5. **Provision the facility's reporting login, or its ward logins,** with the script.
    *Restated 2026-09-28 (R-2026-09-27-144 DT, Bundle 2): until then this read "Provision
@@ -5552,6 +5564,12 @@ through the admin app.
    facility was re-listed at 12:02:53Z, AFTER them, so those publishes do not prove the listed
    path end to end. This step needs a publish made AFTER 12:02:53Z; Cowork will confirm it
    from `/beds.json`. It stays under B1's onboarding-checks row in the deferred-items register.
+   **MET, 2026-10-10 (R-2026-09-30-217 GP), as ruled and relayed; I read nothing hosted.**
+   Iduna's wards show "last reported at 10 Oct, 07:01 (Lagos time)", a publish made after the
+   12:02:53Z re-listing. *The extent, stated: that is a reading of the public page's ward lines.
+   What was relayed does not say whether the console's "published" message was seen or whether
+   the count was compared with `/beds.json`; the ruling is recorded as given.* B1's
+   onboarding-checks row, which cited this step, left the register in the same ruling.
 
    *Renumbered 2026-09-26 (R-2026-09-26-122):* steps 6 and 9 are new, and the old steps 6
    (List) and 7 (Read back) are now 7 and 8. Nothing cited them by number.
@@ -5601,6 +5619,39 @@ facility; its name and id are already public, in `/beds.json`).
   then 5c (above); and step 9, which needs a publish AFTER 12:02:53Z (above).
 
 *Restated 2026-10-08 (R-2026-09-30-215 GN), in the same change:* until then this subsection did not exist.
+
+*Added 2026-10-10 (R-2026-09-30-217 GP), records only.* **Everything below was run by the
+founder on 2026-10-10 and read by Cowork. It is recorded as RELAYED, not observed: I ran and
+read nothing hosted.** The deploy itself, with its three failed attempts and the Ray IDs, is
+recorded in `docs/runbook-cloudflare-pages-beds-json.md` under the run of 2026-10-10.
+
+- **#133 merged** at `8e5c53b32a586403906fdd5043360cac74f92fe2`, by the founder, a normal
+  merge, pinned to `d6886f14c9ae1239e70b217559029c588b9909bd`. *Evidence kind: relayed, then
+  read by me from the API and git on 2026-10-10: state MERGED, that merge commit, two parents,
+  the second `d6886f1`.*
+- **Step 3b, PASS,** run before the deploy on the live page: 5b, then 5c, recovered in 9 s
+  with no reload (above, at step 3b).
+- **Step 9, MET** and **step 2a, MET,** each with the extent of what was relayed stated at
+  the step.
+- **The deploy:** `ed6e258e`, from the deploy checkout at `8e5c53b`, by
+  `bash scripts/deploy_pages.sh --branch main public-dashboard`; the stamp read back clean.
+  The first three attempts failed before upload with an HTML 429 and nothing was uploaded;
+  the fourth, through a VPN, uploaded 8 files with 9 already present.
+- **`readback_pages.sh`: PASS on both hosts.** The privacy notice reads "Version 1.2" on both
+  hosts, `openbed.ng` serves `/assets/index-DGAgb-UK.js`, and the facility-flags section
+  printed no FLAG line.
+- **Handset check: PASS** on one Android and one iPhone: "Near me" allowed, denied and in
+  airplane mode; the copied link carries ward and area only.
+- **Notice 1.2 went live with "Near me" in the same deploy.** Its first publication date,
+  2026-10-10, is in `docs/legal/README.md`.
+- **The wrangler 429 is closed** (R-2026-09-25-119 CU-1): the cause is Cloudflare's Lagos edge
+  answering API calls from Nigerian networks, not the `GET /accounts` call. The deploy
+  wrappers refuse that edge before building (`scripts/edge_guard.sh`), and every deploy
+  runbook now has the VPN as its step before the command.
+
+*Restated 2026-10-10 (R-2026-09-30-217 GP), in the same change:* until then the bullet above
+that begins "OWED, not done, and NOT ticked" was the last word on steps 2a, 3b and 9; it is
+history now, and each step carries its own line.
 
 #### Changing a facility's reporting model
 
