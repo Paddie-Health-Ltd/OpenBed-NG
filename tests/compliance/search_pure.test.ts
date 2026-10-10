@@ -337,8 +337,19 @@ describe('T-PARSE-1 — the address is read through two fixed tables, and only `
     ['?ward=maternity&area=apapa', { ward: 'MATERNITY', area: 'apapa' }],
     ['?area=lagos-island', { ward: 'any', area: 'lagos-island' }],
     ['?ward=a_and_e', { ward: 'A_AND_E', area: null }],
-    ['?ward=MATERNITY', { ward: 'any', area: null }],
-    ['?ward=Maternity', { ward: 'any', area: null }],
+    // GQ-2 a (R-2026-09-30-218): the lookup trims and folds case, so these name the category they spell.
+    ['?ward=MATERNITY', { ward: 'MATERNITY', area: null }],
+    ['?ward=Maternity', { ward: 'MATERNITY', area: null }],
+    ['?ward=%20maternity%20', { ward: 'MATERNITY', area: null }],
+    ['?ward=A_AND_E', { ward: 'A_AND_E', area: null }],
+    ['?ward=ICU_Paediatric', { ward: 'ICU_PAEDIATRIC', area: null }],
+    ['?area=Apapa', { ward: 'any', area: 'apapa' }],
+    ['?area=LAGOS-ISLAND&ward=NICU', { ward: 'NICU', area: 'lagos-island' }],
+    ['?ward=BURNS', { ward: 'any', area: null }],
+    ['?ward=%20%20%20&area=%20', { ward: 'any', area: null }],
+    ['?ward=maternity%20nicu', { ward: 'any', area: null }],
+    [`?ward=${' '.repeat(41)}maternity`, { ward: 'any', area: null }],
+    ['?ward=matern%C4%B1ty', { ward: 'any', area: null }],
     ['?ward=burns&area=nowhere', { ward: 'any', area: null }],
     ['?ward=maternity&ward=nicu', { ward: 'MATERNITY', area: null }],
     ['?area=apapa&area=ikeja', { ward: 'any', area: 'apapa' }],
@@ -347,7 +358,7 @@ describe('T-PARSE-1 — the address is read through two fixed tables, and only `
     ['?ward=%3Cscript%3Ealert(1)%3C%2Fscript%3E', { ward: 'any', area: null }],
     ['?area=%E2%82%AC%F0%9F%8F%A5', { ward: 'any', area: null }],
     ['?ward=', { ward: 'any', area: null }],
-    ['?area=%20apapa', { ward: 'any', area: null }],
+    ['?area=%20apapa', { ward: 'any', area: 'apapa' }],
   ])('%s', (search, want) => {
     expect(parseSearch(search)).toEqual(want);
   });

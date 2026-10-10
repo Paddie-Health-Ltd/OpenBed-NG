@@ -16,8 +16,9 @@
 #   - a working tree with uncommitted changes;
 #   - a HEAD that is not an ancestor of origin/main;
 #   - a stamp that is missing, unreadable, dirty, or names another commit;
-#   - a network whose Cloudflare edge is Lagos (colo LOS) or Nigeria (loc NG), or whose
-#     edge cannot be read, before anything is stamped (R-2026-09-30-217 GP). The check is
+#   - a network whose Cloudflare edge is Lagos (colo LOS) or Nigeria (loc NG) -- exit 1 -- and one
+#     whose edge cannot be read -- exit 2, the check did not run -- before anything is stamped (R-2026-09-30-217 GP;
+#     the two codes by R-2026-09-30-218 GQ-5 b). The check is
 #     scripts/edge_guard.sh, which this file sources, the same check as the Pages wrapper's;
 #     its header holds the evidence, the evidence kinds and what it does not assert. The
 #     edge is printed in every run.
@@ -38,8 +39,8 @@
 #   tree; do not remove it because it looks unused.
 #   DEPLOY_WORKER_READBACK_ATTEMPTS (default 12) and DEPLOY_WORKER_READBACK_SLEEP
 #   (default 5 seconds) bound the read-back window -- a minute by default.
-# Exit: 0 deployed and read back; 1 refused (an unreadable or Lagos edge included), or the
-#       read-back did not confirm the deploy; 2 a check could not run.
+# Exit: 0 deployed and read back; 1 refused (a Lagos or Nigerian edge included), or the
+#       read-back did not confirm the deploy; 2 a check could not run (an edge that could not be read included).
 # ============================================================
 set -euo pipefail
 

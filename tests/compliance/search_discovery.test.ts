@@ -87,7 +87,9 @@ describe('public search discovery', () => {
       const ward = new URL(a.getAttribute('href') ?? '', HOME_URL).searchParams.get('ward');
       return ward === null ? [] : [ward];
     });
-    expect(codes.sort()).toEqual(Object.keys(LABELS.labels.ward_category).sort());
+    // GQ-2 b (R-2026-09-30-218): the links carry the ONE lower-case slug the page writes. Until GQ this compared them with the enum's
+    // upper-case keys, which pinned the very spelling the page's reader did not accept; search_deeplinks.test.ts parses each one.
+    expect(codes.sort()).toEqual(Object.keys(LABELS.labels.ward_category).map((c) => c.toLowerCase()).sort());
   });
   test('real — sitemap lists informational URLs only, with no query strings or hospital records', () => {
     expect(sitemapViolations(built('sitemap.xml'))).toEqual([]);

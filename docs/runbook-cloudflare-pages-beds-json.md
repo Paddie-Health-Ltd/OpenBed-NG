@@ -1045,6 +1045,13 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    2026-09-26:* until then this list began "read-back 7, which fetches `/robots.txt`
    and reads its body;".
 
+   **A crawl check, by hand, and not in the script** (R-2026-09-30-218 GQ, Addendum 2): request
+   `https://openbed.ng/` with a Googlebot user agent, for example
+   `curl -sI -A "Googlebot/2.1 (+http://www.google.com/bot.html)" https://openbed.ng/`, and the
+   status must not read 403. **This does not prove the real Googlebot is allowed:** a request that
+   carries Googlebot's name is not Googlebot, and only Cloudflare's Security Events and Search
+   Console show what the real crawler meets. Nothing in this repository runs this check.
+
    **Run on 2026-09-25, from the deploy checkout at `dd59c7f`** (R-2026-09-25-119 CU-3;
    the founder's decision, the founder's terminal and browser, read back by Cowork):
    - **Found first:** `openbed.ng` was still serving `2e62579`, built
@@ -1191,6 +1198,21 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    None of the three is switched back on unread. A change to any of them is a change to
    what the site serves, and the next `readback_pages.sh` run on both hosts is the check.
 
+   **One setting in force, which is the opposite case: AI bot policies, Training: Allow**
+   (R-2026-09-30-218 GQ, Addendum 2). **The reason: a Training block refuses Googlebot.**
+   Cloudflare blocks mixed-purpose search and training crawlers when Training is Block,
+   whatever the Search setting says. On 2026-10-10 Googlebot smartphone's `GET` of
+   `openbed.ng/` was blocked by Bot Management rule BOBA-199, "Block AI training crawlers"
+   (Ray `a48521824bed7cb6`, 12:02:06 Lagos time), its `GET` of `/sitemap.xml` at 12:49:05
+   (Ray `a4856656be871647`), and Search Console reported the home page as "not indexed:
+   access forbidden (403)". The founder changed Security > Settings > AI bot policies,
+   Training, from Block to Allow, on 2026-10-10. Search and Agent stay Allow. Bot Fight Mode
+   stays off, Browser Integrity Check stays on, Under Attack stays off. *Evidence kind:
+   relayed. The cause is Cloudflare's Security Events, read read-only by Codex and passed on
+   by Cowork; the change is the founder's; I read nothing hosted. No check in
+   `scripts/readback_pages.sh` sends a crawler's user agent, so the by-hand crawl check below is its only
+   read-back, and Search Console is its real one.*
+
 > **These read-backs are on the `*.pages.dev` deployment URL or alias. They do NOT
 > discharge the edge-headers step**, which is on the custom domain and is part of
 > what Bundle 2 waits for. The two look alike in a report and are not the same
@@ -1285,8 +1307,8 @@ edge** (R-2026-09-30-217 GP). Cloudflare's Lagos edge answers API calls from Nig
 networks with an HTML 429 (the cause as ruled, from the founder's runs of 2026-10-10,
 relayed by Cowork), and a deploy that meets it fails after the build and before anything
 is uploaded. So before anything is built the wrapper reads Cloudflare's own trace, prints
-the `colo` and `loc` it read, and refuses with exit 1 when the colo is LOS, the loc is NG,
-or the trace cannot be read. If it refuses, connect the VPN, check that the colo it prints
+the `colo` and `loc` it read, and refuses with exit 1 when the colo is LOS or the loc is NG, and stops with exit 2 (the check could not run) when the trace cannot be read or is not a trace.
+*Restated 2026-10-10 (R-2026-09-30-218 GQ-5 b). Until then this sentence read "refuses with exit 1 when the colo is LOS, the loc is NG, or the trace cannot be read"; an edge that cannot be read is now a check that could not run, exit 2, and the two are told apart by the status.* If it refuses, connect the VPN, check that the colo it prints
 is not LOS, and run the same command again. Optionally `export CLOUDFLARE_ACCOUNT_ID=<the
 account id>` in your shell first, never in a file in this repository: it makes wrangler
 skip its `GET /accounts` call, which was not the cause and is not fixed by skipping it.

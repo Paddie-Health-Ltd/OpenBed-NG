@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <!-- The robots tag is written at build time from the one search setting in
          packages/origins/src/search.ts, which ships as public: index, follow.
-         Discovery pages describe the service; bed snapshots and ward contacts stay outside search discovery. -->
+         The kickoff forbids a public API and any bulk export, and it forbade a sitemap that lists facility or ward
+         contacts: named wards' duty numbers are an obvious prank-call and harassment vector. A sitemap IS emitted
+         now, with the founder's approval of 2026-10-10 (R-2026-09-30-218 GQ-3), and it lists only the guide and
+         information pages: no facility, ward, duty number or query-string address. Bed snapshots and ward contacts
+         stay outside search discovery. tests/compliance/search_sitemap_safe.test.ts holds that list to its word. -->
     <!-- @ROBOTS_META@ -->
     <!-- The canonical link is written at build time from HOME_URL in packages/origins/src/privacy.ts,
          so every address with a query string names one page (R-2026-10-09 GO, E). It is NOT the control

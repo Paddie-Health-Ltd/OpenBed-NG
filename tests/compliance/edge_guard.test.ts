@@ -33,6 +33,7 @@ const EDGE_GUARD = 'edge_guard.sh';
 const TRACE_CALL = 'curl -q -sS -m 12 https://www.cloudflare.com/cdn-cgi/trace';
 const REFUSAL_SENTENCE =
   "Cloudflare's Lagos edge refuses deploys from Nigerian networks (R-2026-09-30-217 GP). Connect a VPN exiting outside Nigeria, check colo is not LOS, and run this again.";
+const UNREAD_SENTENCE = 'The check could not run, so nothing was built or uploaded. Check the connection, or connect a VPN exiting outside Nigeria, and run this again.';
 
 interface Run {
   status: number;
@@ -65,11 +66,17 @@ function run(root: string, env: Record<string, string> = {}): Run {
   return { status, out, calls: readFileSync(log, 'utf8').trim().split('\n').filter(Boolean) };
 }
 
-/** What every refusal must do, whatever its reason: exit 1, say why, say the one sentence, stop the run, and have asked. */
-function expectRefused(r: Run, reason: string): void {
-  expect(r.status, `the edge was not refused with exit 1:\n${r.out}`).toBe(1);
-  expect(r.out, 'the refusal did not give its own reason').toContain(reason);
-  expect(r.out, 'the refusal did not print the one sentence').toContain(REFUSAL_SENTENCE);
+/**
+ * What every stop must do, whatever its reason: exit with the code its kind carries, say why, say the sentence its kind carries, stop the
+ * run, and have asked. A Lagos or Nigerian edge is REFUSED: exit 1, the ordered sentence. An edge that cannot be read is a check that COULD
+ * NOT RUN: exit 2, the other sentence (R-2026-09-30-218 GQ-5 b; until then all four exited 1).
+ */
+function expectRefused(r: Run, reason: string, kind: 'refused' | 'could-not-run' = 'refused'): void {
+  const [status, sentence, other] = kind === 'refused' ? [1, REFUSAL_SENTENCE, UNREAD_SENTENCE] : [2, UNREAD_SENTENCE, REFUSAL_SENTENCE];
+  expect(r.status, `the edge was not stopped with exit ${status}:\n${r.out}`).toBe(status);
+  expect(r.out, 'the stop did not give its own reason').toContain(reason);
+  expect(r.out, 'the stop did not print the sentence of its kind').toContain(sentence);
+  expect(r.out, 'the stop printed the other kind\'s sentence').not.toContain(other);
   expect(r.out, 'the run went on after the refusal').not.toContain('REACHED-AFTER-THE-GUARD');
   expect(r.calls, 'the guard never asked for a trace, so nothing was judged').toEqual([TRACE_CALL]);
 }
@@ -119,10 +126,10 @@ describe('edge_guard.sh — a Lagos or Nigerian edge is refused before anything 
     ['a value of nine characters', 'colo=ABCDEFGHI\nloc=GB\n'],
     ['the key spelled with spaces round the equals sign', 'colo = LHR\nloc = GB\n'],
     ['other keys that merely start with the same letters', 'colocation=LHR\nlocation=GB\n'],
-  ])('plant — %s is refused as not a trace, and nothing from it is echoed', (_label, body) => {
+  ])('plant — %s is a check that could not run (exit 2), not a trace, and nothing from it is echoed', (_label, body) => {
     withScratch((root) => {
       const r = run(root, { STUB_TRACE_BODY: body });
-      expectRefused(r, NOT_A_TRACE);
+      expectRefused(r, NOT_A_TRACE, 'could-not-run');
       expect(r.out, 'the edge was not printed as unread').toContain('test-wrapper: edge trace reads colo=unread loc=unread');
       expect(r.out, 'text from the network body was echoed into the refusal').not.toContain('Too Many Requests');
     });
@@ -131,10 +138,10 @@ describe('edge_guard.sh — a Lagos or Nigerian edge is refused before anything 
   test.each([
     ['could not resolve the host', '6'],
     ['timed out', '28'],
-  ])('plant — a trace that %s (curl exit %s) is refused, never read as agreement', (_label, code) => {
+  ])('plant — a trace that %s (curl exit %s) is a check that could not run (exit 2), never read as agreement', (_label, code) => {
     withScratch((root) => {
       const r = run(root, { STUB_TRACE_EXIT: code });
-      expectRefused(r, `${COULD_NOT_FETCH}${code}), so the edge this deploy would reach cannot be read`);
+      expectRefused(r, `${COULD_NOT_FETCH}${code}), so the edge this deploy would reach cannot be read`, 'could-not-run');
       expect(r.out, 'the edge was not printed as unread').toContain('test-wrapper: edge trace reads colo=unread loc=unread');
       expect(r.out, 'curl\'s own message was not shown').toContain('curl said: curl: (6) Could not resolve host');
     });

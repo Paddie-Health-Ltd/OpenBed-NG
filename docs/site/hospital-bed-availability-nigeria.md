@@ -18,16 +18,16 @@ OpenBed's filters describe what participating hospitals report. A category in th
 
 | Search term or care area | OpenBed category | Check reports |
 |---|---|---|
-| Emergency beds, accident and emergency, A&E, emergency department | Emergency (A&E) | [Emergency reports](https://openbed.ng/?ward=A_AND_E) |
-| ICU beds, adult intensive care, critical care beds | Adult ICU | [Adult ICU reports](https://openbed.ng/?ward=ICU_ADULT) |
-| PICU beds, paediatric or pediatric intensive care, children's ICU | Children's ICU (PICU) | [PICU reports](https://openbed.ng/?ward=ICU_PAEDIATRIC) |
-| Medical admission beds, adult inpatient beds, medical ward | Adult medical ward | [Medical ward reports](https://openbed.ng/?ward=MEDICAL_ADULT) |
-| Children's beds, paediatric or pediatric ward beds | Children's ward | [Children's ward reports](https://openbed.ng/?ward=PAEDIATRIC) |
-| Operating theatre availability, theatre capacity | Operating theatre | [Theatre reports](https://openbed.ng/?ward=THEATRE) |
-| Surgical beds, surgery ward, surgical admission | Surgical ward | [Surgical ward reports](https://openbed.ng/?ward=SURGICAL) |
-| Maternity beds, obstetric admission, maternity ward space | Maternity | [Maternity reports](https://openbed.ng/?ward=MATERNITY) |
-| NICU beds, neonatal intensive care, newborn ICU | Newborn ICU (NICU) | [NICU reports](https://openbed.ng/?ward=NICU) |
-| SCBU space, special care baby unit | Special care baby unit (SCBU) | [SCBU reports](https://openbed.ng/?ward=SCBU) |
+| Emergency beds, accident and emergency, A&E, emergency department | Emergency (A&E) | [Emergency reports](https://openbed.ng/?ward=a_and_e) |
+| ICU beds, adult intensive care, critical care beds | Adult ICU | [Adult ICU reports](https://openbed.ng/?ward=icu_adult) |
+| PICU beds, paediatric or pediatric intensive care, children's ICU | Children's ICU (PICU) | [PICU reports](https://openbed.ng/?ward=icu_paediatric) |
+| Medical admission beds, adult inpatient beds, medical ward | Adult medical ward | [Medical ward reports](https://openbed.ng/?ward=medical_adult) |
+| Children's beds, paediatric or pediatric ward beds | Children's ward | [Children's ward reports](https://openbed.ng/?ward=paediatric) |
+| Operating theatre availability, theatre capacity | Operating theatre | [Theatre reports](https://openbed.ng/?ward=theatre) |
+| Surgical beds, surgery ward, surgical admission | Surgical ward | [Surgical ward reports](https://openbed.ng/?ward=surgical) |
+| Maternity beds, obstetric admission, maternity ward space | Maternity | [Maternity reports](https://openbed.ng/?ward=maternity) |
+| NICU beds, neonatal intensive care, newborn ICU | Newborn ICU (NICU) | [NICU reports](https://openbed.ng/?ward=nicu) |
+| SCBU space, special care baby unit | Special care baby unit (SCBU) | [SCBU reports](https://openbed.ng/?ward=scbu) |
 
 Terms such as HDU, high dependency unit, ventilator, oxygen, incubator, dialysis, isolation, psychiatric, burns, trauma or specialist beds may describe additional needs. OpenBed does not currently offer separate filters or verified resource inventories for these. Ask the hospital directly; an ICU or ward count does not establish equipment, staffing or specialist availability.
 

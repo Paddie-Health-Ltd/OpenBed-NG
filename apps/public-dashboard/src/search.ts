@@ -44,8 +44,16 @@ export interface SearchState {
 
 /**
  * The search the address asked for. Every other key is ignored, so a hand-edited link cannot carry a place
- * in; a value that is not exactly one of the table's own spellings, or is longer than any of them, falls
- * back to "any" and to no area. The first of a repeated key is the one read.
+ * in. A value is TRIMMED AND CASE-FOLDED before the lookup (R-2026-09-30-218 GQ-2 a): "MATERNITY", "Maternity"
+ * and " maternity " all name the maternity category, and "Apapa" names the area apapa. After that it must be
+ * exactly one of the table's own spellings, or it falls back to "any" and to no area. A value longer than 40
+ * characters as sent is not read at all, so the fold never works on unbounded input. The first of a repeated key
+ * is the one read. The WRITER is unchanged and writes the lower-case slug only (writeSearch below), so the address
+ * the page shows and the link it shares stay one spelling.
+ *
+ * Until GQ the lookup was exact and lower-case only, and the four discovery guides that #134 added linked
+ * `?ward=A_AND_E`, `?ward=ICU_ADULT` and the rest in upper case: every one of those links opened the page with
+ * no ward chosen, and nothing said so.
  */
 export function parseSearch(search: string): SearchState {
   let params: URLSearchParams;
@@ -54,11 +62,12 @@ export function parseSearch(search: string): SearchState {
   } catch {
     return { ward: 'any', area: null };
   }
-  const ward = params.get('ward');
-  const area = params.get('area');
+  const fold = (value: string | null): string | null => (value !== null && value.length <= 40 ? value.trim().toLowerCase() : null);
+  const ward = fold(params.get('ward'));
+  const area = fold(params.get('area'));
   return {
-    ward: ward !== null && ward.length <= 40 ? (WARD_BY_SLUG.get(ward) ?? 'any') : 'any',
-    area: area !== null && area.length <= 40 && AREA_SLUGS.has(area) ? area : null,
+    ward: ward !== null ? (WARD_BY_SLUG.get(ward) ?? 'any') : 'any',
+    area: area !== null && AREA_SLUGS.has(area) ? area : null,
   };
 }
 
