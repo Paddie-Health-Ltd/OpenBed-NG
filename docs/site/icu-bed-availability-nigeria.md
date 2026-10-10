@@ -6,19 +6,19 @@ Every count is indicative. Call the hospital to confirm current capacity and whe
 
 ## Adult ICU and critical care beds
 
-[Check Adult ICU reports](https://openbed.ng/?ward=ICU_ADULT). This is the adult intensive care category. Searches for ICU bed space, critical care capacity or intensive care admission may lead here, but OpenBed does not determine eligibility for intensive care.
+[Check Adult ICU reports](https://openbed.ng/?ward=icu_adult). This is the adult intensive care category. Searches for ICU bed space, critical care capacity or intensive care admission may lead here, but OpenBed does not determine eligibility for intensive care.
 
 ## Children's ICU: PICU, paediatric or pediatric intensive care
 
-[Check Children's ICU (PICU) reports](https://openbed.ng/?ward=ICU_PAEDIATRIC). PICU is separate from the general children's ward. The treating and receiving clinical teams decide which service is appropriate.
+[Check Children's ICU (PICU) reports](https://openbed.ng/?ward=icu_paediatric). PICU is separate from the general children's ward. The treating and receiving clinical teams decide which service is appropriate.
 
 ## Newborn ICU: NICU and neonatal intensive care
 
-[Check Newborn ICU (NICU) reports](https://openbed.ng/?ward=NICU). A NICU report is not a confirmation of incubator availability, neonatal equipment, neonatal specialists or a particular level of support. Confirm those details directly with the hospital.
+[Check Newborn ICU (NICU) reports](https://openbed.ng/?ward=nicu). A NICU report is not a confirmation of incubator availability, neonatal equipment, neonatal specialists or a particular level of support. Confirm those details directly with the hospital.
 
 ## Special care baby unit: SCBU
 
-[Check Special care baby unit (SCBU) reports](https://openbed.ng/?ward=SCBU). SCBU and NICU are separate OpenBed categories; they should not be treated as interchangeable. Ask the clinical teams to confirm the required receiving service.
+[Check Special care baby unit (SCBU) reports](https://openbed.ng/?ward=scbu). SCBU and NICU are separate OpenBed categories; they should not be treated as interchangeable. Ask the clinical teams to confirm the required receiving service.
 
 ## HDU, ventilators, oxygen and specialist support
 

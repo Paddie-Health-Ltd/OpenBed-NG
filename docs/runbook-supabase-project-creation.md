@@ -5298,12 +5298,18 @@ through the admin app.
    **OWED, 2026-10-08 (R-2026-09-30-215 GN): not done at facility one's hosted run.** The facility was
    entered and listed without this read; it stays open, and it is not ticked anywhere. It has
    no row in the deferred-items register: DR-4 landed it as a lettered step only.
-   **MET, 2026-10-10 (R-2026-09-30-217 GP), as ruled and relayed; I read nothing hosted.** The
-   reading given was that the card and its Directions link work on the founder's phone.
-   *The extent, stated: that is a reading of the PUBLIC facility card and its link, and this
-   step's PASS text asks for the admin Console, on desktop and on a phone, with no red line.
-   What was relayed does not say the admin read was made. The ruling is recorded as given, and
-   Cowork is asked to confirm which was read.*
+   **Restated 2026-10-10 (R-2026-09-30-218 GQ, Addendum 1, which replaces GQ-5 f; relayed, I read
+   nothing hosted).** **Desktop: DONE 2026-10-10,** from the founder's screenshot. The register at
+   admin.openbed.ng shows Iduna Specialist Hospital as Listed, with a contact on record, the agreement
+   recorded, at least one ward category, and listed yes. It shows one login for the whole facility,
+   matching the approved model. The browser console is empty ("No issues"). System status shows all
+   five scheduled jobs succeeded, and the public snapshot was generated under a minute earlier.
+   **Phone:** the public card and its Directions link were read on the founder's phone. **The admin
+   view on a phone is OWED until the founder reports it**, so this step is not ticked as a whole.
+   *Until then this step read, from R-2026-09-30-217 GP and then GQ-5 f: "MET, 2026-10-10 ... the
+   card and its Directions link work on the founder's phone ... Cowork is asked to confirm which was
+   read", and then "Two readings, kept apart ... OWED: the admin Console read, on desktop and on a
+   phone". The desktop read is now reported, and only the phone remains.*
 3. **Record the contact and the agreement** in the facility's detail view.
    3a. **Record the approved reporting model** in the facility's detail view, from the
    facility's signed Schedule 1, Part A ("Who reports"). Read the box the facility ticked.
@@ -5631,8 +5637,8 @@ recorded in `docs/runbook-cloudflare-pages-beds-json.md` under the run of 2026-1
   the second `d6886f1`.*
 - **Step 3b, PASS,** run before the deploy on the live page: 5b, then 5c, recovered in 9 s
   with no reload (above, at step 3b).
-- **Step 9, MET** and **step 2a, MET,** each with the extent of what was relayed stated at
-  the step.
+- **Step 9, MET,** with the extent of what was relayed stated at the step. **Step 2a:** the admin Console
+  read is done on desktop; the admin view on a phone is OWED (restated by GQ, Addendum 1).
 - **The deploy:** `ed6e258e`, from the deploy checkout at `8e5c53b`, by
   `bash scripts/deploy_pages.sh --branch main public-dashboard`; the stamp read back clean.
   The first three attempts failed before upload with an HTML 429 and nothing was uploaded;

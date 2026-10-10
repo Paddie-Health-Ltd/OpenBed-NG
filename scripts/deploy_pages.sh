@@ -18,8 +18,9 @@
 #   - a directory that is not a git work tree -- then nothing can be checked at all;
 #   - an app name it does not recognise -- NEVER defaulted, because a typo that
 #     deployed a different site would be the accident wearing the guard's uniform;
-#   - a network whose Cloudflare edge is Lagos (colo LOS) or Nigeria (loc NG), or whose
-#     edge cannot be read, before anything is built (R-2026-09-30-217 GP). The check is
+#   - a network whose Cloudflare edge is Lagos (colo LOS) or Nigeria (loc NG) -- exit 1 -- and one
+#     whose edge cannot be read -- exit 2, the check did not run -- before anything is built (R-2026-09-30-217 GP;
+#     the two codes by R-2026-09-30-218 GQ-5 b). The check is
 #     scripts/edge_guard.sh, which this file sources; its header holds the evidence, the
 #     evidence kinds and what it does not assert. The edge is printed in every run.
 #
@@ -51,7 +52,7 @@
 #   or the deployment reads the Preview environment variables and finds them unset.
 #   ROOT exists so the guard-over-a-guard tests can aim this at a scratch tree.
 #     Do not remove it because it looks unused; it is the seam every plant hangs on.
-# Exit: 0 deployed, 1 refused (an unreadable or Lagos edge included), 2 the check could not run.
+# Exit: 0 deployed, 1 refused (a Lagos or Nigerian edge included), 2 the check could not run (an edge that could not be read included).
 # ============================================================
 set -euo pipefail
 

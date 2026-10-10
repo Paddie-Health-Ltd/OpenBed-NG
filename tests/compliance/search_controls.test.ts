@@ -701,12 +701,22 @@ describe('the page with no controls host, and an address that asks for something
   test.each([
     ['?ward=burns&area=nowhere&lat=6.5&lng=3.4', BY_NAME],
     ['?ward=maternity&area=nowhere', DEFAULT_MATERNITY],
-    ['?ward=MATERNITY', BY_NAME],
   ])('the address %s falls back safely and is written back clean', async (search, order) => {
     await openPage({ world: WORLD, search });
     expect(cards()).toEqual(order);
     expect(location.search, 'an unsupported value survived into the address').not.toMatch(/burns|nowhere|lat=|lng=/);
   });
+
+  // R-2026-09-30-218 GQ-2 a. Until GQ these three opened with NO ward chosen: the address was read exactly, lower case only.
+  test.each([['?ward=MATERNITY'], ['?ward=Maternity'], ['?ward=%20maternity%20']])(
+    'the address %s opens with maternity chosen and is written back as the one lower-case spelling',
+    async (search) => {
+      await openPage({ world: WORLD, search });
+      expect(cards(), 'the ward in the address was not read').toEqual(DEFAULT_MATERNITY);
+      expect(byId<HTMLInputElement>('ward-input').value).toBe(W.MATERNITY);
+      expect(location.search, 'the address was not written back in its one spelling').toBe('?ward=maternity');
+    },
+  );
 
   test('an address with a ward and an area opens with both chosen and both shown', async () => {
     await openPage({ world: WORLD, search: '?ward=maternity&area=ikeja' });

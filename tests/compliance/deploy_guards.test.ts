@@ -532,6 +532,7 @@ describe('deploy_pages.sh — the accident case, refused', () => {
 const TRACE_CALL = 'curl -q -sS -m 12 https://www.cloudflare.com/cdn-cgi/trace';
 const REFUSAL_SENTENCE =
   "Cloudflare's Lagos edge refuses deploys from Nigerian networks (R-2026-09-30-217 GP). Connect a VPN exiting outside Nigeria, check colo is not LOS, and run this again.";
+const UNREAD_SENTENCE = 'The check could not run, so nothing was built or uploaded. Check the connection, or connect a VPN exiting outside Nigeria, and run this again.';
 
 /**
  * THE EDGE (R-2026-09-30-217 GP, GP-3). The trace table lives in tests/compliance/edge_guard.test.ts; THIS block
@@ -555,16 +556,18 @@ describe('deploy_pages.sh — the edge it would go out through is read before an
   });
 
   test.each([
-    ['colo LOS', { STUB_TRACE_BODY: 'colo=LOS\nloc=GB\n' }],
-    ['loc NG', { STUB_TRACE_BODY: 'colo=LHR\nloc=NG\n' }],
-    ['an answer that is not a trace', { STUB_TRACE_BODY: '<html>429 Too Many Requests</html>' }],
-    ['a trace that cannot be fetched', { STUB_TRACE_EXIT: '6' }],
-  ])('plant — %s is refused with exit 1 BEFORE the build, and nothing is built, stamped or uploaded', (_label, env) => {
+    // A Lagos or Nigerian edge is REFUSED (exit 1); an edge that cannot be read is a check that COULD NOT RUN (exit 2), R-2026-09-30-218 GQ-5 b.
+    ['colo LOS (refused, exit 1)', { STUB_TRACE_BODY: 'colo=LOS\nloc=GB\n' }, 1, REFUSAL_SENTENCE],
+    ['loc NG (refused, exit 1)', { STUB_TRACE_BODY: 'colo=LHR\nloc=NG\n' }, 1, REFUSAL_SENTENCE],
+    ['an answer that is not a trace (the check could not run, exit 2)', { STUB_TRACE_BODY: '<html>429 Too Many Requests</html>' }, 2, UNREAD_SENTENCE],
+    ['a trace that cannot be fetched (the check could not run, exit 2)', { STUB_TRACE_EXIT: '6' }, 2, UNREAD_SENTENCE],
+  ])('plant — %s stops the wrapper BEFORE the build, and nothing is built, stamped or uploaded', (_label, env, status, sentence) => {
     withScratch((root) => {
       repoWithOrigin(root);
       const res = deploy(root, { env });
-      expect(res.status, `a refused edge was deployed from:\n${res.out}`).toBe(1);
-      expect(res.out).toContain(REFUSAL_SENTENCE);
+      expect(res.status, `a stopped edge was deployed from:\n${res.out}`).toBe(status);
+      expect(res.out).toContain(sentence);
+      expect(res.out, 'the other kind of stop\'s sentence was printed').not.toContain(sentence === REFUSAL_SENTENCE ? UNREAD_SENTENCE : REFUSAL_SENTENCE);
       expect(res.ran, 'the guard never asked for a trace').toContain(TRACE_CALL);
       // BEFORE ANY BUILD OR UPLOAD: no npm line (the build) and no npx line (the upload) in the stub log, and the
       // stub build never wrote a stamp. A guard placed after the build would fail the first two.
