@@ -1,0 +1,6 @@
+.search-introduction { max-width: var(--measure-app); margin: 0 auto; padding: var(--space-4) var(--gutter-page); }
+.search-introduction h1 { font: var(--text-title); color: var(--text-strong); margin: 0 0 var(--space-3); }
+.search-introduction h2 { font: var(--text-subheading); margin: 0 0 var(--space-3); }
+.search-introduction p { font: var(--text-body-md); max-width: var(--measure-content); margin: 0 0 var(--space-2); }
+.search-introduction ul { padding-left: var(--space-4); margin: 0; }
+.search-introduction a { display: inline-block; min-height: 44px; padding: var(--space-2) 0; }

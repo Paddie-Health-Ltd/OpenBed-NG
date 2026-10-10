@@ -37,6 +37,7 @@ import {
 import '@openbed/design/tokens.css';
 import '@openbed/design/fonts.css';
 import './style.css';
+import './discovery.css';
 
 /**
  * The public dashboard.

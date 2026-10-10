@@ -5,14 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <!-- The robots tag is written at build time from the one search setting in
          packages/origins/src/search.ts, which ships as public: index, follow.
-         The kickoff forbids a public API, a sitemap, and any bulk export: named wards'
-         duty numbers are an obvious prank-call and harassment vector. -->
+         Discovery pages describe the service; bed snapshots and ward contacts stay outside search discovery. -->
     <!-- @ROBOTS_META@ -->
     <!-- The canonical link is written at build time from HOME_URL in packages/origins/src/privacy.ts,
          so every address with a query string names one page (R-2026-10-09 GO, E). It is NOT the control
          that keeps search results out of an index: robots-public.txt is. -->
     <!-- @CANONICAL_LINK@ -->
-    <title>OpenBed</title>
+    <title>Hospital Bed Availability in Nigeria | OpenBed</title>
+    <meta name="description" content="Find hospital-reported bed availability with OpenBed. Check ward types, locations and update times. Starting in Lagos, Nigeria. Call before travelling." />
+    <meta property="og:title" content="Hospital Bed Availability in Nigeria | OpenBed" />
+    <meta property="og:description" content="Find hospital-reported beds, check when counts were updated, and call to confirm. Starting in Lagos, Nigeria." />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_NG" />
     <!-- The mark as the favicon (the design pass, D1). Vite emits it as a hashed
          same-origin asset; public/favicon.ico answers /favicon.ico for clients that
          ask for it anyway, so that path is never the SPA's HTML (R-2026-09-26-122 CX-3). -->
@@ -46,16 +50,34 @@
       </div>
     </header>
 
+    <section class="search-introduction" aria-labelledby="search-heading">
+      <h1 id="search-heading">Find hospital bed availability in Nigeria</h1>
+      <p>Check participating hospitals’ reported beds by ward, location and update time. Starting in Lagos, Nigeria.</p>
+      <p>Choose a ward or use Near me, then call the hospital to confirm before travelling.</p>
+    </section>
+
     <!-- THE SEARCH CONTROLS (R-2026-10-09 GO, C): built once by src/main.ts into this element, OUTSIDE
          #app, so the 30-second re-render of the results can never wipe a selection, close a list or take
          focus from a control. It is empty until the script runs, and the results below it stand without it. -->
     <div id="search" role="search"></div>
 
-    <main id="app"></main>
+    <main id="app" aria-label="Hospital availability reports">
+      <p>Loading hospital reports. If reports do not appear, enable JavaScript or read the <a href="/hospital-bed-availability-nigeria">hospital bed availability guide</a>. A missing report does not mean no beds are available.</p>
+    </main>
+
+    <section class="search-introduction" aria-labelledby="guides-heading">
+      <h2 id="guides-heading">Help finding a hospital bed</h2>
+      <ul>
+        <li><a href="/hospital-bed-availability-nigeria">Hospital bed availability in Nigeria: wards, referrals and admission</a></li>
+        <li><a href="/hospital-bed-availability-lagos">Find hospital beds in Lagos and search by local government area</a></li>
+        <li><a href="/icu-bed-availability-nigeria">Adult ICU, children’s ICU, NICU and special care baby units</a></li>
+        <li><a href="/hospital-bed-reporting">Bed availability reporting for hospitals and ward teams</a></li>
+      </ul>
+    </section>
 
     <!-- The general-enquiries address and nothing else, filled by src/main.ts from
          packages/origins/contacts.json so the address is never typed twice. -->
-    <footer id="site-footer"></footer>
+    <!-- @SITE_FOOTER@ -->
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
