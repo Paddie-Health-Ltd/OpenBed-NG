@@ -1184,6 +1184,28 @@ from the edge rather than from the origin. Fetch each, and paste what came back:
    - **Notice 1.2 went live with "Near me" in this one deploy**, as ordered; its first
      publication date, 2026-10-10, is in `docs/legal/README.md`.
 
+   **Run on 2026-10-10, from the deploy checkout at `4b2b6014edf2b9df7619fb585cde83fba8b97e60`**
+   (R-2026-09-30-219 GR; #136's merge: the deep-link fix, the sitemap's footing and the guard's two
+   exit codes). **Everything in this record is the founder's, relayed by Cowork, unless a line says
+   otherwise; the implementer observed none of it.** The command was
+   `bash scripts/deploy_pages.sh --branch main public-dashboard`:
+   - **The first real run of the edge guard** (`scripts/edge_guard.sh`, added by #135). Through the
+     VPN it read `colo=LHR loc=GB` before the build, and let the run go on. Until this run the guard had
+     been exercised only against a stand-in and by one read-only probe of the implementer's. *Evidence
+     kind: relayed. It is one accepting reading; no refusal has been observed on a real run.*
+   - **The stamp read back clean.** 5 files uploaded and 17 already present. Deployment `f91b1d81`.
+   - **`readback_pages.sh`: PASS on both hosts.** `openbed.ng` serves `/assets/index-1pfAOUSl.js`, the
+     privacy notice reads "Version 1.2", and no FLAG line printed. *Evidence kind of the bundle name,
+     mine: a build of this tree on 2026-10-10 names the same file, which shows the code builds that
+     bundle and not what is served.*
+   - **`/sitemap.xml` on `openbed.ng`:** 200, `application/xml`, seven `<loc>` entries: `/`, `/about`,
+     `/how-it-works` and the four guides. No query string and no data path. *My own check: a build of
+     this tree emits those same seven addresses; the response itself is the founder's reading.*
+   - **`/hospital-bed-availability-nigeria`:** 200, `text/html`.
+   - **The sitemap was submitted once in Search Console** (the founder). **The home page is not yet
+     read as indexed:** the Search Console TRIGGER row in the decision record's register stays open
+     until it is, and the first observation is recorded there when seen.
+
    **The `openbed.ng` zone settings that must stay OFF** (R-2026-09-25-119 CU-4;
    R-2026-09-27-139 DO-1 b). Each one changed what the custom domain served, on that
    host only, and each was found by a read-back on the custom domain:
