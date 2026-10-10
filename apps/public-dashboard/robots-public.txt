@@ -1,5 +1,14 @@
 User-agent: *
 Allow: /$
-Allow: /about
-Allow: /how-it-works
+Allow: /about$
+Allow: /how-it-works$
+Allow: /assets/
+Allow: /favicon.ico$
+Allow: /sitemap.xml$
+Allow: /hospital-bed-availability-nigeria$
+Allow: /hospital-bed-availability-lagos$
+Allow: /icu-bed-availability-nigeria$
+Allow: /hospital-bed-reporting$
 Disallow: /
+
+Sitemap: https://openbed.ng/sitemap.xml
