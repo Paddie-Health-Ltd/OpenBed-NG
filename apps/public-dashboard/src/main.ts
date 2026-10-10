@@ -1,4 +1,5 @@
 import {
+  lagosTime,
   decodeWard,
   decodeFacility,
   decodeFacilityExtra,
@@ -10,10 +11,27 @@ import {
   type DecodedRow,
   type FetchMark,
 } from '@openbed/snapshot';
+import { phrase } from '@openbed/labels';
 import { HELLO_EMAIL } from '@openbed/origins/contacts';
-import { ABOUT_URL, HOW_IT_WORKS_URL, PRIVACY_NOTICE_URL } from '@openbed/origins/privacy';
+import { ABOUT_URL, HOME_URL, HOW_IT_WORKS_URL, PRIVACY_NOTICE_URL } from '@openbed/origins/privacy';
 import { rowStyle, snapshotBanner, wardLineParts, type ServeClock, type WardLineParts } from './age-view.js';
 import { addressLine, areaLine, directionsUrl, formatPhoneDisplay, LOADING_TEXT } from './card.js';
+import { mountControls, type Controls, type ControlsView } from './controls.js';
+import { categoryLabel } from './labels.js';
+import { cancelLocate, deviceOrigin, nearMe, type LocateFailure } from './locate.js';
+import { lgaBySlug } from './lga-points.js';
+import {
+  applyFrozenOrder,
+  buildCandidates,
+  kmText,
+  orderFacilities,
+  orderHasAged,
+  parseSearch,
+  writeSearch,
+  type Candidate,
+  type FrozenOrder,
+  type SortChoice,
+} from './search.js';
 // The design system's tokens and self-hosted fonts first, then this app's own rules
 // (the design pass, D1). Vite emits all three as same-origin assets.
 import '@openbed/design/tokens.css';
@@ -79,12 +97,13 @@ import './style.css';
  *     classification, not restated here. This fetch carries no credential of
  *     any kind (an unauthenticated GET), so it does not meet that guard's
  *     stated trigger ("a real authenticated client fetch") regardless.
- *   - scripts/lint_no_updated_at_filter.sh: still GUARD-AHEAD-OF-SUBJECT --
- *     see that script's own header. Its true subject, distance-based public
- *     search and filtering, is not built here. SINCE R-2026-09-23-67 THIS
- *     MODULE READS EACH WARD'S AGE, for display only, through ./age-view.ts:
- *     every ward is still rendered, in the order served. An age is shown,
- *     never used to choose which rows appear.
+ *   - scripts/lint_no_updated_at_filter.sh: LIVE (R-2026-10-09 GO). Its subject, the public
+ *     search path, is built: ./search.ts orders and filters the results this module draws, and the
+ *     guard scans it and its neighbours. Freshness REORDERS (searchRank, in the chosen-ward view) and
+ *     never filters: the only filter is the offering, so a hospital whose reports are old, suppressed
+ *     or absent is still drawn with its name and its call link. THE GREP IS NOT THE CONTROL that
+ *     proves that: it reads one line at a time and has no way to see a band filter. The control is
+ *     the rendered-page test with every ward suppressed (tests/compliance/search_freshness.test.ts).
  *
  * EVERY COUNT CARRIES ITS AGE (R-2026-09-23-67 A). The fetch keeps the
  * snapshot's generated_at, the x-openbed-served-at header the Pages Function
@@ -303,6 +322,11 @@ function showLoading(root: HTMLElement): void {
 }
 
 function renderOutage(root: HTMLElement): void {
+  // An outage notice is not a list, so the order that was held belongs to a draw that is gone: the next good
+  // draw sets it again (R-2026-10-09 GO, B, "after an outage the order is recomputed only if the previous draw
+  // showed the outage notice"). A failed poll that leaves results on screen never comes through here.
+  frozen = null;
+  clearResultsLines();
   try {
     const notice = document.createElement('p');
     notice.className = 'outage-state';
@@ -315,25 +339,9 @@ function renderOutage(root: HTMLElement): void {
   }
 }
 
-/** What a count needs beside it before it may render: a name, and a number to call. */
-export interface CallableIdentity {
-  readonly name: string;
-  readonly phone: string;
-}
-
-/**
- * THE ONE DECISION about whether a ward can be shown. Null when its facility is
- * absent from the payload, its name is blank or only whitespace, or it carries no
- * number to call. Every renderer asks this; none decides it for itself.
- */
-export function callableIdentity(facility: DecodedRow | undefined): CallableIdentity | null {
-  if (facility === undefined) return null;
-  const name = facility['name'];
-  const phone = facility['public_phone_e164'];
-  if (typeof name !== 'string' || name.trim() === '') return null;
-  if (typeof phone !== 'string' || phone.trim() === '') return null;
-  return { name: name.trim(), phone: phone.trim() };
-}
+// The one decision about whether a ward can be shown lives in search.ts, beside the eligibility that uses it;
+// it is re-exported here because the tests and the renderers have always named it from this module.
+export { callableIdentity, type CallableIdentity } from './search.js';
 
 /**
  * ONE WARD ROW, IN PIECES (the design pass, D1). Its textContent is EXACTLY
@@ -384,11 +392,64 @@ export function renderFooter(): void {
   footer.replaceChildren(mail, about, how, privacy);
 }
 
+/**
+ * THE SEARCH THE VISITOR HAS MADE, held in memory only (R-2026-10-09 GO). Nothing here is ever written to a
+ * store; the address carries `ward` and `area` and nothing else (writeSearch), and a device position stays in
+ * locate.ts. A poll never touches any of it: only a visitor's action does.
+ */
+let searchWard = 'any';
+let searchArea: string | null = null;
+let searchSort: SortChoice = 'default';
+
+/** The controls, mounted once into the host outside #app; null where the page has no host for them. */
+let controls: Controls | null = null;
+/** The host the controls were mounted into, so a replaced host is mounted again with the state held. */
+let controlsHost: HTMLElement | null = null;
+/** True once the address has been read: only the first mount starts from it. */
+let searchStarted = false;
+
+/** The order, held between a visitor's actions (A3). null until the first good draw, and after any draw that was not a list. */
+let frozen: FrozenOrder | null = null;
+
+/** Where distances are measured from: an LGA's reference point, a held device position, or nowhere. */
+type Start =
+  | { readonly kind: 'area'; readonly lat: number; readonly lng: number; readonly label: string }
+  | { readonly kind: 'device'; readonly lat: number; readonly lng: number };
+
+function currentStart(): Start | null {
+  if (searchArea !== null) {
+    const point = lgaBySlug(searchArea);
+    if (point !== undefined) return { kind: 'area', lat: point.lat, lng: point.lng, label: point.label };
+  }
+  const device = deviceOrigin();
+  return device === null ? null : { kind: 'device', lat: device.lat, lng: device.lng };
+}
+
+/** "04:12", the Lagos wall time of the page's own serve clock; null where the page has no serve time. */
+function serveClockTime(clock: ServeClock): string | null {
+  if (clock.servedAt === null) return null;
+  const at = Date.parse(clock.servedAt);
+  if (Number.isNaN(at)) return null;
+  const match = /\b\d{2}:\d{2}\b/.exec(lagosTime(new Date(at + clock.elapsedMs).toISOString()));
+  return match === null ? null : match[0];
+}
+
+/** What the controls' coverage and aged-order lines say after a draw that was not a list. */
+function clearResultsLines(): void {
+  controls?.setCoverage(null);
+  controls?.setAgedOrder(null);
+}
+
 function renderReal(root: HTMLElement, snapshot: Snapshot): void {
   const { facilities, wards, addresses } = snapshot;
   const clock: ServeClock = { servedAt: snapshot.servedAt, elapsedMs: elapsedSince(snapshot.mark) };
+  const start = currentStart();
+  const wardChosen = searchWard !== 'any';
+
   const empty = emptyStateMessage(facilities, wards);
   if (empty !== null) {
+    frozen = null;
+    clearResultsLines();
     const notice = document.createElement('p');
     notice.className = 'empty-state';
     notice.textContent = empty;
@@ -396,35 +457,70 @@ function renderReal(root: HTMLElement, snapshot: Snapshot): void {
     return;
   }
 
-  const byId = new Map(facilities.map((f) => [f['facility_id'], f]));
-  const shown = new Map<unknown, { identity: CallableIdentity; wards: DecodedRow[] }>();
-  for (const ward of wards) {
-    const id = ward['facility_id'];
-    const identity = callableIdentity(byId.get(id));
-    if (identity === null) {
-      // No count, deliberately: see the header.
-      console.error('OpenBed: a ward was not shown because its facility has no callable identity in the snapshot', {
-        facility_id: id,
-        category: ward['category'],
-      });
-      continue;
-    }
-    const group = shown.get(id) ?? { identity, wards: [] };
-    group.wards.push(ward);
-    shown.set(id, group);
+  const found = buildCandidates(facilities, wards, clock, searchWard, start);
+  for (const gone of found.dropped) {
+    // No count, deliberately: see the header.
+    console.error('OpenBed: a ward was not shown because its facility has no callable identity in the snapshot', {
+      facility_id: gone.facility_id,
+      category: gone.category,
+    });
   }
 
   // Every ward dropped is not an empty city. It is information we cannot show.
-  if (shown.size === 0) {
+  if (found.callableWardRows === 0) {
+    frozen = null;
+    clearResultsLines();
     renderOutage(root);
     return;
   }
+
+  // Wards were all stated NOT_OFFERED: nothing a hospital offers is listed, which is not "no beds".
+  if (found.listed === 0) {
+    frozen = null;
+    clearResultsLines();
+    const notice = document.createElement('p');
+    notice.className = 'empty-state';
+    notice.textContent = emptyStateMessage(facilities, []);
+    root.replaceChildren(notice);
+    return;
+  }
+
+  controls?.setCoverage(phrase('coverage', { n: String(found.shown.length), m: String(found.listed) }));
+
+  // A ward chosen that no listed hospital offers: the empty state, with the emergency numbers kept.
+  if (found.shown.length === 0) {
+    frozen = null;
+    controls?.setAgedOrder(null);
+    const notice = document.createElement('p');
+    notice.className = 'empty-state';
+    notice.textContent = `${phrase('empty_ward', { ward: categoryLabel(searchWard) })} ${phrase('emergency_line')}`;
+    root.replaceChildren(notice);
+    return;
+  }
+
+  // THE ORDER IS SET ONLY WHEN THE VISITOR ACTS (A3). A poll re-applies the frozen order; it never re-sorts.
+  let ordered: readonly Candidate[];
+  let held = frozen;
+  if (held === null) {
+    const ids = orderFacilities(found.shown, searchSort, wardChosen, start !== null);
+    const byId = new Map(found.shown.map((c) => [c.id, c]));
+    ordered = ids.flatMap((id) => {
+      const c = byId.get(id);
+      return c === undefined ? [] : [c];
+    });
+    held = { ids: [...ids], ranks: new Map(found.shown.map((c) => [c.id, c.rank])), setAt: serveClockTime(clock) };
+    frozen = held;
+  } else {
+    ordered = applyFrozenOrder(held, found.shown);
+  }
+  controls?.setAgedOrder(held.setAt !== null && orderHasAged(held, ordered) ? phrase('aged_order', { time: held.setAt }) : null);
 
   // The page-level warning first: while it shows, no row reads as live (DB-1).
   const banner = snapshotBanner(snapshot.generatedAt, clock);
 
   const sections: HTMLElement[] = [];
-  for (const [facilityId, { identity, wards: facilityWards }] of shown.entries()) {
+  for (const candidate of ordered) {
+    const { identity, facility: facilityRow } = candidate;
     const section = document.createElement('section');
     section.className = 'facility';
 
@@ -432,25 +528,36 @@ function renderReal(root: HTMLElement, snapshot: Snapshot): void {
     heading.textContent = identity.name;
 
     // THE LOCATION BLOCK (R-2026-09-30-214 GN): the street address when the facility has one, then
-    // "<LGA>, <State>", then Directions. All text via textContent, never markup. Each part is left out
-    // when it is missing, and none of them can cost the card its call link.
+    // "<LGA>, <State>", then the distance when there is a starting point, then Directions. All text via
+    // textContent, never markup. Each part is left out when it is missing, and none of them can cost the
+    // card its call link. The distance sits OUTSIDE the ward rows: a suppressed row holds no digit.
     const place: HTMLElement[] = [];
-    const facilityRow = byId.get(facilityId);
-    const address = addresses.get(String(facilityId));
+    const address = addresses.get(candidate.id);
     if (address !== undefined) {
       const line = document.createElement('p');
       line.className = 'facility-address';
       line.textContent = address;
       place.push(line);
     }
-    const area = areaLine(facilityRow?.['lga'], facilityRow?.['state']);
+    const area = areaLine(facilityRow['lga'], facilityRow['state']);
     if (area !== null) {
       const line = document.createElement('p');
       line.className = 'facility-area';
       line.textContent = area;
       place.push(line);
     }
-    const url = directionsUrl(facilityRow?.['lat'], facilityRow?.['lng']);
+    if (start !== null) {
+      const line = document.createElement('p');
+      line.className = 'facility-distance';
+      line.textContent =
+        candidate.distanceKm === null
+          ? phrase('distance_unavailable')
+          : start.kind === 'device'
+            ? phrase('distance_device', { km: kmText(candidate.distanceKm) })
+            : phrase('distance_area', { km: kmText(candidate.distanceKm), lga: start.label });
+      place.push(line);
+    }
+    const url = directionsUrl(facilityRow['lat'], facilityRow['lng']);
     if (url !== null) {
       const directions = document.createElement('a');
       directions.className = 'directions';
@@ -473,7 +580,7 @@ function renderReal(root: HTMLElement, snapshot: Snapshot): void {
     call.append('Call to confirm beds: ', phone);
 
     const list = document.createElement('ul');
-    for (const ward of facilityWards) {
+    for (const ward of candidate.wards) {
       const item = document.createElement('li');
       renderWardLine(item, wardLineParts(ward, clock), banner !== null);
       list.appendChild(item);
@@ -494,6 +601,119 @@ function renderReal(root: HTMLElement, snapshot: Snapshot): void {
   }
 }
 
+/** The controls' view of the search as it stands. */
+function controlsView(): ControlsView {
+  const start = currentStart();
+  return {
+    ward: searchWard,
+    area: searchArea,
+    origin: start === null ? null : start.kind === 'device' ? { kind: 'device' } : { kind: 'area', label: start.label },
+    sort: start === null ? 'default' : searchSort,
+  };
+}
+
+/** Show the search as it stands: the controls, and which of the two share notes is true. */
+function syncControls(): void {
+  if (controls === null) return;
+  controls.sync(controlsView());
+  controls.setShareNote(currentStart()?.kind === 'device' ? phrase('share_note_device') : phrase('share_note_area'));
+}
+
+/** The address carries the bed type and the chosen area, and nothing else (a device position writes ward only). */
+function writeAddress(): void {
+  try {
+    history.replaceState(null, '', `${location.pathname}${writeSearch({ ward: searchWard, area: searchArea })}`);
+  } catch {
+    // An address that cannot be written leaves the search working; nothing depends on it.
+  }
+}
+
+const failureWords: Record<LocateFailure, string> = {
+  denied: phrase('location_denied'),
+  unavailable: phrase('location_unavailable'),
+  timeout: phrase('location_timeout'),
+};
+
+/** Draws the held snapshot again with the order recomputed; set by render(), which owns what is held. */
+let redraw: (() => void) | null = null;
+
+/** After a visitor's action: the order is recomputed, the address and controls follow, and the results are drawn again. */
+function afterAction(): void {
+  frozen = null;
+  if (searchSort === 'nearest' && currentStart() === null) searchSort = 'default';
+  writeAddress();
+  syncControls();
+  redraw?.();
+}
+
+/** Mount the controls into the host index.html provides, once per host. A page with no host runs on its defaults. */
+function ensureControls(): void {
+  const host = document.getElementById('search');
+  if (host === null) {
+    controls = null;
+    controlsHost = null;
+    return;
+  }
+  if (host === controlsHost && controls !== null) return;
+  if (!searchStarted) {
+    const start = parseSearch(location.search);
+    searchWard = start.ward;
+    searchArea = start.area;
+    searchStarted = true;
+  }
+  controlsHost = host;
+  // The address is written back from the state just read, so a key the page does not read (a position, anything) and a value
+  // outside its tables are gone from it before the visitor does anything.
+  writeAddress();
+  controls = mountControls(
+    host,
+    {
+      onWard: (ward) => {
+        searchWard = ward;
+        afterAction();
+      },
+      onArea: (slug) => {
+        cancelLocate();
+        controls?.setStatus('');
+        searchArea = slug;
+        afterAction();
+      },
+      onNearMe: () => {
+        controls?.setStatus('');
+        nearMe((result) => {
+          if (!result.ok) {
+            controls?.setStatus(failureWords[result.reason]);
+            return;
+          }
+          searchArea = null;
+          afterAction();
+        });
+      },
+      onClear: () => {
+        cancelLocate();
+        controls?.setStatus('');
+        searchArea = null;
+        afterAction();
+      },
+      onSort: (sort) => {
+        searchSort = sort;
+        afterAction();
+      },
+      onCopy: () => {
+        const link = `${HOME_URL}${writeSearch({ ward: searchWard, area: searchArea })}`;
+        const clipboard = navigator.clipboard;
+        if (clipboard === undefined) return;
+        clipboard.writeText(link).then(
+          () => controls?.setStatus(phrase('link_copied')),
+          () => undefined,
+        );
+      },
+    },
+    controlsView(),
+  );
+  syncControls();
+}
+
 let polling: ReturnType<typeof setInterval> | null = null;
 /** Bumped by every render(), so a poll answered after a newer render() is dropped. */
 let generation = 0;
@@ -511,6 +731,9 @@ export async function render(): Promise<void> {
   polling = null;
   generation += 1;
   const mine = generation;
+  // A fresh load: the controls are mounted, and the first good draw sets the order.
+  ensureControls();
+  frozen = null;
 
   /** The snapshot on screen. null while the outage notice is. A snapshot is held only once it has been drawn. */
   let held: Snapshot | null = null;
@@ -541,6 +764,12 @@ export async function render(): Promise<void> {
       restore();
       return false;
     }
+  };
+
+  // A control change draws the held snapshot again, re-sorted. It does nothing before one is held: a visitor
+  // acting during the loading line must not turn it into an outage notice.
+  redraw = (): void => {
+    if (mine === generation && held !== null) restore();
   };
 
   const tick = (): void => {

@@ -3,8 +3,10 @@ import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, w
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { withScratch, REPO_ROOT } from './_scratch.js';
+import { CURRENT_NOTICE, PRIOR_NOTICES } from './_notice_pins.js';
 import { deployableApps } from './_apps.js';
 import ORIGINS_JSON from '../../packages/origins/origins.json';
+import SNAPSHOT_SHAPE from '../../packages/fixtures/snapshot-shape.json';
 import LIST_JSON from '../../supabase-proxy/allow-list.json';
 import { makeHandler, PROXY_HEADER, type AllowList } from '../../supabase-proxy/handler.js';
 import { robotsMetaContent, robotsTxtSource, SEARCH_VISIBILITY, type SearchVisibility } from '../../packages/origins/src/search.js';
@@ -109,6 +111,11 @@ function repo(root: string, opts: { pushed?: boolean; remote?: boolean; headers?
   mkdirSync(join(work, 'apps', 'public-dashboard'), { recursive: true });
   copyFileSync(join(REPO_ROOT, 'packages', 'origins', 'src', 'search.ts'), join(work, 'packages', 'origins', 'src', 'search.ts'));
   copyFileSync(join(REPO_ROOT, robotsTxtSource('public')), join(work, robotsTxtSource('public')));
+  // The facility flag check reads the checkout's own snapshot shape fixture and runs its own helper from the checkout
+  // (R-2026-10-09 GO, GO-1 c, d), exactly as it reads render_headers.mjs and the tracked _headers.
+  mkdirSync(join(work, 'packages', 'fixtures'), { recursive: true });
+  copyFileSync(join(REPO_ROOT, 'packages', 'fixtures', 'snapshot-shape.json'), join(work, 'packages', 'fixtures', 'snapshot-shape.json'));
+  copyFileSync(join(REPO_ROOT, 'scripts', 'readback_facility_flags.mjs'), join(work, 'scripts', 'readback_facility_flags.mjs'));
   // And the tracked favicon, which both hosts must serve byte for byte (R-2026-09-26-122 CX-3).
   if (opts.headers !== false) copyFileSync(join(REPO_ROOT, 'apps', 'public-dashboard', 'public', 'favicon.ico'), join(work, 'apps', 'public-dashboard', 'public', 'favicon.ico'));
   // The ward console's, since D2 (R-2026-09-26-132 DH-3).
@@ -403,7 +410,27 @@ const BEDS_HEADERS = {
   'x-robots-tag': 'noindex, nofollow',
   'x-content-type-options': 'nosniff',
 };
-const BEDS_BODY = '{"v":9371,"wards":[],"facilities":[]}';
+/**
+ * A /beds.json body that IS a snapshot (R-2026-10-09 GO, GO-1 g): the envelope the codec reads, one row per facility and per ward
+ * built from the fixture's own column lists, never a column list of this file's. The facility's name is a marker the flag check
+ * must never print (facility id only).
+ */
+const FLAG_FACILITY_NAME = 'Synthetic Marker Hospital';
+const FAC = (n: number): string => `f000000${n}-0000-4000-8000-00000000000${n}`;
+const SHAPE_COLUMNS = SNAPSHOT_SHAPE as unknown as { wardColumns: string[]; facilityColumns: string[] };
+function snapshotBody(facilities: string[], wards: { facility: string; offering: string; category?: string }[]): string {
+  const at = '2026-09-23T18:40:00.000Z';
+  const facilityRow = (id: string): unknown[] => SHAPE_COLUMNS.facilityColumns.map((c) => ({
+    facility_id: id, name: FLAG_FACILITY_NAME, lga: 'Ikeja', state: 'Lagos', lat: 6.6, lng: 3.35, public_phone_e164: '+2348000000001', updated_at: at,
+  } as Record<string, unknown>)[c] ?? null);
+  const wardRow = (w: { facility: string; offering: string; category?: string }): unknown[] => SHAPE_COLUMNS.wardColumns.map((c) => ({
+    facility_id: w.facility, category: w.category ?? 'A_AND_E', offering: w.offering, bed_count: 3, accepting_effective: true, gated_by: null,
+    state: 'OK', source: 'WARD', monitoring_state: 'ACTIVE', updated_at: at,
+  } as Record<string, unknown>)[c] ?? null);
+  return JSON.stringify({ v: 9371, generated_at: at, server_now: at, facilities: facilities.map(facilityRow), wards: wards.map(wardRow) });
+}
+/** The clean snapshot every existing leg serves: one facility with one ward it offers. It was '{"v":9371,"wards":[],"facilities":[]}' until GO-1 g. */
+const BEDS_BODY = snapshotBody([FAC(1)], [{ facility: FAC(1), offering: 'OFFERED' }]);
 const DASH_DOMAIN = 'https://openbed.ng';
 const DASH_PAGE = '<!doctype html><script type="module" crossorigin src="/assets/index-iIcFdl6r.js"></script><link rel="stylesheet" crossorigin href="/assets/index-DTILzLDb.css">';
 /** The tracked favicon, read, never retyped: what both hosts must serve byte for byte (R-2026-09-26-122 CX-3). */
@@ -418,10 +445,12 @@ const ROBOTS_TXT = readFileSync(join(REPO_ROOT, robotsTxtSource(SEARCH_VISIBILIT
  * #app root, carrying the notice's own words, read from the tracked source, never retyped.
  */
 const noticePage = (file: string): string => `<!doctype html><html><body><main id="notice">${readFileSync(join(REPO_ROOT, 'docs', 'legal', file), 'utf8')}</main></body></html>`;
-/** Version 1.1, what a deploy from this checkout serves (R-2026-09-28-155 EE-3). */
-const PRIVACY_PAGE = noticePage('privacy-notice-v1.1.md');
-/** Version 1.0, what 2633ccc0 serves today: the prior version, which this read-back must now refuse. */
-const PRIOR_PRIVACY_PAGE = noticePage('privacy-notice-v1.0.md');
+/** The current version (1.2 since R-2026-10-09 GO), what a deploy from this checkout serves; its file is named once, in _notice_pins.ts. */
+const PRIVACY_PAGE = noticePage(CURRENT_NOTICE.file);
+/** The previous version, 1.1: what a deployment from before this change serves, and which this read-back must now refuse. */
+const PRIOR_PRIVACY_PAGE = noticePage(PRIOR_NOTICES[0]!.file);
+/** Version 1.0: older still, and refused for the same reason. */
+const OLDEST_PRIVACY_PAGE = noticePage(PRIOR_NOTICES[1]!.file);
 /**
  * /api/health as the deployed Function answers it (R-2026-09-29-173 EW-2 h): a 200 whose
  * marker header the SPA fallback can never carry. HEAD carries the same headers and no body.
@@ -590,7 +619,10 @@ describe('scripts/readback_pages.sh', () => {
     ['/privacy answered by the SPA fallback on openbed.ng only', (f) => { f[`GET ${DASH_DOMAIN}/privacy`] = { status: 200, headers: { 'content-type': 'text/html' }, body: SPA_INDEX }; }, 'openbed.ng privacy is not the SPA index'],
     ['/privacy not found', (f) => { f[`GET ${SITE}/privacy`] = { status: 404, headers: { 'content-type': 'text/html' }, body: 'Not found' }; }, 'privacy status'],
     ['/privacy without the controller', (f) => { f[`GET ${SITE}/privacy`] = { ...PRIVACY_ANSWER, body: PRIVACY_PAGE.split('Paddie Health Ltd').join('The operator') }; }, 'privacy controller'],
-    ['/privacy of another version', (f) => { f[`GET ${DASH_DOMAIN}/privacy`] = { ...PRIVACY_ANSWER, body: PRIVACY_PAGE.split('Version 1.1').join('Version 2.0') }; }, 'openbed.ng privacy version'],
+    // REWRITTEN 2026-10-09 (R-2026-10-09 GO, GO-3 c). It served the current page with its version word swapped for 2.0; it now serves
+    // the PREVIOUS version's real text (1.1), which is what a deployment from before this change serves. The 2.0 plant is kept beside it.
+    ['/privacy of another version: the previous release, 1.1', (f) => { f[`GET ${DASH_DOMAIN}/privacy`] = { ...PRIVACY_ANSWER, body: PRIOR_PRIVACY_PAGE }; }, 'openbed.ng privacy version'],
+    ['/privacy of another version: a version that does not exist', (f) => { f[`GET ${DASH_DOMAIN}/privacy`] = { ...PRIVACY_ANSWER, body: PRIVACY_PAGE.split(`Version ${CURRENT_NOTICE.version}`).join('Version 2.0') }; }, 'openbed.ng privacy version'],
     ['/privacy carrying a script', (f) => { f[`GET ${SITE}/privacy`] = { ...PRIVACY_ANSWER, body: PRIVACY_PAGE.replace('</body>', '<script src="/x.js"></script></body>') }; }, 'privacy scripts'],
     ['/privacy served as plain text', (f) => { f[`GET ${SITE}/privacy`] = { ...PRIVACY_ANSWER, headers: { 'content-type': 'text/plain' } }; }, 'privacy content-type'],
     ['a favicon that is not the tracked icon', (f) => { f[`GET ${SITE}/favicon.ico`] = { status: 200, headers: { 'content-type': 'image/x-icon' }, bodyBase64: Buffer.from('not the icon').toString('base64') }; }, 'favicon.ico'],
@@ -607,16 +639,21 @@ describe('scripts/readback_pages.sh', () => {
     });
   });
 
-  test('a deployment still serving privacy notice 1.0 (as 2633ccc0 does) reads WRONG on the version on both hosts, and STOPs (R-2026-09-28-155 EE-3)', () => {
+  // RESTATED 2026-10-09 (R-2026-10-09 GO, GO-3 c): it served 1.0 against a script that wanted 1.1. The script now wants 1.2, so
+  // BOTH older versions read WRONG on the version on both hosts and STOP, each on its own leg, and each fails on nothing else.
+  test.each([
+    ['1.1', () => PRIOR_PRIVACY_PAGE],
+    ['1.0', () => OLDEST_PRIVACY_PAGE],
+  ])('a deployment still serving privacy notice %s reads WRONG on the version on both hosts, and STOPs (R-2026-09-28-155 EE-3)', (_version, page) => {
     withScratch((root) => {
       const work = repo(root);
       const f = pagesFixtures(git(work, 'rev-parse', 'HEAD').trim());
-      f[`GET ${SITE}/privacy`] = { ...PRIVACY_ANSWER, body: PRIOR_PRIVACY_PAGE };
-      f[`GET ${DASH_DOMAIN}/privacy`] = { ...PRIVACY_ANSWER, body: PRIOR_PRIVACY_PAGE };
+      f[`GET ${SITE}/privacy`] = { ...PRIVACY_ANSWER, body: page() };
+      f[`GET ${DASH_DOMAIN}/privacy`] = { ...PRIVACY_ANSWER, body: page() };
       const r = run(root, SCRIPTS.pages, [SITE, work], f);
       expectStopAt(r, 'privacy version');
       expect(r.out).toContain('  WRONG  openbed.ng privacy version: ');
-      expect(r.out, 'the 1.0 page failed on something other than its version').toContain('  ok     privacy controller: ');
+      expect(r.out, 'the older page failed on something other than its version').toContain('  ok     privacy controller: ');
     });
   });
 
@@ -2231,5 +2268,289 @@ describe('the About and How-it-works pages and the search setting (R-2026-09-30-
       expect(r.out).toContain('ERROR: the search setting answered without a robots tag or a robots file -- the check did not run, so this read-back has no verdict');
       expect(r.out).not.toContain('PASS:');
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The facility flags (R-2026-10-09 GO, GO-1): read-back 6's snapshot, one FLAG per listed facility with no ward
+// other than NOT_OFFERED. A FLAG is a third kind of result: it can never turn a PASS into a STOP.
+// ---------------------------------------------------------------------------
+
+const FLAG_HELPER = join(REPO_ROOT, 'scripts', 'readback_facility_flags.mjs');
+const FLAG_HELPER_NAME = 'readback_facility_flags.mjs';
+const FLAG_HEADER = '=== the facility flags: the snapshot read-back 6 just read, one FLAG per listed facility with no ward other than NOT_OFFERED ===';
+const PASS_LINE_START = 'PASS: read-backs 4, 6, 7 and 8';
+
+interface FlagRunOptions {
+  /** The first /beds.json answer's body (read-back 6's); the later ones stay the clean snapshot. */
+  body?: string;
+  /** Read-back 6's status, when the plant is a wrong status. */
+  status?: number;
+  /** Edits the scratch checkout before the run: a missing fixture, a swapped fixture, a replaced helper or common file. */
+  mutate?: (work: string) => void;
+  /** Edits the fixtures after the clean ones are built. */
+  fixtures?: (f: Fixtures, head: string) => void;
+  /** A script to run in place of the real readback_pages.sh (a copy in the scratch checkout). */
+  script?: (work: string) => string;
+}
+
+function flagRun(opts: FlagRunOptions = {}): Run {
+  return withScratch((root) => {
+    const work = repo(root);
+    opts.mutate?.(work);
+    const head = git(work, 'rev-parse', 'HEAD').trim();
+    const f = pagesFixtures(head);
+    if (opts.body !== undefined || opts.status !== undefined) {
+      const answers = f[`GET ${SITE}/beds.json`] as Answer[];
+      const first = answers[0] as { status: number; headers?: Record<string, string>; body?: string };
+      f[`GET ${SITE}/beds.json`] = [{ ...first, ...(opts.body !== undefined ? { body: opts.body } : {}), ...(opts.status !== undefined ? { status: opts.status } : {}) }, ...answers.slice(1)];
+    }
+    opts.fixtures?.(f, head);
+    return run(root, opts.script?.(work) ?? SCRIPTS.pages, [SITE, work], f);
+  });
+}
+
+/**
+ * The output with its FLAG lines, and read-back 6's body line (which prints the body and so differs between bodies), taken out, and
+ * every 40-character commit id masked: each scratch checkout is a different commit, and that is the one difference between two runs
+ * that is nothing to do with the facility check.
+ */
+const withoutFlagsAndBody = (out: string): string =>
+  out
+    .split('\n')
+    .filter((l) => !l.startsWith('  FLAG ') && !l.startsWith('  ok     read-back 6 body:') && !l.startsWith('  WRONG  read-back 6 body:'))
+    .join('\n')
+    .replace(/\b[0-9a-f]{40}\b/g, '<commit>');
+const flagLinesOf = (out: string): string[] => out.split('\n').filter((l) => l.startsWith('  FLAG '));
+const verdictLine = (out: string): string => out.split('\n').filter((l) => l.startsWith('PASS:') || l.startsWith('STOP:')).join('\n');
+
+const NO_WARD_ROWS = snapshotBody([FAC(1), FAC(2)], [{ facility: FAC(1), offering: 'OFFERED' }]);
+const ALL_NOT_OFFERED = snapshotBody(
+  [FAC(1), FAC(2)],
+  [{ facility: FAC(1), offering: 'OFFERED' }, { facility: FAC(2), offering: 'NOT_OFFERED', category: 'A_AND_E' }, { facility: FAC(2), offering: 'NOT_OFFERED', category: 'MATERNITY' }],
+);
+
+/**
+ * What the planted runs must show against the clean one, as a list of violations (empty means the run is as it must be). The
+ * plants below feed it constructed runs, so each leg is shown to be able to fail.
+ */
+export function flagViolations(clean: Run, planted: Run, expectFlags: string[]): string[] {
+  const out: string[] = [];
+  if (clean.status !== 0) out.push(`the clean run did not end PASS (exit ${clean.status})`);
+  if (planted.status !== clean.status) out.push(`the flagged run exited ${planted.status}, the clean run ${clean.status}: a FLAG changed the exit status`);
+  if (verdictLine(planted.out) !== verdictLine(clean.out)) out.push('the flagged run ended with another verdict line than the clean run');
+  if (withoutFlagsAndBody(planted.out) !== withoutFlagsAndBody(clean.out)) out.push('the flagged run differs from the clean run in more than its FLAG lines');
+  const got = flagLinesOf(planted.out);
+  if (JSON.stringify(got) !== JSON.stringify(expectFlags)) out.push(`the FLAG lines are ${JSON.stringify(got)}, they must be ${JSON.stringify(expectFlags)}`);
+  return out;
+}
+
+describe('scripts/readback_pages.sh — the facility flags (R-2026-10-09 GO, GO-1)', () => {
+  const clean = (): Run => flagRun();
+
+  test('real read-back is accepted — a snapshot whose every facility lists a ward it offers prints the header, no FLAG, and ends PASS', () => {
+    const r = clean();
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).toContain(FLAG_HEADER);
+    expect(flagLinesOf(r.out), r.out).toEqual([]);
+    expect(r.out).toContain(PASS_LINE_START);
+  });
+
+  test('a listed facility with no ward rows is FLAGged by id and reason, and the run still ends PASS exactly as the clean run does', () => {
+    const planted = flagRun({ body: NO_WARD_ROWS });
+    expect(flagViolations(clean(), planted, [`  FLAG   facility ${FAC(2)}: no ward rows`]), planted.out).toEqual([]);
+  });
+
+  test('a listed facility whose every ward row is NOT_OFFERED is FLAGged by id and reason, and the run still ends PASS exactly as the clean run does', () => {
+    const planted = flagRun({ body: ALL_NOT_OFFERED });
+    expect(flagViolations(clean(), planted, [`  FLAG   facility ${FAC(2)}: every ward NOT_OFFERED`]), planted.out).toEqual([]);
+  });
+
+  test('control — a facility with one OFFERED ward and one NOT_OFFERED ward raises no FLAG', () => {
+    const body = snapshotBody([FAC(1)], [{ facility: FAC(1), offering: 'NOT_OFFERED', category: 'MATERNITY' }, { facility: FAC(1), offering: 'OFFERED', category: 'A_AND_E' }]);
+    const r = flagRun({ body });
+    expect(r.status, r.out).toBe(0);
+    expect(flagLinesOf(r.out), r.out).toEqual([]);
+  });
+
+  test('control — a ward whose offering cannot be read is not NOT_OFFERED, so its facility raises no FLAG (A1)', () => {
+    const body = snapshotBody([FAC(1)], [{ facility: FAC(1), offering: 'MAYBE' }]);
+    const r = flagRun({ body });
+    expect(r.status, r.out).toBe(0);
+    expect(flagLinesOf(r.out), r.out).toEqual([]);
+  });
+
+  test('both reasons at once — each flagged facility is named once, by id only, and no name, address or phone number is printed', () => {
+    const body = snapshotBody([FAC(1), FAC(2), FAC(3)], [{ facility: FAC(1), offering: 'OFFERED' }, { facility: FAC(3), offering: 'NOT_OFFERED' }]);
+    const r = flagRun({ body });
+    expect(r.status, r.out).toBe(0);
+    expect(flagLinesOf(r.out)).toEqual([`  FLAG   facility ${FAC(2)}: no ward rows`, `  FLAG   facility ${FAC(3)}: every ward NOT_OFFERED`]);
+    expect(r.out, 'a facility name reached the output').not.toContain(FLAG_FACILITY_NAME);
+    expect(r.out, 'a phone number reached the output').not.toContain('+2348000000001');
+  });
+
+  test('the check makes no request of its own — it reads the body read-back 6 fetched, and /beds.json is fetched on the one host only', () => {
+    const r = flagRun({ body: ALL_NOT_OFFERED });
+    const bedsCalls = r.calls.filter((c) => c.includes('/beds.json'));
+    expect(bedsCalls.length, r.calls.join('\n')).toBe(5);
+    expect(bedsCalls.every((c) => c.includes(SITE)), 'a /beds.json request went to another host').toBe(true);
+  });
+
+  // WRONG read-back 6: the check does not run, says so, and the run still STOPs on exit 1 (never ERROR, never a clean run).
+  test.each<[string, FlagRunOptions, string]>([
+    ['a body that is not a snapshot', { body: '{"error":"no snapshot"}' }, 'read-back 6 body'],
+    ['a status that is not 200', { status: 500 }, 'read-back 6 status'],
+  ])('plant — %s: the facility check is not run, says so, and the run is a STOP with exit 1', (_name, opts, check) => {
+    const r = flagRun(opts);
+    expectStopAt(r, check);
+    expect(r.out).toContain('  FLAG   facility check: not run, read-back 6 was WRONG');
+    expect(r.out).not.toContain('ERROR');
+  });
+
+  // A WRONG elsewhere plus a FLAG: both print, and the verdict is STOP.
+  test('plant — a run with a WRONG and a FLAG still ends STOP, and prints both', () => {
+    const r = flagRun({ body: ALL_NOT_OFFERED, fixtures: (f) => { f[`GET ${SITE}/version.json`] = { status: 200, body: stampOf('0'.repeat(40)) }; } });
+    expectStopAt(r, 'read-back 4 commit');
+    expect(flagLinesOf(r.out)).toEqual([`  FLAG   facility ${FAC(2)}: every ward NOT_OFFERED`]);
+  });
+
+  // ERROR, exit 2: on a body that passed read-back 6, anything that stops the helper is no verdict.
+  test.each<[string, FlagRunOptions, string]>([
+    ['an unreadable fixture (no snapshot-shape.json in the checkout)', { mutate: (w) => rmSync(join(w, 'packages', 'fixtures', 'snapshot-shape.json')) }, 'the snapshot shape fixture could not be read as JSON'],
+    ['a fixture that is not JSON', { mutate: (w) => writeFileSync(join(w, 'packages', 'fixtures', 'snapshot-shape.json'), 'not json') }, 'the snapshot shape fixture could not be read as JSON'],
+    ['an unparseable body that passed read-back 6\'s prefix', { body: '{"v":9371,"facilities":[' }, 'the snapshot body is not JSON'],
+    ['a body with no facilities and wards arrays', { body: '{"v":9371,"wards":{},"facilities":{}}' }, 'has no facilities and wards arrays'],
+    ['a body whose v is not a number (a version mismatch)', { body: '{"v":"9371","wards":[],"facilities":[]}' }, 'has no numeric v'],
+    ['a body that lists no facility (the old fake body)', { body: '{"v":9371,"wards":[],"facilities":[]}' }, 'lists no facility'],
+  ])('could not run — %s is an ERROR with exit 2, never a verdict and never a clean run', (_name, opts, reason) => {
+    const r = flagRun(opts);
+    expect(r.status, r.out).toBe(2);
+    expect(r.out).toContain('the facility check could not run on a snapshot that passed read-back 6');
+    expect(r.out).toContain(reason);
+    expect(r.out, 'an ERROR run also reported a verdict').not.toMatch(/^(PASS|STOP):/m);
+  });
+
+  test('could not run — a ward row of the wrong width (a shape mismatch against the fixture) is an ERROR with exit 2', () => {
+    const wrong = JSON.parse(NO_WARD_ROWS) as { wards: unknown[][] };
+    (wrong.wards[0] as unknown[]).pop();
+    const r = flagRun({ body: JSON.stringify(wrong) });
+    expect(r.status, r.out).toBe(2);
+    expect(r.out).toContain('a ward row is not as wide as the fixture says');
+  });
+
+  // PLANTS against the controls themselves: each is built, fed to flagViolations or the verdict, and shown to be rejected.
+  test('plant — an rb_flag that clears RB_OK is rejected: the flagged run would end STOP where the clean run ends PASS', () => {
+    const planted = flagRun({
+      body: ALL_NOT_OFFERED,
+      mutate: (work) => {
+        copyFileSync(SCRIPTS.pages, join(work, 'scripts', 'readback_pages.sh'));
+        const common = readFileSync(SCRIPTS.common, 'utf8');
+        const hole = 'rb_flag() { echo "  FLAG   $1: $2"; }';
+        expect(common, 'the plant target is not in readback_common.sh').toContain(hole);
+        const planted = common.replace(hole, 'rb_flag() { echo "  FLAG   $1: $2"; RB_OK=0; }');
+        expect(planted, 'the plant did not land').not.toBe(common);
+        writeFileSync(join(work, 'scripts', COMMON_NAME), planted);
+      },
+      script: (work) => join(work, 'scripts', 'readback_pages.sh'),
+    });
+    expect(planted.status, 'the plant did not change the exit status, so it reached nothing').toBe(1);
+    const out = flagViolations(clean(), planted, [`  FLAG   facility ${FAC(2)}: every ward NOT_OFFERED`]);
+    expect(out.join('\n')).toContain('a FLAG changed the exit status');
+    expect(out.join('\n')).toContain('ended with another verdict line');
+  });
+
+  test('plant — a helper that prints nothing is rejected on the FLAG-present leg', () => {
+    const planted = flagRun({
+      body: ALL_NOT_OFFERED,
+      mutate: (work) => writeFileSync(join(work, 'scripts', FLAG_HELPER_NAME), '#!/usr/bin/env node\nprocess.exit(0);\n'),
+    });
+    expect(planted.status, planted.out).toBe(0);
+    const out = flagViolations(clean(), planted, [`  FLAG   facility ${FAC(2)}: every ward NOT_OFFERED`]);
+    expect(out.join('\n')).toContain('the FLAG lines are []');
+  });
+
+  test('plant — a fixture copy with the offering and facility_id positions swapped is rejected: the reason read is the wrong one', () => {
+    const planted = flagRun({
+      body: ALL_NOT_OFFERED,
+      mutate: (work) => {
+        const file = join(work, 'packages', 'fixtures', 'snapshot-shape.json');
+        const shape = JSON.parse(readFileSync(file, 'utf8')) as { wardColumns: string[] };
+        const a = shape.wardColumns.indexOf('facility_id');
+        const b = shape.wardColumns.indexOf('offering');
+        expect([a, b].every((i) => i >= 0), 'the fixture names neither column').toBe(true);
+        [shape.wardColumns[a], shape.wardColumns[b]] = [shape.wardColumns[b] as string, shape.wardColumns[a] as string];
+        writeFileSync(file, JSON.stringify(shape));
+      },
+    });
+    const out = flagViolations(clean(), planted, [`  FLAG   facility ${FAC(2)}: every ward NOT_OFFERED`]);
+    expect(out.join('\n'), `the swapped fixture was not caught: ${planted.out}`).toContain('the FLAG lines are');
+    expect(planted.out, 'the swapped positions produced the right reason').not.toContain('every ward NOT_OFFERED');
+  });
+
+  test('anti-vacuity — a snapshot with a facility and the helper missing from the checkout is an ERROR, not a clean run', () => {
+    const r = flagRun({ mutate: (work) => rmSync(join(work, 'scripts', FLAG_HELPER_NAME)) });
+    expect(r.status, r.out).toBe(2);
+    expect(r.out).toContain('the facility check could not run on a snapshot that passed read-back 6');
+  });
+});
+
+describe(`scripts/${FLAG_HELPER_NAME} — every refusal, run directly on constructed files`, () => {
+  const helper = (bodyText: string | null, shapeText: string | null | 'real', args?: string[]): { status: number; out: string } =>
+    withScratch((root) => {
+      const body = join(root, 'body.json');
+      const shape = join(root, 'shape.json');
+      if (bodyText !== null) writeFileSync(body, bodyText);
+      if (shapeText === 'real') copyFileSync(join(REPO_ROOT, 'packages', 'fixtures', 'snapshot-shape.json'), shape);
+      else if (shapeText !== null) writeFileSync(shape, shapeText);
+      try {
+        const out = execFileSync('node', [FLAG_HELPER, ...(args ?? [body, shape])], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+        return { status: 0, out };
+      } catch (e) {
+        const err = e as { status?: number; stdout?: string };
+        return { status: err.status ?? -1, out: err.stdout ?? '' };
+      }
+    });
+
+  test('real — the most ordinary snapshot prints nothing and exits 0', () => {
+    const r = helper(BEDS_BODY, 'real');
+    expect(r).toEqual({ status: 0, out: '' });
+  });
+
+  test('real — a facility with no ward rows prints "<id>", a tab and the reason, and exits 0', () => {
+    const r = helper(NO_WARD_ROWS, 'real');
+    expect(r).toEqual({ status: 0, out: `${FAC(2)}\tno ward rows\n` });
+  });
+
+  test('a facility listed twice is flagged once', () => {
+    const body = JSON.parse(NO_WARD_ROWS) as { facilities: unknown[] };
+    body.facilities.push(body.facilities[1]);
+    expect(helper(JSON.stringify(body), 'real')).toEqual({ status: 0, out: `${FAC(2)}\tno ward rows\n` });
+  });
+
+  test.each<[string, () => { status: number; out: string }, string]>([
+    ['no arguments', () => helper(null, null, []), 'usage: readback_facility_flags.mjs BODY-FILE SHAPE-FILE'],
+    ['a fixture that is missing', () => helper(BEDS_BODY, null), 'the snapshot shape fixture could not be read as JSON'],
+    ['a fixture with no column lists', () => helper(BEDS_BODY, '{}'), 'has no wardColumns and facilityColumns lists'],
+    ['a fixture that names no offering column', () => helper(BEDS_BODY, JSON.stringify({ wardColumns: ['facility_id'], facilityColumns: ['facility_id'] })), 'names no facility_id or offering column'],
+    ['a body that is missing', () => helper(null, 'real'), 'the snapshot body is not JSON'],
+    ['a body that is not an object', () => helper('[]', 'real'), 'has no numeric v'],
+    ['a body with no arrays', () => helper('{"v":1,"facilities":1,"wards":2}', 'real'), 'has no facilities and wards arrays'],
+    ['a body that lists no facility', () => helper('{"v":1,"facilities":[],"wards":[]}', 'real'), 'lists no facility'],
+    ['a ward row of the wrong width', () => helper(JSON.stringify({ v: 1, facilities: JSON.parse(BEDS_BODY).facilities, wards: [['x']] }), 'real'), 'a ward row is not as wide as the fixture says'],
+    ['a ward row with an id that is not a plain id', () => {
+      const body = JSON.parse(BEDS_BODY) as { wards: unknown[][] };
+      (body.wards[0] as unknown[])[0] = 'bad id\u001b[31m';
+      return helper(JSON.stringify(body), 'real');
+    }, 'a ward row carries a facility id that is not a plain id'],
+    ['a facility row of the wrong width', () => helper(JSON.stringify({ v: 1, facilities: [['x']], wards: [] }), 'real'), 'a facility row is not as wide as the fixture says'],
+    ['a facility row with an id that is not a plain id', () => {
+      const body = JSON.parse(BEDS_BODY) as { facilities: unknown[][] };
+      (body.facilities[0] as unknown[])[0] = 'two words';
+      return helper(JSON.stringify(body), 'real');
+    }, 'a facility row carries an id that is not a plain id'],
+  ])('could not run — %s exits 2 and says why on stdout', (_name, call, message) => {
+    const r = call();
+    expect(r.status, r.out).toBe(2);
+    expect(r.out).toContain(message);
   });
 });

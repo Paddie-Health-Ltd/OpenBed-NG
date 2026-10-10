@@ -11,6 +11,14 @@ import TABLE from '../public-labels.json';
  * other. Both now read the words from ../public-labels.json and the precedence from
  * precedence() below.
  *
+ * RESTATED 2026-10-09 (R-2026-10-09 GO, A1). That held until the public search change. The
+ * ward console still decides every state through precedence(). The PUBLIC PAGE no longer
+ * does for the two states it was written for: it trusts the offering first (a NOT_OFFERED
+ * ward is not rendered at all) and speaks its own phrases for PENDING and PAUSED, from the
+ * `phrases` object of the same table (apps/public-dashboard/src/age-view.ts). It still
+ * calls precedence() to learn whether any code is unreadable and for the qualifiers
+ * beside a count. The shared words below are unchanged because the console prints them.
+ *
  * A code the table does not know -- an enum value added after the build -- renders a
  * neutral fallback and is logged, once per code, with the code and nothing else.
  * Never the code on the screen, and never a count in the log.
@@ -20,6 +28,36 @@ import TABLE from '../public-labels.json';
  */
 
 export type LabelledEnum = keyof typeof TABLE.labels;
+
+/** The ward categories the table words, in the table's own order: the one list the public search reads. */
+export const WARD_CATEGORIES: readonly string[] = Object.keys(TABLE.labels.ward_category);
+
+/**
+ * THE PUBLIC PAGE'S OWN PHRASES (R-2026-10-09 GO, GO-4), from the table's top-level `phrases`, which sits
+ * OUTSIDE `labels` so the ward console never reads one. A `{name}` in a phrase is a slot.
+ */
+export type PhraseKey = keyof typeof TABLE.phrases;
+
+/**
+ * A phrase with its slots filled. STRICT: a slot the phrase names and the caller did not give, or a slot
+ * the caller gave and the phrase does not name, is a programming error and throws, so a typo in a slot
+ * name is a red test and never a page that prints "{count}". Slot values are inserted verbatim: callers
+ * pass counts, times and names the table or the payload supplied, never text a visitor typed.
+ */
+export function phrase(key: PhraseKey, slots: Readonly<Record<string, string>> = {}): string {
+  const template: string = TABLE.phrases[key];
+  const named = new Set<string>();
+  const out = template.replace(/\{([a-z]+)\}/g, (_m, name: string) => {
+    named.add(name);
+    const value = slots[name];
+    if (value === undefined) throw new Error(`phrase ${key}: no value for slot {${name}}`);
+    return value;
+  });
+  for (const given of Object.keys(slots)) {
+    if (!named.has(given)) throw new Error(`phrase ${key}: it has no slot {${given}}`);
+  }
+  return out;
+}
 
 const LABELS: Record<LabelledEnum, Record<string, string>> = TABLE.labels;
 const logged = new Set<string>();

@@ -16,31 +16,32 @@ import { join } from 'node:path';
  *   scripts/lint_no_updated_at_filter.sh
  *   scripts/lint_from_allowlist.sh
  *
- * CLASSIFICATION (Clause 5 of .claude/rules/code-pipeline.md). The two guards no
- * longer share one classification -- their true subjects arrived on different
- * schedules, and lumping them together is exactly the kind of claim that reads
- * as covered when only half of it is. See each guard's own header for the
- * authoritative text; summarised here so a reader of this file doesn't have to
- * cross-reference to know what's being exercised:
+ * CLASSIFICATION (Clause 5 of .claude/rules/code-pipeline.md). The two guards did
+ * not share one classification until R-2026-10-09 GO -- their true subjects arrived
+ * on different schedules, and lumping them together is exactly the kind of claim
+ * that reads as covered when only half of it is. Both are LIVE now. See each
+ * guard's own header for the authoritative text; summarised here so a reader of
+ * this file doesn't have to cross-reference to know what's being exercised:
  *
  *   scripts/lint_no_service_role_in_bundle.sh's CLIENT corpus -- LIVE. Its
  *     stated subject, "a real authenticated client fetch", is
  *     apps/ward-console/src/main.ts's holder.authedFetch calls (the handover
  *     read, live since commits fb925b2/349e72e, and the publish screen).
- *   scripts/lint_no_updated_at_filter.sh -- still GUARD-AHEAD-OF-SUBJECT. Its
- *     subject, distance-based public search and filtering on the dashboard, is
- *     still Bundle 4 work and has not landed. It runs today over
- *     apps/public-dashboard/src/main.ts's real /beds.json fetch-and-render
- *     path (the Bundle 1 stub survives only as that fetch's failure fallback),
- *     which filters on nothing -- so the guard stays non-vacuous and clean
- *     without its true subject having arrived.
+ *   scripts/lint_no_updated_at_filter.sh -- LIVE since R-2026-10-09 GO (it was
+ *     GUARD-AHEAD-OF-SUBJECT until then). Its subject, public search and
+ *     ordering on the dashboard, exists: apps/public-dashboard/src/search.ts
+ *     builds and orders the results and main.ts draws them, and the script scans
+ *     both. It is a line-by-line grep, so it cannot see a band filter; the
+ *     control that proves the page never empties by age is the rendered-page
+ *     test in tests/compliance/search_freshness.test.ts, and this file's legs
+ *     over the script itself are unchanged.
  *
  * The service-role guard's SERVER-SIDE corpus -- the built Pages Functions
  * output -- is separately LIVE, from 2026-09-18 (A1 sprint, Bundle 1): the
  * /beds.json Function exists and holds the service-role credential now.
  *
- * That is not a reason to weaken them now. It is a reason to say so plainly here
- * rather than let a reader infer coverage that does not yet exist.
+ * Each classification is stated plainly here, with the probe that makes it true,
+ * rather than let a reader infer coverage the guard does not give.
  *
  * The ANTI-VACUITY leg carries unusual weight for the bundle grep specifically:
  * its corpus is BUILT output, so the natural failure is "nobody ran the build"

@@ -48,3 +48,10 @@ main#notice th { color: var(--text-strong); font-weight: 600; border-top: 0; bor
 @media (min-width: 720px) {
   main#notice { padding: var(--space-6) var(--gutter-page-wide) var(--space-8); }
 }
+
+/* The area reference points' attribution on the About page (R-2026-10-09 GO, GO-2 e): under the text,
+   in the same column, small print. */
+p.page-attribution { max-width: var(--measure-app); margin: 0 auto; padding: 0 var(--gutter-page); font: var(--text-body-sm); color: var(--text-muted); }
+@media (min-width: 720px) {
+  p.page-attribution { padding: 0 var(--gutter-page-wide); }
+}

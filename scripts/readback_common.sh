@@ -47,6 +47,9 @@
 set -euo pipefail
 
 RB_OK=1
+# How many checks have read WRONG so far. rb_wrong adds one and nothing else reads it except a script that
+# wants to know whether the checks it just made all read ok, without restating what they check.
+RB_WRONG_COUNT=0
 RB_CODE=""
 RB_HEAD=""
 RB_COMMIT=""
@@ -426,7 +429,12 @@ rb_same_bytes() {
 }
 
 rb_ok() { echo "  ok     $1: $2"; }
-rb_wrong() { echo "  WRONG  $1: read '$2', $3"; RB_OK=0; }
+rb_wrong() { echo "  WRONG  $1: read '$2', $3"; RB_OK=0; RB_WRONG_COUNT=$((RB_WRONG_COUNT + 1)); }
+
+# rb_flag LABEL TEXT -- a THIRD kind of result (R-2026-10-09 GO, GO-1 a): a data warning for a person to read.
+# It prints "  FLAG   LABEL: TEXT" and NEVER touches RB_OK, so it can neither turn a PASS into a STOP nor hide
+# a WRONG. A deploy fault is `WRONG`; a flag says the snapshot the host served holds something to look at.
+rb_flag() { echo "  FLAG   $1: $2"; }
 
 # rb_expect LABEL OBSERVED EXPECTED -- exact equality.
 rb_expect() {

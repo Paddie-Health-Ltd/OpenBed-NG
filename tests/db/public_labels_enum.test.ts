@@ -16,11 +16,13 @@ import TABLE from '../../packages/labels/public-labels.json';
  * it (test-conventions, the shared-fixture link).
  *
  * THE NOT_OFFERED CHAIN, observed rather than inferred: a ward_status row created
- * with its defaults reaches the public mirror as PENDING + NOT_OFFERED -- which the
- * page renders "not currently reporting" -- and a ward that PUBLISHES NOT_OFFERED
- * reaches it as ACTIVE + NOT_OFFERED, which the page renders "not offered at this
- * facility". The compliance file holds publish_ward_status to being the only way out
- * of PENDING.
+ * with its defaults reaches the public mirror as PENDING + NOT_OFFERED, and a ward that
+ * PUBLISHES NOT_OFFERED reaches it as ACTIVE + NOT_OFFERED. RESTATED 2026-10-09
+ * (R-2026-10-09 GO, A1): until then this said the page rendered those two as "not currently
+ * reporting" and "not offered at this facility". The public page now trusts the offering
+ * first and does NOT RENDER a NOT_OFFERED ward at all, in either state; those two phrases
+ * are the ward console's, from the shared label table. The compliance file holds
+ * publish_ward_status to being the only way out of PENDING.
  *
  * NOT ASSERTED HERE, deliberately: hosted. Enum values are migration-defined and the
  * hosted ledger is frozen at the same files; this runs against the local stack only.

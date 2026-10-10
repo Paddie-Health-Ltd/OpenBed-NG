@@ -18,3 +18,10 @@ export const PRIVACY_NOTICE_URL = 'https://openbed.ng/privacy';
  */
 export const ABOUT_URL = 'https://openbed.ng/about';
 export const HOW_IT_WORKS_URL = 'https://openbed.ng/how-it-works';
+
+/**
+ * THE HOME PAGE'S URL (R-2026-10-09 GO, E). The canonical link of the home page, written into index.html at
+ * build time, and the base a shared search link is built on. Its own constant, like the three above, so the
+ * address is typed once under apps/ and packages/.
+ */
+export const HOME_URL = 'https://openbed.ng/';

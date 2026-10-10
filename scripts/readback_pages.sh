@@ -17,6 +17,12 @@
 #   the tests can aim this at a scratch checkout; do not remove it because it looks
 #   unused. READBACK_SERVED_AT_SLEEP (default 5) is the pause between the two
 #   serve-time reads.
+# THE FACILITY FLAG CHECK (R-2026-10-09 GO, GO-1), after read-back 6, is a hand-run read-back of the snapshot that host
+# served at that moment, and not CI: its true claim is "this runs when the founder runs this script and reads the
+# snapshot the host served then". It prints a FLAG line, by facility id only, for each listed facility with no ward row
+# or with every ward NOT_OFFERED. A FLAG never changes the verdict or the exit status; a snapshot that cannot be
+# checked after read-back 6 passed is ERROR, exit 2, and so is one that lists no facility (the helper is
+# scripts/readback_facility_flags.mjs). It does not run when read-back 6 read WRONG, and says so.
 # CLASSIFICATION (Clause 5): the About and How-it-works checks and the robots-file selection
 # are GUARD-AHEAD-OF-SUBJECT until the founder deploys the pages (R-2026-09-30-190 FN-4): the
 # checks run and are non-vacuous (a deployment without the pages reads WRONG), and the
@@ -74,14 +80,41 @@ esac
 echo
 echo "=== read-back 6: GET $SITE/beds.json ==="
 site_probe GET /beds.json
+# Whether read-back 6's status and body prefix read ok, from the checks themselves and not from a second statement
+# of what they check: the facility flag check below runs only if both did (R-2026-10-09 GO, GO-1 e).
+w6=$RB_WRONG_COUNT
 rb_expect "read-back 6 status" "$RB_CODE" 200
+rb6_status_wrong=$((RB_WRONG_COUNT - w6))
 rb_expect "read-back 6 content-type" "$(rb_header content-type)" "$JSON_CT"
 rb_expect "read-back 6 x-robots-tag" "$(rb_header x-robots-tag)" "$ROBOTS"
 # Set by the Function itself (packages/snapshot/src/serve.ts): Pages is understood not to
 # apply _headers to a Function's response (R-2026-09-24-93 BU-2 d).
 rb_expect "read-back 6 x-content-type-options" "$(rb_header x-content-type-options)" "$NOSNIFF"
 # An {"error": body fails whatever the status line said.
+w6=$RB_WRONG_COUNT
 rb_expect_prefix "read-back 6 body" "$(rb_body 120)" '{"v":'
+rb6_body_wrong=$((RB_WRONG_COUNT - w6))
+
+# THE FACILITY FLAGS (R-2026-10-09 GO, GO-1). Straight after read-back 6, on the body it just fetched: the next
+# probe overwrites that body. One FLAG line per listed facility the public page could show no ward of, by id only.
+# A FLAG is a data warning, never a verdict: rb_flag cannot clear RB_OK. The check reads this one fetch of $SITE and
+# makes no other, on this host or any other.
+echo
+echo "=== the facility flags: the snapshot read-back 6 just read, one FLAG per listed facility with no ward other than NOT_OFFERED ==="
+if [ "$rb6_status_wrong" -ne 0 ] || [ "$rb6_body_wrong" -ne 0 ]; then
+    rb_flag "facility check" "not run, read-back 6 was WRONG"
+else
+    flag_st=0
+    flag_out="$(node "$ROOT/scripts/readback_facility_flags.mjs" "$RB_TMP/body" "$ROOT/packages/fixtures/snapshot-shape.json")" || flag_st=$?
+    if [ "$flag_st" -ne 0 ]; then
+        echo "ERROR: the facility check could not run on a snapshot that passed read-back 6 (exit $flag_st: $flag_out) -- this read-back has no verdict"
+        exit 2
+    fi
+    while IFS=$'\t' read -r flag_id flag_why; do
+        [ -n "$flag_id" ] || continue
+        rb_flag "facility $flag_id" "$flag_why"
+    done <<< "$flag_out"
+fi
 
 echo
 echo "=== read-back 8: GET and HEAD on $SITE/beds.json, each against the exact values ==="
@@ -218,9 +251,9 @@ for host in "$SITE_BEFORE" "$DOMAIN"; do
     esac
     rb_matches 'Paddie Health Ltd'
     if [ "$RB_COUNT" -gt 0 ]; then rb_ok "$label controller" "Paddie Health Ltd"; else rb_wrong "$label controller" "(absent)" "the notice names Paddie Health Ltd"; fi
-    # Version 1.1 since R-2026-09-28-155 EE-3: a deployment still serving 1.0 reads WRONG here.
-    rb_matches 'Version 1[.]1'
-    if [ "$RB_COUNT" -gt 0 ]; then rb_ok "$label version" "Version 1.1"; else rb_wrong "$label version" "(absent)" "the notice states Version 1.1"; fi
+    # Version 1.2 since R-2026-10-09 GO, GO-3 c: a deployment still serving 1.1 (or 1.0) reads WRONG here.
+    rb_matches 'Version 1[.]2'
+    if [ "$RB_COUNT" -gt 0 ]; then rb_ok "$label version" "Version 1.2"; else rb_wrong "$label version" "(absent)" "the notice states Version 1.2"; fi
     rb_matches 'id="app"'
     if [ "$RB_COUNT" -eq 0 ]; then rb_ok "$label is not the SPA index" "no #app root"; else rb_wrong "$label is not the SPA index" "id=\"app\"" "that is the dashboard's index answering for a missing page"; fi
     rb_matches '<script'

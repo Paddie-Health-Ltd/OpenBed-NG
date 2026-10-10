@@ -210,7 +210,10 @@ describe('one tap-to-call link per facility', () => {
 
   test('plant — a link that dials the wrong number is rejected', async () => {
     await renderWith(TWO);
-    const link = document.querySelector<HTMLAnchorElement>('#app a.call');
+    // The General hospital's own link, found by its card's name: the list is no longer in the order served (R-2026-10-09 GO), so the first
+    // link on the page is the Annex's.
+    const general = Array.from(document.querySelectorAll('#app section.facility')).find((s) => s.querySelector('h2')?.textContent === 'Synthetic General Hospital');
+    const link = general?.querySelector<HTMLAnchorElement>('a.call');
     link?.setAttribute('href', 'tel:+2348000000009');
     expect(link?.getAttribute('href'), 'the plant did not change the link').toBe('tel:+2348000000009');
     expect(callLinkViolations(document, SHOWN).join('\n')).toContain("Synthetic General Hospital's link dials tel:+2348000000009");

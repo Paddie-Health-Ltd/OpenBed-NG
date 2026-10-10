@@ -26,11 +26,17 @@ import { withScratch, place, copyMigrations, REPO_ROOT } from './_scratch.js';
  *     against the codec's own column lists.
  * The database catalogue is the second derivation, in tests/db/public_labels_enum.test.ts.
  *
- * THE NOT_OFFERED PREMISE, made live here (the founder's condition on C). The page
- * says "not offered at this facility" only for a ward that has LEFT PENDING, because
- * a new ward is NOT_OFFERED by default and nothing records whether anyone chose it.
- * That is sound only while every write that moves a ward to ACTIVE also writes its
- * offering. Today the one such writer is publish_ward_status's UPDATE -- 014's, and
+ * THE NOT_OFFERED PREMISE, made live here (the founder's condition on C), RESTATED
+ * 2026-10-09 (R-2026-10-09 GO, A1). Until then the public page said "not offered at this
+ * facility" for a ward that had LEFT PENDING and "not currently reporting" for a PENDING one
+ * whatever its offering, because a new ward is NOT_OFFERED by default. The public page now
+ * TRUSTS THE OFFERING first (ruling 1): a NOT_OFFERED ward is not rendered at all, in the
+ * chosen-ward view and under "Any", and a PENDING ward the hospital offers reads "Availability
+ * not yet reported -- call to confirm". The shared words ("not offered at this facility",
+ * "not currently reporting") are still in this table, because the ward console prints them
+ * (tests/compliance/ward_console_render.test.ts), and the table is unchanged. What stays sound
+ * only while every write that moves a ward to ACTIVE also writes its offering is the last
+ * block's claim, which this file still holds. Today the one such writer is publish_ward_status's UPDATE -- 014's, and
  * 026's redefinition of the same function (R-2026-09-27-144 DT e), which the live
  * database runs -- and the last block below holds it to that: a second writer, or
  * one that leaves offering alone, turns this red and has to be looked at.
@@ -257,7 +263,7 @@ describe('the rendered page shows words, never codes', () => {
       ...categories.map((category) => ward({ category })),
       ...reasons.map((gated_by, i) => ward({ category: categories[i], accepting_effective: false, gated_by })),
     ]);
-    for (const c of categories) expect(text).toContain(`${TABLE.labels.ward_category[c as keyof typeof TABLE.labels.ward_category]}: 3 beds`);
+    for (const c of categories) expect(text).toContain(`${TABLE.labels.ward_category[c as keyof typeof TABLE.labels.ward_category]}: 3 beds reported`);
     for (const r of reasons) expect(text).toContain(`(${TABLE.labels.gate_reason[r as keyof typeof TABLE.labels.gate_reason]})`);
     const allCodes = [...enums.values()].flat();
     expect(rawCodesIn(text, allCodes, TABLE.labels), 'a raw code reached the public page').toEqual([]);
@@ -265,7 +271,7 @@ describe('the rendered page shows words, never codes', () => {
 
   test('plant — a raw code in rendered text is caught, and a label abbreviation is not', () => {
     const codes = [...enumDefinitions(MIGRATIONS).values()].flat();
-    expect(rawCodesIn('ICU_ADULT: 3 beds — not accepting (NO_ANAESTHETIST_ON_DUTY)', codes, TABLE.labels)).toEqual([
+    expect(rawCodesIn('ICU_ADULT: 3 beds\u00a0— not accepting (NO_ANAESTHETIST_ON_DUTY)', codes, TABLE.labels)).toEqual([
       'ICU_ADULT',
       'NO_ANAESTHETIST_ON_DUTY',
     ]);
@@ -278,7 +284,7 @@ describe('the rendered page shows words, never codes', () => {
     const text = await renderWards([
       ward({ category: 'BURNS_UNIT', accepting_effective: false, gated_by: 'NO_SURGEON_ON_DUTY', bed_count: 41 }),
     ]);
-    expect(lines()[0]).toBe(`${TABLE.fallbacks.ward_category}: 41 beds — not accepting (${TABLE.fallbacks.gate_reason}) — updated 1 min ago`);
+    expect(lines()[0]).toBe(`${TABLE.fallbacks.ward_category}: 41 beds reported\u00a0— not accepting (${TABLE.fallbacks.gate_reason})\u00a0— updated 1 min ago`);
     expect(text).not.toMatch(/BURNS_UNIT|NO_SURGEON_ON_DUTY/);
     const logged = JSON.stringify(error.mock.calls);
     expect(logged).toContain('BURNS_UNIT');
@@ -301,19 +307,50 @@ describe('offering and monitoring state: which one the page believes', () => {
   const L = TABLE.labels;
   const ADULT_ICU = L.ward_category.ICU_ADULT;
 
+  const NOT_YET = TABLE.phrases.not_yet_reported;
+  const PAUSED_WORDS = TABLE.phrases.reporting_paused;
+  const AE = L.ward_category.A_AND_E;
+
+  // A second, ordinary ward keeps the facility card on the page, so "no ward line" means the ward was
+  // not rendered and cannot mean the renderer printed nothing at all.
   test.each([
-    ['PENDING', 'NOT_OFFERED', `${ADULT_ICU}: ${L.monitoring_state.PENDING}`, 'the untouched default read as a statement'],
-    ['PENDING', 'OFFERED', `${ADULT_ICU}: ${L.monitoring_state.PENDING}`, 'a never-reported ward showed a claim'],
-    ['PAUSED', 'NOT_OFFERED', `${ADULT_ICU}: ${L.monitoring_state.PAUSED}`, 'a paused ward read as not offered'],
-    ['PAUSED', 'OFFERED', `${ADULT_ICU}: ${L.monitoring_state.PAUSED}`, 'a paused ward showed a claim'],
-    ['ACTIVE', 'NOT_OFFERED', `${ADULT_ICU}: ${L.ward_offering.NOT_OFFERED}`, 'a stated NOT_OFFERED read as a ward that has not reported'],
-    ['ACTIVE', 'OFFERED', `${ADULT_ICU}: 3 beds — updated 1 min ago`, 'an ordinary reporting ward lost its count'],
+    ['PENDING', 'OFFERED', `${ADULT_ICU}: ${NOT_YET}`, 'a never-reported ward showed a claim, or the old shared words'],
+    ['PAUSED', 'OFFERED', `${ADULT_ICU}: ${PAUSED_WORDS}`, 'a paused ward showed a claim, or read as not yet reported'],
+    ['ACTIVE', 'OFFERED', `${ADULT_ICU}: 3 beds reported\u00a0— updated 1 min ago`, 'an ordinary reporting ward lost its count'],
   ])('%s + %s reads exactly as decided', async (monitoring_state, offering, expected, why) => {
-    await renderWards([ward({ category: 'ICU_ADULT', monitoring_state, offering, bed_count: offering === 'NOT_OFFERED' ? null : 3, accepting_effective: offering === 'OFFERED' })]);
+    await renderWards([ward({ category: 'ICU_ADULT', monitoring_state, offering, bed_count: 3, accepting_effective: true }), ward({ category: 'A_AND_E' })]);
     expect(lines()[0], why).toBe(expected);
-    if (expected !== `${ADULT_ICU}: 3 beds — updated 1 min ago`) {
-      expect(lines()[0] ?? '', 'a count, an age or an accepting clause came with a state that has none').not.toMatch(/\d|accepting|updated|reported/);
+    expect(lines().length, 'the facility card lost a ward').toBe(2);
+    if (monitoring_state !== 'ACTIVE') {
+      expect(lines()[0] ?? '', 'a count, an age or an accepting clause came with a state that has none').not.toMatch(/\d|accepting|updated/);
     }
+  });
+
+  // THE NOT_OFFERED ROWS (R-2026-10-09 GO, A1): the hospital stated it does not offer the ward, whatever its
+  // monitoring state, so the ward is not on the page, in words or in any other form.
+  test.each([
+    ['PENDING', 'the untouched default read as a statement'],
+    ['PAUSED', 'a paused ward read as not offered'],
+    ['ACTIVE', 'a stated NOT_OFFERED was drawn'],
+  ])('%s + NOT_OFFERED is not rendered at all, and the facility card stays for its other ward', async (monitoring_state, why) => {
+    const text = await renderWards([
+      ward({ category: 'ICU_ADULT', monitoring_state, offering: 'NOT_OFFERED', bed_count: null, accepting_effective: false }),
+      ward({ category: 'A_AND_E' }),
+    ]);
+    expect(lines(), why).toEqual([`${AE}: 3 beds reported\u00a0— updated 1 min ago`]);
+    expect(text, 'the hidden ward\'s category word reached the page').not.toContain(ADULT_ICU);
+    expect(text, 'the old shared words for a state this ward is not in reached the page').not.toMatch(/not offered at this facility|not currently reporting/);
+    expect(document.querySelectorAll('#app section.facility').length, 'the facility card went with its hidden ward').toBe(1);
+  });
+
+  // The positive control for the three rows above: the same ward, OFFERED, IS on the page, so "absent" cannot
+  // mean the renderer printed nothing.
+  test.each(['PENDING', 'PAUSED', 'ACTIVE'])('control — %s + OFFERED shows the category word the hidden rows must not', async (monitoring_state) => {
+    const text = await renderWards([
+      ward({ category: 'ICU_ADULT', monitoring_state, offering: 'OFFERED', bed_count: 3 }),
+      ward({ category: 'A_AND_E' }),
+    ]);
+    expect(text).toContain(ADULT_ICU);
   });
 
   test.each([
@@ -342,10 +379,10 @@ describe('R-2026-09-23-69 (b) — ADMIN and UNDER_REVIEW are rendered beside the
   const ADULT_ICU = 'Adult ICU';
 
   test.each([
-    ['WARD', 'OK', `${ADULT_ICU}: 3 beds — updated 1 min ago`],
-    ['ADMIN', 'OK', `${ADULT_ICU}: 3 beds — set by admin, not ward-confirmed — updated 1 min ago`],
-    ['WARD', 'UNDER_REVIEW', `${ADULT_ICU}: 3 beds — under review — updated 1 min ago`],
-    ['ADMIN', 'UNDER_REVIEW', `${ADULT_ICU}: 3 beds — set by admin, not ward-confirmed — under review — updated 1 min ago`],
+    ['WARD', 'OK', `${ADULT_ICU}: 3 beds reported\u00a0— updated 1 min ago`],
+    ['ADMIN', 'OK', `${ADULT_ICU}: 3 beds reported\u00a0— set by admin, not ward-confirmed\u00a0— updated 1 min ago`],
+    ['WARD', 'UNDER_REVIEW', `${ADULT_ICU}: 3 beds reported\u00a0— under review\u00a0— updated 1 min ago`],
+    ['ADMIN', 'UNDER_REVIEW', `${ADULT_ICU}: 3 beds reported\u00a0— set by admin, not ward-confirmed\u00a0— under review\u00a0— updated 1 min ago`],
   ])('source %s, state %s reads exactly as decided (002 section 6)', async (source, state, expected) => {
     await renderWards([ward({ category: 'ICU_ADULT', source, state })]);
     expect(lines()[0]).toBe(expected);
@@ -359,7 +396,7 @@ describe('R-2026-09-23-69 (b) — ADMIN and UNDER_REVIEW are rendered beside the
     try {
       if (source) source['ADMIN'] = '';
       await renderWards([ward({ category: 'ICU_ADULT', source: 'ADMIN' })]);
-      expect(lines()[0], 'the plant did not reach the rendered line').toBe(`${ADULT_ICU}: 3 beds — updated 1 min ago`);
+      expect(lines()[0], 'the plant did not reach the rendered line').toBe(`${ADULT_ICU}: 3 beds reported\u00a0— updated 1 min ago`);
       expect(lines()[0]).not.toContain('set by admin');
     } finally {
       if (source && original !== undefined) source['ADMIN'] = original;

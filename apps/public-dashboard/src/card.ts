@@ -21,7 +21,8 @@ export function formatPhoneDisplay(e164: string): string {
   return m === null ? e164 : `+234 ${m[1] as string} ${m[2] as string} ${m[3] as string}`;
 }
 
-const isCoordinate = (value: unknown, limit: number): value is number =>
+/** True for a finite number within +-limit: the one validity rule for a coordinate, used by the Directions link and by distance. */
+export const isCoordinate = (value: unknown, limit: number): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value >= -limit && value <= limit;
 
 /** A number as Google Maps reads it: plain decimal, never exponent form. */

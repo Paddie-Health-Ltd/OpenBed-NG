@@ -9,8 +9,9 @@ OpenBed is a public map that shortens that search. It shows which hospitals say 
 - **It is the hospital's own statement.** Each hospital's ward staff publish their own counts. OpenBed does not guess, estimate or change them.
 - **It is indicative.** A count helps you decide who to call first. It does not reserve a bed, and it never tells anyone that a bed is waiting for them. Call the hospital before you travel.
 - **It is honest about age.** Every count shows when it was last updated. An older count is marked as older and asks you to call to confirm. OpenBed never shows an old update as a new one.
-- **It holds no patient information.** It does not ask for, record or show anything about patients, and does not ask for your location.
-- **It does not rank hospitals.** There are no scores, no league tables and no paid placement.
+- **It holds no patient information.** It does not ask for, record or show anything about patients.
+- **Your location stays on your device.** It is used only if you tap 'Near me', to work out distances in your browser. OpenBed never receives or stores it.
+- **It does not rate hospitals.** The list is ordered only by how recently each hospital reported and, if you choose a starting point, by straight-line distance. There are no scores, no league tables and no paid placement.
 
 ## Free for everyone who uses it
 
